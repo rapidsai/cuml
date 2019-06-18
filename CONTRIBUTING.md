@@ -38,7 +38,7 @@ into three categories:
 ### A note related to our CI process
 After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
 
-To quantify this, the longest of the checks in our CI takes about 32-25 mins on our server. The GPUCI server has limited resources, and so if they get overwhelmed, other ongoing PRs will not be able to correctly schedule CI.
+To quantify this, the average check in our CI takes between 25 and 32 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
 
