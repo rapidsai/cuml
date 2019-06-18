@@ -48,12 +48,14 @@ One of the right ways to expose this interface from `libcuml++.so` is:
 // and passed between fit and predict methods
 template <typename T> struct TreeNode { /* nested tree-like data structure, but written as a POD! */ };
 struct DTParams { /* hyper-params for building DT */ };
+typedef TreeNode<float> TreeNodeF;
+typedef TreeNode<double> TreeNodeD;
 
 void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
-                               const int *labels, TreeNode<float> *&root, DTParams params,
+                               const int *labels, TreeNodeF *&root, DTParams params,
                                bool verbose=false);
-void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input, int n_rows,
-                                   int n_cols, const TreeNode<float> *root, int* predictions,
+void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input, int n_rows,
+                                   int n_cols, const TreeNodeD *root, int* predictions,
                                    bool verbose=false);
 ```
 The above example obviously under-plays the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
