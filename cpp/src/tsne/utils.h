@@ -40,25 +40,23 @@ using namespace thrust::placeholders;
 #include <sys/time.h>
 
 #define MIN(a, b) ((a > b) ? b : a)
-#define MAC(a, b) ((a < b) ? b : a)
-
+#define MAX(a, b) ((a < b) ? b : a)
 
 namespace ML {
 namespace TSNE {
 
-void
-random_vector(float *vector, const float minimum, const float maximum,
-                     const int size, cudaStream_t stream, long long seed = -1) {
-    if (seed <= 0) {
-        // Get random seed based on time of day
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        seed = tp.tv_sec * 1000 + tp.tv_usec;
-    }
-    MLCommon::Random::Rng random(seed);
-    random.uniform<float>(vector, size, minimum, maximum, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+void random_vector(float *vector, const float minimum, const float maximum,
+                   const int size, cudaStream_t stream, long long seed = -1) {
+  if (seed <= 0) {
+    // Get random seed based on time of day
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    seed = tp.tv_sec * 1000 + tp.tv_usec;
+  }
+  MLCommon::Random::Rng random(seed);
+  random.uniform<float>(vector, size, minimum, maximum, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}
+}  // namespace TSNE
 }  // namespace ML
