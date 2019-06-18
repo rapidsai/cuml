@@ -166,6 +166,7 @@ if(BUILD_PRIMS_TESTS)
       prims/minmax.cu
       prims/mvg.cu
       prims/multiply.cu
+      prims/mutualInfoScore.cu
       prims/norm.cu
       prims/penalty.cu
       prims/permute.cu
