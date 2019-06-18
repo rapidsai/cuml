@@ -77,7 +77,7 @@ def train_test_split(
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
             raise ValueError(
-                "if a float, train_size should be between"
+                "proportion train_size should be between"
                 "0 and 1 (found {})".format(train_size)
             )
         split_idx = int(X.shape[0] * train_size)
