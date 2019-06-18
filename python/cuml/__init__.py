@@ -24,6 +24,8 @@ from cuml.cluster.kmeans import KMeans
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
+from cuml.ensemble.randomforest import RandomForestClassifier
+
 from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.linear_model.linear_regression import LinearRegression

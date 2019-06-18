@@ -18,6 +18,7 @@
 #include "cuda_utils.h"
 #include "metrics.hpp"
 
+#include "metrics/adjustedRandIndex.h"
 #include "metrics/randIndex.h"
 #include "score/scores.h"
 
@@ -37,6 +38,15 @@ double randIndex(const cumlHandle &handle, const double *y, const double *y_hat,
                  int n) {
   return MLCommon::Metrics::computeRandIndex(
     y, y_hat, (uint64_t)n, handle.getDeviceAllocator(), handle.getStream());
+}
+
+double adjustedRandIndex(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range) {
+  return MLCommon::Metrics::computeAdjustedRandIndex(
+    y, y_hat, n, lower_class_range, upper_class_range,
+    handle.getDeviceAllocator(), handle.getStream());
 }
 
 }  // namespace Metrics
