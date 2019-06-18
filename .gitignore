@@ -1,6 +1,9 @@
 ## common
 __pycache__
 *.pyc
+*~
+\#*
+.#*
 *.o
 *.so
 *.dylib
