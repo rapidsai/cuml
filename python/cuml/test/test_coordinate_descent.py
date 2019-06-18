@@ -38,7 +38,7 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('lr', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
@@ -92,7 +92,7 @@ def test_lasso(datatype, X_type, lr, algorithm,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('lr', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),

@@ -23,8 +23,6 @@
 import cuml.common.handle
 import cuml.common.cuda
 
-import cudf
-
 
 class Base:
     """
@@ -122,14 +120,13 @@ class Base:
                 setattr(self, key, value)
         return self
 
-    def _get_dev_array_ptr(self, obj):
-        """
-        Get ctype pointer of a numba style device array
-        """
-        return obj.device_ctypes_pointer.value
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        # todo: look into/enable pickling handle if necessary
+        del state['handle']
+        return state
 
-    def _get_cudf_column_ptr(self, col):
-        """
-        Get ctype pointer of a cudf column
-        """
-        return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.handle = cuml.common.handle.Handle()

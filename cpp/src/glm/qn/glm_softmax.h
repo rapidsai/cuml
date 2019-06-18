@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <glm/qn/simple_mat.h>
 #include "cuda_utils.h"
 #include "glm/qn/glm_base.h"
 #include "linalg/binary_op.h"
-#include <glm/qn/simple_mat.h>
 
 namespace ML {
 namespace GLM {
@@ -45,7 +45,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
                                  int C, int N, bool getDerivative = true) {
   typedef cub::WarpReduce<T, BX> WarpRed;
   typedef cub::BlockReduce<T, BX, cub::BLOCK_REDUCE_WARP_REDUCTIONS, BY>
-      BlockRed;
+    BlockRed;
 
   __shared__ union {
     typename WarpRed::TempStorage warpStore[BY];
@@ -95,7 +95,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    * lse = m + log(sum(exp(eta - m)))
    */
   // TODO there must be a better way to do this...
-  if (C <= BX) { // this means one block covers a column and myEta is valid
+  if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
     if (threadIdx.x < C && idx < len) {
       lse = myExp<T>(myEta - etaMax);
@@ -123,7 +123,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    * useful
    */
 
-  if (C <= BX) { // this means one block covers a column and myEta is valid
+  if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
     if (threadIdx.x < C && idx < len) {
       dZ[idx] = (myExp<T>(myEta - lse) -
@@ -139,7 +139,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
     }
   }
 
-  if (!getDerivative) // no need to continue, lossval will be undefined
+  if (!getDerivative)  // no need to continue, lossval will be undefined
     return;
 
   T lossVal = 0;
@@ -159,45 +159,44 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
 template <typename T>
 void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
                       int N, cudaStream_t stream) {
-
   CUDA_CHECK(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
     logSoftmaxKernel<T, 4, 64>
-        <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
+      <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 8) {
     dim3 bs(8, 32);
     dim3 gs(ceildiv(N, 32));
     logSoftmaxKernel<T, 8, 32>
-        <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
+      <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 16) {
     dim3 bs(16, 16);
     dim3 gs(ceildiv(N, 16));
     logSoftmaxKernel<T, 16, 16>
-        <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
+      <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else {
     dim3 bs(32, 8);
     dim3 gs(ceildiv(N, 8));
     logSoftmaxKernel<T, 32, 8>
-        <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
+      <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
+template <typename T>
+struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
   Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
-      : Super(handle, D, C, has_bias) {}
+    : Super(handle, D, C, has_bias) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
                            cudaStream_t stream) {
-
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
 };
 
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML
