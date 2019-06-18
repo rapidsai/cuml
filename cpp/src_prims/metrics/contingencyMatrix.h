@@ -33,8 +33,9 @@ typedef enum {
 } ContingencyMatrixImplType;
 
 template <typename T>
-__global__ void devConstructContingencyMatrix(T *groundTruth, T *predicted,
-                                              int nSamples, int *outMat,
+__global__ void devConstructContingencyMatrix(const T *groundTruth,
+                                              const T *predicted,
+                                              const int nSamples, int *outMat,
                                               int outIdxOffset,
                                               int outMatWidth) {
   int elementId = threadIdx.x + blockDim.x * blockIdx.x;
@@ -48,9 +49,10 @@ __global__ void devConstructContingencyMatrix(T *groundTruth, T *predicted,
 }
 
 template <typename T>
-__global__ void devConstructContingencyMatrixSmem(T *groundTruth, T *predicted,
-                                                  int nSamples, int *outMat,
-                                                  int outIdxOffset,
+__global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
+                                                  const T *predicted,
+                                                  const int nSamples,
+                                                  int *outMat, int outIdxOffset,
                                                   int outMatWidth) {
   extern __shared__ int sMemMatrix[];  // init smem to zero
 
@@ -81,8 +83,9 @@ __global__ void devConstructContingencyMatrixSmem(T *groundTruth, T *predicted,
 
 // helper functions to launch kernel for global atomic add
 template <typename T>
-cudaError_t computeCMatWAtomics(T *groundTruth, T *predictedLabel, int nSamples,
-                                int *outMat, int outIdxOffset, int outDimN,
+cudaError_t computeCMatWAtomics(const T *groundTruth, const T *predictedLabel,
+                                const int nSamples, int *outMat,
+                                int outIdxOffset, int outDimN,
                                 cudaStream_t stream) {
   CUDA_CHECK(cudaFuncSetCacheConfig(devConstructContingencyMatrix<T>,
                                     cudaFuncCachePreferL1));
@@ -98,9 +101,10 @@ cudaError_t computeCMatWAtomics(T *groundTruth, T *predictedLabel, int nSamples,
 
 // helper function to launch share memory atomic add kernel
 template <typename T>
-cudaError_t computeCMatWSmemAtomics(T *groundTruth, T *predictedLabel,
-                                    int nSamples, int *outMat, int outIdxOffset,
-                                    int outDimN, cudaStream_t stream) {
+cudaError_t computeCMatWSmemAtomics(const T *groundTruth,
+                                    const T *predictedLabel, const int nSamples,
+                                    int *outMat, int outIdxOffset, int outDimN,
+                                    cudaStream_t stream) {
   dim3 block(128, 1, 1);
   dim3 grid((nSamples + block.x - 1) / block.x);
   size_t smemSizePerBlock = outDimN * outDimN * sizeof(int);
@@ -113,9 +117,9 @@ cudaError_t computeCMatWSmemAtomics(T *groundTruth, T *predictedLabel,
 
 // helper function to sort and global atomic update
 template <typename T>
-void contingencyMatrixWSort(T *groundTruth, T *predictedLabel, int nSamples,
-                            int *outMat, T minLabel, T maxLabel,
-                            void *workspace, size_t workspaceSize,
+void contingencyMatrixWSort(const T *groundTruth, const T *predictedLabel,
+                            const int nSamples, int *outMat, T minLabel,
+                            T maxLabel, void *workspace, size_t workspaceSize,
                             cudaStream_t stream) {
   T *outKeys = reinterpret_cast<T *>(workspace);
   size_t alignedBufferSz = alignTo((size_t)nSamples * sizeof(T), (size_t)256);
@@ -177,9 +181,10 @@ inline ContingencyMatrixImplType getImplVersion(int outDimN) {
  * @param maxLabel: [out] calculated max value in input array
 */
 template <typename T>
-void getInputClassCardinality(T *groundTruth, int nSamples, cudaStream_t stream,
-                              T &minLabel, T &maxLabel) {
-  thrust::device_ptr<T> dTrueLabel = thrust::device_pointer_cast(groundTruth);
+void getInputClassCardinality(const T *groundTruth, const int nSamples,
+                              cudaStream_t stream, T &minLabel, T &maxLabel) {
+  thrust::device_ptr<const T> dTrueLabel =
+    thrust::device_pointer_cast(groundTruth);
   auto min_max = thrust::minmax_element(thrust::cuda::par.on(stream),
                                         dTrueLabel, dTrueLabel + nSamples);
   minLabel = *min_max.first;
@@ -195,15 +200,16 @@ void getInputClassCardinality(T *groundTruth, int nSamples, cudaStream_t stream,
  * @param maxLabel: Optional, max value in input array
  */
 template <typename T>
-size_t getCMatrixWorkspaceSize(int nSamples, T *groundTruth,
-                               cudaStream_t stream,
-                               T minLabel = std::numeric_limits<T>::max(),
-                               T maxLabel = std::numeric_limits<T>::max()) {
+size_t getContingencyMatrixWorkspaceSize(
+  const int nSamples, const T *groundTruth, cudaStream_t stream,
+  T minLabel = std::numeric_limits<T>::max(),
+  T maxLabel = std::numeric_limits<T>::max()) {
   size_t workspaceSize = 0;
   // below is a redundant computation - can be avoided
   if (minLabel == std::numeric_limits<T>::max() ||
       maxLabel == std::numeric_limits<T>::max()) {
-    thrust::device_ptr<T> dTrueLabel = thrust::device_pointer_cast(groundTruth);
+    thrust::device_ptr<const T> dTrueLabel =
+      thrust::device_pointer_cast(groundTruth);
     auto min_max = thrust::minmax_element(thrust::cuda::par.on(stream),
                                           dTrueLabel, dTrueLabel + nSamples);
     minLabel = *min_max.first;
@@ -233,7 +239,7 @@ size_t getCMatrixWorkspaceSize(int nSamples, T *groundTruth,
 /**
  * @brief contruct contingency matrix given input ground truth and prediction labels.
  * Users should call function getInputClassCardinality to find and allocate memory for
- * output. Similarly workspace requirements should be checked using function getCMatrixWorkspaceSize
+ * output. Similarly workspace requirements should be checked using function getContingencyMatrixWorkspaceSize
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param predictedLabel: device 1-d array for prediction (num of columns)
  * @param nSamples: number of elements in input array
@@ -245,8 +251,8 @@ size_t getCMatrixWorkspaceSize(int nSamples, T *groundTruth,
  * @param maxLabel: Optional, max value in input ground truth array
  */
 template <typename T>
-void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples,
-                       int *outMat, cudaStream_t stream,
+void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
+                       const int nSamples, int *outMat, cudaStream_t stream,
                        void *workspace = nullptr, size_t workspaceSize = 0,
                        T minLabel = std::numeric_limits<T>::max(),
                        T maxLabel = std::numeric_limits<T>::max()) {
@@ -264,7 +270,8 @@ void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples,
 
   if (minLabel == std::numeric_limits<T>::max() ||
       maxLabel == std::numeric_limits<T>::max()) {
-    thrust::device_ptr<T> dTrueLabel = thrust::device_pointer_cast(groundTruth);
+    thrust::device_ptr<const T> dTrueLabel =
+      thrust::device_pointer_cast(groundTruth);
     auto min_max = thrust::minmax_element(thrust::cuda::par.on(stream),
                                           dTrueLabel, dTrueLabel + nSamples);
     minLabel = *min_max.first;
