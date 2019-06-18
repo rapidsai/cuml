@@ -21,7 +21,7 @@ def stress_param(*args, **kwargs):
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),

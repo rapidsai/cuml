@@ -38,7 +38,6 @@ def test_r2_score(datatype, use_handle):
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
 
 
-@pytest.mark.skip(reason="Debugging NN test core dump")
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery
     """

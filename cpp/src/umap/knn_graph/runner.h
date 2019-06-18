@@ -25,15 +25,14 @@ namespace kNNGraph {
 using namespace ML;
 
 template <typename T>
-void run(T *X, int n, int d, long *knn_indices, T *knn_dists, kNN *knn,
-         int n_neighbors, UMAPParams *params, cudaStream_t stream,
-         int algo = 0) {
+void run(T *X, int n, int d, long *knn_indices, T *knn_dists, int n_neighbors,
+         UMAPParams *params, cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
 		 * Initial algo uses FAISS indices
 		 */
     case 0:
-      Algo::launcher(X, n, d, knn_indices, knn_dists, knn, n_neighbors, params,
+      Algo::launcher(X, n, d, knn_indices, knn_dists, n_neighbors, params,
                      stream);
       break;
   }
