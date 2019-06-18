@@ -52,6 +52,7 @@
 - PR #676: Fix template parameters in `bernoulli()` implementation.
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #719: Adding additional checks for dtype of the data
 
 # cuML 0.7.0 (10 May 2019)
 
