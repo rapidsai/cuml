@@ -108,6 +108,8 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam>{
         }
     }
 
+    truthmutualInfo/=nElements;
+
     
 
     //allocating and initializing memory to the GPU
