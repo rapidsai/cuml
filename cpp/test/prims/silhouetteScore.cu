@@ -103,7 +103,7 @@ class silhouetteScoreTest
 };
 
 //setting test parameter values
-const std::vector<silhouetteScoreParam> inputs = {{4, 2, 2, 5, 0.00001}};
+const std::vector<silhouetteScoreParam> inputs = {{4, 2, 2, 4, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
