@@ -144,7 +144,7 @@ cdef class RandomForest_impl():
         self.max_features = max_features
         self.type_model = self._get_type(type_model)
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
@@ -238,6 +238,9 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
+        if self.dtype != X.dtype:
+            raise ValueError(" The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -282,6 +285,12 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
+        if y.dtype != np.int32:
+            raise TypeError(" The labels need to have dtype = np.int32")
+
+        if self.dtype != X.dtype:
+            raise ValueError(" The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
