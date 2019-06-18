@@ -9,11 +9,11 @@ cuML is thread safe so its functions can be called from multiple host threads if
 
 The implementation of cuML is single threaded.
 
-## Managing state
+## Exposing algo-related state across C++ interface
 ### Introduction
 Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
 
-### Inside `libcuml++.so` aka our C++ interface
+### Across `libcuml++.so` aka our C++ interface
 Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only, which should meet the requirements listed below. In other words, the [stateful API](#scikit-learn-esq-stateful-api-in-c) should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
 
 Things which are OK to be exposed on the interface:
@@ -63,15 +63,15 @@ The above example obviously under-plays the complexity involved with exposing a 
 ### Working with the 'model' exposed in `libcuml++.so`
 The example in the previous section exposes a `TreeNode` as the model that is being learnt as part of the training process. This means, it is also responsibility of `libcuml++.so` to expose methods to load and store (aka marshalling) such a data structure. Further continuing this example, we could expose the following methods to achieve this:
 ```cpp
-void storeTreeNode(const TreeNode<float> *root, std::ostream &os);
-void storeTreeNode(const TreeNode<double> *root, std::ostream &os);
-void loadTreeNode(TreeNode<float> *&root, std::istream &is);
-void loadTreeNode(TreeNode<double> *&root, std::istream &is);
+void storeTreeNode(const TreeNodeF *root, std::ostream &os);
+void storeTreeNode(const TreeNodeD *root, std::ostream &os);
+void loadTreeNode(TreeNodeF *&root, std::istream &is);
+void loadTreeNode(TreeNodeD *&root, std::istream &is);
 ```
 And being good programmers, we should also expose a 'cleanup' method for this object.
 ```cpp
-void destroyTreeNode(TreeNode<float> *root);
-void destroyTreeNode(TreeNode<double> *root);
+void destroyTreeNode(TreeNodeF *root);
+void destroyTreeNode(TreeNodeD *root);
 ```
 It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store/destroy methods are not explicitly needed.
 
