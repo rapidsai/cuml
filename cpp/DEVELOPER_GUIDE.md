@@ -82,6 +82,11 @@ As long as the guidelines in the above sub-sections have been followed, it must 
 ### scikit-learn-esq stateful API in C++
 This API should always be a wrapper around the stateless methods, NEVER the other way around. We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. So, stay tuned for more details.
 
+### File naming convention
+1. An ML algorithm `<algo>` is to be implemented inside the folder named `src/<algo>`.
+2. `<algo>.hpp` and `<algo>.[cpp|cu]` contain C++ API declarations and definitions respectively.
+3. `<algo>_api.h` and `<algo>_api.cpp` contain declarations and definitions respectively for C binding.
+
 ## Coding style
 
 ## Code format
