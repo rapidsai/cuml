@@ -241,16 +241,16 @@ cdef class RandomForest_impl():
     def predict(self, X):
 
         cdef uintptr_t X_ptr
-        X_ptr = X.ctypes.data
-        n_rows, n_cols = np.shape(X)
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C') # row major format
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
-
-        cdef uintptr_t preds_ptr = preds.ctypes.data
+        preds = np.zeros(n_rows, dtype=np.int32)
+        cdef uintptr_t preds_ptr;
+        preds_m, preds_ptr, _, _, _ = \
+            input_to_dev_array(preds)
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -278,14 +278,16 @@ cdef class RandomForest_impl():
                             % (str(self.dtype)))
 
         self.handle.sync()
+        del(X_m)
+        del(preds_m)
         return preds
 
     def cross_validate(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
-        X_ptr = X.ctypes.data
-        y_ptr = y.ctypes.data
-        n_rows, n_cols = np.shape(X)
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C') # row major format
+        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
@@ -293,8 +295,9 @@ cdef class RandomForest_impl():
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
-
-        cdef uintptr_t preds_ptr = (preds).ctypes.data
+        cdef uintptr_t preds_ptr;
+        preds_m, preds_ptr, _,  _, _ = \
+            input_to_dev_array(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -320,6 +323,9 @@ cdef class RandomForest_impl():
                                         <bool> self.verbose)
 
         self.handle.sync()
+        del(X_m)
+        del(y_m)
+        del(preds_m)
         return self.stats
 
 
@@ -367,6 +373,10 @@ class RandomForestClassifier(Base):
         If it is None, a new one is created just for this class
     split_algo : The type of algorithm to be used to create the trees.
                  0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END.
+                 default = 0
+    split_criterion: The criterion used to split nodes.
+                 0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+                 2 and 3 not valid for classification
                  default = 0
     bootstrap : Control bootstrapping.
                 If set, each tree in the forest is built
@@ -435,7 +445,8 @@ class RandomForestClassifier(Base):
 
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, n_bins,
-                                       split_algo, split_criterion, min_rows_per_node,
+                                       split_algo, split_criterion,
+                                       min_rows_per_node,
                                        bootstrap, bootstrap_features,
                                        type_model, verbose,
                                        rows_sample, max_leaves,
