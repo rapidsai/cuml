@@ -53,6 +53,7 @@ dbscan_model = dict(
     DBSCAN=cuml.DBSCAN()
 )
 
+
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -191,6 +192,7 @@ def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', dbscan_model.values())
@@ -203,6 +205,8 @@ def test_dbscan_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
-    cu_after_pickle_predict = cu_after_pickle_model.fit_predict(X_test).to_array()
+    cu_after_pickle_predict = cu_after_pickle_model.fit_predict(
+                              X_test
+                              ).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
