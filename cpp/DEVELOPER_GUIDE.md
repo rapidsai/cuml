@@ -19,7 +19,7 @@ Thus, this section lays out guidelines for managing state along the API of cuML.
 ### General guideline
 As mentioned before, functions exposed via the base cuML-c++ layer must be stateless. Things that are OK to be expoesd on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
-2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`, instead.
+2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
 Internally, for the C++ base layer atleast, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
@@ -74,7 +74,7 @@ void loadTreeNode(TreeNodeD *&root, std::istream &is);
 It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store methods are not explicitly needed.
 
 ### `libcuml.so` (aka C-API wrapper over C++ API)
-As long as the guidelines in the above sub-sections have been followed, it must be easy to C-wrap the C++ API. Refer to dbscan as an example on how to properly wrap the C++ API with a C-binding. In short:
+As long as the guidelines in the above sub-sections have been followed, it must be easy to C-wrap the C++ API. Refer to [dbscan](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
 1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
 2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: RF). One possible way of working with such exposed states from C++ layer is shown in the sample repo [here](https://github.com/teju85/managing-state-cuml).
