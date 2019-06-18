@@ -19,7 +19,6 @@
 #include <utils.h>
 #include <vector>
 #include "../memory.h"
-#include "cuda_utils.h"
 
 template <class T>
 struct MetricQuestion {
@@ -58,36 +57,18 @@ struct MetricInfo {
 
 struct SquareFunctor {
   template <typename T>
-  static __device__ __forceinline__ T exec(T x) {
-    return MLCommon::myPow(x, (T)2);
-  }
+  static __device__ __forceinline__ T exec(T x);
 };
 
 struct AbsFunctor {
   template <typename T>
-  static __device__ __forceinline__ T exec(T x) {
-    return MLCommon::myAbs(x);
-  }
+  static __device__ __forceinline__ T exec(T x);
 };
 
 struct GiniFunctor {
-  static float exec(std::vector<int>& hist, int nrows) {
-    float gval = 1.0;
-    for (int i = 0; i < hist.size(); i++) {
-      float prob = ((float)hist[i]) / nrows;
-      gval -= prob * prob;
-    }
-    return gval;
-  }
+  static float exec(std::vector<int>& hist, int nrows);
 };
 
 struct EntropyFunctor {
-  static float exec(std::vector<int>& hist, int nrows) {
-    float eval = 0.0;
-    for (int i = 0; i < hist.size(); i++) {
-      float prob = ((float)hist[i]) / nrows;
-      eval += prob * logf(prob);
-    }
-    return (-1 * eval);
-  }
+  static float exec(std::vector<int>& hist, int nrows);
 };

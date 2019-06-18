@@ -48,6 +48,13 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         CLASSIFICATION,
         REGRESSION
 
+    cdef enum CRITERION:
+        GINI,
+        ENTROPY,
+        MSE,
+        MAE,
+        CRITERION_END
+
     cdef struct RF_params:
         pass
 
@@ -98,7 +105,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
-                                    bool, bool, int, int) except +
+                                    bool, bool, int, int, CRITERION) except +
 
 
 cdef class RandomForest_impl():
@@ -112,6 +119,7 @@ cdef class RandomForest_impl():
     cdef object max_features
     cdef object n_bins
     cdef object split_algo
+    cdef object split_criterion
     cdef object min_rows_per_node
     cdef object bootstrap
     cdef object bootstrap_features
@@ -126,7 +134,7 @@ cdef class RandomForest_impl():
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
                   max_features=1.0, n_bins=8,
-                  split_algo=0, min_rows_per_node=2,
+                  split_algo=0, split_criterion=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   type_model="classifier", verbose=False,
                   rows_sample=1.0, max_leaves=-1,
@@ -134,6 +142,7 @@ cdef class RandomForest_impl():
 
         self.handle = handle
         self.split_algo = split_algo
+        self.split_criterion = split_criterion
         self.min_rows_per_node = min_rows_per_node
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -197,7 +206,8 @@ cdef class RandomForest_impl():
                                     <bool> self.bootstrap_features,
                                     <bool> self.bootstrap,
                                     <int> self.n_estimators,
-                                    <int> self.rows_sample)
+                                    <int> self.rows_sample,
+                                    <CRITERION> self.split_criterion)
 
         self.rf_classifier32 = new \
             rfClassifier[float](rf_param)
@@ -356,7 +366,7 @@ class RandomForestClassifier(Base):
     handle : cuml.Handle
         If it is None, a new one is created just for this class
     split_algo : The type of algorithm to be used to create the trees.
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END.
+                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END.
                  default = 0
     bootstrap : Control bootstrapping.
                 If set, each tree in the forest is built
@@ -379,7 +389,7 @@ class RandomForestClassifier(Base):
     """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, n_bins=8,
-                 split_algo=0, min_rows_per_node=2,
+                 split_algo=0, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1,
@@ -410,6 +420,7 @@ class RandomForestClassifier(Base):
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
         self.split_algo = split_algo
+        self.split_criterion = split_criterion
         self.min_rows_per_node = min_rows_per_node
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -424,7 +435,7 @@ class RandomForestClassifier(Base):
 
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, n_bins,
-                                       split_algo, min_rows_per_node,
+                                       split_algo, split_criterion, min_rows_per_node,
                                        bootstrap, bootstrap_features,
                                        type_model, verbose,
                                        rows_sample, max_leaves,
@@ -494,7 +505,7 @@ class RandomForestClassifier(Base):
         params = dict()
         self.variables = ['n_estimators', 'max_depth', 'handle',
                           'max_features', 'n_bins',
-                          'split_algo', 'min_rows_per_node',
+                          'split_algo', 'split_criterion', 'min_rows_per_node',
                           'bootstrap', 'bootstrap_features',
                           'verbose', 'rows_sample',
                           'max_leaves']
