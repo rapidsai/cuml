@@ -16,14 +16,14 @@ Such a well-defined interface is useful for two main reasons:
 2. Provide a proper C-binding to interface with languages that don't understand C++
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
-### Across `libcuml++.so` aka our C++ interface
-Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only, which should meet the requirements listed below. In other words, the [stateful API](#scikit-learn-esq-stateful-api-in-c) should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
-
-Things which are OK to be exposed on the interface:
+### General guideline
+Functions exposed via the base cuML-c++ layer must be stateless. Things that are OK to be expoesd on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
+Internally, for the C++ base layer atleast, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
+### `libcuml++.so` (aka C++ API)
 Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, this API exposes a non-POD C++ class object along the interface of `libcuml++.so`.
 ```cpp
 template <typename T>
@@ -45,7 +45,7 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
                                    int n_cols, int* predictions, bool verbose=false);
 ```
 
-One of the right ways to expose this interface from `libcuml++.so` is:
+One of the right ways to expose this would be:
 ```cpp
 // NOTE: this example assumes that TreeNode and DTParams are the model/state that need to be stored
 // and passed between fit and predict methods
@@ -63,8 +63,8 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input
 ```
 The above example obviously under-plays the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
-### Working with the 'model' exposed in `libcuml++.so`
-The example in the previous section exposes a `TreeNode` as the model that is being learnt as part of the training process. This means, it is also responsibility of `libcuml++.so` to expose methods to load and store (aka marshalling) such a data structure. Further continuing this example, we could expose the following methods to achieve this:
+### TODO (Need to explore this further!)
+The above example also means, it is the responsibility of `libcuml++.so` to expose methods to load and store (aka marshalling) such a data structure. Further continuing this example, we could expose the following methods to achieve this:
 ```cpp
 void storeTreeNode(const TreeNodeF *root, std::ostream &os);
 void storeTreeNode(const TreeNodeD *root, std::ostream &os);
@@ -73,11 +73,14 @@ void loadTreeNode(TreeNodeD *&root, std::istream &is);
 ```
 It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store methods are not explicitly needed.
 
-### Managing state from C-API
-As mentioned in previous section, for algos like GLM, custom load/store/destroy methods are seldom needed. However, for complex  algos like RF, we'd need to work with the model exposed by the C++ API. One possible way of working with such exposed states from C++ layer is shown in the sample repo [here](https://github.com/teju85/managing-state-cuml).
+### `libcuml.so` (aka C-API wrapper over C++ API)
+As long as the guidelines in the above sub-sections have been followed, it must be easy to C-wrap the C++ API. Refer to dbscan as an example on how to properly wrap the C++ API with a C-binding. In short:
+1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
+2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
+3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: RF). One possible way of working with such exposed states from C++ layer is shown in the sample repo [here](https://github.com/teju85/managing-state-cuml).
 
 ### scikit-learn-esq stateful API in C++
-We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
+This API should always be a wrapper around the stateless methods, NEVER the other way around. We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. So, stay tuned for more details.
 
 ## Coding style
 
@@ -264,7 +267,3 @@ The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each al
 * The user of cuML has initialized MPI and created a communicator that can be used by the ML algorithm.
 * All processes in the MPI communicator call into the ML algorithm cooperatively.
 * The used MPI is CUDA-aware, i.e. it is possible to directly pass device pointers to MPI
-
-## C APIs
-
-ML algorithms implemented in cuML should have C++ APIs that are easy to wrap in C. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`). Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
