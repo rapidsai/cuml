@@ -410,7 +410,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
  * @brief Predict target feature for input data; n-ary classification for single feature supported.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -476,7 +476,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
@@ -598,7 +598,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
  * @brief Predict target feature for input data; regression for single feature supported.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -654,7 +654,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
@@ -738,7 +738,7 @@ void fit(const cumlHandle& user_handle, rfClassifier<double>* rf_classifier,
  * @brief Predict target feature for input data of type float; n-ary classification for single feature supported.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -755,7 +755,7 @@ void predict(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type double; n-ary classification for single feature supported.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -772,8 +772,8 @@ void predict(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type float and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -791,8 +791,8 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type double and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -853,7 +853,7 @@ void fit(const cumlHandle& user_handle, rfRegressor<double>* rf_regressor,
  * @brief Predict target feature for input data of type float; regression for single feature supported.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -870,7 +870,7 @@ void predict(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type double; regression for single feature supported.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -887,8 +887,8 @@ void predict(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type float and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -907,8 +907,8 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
  * @brief Predict target feature for input data of type double and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
