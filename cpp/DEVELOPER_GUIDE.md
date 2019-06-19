@@ -80,7 +80,7 @@ As long as the guidelines in the above sub-sections have been followed, it must 
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: RF). One possible way of working with such exposed states from C++ layer is shown in the sample repo [here](https://github.com/teju85/managing-state-cuml).
 
 ### scikit-learn-esq stateful API in C++
-This API should always be a wrapper around the stateless methods, NEVER the other way around. We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. So, stay tuned for more details.
+This API should always be a wrapper around the stateless methods, NEVER the other way around. The design discussion about the right way to expose such a wrapper API around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
 
 ### File naming convention
 1. An ML algorithm `<algo>` is to be contained inside the folder named `src/<algo>`.
