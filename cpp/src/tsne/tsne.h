@@ -12,15 +12,12 @@ void TSNE_fit(
   float perplexity = 30.0f, const int perplexity_max_iter = 100,
   const int perplexity_tol = 1e-5,
 
-  const float early_exaggeration = 12.0f, const int exaggeration_iter = 150,
+  const float early_exaggeration = 12.0f, const int exaggeration_iter = 250,
 
-  const float min_gain = 0.01f, const float gains_add = 0.3f,
-  const float gains_mult = 0.7f,
-  // Original TSNE paper has gains_add = 0.2 and gains_mult = 0.8
-
-  const float eta = 500.0f, const int max_iter = 500,
+  const float min_gain = 0.01f, const double min_grad_norm = 1e-4,
+  const float eta = 500.0f, const int max_iter = 1000,
   const float pre_momentum = 0.99, const float post_momentum = 0.5,
-  // Original TSNE paper has pre_momentum = 0.8. We also add Momentum decay
+  // Original TSNE pre = 0.8 and most = 0.5. We also add momentum decay of 0.001
 
   const long long seed = -1, const bool initialize_embeddings = true,
   const bool verbose = true);

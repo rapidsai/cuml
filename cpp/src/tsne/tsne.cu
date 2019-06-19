@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <stdio.h>
 #include "common/cumlHandle.hpp"
+#include "linalg/norm.h"
+#include "sparse/coo.h"
 
 #include "distances.h"
-#include "fast_kernels.h"
-#include "linalg/norm.h"
+#include "kernels.h"
 #include "tsne/tsne.h"
-#include "utils.h"
 
 namespace ML {
 using MLCommon::ceildiv;
@@ -35,14 +36,12 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
 
               const float early_exaggeration, const int exaggeration_iter,
 
-              const float min_gain, const float gains_add,
-              const float gains_mult, const float eta, const int max_iter,
-              const float pre_momentum, const float post_momentum,
+              const float min_gain, const double min_grad_norm, const float eta,
+              const int max_iter, const float pre_momentum,
+              const float post_momentum,
 
               const long long seed, const bool initialize_embeddings,
-              const bool verbose)
-// Method = 0 for Naive, 1 for Fast
-{
+              const bool verbose) {
   assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0 && X != NULL &&
          Y != NULL);
   auto d_alloc = handle.getDeviceAllocator();
@@ -110,21 +109,23 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
 
   // Allocate data [NOTICE Fortran Contiguous for method = Naive and C-Contiguous for fast]
   if (initialize_embeddings)
-    TSNE::random_vector(Y, -0.03f, 0.03f, n * n_components, stream, seed);
+    TSNE::random_vector(Y, -0.01f, 0.01f, n * n_components, stream, seed);
 
   // Allocate space
   if (verbose) printf("[Info] Now allocating memory for TSNE.\n");
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *Q_sum = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   double *sum = (double *)d_alloc->allocate(sizeof(double), stream);
 
   float *attract =
     (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
   float *repel =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
+    (float *)d_alloc->allocate(sizeof(float) * n * n_components * 2, stream);
 
   float *iY =
     (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
+  double *dY = (double *)d_alloc->allocate(sizeof(double) * n, stream);
   float *gains =
     (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
   float *means =
@@ -148,9 +149,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                                      TSNE::__apply_forces, 0, n * n_components);
   const int gridSize_dimN = ceildiv(n * n_components, blockSize_dimN);
 
+  // Blocks setup
+  const dim3 threadsPerBlock(32, 32);
+  const dim3 numBlocks(ceildiv(n, (int)threadsPerBlock.x),
+                       ceildiv(n, (int)threadsPerBlock.y));
+
   // Do gradient updates
   float momentum = pre_momentum;
   float Z;
+  double grad_norm;
 
   if (verbose) printf("[Info] Start gradient updates!\n");
   for (int iter = 0; iter < max_iter; iter++) {
@@ -164,23 +171,39 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     // Get norm(Y)
     MLCommon::LinAlg::rowNorm(norm, Y, n_components, n,
                               MLCommon::LinAlg::L2Norm, false, stream);
+    // Cache norm(Y) + 1 for faster kernels
+    MLCommon::LinAlg::scalarAdd(norm_add1, (const float *)norm, 1.0f, n,
+                                stream);
+
     //TSNE::get_norm_fast(Y, norm, n, n_components, stream, gridSize_N, blockSize_N);
 
     // Fast compute attractive forces from COO matrix
-    TSNE::attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components,
-                          stream, gridSize_NNZ, blockSize_NNZ);
+    TSNE::attractive_fast(VAL, COL, ROW, Y, norm, norm_add1, attract, NNZ, n,
+                          n_components, stream, gridSize_NNZ, blockSize_NNZ);
 
     // Fast compute repulsive forces
-    Z = TSNE::repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
-    if (verbose && iter % 100 == 0)
-      printf("[Info]  Z at iter = %d is %lf.\n", iter, Z);
+    Z = TSNE::repulsive_fast(Y, repel, norm, norm_add1, Q_sum, n, n_components,
+                             stream, threadsPerBlock, numBlocks);
 
     // Integrate forces with momentum
-    TSNE::apply_forces(attract, means, repel, Y, iY, gains, n, n_components, Z,
-                       min_gain, momentum, eta, stream, gridSize_dimN,
-                       blockSize_dimN, gains_add, gains_mult);
+    grad_norm =
+      TSNE::apply_forces(attract, means, repel, Y, iY, gains, n, n_components,
+                         Z, min_gain, momentum, eta, stream, gridSize_dimN,
+                         blockSize_dimN, dY, (bool)(iter % 100 == 0));
 
-    if (momentum > 0.8) momentum -= 0.005;
+    if (momentum > 0.8) momentum -= 0.001;
+
+    if (verbose && iter % 100 == 0)
+      printf("[Info]  Z at iter = %d is %lf. Grad_norm = %lf. Momentum = %f\n",
+             iter, Z, grad_norm, momentum);
+
+    if (grad_norm <= min_grad_norm) {
+      printf(
+        "[Info]  TSNE early stopped as grad_norm = %lf <= min_grad_norm = "
+        "%lf.\n",
+        grad_norm, min_grad_norm);
+      break;
+    }
   }
 
   printf("[Info]  TSNE has finished!\n");
@@ -188,13 +211,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   P_PT.destroy();
 
   d_alloc->deallocate(norm, sizeof(float) * n, stream);
+  d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
   d_alloc->deallocate(Q_sum, sizeof(float) * n, stream);
   d_alloc->deallocate(sum, sizeof(double), stream);
 
   d_alloc->deallocate(attract, sizeof(float) * n * n_components, stream);
-  d_alloc->deallocate(repel, sizeof(float) * n * n_components, stream);
+  d_alloc->deallocate(repel, sizeof(float) * n * n_components * 2, stream);
 
   d_alloc->deallocate(iY, sizeof(float) * n * n_components, stream);
+  d_alloc->deallocate(dY, sizeof(double) * n, stream);
   d_alloc->deallocate(gains, sizeof(float) * n * n_components, stream);
   d_alloc->deallocate(means, sizeof(float) * n_components, stream);
 }

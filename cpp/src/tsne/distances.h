@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <linalg/eltwise.h>
-#include <selection/knn.h>
 #include "cuML.hpp"
-#include "utils.h"
+#include "linalg/eltwise.h"
+#include "selection/knn.h"
+#include "sparse/coo.h"
+#define MAX(a, b) ((a < b) ? b : a)
 
 namespace ML {
 namespace TSNE {
