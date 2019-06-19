@@ -1,6 +1,12 @@
 cuML API Reference
 ====================
 
+Preprocessing
+-------------
+
+.. autoclass:: cuml.preprocessing
+    :members:
+
 Linear Regression
 ------------------
 

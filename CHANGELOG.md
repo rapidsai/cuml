@@ -18,6 +18,7 @@
 
 ## Improvements
 
+- PR #727: Add new preprocessing classes to API docs
 - PR #597: C++ cuML and ml-prims folder refactor
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
