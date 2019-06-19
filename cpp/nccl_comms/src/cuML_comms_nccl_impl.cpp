@@ -126,14 +126,14 @@ namespace {
  * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
  * in Python as well, before being used to construct a cuML comms instance.
  */
-void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank)
+void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h ucp_worker, ucp_ep_h *eps, int size, int rank)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
          std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank) ) );
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank)
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker, ucp_ep_h *eps, int size, int rank)
     : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank), _next_request_id(0) {
     //initializing NCCL
 //    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
@@ -165,14 +165,21 @@ void cumlNCCLCommunicator_impl::barrier() const
 }
 
 static void send_handle(void *request, ucs_status_t status) {
+
+    printf("INSIDE SEND HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
+
+    printf("Finished in send handle\n");
 }
 
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
+
+    printf("INSIDE RECEIVE HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
+    printf("Finished in receive handle\n");
 }
 
 
@@ -181,6 +188,8 @@ static void recv_handle(void *request, ucs_status_t status,
 // This may not matter for p2p, though, if we are just always going to treat them as a contiguous sequence of bytes.
 void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
+
+  static const ucp_tag_t tag_to_use  = 0x1337a880u;
   request_t req_id;
   if ( _free_requests.empty() )
       req_id = _next_request_id++;
@@ -192,17 +201,29 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
 
   struct ucx_context *ucp_request = 0;
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
-  ucp_ep_h *ep_ptr = _ucp_eps[dest];
+  ucp_ep_h ep_ptr = _ucp_eps[dest];
 
-   ucs_status_ptr_t result = ucp_tag_send_nb(*ep_ptr, buf, size,
-                              ucp_dt_make_contig(1), ucp_tag, send_handle);
+  std::cout << "EP_PTR: " << ep_ptr << std::endl;
+  std::cout << "BUF: " << buf << std::endl;
+  std::cout << "SIZE: " << size << std::endl;
+  std::cout << "MAKE_CONTIG: " << ucp_dt_make_contig(1) << std::endl;
+  std::cout << "TAG: " << tag_to_use << std::endl;
+  std::cout << "UCP WORKER: " << _ucp_worker;
 
-   if (UCS_PTR_IS_ERR(result)) {
+  ucp_worker_print_info (_ucp_worker, stdout);
+  
+  ucp_ep_print_info(ep_ptr, stdout);
+
+
+  ucp_request = (ucx_context*)ucp_tag_send_nb(ep_ptr, buf, size,
+                              ucp_dt_make_contig(1), tag_to_use, send_handle);
+
+   if (UCS_PTR_IS_ERR(ucp_request)) {
        fprintf(stderr, "unable to send UCX data message\n");
-       //ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+       ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
        return;
-   } else if (UCS_PTR_STATUS(result) != UCS_OK) {
-
+   } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
+       printf("An error occurred sending message.\n");
     } else {
         //request is complete so no need to wait on request
     }
@@ -213,6 +234,8 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
 
 void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
+
+  static const ucp_tag_t tag_to_use  = 0x1337a880u;
   request_t req_id;
   if ( _free_requests.empty() )
       req_id = _next_request_id++;
@@ -223,18 +246,24 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
   }
 
   struct ucx_context *ucp_request = 0;
-  ucp_ep_h *ep_ptr = _ucp_eps[source];
+  ucp_ep_h ep_ptr = _ucp_eps[source];
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
 
-  ucs_status_ptr_t result = ucp_tag_recv_nb(*_ucp_worker, buf, size,
-                            ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
+  std::cout << "RECV EP_PTRE: " << ep_ptr << std::endl;
+  std::cout << "UCP WORKER: " << _ucp_worker << std::endl;
+
+
+  ucp_request = (ucx_context*)ucp_tag_recv_nb(_ucp_worker, buf, size,
+                            ucp_dt_make_contig(1), tag_to_use, default_tag_mask,
                             recv_handle);
 
-  if (UCS_PTR_IS_ERR(result)) {
+
+
+  if (UCS_PTR_IS_ERR(ucp_request)) {
       fprintf(stderr, "unable to receive UCX data message (%u)\n",
-              UCS_PTR_STATUS(result));
-      //ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+              UCS_PTR_STATUS(ucp_request));
+      ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
       return;
   }
 
@@ -244,14 +273,30 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
 
 void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]) const
 {
-  std::vector<ucx_context> requests;
+
+  printf("Inside waitall for rank: %d\n", getRank());
+  std::vector<ucx_context*> requests;
   for ( int i = 0; i < count; ++i ) {
        auto req_it = _requests_in_flight.find( array_of_requests[i] );
        ASSERT( _requests_in_flight.end() != req_it, "ERROR: waitall on invalid request: %d", array_of_requests[i] );
-       requests.push_back( *req_it->second );
+       requests.push_back( req_it->second );
        _free_requests.insert( req_it->first );
       _requests_in_flight.erase( req_it );
   }
+
+  int done = 0;
+
+  while(done < count) {
+  done = 0;
+  for(ucx_context *req : requests) {
+      if(req->completed == 1)
+          done++;
+  }
+
+}
+  
+
+  printf("Done waitall for rank: %d\n", getRank());
 
   // @TODO: Use UCP progress functions here
 }

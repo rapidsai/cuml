@@ -26,17 +26,19 @@
 
 #include <common/cuml_comms_iface.hpp>
 
-namespace ML {
-
 struct ucx_context {
     int completed;
 };
+
+
+
+namespace ML {
 
 class cumlNCCLCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 public:
     cumlNCCLCommunicator_impl() =delete;
 
-    cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank);
+    cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker, ucp_ep_h *eps, int size, int rank);
 
     virtual ~cumlNCCLCommunicator_impl();
 
@@ -67,8 +69,8 @@ public:
 
 private:
     ncclComm_t                                          _nccl_comm;
-    ucp_worker_h                                        *_ucp_worker;
-    ucp_ep_h                                            **_ucp_eps;
+    ucp_worker_h                                        _ucp_worker;
+    ucp_ep_h                                            *_ucp_eps;
     int                                                 _size;
     int                                                 _rank;
 

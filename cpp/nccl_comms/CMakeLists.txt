@@ -36,7 +36,7 @@ unset(_CUML_LIBRARY_HINTS)
 
 include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_DIR}/src ${CUML_DIR}/src_prims ${UCX_PATH}/include )
 
-set(CUML_LINK_LIBRARIES ${CUML_LIBRARY} /usr/lib/libucp.so)
+set(CUML_LINK_LIBRARIES ${CUML_LIBRARY} ucp uct ucm ucs  pthread)
 
 add_definitions(-DHAVE_NCCL)
 include_directories( ${NCCL_INCLUDE_DIRS} )
