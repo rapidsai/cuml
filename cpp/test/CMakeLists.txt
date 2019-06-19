@@ -151,6 +151,7 @@ if(BUILD_PRIMS_TESTS)
       prims/grid_sync.cu
       prims/hinge.cu
       prims/klDivergence.cu
+      prims/host_buffer.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
