@@ -52,15 +52,6 @@ def test_rf_predict_numpy(datatype, use_handle, n_info, nrows, ncols):
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
 
-    if nrows != 500000:
-        # sklearn random forest classification model
-        # initialization, fit and predict
-        sk_model = skrfc(n_estimators=40, max_depth=None,
-                         min_samples_split=2, max_features=1.0)
-        sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
-
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
 
@@ -73,5 +64,14 @@ def test_rf_predict_numpy(datatype, use_handle, n_info, nrows, ncols):
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
 
-    if nrows != 500000:
+    if nrows < 500000:
+        # sklearn random forest classification model
+        # initialization, fit and predict
+        sk_model = skrfc(n_estimators=40, max_depth=None,
+                         min_samples_split=2, max_features=1.0)
+        sk_model.fit(X_train, y_train)
+        sk_predict = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_predict)
+
+        # compare the accuracy of the two models
         assert cu_acc >= (sk_acc - 0.07)
