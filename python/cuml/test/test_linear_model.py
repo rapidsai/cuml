@@ -56,15 +56,6 @@ def test_linear_models(datatype, X_type, y_type,
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
-    if nrows != 500000:
-        # sklearn linear and ridge regression model initialization and fit
-        skols = skLinearRegression(fit_intercept=True,
-                                   normalize=False)
-        skols.fit(X_train, y_train)
-        skridge = skRidge(fit_intercept=False,
-                          normalize=False)
-        skridge.fit(X_train, y_train)
-
     # Initialization of cuML's linear and ridge regression models
     cuols = cuLinearRegression(fit_intercept=True,
                                normalize=False,
@@ -104,9 +95,18 @@ def test_linear_models(datatype, X_type, y_type,
         curidge.fit(X_train, y_train)
         curidge_predict = curidge.predict(X_test).to_array()
 
-    if nrows != 500000:
+    if nrows < 500000:
+        # sklearn linear and ridge regression model initialization and fit
+        skols = skLinearRegression(fit_intercept=True,
+                                   normalize=False)
+        skols.fit(X_train, y_train)
+        skridge = skRidge(fit_intercept=False,
+                          normalize=False)
+        skridge.fit(X_train, y_train)
+
         skols_predict = skols.predict(X_test)
         skridge_predict = skridge.predict(X_test)
+
         assert array_equal(skols_predict, cuols_predict,
                            1e-1, with_sign=True)
         assert array_equal(skridge_predict, curidge_predict,
