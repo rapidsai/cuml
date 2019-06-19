@@ -1,11 +1,8 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
-<<<<<<< HEAD
-- PR #674: KL Divergence metric ml-prim
-=======
 
->>>>>>> bc6cd6a1af5f2e1d73cb2c8b41a6607b640e4c0a
+- PR #674: KL Divergence metric ml-prim
 - PR #652: Adjusted Rand Index metric ml-prim
 - PR #679: Class label manipulation ml-prim
 - PR #636: Rand Index metric ml-prim

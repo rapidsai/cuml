@@ -56,5 +56,11 @@ double klDivergence(const cumlHandle &handle, const double *y,
     y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
 }
 
+float klDivergence(const cumlHandle &handle, const float *y, const float *y_hat,
+                   int n) {
+  return MLCommon::Metrics::klDivergence(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
+}
+
 }  // namespace Metrics
 }  // namespace ML

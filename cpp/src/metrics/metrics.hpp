@@ -102,7 +102,7 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
          * @param n: Number of elements in y and y_hat
          * @return: The KL Divergence value
          */
-double klDivergence(const cumlHandle &handle, float *y, float *y_hat, int n);
+double klDivergence(const cumlHandle &handle, double *y, double *y_hat, int n);
 
 }  // namespace Metrics
 }  // namespace ML

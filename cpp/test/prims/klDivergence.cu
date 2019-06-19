@@ -65,13 +65,6 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
       new defaultDeviceAllocator);
 
     //generating the golden output
-    //DataT epsilon = 0.000001;
-
-    //auto addEpsilon = [&](DataT &el){ el+= epsilon; };
-
-    //std::for_each(h_modelPDF.begin(), h_modelPDF.end(), addEpsilon);
-    //std::for_each(h_candidatePDF.begin(), h_candidatePDF.end(), addEpsilon);
-
     for (int i = 0; i < nElements; ++i) {
       if (h_modelPDF[i] == 0.0)
         truthklDivergence += 0;
@@ -81,13 +74,9 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
           h_modelPDF[i] * log(h_modelPDF[i] / h_candidatePDF[i]);
     }
 
-    printf("truthklDivergence: %f\n", truthklDivergence);
-
     //calling the klDivergence CUDA implementation
     computedklDivergence = MLCommon::Metrics::klDivergence(
       d_modelPDF, d_candidatePDF, nElements, allocator, stream);
-
-    printf("calcklDivergence: %f\n", computedklDivergence);
   }
 
   //the destructor
