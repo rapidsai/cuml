@@ -22,9 +22,9 @@ def test_rf_predict_numpy(datatype, use_handle):
     y_test = np.asarray(y[900:, ])
     handle, stream = get_handle(use_handle)
     cuml_model = curfc(max_features=1.0,
-                       n_bins=4, split_algo=0, split_criterion=0,
+                       n_bins=8, split_algo=0, split_criterion=0,
                        min_rows_per_node=2,
-                       n_estimators=40, handle=handle, max_leaves=-1)
+                       n_estimators=40, handle=handle, max_leaves=-1, max_depth=-1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)

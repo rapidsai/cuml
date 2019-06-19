@@ -241,14 +241,15 @@ cdef class RandomForest_impl():
     def predict(self, X):
 
         cdef uintptr_t X_ptr
+        # row major format
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C') # row major format
+            input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
 
         preds = np.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr;
+        cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
         cdef cumlHandle* handle_ =\
@@ -278,6 +279,7 @@ cdef class RandomForest_impl():
                             % (str(self.dtype)))
 
         self.handle.sync()
+        preds = preds_m.copy_to_host() #synchronous w/o a stream
         del(X_m)
         del(preds_m)
         return preds
@@ -286,7 +288,7 @@ cdef class RandomForest_impl():
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C') # row major format
+            input_to_dev_array(X, order='C')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         if n_cols != self.n_cols:
@@ -295,8 +297,8 @@ cdef class RandomForest_impl():
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
-        cdef uintptr_t preds_ptr;
-        preds_m, preds_ptr, _,  _, _ = \
+        cdef uintptr_t preds_ptr
+        preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
 
         cdef cumlHandle* handle_ =\
