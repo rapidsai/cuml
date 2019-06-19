@@ -20,15 +20,10 @@
 # cython: language_level = 3
 
 import ctypes
-import cupy
-import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
-
-from cuml.utils import get_cudf_column_ptr,\
-    get_dev_array_ptr, input_to_dev_array,\
-    zeros
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -36,9 +31,10 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -144,7 +140,7 @@ cdef class RandomForest_impl():
         self.max_features = max_features
         self.type_model = self._get_type(type_model)
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
@@ -183,7 +179,14 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cupy.unique(y)
+        try:
+            import cupy as cp
+            unique_labels = cp.unique(y)
+        except ImportError:
+            warnings.warn("Using NumPy for number of class detection,"
+                          "install CuPy for faster processing.")
+            unique_labels = np.unique(y.copy_to_host())
+
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
             if i not in unique_labels:
@@ -238,6 +241,9 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
+        if X.dtype != self.dtype:
+            raise ValueError(" The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -282,6 +288,12 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
+        if y.dtype != np.int32:
+            raise TypeError(" The labels need to have dtype = np.int32")
+
+        if X.dtype != self.dtype:
+            raise ValueError(" The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
