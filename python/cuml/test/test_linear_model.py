@@ -120,8 +120,12 @@ def test_linear_models(datatype, X_type, y_type,
 
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
-def test_logistic_regression(num_classes, dtype):
-    nrows = 400000
+@pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
+@pytest.mark.parametrize('l1_ratio', [0.0, 0.3, 0.5, 0.7, 1.0])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
+                             fit_intercept):
+    nrows = 50000
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=num_classes,
                                n_redundant=0, n_informative=2)
@@ -130,13 +134,27 @@ def test_logistic_regression(num_classes, dtype):
     X_train = np.asarray(X[0:train_rows, :]).astype(dtype)
     y_train = np.asarray(y[0:train_rows, ]).astype(dtype)
 
-    culog = cuLog()
+    culog = cuLog(penalty=penalty, l1_ratio=l1_ratio, C=5.0,
+                  fit_intercept=fit_intercept, tol=1e-8)
     culog.fit(X_train, y_train)
 
-    sklog = skLog()
+    # Only solver=saga supports elasticnet in scikit
+    if penalty in ['elasticnet', 'l1']:
+        sklog = skLog(penalty=penalty, l1_ratio=l1_ratio, solver='saga', C=5.0,
+                      fit_intercept=fit_intercept)
+    else:
+        sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
+                      fit_intercept=fit_intercept)
     sklog.fit(X_train, y_train)
 
     preds = culog.predict(X_test)
     skpreds = sklog.predict(X_test)
 
-    assert np.sum(preds.to_array() != skpreds)/80000 < 1e-1
+    # Setting tolerance to lowest possible per loss to detect regressions
+    # as much as possible
+    if penalty in ['elasticnet', 'l1', 'l2']:
+        assert np.sum(preds.to_array() != skpreds)/10000 < 1e-1
+    else:
+        # This is the only case where cuml and sklearn actually do a similar
+        # lbfgs, other cases cuml does owl or sklearn does saga
+        assert np.sum(preds.to_array() != skpreds)/10000 < 1e-3
