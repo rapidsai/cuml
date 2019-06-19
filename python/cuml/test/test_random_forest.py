@@ -37,12 +37,13 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
-                         stress_param(600)])
+                         stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
-                         stress_param(500)])
+                         stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_rf_predict_numpy(datatype, use_handle, n_info, nrows, ncols):
+@pytest.mark.parametrize('split_algo', [0,1])
+def test_rf_predict_numpy(datatype, use_handle, split_algo, n_info, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -58,8 +59,8 @@ def test_rf_predict_numpy(datatype, use_handle, n_info, nrows, ncols):
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=2, split_algo=0, min_rows_per_node=2,
-                       n_estimators=40, handle=handle, max_leaves=-1)
+                       n_bins=8, split_algo=split_algo, min_rows_per_node=2,
+                       n_estimators=30, handle=handle, max_leaves=-1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
