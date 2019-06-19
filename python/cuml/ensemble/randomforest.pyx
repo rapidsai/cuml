@@ -332,6 +332,11 @@ class RandomForestClassifier(Base):
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
 
+    Note that the underlying algorithm for tree node splits differs from that
+    used in scikit-learn. By default, the cuML Random Forest uses a
+    histogram-based algorithms to determine splits, rather than an exact
+    count. You can tune the size of the histograms with the n_bins parameter.
+
     **Known Limitations**: This is an initial preview release of the cuML
     Random Forest code. It contains a number of known
     limitations:
