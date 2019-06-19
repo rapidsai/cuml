@@ -17,7 +17,7 @@ The public cuML interface is stateless for two main reasons:
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
-As mentioned before, functions exposed via the base cuML-c++ layer must be stateless. Things that are OK to be expoesd on the interface:
+As mentioned before, functions exposed via the base cuML C++ layer must be stateless. Things that are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
