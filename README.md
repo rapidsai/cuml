@@ -66,29 +66,17 @@ repo](https://github.com/rapidsai/notebooks-extended).
 | **Time Series** | Linear Kalman Filter | |
 ---
 
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them: t-sne, random forests, spectral embedding, spectral clustering, random projections, support vector machine and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are planned for
+future releases, including: T-SNE, spectral embedding, spectral clustering,
+support vector machines, and additional time series methods. Future releases
+will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
-1. Install NVIDIA drivers with CUDA 9.2 or 10.0
-2. Ensure `libomp` and `libopenblas` are installed, for example via apt:
-```bash
-sudo apt install libopenblas-base libomp-dev
-```
-
-#### Conda
-cuML can be installed using the `rapidsai` conda channel:
-
-CUDA 9.2
-```bash
-
-conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=9.2
-```
-
-CUDA 10.0
-```bash
-conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=10.0
-```
+See [the RAPIDS Release
+Selector](https://rapids.ai/start.html#rapids-release-selector) for the command
+line to install either nightly or official release cuML packages via Conda or
+Docker.
 
 ## Build/Install from Source
 See the build [guide](BUILD.md).
