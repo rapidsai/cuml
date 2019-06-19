@@ -69,9 +69,11 @@ double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
          * @param n: Number of elements in y and y_hat
          * @return: The rand index value
          */
+
 double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 
 /**
+<<<<<<< HEAD
          * Calculates the "Silhouette Score"
          *
          * The Silhouette Coefficient is calculated using the mean intra-cluster distance (a)
@@ -92,6 +94,24 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
                        int nCols, int *labels, int nLabels, double *silScores,
                        int metric);
+=======
+         * Calculates the "adjusted rand index"
+         *
+         * This metric is the corrected-for-chance version of the rand index 
+         *
+         * @param handle: cumlHandle
+         * @param y: Array of response variables of the first clustering classifications
+         * @param y_hat: Array of response variables of the second clustering classifications
+         * @param n: Number of elements in y and y_hat
+         * @param lower_class_range: the lowest value in the range of classes
+         * @param upper_class_range: the highest value in the range of classes
+         * @return: The adjusted rand index value
+         */
+double adjustedRandIndex(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
+>>>>>>> 37dc534f98389c6fc94338d82af60b495125882c
 
 }  // namespace Metrics
 }  // namespace ML

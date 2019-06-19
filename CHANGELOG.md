@@ -2,11 +2,16 @@
 
 ## New Features
 
+<<<<<<< HEAD
 - PR #697: Silhouette Score metric ml-prim
+=======
+- PR #652: Adjusted Rand Index metric ml-prim
+>>>>>>> 37dc534f98389c6fc94338d82af60b495125882c
 - PR #679: Class label manipulation ml-prim
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
+- PR #644: Add train_test_split utility for cuDF dataframes
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
@@ -30,13 +35,17 @@
 - PR #622: Updated to use 0.8 dependencies
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
-- PR #650: Moving brute force kNN to prims. Creating stateless kNN API. 
+- PR #650: Moving brute force kNN to prims. Creating stateless kNN API.
 - PR #662: C++: Bulk clang-format updates
 - PR #671: Added pickle pytests and correct pickling of Base class
+- PR #675: atomicMin/Max(float, double) with integer atomics and bit flipping
 - PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
 - PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
+- PR #695: prims: Refactor pairwise distance
+- PR #707: Added stress test and updated documentation for RF 
 - PR #701: Added emacs temporary file patterns to .gitignore
+- PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -47,8 +56,10 @@
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 - PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
 - PR #676: Fix template parameters in `bernoulli()` implementation.
+- PR #685: Make CuPy optional to avoid nccl conda package conflicts
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #719: Adding additional checks for dtype of the data
 
 # cuML 0.7.0 (10 May 2019)
 
