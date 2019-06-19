@@ -22,17 +22,71 @@
 namespace MLCommon {
 namespace Stats {
 
-///@todo: implement a proper "fill" kernel
 template <typename T>
+struct encode_traits {};
+
+template <>
+struct encode_traits<float> {
+  using E = int;
+};
+
+template <>
+struct encode_traits<double> {
+  using E = long long;
+};
+
+__host__ __device__ int encode(float val) {
+  int i = *(int*)&val;
+  return i >= 0 ? i : (1 << 31) | ~i;
+}
+
+__host__ __device__ long long encode(double val) {
+  long long i = *(long long*)&val;
+  return i >= 0 ? i : (1ULL << 63) | ~i;
+}
+
+__host__ __device__ float decode(int val) {
+  if (val < 0) val = (1 << 31) | ~val;
+  return *(float*)&val;
+}
+
+__host__ __device__ double decode(long long val) {
+  if (val < 0) val = (1ULL << 63) | ~val;
+  return *(double*)&val;
+}
+
+template <typename T, typename E>
+__device__ T atomicMaxBits(T* address, T val) {
+  E old = atomicMax((E*)address, encode(val));
+  return decode(old);
+}
+
+template <typename T, typename E>
+__device__ T atomicMinBits(T* address, T val) {
+  E old = atomicMin((E*)address, encode(val));
+  return decode(old);
+}
+
+template <typename T, typename E>
+__global__ void decodeKernel(T* globalmin, T* globalmax, int ncols) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < ncols) {
+    globalmin[tid] = decode(*(E*)&globalmin[tid]);
+    globalmax[tid] = decode(*(E*)&globalmax[tid]);
+  }
+}
+
+///@todo: implement a proper "fill" kernel
+template <typename T, typename E>
 __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax,
                                  T init_val) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
-  globalmin[tid] = init_val;
-  globalmax[tid] = -init_val;
+  *(E*)&globalmin[tid] = encode(init_val);
+  *(E*)&globalmax[tid] = encode(-init_val);
 }
 
-template <typename T>
+template <typename T, typename E>
 __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
                              const unsigned int* colids, int nrows, int ncols,
                              int row_stride, T* g_min, T* g_max, T* sampledcols,
@@ -54,8 +108,8 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
     }
 
     for (int i = threadIdx.x; i < batch_ncols; i += blockDim.x) {
-      s_min[i] = init_min_val;
-      s_max[i] = -init_min_val;
+      *(E*)&s_min[i] = encode(init_min_val);
+      *(E*)&s_max[i] = encode(-init_min_val);
     }
     __syncthreads();
 
@@ -70,10 +124,11 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
       }
       int index = row + col * row_stride;
       T coldata = data[index];
-
-      //Min max values are saved in shared memory and global memory as per the shuffled colids.
-      myAtomicMin(&s_min[(int)(i / nrows)], coldata);
-      myAtomicMax(&s_max[(int)(i / nrows)], coldata);
+      if (!isnan(coldata)) {
+        //Min max values are saved in shared memory and global memory as per the shuffled colids.
+        atomicMinBits<T, E>(&s_min[(int)(i / nrows)], coldata);
+        atomicMaxBits<T, E>(&s_max[(int)(i / nrows)], coldata);
+      }
       if (sampledcols != nullptr) {
         sampledcols[batch_id * orig_batch_ncols + i] = coldata;
       }
@@ -82,8 +137,10 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
 
     // finally, perform global mem atomics
     for (int j = threadIdx.x; j < batch_ncols; j += blockDim.x) {
-      myAtomicMin(&g_min[batch_id * orig_batch_ncols + j], s_min[j]);
-      myAtomicMax(&g_max[batch_id * orig_batch_ncols + j], s_max[j]);
+      atomicMinBits<T, E>(&g_min[batch_id * orig_batch_ncols + j],
+                          decode(*(E*)&s_min[j]));
+      atomicMaxBits<T, E>(&g_max[batch_id * orig_batch_ncols + j],
+                          decode(*(E*)&s_max[j]));
     }
     __syncthreads();
   }
@@ -119,9 +176,10 @@ template <typename T, int TPB = 512>
 void minmax(const T* data, const unsigned int* rowids,
             const unsigned int* colids, int nrows, int ncols, int row_stride,
             T* globalmin, T* globalmax, T* sampledcols, cudaStream_t stream) {
+  using E = typename encode_traits<T>::E;
   int nblks = ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
-  minmaxInitKernel<T>
+  minmaxInitKernel<T, E>
     <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
   CUDA_CHECK(cudaPeekAtLastError());
   nblks = ceildiv(nrows * ncols, TPB);
@@ -140,9 +198,11 @@ void minmax(const T* data, const unsigned int* rowids,
   int num_batches = ceildiv(ncols, batch_ncols);
   smemSize = sizeof(T) * 2 * batch_ncols;
 
-  minmaxKernel<T><<<nblks, TPB, smemSize, stream>>>(
+  minmaxKernel<T, E><<<nblks, TPB, smemSize, stream>>>(
     data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
     sampledcols, init_val, batch_ncols, num_batches);
+  CUDA_CHECK(cudaPeekAtLastError());
+  decodeKernel<T, E><<<nblks, TPB, 0, stream>>>(globalmin, globalmax, ncols);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

@@ -92,7 +92,7 @@ class rf {
   RF_params rf_params;
   int rf_type;
   virtual const DecisionTree::DecisionTreeBase<T, L>* get_trees_ptr() const = 0;
-  ~rf() = default;
+  virtual ~rf() = default;
   void prepare_fit_per_tree(const ML::cumlHandle_impl& handle, int tree_id,
                             int n_rows, int n_sampled_rows,
                             unsigned int* selected_rows,
