@@ -75,9 +75,9 @@ DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
 
   DataT h_KLDVal;
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   MLCommon::updateHost(&h_KLDVal, d_KLDVal.data(), 1, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   return h_KLDVal;
 }
