@@ -21,7 +21,7 @@ As mentioned before, functions exposed via the base cuML C++ layer must be state
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
-Internally, for the C++ base layer atleast, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
+Internally, for the C++ base layer at least, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
 ### `libcuml++.so` (aka C++ API)
 Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, this API exposes a non-POD C++ class object along the C++ API.
