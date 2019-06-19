@@ -71,7 +71,7 @@ void storeTreeNode(const TreeNodeD *root, std::ostream &os);
 void loadTreeNode(TreeNodeF *&root, std::istream &is);
 void loadTreeNode(TreeNodeD *&root, std::istream &is);
 ```
-It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store methods are not explicitly needed.
+It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and therefore easy to manipulate directly by the users, such custom load/store methods might not explicitly needed.
 
 ### `libcuml.so` (aka C-API wrapper over C++ API)
 Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
