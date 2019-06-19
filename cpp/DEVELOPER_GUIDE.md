@@ -74,7 +74,7 @@ void loadTreeNode(TreeNodeD *&root, std::istream &is);
 It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store methods are not explicitly needed.
 
 ### `libcuml.so` (aka C-API wrapper over C++ API)
-As long as the guidelines in the above sub-sections have been followed, it must be easy to C-wrap the C++ API. Refer to [dbscan](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
+Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
 1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
 2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
