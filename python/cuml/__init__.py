@@ -44,6 +44,8 @@ from cuml.manifold.umap import UMAP
 
 from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
+from cuml.preprocessing.model_selection import train_test_split
+
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 from cuml.ensemble.randomforest import RandomForestClassifier
