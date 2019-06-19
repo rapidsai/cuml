@@ -15,8 +15,7 @@
 
 import pytest
 import cuml
-from cuml.test.utils import array_equal, np_to_cudf
-import cudf
+from cuml.test.utils import array_equal
 import numpy as np
 from sklearn.datasets import make_regression
 import pickle
