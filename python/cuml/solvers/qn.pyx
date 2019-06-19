@@ -21,7 +21,6 @@
 import ctypes
 import cudf
 import numpy as np
-import cupy
 
 from numba import cuda
 
@@ -157,7 +156,13 @@ class QN(Base):
         y_m, y_ptr, lab_rows, _, _ = \
             input_to_dev_array(y)
 
-        self.num_classes = len(cupy.unique(y_m)) - 1
+        try:
+            import cupy as cp
+            self.num_classes = len(cupy.unique(y_m)) - 1
+        except ImportError:
+            warnings.warn("Using NumPy for number of class detection,"
+                          "install CuPy for faster processing.")
+            self.num_classes = len(np.unique(y_m)) - 1
 
         if self.loss_type != 2 and self.num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
