@@ -13,7 +13,7 @@ The implementation of cuML is single threaded.
 ### Motivation
 The public cuML interface is stateless for two main reasons:
 1. To ease the serialization of ML algorithm's state information (model, hyper-params, etc), enabling features such as easy pickling in the python layer.
-2. Provide a proper C-binding to interface with languages that don't understand C++
+2. To provide proper C bindings for interfacing with languages that can't consume C++ APIs  directly.
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
