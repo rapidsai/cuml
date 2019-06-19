@@ -354,8 +354,9 @@ class RandomForestClassifier(Base):
 
        * Instances of RandomForestClassifier cannot be pickled currently.
 
-    The code is under heavy development, so users who need these features
-    may wish to pull from nightly builds of cuML.
+    The code is under heavy development, so users who need these features may
+    wish to pull from nightly builds of cuML. (See https://rapids.ai/start.html
+    for instructions to download nightly packages via conda.)
 
     Examples
     ---------

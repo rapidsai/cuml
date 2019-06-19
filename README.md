@@ -40,9 +40,11 @@ dtype: int32
 ```
 
 For additional examples, browse our complete [API
-documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our more
-detailed [walkthrough
-notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
+documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
+introductory [walkthrough
+notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml). Finally, you
+can find complete end-to-end examples in the [notebooks-extended
+repo](https://github.com/rapidsai/notebooks-extended).
 
 
 ### Supported Algorithms
@@ -59,8 +61,8 @@ notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 | | Linear Regression with Lasso or Ridge Regularization | |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
-| | SGD, LBFGS, and Coordinate Descent Solvers for linear models | |
-| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Clasification | Initial preview version in cuML 0.8 | 
+| | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Initial preview version in cuML 0.8 | 
 | **Time Series** | Linear Kalman Filter | |
 ---
 
