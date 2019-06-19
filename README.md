@@ -4,12 +4,19 @@
 
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
-cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
+cuML enables data scientists, researchers, and software engineers to run
+traditional tabular ML tasks on GPUs without going into the details of CUDA
+programming. In most cases, cuML's Python API matches the API from
+[scikit-learn](https://scikit-learn.org).
+
+For large datasets, these GPU-based implementations can complete 10-50x faster
+than their CPU equivalents. For details on performance, see the [cuML Benchmarks
+Notebook](https://github.com/rapidsai/notebooks-extended/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```python
 import cudf
-from cuml import DBSCAN
+from cuml.cluster import DBSCAN
 
 # Create and populate a GPU DataFrame
 gdf_float = cudf.DataFrame()
@@ -32,26 +39,29 @@ Output:
 dtype: int32
 ```
 
-For additional examples, browse our complete [API documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
+For additional examples, browse our complete [API
+documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our more
+detailed [walkthrough
+notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 
-### Supported Algorithms:
 
-| Algorithm | Scale | Notes |
+### Supported Algorithms
+| Category | Algorithm | Notes |
 | --- | --- | --- |
-| Coordinate Descent | Single-GPU | |
-| Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
-| K-Means Clustering | Single-GPU |
-| K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
-| Linear Kalman Filter | Single-GPU |
-| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
-| Linear Regression with Lasso Regularization | Single-GPU |
-| Linear Regression with Elastic-Net Regularization | Single-GPU |
-| Principal Component Analysis (PCA) | Single GPU |
-| Ridge Regression | Single-GPU |
-| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
-| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
-| UMAP | Single-GPU |
-
+| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
+|  | K-Means | |
+|  | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| **Dimensionality Reduction** | Principal Components Analysis (PCA) | |
+| | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
+| | Uniform Manifold Approximation and Projection (UMAP) | |
+| | Random Projection | |
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| | Linear Regression with Lasso or Ridge Regularization | |
+| | ElasticNet Regression | |
+| | Logistic Regression | |
+| | SGD, LBFGS, and Coordinate Descent Solvers for linear models | |
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Clasification | Initial preview version in cuML 0.8 | 
+| **Time Series** | Linear Kalman Filter | |
 ---
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them: t-sne, random forests, spectral embedding, spectral clustering, random projections, support vector machine and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
