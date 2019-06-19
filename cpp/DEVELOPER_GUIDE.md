@@ -24,7 +24,7 @@ As mentioned before, functions exposed via the base cuML C++ layer must be state
 Internally, for the C++ base layer at least, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
 ### `libcuml++.so` (aka C++ API)
-Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, this API exposes a non-POD C++ class object along the C++ API.
+Using the Decision Tree Classifier algorithm as an example, the following way of exposing its API would be wrong according to the guidelines in this section, since it exposes a non-POD C++ class object in the C++ API:
 ```cpp
 template <typename T>
 class DecisionTreeClassifier {
