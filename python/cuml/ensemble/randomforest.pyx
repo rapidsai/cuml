@@ -20,15 +20,10 @@
 # cython: language_level = 3
 
 import ctypes
-import cupy
-import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
-
-from cuml.utils import get_cudf_column_ptr,\
-    get_dev_array_ptr, input_to_dev_array,\
-    zeros
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -36,9 +31,10 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -144,7 +140,7 @@ cdef class RandomForest_impl():
         self.max_features = max_features
         self.type_model = self._get_type(type_model)
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
@@ -175,7 +171,7 @@ cdef class RandomForest_impl():
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
-            raise TypeError(" The labels need to have dtype = np.int32")
+            raise TypeError("The labels need to have dtype = np.int32")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
@@ -183,11 +179,18 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cupy.unique(y)
+        try:
+            import cupy as cp
+            unique_labels = cp.unique(y)
+        except ImportError:
+            warnings.warn("Using NumPy for number of class detection,"
+                          "install CuPy for faster processing.")
+            unique_labels = np.unique(y.copy_to_host())
+
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
             if i not in unique_labels:
-                raise ValueError(" The labels need "
+                raise ValueError("The labels need "
                                  "to be from 0 to num_unique_label values")
 
         rf_param = set_rf_class_obj(<int> self.max_depth,
@@ -236,8 +239,11 @@ cdef class RandomForest_impl():
         X_ptr = X.ctypes.data
         n_rows, n_cols = np.shape(X)
         if n_cols != self.n_cols:
-            raise ValueError(" The number of columns/features in the training"
+            raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
+        if X.dtype != self.dtype:
+            raise ValueError("The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -280,8 +286,14 @@ cdef class RandomForest_impl():
         n_rows, n_cols = np.shape(X)
 
         if n_cols != self.n_cols:
-            raise ValueError(" The number of columns/features in the training"
+            raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
+        if y.dtype != np.int32:
+            raise TypeError("The labels need to have dtype = np.int32")
+
+        if X.dtype != self.dtype:
+            raise ValueError("The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -320,9 +332,8 @@ class RandomForestClassifier(Base):
     """
     Implements a Random Forest classifier model
     which fits multiple decision tree classifiers.
-    The user is responsible for setting the various
-    state variables to appropriate values.
-    The model at the moment uses only numpy arrays as inputs.
+    The model accepts cudf dataframe as an input only
+    for the fit function.
 
 
     Examples
@@ -357,10 +368,10 @@ class RandomForestClassifier(Base):
     n_estimators : int (default = 10)
                    number of trees in the forest.
     handle : cuml.Handle
-             If it is None, a new one is created just for this class.
+             If it is None, a new handle is created for this instance.
     split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
                  (default = 0)
-                 The type of algorithm to be used to create the trees.
+                 the algorithm to determine how nodes are split in the tree.
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
@@ -412,7 +423,7 @@ class RandomForestClassifier(Base):
 
         for key, vals in sklearn_params.items():
             if vals is not None:
-                raise TypeError(" The sklearn variable ", key,
+                raise TypeError("The sklearn variable ", key,
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
@@ -501,7 +512,8 @@ class RandomForestClassifier(Base):
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Returns the value of all parameters
+        required to configure this estimator as a dictionary.
         Parameters
         -----------
         deep : boolean (default = True)
@@ -520,7 +532,9 @@ class RandomForestClassifier(Base):
 
     def set_params(self, **params):
         """
-        Sklearn style set parameter state to dictionary of params.
+        Sets the value of parameters required to
+        configure this estimator, it functions similar to
+        the sklearn set_params.
         Parameters
         -----------
         params : dict of new params
