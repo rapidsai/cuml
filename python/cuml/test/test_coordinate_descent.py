@@ -39,7 +39,7 @@ def stress_param(*args, **kwargs):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('lr', [0.1, 0.001])
+@pytest.mark.parametrize('alpha', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -47,7 +47,7 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_lasso(datatype, X_type, lr, algorithm,
+def test_lasso(datatype, X_type, alpha, algorithm,
                nrows, ncols, n_info):
 
     train_rows = np.int32(nrows*0.8)
@@ -57,7 +57,7 @@ def test_lasso(datatype, X_type, lr, algorithm,
     X_train = np.asarray(X[0:train_rows, :], dtype=datatype)
     y_train = np.asarray(y[0:train_rows, ], dtype=datatype)
 
-    cu_lasso = cuLasso(alpha=np.array([lr]), fit_intercept=True,
+    cu_lasso = cuLasso(alpha=np.array([alpha]), fit_intercept=True,
                        normalize=False, max_iter=1000,
                        selection=algorithm, tol=1e-10)
 
@@ -81,7 +81,7 @@ def test_lasso(datatype, X_type, lr, algorithm,
         cu_predict = cu_lasso.predict(X_test)
 
     if nrows < 500000:
-        sk_lasso = Lasso(alpha=np.array([lr]), fit_intercept=True,
+        sk_lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
                          normalize=False, max_iter=1000,
                          selection=algorithm, tol=1e-10)
         sk_lasso.fit(X_train, y_train)
@@ -91,7 +91,7 @@ def test_lasso(datatype, X_type, lr, algorithm,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('lr', [0.1, 0.001])
+@pytest.mark.parametrize('alpha', [0.2, 0.7])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -99,7 +99,7 @@ def test_lasso(datatype, X_type, lr, algorithm,
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_elastic_net(datatype, X_type, lr, algorithm,
+def test_elastic_net(datatype, X_type, alpha, algorithm,
                      nrows, ncols, n_info):
 
     train_rows = np.int32(nrows*0.8)
@@ -110,7 +110,7 @@ def test_elastic_net(datatype, X_type, lr, algorithm,
     X_train = np.asarray(X[0:train_rows, :], dtype=datatype)
     y_train = np.asarray(y[0:train_rows, ], dtype=datatype)
 
-    elastic_cu = cuElasticNet(alpha=np.array([0.1]), fit_intercept=True,
+    elastic_cu = cuElasticNet(alpha=np.array([alpha]), fit_intercept=True,
                               normalize=False, max_iter=1000,
                               selection=algorithm, tol=1e-10)
 
@@ -134,7 +134,7 @@ def test_elastic_net(datatype, X_type, lr, algorithm,
         cu_predict = elastic_cu.predict(X_test)
 
     if nrows < 500000:
-        elastic_sk = ElasticNet(alpha=np.array([0.1]), fit_intercept=True,
+        elastic_sk = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
                                 normalize=False, max_iter=1000,
                                 selection=algorithm, tol=1e-10)
         elastic_sk.fit(X_train, y_train)
