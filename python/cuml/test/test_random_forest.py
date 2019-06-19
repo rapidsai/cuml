@@ -42,8 +42,9 @@ def stress_param(*args, **kwargs):
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('split_algo', [0,1])
-def test_rf_predict_numpy(datatype, use_handle, split_algo, n_info, nrows, ncols):
+@pytest.mark.parametrize('split_algo', [0, 1])
+def test_rf_predict_numpy(datatype, use_handle, split_algo,
+                          n_info, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
