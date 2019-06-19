@@ -14,6 +14,7 @@ The implementation of cuML is single threaded.
 The public cuML interface is stateless for two main reasons:
 1. To ease the serialization of ML algorithm's state information (model, hyper-params, etc), enabling features such as easy pickling in the python layer.
 2. To provide proper C bindings for interfacing with languages that can't consume C++ APIs  directly.
+
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
@@ -63,13 +64,13 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input
 ```
 The above example understates the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
-### WIP TODO (Need to explore this further!)
+### Other functions on state
 This guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Random Forest example,  the following methods could achieve this:
 ```cpp
-void storeTreeNode(const TreeNodeF *root, std::ostream &os);
-void storeTreeNode(const TreeNodeD *root, std::ostream &os);
-void loadTreeNode(TreeNodeF *&root, std::istream &is);
-void loadTreeNode(TreeNodeD *&root, std::istream &is);
+void storeTree(const TreeNodeF *root, std::ostream &os);
+void storeTree(const TreeNodeD *root, std::ostream &os);
+void loadTree(TreeNodeF *&root, std::istream &is);
+void loadTree(TreeNodeD *&root, std::istream &is);
 ```
 It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and therefore easy to manipulate directly by the users, such custom load/store methods might not explicitly needed.
 
