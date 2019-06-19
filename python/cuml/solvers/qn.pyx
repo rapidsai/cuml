@@ -106,15 +106,15 @@ class QN(Base):
     """
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
-                 l1_ratio=0, l2_ratio=0, max_iter=1000, tol=1e-3,
+                 l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5, verbose=False,
                  num_classes=1, handle=None):
 
         super(QN, self).__init__(handle=handle, verbose=False)
 
         self.fit_intercept = fit_intercept
-        self.l1_ratio = l1_ratio
-        self.l2_ratio = l2_ratio
+        self.l1_strength = l1_strength
+        self.l2_strength = l2_strength
         self.max_iter = max_iter
         self.tol = tol
         self.linesearch_max_iter = linesearch_max_iter
@@ -130,8 +130,8 @@ class QN(Base):
     def _get_loss_int(self, loss):
         return {
             'sigmoid': 0,
-            'softmax': 1,
-            'normal': 2
+            'softmax': 2,
+            'normal': 1
         }[loss]
 
     def fit(self, X, y):
@@ -159,7 +159,11 @@ class QN(Base):
 
         self.num_classes = len(cupy.unique(y_m)) - 1
 
-        if self.loss_type != 1 and self.num_classes > 2:
+        if self.loss_type != 2 and self.num_classes > 2:
+            raise ValueError("Only softmax (multinomial) loss supports more"
+                             "than 2 classes.")
+
+        if self.loss_type == 2 and self.num_classes <= 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
@@ -189,8 +193,8 @@ class QN(Base):
                   <int>self.n_cols,
                   <int> self.num_classes,
                   <bool> self.fit_intercept,
-                  <float> self.l1_ratio,
-                  <float> self.l2_ratio,
+                  <float> self.l1_strength,
+                  <float> self.l2_strength,
                   <int> self.max_iter,
                   <float> self.tol,
                   <int> self.linesearch_max_iter,
@@ -212,8 +216,8 @@ class QN(Base):
                   <int>self.n_cols,
                   <int> self.num_classes,
                   <bool> self.fit_intercept,
-                  <double> self.l1_ratio,
-                  <double> self.l2_ratio,
+                  <double> self.l1_strength,
+                  <double> self.l2_strength,
                   <int> self.max_iter,
                   <double> self.tol,
                   <int> self.linesearch_max_iter,
