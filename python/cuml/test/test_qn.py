@@ -197,236 +197,239 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
                 print()
 
+    elif penalty == 'softmax':
+            pytest.skip("Better initial conditions for softmax tests are "
+                        "in progress.")
+
     # todo add tests for softmax dtype=np.float64
     # elasticnet for this points converged to different solution
-    if loss == 'softmax' and dtype == np.float32:
-        if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
-            if fit_intercept:
-                assert (qn.objective - 0.007433414924889803) < tol
-                np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                               np.array([[15.236361,
-                                                         -41.595913,
-                                                         -33.55021],
-                                                        [-36.607555,
-                                                         -13.91267,
-                                                         -42.66093],
-                                                        [-25.04939,
-                                                         -26.793947,
-                                                         -31.50192]]),
-                                               decimal=3)
-            else:
-                assert (qn.objective - 0.18794211745262146) < tol
-                np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                               np.array([[14.2959795,
-                                                         -104.63812,
-                                                         -96.41866],
-                                                        [-105.31236,
-                                                         -170.4887,
-                                                         -96.486]]),
-                                               decimal=3)
-        elif penalty == 'l1' and l2_strength == 0.0:
-            if fit_intercept:
-                if l1_strength == 0.0:
-                    assert (qn.objective - 0.007433414924889803) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[15.236361,
-                                                             -41.595913,
-                                                             -33.55021],
-                                                            [-36.607555,
-                                                             -13.91267,
-                                                             -42.66093],
-                                                            [-25.04939,
-                                                             -26.793947,
-                                                             -31.50192]]),
-                                                   decimal=3)
-                else:
-                    assert (qn.objective - 0.2925984263420105) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.2279763,
-                                                              -2.011927,
-                                                              -1.8038181],
-                                                             [-3.3828118,
-                                                              -0.64903206,
-                                                              -3.0688426],
-                                                             [-1.6962943,
-                                                              -0.8585775,
-                                                              -1.1564851]]),
-                                                   decimal=3)
+    # if loss == 'softmax':
+    #     if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
+    #         if fit_intercept:
+    #             assert (qn.objective - 0.007433414924889803) < tol
+    #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                            np.array([[15.236361,
+    #                                                      -41.595913,
+    #                                                      -33.55021],
+    #                                                     [-36.607555,
+    #                                                      -13.91267,
+    #                                                      -42.66093],
+    #                                                     [-25.04939,
+    #                                                      -26.793947,
+    #                                                      -31.50192]]),
+    #                                            decimal=3)
+    #         else:
+    #             assert (qn.objective - 0.18794211745262146) < tol
+    #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                            np.array([[14.2959795,
+    #                                                      -104.63812,
+    #                                                      -96.41866],
+    #                                                     [-105.31236,
+    #                                                      -170.4887,
+    #                                                      -96.486]]),
+    #                                            decimal=3)
+    #     elif penalty == 'l1' and l2_strength == 0.0:
+    #         if fit_intercept:
+    #             if l1_strength == 0.0:
+    #                 assert (qn.objective - 0.007433414924889803) < tol
+    #                 np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                                np.array([[15.236361,
+    #                                                          -41.595913,
+    #                                                          -33.55021],
+    #                                                         [-36.607555,
+    #                                                          -13.91267,
+    #                                                          -42.66093],
+    #                                                         [-25.04939,
+    #                                                          -26.793947,
+    #                                                          -31.50192]]),
+    #                                                decimal=3)
+    #             else:
+    #                 assert (qn.objective - 0.2925984263420105) < tol
+    #                 np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                                np.array([[1.2279763,
+    #                                                           -2.011927,
+    #                                                           -1.8038181],
+    #                                                          [-3.3828118,
+    #                                                           -0.64903206,
+    #                                                           -3.0688426],
+    #                                                          [-1.6962943,
+    #                                                           -0.8585775,
+    #                                                           -1.1564851]]),
+    #                                                decimal=3)
 
-            else:
-                if l1_strength == 0.0:
-                    assert (qn.objective - 0.18794211745262146) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[14.2959795,
-                                                             -104.63812,
-                                                             -96.41866],
-                                                            [-105.31236,
-                                                             -170.4887,
-                                                             -96.486]]),
-                                                   decimal=3)
+    #         else:
+    #             if l1_strength == 0.0:
+    #                 assert (qn.objective - 0.18794211745262146) < tol
+    #                 np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                                np.array([[14.2959795,
+    #                                                          -104.63812,
+    #                                                          -96.41866],
+    #                                                         [-105.31236,
+    #                                                          -170.4887,
+    #                                                          -96.486]]),
+    #                                                decimal=3)
 
-                else:
-                    assert (qn.objective - 0.3777262568473816) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.4765631,
-                                                              -1.569497,
-                                                              -0.6421711],
-                                                             [-2.0787644,
-                                                              -1.593922,
-                                                              -0.73674846]]),
-                                                   decimal=3)
+    #             else:
+    #                 assert (qn.objective - 0.3777262568473816) < tol
+    #                 np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+    #                                                np.array([[1.4765631,
+    #                                                           -1.569497,
+    #                                                           -0.6421711],
+    #                                                          [-2.0787644,
+    #                                                           -1.593922,
+    #                                                           -0.73674846]]),
+    #                                                decimal=3)
 
-        elif penalty == 'l2' and l1_strength == 0.0:
-            if fit_intercept:
-                if l2_strength == 0.0:
-                    assert (qn.objective - 0.1726059913635254) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[26.228544,
-                                                             -40.262405,
-                                                             -54.424152],
-                                                            [-25.567667,
-                                                             -28.038565,
-                                                             -50.93895],
-                                                            [-17.630503,
-                                                             -44.088245,
-                                                             -41.725666]]),
-                                                   decimal=3)
-                else:
-                    assert (qn.objective - 0.28578639030456543) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.6702422,
-                                                             -1.5495867,
-                                                             -1.193351],
-                                                            [-2.207053,
-                                                             -0.6854614,
-                                                             -2.0305414],
-                                                            [-1.1746005,
-                                                             -0.7992407,
-                                                             -1.0034739]]),
-                                                   decimal=3)
 
-            else:
-                if l2_strength == 0.0:
-                    assert (qn.objective - 0.18794211745262146) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[14.2959795,
-                                                             -104.63812,
-                                                             -96.41866],
-                                                            [-105.31236,
-                                                             -170.4887,
-                                                             -96.486]]),
-                                                   decimal=3)
 
-                else:
-                    assert (qn.objective - 0.3537392020225525) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.3769588,
-                                                             -1.0002015,
-                                                             -0.5205092],
-                                                            [-1.5185534,
-                                                             -1.029575,
-                                                             -0.47429192]]),
-                                                   decimal=3)
+        # elif penalty == 'l2' and l1_strength == 0.0:
+        #     if fit_intercept:
+        #         if l2_strength == 0.0:
+        #             assert (qn.objective - 0.007433414924889803) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[15.236361,
+        #                                                      -41.595913,
+        #                                                      -33.55021],
+        #                                                     [-36.607555,
+        #                                                      -13.91267,
+        #                                                      -42.66093],
+        #                                                     [-25.04939,
+        #                                                      -26.793947,
+        #                                                      -31.50192]]),
+        #                                            decimal=3)
+        #         else:
+        #             assert (qn.objective - 0.28578639030456543) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.6702422,
+        #                                                      -1.5495867,
+        #                                                      -1.193351],
+        #                                                     [-2.207053,
+        #                                                      -0.6854614,
+        #                                                      -2.0305414],
+        #                                                     [-1.1746005,
+        #                                                      -0.7992407,
+        #                                                      -1.0034739]]),
+        #                                            decimal=3)
 
-        if penalty == 'elasticnet':
-            if fit_intercept:
-                if l1_strength == 0.0 and l2_strength == 0.0:
-                    assert (qn.objective - 0.007433414924889803) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[15.236361,
-                                                             -41.595913,
-                                                             -33.55021],
-                                                            [-36.607555,
-                                                             -13.91267,
-                                                             -42.66093],
-                                                            [-25.04939,
-                                                             -26.793947,
-                                                             -31.50192]]),
-                                                   decimal=3)
-                elif l1_strength == 0.0:
-                    assert (qn.objective - 0.28578639030456543) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.6702422,
-                                                             -1.5495867,
-                                                             -1.193351],
-                                                            [-2.207053,
-                                                             -0.6854614,
-                                                             -2.0305414],
-                                                            [-1.1746005,
-                                                             -0.7992407,
-                                                             -1.0034739]]),
-                                                   decimal=3)
-                elif l2_strength == 0.0:
-                    assert (qn.objective - 0.2925984263420105) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.2279763,
-                                                             -2.011927,
-                                                             -1.8038181],
-                                                            [-3.3828118,
-                                                             -0.64903206,
-                                                             -3.0688426],
-                                                            [-1.6962943,
-                                                             -0.8585775,
-                                                             -1.1564851]]),
-                                                   decimal=3)
-                else:
-                    assert (qn.objective - 0.34934690594673157) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.1901233,
-                                                             -1.2236115,
-                                                             -1.0416932],
-                                                            [-2.3100038,
-                                                             -0.46381754,
-                                                             -2.1544967],
-                                                            [-1.0984052,
-                                                             -0.44855425,
-                                                             -0.7347126]]),
-                                                   decimal=3)
-            else:
-                if l1_strength == 0.0 and l2_strength == 0.0:
-                    assert (qn.objective - 0.18794211745262146) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[14.2959795,
-                                                             -104.63812,
-                                                             -96.41866],
-                                                            [-105.31236,
-                                                             -170.4887,
-                                                             -96.486]]),
-                                                   decimal=3)
-                elif l1_strength == 0.0:
-                    assert (qn.objective - 0.3537392020225525) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.3769588,
-                                                             -1.0002015,
-                                                             -0.5205092],
-                                                            [-1.5185534,
-                                                             -1.029575,
-                                                             -0.47429192]]),
-                                                   decimal=3)
+        #     else:
+        #         if l2_strength == 0.0:
+        #             assert (qn.objective - 0.18794211745262146) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[14.2959795,
+        #                                                      -104.63812,
+        #                                                      -96.41866],
+        #                                                     [-105.31236,
+        #                                                      -170.4887,
+        #                                                      -96.486]]),
+        #                                            decimal=3)
 
-                elif l2_strength == 0.0:
-                    assert (qn.objective - 0.3777262568473816) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.4765631,
-                                                             -1.569497,
-                                                             -0.6421711],
-                                                            [-2.0787644,
-                                                             -1.593922,
-                                                             -0.73674846]]),
-                                                   decimal=3)
-                else:
-                    assert (qn.objective - 0.40656331181526184) < tol
-                    np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
-                                                   np.array([[1.2176441,
-                                                             -0.8387626,
-                                                             -0.3155345],
-                                                            [-1.3095317,
-                                                             -0.60578823,
-                                                             -0.26777366]]),
-                                                   decimal=3)
+        #         else:
+        #             assert (qn.objective - 0.3537392020225525) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.3769588,
+        #                                                      -1.0002015,
+        #                                                      -0.5205092],
+        #                                                     [-1.5185534,
+        #                                                      -1.029575,
+        #                                                      -0.47429192]]),
+        #                                            decimal=3)
 
-        else:
-            pytest.skip("np.float64 softmax tests in progress.")
+        # if penalty == 'elasticnet':
+        #     if fit_intercept:
+        #         if l1_strength == 0.0 and l2_strength == 0.0:
+        #             assert (qn.objective - 0.007433414924889803) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[15.236361,
+        #                                                      -41.595913,
+        #                                                      -33.55021],
+        #                                                     [-36.607555,
+        #                                                      -13.91267,
+        #                                                      -42.66093],
+        #                                                     [-25.04939,
+        #                                                      -26.793947,
+        #                                                      -31.50192]]),
+        #                                            decimal=3)
+        #         elif l1_strength == 0.0:
+        #             assert (qn.objective - 0.28578639030456543) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.6702422,
+        #                                                      -1.5495867,
+        #                                                      -1.193351],
+        #                                                     [-2.207053,
+        #                                                      -0.6854614,
+        #                                                      -2.0305414],
+        #                                                     [-1.1746005,
+        #                                                      -0.7992407,
+        #                                                      -1.0034739]]),
+        #                                            decimal=3)
+        #         elif l2_strength == 0.0:
+        #             assert (qn.objective - 0.2925984263420105) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.2279763,
+        #                                                      -2.011927,
+        #                                                      -1.8038181],
+        #                                                     [-3.3828118,
+        #                                                      -0.64903206,
+        #                                                      -3.0688426],
+        #                                                     [-1.6962943,
+        #                                                      -0.8585775,
+        #                                                      -1.1564851]]),
+        #                                            decimal=3)
+        #         else:
+        #             assert (qn.objective - 0.34934690594673157) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.1901233,
+        #                                                      -1.2236115,
+        #                                                      -1.0416932],
+        #                                                     [-2.3100038,
+        #                                                      -0.46381754,
+        #                                                      -2.1544967],
+        #                                                     [-1.0984052,
+        #                                                      -0.44855425,
+        #                                                      -0.7347126]]),
+        #                                            decimal=3)
+        #     else:
+        #         if l1_strength == 0.0 and l2_strength == 0.0:
+        #             assert (qn.objective - 0.18794211745262146) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[14.2959795,
+        #                                                      -104.63812,
+        #                                                      -96.41866],
+        #                                                     [-105.31236,
+        #                                                      -170.4887,
+        #                                                      -96.486]]),
+        #                                            decimal=3)
+        #         elif l1_strength == 0.0:
+        #             assert (qn.objective - 0.3537392020225525) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.3769588,
+        #                                                      -1.0002015,
+        #                                                      -0.5205092],
+        #                                                     [-1.5185534,
+        #                                                      -1.029575,
+        #                                                      -0.47429192]]),
+        #                                            decimal=3)
+
+        #         elif l2_strength == 0.0:
+        #             assert (qn.objective - 0.3777262568473816) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.4765631,
+        #                                                      -1.569497,
+        #                                                      -0.6421711],
+        #                                                     [-2.0787644,
+        #                                                      -1.593922,
+        #                                                      -0.73674846]]),
+        #                                            decimal=3)
+        #         else:
+        #             assert (qn.objective - 0.40656331181526184) < tol
+        #             np.testing.assert_almost_equal(qn.coef_.copy_to_host(),
+        #                                            np.array([[1.2176441,
+        #                                                      -0.8387626,
+        #                                                      -0.3155345],
+        #                                                     [-1.3095317,
+        #                                                      -0.60578823,
+        #                                                      -0.26777366]]),
+        #                                            decimal=3)
 
     if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
         pytest.skip("`none` penalty does not take l1/l2_strength")

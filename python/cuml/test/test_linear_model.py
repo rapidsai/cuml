@@ -125,7 +125,7 @@ def test_linear_models(datatype, X_type, y_type,
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
                              fit_intercept):
-    nrows = 50000
+    nrows = 100000
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=num_classes,
                                n_redundant=0, n_informative=2)
@@ -153,8 +153,8 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
     if penalty in ['elasticnet', 'l1', 'l2']:
-        assert np.sum(preds.to_array() != skpreds)/10000 < 1e-1
+        assert np.sum(preds.to_array() != skpreds)/20000 < 1e-1
     else:
         # This is the only case where cuml and sklearn actually do a similar
         # lbfgs, other cases cuml does owl or sklearn does saga
-        assert np.sum(preds.to_array() != skpreds)/10000 < 1e-3
+        assert np.sum(preds.to_array() != skpreds)/20000 < 1e-3
