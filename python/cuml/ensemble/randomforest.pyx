@@ -512,7 +512,7 @@ class RandomForestClassifier(Base):
 
     def get_params(self, deep=True):
         """
-        Returns the value of all parameters 
+        Returns the value of all parameters
         required to configure this estimator as a dictionary.
         Parameters
         -----------
