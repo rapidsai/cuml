@@ -41,6 +41,7 @@
 - PR #695: prims: Refactor pairwise distance
 - PR #707: Added stress test and updated documentation for RF 
 - PR #701: Added emacs temporary file patterns to .gitignore
+- PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -54,6 +55,7 @@
 - PR #685: Make CuPy optional to avoid nccl conda package conflicts
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #719: Adding additional checks for dtype of the data
 
 # cuML 0.7.0 (10 May 2019)
 
