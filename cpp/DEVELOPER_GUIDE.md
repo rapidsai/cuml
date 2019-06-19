@@ -61,7 +61,7 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input
                                    int n_cols, const TreeNodeD *root, int* predictions,
                                    bool verbose=false);
 ```
-The above example obviously under-plays the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
+The above example understates the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
 ### WIP TODO (Need to explore this further!)
 The above example also means, it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing this example, we could expose the following methods to achieve this:
