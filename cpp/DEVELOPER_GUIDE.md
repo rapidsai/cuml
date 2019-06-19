@@ -65,7 +65,7 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input
 The above example understates the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
 ### Other functions on state
-These guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Decistion Tree Classifier example,  the following methods could achieve this:
+These guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Decision Tree Classifier example,  the following methods could achieve this:
 ```cpp
 void storeTree(const TreeNodeF *root, std::ostream &os);
 void storeTree(const TreeNodeD *root, std::ostream &os);
