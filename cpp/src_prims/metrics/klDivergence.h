@@ -60,17 +60,11 @@ template <typename DataT>
 DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
                    std::shared_ptr<MLCommon::deviceAllocator> allocator,
                    cudaStream_t stream) {
-  //DataT epsilon = 0.000001;
-  // auto addEpsilon = [&](DataT &el){ el+= epsilon; };
-
   MLCommon::device_buffer<DataT> modelPDFCopy(allocator, stream, size);
   MLCommon::device_buffer<DataT> candidatePDFCopy(allocator, stream, size);
 
   MLCommon::copy(modelPDFCopy.data(), modelPDF, size, stream);
   MLCommon::copy(candidatePDFCopy.data(), candidatePDF, size, stream);
-
-  //std::for_each(modelPDFCopy.data(), modelPDFCopy.data()+size, addEpsilon);
-  //std::for_each(candidatePDFCopy.data(), candidatePDFCopy.data()+size, addEpsilon);
 
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
@@ -80,6 +74,8 @@ DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
     candidatePDFCopy.data());
 
   DataT h_KLDVal;
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   MLCommon::updateHost(&h_KLDVal, d_KLDVal.data(), 1, stream);
 
