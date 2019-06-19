@@ -198,8 +198,8 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 print()
 
     elif penalty == 'softmax':
-            pytest.skip("Better initial conditions for softmax tests are "
-                        "in progress.")
+        pytest.skip("Better initial conditions for softmax tests are "
+                    "in progress.")
 
     # todo add tests for softmax dtype=np.float64
     # elasticnet for this points converged to different solution
@@ -279,8 +279,6 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #                                                           -1.593922,
     #                                                           -0.73674846]]),
     #                                                decimal=3)
-
-
 
         # elif penalty == 'l2' and l1_strength == 0.0:
         #     if fit_intercept:
