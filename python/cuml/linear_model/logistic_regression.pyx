@@ -27,7 +27,9 @@ import warnings
 
 from cuml.utils import input_to_dev_array
 
-supported_penalties = ['l1', 'l2', 'none']
+supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
+
+supported_solvers = ['qn', 'lbfgs', 'owl']
 
 
 class LogisticRegression(Base):
@@ -35,9 +37,9 @@ class LogisticRegression(Base):
     Logistic Goodness :)
     """
 
-    def __init__(self, penalty='l2', tol=1e-3, C=1.0, fit_intercept=True,
+    def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, verbose=0, l1_ratio=None,
-                 dual=None, handle=None):
+                 dual=None, solver='qn', handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle, verbose=False)
 
@@ -47,15 +49,27 @@ class LogisticRegression(Base):
         if class_weight:
             raise ValueError("`class_weight` not supported.")
 
-        if penalty not in supported_penalties or l1_ratio:
+        if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
+
+        if solver not in supported_solvers:
+            raise ValueError("Only quasi-newton `qn` (lbfgs and owl) solvers "
+                             " supported.")
 
         self.C = C
         self.penalty = penalty
         self.tol = tol
         self.fit_intercept = fit_intercept
         self.verbose = verbose
-        self.max_iter=max_iter
+        self.max_iter = max_iter
+        if self.penalty == 'elasticnet':
+            if l1_ratio is None:
+                raise ValueError("l1_ratio has to be specified for"
+                                 "loss='elasticnet'")
+            if l1_ratio < 0.0 or l1_ratio > 1.0:
+                msg = "l1_ratio value has to be between 0.0 and 1.0"
+                raise ValueError(msg.format(l1_ratio))
+            self.l1_ratio = l1_ratio
 
     def fit(self, X, y):
         """
@@ -75,6 +89,8 @@ class LogisticRegression(Base):
 
         """
 
+        # Converting y to device array here to use `unique` function
+        # since calling input_to_dev_array again in QN has no cost
         y_m, _, _, _, _ = input_to_dev_array(y)
 
         try:
@@ -87,26 +103,42 @@ class LogisticRegression(Base):
 
         num_classes = len(unique_labels)
 
-        if len(unique_labels) > 2:
+        if num_classes > 2:
             loss = 'softmax'
         else:
             loss = 'sigmoid'
 
-        if self.penalty == 'l1':
-            l1_ratio = 1.0 / self.C
-            l2_ratio = 0.0
+        if self.penalty == 'none':
+            l1_strength = 0.0
+            l2_strength = 0.0
+
+        elif self.penalty == 'l1':
+            l1_strength = 1.0 / self.C
+            l2_strength = 0.0
+
+        elif self.penalty == 'l2':
+            l1_strength = 0.0
+            l2_strength = 1.0 / self.C
+
         else:
-            l1_ratio = 0.0
-            l2_ratio = 1.0 / self.C
+            strength = 1.0 / self.C
+            l1_strength = self.l1_ratio * strength
+            l2_strength = (1.0 - self.l1_ratio) * strength
 
         self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
-                     l1_ratio=l1_ratio, l2_ratio=l2_ratio,
+                     l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter, tol=self.tol,
                      verbose=self.verbose, num_classes=num_classes,
                      handle=self.handle)
 
         self.qn.fit(X, y_m)
-        self.coef_ = self.qn.coef_
+
+        # coefficients and intercept are contained in the same array
+        if self.fit_intercept:
+            self.coef_ = self.qn.coef_[0:-1]
+            self.intercept_ = self.qn.coef_[-1]
+        else:
+            self.coef_ = self.qn.coef_
 
         return self
 
