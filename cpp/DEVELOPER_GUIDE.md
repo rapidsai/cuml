@@ -45,7 +45,7 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
                                    int n_cols, int* predictions, bool verbose=false);
 ```
 
-One of the right ways to expose this would be:
+An alternative correct way to expose this could be:
 ```cpp
 // NOTE: this example assumes that TreeNode and DTParams are the model/state that need to be stored
 // and passed between fit and predict methods
