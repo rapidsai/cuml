@@ -479,7 +479,7 @@ class RandomForestClassifier(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, __cuda_array_interface__ compliant array like CuPy
+            ndarray, cuda array interface compliant array like CuPy
         y : array-like (device or host) shape = (n_samples, 1)
             Dense vector (int32) of shape (n_samples, 1).
             Acceptable formats: NumPy ndarray, Numba device
