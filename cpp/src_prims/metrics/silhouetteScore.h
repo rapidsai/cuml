@@ -218,22 +218,14 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 
-  constexpr auto distance_type_const =
-    MLCommon::Distance::DistanceType::EucUnexpandedL2;
-
   //compute the distance matrix
   MLCommon::device_buffer<DataT> distanceMatrix(allocator, stream,
                                                 nRows * nRows);
-  MLCommon::device_buffer<DataT> X_in_dup(allocator, stream, nRows * nCols);
-  copy(X_in_dup.data(), X_in, nRows * nCols, stream);
-  size_t workspaceSize =
-    Distance::getWorkspaceSize<distance_type_const, DataT, DataT, DataT, int>(
-      X_in, X_in_dup.data(), nRows, nRows, nCols);
-  MLCommon::device_buffer<char> workspace(allocator, stream, workspaceSize);
-  MLCommon::Distance::distance<distance_type_const, DataT, DataT, DataT,
-                               cutlass::Shape<8, 128, 128>, int>(
-    X_in, X_in_dup.data(), distanceMatrix.data(), nRows, nRows, nCols,
-    (void *)workspace.data(), workspaceSize, stream);
+  MLCommon::device_buffer<char> workspace(allocator, stream, 1);
+
+  Distance::pairwiseDistance(
+    X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
+    static_cast<Distance::DistanceType>(metric), stream);
 
   //deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouetteScoreSamples(allocator, stream, 0);
