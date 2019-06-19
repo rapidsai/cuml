@@ -146,6 +146,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eig.cu
       prims/eltwise.cu
       prims/eltwise2d.cu
+      prims/entropy.cu
       prims/gather.cu
       prims/gemm.cu
       prims/grid_sync.cu
