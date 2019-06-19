@@ -2,11 +2,8 @@
 
 ## New Features
 
-<<<<<<< HEAD
 - PR #697: Silhouette Score metric ml-prim
-=======
 - PR #652: Adjusted Rand Index metric ml-prim
->>>>>>> 37dc534f98389c6fc94338d82af60b495125882c
 - PR #679: Class label manipulation ml-prim
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
