@@ -328,30 +328,43 @@ cdef class RandomForest_impl():
 
 
 class RandomForestClassifier(Base):
-
     """
-    Implements a Random Forest classifier model
-    which fits multiple decision tree classifiers.
-    The model accepts cudf dataframe as an input only
-    for the fit function.
+    Implements a Random Forest classifier model which fits multiple decision
+    tree classifiers in an ensemble.
 
+    **Known Limitations**: This is an initial preview release of the cuML
+    Random Forest code. It contains a number of known
+    limitations:
+    
+       * Only classification is supported. Regression support is planned for the
+         next release.
+       
+       * The implementation relies on limited CUDA shared memory for scratch
+         space, so models with a very large number of features or bins will
+         generate a memory limit exception. This limitation will be lifted in
+         the next release.
+
+       * Inference/prediction takes place on the CPU. A GPU-based inference
+         solution is planned for a near-future release release.
+
+       * Instances of RandomForestClassifier cannot be pickled currently.
+
+    The code is under heavy development, so users who need these features
+    may wish to pull from nightly builds of cuML.
 
     Examples
     ---------
     .. code-block:: python
 
             import numpy as np
-            from cuml.test.utils import get_handle
-            from cuml.ensemble import RandomForestClassifier as curfc
-            from cuml.test.utils import get_handle
+            from cuml.ensemble import RandomForestClassifier as cuRFC
 
-            X = np.asarray([[1,2],[10,20],[4,8],[50,70]], dtype=np.float32)
-            y = np.asarray([0,1,0,1], dtype=np.int32)
-            handle, stream = get_handle(True)
+            X = np.random.normal(size=(10,4)).astype(np.float32)
+            y = np.asarray([0,1]*5, dtype=np.int32)
 
-            cuml_model = curfc(max_features=1.0,
-                               n_bins=2, split_algo=0, min_rows_per_node=2,
-                               n_estimators=40, handle=handle)
+            cuml_model = cuRFC(max_features=1.0,
+                               n_bins=8,
+                               n_estimators=40)
             cuml_model.fit(X,y)
             cuml_predict = cuml_model.predict(X)
 
@@ -360,7 +373,7 @@ class RandomForestClassifier(Base):
     Output:
     .. code-block:: python
 
-            Predicted labels :  [0 1 0 1]
+            Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
 
     Parameters
     -----------
@@ -460,11 +473,12 @@ class RandomForestClassifier(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+            ndarray, __cuda_array_interface__ compliant array like CuPy
         y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (int) of shape (n_samples, 1).
+            Dense vector (int32) of shape (n_samples, 1).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+            These labels should be contiguous integers from 0 to n_classes.
         """
 
         return self._impl.fit(X, y)
