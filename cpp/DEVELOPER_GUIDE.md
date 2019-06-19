@@ -65,14 +65,14 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input
 The above example understates the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
 ### Other functions on state
-This guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Random Forest example,  the following methods could achieve this:
+These guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Decistion Tree Classifier example,  the following methods could achieve this:
 ```cpp
 void storeTree(const TreeNodeF *root, std::ostream &os);
 void storeTree(const TreeNodeD *root, std::ostream &os);
 void loadTree(TreeNodeF *&root, std::istream &is);
 void loadTree(TreeNodeD *&root, std::istream &is);
 ```
-It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and therefore easy to manipulate directly by the users, such custom load/store methods might not explicitly needed.
+It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
 
 ### `libcuml.so` (aka C-API wrapper over C++ API)
 Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
