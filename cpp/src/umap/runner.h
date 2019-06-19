@@ -35,8 +35,6 @@
 #include "sparse/coo.h"
 #include "sparse/csr.h"
 
-#include "knn/knn.hpp"
-
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
@@ -92,11 +90,13 @@ void find_ab(UMAPParams *params, cudaStream_t stream) {
 }
 
 template <typename T, int TPB_X>
-size_t _fit(const cumlHandle &handle,
-            T *X,   // input matrix
-            int n,  // rows
-            int d,  // cols
-            kNN *knn, UMAPParams *params, T *embeddings, cudaStream_t stream) {
+void _fit(const cumlHandle &handle,
+          T *X,   // input matrix
+          int n,  // rows
+          int d,  // cols
+          UMAPParams *params, T *embeddings) {
+  cudaStream_t stream = handle.getStream();
+
   int k = params->n_neighbors;
 
   if (params->verbose)
@@ -112,7 +112,7 @@ size_t _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k);
   MLCommon::allocate(knn_dists, n * k);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, knn, k, params, stream);
+  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo;
@@ -145,16 +145,15 @@ size_t _fit(const cumlHandle &handle,
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
-
-  return 0;
 }
 
 template <typename T, int TPB_X>
-size_t _fit(const cumlHandle &handle,
-            T *X,  // input matrix
-            T *y,  // labels
-            int n, int d, kNN *knn, UMAPParams *params, T *embeddings,
-            cudaStream_t stream) {
+void _fit(const cumlHandle &handle,
+          T *X,  // input matrix
+          T *y,  // labels
+          int n, int d, UMAPParams *params, T *embeddings) {
+  cudaStream_t stream = handle.getStream();
+
   int k = params->n_neighbors;
 
   if (params->target_n_neighbors == -1)
@@ -171,7 +170,7 @@ size_t _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k, true);
   MLCommon::allocate(knn_dists, n * k, true);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, knn, k, params, stream);
+  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -235,34 +234,28 @@ size_t _fit(const cumlHandle &handle,
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
-
-  return 0;
 }
 
 /**
 	 *
 	 */
-	template<typename T, int TPB_X>
-	size_t _transform(const cumlHandle &handle,
-                    float *X,
-	                  int n,
-	                  int d,
-	                  T *embedding,
-	                  int embedding_n,
-                      kNN *knn,
-	                  UMAPParams *params,
-	                  T *transformed,
-                    cudaStream_t stream) {
+template <typename T, int TPB_X>
+void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+                int orig_n, T *embedding, int embedding_n, UMAPParams *params,
+                T *transformed) {
+  cudaStream_t stream = handle.getStream();
 
-	    /**
-	     * Perform kNN of X
-	     */
+  /**
+   * Perform kNN of X
+   */
   long *knn_indices;
   float *knn_dists;
   MLCommon::allocate(knn_indices, n * params->n_neighbors);
   MLCommon::allocate(knn_dists, n * params->n_neighbors);
 
-  knn->search(X, n, knn_indices, knn_dists, params->n_neighbors);
+  kNNGraph::run(orig_X, orig_n, d, knn_indices, knn_dists, params->n_neighbors,
+                params, stream);
+
   CUDA_CHECK(cudaPeekAtLastError());
 
   MLCommon::LinAlg::unaryOp<T>(
@@ -273,8 +266,8 @@ size_t _fit(const cumlHandle &handle,
     max(0.0, params->local_connectivity - 1.0);
 
   /**
-	     * Perform smooth_knn_dist
-	     */
+   * Perform smooth_knn_dist
+   */
   T *sigmas;
   T *rhos;
   MLCommon::allocate(sigmas, n, true);
@@ -380,8 +373,6 @@ size_t _fit(const cumlHandle &handle,
   CUDA_CHECK(cudaFree(row_ind));
 
   CUDA_CHECK(cudaFree(epochs_per_sample));
-
-  return 0;
 }
 
 }  // namespace UMAPAlgo
