@@ -62,7 +62,9 @@ if(BUILD_CUML_TESTS)
       sg/umap_test.cu
       )
 
-    add_dependencies(ml ${ClangFormat_TARGET})
+    if(ClangFormat_FOUND)
+      add_dependencies(ml ${ClangFormat_TARGET})
+    endif(ClangFormat_FOUND)
 
     target_link_libraries(ml
       ${GTEST_LIBNAME}
@@ -97,7 +99,9 @@ if(BUILD_CUML_MG_TESTS)
       mg/test_ml_mg_utils.cu
       )
 
-    add_dependencies(ml_mg ${ClangFormat_TARGET})
+    if(ClangFormat_FOUND)
+      add_dependencies(ml_mg ${ClangFormat_TARGET})
+    endif(ClangFormat_FOUND)
 
     target_link_libraries(ml_mg
       ${GTEST_LIBNAME}
@@ -193,7 +197,9 @@ if(BUILD_PRIMS_TESTS)
       prims/weighted_mean.cu
       )
 
-    add_dependencies(prims ${ClangFormat_TARGET})
+    if(ClangFormat_FOUND)
+      add_dependencies(prims ${ClangFormat_TARGET})
+    endif(ClangFormat_FOUND)
 
     target_link_libraries(prims
       ${GTEST_LIBNAME}

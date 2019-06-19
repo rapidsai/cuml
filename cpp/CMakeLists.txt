@@ -108,9 +108,12 @@ else()
 endif()
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(ClangFormat 8.0.0 EXACT REQUIRED)
-# TODO: enable this when we are ready!
-#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
+if (NOT SKIP_CLANG_FORMAT OR NOT ${SKIP_CLANG_FORMAT})
+  find_package(ClangFormat 8.0.0 EXACT REQUIRED)
+  # TODO: enable this when we are ready!
+  #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
+endif(NOT SKIP_CLANG_FORMAT OR NOT ${SKIP_CLANG_FORMAT})
+
 
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
@@ -200,9 +203,11 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 ###################################################################################################
 # - clang-format targets --------------------------------------------------------------------------
 
-add_clang_format(
-  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
-  SRCDIR ${PROJECT_SOURCE_DIR})
+if(ClangFormat_FOUND)
+  add_clang_format(
+    DSTDIR ${PROJECT_BINARY_DIR}/clang-format
+    SRCDIR ${PROJECT_SOURCE_DIR})
+endif(ClangFormat_FOUND)
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -322,7 +327,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(OPENMP_FOUND)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
-  add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
+  if (ClangFormat_FOUND)
+    add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
+  endif (ClangFormat_FOUND)
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
