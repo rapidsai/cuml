@@ -15,8 +15,7 @@
 
 import pytest
 import cuml
-from cuml.test.utils import array_equal, np_to_cudf
-import cudf
+from cuml.test.utils import array_equal
 import numpy as np
 from sklearn.datasets import make_regression
 import pickle
@@ -40,11 +39,17 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
-    UMAP=cuml.UMAP()
+    UMAP=cuml.UMAP(),
+    GaussianRandomProjection=cuml.GaussianRandomProjection(),
+    SparseRandomProjection=cuml.SparseRandomProjection()
 )
 
 neighbor_models = dict(
     NearestNeighbors=cuml.NearestNeighbors()
+)
+
+dbscan_model = dict(
+    DBSCAN=cuml.DBSCAN()
 )
 
 
@@ -76,7 +81,7 @@ def pickle_save_load(tmpdir, model):
     return cu_after_pickle_model
 
 
-def make_dataset(datatype, input_type, nrows, ncols):
+def make_dataset(datatype, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
@@ -84,21 +89,15 @@ def make_dataset(datatype, input_type, nrows, ncols):
     X_train = np.asarray(X[:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[:train_rows, ]).astype(datatype)
 
-    if input_type == 'dataframe':
-        X_train = np_to_cudf(X_train)
-        y_train = cudf.Series(y_train)
-        X_test = np_to_cudf(X_test)
-
     return X_train, y_train, X_test
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', regression_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_regressor_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -111,12 +110,11 @@ def test_regressor_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', solver_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_solver_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_solver_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -129,12 +127,11 @@ def test_solver_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', cluster_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_cluster_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -147,14 +144,13 @@ def test_cluster_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', decomposition_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.xfail
-def test_decomposition_pickle(tmpdir, datatype, input_type, model, nrows,
+def test_decomposition_pickle(tmpdir, datatype, model, nrows,
                               ncols):
-    X_train, _, _ = make_dataset(datatype, input_type, nrows, ncols)
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
@@ -165,16 +161,14 @@ def test_decomposition_pickle(tmpdir, datatype, input_type, model, nrows,
     assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
-@pytest.mark.xfail
-def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
+def test_neighbors_pickle(tmpdir, datatype, model, nrows,
                           ncols, k):
-    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train)
     D_before, I_before = model.kneighbors(X_test, k=k)
@@ -185,3 +179,21 @@ def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
 
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', dbscan_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+
+    cu_before_pickle_predict = model.fit_predict(X_train).to_array()
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_predict = cu_after_pickle_model.fit_predict(
+                              X_train
+                              ).to_array()
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
