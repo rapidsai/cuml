@@ -11,8 +11,9 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #705: Quasi Newton solver and LogisticRegression Python classes
 - PR #670: Add test skipping functionality to build.sh
-- PR #678: Added Random Forest wrapper
+- PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
 
