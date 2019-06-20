@@ -116,7 +116,7 @@ class LinearRegression(Base):
         X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = lr.predict(X_new)
 
-        print("Preds:")
+        print("Predictions:")
         print(preds)
 
     Output:
@@ -131,7 +131,7 @@ class LinearRegression(Base):
         Intercept:
                     3.0
 
-        Preds:
+        Predictions:
 
                     0 15.999999
                     1 14.999999
