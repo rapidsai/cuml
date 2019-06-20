@@ -408,4 +408,3 @@ class Ridge(Base, RegressorMixin):
         if 'solver' in params.keys():
             self.algo = self._get_algorithm_int(self.solver)
         return self
-
