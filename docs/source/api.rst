@@ -54,6 +54,12 @@ Stochastic Gradient Descent
 .. autoclass:: cuml.SGD
     :members:
 
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.NearestNeighbors
+    :members:
+
 Random Forest
 -------------
 .. autoclass:: cuml.ensemble.RandomForestClassifier
@@ -61,14 +67,6 @@ Random Forest
 
 Clustering
 ==========
-
-
-Nearest Neighbors
---------------------
-
-.. autoclass:: cuml.NearestNeighbors
-    :members:
-
 
 K-Means Clustering
 --------------------
@@ -83,8 +81,8 @@ DBSCAN
 .. autoclass:: cuml.DBSCAN
     :members:
 
-Dimensionality Reduction
-========================
+Dimensionality Reduction and Manifold Learning
+==============================================
 
 Principal Component Analysis
 -----------------------------
