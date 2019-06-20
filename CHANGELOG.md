@@ -67,6 +67,7 @@
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
 - PR #719: Adding additional checks for dtype of the data
+- PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
 
 # cuML 0.7.0 (10 May 2019)
