@@ -22,6 +22,8 @@
 
 #include <memory>
 #include <cstdio>
+#include <exception>
+#include <pthread.h>
 
 #include <cuML_comms.hpp>
 #include <common/cumlHandle.hpp>
@@ -53,7 +55,6 @@ namespace ML {
 namespace {
 
 
-    static const ucp_tag_t default_tag_mask = -1;
     size_t getDatatypeSize( const cumlNCCLCommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
@@ -116,6 +117,16 @@ namespace {
     }
 }
 
+
+static const ucp_tag_t default_tag_mask = -1;
+
+static void wait(ucp_worker_h ucp_worker, struct ucx_context *context)
+{
+    while (context->completed == 0) {
+        ucp_worker_progress(ucp_worker);
+    }
+}
+
 /**
  * Underlying comms, like NCCL and UCX, should be initialized and ready for use
  * outside of the cuML Comms lifecycle. This allows us to decouple the ownership
@@ -166,20 +177,36 @@ void cumlNCCLCommunicator_impl::barrier() const
 
 static void send_handle(void *request, ucs_status_t status) {
 
+
+    //pthread_mutex_lock(&m);
     printf("INSIDE SEND HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
 
     printf("Finished in send handle\n");
+
+    printf("[0x%x] send handler called with status %d (%s)\n",
+           (unsigned int)pthread_self(), status, ucs_status_string(status));
+
+   // pthread_mutex_unlock(&m);
 }
 
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
 
+    //pthread_mutex_lock(&m);
+
     printf("INSIDE RECEIVE HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
     printf("Finished in receive handle\n");
+
+
+    printf("[0x%x] receive handler called with status %d (%s), length %lu\n",
+           (unsigned int)pthread_self(), status, ucs_status_string(status),
+           info->length);
+
+    //pthread_mutex_unlock(&m);
 }
 
 
@@ -189,7 +216,6 @@ static void recv_handle(void *request, ucs_status_t status,
 void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
 
-  static const ucp_tag_t tag_to_use  = 0x1337a880u;
   request_t req_id;
   if ( _free_requests.empty() )
       req_id = _next_request_id++;
@@ -197,45 +223,53 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
       auto it = _free_requests.begin();
       req_id = *it;
       _free_requests.erase(it);
+      
   }
 
   struct ucx_context *ucp_request = 0;
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
   ucp_ep_h ep_ptr = _ucp_eps[dest];
 
-  std::cout << "EP_PTR: " << ep_ptr << std::endl;
-  std::cout << "BUF: " << buf << std::endl;
-  std::cout << "SIZE: " << size << std::endl;
-  std::cout << "MAKE_CONTIG: " << ucp_dt_make_contig(1) << std::endl;
-  std::cout << "TAG: " << tag_to_use << std::endl;
-  std::cout << "UCP WORKER: " << _ucp_worker;
 
-  ucp_worker_print_info (_ucp_worker, stdout);
+//  ucp_worker_print_info (_ucp_worker, stdout);
   
-  ucp_ep_print_info(ep_ptr, stdout);
+//  ucp_ep_print_info(ep_ptr, stdout);
 
 
-  ucp_request = (ucx_context*)ucp_tag_send_nb(ep_ptr, buf, size,
-                              ucp_dt_make_contig(1), tag_to_use, send_handle);
+  ucp_request = (struct ucx_context*)ucp_tag_send_nb(ep_ptr, buf, size,
+                              ucp_dt_make_contig(1), ucp_tag, send_handle);
 
    if (UCS_PTR_IS_ERR(ucp_request)) {
-       fprintf(stderr, "unable to send UCX data message\n");
+       printf("unable to send UCX data message\n");
        ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
        return;
    } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
+       // wait(_ucp_worker, ucp_request);
+       // ucp_request->completed = 0; /* Reset request state before recycling it */
+       // ucp_request_release(ucp_request);
+
        printf("An error occurred sending message.\n");
     } else {
         //request is complete so no need to wait on request
+        printf("REQUEST IS ALREADY COMPLETE!");
+        ucp_request = (struct ucx_context*)malloc(sizeof(struct ucx_context));
+        ucp_request->completed = 1;
+        ucp_request->needs_release = false;
     }
 
+
+    if(ucp_request == nullptr)
+        printf("The request on rank %d was NULL!\n", getRank());
+
+    //pthread_mutex_lock(&m);
     _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
     *request = req_id;
+    //pthread_mutex_unlock(&m);
 }
 
 void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
 
-  static const ucp_tag_t tag_to_use  = 0x1337a880u;
   request_t req_id;
   if ( _free_requests.empty() )
       req_id = _next_request_id++;
@@ -250,55 +284,89 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
 
-  std::cout << "RECV EP_PTRE: " << ep_ptr << std::endl;
-  std::cout << "UCP WORKER: " << _ucp_worker << std::endl;
+ // std::cout << "RECV EP_PTRE: " << ep_ptr << std::endl;
+//  std::cout << "UCP WORKER: " << _ucp_worker << std::endl;
 
 
-  ucp_request = (ucx_context*)ucp_tag_recv_nb(_ucp_worker, buf, size,
-                            ucp_dt_make_contig(1), tag_to_use, default_tag_mask,
+  ucp_request = (struct ucx_context*)ucp_tag_recv_nb(_ucp_worker, buf, size,
+                            ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
                             recv_handle);
 
 
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
-      fprintf(stderr, "unable to receive UCX data message (%u)\n",
-              UCS_PTR_STATUS(ucp_request));
+      printf("unable to receive UCX data message (%d)\n");
+       //       UCS_PTR_STATUS(ucp_request));
       ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
       return;
-  }
+  } else {
 
+    
+    //wait(_ucp_worker, ucp_request);
+    //ucp_request->completed = 0;
+    //ucp_request_release(request);
+
+    printf("Cleaned up request on %d\n", getRank());
+}
+
+  //pthread_mutex_lock(&m);
   _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
   *request = req_id;
+  //pthread_mutex_unlock(&m);
 }
 
 void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]) const
 {
 
   printf("Inside waitall for rank: %d\n", getRank());
-  std::vector<ucx_context*> requests;
+  std::vector<struct ucx_context*> requests;
   for ( int i = 0; i < count; ++i ) {
        auto req_it = _requests_in_flight.find( array_of_requests[i] );
        ASSERT( _requests_in_flight.end() != req_it, "ERROR: waitall on invalid request: %d", array_of_requests[i] );
+
+
+       if(req_it->second == nullptr)
+           printf("Encountered null request on rank %d\n", getRank());
+
+       printf("Adding request to request on rank %d\n", getRank());
        requests.push_back( req_it->second );
+
+       printf("Inserting request into _free_requests on rank %d\n", getRank());
        _free_requests.insert( req_it->first );
+    
+      printf("Erasing from requests in flight on rank %d\n", getRank());
       _requests_in_flight.erase( req_it );
   }
 
   int done = 0;
 
-  while(done < count) {
+
+  printf("Checking completed on rank %d\n", getRank());
+
+
+
   done = 0;
-  for(ucx_context *req : requests) {
-      if(req->completed == 1)
-          done++;
+  for(struct ucx_context *req : requests) {
+
+      if(req == nullptr) {
+          printf("Encountered null request on rank %d\n", getRank());
+          continue;
+      }
+
+      wait(_ucp_worker, req);
+
+      //pthread_mutex_lock(&m);
+      req->completed = 0; /* Reset request state before recycling it */
+      //pthread_mutex_unlock(&m);
+
+      if(req->needs_release)
+          ucp_request_release(req);
+      printf("Checked off request on rank %d\n", getRank());
+      
+
   }
 
-}
-  
-
   printf("Done waitall for rank: %d\n", getRank());
-
-  // @TODO: Use UCP progress functions here
 }
 
 void cumlNCCLCommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const

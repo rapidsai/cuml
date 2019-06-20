@@ -28,6 +28,7 @@
 
 struct ucx_context {
     int completed;
+    bool needs_release = true;
 };
 
 
@@ -75,7 +76,7 @@ private:
     int                                                 _rank;
 
     mutable request_t                                   _next_request_id;
-    mutable std::unordered_map<request_t,ucx_context*>   _requests_in_flight;
+    mutable std::unordered_map<request_t,struct ucx_context*>   _requests_in_flight;
     mutable std::unordered_set<request_t>               _free_requests;
 
 
