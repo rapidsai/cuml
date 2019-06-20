@@ -128,8 +128,8 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
                              fit_intercept):
 
     # Checking sklearn >= 0.21 for testing elasticnet
-    sk_check = LooseVersion(str(sklearn.__version__)) < LooseVersion("0.21.0")
-    if sk_check and penalty == 'elasticnet':
+    sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
+    if not sk_check and penalty == 'elasticnet':
         pytest.skip("Need sklearn > 0.21 for testing logistic with"
                     "elastic net.")
 
@@ -148,8 +148,12 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 
     # Only solver=saga supports elasticnet in scikit
     if penalty in ['elasticnet', 'l1']:
-        sklog = skLog(penalty=penalty, l1_ratio=l1_ratio, solver='saga', C=5.0,
-                      fit_intercept=fit_intercept)
+        if sk_check:
+            sklog = skLog(penalty=penalty, l1_ratio=l1_ratio, solver='saga',
+                          C=5.0, fit_intercept=fit_intercept)
+        else:
+            sklog = skLog(penalty=penalty, solver='saga',
+                          C=5.0, fit_intercept=fit_intercept)
     else:
         sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
                       fit_intercept=fit_intercept)
