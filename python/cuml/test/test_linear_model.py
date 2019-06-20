@@ -129,7 +129,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) < LooseVersion("0.21.0")
-    if sk_check:
+    if sk_check and penalty == 'elasticnet':
         pytest.skip("Need sklearn > 0.21 for testing logistic with"
                     "elastic net.")
 
