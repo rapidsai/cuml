@@ -157,7 +157,7 @@ class QN(Base):
             input_to_dev_array(y)
 
         try:
-            import cupy as cp
+            import cupy
             self.num_classes = len(cupy.unique(y_m)) - 1
         except ImportError:
             warnings.warn("Using NumPy for number of class detection,"
