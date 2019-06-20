@@ -60,16 +60,9 @@ class entropyTest : public ::testing::TestWithParam<entropyParam>{
     std::generate(arr1.begin(), arr1.end(), [&](){return intGenerator(dre); });
 
     //generating the golden output
-
     int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
-
-
-
-  
-
     int *p = (int *)malloc(numUniqueClasses*sizeof(int));
-
     memset(p, 0, numUniqueClasses*sizeof(int));
 
  
@@ -81,22 +74,19 @@ class entropyTest : public ::testing::TestWithParam<entropyParam>{
     //calculating the aggregate entropy
     for(int i=0;i<numUniqueClasses;++i){
 
-
         if(p[i])
         truthEntropy+= -1*(double(p[i])/double(nElements))*(log(double(p[i]))-log(double(nElements)));
-
-        sumProbs+= double(p[i])/double(nElements);
     }
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
     MLCommon::allocate(clusterArray,nElements,true);
-
     MLCommon::updateDevice(clusterArray,&arr1[0],(int)nElements,stream);
+
 
     std::shared_ptr<MLCommon::deviceAllocator> allocator(new defaultDeviceAllocator);
 
-
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     //calling the entropy CUDA implementation
     computedEntropy = MLCommon::Metrics::entropy(clusterArray,nElements, lowerLabelRange, upperLabelRange, allocator,stream);
 
@@ -123,7 +113,6 @@ class entropyTest : public ::testing::TestWithParam<entropyParam>{
     int nElements=0;
     double truthEntropy=0;
     double computedEntropy = 0;
-    double sumProbs=0;
     cudaStream_t stream;
 
     };

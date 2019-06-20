@@ -61,7 +61,7 @@ namespace Metrics {
 * @param stream: the cuda stream where to launch this kernel
 */
 template <typename LabelT>
-void countLabels(LabelT *labels, double *binCountArray, int nRows,
+void countLabels(const LabelT *labels, double *binCountArray, int nRows,
                  LabelT lowerLabelRange, LabelT upperLabelRange, MLCommon::device_buffer<char> &workspace,
                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
                  cudaStream_t stream) {
@@ -96,7 +96,7 @@ void countLabels(LabelT *labels, double *binCountArray, int nRows,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double entropy (  T* clusterArray, int size, T lowerLabelRange, T upperLabelRange,
+double entropy ( const T* clusterArray, const int size, const T lowerLabelRange, const T upperLabelRange,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
 
   if(!size)return 1.0;
@@ -126,6 +126,7 @@ double entropy (  T* clusterArray, int size, T lowerLabelRange, T upperLabelRang
   double h_entropy;
   MLCommon::updateHost(&h_entropy, d_entropy.data(), 1, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   return h_entropy;
 

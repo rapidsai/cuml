@@ -90,5 +90,19 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int lower_class_range,
                          const int upper_class_range);
 
+/**
+         * Calculates the "entropy" of a labelling
+         *
+         * This metric is a measure of the purity/polarity of the clustering 
+         *
+         * @param handle: cumlHandle
+         * @param y: Array of response variables of the clustering
+         * @param n: Number of elements in y
+         * @param lower_class_range: the lowest value in the range of classes
+         * @param upper_class_range: the highest value in the range of classes
+         * @return: The entropy value of the clustering
+         */
+double entropy(const cumlHandle &handle, const int *y, const int n, const int upper_class_range, const int lower_class_range);   
+
 }  // namespace Metrics
 }  // namespace ML
