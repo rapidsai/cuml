@@ -154,9 +154,17 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
         else:
             sklog = skLog(penalty=penalty, solver='saga',
                           C=5.0, fit_intercept=fit_intercept)
-    else:
+    elif penalty == 'l2':
         sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
                       fit_intercept=fit_intercept)
+    else:
+        if sk_check:
+            sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
+                          fit_intercept=fit_intercept)
+        else:
+            sklog = skLog(penalty='l2', solver='lbfgs', C=1e9,
+                          fit_intercept=fit_intercept)
+
     sklog.fit(X_train, y_train)
 
     preds = culog.predict(X_test)
