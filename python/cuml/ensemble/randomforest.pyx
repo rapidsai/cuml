@@ -387,8 +387,8 @@ class RandomForestClassifier(Base):
     n_estimators : int (default = 10)
                    number of trees in the forest.
     handle : cuml.Handle
-             If it is None, a new handle is created for this instance.
-    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
+             If it is None, a new one is created just for this class.
+    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 0)
                  the algorithm to determine how nodes are split in the tree.
     bootstrap : boolean (default = True)
@@ -458,7 +458,7 @@ class RandomForestClassifier(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
 
