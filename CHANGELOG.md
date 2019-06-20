@@ -43,6 +43,8 @@
 - PR #707: Added stress test and updated documentation for RF 
 - PR #701: Added emacs temporary file patterns to .gitignore
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
+- PR #726: Updated RF docs and stress test
+- PR #730: Update README and RF docs for 0.8
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -57,6 +59,7 @@
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
 - PR #719: Adding additional checks for dtype of the data
+- PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
 
 # cuML 0.7.0 (10 May 2019)
 
@@ -106,6 +109,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #721: Added pickle tests for DBSCAN and Random Projections
 
 ## Bug Fixes
 
