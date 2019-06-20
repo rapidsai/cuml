@@ -1,25 +1,66 @@
+~~~~~~~~~~~~~~~~~~~
 cuML API Reference
-====================
+~~~~~~~~~~~~~~~~~~~
+
+
+
+Preprocessing
+==============
+
+Model Selection and Data Splitting
+----------------------------------
+
+ .. automodule:: cuml.preprocessing.model_selection
+    :members:
+
+Label Encoding
+--------------
+
+ .. autoclass:: cuml.preprocessing.LabelEncoder
+    :members:
+
+Regression and Classification
+=============================
 
 Linear Regression
-------------------
+-----------------
 
 .. autoclass:: cuml.LinearRegression
     :members:
 
 
 Ridge Regression
------------------
+----------------
 
 .. autoclass:: cuml.Ridge
     :members:
 
+Lasso Regression
+----------------
+
+.. autoclass:: cuml.Lasso
+    :members:
+
+ElasticNet Regression
+---------------------
+
+.. autoclass:: cuml.ElasticNet
+    :members:
+    
 
 Stochastic Gradient Descent
-----------------------------
+---------------------------
 
 .. autoclass:: cuml.SGD
     :members:
+
+Random Forest
+-------------
+.. autoclass:: cuml.ensemble.RandomForestClassifier
+    :members:
+
+Clustering
+==========
 
 
 Nearest Neighbors
@@ -42,13 +83,8 @@ DBSCAN
 .. autoclass:: cuml.DBSCAN
     :members:
 
-
-Kalman Filter
--------------
-
-.. autoclass:: cuml.KalmanFilter
-    :members:
-
+Dimensionality Reduction
+========================
 
 Principal Component Analysis
 -----------------------------
@@ -69,3 +105,14 @@ UMAP
 
 .. autoclass:: cuml.UMAP
     :members:
+
+
+Time Series
+============
+
+Kalman Filter
+-------------
+
+.. autoclass:: cuml.KalmanFilter
+    :members:
+       
