@@ -4,10 +4,27 @@ from IPython.core.debugger import set_trace
 
 from collections import deque
 
+def _fd_fprime(x, f, h):
+    g = np.zeros(len(x))
+    for i in range(len(x)):
+        xph = np.copy(x)
+        xmh = np.copy(x)
+        xph[i] += h
+        xmh[i] -= h
+        fph = f(xph)
+        fmh = f(xmh)
+        g[i] = (fph - fmh)/(2*h)
+
+    return g
+
+
 def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=None, m=10,
                        factr=10000000.0, pgtol=1e-05, epsilon=1e-08, iprint=-1,
                        maxfun=15000, maxiter=1000, disp=None, callback=None, maxls=20):
 
+
+    if fprime is None and approx_grad is True:
+        fprime = lambda x: _fd_fprime(x, func, epsilon)
 
     pk = np.zeros(len(x0))
     sk = np.zeros(len(x0))
@@ -28,7 +45,9 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
 
     Hk_bfgs = np.eye(N)
 
-    for k in range(maxiter):
+    k = 0
+
+    for k_iter in range(maxiter):
 
         ######################
         # check convergence/stopping condition
@@ -85,13 +104,26 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
             # note r = Hk \/f
             pk = -r
 
-        alpha, fc, gc, fkp1, _, _ = optimize.line_search(func, fprime,
-                                                         xk, pk)
+        # alpha, fc, gc, fkp1, _, _ = optimize.line_search(func, fprime,
+        #                                                  xk, pk)
+        alpha, fc, gc, fkp1, _, gkp1 = optimize.linesearch.line_search_wolfe1(func,
+                                                                              fprime, xk,
+                                                                              pk, gk)
+
+        if alpha is None:
+            # Line-Search failed, reset L-BFGS memory.
+            k = 0
+            yk.clear()
+            sk.clear()
+            pk.clear()
+            rho.clear()
+            continue
 
         xkp1 = xk + alpha*pk
 
         xkm1 = xk
         xk = xkp1
-        
+        k += 1
 
-    return xk
+
+    return xk, k
