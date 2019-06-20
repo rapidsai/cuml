@@ -41,7 +41,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
 
-@pytest.mark.parametrize('max_bytes_per_batch',[1e9, 5e9])
+@pytest.mark.parametrize('max_bytes_per_batch', [1e9, 5e9])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
