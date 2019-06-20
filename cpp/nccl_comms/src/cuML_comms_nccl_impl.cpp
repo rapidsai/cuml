@@ -239,6 +239,9 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
   ucp_request = (struct ucx_context*)ucp_tag_send_nb(ep_ptr, buf, size,
                               ucp_dt_make_contig(1), ucp_tag, send_handle);
 
+  if(UCS_PTR_STATUS(ucp_request) == UCS_OK)
+      printf("It's null already!\n");
+
    if (UCS_PTR_IS_ERR(ucp_request)) {
        printf("unable to send UCX data message\n");
        ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
