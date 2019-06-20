@@ -1,6 +1,7 @@
 import numpy as np
 
 from cuml.ts.batched_bfgs import batched_fmin_bfgs
+from cuml.ts.batched_lbfgs import batched_fmin_lbfgs
 
 import scipy.optimize as optimize
 
@@ -44,10 +45,12 @@ def g_batched_rosenbrock(x: np.ndarray,
 
 def test_batched_bfgs_rosenbrock():
 
-    num_batches = 100
+    num_batches = 1
     np.random.seed(42)
     a = np.random.normal(1, scale=0.1, size=num_batches)
     b = np.random.normal(100, scale=1, size=num_batches)
+    a = np.array([1])
+    b = np.array([100])
 
     def f(x, n=None):
         nonlocal a
@@ -72,11 +75,11 @@ def test_batched_bfgs_rosenbrock():
         return g
 
     x0 = np.zeros(2*num_batches)
-    x0[0] = 0.9
-    x0[1] = 0.9
+    x0[0] = 0.0
+    x0[1] = 0.0
     
     # global optimizer
-    # options = {"disp": 10}
+    options = {"disp": 10}
     res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
 
     # problem-at-a-time optimizer
@@ -95,7 +98,7 @@ def test_batched_bfgs_rosenbrock():
     # print("|res_diff_ref|_max", np.max(res_ref.x-res_true))
 
     # our new batch-aware bfgs optimizer
-    res_xk, _ = batched_fmin_bfgs(f, x0, num_batches, g=gf, disp=0, max_steps=100)
+    res_xk, _, _ = batched_fmin_bfgs(f, x0, num_batches, g=gf, disp=1, max_steps=100)
     
     # print("batched res_xk:", res_xk)
     # print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
@@ -151,5 +154,12 @@ def test_single_arima_fit():
     
 
 
+def test_lbfgs():
+
+    x0 = np.array([0, 0])
+
+    xs = batched_fmin_lbfgs(rosenbrock, x0, g_rosenbrock, iprint=1, maxiter=100, m=100)
+    xs2 = optimize.fmin_l_bfgs_b(rosenbrock, x0, g_rosenbrock, iprint=1)
+
 if __name__ == "__main__":
-    test_batched_bfgs()
+    test_lbfgs()
