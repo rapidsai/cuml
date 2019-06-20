@@ -388,7 +388,7 @@ class RandomForestClassifier(Base):
                    number of trees in the forest.
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
-    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 0)
                  the algorithm to determine how nodes are split in the tree.
     bootstrap : boolean (default = True)
