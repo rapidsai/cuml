@@ -370,7 +370,7 @@ class RandomForestClassifier(Base):
                    number of trees in the forest.
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
-    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
+    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
                  (default = 0)
                  The type of algorithm to be used to create the trees.
     bootstrap : boolean (default = True)
@@ -440,7 +440,7 @@ class RandomForestClassifier(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
 
