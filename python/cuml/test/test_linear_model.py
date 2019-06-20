@@ -17,13 +17,14 @@ import cudf
 import numpy as np
 import pandas as pd
 import pytest
-
+from distutils.version import LooseVersion
 
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
 from cuml.test.utils import array_equal
 
+import sklearn
 from sklearn.datasets import make_regression, make_classification
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
@@ -125,6 +126,13 @@ def test_linear_models(datatype, X_type, y_type,
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
                              fit_intercept):
+
+    # Checking sklearn >= 0.21 for testing elasticnet
+    sk_check = LooseVersion(str(sklearn.__version__)) < LooseVersion("0.21.0")
+    if sk_check:
+        pytest.skip("Need sklearn > 0.21 for testing logistic with"
+                    "elastic net.")
+
     nrows = 100000
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=num_classes,
