@@ -298,12 +298,6 @@ class PCA(Base):
         self.singular_values_ = None
         self.mean_ = None
         self.noise_variance_ = None
-        self.components_ptr = None
-        self.explained_variance_ptr = None
-        self.explained_variance_ratio_ptr = None
-        self.singular_values_ptr = None
-        self.mean_ptr = None
-        self.noise_variance_ptr = None
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -322,8 +316,8 @@ class PCA(Base):
 
         self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
                                                  dtype=self.dtype))
-        self.components_ = cuda.to_device(zeros(n_components*n_cols,
-                                                dtype=self.dtype))
+        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
+                                                   dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -369,7 +363,7 @@ class PCA(Base):
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
 
         cdef uintptr_t explained_var_ptr = \
             get_cudf_column_ptr(self.explained_variance_)
@@ -415,18 +409,12 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        components_gdf = cudf.DataFrame()
+        # Keeping the additional dataframe components during cuml 0.8.
+        # See github issue #749
+        self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
-            components_gdf[str(i)] = self.components_[i*n_c:(i+1)*n_c]
-
-        self.components_ = components_gdf
-        self.components_ptr = comp_ptr
-        self.explained_variance_ptr = explained_var_ptr
-        self.explained_variance_ratio_ptr = explained_var_ratio_ptr
-        self.singular_values_ptr = singular_vals_ptr
-        self.mean_ptr = mean_ptr
-        self.noise_variance_ptr = noise_vars_ptr
+            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
@@ -498,9 +486,10 @@ class PCA(Base):
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
 
-        cdef uintptr_t components_ptr = self.components_ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
-        cdef uintptr_t mean_ptr = self.mean_ptr
+        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t singular_vals_ptr = \
+            get_cudf_column_ptr(self.singular_values_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
         cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
@@ -570,9 +559,12 @@ class PCA(Base):
                                  dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
-        cdef uintptr_t components_ptr = self.components_ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
-        cdef uintptr_t mean_ptr = self.mean_ptr
+        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t singular_vals_ptr = \
+            get_cudf_column_ptr(self.singular_values_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
+
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
@@ -606,3 +598,22 @@ class PCA(Base):
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten"]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        del state['c_algorithm']
+        state['trans_input_'] = cudf.Series(state['trans_input_'])
+        state['components_ary'] = cudf.Series(self.components_ary)
+
+        return state
+
+    def __setstate__(self, state):
+        super(PCA, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['trans_input_'] = state['trans_input_'].to_gpu_array()
+        state['components_ary'] = state['components_ary'].to_gpu_array()
+
+        self.__dict__.update(state)
+        self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
