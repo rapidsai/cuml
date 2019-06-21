@@ -108,7 +108,7 @@ class LinearRegression(Base):
         reg = lr.fit(X,y)
         print("Coefficients:")
         print(reg.coef_)
-        print("intercept:")
+        print("Intercept:")
         print(reg.intercept_)
 
         X_new = cudf.DataFrame()
@@ -116,6 +116,7 @@ class LinearRegression(Base):
         X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = lr.predict(X_new)
 
+        print("Predictions:")
         print(preds)
 
     Output:
@@ -130,7 +131,7 @@ class LinearRegression(Base):
         Intercept:
                     3.0
 
-        Preds:
+        Predictions:
 
                     0 15.999999
                     1 14.999999
