@@ -31,7 +31,7 @@ class ElasticNet:
     some coefficients to be smaell, and improves the conditioning of the
     problem.
 
-    cuML's ElasticNet an array-like object, either in host as
+    cuML's ElasticNet can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
     compliant) uses coordinate descent to fit a linear model.
 
