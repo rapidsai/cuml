@@ -377,13 +377,13 @@ class RandomForestClassifier(Base):
             print("Predicted labels : ", cuml_predict)
 
     Output:
-    .. code-block:: python
+
+    .. code-block:: none
 
             Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
 
     Parameters
     -----------
-
     n_estimators : int (default = 10)
                    number of trees in the forest.
     handle : cuml.Handle
