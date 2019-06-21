@@ -18,6 +18,7 @@
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
 
+
 ## Improvements
 
 - PR #597: C++ cuML and ml-prims folder refactor
@@ -50,6 +51,7 @@
 - PR #741: Update API docs for 0.8
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
+- PR #760: KNN is Pickleable
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
