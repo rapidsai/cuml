@@ -208,12 +208,7 @@ class NearestNeighbors(Base):
         state = self.__dict__.copy()
 
         del state['handle']
-        state['X_m'] = cudf.DataFrame(self.X_m)
-        state['n_indices'] = self.n_indices
-        state["n_dims"] = self.n_dims
-        state["n_gpus"] = self.n_gpus
-        state["n_neighbors"] = self.n_neighbors
-        state["_should_downcast"] = self._should_downcast
+        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
 
         return state
 
@@ -221,7 +216,7 @@ class NearestNeighbors(Base):
         super(NearestNeighbors, self).__init__(handle=None,
                                                verbose=state['verbose'])
 
-        state['X_m'] = state['X_m'].as_gpu_matrix()
+        state['X_m'] = state['X_m'].as_gpu_matrix(order = "C")
 
         self.__dict__.update(state)
 
