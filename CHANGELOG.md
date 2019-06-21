@@ -65,6 +65,7 @@
 - PR #719: Adding additional checks for dtype of the data
 - PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
+- PR #756: Fixed docstrings from doc_:_ to doc:_
 
 # cuML 0.7.0 (10 May 2019)
 
