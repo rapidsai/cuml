@@ -22,6 +22,8 @@
 #include <common/cumlHandle.hpp>
 #include "sys/time.h"
 
+const int TPB_X = 256;
+
 inline void sample_without_replacement(size_t n_population, size_t n_samples,
 											int* indices, size_t& indices_idx)
 {
@@ -48,7 +50,7 @@ inline void sample_without_replacement(size_t n_population, size_t n_samples,
 
 
 __global__ void sum_bools(bool *in_bools,int n, int *out_val) {
-  int row = (blockIdx.x * 256) + threadIdx.x;
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if(row < n) {
     bool v = in_bools[row];
     if(v)
@@ -74,8 +76,8 @@ inline size_t binomial(const ML::cumlHandle& h, size_t n, double p, int random_s
 
     cudaMemsetAsync(successes, 0, sizeof(int), h.getStream());
 
-    dim3 grid_n(MLCommon::ceildiv(n, (size_t)256), 1, 1);
-    dim3 blk(256, 1, 1);
+    dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
 
     sum_bools<<<grid_n, blk, 0, h.getStream()>>>(rand_array, n, successes);
     CUDA_CHECK(cudaPeekAtLastError());
