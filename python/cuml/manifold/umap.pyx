@@ -246,6 +246,8 @@ class UMAP(Base):
         self.target_metric = target_metric
         self._should_downcast = should_downcast
 
+
+    
     def build_umap_params(self):
 
         cdef UMAPParams *umap_params = new UMAPParams()
@@ -308,10 +310,10 @@ class UMAP(Base):
             raise ValueError("data should be two dimensional")
 
         if self._should_downcast:
-            X_m, X_ctype, n_rows, n_cols, dtype = \
+            self.X_m, X_ctype, n_rows, n_cols, dtype = \
                 input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
         else:
-            X_m, X_ctype, n_rows, n_cols, dtype = \
+            self.X_m, X_ctype, n_rows, n_cols, dtype = \
                 input_to_dev_array(X, order='C', check_dtype=np.float32)
 
         if n_rows <= 1:
@@ -324,7 +326,7 @@ class UMAP(Base):
         self.n_dims = n_cols
         self.raw_data_rows = n_rows
 
-        self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
+        self.arr_embed = cuda.to_device(zeros((self.X_m.shape[0],
                                                umap_params.n_components),
                                               order="C", dtype=np.float32))
         embeddings_ptr = \
@@ -344,8 +346,8 @@ class UMAP(Base):
             fit(handle_[0],
                 < float*> x_raw,
                 < float*> y_raw,
-                < int > X_m.shape[0],
-                < int > X_m.shape[1],
+                < int > self.X_m.shape[0],
+                < int > self.X_m.shape[1],
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
@@ -353,12 +355,12 @@ class UMAP(Base):
 
             fit(handle_[0],
                 < float*> x_raw,
-                < int > X_m.shape[0],
-                < int > X_m.shape[1],
+                < int > self.X_m.shape[0],
+                < int > self.X_m.shape[1],
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
-        del X_m
+        del self.X_m
         del umap_params
 
     def fit_transform(self, X, y=None):
@@ -385,6 +387,7 @@ class UMAP(Base):
             ret = np.asarray(self.arr_embed)
 
         return ret
+
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that
@@ -437,7 +440,7 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> < size_t > self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.raw_data
+        cdef uintptr_t orig_x_raw = get_dev_array_ptr(self.X_m)
 
         cdef uintptr_t embed_ptr = get_dev_array_ptr(self.arr_embed)
 

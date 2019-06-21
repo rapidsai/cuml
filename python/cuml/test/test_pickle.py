@@ -166,6 +166,7 @@ def test_decomposition_pickle(tmpdir, datatype, model, nrows,
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
+@pytest.mark.xfail
 def test_neighbors_pickle(tmpdir, datatype, model, nrows,
                           ncols, k):
     X_train, _, X_test = make_dataset(datatype, nrows, ncols)
