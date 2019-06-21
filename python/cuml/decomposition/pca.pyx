@@ -120,10 +120,12 @@ class PCA(Base):
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's PCA expects an array-like object or cuDF DataFrame, and provides 2
-    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
-    then selects the top K eigenvectors. The Jacobi algorithm is much faster
-    as it iteratively tries to correct the top K eigenvectors, but might be
+    cuML's PCA expects an array-like object, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
+     compliant), and provides 2 algorithms Full and Jacobi.
+    Full (default) uses a full eigendecomposition then selects the
+    top K eigenvectors. The Jacobi algorithm is much faster as it
+    iteratively tries to correct the top K eigenvectors, but might be
     less accurate.
 
     Examples
