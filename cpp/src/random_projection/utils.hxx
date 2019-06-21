@@ -79,20 +79,15 @@ inline size_t binomial(const ML::cumlHandle& h, size_t n, double p, int random_s
     dim3 blk(256, 1, 1);
 
     sum_bools<<<grid_n, blk, 0, h.getStream()>>>(rand_array, n, successes);
-    cudaStreamSynchronize(h.getStream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     int ret = 0;
-
     MLCommon::updateHost(&ret, successes,1,  h.getStream());
     cudaStreamSynchronize(h.getStream());
     CUDA_CHECK(cudaPeekAtLastError());
 
-    CUDA_CHECK(cudaFree(successes));
-    CUDA_CHECK(cudaFree(rand_array));
-
-//    alloc->deallocate(rand_array, n*sizeof(bool), h.getStream());
-//    alloc->deallocate(successes, sizeof(int), h.getStream());
+    alloc->deallocate(rand_array, n*sizeof(bool), h.getStream());
+    alloc->deallocate(successes, sizeof(int), h.getStream());
 
     return n -ret;
 }
