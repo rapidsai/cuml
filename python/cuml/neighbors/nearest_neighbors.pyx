@@ -203,8 +203,21 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
+        self.inputs = None
+        self.sizes = None
+        self.n_indices = 1
+
+    def __dealloc__(self):
+        if self.inputs is not None:
+            free(<float**><size_t>self.inputs)
+        if self.sizes is not None:
+            free(<int*><size_t>self.sizes)
 
     def __getstate__(self):
+
+        if self.n_indices > 1 or self.sizes is not None or self.inputs is not None:
+            raise "Pickling if models using multiple GPUs is not yet supported"
+
         state = self.__dict__.copy()
 
         del state['handle']
