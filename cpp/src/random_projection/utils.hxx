@@ -19,7 +19,6 @@
 #include "rproj_c.h"
 #include <random/rng.h>
 #include <cuda_utils.h>
-#include <thrust/reduce.h>
 #include <common/cumlHandle.hpp>
 #include "sys/time.h"
 
