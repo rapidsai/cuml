@@ -246,6 +246,43 @@ class UMAP(Base):
         self.target_metric = target_metric
         self._should_downcast = should_downcast
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        state['X_m'] = cudf.DataFrame(self.X_m)
+        state['arr_emdbed'] = cudf.DataFrame(self.arr_embed)
+        state["n_cols"] = self.n_cols
+        state["raw_data_rows"] = self.raw_data_rows
+        state["n_neighbors"] = self.n_neighbors
+        state["_should_downcast"] = self._should_downcast
+        state["n_components"] = self.n_components
+        state["n_epochs"] = self.n_epochs
+        state["learning_rate"] = self.learning_rate
+        state["min_dist"] = self.min_dist
+        state["spread"] = self.spread
+        state["set_op_mix_ratio"] = self.set_op_mix_ratio
+        state["local_connectivity"] = self.local_connectivity
+        state["repulsion_strength"] = self.repulsion_strength
+        state["negative_sample_rate"] = self.negative_sample_rate
+        state["transform_queue_size"] = self.transform_queue_size
+        state["init"] = self.init
+        state["a"] = self.a
+        state["b"] = self.b
+        state["target_n_neighbors"] = self.target_n_neighbors
+        state["target_weights"] = self.target_weights
+        state["target_metric"] = self.target_metric
+
+        return state
+
+    def __setstate__(self, state):
+        super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['X_m'] = state['X_m'].to_gpu_array()
+        state["arr_embed"] = state["arr_embed"].to_gpu_array()
+        self.__dict__.update(state)
+
+
     def build_umap_params(self):
 
         cdef UMAPParams *umap_params = new UMAPParams()

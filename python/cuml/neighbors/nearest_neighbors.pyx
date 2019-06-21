@@ -204,6 +204,26 @@ class NearestNeighbors(Base):
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        state['X_m'] = cudf.DataFrame(self.X_m)
+        state['n_indices'] = self.n_indices
+        state["n_dims"] = self.n_dims
+        state["n_gpus"] = self.n_gpus
+        state["n_neighbors"] = self.n_neighbors
+        state["_should_downcast"] = self._should_downcast
+
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['X_m'] = state['X_m'].to_gpu_array()
+
+        self.__dict__.update(state)
+
     def fit(self, X):
         """
         Fit GPU index for performing nearest neighbor queries.
