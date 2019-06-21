@@ -48,6 +48,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests. 
 - PR #741: Update API docs for 0.8
+- PR #763: Add examples to train_test_split documentation
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
