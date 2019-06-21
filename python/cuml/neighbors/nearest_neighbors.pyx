@@ -89,11 +89,12 @@ class NearestNeighbors(Base):
     "distance" between each and every point, and return the top K datapoints
     which have the smallest distance to it.
 
-    cuML's KNN an array-like object or cuDF DataFrame (where automatic
-    chunking will be done in to a Numpy Array in a future release), and fits a
-    special data structure first to approximate the distance calculations,
-    allowing our querying times to be O(plogn) and not the brute force O(np)
-    [where p = no(features)]:
+    cuML's KNN can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
+    where automatic chunking will be done in to a Numpy Array in
+    a future release. It fits a special data structure first to approximate
+    the distance calculations, allowing our querying times to be
+    O(plogn) and not the brute force O(np) [where p = no(features)]
 
     Examples
     ---------
