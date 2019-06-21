@@ -107,18 +107,18 @@ class LogisticRegression(Base):
        The training process will stop if current_loss > previous_loss - tol
     C: float (default = 1.0)
        Inverse of regularization strength; must be a positive float.
-    fit_intercept : boolean (default = True)
+    fit_intercept: boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
-    max_iter : int (default = 1000)
+    max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
     verbose: bool (optional, default False)
         Controls verbosity of logging.
-    l1_ratio : float or None, optional (default=None)
+    l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
-    solver : 'qn', 'lbfgs', 'owl' (default=qn).
+    solver: 'qn', 'lbfgs', 'owl' (default=qn).
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the condictions of the l1 regularization described
@@ -148,9 +148,6 @@ class LogisticRegression(Base):
                  solver='qn', handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle, verbose=False)
-
-        if dual:
-            raise ValueError("`dual` parameter not supported.")
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
