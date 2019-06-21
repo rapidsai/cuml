@@ -12,6 +12,7 @@ import statsmodels.tsa.arima_model as sm_arima
 import pandas as pd
 
 from .batched_bfgs import batched_fmin_bfgs
+from .batched_lbfgs import batched_fmin_lbfgs
 
 # import torch.cuda.nvtx as nvtx
 
@@ -155,7 +156,7 @@ class BatchedARIMAModel:
             mu0: np.ndarray,
             ar_params0: [np.ndarray],
             ma_params0: [np.ndarray],
-            opt_disp=-1, h=1e-8, gpu=True, alpha_max=1000):
+            opt_disp=-1, h=1e-9, gpu=True, alpha_max=1000):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
         with the given initial parameters. `y` is (num_samples, num_batches)
@@ -168,14 +169,23 @@ class BatchedARIMAModel:
         num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         num_batches = y.shape[1]
 
-        def f(x, n=None, do_sum=True):
+        def f(x, n=None, x_all=None, do_sum=True):
             # Maximimize LL means minimize negative
             if n is not None:
-                n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
+                if x_all is not None:
+                    x_in = np.copy(x_all)
+                    x_in[n*num_parameters:(n+1)*num_parameters] = np.copy(x)
+                    n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order,
+                                                     y, x_in, gpu=gpu, trans=True))
+                    
+                else:
+                    n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order,
+                                                     y, x, gpu=gpu, trans=True))
                 return n_llf[n]/(num_samples-1)
 
             if do_sum:
-                n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
+                n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters,
+                                                     order, y, x, gpu=gpu, trans=True).sum())
                 return n_llf_sum/(num_samples-1)/num_batches
 
             n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
@@ -183,15 +193,26 @@ class BatchedARIMAModel:
             
 
         # optimized finite differencing gradient for batches
-        def gf(x, n=None):
+        def gf(x, n=None, x_all=None):
             # Recall: We maximize LL by minimizing -LL
-            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
             if n is not None:
-                n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
+                if x_all is not None:
+                    x_in = np.copy(x_all)
+                    x_in[n*num_parameters:(n+1)*num_parameters] = np.copy(x)
+                    n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order,
+                                                      y, x_in, h, gpu=gpu, trans=True)
+                else:
+                    n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order,
+                                                      y, x, h, gpu=gpu, trans=True)
+                if x_all is not None:
+                    n_gllf_ret = n_gllf[n*num_parameters:(n+1)*num_parameters]/ (num_samples - 1)
+                    return n_gllf_ret
+                
                 n_gllf_n = np.zeros(len(n_gllf))
                 n_gllf_n[n*num_parameters:(n+1)*num_parameters] = n_gllf[n*num_parameters:(n+1)*num_parameters]
                 return n_gllf_n / (num_samples-1)
 
+            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
             return n_gllf/(num_samples-1)
 
         if not isinstance(mu0, np.ndarray):
@@ -206,30 +227,43 @@ class BatchedARIMAModel:
             x0 = batch_invtrans(p, q, num_batches, x0)
             
 
+        optimizer = 3
+
+        if optimizer == 1:
         # SciPy l-bfgs (non-batched)
-        # x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf,
-        #                                     approx_grad=False,
-        #                                     iprint=opt_disp,
-        #                                     factr=10000,
-        #                                     m=1,
-        #                                     pgtol=1e-7,
-        #                                     epsilon=h)
-        # if res['warnflag'] > 0:
-        #     raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
+            x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=None,
+                                                approx_grad=True,
+                                                iprint=1,
+                                                factr=100,
+                                                m=12,
+                                                pgtol=1e-8)
 
-        # our batch-aware bfgs solver
+            if res['warnflag'] > 0:
+                raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
 
-        if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
+            niter = res['nit']
+        elif optimizer == 2:
+            # our batch-aware bfgs solver
 
-        x, fk, niter = batched_fmin_bfgs(f, x0, num_batches, gf, alpha_per_batch=True, disp=opt_disp, alpha_max=alpha_max)
-        # print("our results: ", x)
-        # scipy again
-        # options = {"disp": 1}
-        # res = opt.minimize(f, x0, jac=gf, method="BFGS", options=options)
-        # x = res.x
-        # print("their results: ", x)
-        print("NITER=", niter)
+            if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
+                raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
+
+            x, fk, niter = batched_fmin_bfgs(f, x0, num_batches, gf,
+                                             alpha_per_batch=True, disp=opt_disp, alpha_max=alpha_max)
+            # print("our results: ", x)
+            # scipy again
+            # options = {"disp": 1}
+            # res = opt.minimize(f, x0, jac=gf, method="BFGS", options=options)
+            # x = res.x
+            # print("their results: ", x)
+            print("NITER=", niter)
+
+        elif optimizer == 3:
+            if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
+                raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
+
+            x, niter = batched_fmin_lbfgs(f, x0, num_batches, gf,
+                                          alpha_per_batch=True, iprint=opt_disp, factr=1000)
 
         Tx = batch_trans(p, q, num_batches, x)
         mu, ar, ma = unpack(p, q, num_batches, Tx)
