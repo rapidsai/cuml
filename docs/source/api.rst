@@ -54,11 +54,6 @@ Stochastic Gradient Descent
 .. autoclass:: cuml.SGD
     :members:
 
-Nearest Neighbors
------------------
-
-.. autoclass:: cuml.NearestNeighbors
-    :members:
 
 Random Forest
 -------------
@@ -102,6 +97,24 @@ UMAP
 -------------
 
 .. autoclass:: cuml.UMAP
+    :members:
+
+Random Projections
+------------------
+
+.. autoclass:: cuml.random_projection.GaussianRandomProjection
+    :members:
+
+.. autoclass:: cuml.random_projection.SparseRandomProjection
+    :members:
+
+Neighbors
+==========
+
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.NearestNeighbors
     :members:
 
 

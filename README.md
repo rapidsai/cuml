@@ -52,7 +52,6 @@ repo](https://github.com/rapidsai/notebooks-extended).
 | --- | --- | --- |
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
 |  | K-Means | |
-|  | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
 | | Uniform Manifold Approximation and Projection (UMAP) | |
@@ -63,6 +62,7 @@ repo](https://github.com/rapidsai/notebooks-extended).
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Initial preview version in cuML 0.8 | 
+|  | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
 | **Time Series** | Linear Kalman Filter | |
 ---
 
