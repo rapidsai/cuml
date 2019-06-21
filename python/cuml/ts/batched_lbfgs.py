@@ -18,9 +18,18 @@ def _fd_fprime(x, f, h):
     return g
 
 
-def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=None, m=10,
+def Batched_I(r, num_batches):
+    """Utility to build batched Identity Matrix (r x r) x num_batches: H = | I I I ... I |"""
+    H = np.zeros((r, r * num_batches))
+    for ib in range(num_batches):
+        for ir in range(r):
+            H[ir, ib*r + ir] = 1.0
+    return H
+
+
+def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=0, bounds=None, m=10,
                        factr=10000000.0, pgtol=1e-05, epsilon=1e-08, iprint=-1,
-                       maxfun=15000, maxiter=1000, disp=None, callback=None, maxls=20):
+                       maxfun=15000, maxiter=50, disp=None, callback=None, maxls=20):
 
 
     if fprime is None and approx_grad is True:
@@ -30,20 +39,16 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
     sk = np.zeros(len(x0))
     yk = np.zeros(len(x0))
 
-    N = len(x0)
-    y_k_m_1 = np.ones(N)
-    s_k_m_1 = np.ones(N)
+    N = len(x0) // num_batches
+    Nb = len(x0)
 
     xkm1 = x0
     xk = x0
     yk = deque(maxlen=m)
     sk = deque(maxlen=m)
-    pk = deque(maxlen=m)
     rho = deque(maxlen=m)
     fk = []
-    gk = np.zeros(N)
-
-    Hk_bfgs = np.eye(N)
+    gk = np.zeros(Nb)
 
     k = 0
 
@@ -62,8 +67,8 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
             print("INFO: |g|_{inf} < PGTOL, STOPPING.")
             break
 
-        if k > 1 and np.abs(fk[-2] - fk[-1]) < 1e-10:
-            print("INFO: Last two iterations essentially identical, stopping.")
+        if k > 1 and np.abs(fk[-2] - fk[-1]) < factr * np.finfo(float).eps:
+            print("INFO: Difference between last two iterations smaller than tolerance, stopping.")
             break
 
         ######################
@@ -72,50 +77,60 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
         # gradient descent for first step
         if k == 0:
             pk = -fprime(x0)
-            
+
         # L-BFGS after first step
         else:
 
             sk.append(xk-xkm1)
             yk.append(gk-gkm1)
-            rho.append(1/np.dot(yk[-1], sk[-1]))
+            rhok = np.zeros(num_batches)
+            gamma_k = np.zeros(num_batches)
+            for ib in range(num_batches):
+                rhok[ib] = 1/np.dot(yk[-1][ib*N:(ib+1)*N], sk[-1][ib*N:(ib+1)*N])
+                gammaA = np.dot(sk[-1][ib*N:(ib+1)*N], yk[-1][ib*N:(ib+1)*N])
+                gammaB = np.dot(yk[-1][ib*N:(ib+1)*N], yk[-1][ib*N:(ib+1)*N])
+                gamma_k[ib] = gammaA / gammaB
 
-            gamma_k = np.dot(sk[-1], yk[-1]) / np.dot(yk[-1], yk[-1])
-
+            rho.append(rhok)
+            # gamma_k = np.dot(sk[-1], yk[-1]) / np.dot(yk[-1], yk[-1])
+            # rho.append(1/np.dot(yk[-1], sk[-1]))
+            # set_trace()
             #############
             # Alg. 7.4
-            # first loop recursion
-            alpha_i = np.zeros(min(k, m))
-            q = gk
-            for i in range(min(k, m)):
-                idx = -1-i
-                alpha_i[idx] = rho[idx] * np.dot(sk[idx], q)
-                q = q - alpha_i[idx] * yk[idx]
 
+            pk = np.zeros(Nb)
+            q = np.copy(gk)
             
-            H0k = gamma_k * np.eye(N)
-            r = H0k @ q
-            # second loop recursion
-            for i in range(min(k, m)):
-                beta = rho[i] * np.dot(yk[i], r)
-                r = r + sk[i] * (alpha_i[i] - beta)
+            for ib in range(num_batches):
+                alpha_i = np.zeros(min(k, m))
 
+                # first loop recursion
+                for i in range(min(k, m)):
+                    idx = -1-i
+                    alpha_i[idx] = rho[idx][ib] * np.dot(sk[idx][ib*N:(ib+1)*N], q[ib*N:(ib+1)*N])
+                    q[ib*N:(ib+1)*N] = q[ib*N:(ib+1)*N] - alpha_i[idx] * yk[idx][ib*N:(ib+1)*N]
+                    
+                H0k = gamma_k[ib] * np.eye(N)    
+                r = H0k @ q[ib*N:(ib+1)*N]
 
-            # note r = Hk \/f
-            pk = -r
+                # second loop recursion
+                for i in range(min(k, m)):
+                    beta = rho[i][ib] * np.dot(yk[i][ib*N:(ib+1)*N], r)
+                    r = r + sk[i][ib*N:(ib+1)*N] * (alpha_i[i] - beta)
 
-        # alpha, fc, gc, fkp1, _, _ = optimize.line_search(func, fprime,
-        #                                                  xk, pk)
-        alpha, fc, gc, fkp1, _, gkp1 = optimize.linesearch.line_search_wolfe1(func,
-                                                                              fprime, xk,
-                                                                              pk, gk)
+                # note r = Hk \/f
+                pk[ib*N:(ib+1)*N] = -r
+
+        alpha, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
+                                                                      fprime, xk,
+                                                                      pk, gk)
 
         if alpha is None:
             # Line-Search failed, reset L-BFGS memory.
+            print("WARNING: Line search failed, resetting L-BFGS memory")
             k = 0
             yk.clear()
             sk.clear()
-            pk.clear()
             rho.clear()
             continue
 
@@ -124,6 +139,5 @@ def batched_fmin_lbfgs(func, x0, fprime=None, args=(), approx_grad=0, bounds=Non
         xkm1 = xk
         xk = xkp1
         k += 1
-
 
     return xk, k
