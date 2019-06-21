@@ -87,9 +87,10 @@ class CD(Base):
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
 
-    cuML's CD algorithm accepts a numpy matrix or a cuDF DataFrame as the
-    input dataset.algorithm The CD algorithm currently works with linear
-    regression and ridge, lasso, and elastic-net penalties.
+    cuML's CD algorithm can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+    The CD algorithm currently works with linear regression and
+    ridge, lasso, and elastic-net penalties.
 
     Examples
     ---------
