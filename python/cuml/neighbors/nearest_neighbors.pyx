@@ -378,11 +378,12 @@ class NearestNeighbors(Base):
 
         cdef float** inputs
         cdef int* sizes
+        cdef uintptr_t In_ctype
         if self.n_indices > 1:
             inputs = <float**><size_t>self.input
             sizes = <int*><size_t>self.sizes
         else:
-            In_ctype = self.X_m.device_ctypes_ptr().value
+            In_ctype = get_dev_array_ptr(self.X_m)
 
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))

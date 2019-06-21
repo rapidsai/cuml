@@ -227,55 +227,69 @@ class UMAP(Base):
 
         super(UMAP, self).__init__(handle, verbose)
 
-        cdef UMAPParams * umap_params = new UMAPParams()
-
         self.n_neighbors = n_neighbors
-        umap_params.n_neighbors = n_neighbors
-
-        umap_params.n_components = <int > n_components
-        umap_params.n_epochs = <int > n_epochs
-        umap_params.verbose = <bool > verbose
-
-        if(init == "spectral"):
-            umap_params.init = <int > 1
-        elif(init == "random"):
-            umap_params.init = <int > 0
-        else:
-            raise Exception("Initialization strategy not supported: %d" % init)
-
-        if a is not None:
-            umap_params.a = <float > a
-
-        if b is not None:
-            umap_params.b = <float > b
-
-        umap_params.learning_rate = <float > learning_rate
-        umap_params.min_dist = <float > min_dist
-        umap_params.spread = <float > spread
-        umap_params.set_op_mix_ratio = <float > set_op_mix_ratio
-        umap_params.local_connectivity = <float > local_connectivity
-        umap_params.repulsion_strength = <float > repulsion_strength
-        umap_params.negative_sample_rate = <int > negative_sample_rate
-        umap_params.transform_queue_size = <int > transform_queue_size
-
-        umap_params.target_n_neighbors = target_n_neighbors
-        umap_params.target_weights = target_weights
-
-        if target_metric == "euclidean":
-            umap_params.target_metric = MetricType.EUCLIDEAN
-        elif target_metric == "categorical":
-            umap_params.target_metric = MetricType.CATEGORICAL
-        else:
-            raise Exception("Invalid target metric: {}" % target_metric)
-
+        self.n_components = n_components
+        self.n_epochs = n_epochs
+        self.learning_rate = learning_rate
+        self.min_dist = min_dist
+        self.spread = spread
+        self.set_op_mix_ratio = set_op_mix_ratio
+        self.local_connectivity = local_connectivity
+        self.repulsion_strength = repulsion_strength
+        self.negative_sample_rate = negative_sample_rate
+        self.transform_queue_size = transform_queue_size
+        self.init = init
+        self.a = a
+        self.b = b
+        self.target_n_neighbors = target_n_neighbors
+        self.target_weights = target_weights
+        self.target_metric = target_metric
         self._should_downcast = should_downcast
 
-        self.umap_params = <size_t > umap_params
+    def build_umap_params(self):
 
-    def __dealloc__(self):
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
-        del umap_params
+        cdef UMAPParams *umap_params = new UMAPParams()
+
+        umap_params.n_neighbors = self.n_neighbors
+
+        umap_params.n_components = <int > self.n_components
+        umap_params.n_epochs = <int > self.n_epochs
+        umap_params.verbose = <bool > self.verbose
+
+        if(self.init == "spectral"):
+            umap_params.init = <int > 1
+        elif(self.init == "random"):
+            umap_params.init = <int > 0
+        else:
+            raise Exception("Initialization strategy not supported: %d" % self.init)
+
+        if self.a is not None:
+            umap_params.a = <float > self.a
+
+        if self.b is not None:
+            umap_params.b = <float > self.b
+
+        umap_params.learning_rate = <float > self.learning_rate
+        umap_params.min_dist = <float > self.min_dist
+        umap_params.spread = <float > self.spread
+        umap_params.set_op_mix_ratio = <float > self.set_op_mix_ratio
+        umap_params.local_connectivity = <float > self.local_connectivity
+        umap_params.repulsion_strength = <float > self.repulsion_strength
+        umap_params.negative_sample_rate = <int > self.negative_sample_rate
+        umap_params.transform_queue_size = <int > self.transform_queue_size
+
+        umap_params.target_n_neighbors = self.target_n_neighbors
+        umap_params.target_weights = self.target_weights
+
+        if self.target_metric == "euclidean":
+            umap_params.target_metric = MetricType.EUCLIDEAN
+        elif self.target_metric == "categorical":
+            umap_params.target_metric = MetricType.CATEGORICAL
+        else:
+            raise Exception("Invalid target metric: {}" % self.target_metric)
+
+        return <size_t > umap_params
+
 
     def fit(self, X, y=None):
         """Fit X into an embedded space.
@@ -305,17 +319,16 @@ class UMAP(Base):
                              "build nearest the neighbors graph")
 
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> < size_t > self.build_umap_params()
         umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
         self.n_dims = n_cols
-        self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
         self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
                                                umap_params.n_components),
                                               order="C", dtype=np.float32))
-        self.embeddings = \
-            self.arr_embed.device_ctypes_pointer.value
+        embeddings_ptr = \
+            get_dev_array_ptr(self.arr_embed)
 
         cdef cumlHandle * handle_ = \
             <cumlHandle*> < size_t > self.handle.getHandle()
@@ -323,7 +336,7 @@ class UMAP(Base):
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
 
-        cdef uintptr_t embed_raw = self.embeddings
+        cdef uintptr_t embed_raw = embeddings_ptr
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
@@ -346,6 +359,7 @@ class UMAP(Base):
                 < float*>embed_raw)
 
         del X_m
+        del umap_params
 
     def fit_transform(self, X, y=None):
         """Fit X into an embedded space and return that transformed
@@ -414,18 +428,18 @@ class UMAP(Base):
                              "training data")
 
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> < size_t > self.build_umap_params()
         embedding = cuda.to_device(zeros((X_m.shape[0],
                                           umap_params.n_components),
                                          order="C", dtype=np.float32))
-        cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
+        cdef uintptr_t xformed_ptr = get_dev_array_ptr(embedding)
 
         cdef cumlHandle * handle_ = \
             <cumlHandle*> < size_t > self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.raw_data
 
-        cdef uintptr_t embed_ptr = self.embeddings
+        cdef uintptr_t embed_ptr = get_dev_array_ptr(self.arr_embed)
 
         transform(handle_[0],
                   < float*>x_ptr,
@@ -446,5 +460,6 @@ class UMAP(Base):
             ret = np.asarray(embedding)
 
         del X_m
+        del umap_params
 
         return ret
