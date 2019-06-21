@@ -55,6 +55,84 @@ def train_test_split(
     seed : int, optional
         If shuffle is true, seeds the generator. Unseeded by default
 
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cudf
+        from cuml.preprocessing.model_selection import train_test_split
+
+        # Generate some sample data
+        df = cudf.DataFrame({'x': range(10),
+                             'y': [0, 1] * 5})
+        print(df)
+
+        # Suppose we want an 80/20 split
+        X_train, X_test, y_train, y_test = train_test_split(df, 'y',
+                                                            train_size=0.8)
+        print("X_train:")
+        print(X_train)
+        print("X_test:")
+        print(X_test)
+        print("y_train:")
+        print(y_train)
+        print("y_test:")
+        print(y_test)
+
+        # Alternatively, if our labels are stored separately
+        labels = df['y']
+        df = df.drop(['y'])
+
+        # we can also do
+        X_train, X_test, y_train, y_test = train_test_split(df, labels,
+                                                            train_size=0.8)
+
+    Output:
+
+    .. code-block:: python
+
+           x  y
+        0  0  0
+        1  1  1
+        2  2  0
+        3  3  1
+        4  4  0
+        5  5  1
+        6  6  0
+        7  7  1
+        8  8  0
+        9  9  1
+        X_train:
+        x
+        0  3
+        1  9
+        2  2
+        3  0
+        4  7
+        5  1
+        6  8
+        7  4
+        X_test:
+        x
+        8  5
+        9  6
+        y_train:
+        0    1
+        1    1
+        2    0
+        3    0
+        4    1
+        5    1
+        6    0
+        7    0
+        Name: y, dtype: int64
+        y_test:
+        8    1
+        9    0
+        Name: y, dtype: int64
+
+
     Returns
     -------
     X_train, X_test, y_train, y_test : cudf.DataFrame
