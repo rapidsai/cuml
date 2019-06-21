@@ -383,6 +383,7 @@ class UMAP(Base):
                 < float*>embed_raw)
 
         del umap_params
+        return self
 
     def fit_transform(self, X, y=None):
         """Fit X into an embedded space and return that transformed
@@ -399,13 +400,14 @@ class UMAP(Base):
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y)
+        xformed = self.transform(X)
 
-        if isinstance(X, cudf.DataFrame):
+        if isinstance(xformed, cudf.DataFrame):
             ret = cudf.DataFrame()
-            for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.arr_embed)
+            for i in range(0, xformed.shape[1]):
+                ret[str(i)] = xformed[:, i]
+        elif isinstance(xformed, np.ndarray):
+            ret = np.asarray(xformed)
 
         return ret
 
