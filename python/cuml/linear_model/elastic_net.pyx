@@ -33,7 +33,7 @@ class ElasticNet:
 
     cuML's ElasticNet can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
-    compliant), as well  as cuDF DataFrames. It uses coordinate descent
+    compliant), as well as cuDF DataFrames. It uses coordinate descent
     to fit a linear model.
 
     Examples
