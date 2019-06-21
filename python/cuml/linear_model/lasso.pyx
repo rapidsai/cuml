@@ -30,7 +30,7 @@ class Lasso:
     predictors in X. It can zero some of the coefficients for feature
     selection, and improves the conditioning of the problem.
 
-    cuML's Lasso an array-like object, either in host as
+    cuML's Lasso can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
     compliant). anduses coordinate descent to fit a linear model.
 
