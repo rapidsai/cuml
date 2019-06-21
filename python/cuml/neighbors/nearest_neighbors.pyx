@@ -309,6 +309,8 @@ class NearestNeighbors(Base):
             self.sizes = <size_t>sizes_arr
             self.input = <size_t>input_arr
 
+        return self 
+
     def _fit_mg(self, n_dims, alloc_info):
         """
         Fits a model using multiple GPUs. This method takes in a list of dict
