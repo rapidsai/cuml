@@ -34,12 +34,117 @@ supported_solvers = ['qn', 'lbfgs', 'owl']
 
 class LogisticRegression(Base):
     """
-    Logistic Goodness :)
+    LogisticRegression is a linear model that is used to model probability of
+    occurrance of certain events, for example probability of success or fail of
+    an event.
+
+    cuML's LogisticRegression can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+    It provides both two class (using sigmoid loss) and multiple class
+    (using softmax loss) variants, depending on the input variables.
+
+    Only one solver option is currently available: Quasi-Newton (QN)
+    algorithms. Even though it is presented as a single option, this solver
+    resolves to two different algorithms underneath:
+
+    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+    regularization
+    - Limited Memory BFGS (L-BFGS) otherwise.
+
+    Note that, just like in Scikit-learn, the bias will not be regularized.
+
+    Examples
+    ---------
+    .. code-block:: python
+
+        import cudf
+        import numpy as np
+
+        # Both import methods supported
+        # from cuml import LogisticRegression
+        from cuml.linear_model import LogisticRegression
+
+        X = cudf.DataFrame()
+        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
+
+        reg = LogisticRegression()
+        reg.fit(X,y)
+
+        print("Coefficients:")
+        print(reg.coef_.copy_to_host())
+        print("intercept:")
+        print(reg.intercept_.copy_to_host())
+
+        X_new = cudf.DataFrame()
+        X_new['col1'] = np.array([1,5], dtype = np.float32)
+        X_new['col2'] = np.array([2,5], dtype = np.float32)
+
+        preds = reg.predict(X_new)
+
+        print(preds)
+    Output:
+    .. code-block:: python
+        Coefficients:
+                    0.22309814
+                    0.21012752
+        Intercept:
+                    -0.7548761
+        Preds:
+                    0    0.0
+                    1    1.0
+    Parameters
+    -----------
+    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
+        Used to specify the norm used in the penalization.
+        If 'none' or 'l2' are selected, then L-BFGS solver will be used.
+        If 'l1' is selected, solver OWL-QN will be used.
+        If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
+        otherwise L-BFGS will be used.
+    tol: float (default = 1e-4)
+       The training process will stop if current_loss > previous_loss - tol
+    C: float (default = 1.0)
+       Inverse of regularization strength; must be a positive float.
+    fit_intercept : boolean (default = True)
+       If True, the model tries to correct for the global mean of y.
+       If False, the model expects that you have centered the data.
+    class_weight: None
+        Custom class weighs are currently not supported.
+    max_iter : int (default = 1000)
+        Maximum number of iterations taken for the solvers to converge.
+    verbose: bool (optional, default False)
+        Controls verbosity of logging.
+    l1_ratio : float or None, optional (default=None)
+        The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
+    solver : 'qn', 'lbfgs', 'owl' (default=qn).
+        Algorithm to use in the optimization problem. Currently only `qn` is
+        supported, which automatically selects either L-BFGS or OWL-QN
+        depending on the condictions of the l1 regularization described
+        above. Options 'lbfgs' and 'owl' are just convenience values that
+        end up using the same solver following the same rules.
+    Attributes
+    -----------
+    coef_ : array, shape (n_classes, n_features)
+        The estimated coefficients for the linear regression model.
+    intercept_ : array (n_classes, 1)
+        The independent term. If fit_intercept_ is False, will be 0.
+    Notes
+    ------
+
+    cuML's LogisticRegression uses a different solver that the equivalent
+    Scikit-learn except when there is no penalty and `solver=lbfgs` is
+    chosen in Scikit-learn. This can cause (smaller) differences in the
+    coefficients and predictions of the model, similar to difference when
+    using different solvers in Scikit-learn.
+
+    For additional docs, see `scikitlearn's LogistRegression
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
                  class_weight=None, max_iter=1000, verbose=0, l1_ratio=None,
-                 dual=None, solver='qn', handle=None):
+                 solver='qn', handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle, verbose=False)
 
