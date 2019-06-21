@@ -99,7 +99,7 @@ class TruncatedSVD(Base):
 
     cuML's TruncatedSVD can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
-    compliant), and provides 2 algorithms Full and Jacobi. Full (default)
+    compliant). It provides 2 algorithms Full and Jacobi. Full (default)
     uses a full eigendecomposition then selects the top K singular vectors.
     The Jacobi algorithm is muchfaster as it iteratively tries to correct
     the top K singular vectors, but might be less accurate.
