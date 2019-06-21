@@ -48,11 +48,11 @@ from cuml.random_projection.random_projection import GaussianRandomProjection, S
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-from cuml.thirdparty._sklearn import (
+from cuml.thirdparty import (
   BaseCrossValidator, KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit,
   LeaveOneGroupOut, LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
   RepeatedStratifiedKFold, ShuffleSplit, GroupShuffleSplit,
-  StratifiedShuffleSplit, PredefinedSplit, train_test_split, check_cv)
+  StratifiedShuffleSplit, PredefinedSplit, check_cv)
 
 from ._version import get_versions
 __version__ = get_versions()['version']
