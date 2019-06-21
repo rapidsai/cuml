@@ -11,6 +11,7 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #681: Add MBSGDClassifier and MBSGDRegressor classes around SGD
 - PR #705: Quasi Newton solver and LogisticRegression Python classes
 - PR #670: Add test skipping functionality to build.sh
 - PR #678: Random Forest Python class
@@ -45,6 +46,7 @@
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
+- PR #741: Update API docs for 0.8
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -58,6 +60,7 @@
 - PR #685: Make CuPy optional to avoid nccl conda package conflicts
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #718: Bug fix for DBSCAN and increasing batch size of sgd
 - PR #719: Adding additional checks for dtype of the data
 - PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
