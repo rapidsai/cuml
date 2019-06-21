@@ -19,7 +19,7 @@ from cuml.test.utils import array_equal
 import numpy as np
 from sklearn.datasets import make_regression
 import pickle
-from unittest import assertAlmostEqual
+from numpy.testing import assert_almost_equal
 from sklearn.manifold.t_sne import trustworthiness
 
 regression_models = dict(
@@ -169,7 +169,6 @@ def test_decomposition_pickle(tmpdir, datatype, model, nrows,
 @pytest.mark.parametrize('model', umap_model.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.xfail
 def test_umap_pickle(tmpdir, datatype, model, nrows,
                               ncols):
     X_train, _, _ = make_dataset(datatype, nrows, ncols)
@@ -180,12 +179,13 @@ def test_umap_pickle(tmpdir, datatype, model, nrows,
                                       cu_before_pickle_transform, 10)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
+    
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
-
+    
     cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
 
-    assertAlmostEqual(cu_trust_before, cu_trust_after, 1)
+    assert cu_trust_before == cu_trust_after
+
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
