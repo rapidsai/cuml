@@ -297,8 +297,6 @@ class NearestNeighbors(Base):
 
             self.n_indices = 1
 
-            inp = <uintptr_t>deref(input_arr)
-
             self.sizes = <size_t>sizes_arr
             self.input = <size_t>input_arr
 
@@ -376,8 +374,20 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef float** inputs = <float**><size_t>self.input
-        cdef int* sizes = <int*><size_t>self.sizes
+        cdef float** inputs
+        cdef int* sizes
+        if self.n_indices > 1:
+            inputs = <float**><size_t>self.input
+            sizes = <int*><size_t>self.sizes
+        else:
+            In_ctype = self.X_m.device_ctypes_ptr().value
+
+            input_arr = <float**> malloc(sizeof(float *))
+            sizes_arr = <int*> malloc(sizeof(int))
+
+            sizes_arr[0] = <int>len(X)
+            input_arr[0] = <float*>In_ctype
+
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
