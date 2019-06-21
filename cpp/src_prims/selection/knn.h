@@ -131,13 +131,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
-#ifndef DISABLE_OMP
-#else
+#if DISABLE_OMP == OFF
 #pragma omp parallel
 #endif
   {
-#ifndef DISABLE_OMP
-#else
+#if DISABLE_OMP == OFF
 #pragma omp for
 #endif
 

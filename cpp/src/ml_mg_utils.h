@@ -42,8 +42,7 @@ void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
                      cudaStream_t stream) {
   size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
 
-#ifndef DISABLE_OMP
-#else
+#if DISABLE_OMP == OFF
 #pragma omp parallel for
 #endif
   for (int i = 0; i < n_chunks; i++) {
