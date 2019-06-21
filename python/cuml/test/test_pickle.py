@@ -206,6 +206,25 @@ def test_neighbors_pickle(tmpdir, datatype, model, nrows,
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
 
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', neighbor_models.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('k', [unit_param(3)])
+@pytest.mark.xfail(raises=pickle.PickleError, strict = True)
+def test_neighbors_mg_fails(tmpdir, datatype, model, nrows,
+                          ncols, k):
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+
+    model.fit(X_train)
+    D_before, I_before = model.kneighbors(X_test, k=k)
+    model.n_indices = 2
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
+
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', dbscan_model.values())

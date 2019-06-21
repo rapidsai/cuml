@@ -24,6 +24,7 @@ import pandas as pd
 import cudf
 import ctypes
 import cuml
+import pickle
 
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -216,7 +217,7 @@ class NearestNeighbors(Base):
     def __getstate__(self):
 
         if self.n_indices > 1 or self.sizes is not None or self.inputs is not None:
-            raise "Pickling if models using multiple GPUs is not yet supported"
+            raise pickle.PickleError("Pickling if models using multiple GPUs is not yet supported")
 
         state = self.__dict__.copy()
 
