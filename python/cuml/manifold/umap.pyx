@@ -227,7 +227,6 @@ class UMAP(Base):
 
         super(UMAP, self).__init__(handle, verbose)
 
-
         self.X_m = None
         self.n_neighbors = n_neighbors
         self.n_components = n_components
@@ -251,10 +250,7 @@ class UMAP(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        print(str(state))
-
         del state['handle']
-
 
         state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
         state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
@@ -264,8 +260,8 @@ class UMAP(Base):
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['X_m'] = state['X_m'].as_gpu_matrix(order = "C")
-        state["arr_embed"] = state["arr_embed"].as_gpu_matrix(order = "C")
+        state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
+        state["arr_embed"] = state["arr_embed"].as_gpu_matrix(order="C")
 
         self.__dict__.update(state)
 
