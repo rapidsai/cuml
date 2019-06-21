@@ -333,7 +333,6 @@ class UMAP(Base):
             self.X_m, X_ctype, n_rows, n_cols, dtype = \
                 input_to_dev_array(X, order='C', check_dtype=np.float32)
 
-        print("CALLED FIT!")
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
