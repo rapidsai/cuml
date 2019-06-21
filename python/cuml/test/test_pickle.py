@@ -19,6 +19,8 @@ from cuml.test.utils import array_equal
 import numpy as np
 from sklearn.datasets import make_regression
 import pickle
+from unittest import assertAlmostEqual
+from sklearn.manifold.t_sne import trustworthiness
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -39,7 +41,6 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
-    UMAP=cuml.UMAP(),
     GaussianRandomProjection=cuml.GaussianRandomProjection(),
     SparseRandomProjection=cuml.SparseRandomProjection()
 )
@@ -50,6 +51,10 @@ neighbor_models = dict(
 
 dbscan_model = dict(
     DBSCAN=cuml.DBSCAN()
+)
+
+umap_model = dict(
+    UMAP=cuml.UMAP()
 )
 
 
@@ -159,6 +164,28 @@ def test_decomposition_pickle(tmpdir, datatype, model, nrows,
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
     assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', umap_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.xfail
+def test_umap_pickle(tmpdir, datatype, model, nrows,
+                              ncols):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+
+    cu_before_pickle_transform = model.fit_transform(X_train)
+
+    cu_trust_before = trustworthiness(X_train,
+                                      cu_before_pickle_transform, 10)
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
+
+    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
+
+    assertAlmostEqual(cu_trust_before, cu_trust_after, 1)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
