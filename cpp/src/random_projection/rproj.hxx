@@ -62,7 +62,7 @@ namespace ML {
 								paramsRPROJ& params)
 	{
 		cudaStream_t stream = h.getStream();
-        auto d_alloc = h.getDeviceAllocator();
+    auto d_alloc = h.getDeviceAllocator();
 
 		if (params.density == 1.0f)
 		{
@@ -88,12 +88,13 @@ namespace ML {
 
 			for (size_t i = 0; i < params.n_components; i++)
 			{
-				int n_nonzero = binomial(params.n_features, params.density);
+				int n_nonzero = binomial(h, params.n_features, params.density, params.random_state);
 				sample_without_replacement(params.n_features, n_nonzero, indices, indices_idx);
 				indptr[indptr_idx] = offset;
 				indptr_idx++;
 				offset += n_nonzero;
 			}
+
 			indptr[indptr_idx] = offset;
 
 			size_t len = offset;
