@@ -218,9 +218,10 @@ class NearestNeighbors(Base):
         return state
 
     def __setstate__(self, state):
-        super(NearestNeighbors, self).__init__(handle=None, verbose=state['verbose'])
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
 
-        state['X_m'] = state['X_m'].to_gpu_array()
+        state['X_m'] = state['X_m'].as_gpu_matrix()
 
         self.__dict__.update(state)
 
