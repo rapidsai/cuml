@@ -48,7 +48,7 @@ from cuml.random_projection.random_projection import GaussianRandomProjection, S
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-from cuml.thirdparty._sklearn.model_selection import (
+from cuml.thirdparty._sklearn import (
   BaseCrossValidator, KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit,
   LeaveOneGroupOut, LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
   RepeatedStratifiedKFold, ShuffleSplit, GroupShuffleSplit,
