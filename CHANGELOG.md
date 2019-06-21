@@ -47,7 +47,7 @@
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
 - PR #741: Update API docs for 0.8
-- PR #XXX: LogisticRegression and QN API docstrings
+- PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
