@@ -144,7 +144,7 @@ class KMeans(Base):
 
     cuML's KMeans expects an array-like object, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
-    compliant) and supports the scalable KMeans++ intialization method.
+    compliant). It supports the scalable KMeans++ intialization method.
     This method is more stable than randomnly selecting K points.
 
     Examples
