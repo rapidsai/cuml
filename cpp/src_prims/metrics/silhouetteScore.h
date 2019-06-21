@@ -34,44 +34,6 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief helper debuggger functions that displays the runtime device parameters
-* @tparam DataT type of input data to be displayed
-* @param matrix the 2D/1D matrix to be displayed for debugging
-* @param nRows number of rows
-* @param nCols number of columns
-* @param stream the device stream
-*/
-
-template <typename DataT>
-void display(DataT *matrix, int nRows, int nCols, cudaStream_t stream) {
-  DataT *temp = (DataT *)malloc(nRows * nCols * sizeof(DataT *));
-
-  updateHost(temp, matrix, nRows * nCols, stream);
-
-  for (int i = 0; i < nRows; ++i) {
-    for (int j = 0; j < nCols; ++j) {
-      printf("%f\t", temp[i * nCols + j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-template <typename DataT>
-void displayD(DataT *matrix, int nRows, int nCols, cudaStream_t stream) {
-  DataT *temp = (DataT *)malloc(nRows * nCols * sizeof(DataT *));
-
-  updateHost(temp, matrix, nRows * nCols, stream);
-
-  for (int i = 0; i < nRows; ++i) {
-    for (int j = 0; j < nCols; ++j) {
-      printf("%d\t", temp[i * nCols + j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-/**
 * @brief kernel that calculates the average intra-cluster distance for every sample data point and updates the cluster distance to max value
 * @tparam DataT: type of the data samples
 * @tparam LabelT: type of the labels
@@ -101,7 +63,7 @@ __global__ void populateAKernel(DataT *sampleToClusterSumOfDistances,
 
   int sampleClusterIndex = (int)sampleCluster;
 
-  if (binCountArray[sampleClusterIndex] - 1 == 0) {
+  if (binCountArray[sampleClusterIndex] - 1 <= 0) {
     d_aArray[sampleIndex] = -1;
     return;
 
@@ -150,6 +112,8 @@ void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
   CUDA_CHECK(cub::DeviceHistogram::HistogramEven(
     workspace.data(), temp_storage_bytes, labels, binCountArray, num_levels,
     lower_level, upper_level, nRows, stream));
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -159,7 +123,7 @@ template <typename DataT>
 struct DivOp {
   HDI DataT operator()(DataT a, int b, int c) {
     if (b == 0)
-      return 0;
+      return ULLONG_MAX;
     else
       return a / b;
   }
@@ -173,10 +137,12 @@ struct SilOp {
   HDI DataT operator()(DataT a, DataT b) {
     if (a == 0 && b == 0 || a == b)
       return 0;
+    else if (a == -1)
+      return 0;
     else if (a > b)
-      return b / a - 1;
+      return (b - a) / a;
     else
-      return 1 - a / b;
+      return (b - a) / b;
   }
 };
 
@@ -212,9 +178,6 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
                       int nLabels, DataT *silhouetteScorePerSample,
                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
                       cudaStream_t stream, int metric = 4) {
-  /**  TODO: after 'pairwise-distance' prim is available, use runtime distance metric over hardcoding distance metric
- */
-
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 
@@ -226,6 +189,8 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   Distance::pairwiseDistance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
     static_cast<Distance::DistanceType>(metric), stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouetteScoreSamples(allocator, stream, 0);
@@ -268,6 +233,8 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   dim3 numThreadsPerBlock(32, 1, 1);
   dim3 numBlocks(ceildiv<int>(nRows, numThreadsPerBlock.x), 1, 1);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   //calling the kernel
   populateAKernel<<<numBlocks, numThreadsPerBlock, 0, stream>>>(
     sampleToClusterSumOfDistances.data(), binCountArray.data(), d_aArray.data(),
@@ -279,16 +246,22 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   CUDA_CHECK(cudaMemsetAsync(averageDistanceBetweenSampleAndCluster.data(), 0,
                              nRows * nLabels * sizeof(DataT), stream));
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   LinAlg::matrixVectorOp<DataT, DivOp<DataT>>(
     averageDistanceBetweenSampleAndCluster.data(),
     sampleToClusterSumOfDistances.data(), binCountArray.data(),
     binCountArray.data(), nLabels, nRows, true, true, DivOp<DataT>(), stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating row-wise minimum
   LinAlg::reduce<DataT, DataT, int, Nop<DataT>, MinOp<DataT>>(
     d_bArray.data(), averageDistanceBetweenSampleAndCluster.data(), nLabels,
     nRows, std::numeric_limits<DataT>::max(), true, true, stream, false,
     Nop<DataT>(), MinOp<DataT>());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating the silhouette score per sample using the d_aArray and d_bArray
   LinAlg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore, d_aArray.data(),
@@ -302,9 +275,13 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
 
   DataT avgSilhouetteScore;
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   MLCommon::LinAlg::mapThenSumReduce<double, Nop<DataT>>(
     d_avgSilhouetteScore.data(), nRows, Nop<DataT>(), stream, perSampleSilScore,
     perSampleSilScore);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   updateHost(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1, stream);
 
