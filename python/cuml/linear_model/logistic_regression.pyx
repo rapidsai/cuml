@@ -74,7 +74,7 @@ class LogisticRegression(Base):
 
         print("Coefficients:")
         print(reg.coef_.copy_to_host())
-        print("intercept:")
+        print("Intercept:")
         print(reg.intercept_.copy_to_host())
 
         X_new = cudf.DataFrame()
@@ -83,6 +83,7 @@ class LogisticRegression(Base):
 
         preds = reg.predict(X_new)
 
+        print("Predictions:")
         print(preds)
     Output:
     .. code-block:: python
@@ -91,7 +92,7 @@ class LogisticRegression(Base):
                     0.21012752
         Intercept:
                     -0.7548761
-        Preds:
+        Predictions:
                     0    0.0
                     1    1.0
     Parameters

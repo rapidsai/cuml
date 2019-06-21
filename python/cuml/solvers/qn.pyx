@@ -155,7 +155,7 @@ class QN(Base):
                     -17.158297
         Intercept:
                     -17.158297
-        Preds:
+        Predictions:
                     0    0.0
                     1    1.0
     Parameters
