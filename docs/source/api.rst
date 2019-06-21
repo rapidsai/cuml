@@ -29,6 +29,13 @@ Linear Regression
     :members:
 
 
+Logistic Regression
+-----------------
+
+.. autoclass:: cuml.LogisticRegression
+    :members:
+
+
 Ridge Regression
 ----------------
 
@@ -46,7 +53,7 @@ ElasticNet Regression
 
 .. autoclass:: cuml.ElasticNet
     :members:
-    
+
 
 Stochastic Gradient Descent
 ---------------------------
@@ -58,6 +65,13 @@ Stochastic Gradient Descent
 Random Forest
 -------------
 .. autoclass:: cuml.ensemble.RandomForestClassifier
+    :members:
+
+
+Quasi-Newton
+------------
+
+.. autoclass:: cuml.QN
     :members:
 
 Clustering
@@ -126,4 +140,4 @@ Kalman Filter
 
 .. autoclass:: cuml.KalmanFilter
     :members:
-       
+
