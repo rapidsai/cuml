@@ -594,7 +594,7 @@ class KMeans(Base):
         self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
-        cdef double inertia = 0;
+        cdef double inertia = 0
 
         if self.dtype == np.float32:
             score(
