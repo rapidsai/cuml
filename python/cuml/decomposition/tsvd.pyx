@@ -254,7 +254,7 @@ class TruncatedSVD(Base):
         self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
                                                  dtype=self.dtype))
         self.components_ary = cuda.to_device(zeros(n_components*n_cols,
-                                                dtype=self.dtype))
+                                                   dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
