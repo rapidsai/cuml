@@ -30,6 +30,8 @@ from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
+from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
+from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
 
 from cuml.metrics.regression import r2_score
