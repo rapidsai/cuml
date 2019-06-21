@@ -48,6 +48,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests. 
 - PR #741: Update API docs for 0.8
+- PR #754: Pickling of UMAP/KNN
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator

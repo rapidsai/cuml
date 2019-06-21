@@ -246,8 +246,6 @@ class UMAP(Base):
         self.target_metric = target_metric
         self._should_downcast = should_downcast
 
-
-    
     def build_umap_params(self):
 
         cdef UMAPParams *umap_params = new UMAPParams()
@@ -263,7 +261,8 @@ class UMAP(Base):
         elif(self.init == "random"):
             umap_params.init = <int > 0
         else:
-            raise Exception("Initialization strategy not supported: %d" % self.init)
+            raise Exception("Initialization strategy not supported: %d" \
+                            % self.init)
 
         if self.a is not None:
             umap_params.a = <float > self.a
@@ -291,7 +290,6 @@ class UMAP(Base):
             raise Exception("Invalid target metric: {}" % self.target_metric)
 
         return <size_t > umap_params
-
 
     def fit(self, X, y=None):
         """Fit X into an embedded space.
@@ -387,7 +385,6 @@ class UMAP(Base):
             ret = np.asarray(self.arr_embed)
 
         return ret
-
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that

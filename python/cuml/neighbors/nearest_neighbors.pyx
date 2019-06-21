@@ -289,7 +289,6 @@ class NearestNeighbors(Base):
                 self.X_m, X_ctype, n_rows, _, dtype = \
                     input_to_dev_array(X, order='C')
 
-
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
 
@@ -388,8 +387,6 @@ class NearestNeighbors(Base):
 
             sizes[0] = <int>len(self.X_m)
             inputs[0] = <float*>In_ctype
-            
-
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
