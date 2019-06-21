@@ -208,7 +208,7 @@ class NearestNeighbors(Base):
         self.sizes = None
         self.n_indices = 1
 
-    def __dealloc__(self):
+    def __del__(self):
         if self.inputs is not None:
             free(<float**><size_t>self.inputs)
         if self.sizes is not None:
