@@ -76,6 +76,7 @@
 - PR #719: Adding additional checks for dtype of the data
 - PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
+- PR #759: Configure Sphinx to render params correctly
 - PR #762: Apply threshold to remove flakiness of UMAP tests.
 
 # cuML 0.7.0 (10 May 2019)
