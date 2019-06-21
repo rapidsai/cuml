@@ -191,6 +191,13 @@ class QN(Base):
         number of outputs (C > 1, for multinomial, indicating number of
         classes. For logistic and normal, C must be 1. For softmax C must be
         at least 2.
+    Attributes
+    -----------
+    coef_ : array, shape (n_classes, n_features)
+        The estimated coefficients for the linear regression model.
+        Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
+    intercept_ : array (n_classes, 1)
+        The independent term. If fit_intercept_ is False, will be 0.
     Notes
     ------
        This class contains implementations of two popular Quasi-Newton methods:
