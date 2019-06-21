@@ -55,7 +55,7 @@ def test_blobs_cluster(nrows, n_feats):
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
     embedding = cuUMAP(verbose=False).fit_transform(data)
 
-    if nrows != 500000:
+    if nrows < 500000:
         score = adjusted_rand_score(labels,
                                     KMeans(5).fit_predict(embedding))
         assert score == 1.0
@@ -79,7 +79,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
 
-    if nrows != 500000:
+    if nrows < 500000:
         cuml_score = adjusted_rand_score(labels,
                                          KMeans(10).fit_predict(
                                              cuml_embedding))

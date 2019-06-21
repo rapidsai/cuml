@@ -63,7 +63,7 @@ def test_kmeans_sklearn_comparison(name, nrows):
     cu_y_pred, _ = fit_predict(cuml_kmeans,
                                'cuml_Kmeans', X)
 
-    if nrows != 500000:
+    if nrows < 500000:
         kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
         sk_y_pred, _ = fit_predict(kmeans,
                                    'sk_Kmeans', X)
