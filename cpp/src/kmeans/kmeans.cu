@@ -105,7 +105,8 @@ void predict(const ML::cumlHandle &handle, float *centroids, int n_clusters,
 
   kmeans_obj.predict(X, n_samples, n_features, labels);
 
-  std::memcpy(inertia, kmeans_obj.getInertia(), sizeof(double));
+  const double obj_inertia = -1 * kmeans_obj.getInertia();
+  std::memcpy(inertia, &obj_inertia, sizeof(double));
 }
 
 void predict(const ML::cumlHandle &handle, double *centroids, int n_clusters,
@@ -121,7 +122,8 @@ void predict(const ML::cumlHandle &handle, double *centroids, int n_clusters,
 
   kmeans_obj.predict(X, n_samples, n_features, labels);
 
-  std::memcpy(inertia, kmeans_obj.getInertia(), sizeof(double));
+  const double obj_inertia = -1 * kmeans_obj.getInertia();
+  std::memcpy(inertia, &obj_inertia, sizeof(double));
 }
 
 void transform(const ML::cumlHandle &handle, const float *centroids,
@@ -136,7 +138,8 @@ void transform(const ML::cumlHandle &handle, const float *centroids,
   kmeans_obj.setCentroids(centroids, n_clusters, n_features);
   kmeans_obj.transform(X, n_samples, n_features, X_new);
 
-  std::memcpy(inertia, kmeans_obj.getInertia(), sizeof(double));
+  const double obj_inertia = -1 * kmeans_obj.getInertia();
+  std::memcpy(inertia, &obj_inertia, sizeof(double));
 }
 
 void transform(const ML::cumlHandle &handle, const double *centroids,
@@ -151,7 +154,8 @@ void transform(const ML::cumlHandle &handle, const double *centroids,
   kmeans_obj.setCentroids(centroids, n_clusters, n_features);
   kmeans_obj.transform(X, n_samples, n_features, X_new);
 
-  std::memcpy(inertia, kmeans_obj.getInertia(), sizeof(double));
+  const double obj_inertia = -1 * kmeans_obj.getInertia();
+  std::memcpy(inertia, &obj_inertia, sizeof(double));
 }
 
 void score(const ML::cumlHandle &handle, float *centroids, int n_clusters,

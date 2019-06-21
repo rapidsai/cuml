@@ -530,8 +530,8 @@ DataT *KMeans<DataT, IndexT>::centroids() {
 }
 
 template <typename DataT, typename IndexT>
-const double *KMeans<DataT, IndexT>::getInertia() {
-  return &inertia;
+double KMeans<DataT, IndexT>::getInertia() {
+  return inertia;
 }
 
 // Selects 'n_clusters' samples randomly from X
