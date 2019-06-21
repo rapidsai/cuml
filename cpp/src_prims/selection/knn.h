@@ -131,9 +131,16 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
+#ifndef DISABLE_OMP
+#else
 #pragma omp parallel
+#endif
   {
+#ifndef DISABLE_OMP
+#else
 #pragma omp for
+#endif
+
     for (int i = 0; i < n_params; i++) {
       const float *ptr = input[i];
       IntType size = sizes[i];
