@@ -102,7 +102,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
 class QN(Base):
     """
-    Quasi-Newton methods are methods used to either find zeroes or local maxima
+    Quasi-Newton methods are used to either find zeroes or local maxima
     and minima of functions, and used by this class to optimize a cost
     function.
 
@@ -139,7 +139,7 @@ class QN(Base):
         # last position if fit_intercept=True
         print("Coefficients:")
         print(solver.coef_.copy_to_host())
-        print("intercept:")
+        print("Intercept:")
         print(solver.intercept_.copy_to_host())
 
         X_new = cudf.DataFrame()
@@ -148,8 +148,11 @@ class QN(Base):
 
         preds = solver.predict(X_new)
 
+        print("Predictions:")
         print(preds)
+
     Output:
+
     .. code-block:: python
         Coefficients:
                     10.647417
@@ -160,6 +163,7 @@ class QN(Base):
         Predictions:
                     0    0.0
                     1    1.0
+
     Parameters
     -----------
     loss: 'sigmoid', 'softmax', 'squared_loss' (default = 'squared_loss')
@@ -187,10 +191,7 @@ class QN(Base):
         O(lbfgs_memory * D) memory.
     verbose: bool (optional, default False)
         Controls verbosity of logging.
-    num_classes: int (default = 1)
-        number of outputs (C > 1, for multinomial, indicating number of
-        classes. For logistic and normal, C must be 1. For softmax C must be
-        at least 2.
+
     Attributes
     -----------
     coef_ : array, shape (n_classes, n_features)
@@ -198,6 +199,7 @@ class QN(Base):
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
     intercept_ : array (n_classes, 1)
         The independent term. If fit_intercept_ is False, will be 0.
+
     Notes
     ------
        This class contains implementations of two popular Quasi-Newton methods:
@@ -211,7 +213,7 @@ class QN(Base):
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5, verbose=False,
-                 num_classes=1, handle=None):
+                 handle=None):
 
         super(QN, self).__init__(handle=handle, verbose=False)
 

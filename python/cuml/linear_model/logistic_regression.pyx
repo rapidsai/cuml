@@ -35,7 +35,7 @@ supported_solvers = ['qn', 'lbfgs', 'owl']
 class LogisticRegression(Base):
     """
     LogisticRegression is a linear model that is used to model probability of
-    occurrance of certain events, for example probability of success or fail of
+    occurrence of certain events, for example probability of success or fail of
     an event.
 
     cuML's LogisticRegression can take array-like objects, either in host as
@@ -85,7 +85,9 @@ class LogisticRegression(Base):
 
         print("Predictions:")
         print(preds)
+
     Output:
+
     .. code-block:: python
         Coefficients:
                     0.22309814
@@ -95,6 +97,7 @@ class LogisticRegression(Base):
         Predictions:
                     0    0.0
                     1    1.0
+
     Parameters
     -----------
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
@@ -124,12 +127,14 @@ class LogisticRegression(Base):
         depending on the condictions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
+
     Attributes
     -----------
-    coef_ : array, shape (n_classes, n_features)
+    coef_: device array, shape (n_classes, n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array (n_classes, 1)
+    intercept_: device array (n_classes, 1)
         The independent term. If fit_intercept_ is False, will be 0.
+
     Notes
     ------
 
@@ -139,7 +144,7 @@ class LogisticRegression(Base):
     coefficients and predictions of the model, similar to difference when
     using different solvers in Scikit-learn.
 
-    For additional docs, see `scikitlearn's LogistRegression
+    For additional docs, see Scikit-learn's LogistRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
