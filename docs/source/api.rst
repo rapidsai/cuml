@@ -71,7 +71,7 @@ Random Forest
 Quasi-Newton
 ------------
 
-.. autoclass:: cuml.SGD
+.. autoclass:: cuml.QN
     :members:
 
 Clustering
