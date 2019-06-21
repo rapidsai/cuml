@@ -261,7 +261,7 @@ class UMAP(Base):
         elif(self.init == "random"):
             umap_params.init = <int > 0
         else:
-            raise Exception("Initialization strategy not supported: %d" 
+            raise Exception("Initialization strategy not supported: %d"
                             % self.init)
 
         if self.a is not None:
