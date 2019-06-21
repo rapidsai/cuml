@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #766: Expose score method based on inertia for KMeans
+
 ## Improvements
 
 ## Bug Fixes

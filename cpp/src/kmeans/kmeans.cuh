@@ -127,7 +127,7 @@ class KMeans {
   DataT *centroids();
 
   // returns the inertia
-  const double *getInertia();
+  double getInertia();
 
   // release local resources
   ~KMeans();
