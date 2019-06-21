@@ -41,12 +41,15 @@
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
 - PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
 - PR #695: prims: Refactor pairwise distance
-- PR #707: Added stress test and updated documentation for RF 
+- PR #707: Added stress test and updated documentation for RF
 - PR #701: Added emacs temporary file patterns to .gitignore
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
+- PR #744: Random projections generating binomial on device. Fixing tests. 
 - PR #741: Update API docs for 0.8
+- PR #753: Made PCA and TSVD picklable
+- PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -65,6 +68,7 @@
 - PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
 - PR #759: Configure Sphinx to render params correctly
+- PR #762: Apply threshold to remove flakiness of UMAP tests.
 
 # cuML 0.7.0 (10 May 2019)
 
