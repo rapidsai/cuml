@@ -88,8 +88,10 @@ def test_umap_fit_transform_score(nrows, n_feats):
 
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
+
 # Allow slight deviation from expected trust due to numerical error
 TRUST_TOLERANCE_THRESH = 0.005
+
 
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
