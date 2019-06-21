@@ -66,19 +66,15 @@ def train_test_split(
         # Generate some sample data
         df = cudf.DataFrame({'x': range(10),
                              'y': [0, 1] * 5})
-        print(df)
+        print(f'Original data: {df.shape[0]} elements')
 
         # Suppose we want an 80/20 split
         X_train, X_test, y_train, y_test = train_test_split(df, 'y',
                                                             train_size=0.8)
-        print("X_train:")
-        print(X_train)
-        print("X_test:")
-        print(X_test)
-        print("y_train:")
-        print(y_train)
-        print("y_test:")
-        print(y_test)
+        print(f'X_train: {X_train.shape[0]} elements')
+        print(f'X_test: {X_test.shape[0]} elements')
+        print(f'y_train: {y_train.shape[0]} elements')
+        print(f'y_test: {y_test.shape[0]} elements')
 
         # Alternatively, if our labels are stored separately
         labels = df['y']
@@ -92,46 +88,11 @@ def train_test_split(
 
     .. code-block:: python
 
-           x  y
-        0  0  0
-        1  1  1
-        2  2  0
-        3  3  1
-        4  4  0
-        5  5  1
-        6  6  0
-        7  7  1
-        8  8  0
-        9  9  1
-        X_train:
-        x
-        0  3
-        1  9
-        2  2
-        3  0
-        4  7
-        5  1
-        6  8
-        7  4
-        X_test:
-        x
-        8  5
-        9  6
-        y_train:
-        0    1
-        1    1
-        2    0
-        3    0
-        4    1
-        5    1
-        6    0
-        7    0
-        Name: y, dtype: int64
-        y_test:
-        8    1
-        9    0
-        Name: y, dtype: int64
-
+        Original data: 10 elements
+        X_train: 8 elements
+        X_test: 2 elements
+        y_train: 8 elements
+        y_test: 2 elements
 
     Returns
     -------
