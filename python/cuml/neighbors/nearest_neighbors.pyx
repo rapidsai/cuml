@@ -161,7 +161,7 @@ class NearestNeighbors(Base):
     n_neighbors: int (default = 5)
         The top K closest datapoints you want the algorithm to return.
         If this number is large, then expect the algorithm to run slower.
-    should_downcast : bool (default = False)
+    should_downcast: bool (default = False)
         Currently only single precision is supported in the underlying undex.
         Setting this to true will allow single-precision input arrays to be
         automatically downcasted to single precision.
@@ -210,7 +210,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -308,11 +308,11 @@ class NearestNeighbors(Base):
         objects representing the distribution of the underlying device
         pointers. The device information can be extracted from the pointers.
 
-        :param n_dims
+       :param n_dims
             the number of features for each vector
-        :param alloc_info
+       :param alloc_info
             a list of __cuda_array_interface__ dicts
-        :return:
+       :return:
         """
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -341,7 +341,7 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy

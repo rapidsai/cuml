@@ -41,23 +41,23 @@ def train_test_split(
 
     Parameters
     ----------
-    X : cudf.DataFrame
+    X: cudf.DataFrame
         Data to split, has shape (n_samples, n_features)
-    y : str or cudf.Series
+    y: str or cudf.Series
         Set of labels for the data, either a series of shape (n_samples) or
         the string label of a column in X containing the labels
-    train_size : float or int, optional
+    train_size: float or int, optional
         If float, represents the proportion [0, 1] of the data
         to be assigned to the training set. If an int, represents the number
         of instances to be assigned to the training set. Defaults to 0.8
-    shuffle : bool, optional
+    shuffle: bool, optional
         Whether or not to shuffle inputs before splitting
-    seed : int, optional
+    seed: int, optional
         If shuffle is true, seeds the generator. Unseeded by default
 
     Returns
     -------
-    X_train, X_test, y_train, y_test : cudf.DataFrame
+    X_train, X_test, y_train, y_test: cudf.DataFrame
         Partitioned dataframes. If `y` was provided as a column name, the
         column was dropped from the `X`s
     """

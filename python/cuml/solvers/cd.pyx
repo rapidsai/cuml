@@ -125,7 +125,7 @@ class CD(Base):
 
     Parameters
     -----------
-    loss : 'squared_loss' (Only 'squared_loss' is supported right now)
+    loss: 'squared_loss' (Only 'squared_loss' is supported right now)
        'squared_loss' uses linear regression
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization.
@@ -136,16 +136,16 @@ class CD(Base):
         l1_ratio = 0 the penalty is an L2 penalty.
         For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1,
         the penalty is a combination of L1 and L2.
-    fit_intercept : boolean (default = True)
+    fit_intercept: boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
-    max_iter : int (default = 1000)
+    max_iter: int (default = 1000)
         The number of times the model should iterate through the entire
         dataset during training (default = 1000)
-    tol : float (default = 1e-3)
+    tol: float (default = 1e-3)
        The tolerance for the optimization: if the updates are smaller than tol,
        solver stops.
-    shuffle : boolean (default = True)
+    shuffle: boolean (default = True)
        If set to ‘True’, a random coefficient is updated every iteration rather
        than looping over features sequentially by default.
        This (setting to ‘True’) often leads to significantly faster convergence
@@ -191,12 +191,12 @@ class CD(Base):
         Fit the model with X and y.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -265,7 +265,7 @@ class CD(Base):
         Predicts the y for X.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy

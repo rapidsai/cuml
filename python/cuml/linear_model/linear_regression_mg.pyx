@@ -177,7 +177,7 @@ class LinearRegressionMG:
 
         Parameters
         ----------
-        algorithm : Type: string. 'eig' (default) and 'svd' are supported
+        algorithm: Type: string. 'eig' (default) and 'svd' are supported
         algorithms.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
@@ -218,13 +218,13 @@ class LinearRegressionMG:
 
         Parameters
         ----------
-        X : cuDF DataFrame
+        X: cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 
@@ -249,10 +249,10 @@ class LinearRegressionMG:
 
         Parameters
         ----------
-        X : cuDF DataFrame
+        X: cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 

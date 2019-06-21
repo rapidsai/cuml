@@ -281,11 +281,11 @@ class UMAP(Base):
         """Fit X into an embedded space.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             y contains a label per row.
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -352,13 +352,13 @@ class UMAP(Base):
         output.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         Returns
         -------
-        X_new : array, shape (n_samples, n_components)
+        X_new: array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y)
@@ -385,13 +385,13 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             New data to be transformed.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         Returns
         -------
-        X_new : array, shape (n_samples, n_components)
+        X_new: array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
         if len(X.shape) != 2:

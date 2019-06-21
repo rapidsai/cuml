@@ -374,45 +374,45 @@ class RandomForestClassifier(Base):
             cuml_model.fit(X,y)
             cuml_predict = cuml_model.predict(X)
 
-            print("Predicted labels : ", cuml_predict)
+            print("Predicted labels: ", cuml_predict)
 
     Output:
 
     .. code-block:: none
 
-            Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
+            Predicted labels:  [0 1 0 1 0 1 0 1 0 1]
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
+    n_estimators: int (default = 10)
                    number of trees in the forest.
-    handle : cuml.Handle
+    handle: cuml.Handle
              If it is None, a new one is created just for this class.
-    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
+    split_algo: 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 0)
                  the algorithm to determine how nodes are split in the tree.
-    bootstrap : boolean (default = True)
+    bootstrap: boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
                 on a bootstrapped sample with replacement.
                 If false, sampling without replacement is done.
-    bootstrap_features : boolean (default = False)
+    bootstrap_features: boolean (default = False)
                          Control bootstrapping for features.
                          If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    rows_sample: float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth: int (default = -1)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
                 if -1.
-    max_leaves : int (default = -1)
+    max_leaves: int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features: float (default = 1.0)
                    Ratio of number of features (columns) to consider
                    per node split.
-    n_bins :  int (default = 8)
+    n_bins:  int (default = 8)
               Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
+    min_rows_per_node: int (default = 2)
                         The minimum number of samples (rows) needed
                         to split a node.
 
@@ -476,11 +476,11 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             Dense vector (int32) of shape (n_samples, 1).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -495,7 +495,7 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X : array-like (host) shape = (n_samples, n_features)
+        X: array-like (host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray
@@ -515,7 +515,7 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X : array-like (host) shape = (n_samples, n_features)
+        X: array-like (host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray
@@ -525,7 +525,7 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        accuracy : float
+        accuracy: float
         """
 
         return self._impl.cross_validate(X, y)
@@ -536,7 +536,7 @@ class RandomForestClassifier(Base):
         required to configure this estimator as a dictionary.
         Parameters
         -----------
-        deep : boolean (default = True)
+        deep: boolean (default = True)
         """
         params = dict()
         self.variables = ['n_estimators', 'max_depth', 'handle',
@@ -557,7 +557,7 @@ class RandomForestClassifier(Base):
         the sklearn set_params.
         Parameters
         -----------
-        params : dict of new params
+        params: dict of new params
         """
         if not params:
             return self

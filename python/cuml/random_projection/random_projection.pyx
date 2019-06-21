@@ -74,7 +74,7 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
     high-dimensional data can be embedded into lower dimension while preserving
     the distances.
 
-    With p the random projection :
+    With p the random projection:
     (1 - eps) ||u - v||^2 < ||p(u) - p(v)||^2 < (1 + eps) ||u - v||^2
 
     This function finds the minimum number of components to guarantee that
@@ -83,15 +83,15 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
     Parameters
     ----------
 
-    n_samples : int
+    n_samples: int
         Number of samples.
-    eps : float in (0,1) (default = 0.1)
+    eps: float in (0,1) (default = 0.1)
         Maximum distortion rate as defined by the Johnson-Lindenstrauss lemma.
 
     Returns
     -------
 
-    n_components : int
+    n_components: int
         The minimal number of components to guarantee with good probability
         an eps-embedding with n_samples.
 
@@ -113,7 +113,7 @@ cdef class BaseRandomProjection():
     Parameters
     ----------
 
-    n_components : int (default = 'auto')
+    n_components: int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
         The automatic deduction make use of the number of samples and
@@ -122,28 +122,28 @@ cdef class BaseRandomProjection():
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
-    eps : float (default = 0.1)
+    eps: float (default = 0.1)
         Error tolerance during projection. Used by Johnson–Lindenstrauss
         automatic deduction when n_components is set to 'auto'.
 
-    dense_output : boolean (default = True)
+    dense_output: boolean (default = True)
         If set to True transformed matrix will be dense otherwise sparse.
 
-    random_state : int (default = None)
+    random_state: int (default = None)
         Seed used to initilize random generator
 
     Attributes
     ----------
-        params : Cython structure
+        params: Cython structure
             Structure holding model's hyperparameters
 
-        rand_matS/rand_matD : Cython pointers to structures
+        rand_matS/rand_matD: Cython pointers to structures
             Structures holding pointers to data describing random matrix.
             S for simple/float and D for double.
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired from sklearn's implementation:
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """
@@ -178,7 +178,7 @@ cdef class BaseRandomProjection():
 
         Parameters
         ----------
-            X : array-like (device or host) shape = (n_samples, n_features)
+            X: array-like (device or host) shape = (n_samples, n_features)
                 Used to provide shape information.
                 Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
                 ndarray, cuda array interface compliant array like CuPy
@@ -214,7 +214,7 @@ cdef class BaseRandomProjection():
 
         Parameters
         ----------
-            X : array-like (device or host) shape = (n_samples, n_features)
+            X: array-like (device or host) shape = (n_samples, n_features)
                 Dense matrix (floats or doubles) of shape (n_samples,
                 n_features).
                 Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -326,10 +326,10 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     Parameters
     ----------
 
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class
 
-    n_components : int (default = 'auto')
+    n_components: int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
         The automatic deduction make use of the number of samples and
@@ -338,22 +338,22 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
-    eps : float (default = 0.1)
+    eps: float (default = 0.1)
         Error tolerance during projection. Used by Johnson–Lindenstrauss
         automatic deduction when n_components is set to 'auto'.
 
-    random_state : int (default = None)
+    random_state: int (default = None)
         Seed used to initilize random generator
 
     Attributes
     ----------
-        gaussian_method : boolean
+        gaussian_method: boolean
             To be passed to base class in order to determine
             random matrix generation method
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired from sklearn's implementation:
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """
@@ -428,10 +428,10 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     Parameters
     ----------
 
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class
 
-    n_components : int (default = 'auto')
+    n_components: int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
         The automatic deduction make use of the number of samples and
@@ -440,31 +440,31 @@ class SparseRandomProjection(Base, BaseRandomProjection):
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
-    density : float in range (0, 1] (default = 'auto')
+    density: float in range (0, 1] (default = 'auto')
         Ratio of non-zero component in the random projection matrix.
 
         If density = 'auto', the value is set to the minimum density
         as recommended by Ping Li et al.: 1 / sqrt(n_features).
 
-    eps : float (default = 0.1)
+    eps: float (default = 0.1)
         Error tolerance during projection. Used by Johnson–Lindenstrauss
         automatic deduction when n_components is set to 'auto'.
 
-    dense_output : boolean (default = True)
+    dense_output: boolean (default = True)
         If set to True transformed matrix will be dense otherwise sparse.
 
-    random_state : int (default = None)
+    random_state: int (default = None)
         Seed used to initilize random generator
 
     Attributes
     ----------
-        gaussian_method : boolean
+        gaussian_method: boolean
             To be passed to base class in order to determine
             random matrix generation method
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired from sklearn's implementation:
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """

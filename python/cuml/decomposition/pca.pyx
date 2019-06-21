@@ -209,30 +209,30 @@ class PCA(Base):
 
     Parameters
     ----------
-    copy : boolean (default = True)
+    copy: boolean (default = True)
         If True, then copies data then removes mean from data. False might
         cause data to be overwritten with its mean centered version.
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class
-    iterated_power : int (default = 15)
+    iterated_power: int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    n_components : int (default = 1)
+    n_components: int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    random_state : int / None (default = None)
+    random_state: int / None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
-    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
+    svd_solver: 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
-    tol : float (default = 1e-7)
+    tol: float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
+    verbose: bool
         Whether to print debug spews
-    whiten : boolean (default = False)
+    whiten: boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
         Whitening allows each component to have unit variance and removes
@@ -242,17 +242,17 @@ class PCA(Base):
 
     Attributes
     ----------
-    components_ : array
+    components_: array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
-    explained_variance_ : array
+    explained_variance_: array
         How much each component explains the variance in the data given by S**2
-    explained_variance_ratio_ : array
+    explained_variance_ratio_: array
         How much in % the variance is explained given by S**2/sum(S**2)
-    singular_values_ : array
+    singular_values_: array
         The top K singular values. Remember all singular values >= 0
-    mean_ : array
+    mean_: array
         The column wise mean of X. Used to mean - center the data first.
-    noise_variance_ : float
+    noise_variance_: float
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
 
@@ -339,7 +339,7 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -442,17 +442,17 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of
           samples, and n_features is the number of features.
           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
           ndarray, cuda array interface compliant array like CuPy
 
-        y : ignored
+        y: ignored
 
         Returns
         -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
         """
         self.fit(X, _transform=True)
         X_new = cudf.DataFrame()
@@ -471,7 +471,7 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
             samples and n_components is the number of components.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -479,7 +479,7 @@ class PCA(Base):
 
         Returns
         -------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
+        X_original: cuDF DataFrame, shape (n_samples, n_features)
 
         """
         cdef uintptr_t trans_input_ptr
@@ -542,7 +542,7 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
             samples and n_components is the number of components.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -550,7 +550,7 @@ class PCA(Base):
 
         Returns
         -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
 
         """
 

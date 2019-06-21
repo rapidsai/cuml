@@ -106,13 +106,13 @@ class LabelEncoder(object):
 
         Parameters
         ---------
-        y : cudf.Series
+        y: cudf.Series
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
         Returns
         -------
-        self : LabelEncoder
+        self: LabelEncoder
             A fitted instance of itself to allow method chaining
         """
         self._dtype = y.dtype
@@ -133,13 +133,13 @@ class LabelEncoder(object):
 
         Parameters
         ----------
-        y : cudf.Series
+        y: cudf.Series
             Input keys to be transformed. Its values should match the
             categories given to `fit`
 
         Returns
         ------
-        encoded : cudf.Series
+        encoded: cudf.Series
             The ordinally encoded input series
 
         Raises

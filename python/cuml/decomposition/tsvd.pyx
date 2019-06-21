@@ -168,36 +168,36 @@ class TruncatedSVD(Base):
 
     Parameters
     -----------
-    algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
+    algorithm: 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class
-    n_components : int (default = 1)
+    n_components: int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    n_iter : int (default = 15)
+    n_iter: int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    random_state : int / None (default = None)
+    random_state: int / None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
-    tol : float (default = 1e-7)
+    tol: float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
+    verbose: bool
         Whether to print debug spews
 
     Attributes
     -----------
-    components_ : array
+    components_: array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
-    explained_variance_ : array
+    explained_variance_: array
         How much each component explains the variance in the data given by S**2
-    explained_variance_ratio_ : array
+    explained_variance_ratio_: array
         How much in % the variance is explained given by S**2/sum(S**2)
-    singular_values_ : array
+    singular_values_: array
         The top K singular values. Remember all singular values >= 0
 
     Notes
@@ -274,7 +274,7 @@ class TruncatedSVD(Base):
 
         Parameters
         ----------
-       X : array-like (device or host) shape = (n_samples, n_features)
+       X: array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
@@ -356,14 +356,14 @@ class TruncatedSVD(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X as a dense cuDF DataFrame
 
         """
@@ -384,14 +384,14 @@ class TruncatedSVD(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
+        X_original: cuDF DataFrame, shape (n_samples, n_features)
             Note that this is always a dense cuDF DataFrame.
 
         """
@@ -444,14 +444,14 @@ class TruncatedSVD(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense DataFrame.
 
         """

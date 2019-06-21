@@ -144,43 +144,43 @@ class KalmanFilter(Base):
 
     Parameters
     ----------
-    dim_x : int
+    dim_x: int
         Number of state variables for the Kalman filter.
         This is used to set the default size of P, Q, and u
-    dim_z : int
+    dim_z: int
         Number of of measurement inputs.
 
     Attributes
     ----------
-    x : numba device array, numpy array or cuDF series (dim_x, 1),
+    x: numba device array, numpy array or cuDF series (dim_x, 1),
         Current state estimate. Any call to update() or predict() updates
         this variable.
-    P : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
+    P: numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Current state covariance matrix. Any call to update() or predict()
         updates this variable.
-    x_prior : numba device array, numpy array or cuDF series(dim_x, 1)
+    x_prior: numba device array, numpy array or cuDF series(dim_x, 1)
         Prior (predicted) state estimate. The *_prior and *_post attributes
         are for convienence; they store the  prior and posterior of the
         current epoch. Read Only.
-    P_prior : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
+    P_prior: numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Prior (predicted) state covariance matrix. Read Only.
-    x_post : numba device array, numpy array or cuDF series(dim_x, 1)
+    x_post: numba device array, numpy array or cuDF series(dim_x, 1)
         Posterior (updated) state estimate. Read Only.
-    P_post : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
+    P_post: numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Posterior (updated) state covariance matrix. Read Only.
-    z : numba device array or cuDF series (dim_x, 1)
+    z: numba device array or cuDF series (dim_x, 1)
         Last measurement used in update(). Read only.
-    R : numba device array(dim_z, dim_z)
+    R: numba device array(dim_z, dim_z)
         Measurement noise matrix
-    Q : numba device array(dim_x, dim_x)
+    Q: numba device array(dim_x, dim_x)
         Process noise matrix
-    F : numba device array()
+    F: numba device array()
         State Transition matrix
-    H : numba device array(dim_z, dim_x)
+    H: numba device array(dim_z, dim_x)
         Measurement function
-    y : numba device array
+    y: numba device array
         Residual of the update step. Read only.
-    K : numba device array(dim_x, dim_z)
+    K: numba device array(dim_x, dim_z)
         Kalman gain of the update step. Read only.
     precision: 'single' or 'double'
         Whether the Kalman Filter uses single or double precision
@@ -278,16 +278,16 @@ class KalmanFilter(Base):
         equations.
         Parameters
         ----------
-        u : np.array
+        u: np.array
             Optional control vector. If not `None`, it is multiplied by B
             to create the control input into the system.
-        B : np.array(dim_x, dim_z), or None
+        B: np.array(dim_x, dim_z), or None
             Optional control transition matrix; a value of None
             will cause the filter to use `self.B`.
-        F : np.array(dim_x, dim_x), or None
+        F: np.array(dim_x, dim_x), or None
             Optional state transition matrix; a value of None
             will cause the filter to use `self.F`.
-        Q : np.array(dim_x, dim_x), scalar, or None
+        Q: np.array(dim_x, dim_x), scalar, or None
             Optional process noise matrix; a value of None will cause the
             filter to use `self.Q`.
         """
@@ -394,13 +394,13 @@ class KalmanFilter(Base):
         updated with the prior (x_prior, P_prior), and self.z is set to None.
         Parameters
         ----------
-        z : (dim_z, 1): array_like
+        z: (dim_z, 1): array_like
             measurement for this update. z can be a scalar if dim_z is 1,
             otherwise it must be convertible to a column vector.
-        R : np.array, scalar, or None
+        R: np.array, scalar, or None
             Optionally provide R to override the measurement noise for this
             one call, otherwise  self.R will be used.
-        H : np.array, or None
+        H: np.array, or None
             Optionally provide H to override the measurement function for this
             one call, otherwise self.H will be used.
         """

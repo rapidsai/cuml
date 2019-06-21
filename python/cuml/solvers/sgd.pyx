@@ -139,22 +139,22 @@ class SGD(Base):
                         tol=0.0, penalty=penalty, loss=loss)
         cu_sgd.fit(X, y)
         cu_pred = cu_sgd.predict(pred_data).to_array()
-        print(" cuML intercept : ", cu_sgd.intercept_)
-        print(" cuML coef : ", cu_sgd.coef_)
-        print("cuML predictions : ", cu_pred)
+        print(" cuML intercept: ", cu_sgd.intercept_)
+        print(" cuML coef: ", cu_sgd.coef_)
+        print("cuML predictions: ", cu_pred)
     Output:
     .. code-block:: python
 
-        cuML intercept :  0.004561662673950195
-        cuML coef :  0      0.9834546
+        cuML intercept:  0.004561662673950195
+        cuML coef:  0      0.9834546
                     1    0.010128272
                    dtype: float32
-        cuML predictions :  [3.0055666 2.0221121]
+        cuML predictions:  [3.0055666 2.0221121]
 
 
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+    loss: 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
        'hinge' uses linear SVM
        'log' uses logistic regression
        'squared_loss' uses linear regression
@@ -168,29 +168,29 @@ class SGD(Base):
        average of L1 and L2 norms
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
-    fit_intercept : boolean (default = True)
+    fit_intercept: boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
-    epochs : int (default = 1000)
+    epochs: int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
-    tol : float (default = 1e-3)
+    tol: float (default = 1e-3)
        The training process will stop if current_loss > previous_loss - tol
-    shuffle : boolean (default = True)
+    shuffle: boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0: float (default = 0.0)
         Initial learning rate
-    power_t : float (default = 0.5)
+    power_t: float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
+    learning_rate: 'optimal', 'constant', 'invscaling',
                     'adaptive' (default = 'constant')
         optimal option supported in the next version
         constant keeps the learning rate constant
         adaptive changes the learning rate if the training loss or the
         validation accuracy does not improve for n_iter_no_change epochs.
         The old learning rate is generally divide by 5
-    n_iter_no_change : int (default = 5)
+    n_iter_no_change: int (default = 5)
         the number of epochs to train without any imporvement in the model
     Notes
     ------
@@ -286,12 +286,12 @@ class SGD(Base):
         Fit the model with X and y.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -373,7 +373,7 @@ class SGD(Base):
         Predicts the y for X.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -423,7 +423,7 @@ class SGD(Base):
         Predicts the y for X.
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy

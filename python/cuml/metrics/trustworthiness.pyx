@@ -59,18 +59,18 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
 
     Parameters
     ----------
-        X : cuDF DataFrame or Numpy array (n_samples, n_features)
+        X: cuDF DataFrame or Numpy array (n_samples, n_features)
             Data in original dimension
 
-        X_embedded : cuDF DataFrame or Numpy array (n_samples, n_components)
+        X_embedded: cuDF DataFrame or Numpy array (n_samples, n_components)
             Data in target dimension (embedding)
 
-        n_neighbors : int, optional (default: 5)
+        n_neighbors: int, optional (default: 5)
             Number of neighbors considered
 
     Returns
     -------
-        trustworthiness score : double
+        trustworthiness score: double
             Trustworthiness of the low-dimensional embedding
     """
 

@@ -213,44 +213,44 @@ class KMeans(Base):
 
     Parameters
     ----------
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class.
-    n_clusters : int (default = 8)
+    n_clusters: int (default = 8)
         The number of centroids or clusters you want.
-    max_iter : int (default = 300)
+    max_iter: int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol: float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : boolean (default = 0)
+    verbose: boolean (default = 0)
         If True, prints diagnositc information.
-    random_state : int (default = 1)
+    random_state: int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    precompute_distances : boolean (default = 'auto')
+    precompute_distances: boolean (default = 'auto')
         Not supported yet.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+    init: {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ intialization.
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    n_init : int (default = 1)
+    n_init: int (default = 1)
         Number of times intialization is run. More is slower,
         but can be better.
-    algorithm : "auto"
+    algorithm: "auto"
         Currently uses full EM, but will support others later.
-    n_gpu : int (default = 1)
+    n_gpu: int (default = 1)
         Number of GPUs to use. Currently uses single GPU, but will support
         multiple GPUs later.
 
 
     Attributes
     ----------
-    cluster_centers_ : array
+    cluster_centers_: array
         The coordinates of the final clusters. This represents of "mean" of
         each data cluster.
-    labels_ : array
+    labels_: array
         Which cluster each datapoint belongs to.
 
     Notes
@@ -300,7 +300,7 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -408,7 +408,7 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -422,7 +422,7 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -478,7 +478,7 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -540,7 +540,7 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -554,7 +554,7 @@ class KMeans(Base):
 
         Parameters
         -----------
-        deep : boolean (default = True)
+        deep: boolean (default = True)
         """
         params = dict()
         variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
@@ -571,7 +571,7 @@ class KMeans(Base):
 
         Parameters
         -----------
-        params : dict of new params
+        params: dict of new params
         """
         if not params:
             return self

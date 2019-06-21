@@ -98,17 +98,17 @@ class DBSCAN(Base):
 
     Parameters
     -----------
-    eps : float (default = 0.5)
+    eps: float (default = 0.5)
         The maximum distance between 2 points such they reside in the same
         neighborhood.
-    handle : cuml.Handle
+    handle: cuml.Handle
         If it is None, a new one is created just for this class
-    min_samples : int (default = 5)
+    min_samples: int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : bool
+    verbose: bool
         Whether to print debug spews
-    max_bytes_per_batch : (optional) int64
+    max_bytes_per_batch: (optional) int64
         Calculate batch size using no more than this number of bytes for the
         pairwise distance computation. This enables the trade-off between
         runtime and memory usage for making the N^2 pairwise distance
@@ -121,7 +121,7 @@ class DBSCAN(Base):
 
     Attributes
     -----------
-    labels_ : array
+    labels_: array
         Which cluster each datapoint belongs to. Noisy samples are labeled as
         -1.
 
@@ -170,7 +170,7 @@ class DBSCAN(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
@@ -220,14 +220,14 @@ class DBSCAN(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
           Dense matrix (floats or doubles) of shape (n_samples, n_features)
           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
           ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
-        y : cuDF Series, shape (n_samples)
+        y: cuDF Series, shape (n_samples)
           cluster labels
         """
         self.fit(X)

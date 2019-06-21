@@ -34,7 +34,7 @@ supported_solvers = ['qn', 'lbfgs', 'owl']
 
 class LogisticRegression(Base):
     """
-    Logistic Goodness :)
+    Logistic Goodness:)
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
@@ -77,12 +77,12 @@ class LogisticRegression(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -148,7 +148,7 @@ class LogisticRegression(Base):
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy

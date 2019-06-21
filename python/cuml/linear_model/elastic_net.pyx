@@ -83,7 +83,7 @@ class ElasticNet:
 
     Parameters
     -----------
-    alpha : float or double
+    alpha: float or double
         Constant that multiplies the L1 term. Defaults to 1.0.
         alpha = 0 is equivalent to an ordinary least square, solved by the
         LinearRegression object.
@@ -94,20 +94,20 @@ class ElasticNet:
         For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
         an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
-    fit_intercept : boolean (default = True)
+    fit_intercept: boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
+    normalize: boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's L2
         norm.
         If False, no scaling will be done.
-    max_iter : int
+    max_iter: int
         The maximum number of iterations
-    tol : float, optional
+    tol: float, optional
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection: str, default ‘cyclic’
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
@@ -115,9 +115,9 @@ class ElasticNet:
 
     Attributes
     -----------
-    coef_ : array, shape (n_features)
+    coef_: array, shape (n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array
+    intercept_: array
         The independent term. If fit_intercept_ is False, will be 0.
 
 
@@ -133,13 +133,13 @@ class ElasticNet:
 
         Parameters
         ----------
-        alpha : float or double.
-        l1_ratio : float or double.
+        alpha: float or double.
+        l1_ratio: float or double.
         fit_intercept: boolean.
         normalize: boolean.
         max_iter: int
         tol: float or double.
-        selection : str, ‘cyclic’, or 'random'
+        selection: str, ‘cyclic’, or 'random'
 
         For additional docs, see `scikitlearn's ElasticNet
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
@@ -180,12 +180,12 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        y : array-like (device or host) shape = (n_samples, 1)
+        y: array-like (device or host) shape = (n_samples, 1)
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -213,7 +213,7 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
+        X: array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
@@ -233,7 +233,7 @@ class ElasticNet:
 
         Parameters
         -----------
-        deep : boolean (default = True)
+        deep: boolean (default = True)
         """
         params = dict()
         variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
@@ -249,7 +249,7 @@ class ElasticNet:
 
         Parameters
         -----------
-        params : dict of new params
+        params: dict of new params
         """
         if not params:
             return self

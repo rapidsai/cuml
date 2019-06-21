@@ -467,10 +467,10 @@ class TruncatedSVDSPMG:
 
         Parameters
         ----------
-        X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
+        X: cuDF DataFrame, dense matrix, shape (n_samples, n_features)
             Training data (floats or doubles)
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 
@@ -495,10 +495,10 @@ class TruncatedSVDSPMG:
 
         Parameters
         ----------
-        X GDF : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
+        X GDF: cuDF DataFrame, dense matrix, shape (n_samples, n_features)
                 Training data (floats or doubles)
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 
@@ -507,7 +507,7 @@ class TruncatedSVDSPMG:
 
         Returns
         ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
                 Reduced version of X. This will always be a dense cuDF
                 DataFrame
 
@@ -531,10 +531,10 @@ class TruncatedSVDSPMG:
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_components)
+        X: cuDF DataFrame, shape (n_samples, n_components)
             New data.
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 
@@ -543,7 +543,7 @@ class TruncatedSVDSPMG:
 
         Returns
         ----------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
+        X_original: cuDF DataFrame, shape (n_samples, n_features)
                      Note that this is always a dense cuDF DataFrame.
 
         """
@@ -564,10 +564,10 @@ class TruncatedSVDSPMG:
 
         Parameters
         ----------
-        X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
+        X: cuDF DataFrame, dense matrix, shape (n_samples, n_features)
             New data.
 
-        n_gpus : int
+        n_gpus: int
                  Number of gpus to be used for prediction. If gpu_ids parameter
                  has more than element, this parameter is ignored.
 
@@ -576,7 +576,7 @@ class TruncatedSVDSPMG:
 
         Returns
         ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        X_new: cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense DataFrame.
 
         """
