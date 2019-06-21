@@ -102,13 +102,118 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
 class QN(Base):
     """
-    Quasi-Newton Goodness :)
+    Quasi-Newton methods are used to either find zeroes or local maxima
+    and minima of functions, and used by this class to optimize a cost
+    function.
+
+    Two algorithms are implemented underneath cuML's QN class, and which one
+    is executed depends on the following rule:
+
+    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+    regularization
+    - Limited Memory BFGS (L-BFGS) otherwise.
+
+    cuML's QN class can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+
+    Examples
+    ---------
+    .. code-block:: python
+
+        import cudf
+        import numpy as np
+
+        # Both import methods supported
+        # from cuml import QN
+        from cuml.solvers import QN
+
+        X = cudf.DataFrame()
+        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
+
+        solver = QN()
+        solver.fit(X,y)
+
+        # Note: for now, the coefficients also include the intercept in the
+        # last position if fit_intercept=True
+        print("Coefficients:")
+        print(solver.coef_.copy_to_host())
+        print("Intercept:")
+        print(solver.intercept_.copy_to_host())
+
+        X_new = cudf.DataFrame()
+        X_new['col1'] = np.array([1,5], dtype = np.float32)
+        X_new['col2'] = np.array([2,5], dtype = np.float32)
+
+        preds = solver.predict(X_new)
+
+        print("Predictions:")
+        print(preds)
+
+    Output:
+
+    .. code-block:: python
+        Coefficients:
+                    10.647417
+                    0.3267412
+                    -17.158297
+        Intercept:
+                    -17.158297
+        Predictions:
+                    0    0.0
+                    1    1.0
+
+    Parameters
+    -----------
+    loss: 'sigmoid', 'softmax', 'squared_loss' (default = 'squared_loss')
+        'sigmoid' loss used for single class logistic regression
+        'softmax' loss used for multiclass logistic regression
+        'normal' used for normal/square loss
+    fit_intercept: boolean (default = True)
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
+    l1_strength: float (default = 0.0)
+        l1 regularization strength (if non-zero, will run OWL-QN, else L-BFGS).
+        Note, that as in Scikit-learn, the bias will not be regularized.
+    l2_strength: float (default = 0.0)
+        l2 regularization strength. Note, that as in Scikit-learn, the bias
+        will not be regularized.
+    max_iter: int (default = 1000)
+        Maximum number of iterations taken for the solvers to converge.
+    tol: float (default = 1e-3)
+        The training process will stop if current_loss > previous_loss - tol
+    linesearch_max_iter: int (default = 50)
+        Max number of linesearch iterations per outer iteration of the
+        algorithm.
+    lbfgs_memory: int (default = 5)
+        Rank of the lbfgs inverse-Hessian approximation. Method will use
+        O(lbfgs_memory * D) memory.
+    verbose: bool (optional, default False)
+        Controls verbosity of logging.
+
+    Attributes
+    -----------
+    coef_ : array, shape (n_classes, n_features)
+        The estimated coefficients for the linear regression model.
+        Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
+    intercept_ : array (n_classes, 1)
+        The independent term. If fit_intercept_ is False, will be 0.
+
+    Notes
+    ------
+       This class contains implementations of two popular Quasi-Newton methods:
+       - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
+       Wright - Numerical Optimization (1999)]
+       - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
+       2007]
+       <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5, verbose=False,
-                 num_classes=1, handle=None):
+                 handle=None):
 
         super(QN, self).__init__(handle=handle, verbose=False)
 
@@ -302,3 +407,10 @@ class QN(Base):
         del X_m
 
         return cudf.Series(preds)
+
+    def __getattr__(self, attr):
+        if self.fit_intercept:
+            if attr == 'coef_':
+                return self.coef_[0:-1]
+            if attr == 'intercept_':
+                return self.coef_[-1]
