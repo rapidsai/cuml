@@ -256,7 +256,7 @@ class TruncatedSVD(Base):
         self.components_ary = cuda.to_device(zeros(n_components*n_cols,
                                                 dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
-                                               dtype=self.dtype))
+                                                     dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
@@ -500,11 +500,11 @@ class TruncatedSVD(Base):
         return state
 
     def __setstate__(self, state):
-        super(TruncatedSVD, self).__init__(handle=None, verbose=state['verbose'])
+        super(TruncatedSVD, self).__init__(handle=None,
+                                           verbose=state['verbose'])
 
         state['trans_input_'] = state['trans_input_'].to_gpu_array()
         state['components_ary'] = state['components_ary'].to_gpu_array()
 
         self.__dict__.update(state)
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
-
