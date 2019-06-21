@@ -236,8 +236,7 @@ class LogisticRegression(Base):
         self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
                      l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter, tol=self.tol,
-                     verbose=self.verbose, num_classes=num_classes,
-                     handle=self.handle)
+                     verbose=self.verbose, handle=self.handle)
 
         self.qn.fit(X, y_m)
 
