@@ -11,8 +11,10 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #681: Add MBSGDClassifier and MBSGDRegressor classes around SGD
+- PR #705: Quasi Newton solver and LogisticRegression Python classes
 - PR #670: Add test skipping functionality to build.sh
-- PR #678: Added Random Forest wrapper
+- PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
 
@@ -39,9 +41,14 @@
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
 - PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
 - PR #695: prims: Refactor pairwise distance
-- PR #707: Added stress test and updated documentation for RF 
+- PR #707: Added stress test and updated documentation for RF
 - PR #701: Added emacs temporary file patterns to .gitignore
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
+- PR #726: Updated RF docs and stress test
+- PR #730: Update README and RF docs for 0.8
+- PR #744: Random projections generating binomial on device. Fixing tests. 
+- PR #741: Update API docs for 0.8
+- PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -55,7 +62,10 @@
 - PR #685: Make CuPy optional to avoid nccl conda package conflicts
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #718: Bug fix for DBSCAN and increasing batch size of sgd
 - PR #719: Adding additional checks for dtype of the data
+- PR #736: Bug fix for RF wrapper and .cu print function
+- PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
 
 # cuML 0.7.0 (10 May 2019)
 
@@ -105,6 +115,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #721: Added pickle tests for DBSCAN and Random Projections
 
 ## Bug Fixes
 

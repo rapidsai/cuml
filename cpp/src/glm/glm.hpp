@@ -124,7 +124,7 @@ void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
  * @param X_col_major           true if X is stored column-major, i.e. feature
  * columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
- * multinomial/softmax, 2: normal/squared)
+ * normal/squared, 2: multinomial/softmax)
  * @{
  */
 void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
