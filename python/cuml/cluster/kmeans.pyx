@@ -142,9 +142,10 @@ class KMeans(Base):
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
-    cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
-    the scalable KMeans++ intialization method. This method is more stable
-    than randomnly selecting K points.
+    cuML's KMeans expects an array-like object, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
+    compliant) and supports the scalable KMeans++ intialization method.
+    This method is more stable than randomnly selecting K points.
 
     Examples
     --------
