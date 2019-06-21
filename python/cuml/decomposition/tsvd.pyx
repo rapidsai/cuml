@@ -97,11 +97,12 @@ class TruncatedSVD(Base):
     large matrix X. It is much faster when n_components is small, such as in
     the use of PCA when 3 components is used for 3D visualization.
 
-    cuML's TruncatedSVD an array-like object or cuDF DataFrame, and provides 2
+    cuML's TruncatedSVD an array-like object, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
     algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
-    then selects the top K singular vectors. The Jacobi algorithm is much
-    faster as it iteratively tries to correct the top K singular vectors, but
-    might be less accurate.
+    compliant), and provides 2 then selects the top K singular vectors.
+    The Jacobi algorithm is muchfaster as it iteratively tries to correct
+    the top K singular vectors, but might be less accurate.
 
     Examples
     ---------
