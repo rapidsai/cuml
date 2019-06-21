@@ -64,7 +64,7 @@ class DBSCAN(Base):
     problems if the datapoints tend to congregate in larger groups.
 
     cuML's DBSCAN expects an array-like object, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ 
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
     compliant), as well as cuDF DataFrames. It constructs an adjacency
     graph to compute the distances between close neighbours.
 
