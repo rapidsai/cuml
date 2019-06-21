@@ -37,7 +37,7 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('should_downcast', [True])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
@@ -48,11 +48,6 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
     n_samples = nrows
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
-
-    if nrows != 500000:
-        knn_sk = skKNN(metric="l2")
-        knn_sk.fit(X)
-        D_sk, I_sk = knn_sk.kneighbors(X, k)
 
     knn_cu = cuKNN(should_downcast=should_downcast)
 
@@ -80,12 +75,16 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    if nrows != 500000:
+    if nrows < 500000:
+        knn_sk = skKNN(metric="l2")
+        knn_sk.fit(X)
+        D_sk, I_sk = knn_sk.kneighbors(X, k)
+
         assert array_equal(D_cuml_arr, np.square(D_sk), 1e-2, with_sign=True)
         assert I_cuml_arr.all() == I_sk.all()
 
 
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
