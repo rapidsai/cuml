@@ -228,7 +228,7 @@ class NearestNeighbors(Base):
         cdef float** input_arr
         cdef int* sizes_arr
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) and self.n_gpus > 1:
 
             if X.dtype != np.float32:
                 if self._should_downcast:
@@ -289,6 +289,7 @@ class NearestNeighbors(Base):
                 self.X_m, X_ctype, n_rows, _, dtype = \
                     input_to_dev_array(X, order='C')
 
+
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
 
@@ -296,9 +297,6 @@ class NearestNeighbors(Base):
             input_arr[0] = <float*>X_ctype
 
             self.n_indices = 1
-
-            self.sizes = <size_t>sizes_arr
-            self.input = <size_t>input_arr
 
         return self
 
@@ -385,11 +383,12 @@ class NearestNeighbors(Base):
         else:
             In_ctype = get_dev_array_ptr(self.X_m)
 
-            input_arr = <float**> malloc(sizeof(float *))
-            sizes_arr = <int*> malloc(sizeof(int))
+            inputs = <float**> malloc(sizeof(float *))
+            sizes = <int*> malloc(sizeof(int))
 
-            sizes_arr[0] = <int>len(X)
-            input_arr[0] = <float*>In_ctype
+            sizes[0] = <int>len(self.X_m)
+            inputs[0] = <float*>In_ctype
+            
 
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
