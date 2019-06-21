@@ -126,6 +126,9 @@ class KMeans {
   // returns the raw pointer to the generated centroids
   DataT *centroids();
 
+  // returns the inertia
+  const double *getInertia();
+
   // release local resources
   ~KMeans();
 
