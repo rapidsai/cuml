@@ -264,8 +264,6 @@ class UMAP(Base):
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        print(str(state))
-
         state['X_m'] = state['X_m'].as_gpu_matrix(order = "C")
         state["arr_embed"] = state["arr_embed"].as_gpu_matrix(order = "C")
 
