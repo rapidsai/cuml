@@ -138,23 +138,23 @@ class LinearRegression(Base):
 
     Parameters
     -----------
-    algorithm : 'eig' or 'svd' (default = 'eig')
+    algorithm: 'eig' or 'svd' (default = 'eig')
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.
-    fit_intercept : boolean (default = True)
+    fit_intercept: boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
+    normalize: boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
 
     Attributes
     -----------
-    coef_ : array, shape (n_features)
+    coef_: array, shape (n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array
+    intercept_: array
         The independent term. If fit_intercept_ is False, will be 0.
 
     Notes
@@ -190,7 +190,7 @@ class LinearRegression(Base):
 
         Parameters
         ----------
-        algorithm : Type: string. 'eig' (default) and 'svd' are supported
+        algorithm: Type: string. 'eig' (default) and 'svd' are supported
         algorithms.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
@@ -224,7 +224,7 @@ class LinearRegression(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
+        X: cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         y: cuDF DataFrame
@@ -302,7 +302,7 @@ class LinearRegression(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
+        X: cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         Returns
@@ -349,7 +349,7 @@ class LinearRegression(Base):
 
         Parameters
         -----------
-        deep : boolean (default = True)
+        deep: boolean (default = True)
         """
         params = dict()
         variables = ['algorithm', 'fit_intercept', 'normalize']
@@ -364,7 +364,7 @@ class LinearRegression(Base):
 
         Parameters
         -----------
-        params : dict of new params
+        params: dict of new params
         """
         if not params:
             return self
