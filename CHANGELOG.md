@@ -11,6 +11,7 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #681: Add MBSGDClassifier and MBSGDRegressor classes around SGD
 - PR #705: Quasi Newton solver and LogisticRegression Python classes
 - PR #670: Add test skipping functionality to build.sh
 - PR #678: Random Forest Python class
