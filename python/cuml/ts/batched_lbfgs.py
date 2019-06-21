@@ -27,10 +27,10 @@ def Batched_I(r, num_batches):
     return H
 
 
-def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=0, bounds=None, m=10,
+def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
                        factr=10000000.0, pgtol=1e-05, epsilon=1e-08, iprint=-1,
-                       maxfun=15000, maxiter=50, disp=None, callback=None, maxls=20):
-
+                       maxiter=50,
+                       alpha_per_batch=True):
 
     if fprime is None and approx_grad is True:
         fprime = lambda x: _fd_fprime(x, func, epsilon)
@@ -52,6 +52,8 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=
 
     k = 0
 
+    is_converged = num_batches * [False]
+
     for k_iter in range(maxiter):
 
         ######################
@@ -61,23 +63,31 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=
         gk = fprime(xk)
 
         if iprint > 0 and k % iprint == 0:
-            print("k:{} f={:0.5g}, |\/f|_inf={:0.5g}".format(k, fk[-1], np.linalg.norm(gk, np.inf)))
+            # print("k:{} f={:0.5g}, |\/f|_inf={:0.5g}".format(k, fk[-1], np.linalg.norm(gk, np.inf)))
+            print("k:{} f={}, |\/f|_inf={:0.5g}".format(k, func(xk, do_sum=True), np.linalg.norm(gk, np.inf)))
 
         if np.linalg.norm(gk, np.inf) < pgtol:
-            print("INFO: |g|_{inf} < PGTOL, STOPPING.")
+            print("CONVERGED: |g|_{inf} < PGTOL, STOPPING.")
             break
 
         if k > 1 and np.abs(fk[-2] - fk[-1]) < factr * np.finfo(float).eps:
-            print("INFO: Difference between last two iterations smaller than tolerance, stopping.")
+            print("CONVERGED: Difference between last two iterations smaller than tolerance, stopping.")
             break
+
+        # check individual series convergence
+        for ib in range(num_batches):
+            if np.linalg.norm(gk[ib*N:(ib+1)*N], np.inf) < pgtol:
+                is_converged[ib] = True
 
         ######################
         # compute pk
 
         # gradient descent for first step
         if k == 0:
-            pk = -fprime(x0)
-
+            pk = -gk
+            for ib in range(num_batches):
+                if is_converged[ib]:
+                    pk[ib*N:(ib+1)*N] = 0.0
         # L-BFGS after first step
         else:
 
@@ -85,11 +95,16 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=
             yk.append(gk-gkm1)
             rhok = np.zeros(num_batches)
             gamma_k = np.zeros(num_batches)
+            np.seterr(all='raise')
             for ib in range(num_batches):
+                if is_converged[ib]:
+                    continue
                 rhok[ib] = 1/np.dot(yk[-1][ib*N:(ib+1)*N], sk[-1][ib*N:(ib+1)*N])
                 gammaA = np.dot(sk[-1][ib*N:(ib+1)*N], yk[-1][ib*N:(ib+1)*N])
                 gammaB = np.dot(yk[-1][ib*N:(ib+1)*N], yk[-1][ib*N:(ib+1)*N])
                 gamma_k[ib] = gammaA / gammaB
+
+            np.seterr(all='warn')
 
             rho.append(rhok)
             # gamma_k = np.dot(sk[-1], yk[-1]) / np.dot(yk[-1], yk[-1])
@@ -102,6 +117,8 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=
             q = np.copy(gk)
             
             for ib in range(num_batches):
+                if is_converged[ib]:
+                    continue
                 alpha_i = np.zeros(min(k, m))
 
                 # first loop recursion
@@ -121,23 +138,62 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, args=(), approx_grad=
                 # note r = Hk \/f
                 pk[ib*N:(ib+1)*N] = -r
 
-        alpha, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
-                                                                      fprime, xk,
-                                                                      pk, gk)
 
-        if alpha is None:
-            # Line-Search failed, reset L-BFGS memory.
-            print("WARNING: Line search failed, resetting L-BFGS memory")
-            k = 0
-            yk.clear()
-            sk.clear()
-            rho.clear()
-            continue
+        if alpha_per_batch:
 
-        xkp1 = xk + alpha*pk
+            alpha_b = np.zeros(num_batches)
+            xkp1 = np.copy(xk)
+            for ib in range(num_batches):
+                if is_converged[ib]:
+                    continue
+                way = 1
+                if way == 1:
+                    alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
+                                                                                     fprime,
+                                                                                     np.copy(xk[ib*N:(ib+1)*N]),
+                                                                                     np.copy(pk[ib*N:(ib+1)*N]),
+                                                                                     np.copy(gk[ib*N:(ib+1)*N]),
+                                                                                     args=(ib,xk,))
+                elif way == 2:
+                    alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
+                                                                                     fprime, xk,
+                                                                                     pk,
+                                                                                     gk,
+                                                                                     args=(ib,))
+                if alpha_ib is None:
+                    print("WARNING(k:{},ib:{}): Line search failed, resetting L-BFGS memory".format(k_iter,ib))
+                    k = 0
+                    yk.clear()
+                    sk.clear()
+                    rho.clear()
+                    continue
+                # else:
+                    # if iprint > 0:
+                    #     print("alpha[{}]={}".format(ib, alpha_ib))
 
-        xkm1 = xk
-        xk = xkp1
+                xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_ib*pk[ib*N:(ib+1)*N]
+                alpha_b[ib] = alpha_ib
+
+        else:
+            alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
+                                                                             fprime, xk,
+                                                                             pk)
+            if alpha_ib is None:
+                print("WARNING(kiter={}): Line search failed, resetting L-BFGS memory".format(k_iter))
+                k = 0
+                yk.clear()
+                sk.clear()
+                rho.clear()
+                continue
+            else:
+                if iprint > 0:
+                    print("alpha={}".format(alpha_ib))
+
+            xkp1 = xk + alpha_ib * pk
+
+        xkm1 = np.copy(xk)
+        xk = np.copy(xkp1)
         k += 1
 
-    return xk, k
+    print("CONVERGED: {} Iterations".format(k_iter))
+    return xk, k_iter
