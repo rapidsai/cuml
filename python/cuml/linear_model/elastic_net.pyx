@@ -31,8 +31,9 @@ class ElasticNet:
     some coefficients to be smaell, and improves the conditioning of the
     problem.
 
-    cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
-    descent to fit a linear model.
+    cuML's ElasticNet an array-like object, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
+    compliant) uses coordinate descent to fit a linear model.
 
     Examples
     ---------
