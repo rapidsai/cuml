@@ -105,7 +105,7 @@ class Ridge(Base, RegressorMixin):
         from cuml import Ridge
         from cuml.linear_model import Ridge
 
-        alpha = np.array([1.0])
+        alpha = np.array([1e-5])
         ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
                       solver = "eig")
 
@@ -115,10 +115,10 @@ class Ridge(Base, RegressorMixin):
 
         y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
 
-        result_ridge = ridge.fit(X_cudf, y_cudf)
+        result_ridge = ridge.fit(X, y)
         print("Coefficients:")
         print(result_ridge.coef_)
-        print("intercept:")
+        print("Intercept:")
         print(result_ridge.intercept_)
 
         X_new = cudf.DataFrame()
@@ -126,6 +126,7 @@ class Ridge(Base, RegressorMixin):
         X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = result_ridge.predict(X_new)
 
+        print("Predictions:")
         print(preds)
 
     Output:
