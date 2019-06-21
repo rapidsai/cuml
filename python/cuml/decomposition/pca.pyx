@@ -121,7 +121,7 @@ class PCA(Base):
     data visualization, data compression and exploratory analysis.
 
     cuML's PCA can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ 
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
     compliant), as well  as cuDF DataFrames. It provides 2 algorithms
     Full and Jacobi. Full (default) uses a full eigendecomposition
     then selects thetop K eigenvectors. The Jacobi algorithm is much
