@@ -217,9 +217,9 @@ class NearestNeighbors(Base):
     def __getstate__(self):
 
         if self.n_indices > 1 or self.sizes is not None or
-            self.inputs is not None:
-            raise pickle.PickleError("Pickling if models using " 
-                  "multiple GPUs is not yet supported")
+        self.inputs is not None:
+            raise pickle.PickleError("Pickling if models using "
+                "multiple GPUs is not yet supported")
 
         state = self.__dict__.copy()
 
