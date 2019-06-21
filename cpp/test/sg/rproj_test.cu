@@ -145,15 +145,6 @@ class RPROJTest : public ::testing::Test {
     T* d_pdist;
     allocate(d_pdist, N * N);
 
-    //    template <DistanceType distanceType, typename InType, typename AccType,
-    //              typename OutType, typename OutputTile_, typename Index_ = int>
-
-    //    void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
-    //                  Index_ n, Index_ k, void *workspace, size_t worksize,
-    //                  cudaStream_t stream)
-
-    //d_input = transpose(d_input, M, N);
-    // Restoring row major (this operation is only useful for non-random datasets)
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
       h.getStream());
