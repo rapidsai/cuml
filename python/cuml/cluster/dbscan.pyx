@@ -63,9 +63,10 @@ class DBSCAN(Base):
     where data is concentrated. This allows DBSCAN to generalize to many
     problems if the datapoints tend to congregate in larger groups.
 
-    cuML's DBSCAN expects an array-like object or cuDF DataFrame, and
-    constructs an adjacency graph to compute the distances between close
-    neighbours.
+    cuML's DBSCAN expects an array-like object, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
+    compliant) and constructs an adjacency graph to compute
+    the distances between close neighbours.
 
     Examples
     ---------
