@@ -55,6 +55,7 @@
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
+- PR #744: Random projections generating binomial on device. Fixing tests. 
 - PR #741: Update API docs for 0.8
 
 ## Bug Fixes
