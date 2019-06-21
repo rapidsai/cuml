@@ -32,7 +32,8 @@ class Lasso:
 
     cuML's Lasso can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__
-    compliant). It uses coordinate descent to fit a linear model.
+    compliant), as well as cuDF DataFrames. It uses coordinate descent
+    to fit a linear model.
 
     Examples
     ---------

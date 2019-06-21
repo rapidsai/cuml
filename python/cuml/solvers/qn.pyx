@@ -114,7 +114,8 @@ class QN(Base):
     - Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
+    as well as cuDF DataFrames.
 
     Examples
     ---------

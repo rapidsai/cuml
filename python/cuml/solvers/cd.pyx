@@ -88,9 +88,9 @@ class CD(Base):
     minimizes along coordinate directions to find the minimum of a function.
 
     cuML's CD algorithm can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
-    The CD algorithm currently works with linear regression and
-    ridge, lasso, and elastic-net penalties.
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
+    as well as cuDF DataFrames. The CD algorithm currently works with linear
+    regression and ridge, lasso, and elastic-net penalties.
 
     Examples
     ---------

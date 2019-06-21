@@ -81,9 +81,9 @@ class LinearRegression(Base):
     modelled by a linear combination of the predictors in X.
 
     cuML's LinearRegression can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
-    It provides 2 algorithms SVD and Eig to fit a linear model. SVD is more
-    stable, but Eig (default) is much faster.
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
+    as well as cuDF DataFrames. It provides 2 algorithms SVD and Eig to fit a
+    linear model. SVD is morestable, but Eig (default) is much faster.
 
     Examples
     ---------
