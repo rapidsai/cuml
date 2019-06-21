@@ -204,6 +204,22 @@ class NearestNeighbors(Base):
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
+
+        self.__dict__.update(state)
+
     def fit(self, X):
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -228,7 +244,7 @@ class NearestNeighbors(Base):
         cdef float** input_arr
         cdef int* sizes_arr
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) and self.n_gpus > 1:
 
             if X.dtype != np.float32:
                 if self._should_downcast:
@@ -297,10 +313,7 @@ class NearestNeighbors(Base):
 
             self.n_indices = 1
 
-            inp = <uintptr_t>deref(input_arr)
-
-            self.sizes = <size_t>sizes_arr
-            self.input = <size_t>input_arr
+        return self
 
     def _fit_mg(self, n_dims, alloc_info):
         """
@@ -376,8 +389,20 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef float** inputs = <float**><size_t>self.input
-        cdef int* sizes = <int*><size_t>self.sizes
+        cdef float** inputs
+        cdef int* sizes
+        cdef uintptr_t In_ctype
+        if self.n_indices > 1:
+            inputs = <float**><size_t>self.input
+            sizes = <int*><size_t>self.sizes
+        else:
+            In_ctype = get_dev_array_ptr(self.X_m)
+
+            inputs = <float**> malloc(sizeof(float *))
+            sizes = <int*> malloc(sizeof(int))
+
+            sizes[0] = <int>len(self.X_m)
+            inputs[0] = <float*>In_ctype
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
