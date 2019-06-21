@@ -103,7 +103,9 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 class QN(Base):
     """
     Quasi-Newton methods are methods used to either find zeroes or local maxima
-    and minima of functions, and used by this class to optimize a cost function.
+    and minima of functions, and used by this class to optimize a cost
+    function.
+
     Two algorithms are implemented underneath cuML's QN class, and which one
     is executed depends on the following rule:
 
