@@ -88,10 +88,11 @@ class Ridge(Base, RegressorMixin):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
-    algorithms: SVD, Eig and CD to fit a linear model. SVD is more stable,
-    but Eig (default) is much faster. CD uses Coordinate Descent and can be
-    faster when data is large.
+    cuML's Ridge can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+    It provides 3 algorithms: SVD, Eig and CD to fit a linear model.
+    SVD is more stable, but Eig (default) is much faster.
+    CD uses Coordinate Descent and can be faster when data is large.
 
     Examples
     ---------
