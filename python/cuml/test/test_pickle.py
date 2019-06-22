@@ -183,10 +183,10 @@ def test_umap_pickle(tmpdir, datatype, model, nrows, ncols):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
-
     # transforming the space requires a new optimization step. Just verify
     # the original embedded space loaded properly (same as fit_transform)
-    cu_trust_after = trustworthiness(X_train, cu_after_pickle_model.arr_embed, 10)
+    cu_trust_after = trustworthiness(X_train, 
+                                     cu_after_pickle_model.arr_embed, 10)
 
     assert cu_trust_before == cu_trust_after
 
