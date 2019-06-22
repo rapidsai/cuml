@@ -203,6 +203,13 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
+        self.sizes = None
+        self.inputs = None
+
+    def __del__(self):
+        if self.sizes is not None:
+            free(<int*><size_t>self.sizes)
+            free(<float**><size_t>self.inputs)
 
     def fit(self, X):
         """
@@ -301,6 +308,8 @@ class NearestNeighbors(Base):
 
             self.sizes = <size_t>sizes_arr
             self.input = <size_t>input_arr
+
+        return self
 
     def _fit_mg(self, n_dims, alloc_info):
         """
