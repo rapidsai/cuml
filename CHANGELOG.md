@@ -6,6 +6,7 @@
 
 ## Bug Fixes
 
+- PR #772: Add missing cython headers to SGD and CD
 
 # cuML 0.8.0 (Date TBD)
 
@@ -55,7 +56,7 @@
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
-- PR #744: Random projections generating binomial on device. Fixing tests. 
+- PR #744: Random projections generating binomial on device. Fixing tests.
 - PR #741: Update API docs for 0.8
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
