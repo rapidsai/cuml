@@ -395,16 +395,15 @@ class UMAP(Base):
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y)
-        xformed = self.transform(X)
-
-        if isinstance(xformed, cudf.DataFrame):
+        if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
-            for i in range(0, xformed.shape[1]):
-                ret[str(i)] = xformed[:, i]
-        elif isinstance(xformed, np.ndarray):
-            ret = np.asarray(xformed)
+            for i in range(0, self.arr_embed.shape[1]):
+                ret[str(i)] = self.arr_embed[:, i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(self.arr_embed)
 
         return ret
+
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that
