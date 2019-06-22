@@ -404,7 +404,6 @@ class UMAP(Base):
 
         return ret
 
-
     def transform(self, X):
         """Transform X into the existing embedded space and return that
         transformed output.
