@@ -203,6 +203,13 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
+        self.sizes = None
+        self.inputs = None
+
+    def __del__(self):
+        if self.sizes is not None:
+            free(<int*><size_t>self.sizes)
+            free(<float**><size_t>self.inputs)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -312,6 +319,8 @@ class NearestNeighbors(Base):
             input_arr[0] = <float*>X_ctype
 
             self.n_indices = 1
+
+        return self
 
         return self
 
