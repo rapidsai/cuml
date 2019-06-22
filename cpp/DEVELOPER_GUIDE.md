@@ -10,21 +10,27 @@ cuML is thread safe so its functions can be called from multiple host threads if
 The implementation of cuML is single threaded.
 
 ## Public cuML interface
+### Terminology
+We have the following supported APIs:
+1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml++.so`
+2. Stateful convenience C++ API - wrapper around core API (WIP)
+3. C API - wrapper around core API aka `libcuml.so`
+
 ### Motivation
-The public cuML interface is stateless for two main reasons:
+Our C++ API is stateless for two main reasons:
 1. To ease the serialization of ML algorithm's state information (model, hyper-params, etc), enabling features such as easy pickling in the python layer.
-2. To provide proper C bindings for interfacing with languages that can't consume C++ APIs  directly.
+2. To easily provide a proper C API for interfacing with languages that can't consume C++ APIs  directly.
 
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
-As mentioned before, functions exposed via the base cuML C++ layer must be stateless. Things that are OK to be exposed on the interface:
+As mentioned before, functions exposed via the C++ API must be stateless. Things that are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
-Internally, for the C++ base layer at least, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
+Internal to the C++ API, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
-### `libcuml++.so` (aka C++ API)
+### Stateless C++ API
 Using the Decision Tree Classifier algorithm as an example, the following way of exposing its API would be wrong according to the guidelines in this section, since it exposes a non-POD C++ class object in the C++ API:
 ```cpp
 template <typename T>
@@ -74,14 +80,14 @@ void loadTree(TreeNodeD *&root, std::istream &is);
 ```
 It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
 
-### `libcuml.so` (aka C-API wrapper over C++ API)
+### C API
 Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
 1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
 2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
 
-### scikit-learn-esq stateful API in C++
-This API should always be a wrapper around the stateless methods, NEVER the other way around. The design discussion about the right way to expose such a wrapper API around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
+### Stateful C++ API
+This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
 
 ### File naming convention
 1. An ML algorithm `<algo>` is to be contained inside the folder named `src/<algo>`.
