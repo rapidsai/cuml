@@ -41,7 +41,7 @@ class LogisticRegression(Base):
     cuML's LogisticRegression can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
     as well as cuDF DataFrames. It provides both single-class (using sigmoid
-    loss) and multiple-class (using softmax loss) variants, depending on
+    loss) and multi-class (using softmax loss) variants, depending on
     the input variables.
 
     Only one solver option is currently available: Quasi-Newton (QN)

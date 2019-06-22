@@ -95,7 +95,7 @@ class NearestNeighbors(Base):
     Numpy Array in a future release). It fits a special data structure first
     to approximate the distance calculations, allowing our querying times to be
     O(plogn) and not the brute force O(np)
-    [where p = no(features)]
+    (where p  is the number of features)
 
     Examples
     ---------
