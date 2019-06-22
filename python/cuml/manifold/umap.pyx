@@ -106,7 +106,7 @@ class UMAP(Base):
     Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 
     cuML's UMAP can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ 
+    NumPy arrays or in device (as Numba or __cuda_array_interface__
     compliant), as well  as cuDF DataFrames.
 
     Parameters
