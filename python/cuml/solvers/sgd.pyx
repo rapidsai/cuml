@@ -119,7 +119,7 @@ class SGD(Base):
 
     cuML's SGD algorithm can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant),
-    as well as cuDF DataFrames. The SGD algorithm currently works with cuDF
+    as well as cuDF DataFrames. The SGD algorithm currently can perform
     DataFrame linear regression, ridge regression and SVM models.
 
     Examples
