@@ -209,7 +209,27 @@ static void recv_handle(void *request, ucs_status_t status,
     //pthread_mutex_unlock(&m);
 }
 
+static void flush_callback(void *request, ucs_status_t status){}
 
+static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep)
+{
+    void *request;
+
+    request = ucp_ep_flush_nb(ep, 0, flush_callback);
+    if (request == NULL) {
+        return UCS_OK;
+    } else if (UCS_PTR_IS_ERR(request)) {
+        return UCS_PTR_STATUS(request);
+    } else {
+        ucs_status_t status;
+        do {
+            ucp_worker_progress(worker);
+            status = ucp_request_check_status(request);
+        } while (status == UCS_INPROGRESS);
+        ucp_request_release(request);
+        return status;
+    }
+}
 
 // @TODO: Really, the isend and irecv should be tied to a datatype, as they are in MPI/UCP.
 // This may not matter for p2p, though, if we are just always going to treat them as a contiguous sequence of bytes.
@@ -254,7 +274,6 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
        printf("An error occurred sending message.\n");
     } else {
         //request is complete so no need to wait on request
-        printf("REQUEST IS ALREADY COMPLETE!");
         ucp_request = (struct ucx_context*)malloc(sizeof(struct ucx_context));
         ucp_request->completed = 1;
         ucp_request->needs_release = false;
@@ -268,6 +287,10 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
     _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
     *request = req_id;
     //pthread_mutex_unlock(&m);
+
+    ucs_status_t flush_status = flush_ep(_ucp_worker, ep_ptr);
+    printf("flush_ep completed with status %d (%s)\n",
+            flush_status, ucs_status_string(flush_status));
 }
 
 void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
