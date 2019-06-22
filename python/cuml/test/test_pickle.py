@@ -40,6 +40,10 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
+)
+
+
+decomposition_models_xfail = dict(
     GaussianRandomProjection=cuml.GaussianRandomProjection(),
     SparseRandomProjection=cuml.SparseRandomProjection()
 )
