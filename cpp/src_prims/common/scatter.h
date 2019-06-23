@@ -60,7 +60,9 @@ void scatterImpl(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
  * @param in the input array
  * @param idx the indexing array
  * @param len number of elements in the input array
- * @param op the device-lambda
+ * @param op the device-lambda with signature `DataT func(DataT, IdxT);`. This
+ * will be applied to every element before scattering it to the right location.
+ * The second param in this method will be the destination index.
  * @param stream cuda stream where to launch work
  */
 template <typename DataT, typename IdxT, typename Lambda, int TPB = 256>
@@ -75,19 +77,19 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len, Lambda op,
     scatterImpl<DataT, 16 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                            op, stream);
   } else if (8 / maxPerElem && bytes % 8 == 0) {
-    unaryOpImpl<DataT, 8 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+    scatterImpl<DataT, 8 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                           op, stream);
   } else if (4 / maxPerElem && bytes % 4 == 0) {
-    unaryOpImpl<DataT, 4 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+    scatterImpl<DataT, 4 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                           op, stream);
   } else if (2 / maxPerElem && bytes % 2 == 0) {
-    unaryOpImpl<DataT, 2 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+    scatterImpl<DataT, 2 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                           op, stream);
   } else if (1 / maxPerElem) {
-    unaryOpImpl<DataT, 1 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+    scatterImpl<DataT, 1 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                           op, stream);
   } else {
-    unaryOpImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   }
 }
 
