@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
 from collections import defaultdict
@@ -218,26 +219,38 @@ class LinearRegression(Base):
             'eig': 1
         }[algorithm]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the fit method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
 
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -247,10 +260,12 @@ class LinearRegression(Base):
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1:
+        if self.n_cols == 1 and self.algo != 0:
             # TODO: Throw exception when this changes algorithm from the user's
             # choice. Github issue #602
             # eig based method doesn't work when there is only one column.
+            warnings.warn("Changing algorithm to `eig`: Only algorithm 'eig' "
+                          "is supported when number of columns is 1.")
             self.algo = 0
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
@@ -296,15 +311,20 @@ class LinearRegression(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
-
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -313,7 +333,10 @@ class LinearRegression(Base):
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=dtype))

@@ -174,7 +174,7 @@ class ElasticNet:
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
@@ -190,6 +190,11 @@ class ElasticNet:
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool (default = False)
+            When set to True, the transform method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
+
         """
 
         shuffle = False
@@ -200,14 +205,14 @@ class ElasticNet:
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
                                max_iter=self.max_iter)
-        self.cuElasticNet.fit(X, y)
+        self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.cuElasticNet.coef_
         self.intercept_ = self.cuElasticNet.intercept_
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
@@ -217,6 +222,11 @@ class ElasticNet:
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
 
         Returns
         ----------
