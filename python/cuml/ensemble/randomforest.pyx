@@ -158,7 +158,7 @@ cdef class RandomForest_impl():
         in the cython code to normalize the labels
     """
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
 
         cdef uintptr_t X_ptr, y_ptr
 
@@ -168,24 +168,24 @@ cdef class RandomForest_impl():
         if self.rf_classifier64 != NULL:
             del self.rf_classifier64
 
-        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
+        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y, check_dtype=np.int32)
 
         if y_dtype != np.int32:
             raise TypeError("The labels need to have dtype = np.int32")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+            input_to_dev_array(X, order='F', check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
         try:
             import cupy as cp
-            unique_labels = cp.unique(y)
+            unique_labels = cp.unique(y_m)
         except ImportError:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
-            unique_labels = np.unique(y.copy_to_host())
+            unique_labels = np.unique(y_m.copy_to_host())
 
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
@@ -233,17 +233,23 @@ cdef class RandomForest_impl():
         del(y_m)
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
+
+        if X.dtype != self.dtype:
+            if convert_dtype:
+                X = X.astype(self.dtype)
+            else:
+                raise TypeError("The datatype of the training data is "
+                                 "different from the datatype of the testing "
+                                 "data")
 
         cdef uintptr_t X_ptr
         X_ptr = X.ctypes.data
+
         n_rows, n_cols = np.shape(X)
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -278,7 +284,21 @@ cdef class RandomForest_impl():
         self.handle.sync()
         return preds
 
-    def cross_validate(self, X, y):
+    def cross_validate(self, X, y, convert_dtype=False):
+
+        if X.dtype != self.dtype:
+            if convert_dtype:
+                X = X.astype(self.dtype)
+            else:
+                raise TypeError("The datatype of the training data is "
+                                 "different from the datatype of the testing "
+                                 "data")
+
+        if y.dtype != self.dtype:
+            if convert_dtype:
+                X = X.astype(self.dtype)
+            else:
+                raise TypeError("The labels need to have dtype = np.int32")
 
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X.ctypes.data
@@ -290,10 +310,6 @@ cdef class RandomForest_impl():
                              " and test data should be the same ")
         if y.dtype != np.int32:
             raise TypeError("The labels need to have dtype = np.int32")
-
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -470,7 +486,7 @@ class RandomForestClassifier(Base):
                                        rows_sample, max_leaves,
                                        gdf_datatype)
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Perform Random Forest Classification on the input data
 
@@ -485,11 +501,15 @@ class RandomForestClassifier(Base):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
+        convert_dtype : bool (default = False)
+            When set to True, the fit method will automatically
+            convert y to np.int32. This will increase memory used for the
+            method.
         """
 
-        return self._impl.fit(X, y)
+        return self._impl.fit(X, y, convert_dtype=convert_dtype)
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the labels for X.
 
@@ -500,6 +520,11 @@ class RandomForestClassifier(Base):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray
 
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         Returns
         ----------
         y: NumPy
@@ -507,9 +532,9 @@ class RandomForestClassifier(Base):
 
         """
 
-        return self._impl.predict(X)
+        return self._impl.predict(X, convert_dtype)
 
-    def cross_validate(self, X, y):
+    def cross_validate(self, X, y, convert_dtype=False):
         """
         Predicts the accuracy of the model for X.
 
@@ -523,12 +548,17 @@ class RandomForestClassifier(Base):
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
 
+        convert_dtype : bool (default = False)
+            When set to True, the inverse_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         Returns
         ----------
         accuracy : float
         """
 
-        return self._impl.cross_validate(X, y)
+        return self._impl.cross_validate(X, y, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

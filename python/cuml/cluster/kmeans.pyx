@@ -430,7 +430,8 @@ class KMeans(Base):
 
         convert_dtype : bool (default = False)
             When set to True, the predict method will automatically convert
-            the input to the data type which was used to train the model.
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
 
         """
 
@@ -493,7 +494,9 @@ class KMeans(Base):
 
         convert_dtype : bool (default = False)
             When set to True, the transform method will automatically convert
-            the input to the data type which was used to train the model.
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
 
         """
 
@@ -549,7 +552,7 @@ class KMeans(Base):
         del(clust_mat)
         return preds_gdf
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, convert_dtype=False):
         """
         Compute clustering and transform X to cluster-distance space.
 
@@ -560,8 +563,13 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool (default = False)
+            When set to True, the fit_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         """
-        return self.fit(X).transform(X)
+        return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

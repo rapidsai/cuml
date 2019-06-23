@@ -382,7 +382,7 @@ class TruncatedSVD(Base):
         convert_dtype : bool (default = False)
             When set to True, the inverse_transform method will automatically
             convert the input to the data type which was used to train the
-            model.
+            model. This will increase memory used for the method.
 
         Returns
         ----------
