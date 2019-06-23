@@ -206,7 +206,7 @@ class CD(Base):
             ndarray, cuda array interface compliant array like CuPy
 
         convert_dtype : bool (default = False)
-            When set to True, the transform method will automatically convert
+            When set to True, the fit method will automatically convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
@@ -294,7 +294,10 @@ class CD(Base):
 
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=self.dtype))

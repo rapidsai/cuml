@@ -301,7 +301,7 @@ class SGD(Base):
             ndarray, cuda array interface compliant array like CuPy
 
         convert_dtype : bool (default = False)
-            When set to True, the transform method will automatically convert
+            When set to True, the fit method will automatically convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
@@ -389,6 +389,11 @@ class SGD(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -442,6 +447,11 @@ class SGD(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predictClass method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
