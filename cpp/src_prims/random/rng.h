@@ -529,13 +529,13 @@ class Rng {
     randImpl(
       offset, expWts.data(), len,
       [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
+        inIdxPtr[idx] = idx;
         constexpr WeightsT one = (WeightsT)1.0;
         auto exp = -myLog(one - val);
         if (wts != nullptr) {
-          return myLog(exp) - myLog(wts[idx]);
+          return exp / wts[idx];
         }
-        return myLog(exp);
-        inIdxPtr[idx] = idx;
+        return exp;
       },
       NumThreads, nBlocks, type, stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
