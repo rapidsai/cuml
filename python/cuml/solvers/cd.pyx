@@ -190,7 +190,7 @@ class CD(Base):
             'squared_loss': 0,
         }[loss]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
         Parameters
@@ -204,14 +204,22 @@ class CD(Base):
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the transform method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         self.n_alpha = 1
 
@@ -264,7 +272,7 @@ class CD(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
         Parameters
@@ -273,6 +281,11 @@ class CD(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
