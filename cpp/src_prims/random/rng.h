@@ -481,7 +481,7 @@ class Rng {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
         constexpr Type oneHalf = (Type)0.5;
-        Type out;
+        WeightsT out;
         if (val <= oneHalf) {
           out = mu + scale * myLog(two * val);
         } else {
@@ -495,6 +495,10 @@ class Rng {
   /**
    * @brief Sample the input array without replacement, optionally based on the
    * input weight vector for each element in the array
+   *
+   * Implementation here is based on the algo described here:
+   * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+   *
    * @tparam DataT data type
    * @tparam WeightsT weights type
    * @tparam IdxT index type
@@ -504,12 +508,32 @@ class Rng {
    * sampling is desired
    * @param sampledLen output sampled array length
    * @param len input array length
+   * @param workspace workspace needed for internal computations. It'll be
+   * resized accordingly if it's size is less than already allocated.
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
   void sampleWithoutReplacement(DataT *out, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
+                                device_buffer<char> &workspace,
                                 cudaStream_t stream) {
+    ASSERT(sampledLen <= len,
+           "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+    size_t worksize = (size_t)len * sizeof(WeightsT);
+    workspace.resize(worksize, stream);
+    // generate modified weights
+    auto *ptr = (Weights *)workspace.data();
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(WeightsT val, IdxT idx) {
+        constexpr WeightsT one = (WeightsT)1.0;
+        auto exp = -myLog(one - val);
+        if (wts != nullptr) {
+          return myLog(exp) - myLog(wts[idx]);
+        }
+        return myLog(exp);
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
  private:
