@@ -239,7 +239,7 @@ class QN(Base):
             'normal': 1
         }[loss]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
         Parameters
@@ -253,14 +253,23 @@ class QN(Base):
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the transform method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+            input_to_dev_array(X, order='F',
+                               check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, lab_rows, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         try:
             import cupy
@@ -277,9 +286,6 @@ class QN(Base):
         if self.loss_type == 2 and self.num_classes <= 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
-
-        if n_rows != lab_rows:
-            raise ValueError("Number of rows must match between X and y.")
 
         if self.fit_intercept:
             coef_size = (self.n_cols + 1, self.num_classes)
@@ -351,7 +357,7 @@ class QN(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
         Parameters
@@ -360,6 +366,11 @@ class QN(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -369,6 +380,8 @@ class QN(Base):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, self.dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
                                check_cols=self.n_cols)
 
         preds = cuda.to_device(zeros(n_rows, dtype=self.dtype))

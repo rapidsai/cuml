@@ -168,7 +168,10 @@ cdef class RandomForest_impl():
         if self.rf_classifier64 != NULL:
             del self.rf_classifier64
 
-        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y, check_dtype=np.int32)
+        y_m, y_ptr, _, _, y_dtype = \
+            input_to_dev_array(y, check_dtype=np.int32,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None))
 
         if y_dtype != np.int32:
             raise TypeError("The labels need to have dtype = np.int32")
@@ -294,7 +297,7 @@ cdef class RandomForest_impl():
                                  "different from the datatype of the testing "
                                  "data")
 
-        if y.dtype != self.dtype:
+        if y.dtype != np.int32:
             if convert_dtype:
                 X = X.astype(self.dtype)
             else:
@@ -308,8 +311,6 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        if y.dtype != np.int32:
-            raise TypeError("The labels need to have dtype = np.int32")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
