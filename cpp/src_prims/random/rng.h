@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-19, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
+#include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "rng_impl.h"
 
@@ -489,6 +490,26 @@ class Rng {
         return out;
       },
       NumThreads, nBlocks, type, stream);
+  }
+
+  /**
+   * @brief Sample the input array without replacement, optionally based on the
+   * input weight vector for each element in the array
+   * @tparam DataT data type
+   * @tparam WeightsT weights type
+   * @tparam IdxT index type
+   * @param out output sampled array (of length 'sampledLen')
+   * @param in input array to be sampled (of length 'len')
+   * @param wts weights array (of length 'len'). Pass a nullptr if uniform
+   * sampling is desired
+   * @param sampledLen output sampled array length
+   * @param len input array length
+   * @param stream cuda stream
+   */
+  template <typename DataT, typename WeightsT, typename IdxT = int>
+  void sampleWithoutReplacement(DataT *out, const DataT *in,
+                                const WeightsT *wts, IdxT sampledLen, IdxT len,
+                                cudaStream_t stream) {
   }
 
  private:
