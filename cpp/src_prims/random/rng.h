@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
+#include "common/cub_wrappers.h"
 #include "common/cuml_allocator.hpp"
 #include "cuda_utils.h"
 #include "rng_impl.h"
@@ -520,21 +521,27 @@ class Rng {
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
     device_buffer<WeightsT> expWts(allocator, stream, len);
     device_buffer<WeightsT> sortedWts(allocator, stream, len);
+    device_buffer<IdxT> inIdx(allocator, stream, len);
+    device_buffer<IdxT> outIdx(allocator, stream, len);
+    auto *inIdxPtr = inIdx.data();
     // generate modified weights
-    auto *ptr = (Weights *)expWts.data();
     randImpl(
-      offset, ptr, len,
-      [wts] __device__(WeightsT val, IdxT idx) {
+      offset, expWts.data(), len,
+      [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
         constexpr WeightsT one = (WeightsT)1.0;
         auto exp = -myLog(one - val);
         if (wts != nullptr) {
           return myLog(exp) - myLog(wts[idx]);
         }
         return myLog(exp);
+        inIdxPtr[idx] = idx;
       },
       NumThreads, nBlocks, type, stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
-    // sort the array and pick the top items
+    // sort the array and pick the top sampledLen items
+    device_buffer<char> workspace(allocator, stream);
+    cub::sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
+                   outIdx.data(), (int)len, stream);
   }
 
  private:
