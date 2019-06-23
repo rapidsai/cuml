@@ -20,7 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
-#include "common/device_buffer.hpp"
+#include "common/cuml_allocator.hpp"
 #include "cuda_utils.h"
 #include "rng_impl.h"
 
@@ -508,24 +508,23 @@ class Rng {
    * sampling is desired
    * @param sampledLen output sampled array length
    * @param len input array length
-   * @param workspace workspace needed for internal computations. It'll be
-   * resized accordingly if it's size is less than already allocated.
+   * @param allocator device allocator for allocating any workspace required
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
   void sampleWithoutReplacement(DataT *out, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                device_buffer<char> &workspace,
+                                std::shared_ptr<deviceAllocator> allocator,
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
-    size_t worksize = (size_t)len * sizeof(WeightsT);
-    workspace.resize(worksize, stream);
+    device_buffer<WeightsT> expWts(allocator, stream, len);
+    device_buffer<WeightsT> sortedWts(allocator, stream, len);
     // generate modified weights
-    auto *ptr = (Weights *)workspace.data();
+    auto *ptr = (Weights *)expWts.data();
     randImpl(
       offset, ptr, len,
-      [=] __device__(WeightsT val, IdxT idx) {
+      [wts] __device__(WeightsT val, IdxT idx) {
         constexpr WeightsT one = (WeightsT)1.0;
         auto exp = -myLog(one - val);
         if (wts != nullptr) {
@@ -534,6 +533,8 @@ class Rng {
         return myLog(exp);
       },
       NumThreads, nBlocks, type, stream);
+    ///@todo: use a more efficient partitioning scheme instead of full sort
+    // sort the array and pick the top items
   }
 
  private:
