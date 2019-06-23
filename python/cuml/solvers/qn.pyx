@@ -255,7 +255,7 @@ class QN(Base):
             ndarray, cuda array interface compliant array like CuPy
 
         convert_dtype : bool (default = False)
-            When set to True, the transform method will automatically convert
+            When set to True, the fit method will automatically convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
