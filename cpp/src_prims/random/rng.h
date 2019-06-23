@@ -22,6 +22,7 @@
 #include <type_traits>
 #include "common/cub_wrappers.h"
 #include "common/cuml_allocator.hpp"
+#include "common/scatter.h"
 #include "cuda_utils.h"
 #include "rng_impl.h"
 
@@ -542,6 +543,8 @@ class Rng {
     device_buffer<char> workspace(allocator, stream);
     cub::sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
                    outIdx.data(), (int)len, stream);
+    scatter<DataT, decltype(nop), IdxT>(out, in, outIdx.data(), sampledLen,
+                                        Nop<Data, IdxT>(), stream);
   }
 
  private:
