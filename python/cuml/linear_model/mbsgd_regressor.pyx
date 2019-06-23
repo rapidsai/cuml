@@ -130,7 +130,7 @@ class MBSGDRegressor:
         self.n_iter_no_change = n_iter_no_change
         self.handle = handle
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
         Parameters
@@ -144,14 +144,19 @@ class MBSGDRegressor:
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the fit method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         self.cu_mbsgd_classifier = SGD(**self.get_params())
-        self.cu_mbsgd_classifier.fit(X, y)
+        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
         Parameters
@@ -160,13 +165,19 @@ class MBSGDRegressor:
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return self.cu_mbsgd_classifier.predict(X)
+        return self.cu_mbsgd_classifier.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

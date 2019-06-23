@@ -235,7 +235,7 @@ class Ridge(Base, RegressorMixin):
             'cd': 2
         }[algorithm]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
@@ -251,13 +251,21 @@ class Ridge(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool (default = False)
+            When set to True, the fit method will automatically convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
+
         """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -325,7 +333,7 @@ class Ridge(Base, RegressorMixin):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
@@ -336,6 +344,11 @@ class Ridge(Base, RegressorMixin):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool (default = False)
+            When set to True, the predict method will automatically convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
@@ -344,7 +357,10 @@ class Ridge(Base, RegressorMixin):
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=dtype))
