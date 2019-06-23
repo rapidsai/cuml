@@ -310,7 +310,8 @@ class KMeans(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -416,7 +417,7 @@ class KMeans(Base):
         """
         return self.fit(X).labels_
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -430,14 +431,17 @@ class KMeans(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+        X_m, input_ptr, n_rows, n_cols, self.dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
@@ -446,8 +450,8 @@ class KMeans(Base):
                 <float*> cluster_centers_ptr,  # pred_centroids
                 <int> self.n_clusters,         # n_clusters
                 <float*> input_ptr,            # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
+                <size_t> n_rows,          # n_samples (rows)
+                <size_t> n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
@@ -457,8 +461,8 @@ class KMeans(Base):
                 <double*> cluster_centers_ptr,  # pred_centroids
                 <int> self.n_clusters,         # n_clusters
                 <double*> input_ptr,           # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
+                <size_t> n_rows,          # n_samples (rows)
+                <size_t> n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
@@ -472,7 +476,7 @@ class KMeans(Base):
         del(clust_mat)
         return self.labels_
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Transform X to a cluster-distance space.
 
@@ -487,7 +491,10 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype)
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
