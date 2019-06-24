@@ -272,7 +272,7 @@ class UMAP(Base):
 
         self.umap_params = <size_t > umap_params
 
-    def __dealloc__(self):
+    def __del__(self):
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
         del umap_params
