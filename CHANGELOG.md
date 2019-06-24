@@ -72,6 +72,7 @@
 - PR #768: Fixing memory bug from stateless refactor
 - PR #776: Hotfix for self.variables in RF
 - PR #777: Fix numpy input bug
+- PR #784: Fix jit of shuffle_idx python function
 
 # cuML 0.7.0 (10 May 2019)
 
