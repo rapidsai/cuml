@@ -185,7 +185,7 @@ cdef class RandomForest_impl():
         except ImportError:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
-            isinstance(y, np.ndarray):
+            if isinstance(y, np.ndarray):
                 unique_labels = np.unique(y)
             else:
                 unique_labels = np.unique(y_m.copy_to_host())
