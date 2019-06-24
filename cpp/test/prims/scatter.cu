@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <algorithm>
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <random>
 #include "common/scatter.h"
 #include "cuda_utils.h"
@@ -60,7 +60,7 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs> {
     r.uniform(in, len, DataT(-1.0), DataT(1.0), stream);
     {
       std::vector<int> h_idx(len, 0);
-      for (int i=0; i<len; ++i) {
+      for (int i = 0; i < len; ++i) {
         h_idx[i] = i;
       }
       std::random_device rd;
