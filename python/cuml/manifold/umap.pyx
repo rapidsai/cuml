@@ -345,7 +345,6 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
-        #del X_m
         return self
 
     def fit_transform(self, X, y=None):
