@@ -53,26 +53,25 @@ void scatterImpl(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
  * @brief Performs scatter operation based on the input indexing array
  * @tparam DataT data type whose array gets scattered
  * @tparam IdxT indexing type
+ * @tparam TPB threads-per-block in the final kernel launched
  * @tparam Lambda the device-lambda performing a unary operation on the loaded
  * data before it gets scattered
- * @tparam TPB threads-per-block in the final kernel launched
  * @param out the output array
  * @param in the input array
  * @param idx the indexing array
  * @param len number of elements in the input array
+ * @param stream cuda stream where to launch work
  * @param op the device-lambda with signature `DataT func(DataT, IdxT);`. This
  * will be applied to every element before scattering it to the right location.
  * The second param in this method will be the destination index.
- * @param stream cuda stream where to launch work
  */
-template <typename DataT, typename IdxT, typename Lambda, int TPB = 256>
-void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len, Lambda op,
-             cudaStream_t stream) {
+template <typename DataT, typename IdxT, typename Lambda = Nop<DataT, IdxT>,
+          int TPB = 256>
+void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
+             cudaStream_t stream, Lambda op = Nop<DataT, IdxT>()) {
   if (len <= 0) return;
   constexpr size_t maxPerElem = max(sizeof(DataT), sizeof(IdxT));
   size_t bytes = len * maxPerElem;
-  uint64_t dataAddr = uint64_t(in);
-  uint64_t idxAddr = uint64_t(idx);
   if (16 / maxPerElem && bytes % 16 == 0) {
     scatterImpl<DataT, 16 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                            op, stream);
