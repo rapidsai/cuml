@@ -112,7 +112,7 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k);
   MLCommon::allocate(knn_dists, n * k);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo;
@@ -170,7 +170,7 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k, true);
   MLCommon::allocate(knn_dists, n * k, true);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -250,11 +250,11 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
    */
   long *knn_indices;
   float *knn_dists;
-  MLCommon::allocate(knn_indices, orig_n * params->n_neighbors);
-  MLCommon::allocate(knn_dists, orig_n * params->n_neighbors);
+  MLCommon::allocate(knn_indices, n * params->n_neighbors);
+  MLCommon::allocate(knn_dists, n * params->n_neighbors);
 
-  kNNGraph::run(orig_X, orig_n, d, knn_indices, knn_dists, params->n_neighbors,
-                params, stream);
+  kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices, knn_dists,
+                params->n_neighbors, params, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 
