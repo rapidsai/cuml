@@ -483,7 +483,7 @@ class Rng {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
         constexpr Type oneHalf = (Type)0.5;
-        WeightsT out;
+        Type out;
         if (val <= oneHalf) {
           out = mu + scale * myLog(two * val);
         } else {
@@ -541,10 +541,10 @@ class Rng {
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     device_buffer<char> workspace(allocator, stream);
-    cub::sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
-                   outIdx.data(), (int)len, stream);
-    scatter<DataT, decltype(nop), IdxT>(out, in, outIdx.data(), sampledLen,
-                                        Nop<Data, IdxT>(), stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
+              outIdx.data(), (int)len, stream);
+    scatter<DataT, Nop<DataT, IdxT>, IdxT>(out, in, outIdx.data(), sampledLen,
+                                           Nop<DataT, IdxT>(), stream);
   }
 
  private:
