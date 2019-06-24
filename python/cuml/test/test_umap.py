@@ -130,8 +130,6 @@ def test_umap_trustworthiness_on_iris():
 def test_umap_transform_on_iris():
 
     iris = datasets.load_iris()
-    data = iris.data
-
     iris_selection = np.random.choice(
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
