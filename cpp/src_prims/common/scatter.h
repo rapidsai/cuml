@@ -70,22 +70,24 @@ template <typename DataT, typename IdxT, typename Lambda = Nop<DataT, IdxT>,
 void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
              cudaStream_t stream, Lambda op = Nop<DataT, IdxT>()) {
   if (len <= 0) return;
-  constexpr size_t maxPerElem = max(sizeof(DataT), sizeof(IdxT));
-  size_t bytes = len * maxPerElem;
-  if (16 / maxPerElem && bytes % 16 == 0) {
-    scatterImpl<DataT, 16 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+  constexpr size_t DataSize = sizeof(DataT);
+  constexpr size_t IdxSize = sizeof(IdxT);
+  constexpr size_t MaxPerElem = DataSize > IdxSize ? DataSize : IdxSize;
+  size_t bytes = len * MaxPerElem;
+  if (16 / MaxPerElem && bytes % 16 == 0) {
+    scatterImpl<DataT, 16 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                            op, stream);
-  } else if (8 / maxPerElem && bytes % 8 == 0) {
-    scatterImpl<DataT, 8 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+  } else if (8 / MaxPerElem && bytes % 8 == 0) {
+    scatterImpl<DataT, 8 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
                                                           stream);
-  } else if (4 / maxPerElem && bytes % 4 == 0) {
-    scatterImpl<DataT, 4 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+  } else if (4 / MaxPerElem && bytes % 4 == 0) {
+    scatterImpl<DataT, 4 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
                                                           stream);
-  } else if (2 / maxPerElem && bytes % 2 == 0) {
-    scatterImpl<DataT, 2 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+  } else if (2 / MaxPerElem && bytes % 2 == 0) {
+    scatterImpl<DataT, 2 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
                                                           stream);
-  } else if (1 / maxPerElem) {
-    scatterImpl<DataT, 1 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+  } else if (1 / MaxPerElem) {
+    scatterImpl<DataT, 1 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
                                                           stream);
   } else {
     scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
