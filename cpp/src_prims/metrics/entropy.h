@@ -18,14 +18,13 @@
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
+#include <math.h>
+#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-#include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include <math.h>
 #include "linalg/divide.h"
 #include "linalg/map_then_reduce.h"
-
 
 namespace MLCommon {
 
@@ -36,20 +35,19 @@ namespace MLCommon {
 * @param q: dummy param
 */
 struct entropyOp {
-  HDI double operator()(double p, double q) { 
-
-    if(p) return -1*(p)*(log(p));
-    else return 0.0;
-
-   }
+  HDI double operator()(double p, double q) {
+    if (p)
+      return -1 * (p) * (log(p));
+    else
+      return 0.0;
+  }
 };
-
-
 
 namespace Metrics {
 
-  /**
+/**
 * @brief function to calculate the bincounts of number of samples in every label
+*
 * @tparam LabelT: type of the labels
 * @param labels: the pointer to the array containing labels for every data sample 
 * @param binCountArray: pointer to the 1D array that contains the count of samples per cluster
@@ -62,15 +60,14 @@ namespace Metrics {
 */
 template <typename LabelT>
 void countLabels(const LabelT *labels, double *binCountArray, int nRows,
-                 LabelT lowerLabelRange, LabelT upperLabelRange, MLCommon::device_buffer<char> &workspace,
+                 LabelT lowerLabelRange, LabelT upperLabelRange,
+                 MLCommon::device_buffer<char> &workspace,
                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
                  cudaStream_t stream) {
   int num_levels = upperLabelRange - lowerLabelRange + 2;
   LabelT lower_level = lowerLabelRange;
-  LabelT upper_level = upperLabelRange+1;
+  LabelT upper_level = upperLabelRange + 1;
   size_t temp_storage_bytes = 0;
-
-  
 
   CUDA_CHECK(cub::DeviceHistogram::HistogramEven(
     nullptr, temp_storage_bytes, labels, binCountArray, num_levels, lower_level,
@@ -83,44 +80,55 @@ void countLabels(const LabelT *labels, double *binCountArray, int nRows,
     lower_level, upper_level, nRows, stream));
 }
 
-
-
 /**
 * @brief Function to calculate entropy
-* <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a> 
+* <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
+*
 * @param clusterArray: the array of classes of type T
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
+* @return the entropy score
 */
 template <typename T>
-double entropy ( const T* clusterArray, const int size, const T lowerLabelRange, const T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-
-  if(!size)return 1.0;
-  
+double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
+               const T upperLabelRange,
+               std::shared_ptr<MLCommon::deviceAllocator> allocator,
+               cudaStream_t stream) {
+  if (!size) return 1.0;
 
   T numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for bincount array and entropy values
-  MLCommon::device_buffer<double> prob (allocator, stream, numUniqueClasses);
-  CUDA_CHECK(cudaMemsetAsync(prob.data(), 0, numUniqueClasses*sizeof(double), stream));
-  MLCommon::device_buffer<double> d_entropy (allocator, stream, 1);
+  MLCommon::device_buffer<double> prob(allocator, stream, numUniqueClasses);
+  CUDA_CHECK(
+    cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
+  MLCommon::device_buffer<double> d_entropy(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream));
 
   //workspace allocation
-  device_buffer<char> workspace(allocator,stream,1);
+  device_buffer<char> workspace(allocator, stream, 1);
 
-//calculating the bincounts and populating the prob array
-  countLabels(clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange, workspace, allocator, stream);
+  //calculating the bincounts and populating the prob array
+  countLabels(clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange,
+              workspace, allocator, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //scalar dividing by size
-  MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size, numUniqueClasses, stream);
+  MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size,
+                                         numUniqueClasses, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating the aggregate entropy
-  MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(), prob.data());
+  MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(
+    d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(),
+    prob.data());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //updating in the host memory
   double h_entropy;
@@ -129,10 +137,7 @@ double entropy ( const T* clusterArray, const int size, const T lowerLabelRange,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   return h_entropy;
-
 }
 
-
-};//end namespace Metrics
-};//end namespace MLCommon
-
+};  //end namespace Metrics
+};  //end namespace MLCommon
