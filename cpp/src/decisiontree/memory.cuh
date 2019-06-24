@@ -46,6 +46,8 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   totalmem += n_hist_elements * sizeof(int) + N * extra_elements * sizeof(T);
 
   if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
+    h_quantile = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream,
+                                              n_bins * quantile_elements);
     d_quantile = new MLCommon::device_buffer<T>(
       handle.getDeviceAllocator(), stream, n_bins * quantile_elements);
     totalmem += n_bins * extra_elements * sizeof(T);
@@ -123,6 +125,8 @@ TemporaryMemory<T, L>::~TemporaryMemory() {
 
   if (d_quantile != nullptr) {
     d_quantile->release(stream);
+    h_quantile->release(stream);
+    delete h_quantile;
     delete d_quantile;
   }
 

@@ -227,10 +227,8 @@ void find_best_split_classifier(
       std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), (T)0);
   } else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
     T ques_val;
-    T* d_quantile = tempmem->d_quantile->data();
     int q_index = col_selector[best_col_id] * nbins + best_bin_id;
-    MLCommon::updateHost(&ques_val, &d_quantile[q_index], 1, tempmem->stream);
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    ques_val = tempmem->h_quantile->data()[q_index];
     ques.set_question_fields(
       best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols,
       std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), ques_val);
