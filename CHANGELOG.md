@@ -81,6 +81,7 @@
 - PR #762: Apply threshold to remove flakiness of UMAP tests.
 - PR #768: Fixing memory bug from stateless refactor
 - PR #776: Hotfix for self.variables in RF
+- PR #777: Fix numpy input bug
 
 # cuML 0.7.0 (10 May 2019)
 
