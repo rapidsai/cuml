@@ -21,8 +21,8 @@ import numpy as np
 
 @jit
 def _shuffle_idx(idx: np.ndarray):
-    """ Return indices which will be used as indices to split a dataframe of
-    size len(np.ndarray)
+    """ Shuffle indices in place which will be used as indices to split a
+    dataframe of size len(np.ndarray)
     """
     # TODO this is the bottleneck and should be a gpu operation,
     # when possible replace with the mlprim mentioned in cuml #659
