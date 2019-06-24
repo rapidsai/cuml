@@ -420,6 +420,14 @@ class RandomForestClassifier(Base):
                         to split a node.
 
     """
+
+    variables = ['n_estimators', 'max_depth', 'handle',
+                 'max_features', 'n_bins',
+                 'split_algo', 'min_rows_per_node',
+                 'bootstrap', 'bootstrap_features',
+                 'verbose', 'rows_sample',
+                 'max_leaves']
+
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
@@ -542,13 +550,7 @@ class RandomForestClassifier(Base):
         deep : boolean (default = True)
         """
         params = dict()
-        self.variables = ['n_estimators', 'max_depth', 'handle',
-                          'max_features', 'n_bins',
-                          'split_algo', 'min_rows_per_node',
-                          'bootstrap', 'bootstrap_features',
-                          'verbose', 'rows_sample',
-                          'max_leaves']
-        for key in self.variables:
+        for key in RandomForestClassifier.variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
@@ -565,7 +567,7 @@ class RandomForestClassifier(Base):
         if not params:
             return self
         for key, value in params.items():
-            if key not in self.variables:
+            if key not in RandomForestClassifier.variables:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
