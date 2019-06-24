@@ -223,7 +223,7 @@ class UMAP(Base):
                  target_n_neighbors=-1,
                  target_weights=0.5,
                  target_metric="euclidean",
-                 should_downcast=True,
+                 should_downcast=False,
                  handle=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -275,11 +275,11 @@ class UMAP(Base):
                           "convert_dtype in fit, fit_transform and transform "
                           " methods instead. ")
 
-        self.umap_params = <size_t > umap_params
+        self.umap_params = <size_t> umap_params
 
     def __dealloc__(self):
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*><size_t> self.umap_params
         del umap_params
 
     def fit(self, X, y=None, convert_dtype=False):
