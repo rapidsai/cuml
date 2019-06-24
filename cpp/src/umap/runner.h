@@ -328,11 +328,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
-  int n_epochs;
+  int n_epochs = 30;
   if(graph_coo.nnz <= 10000)
     n_epochs = 100;
-  else
-    n_epochs = 30;
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals, graph_coo.vals, graph_coo.nnz,
