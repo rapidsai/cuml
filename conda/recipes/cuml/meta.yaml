@@ -31,11 +31,13 @@ requirements:
     - cudf 0.8*
     - libcuml={{ version }}
     - cudatoolkit {{ cuda_version }}.*
+    - cupy 6.0.*
   run:
     - python x.x
     - cudf 0.8*
     - libcuml={{ version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
+    - cupy 6.0.*
 
 about:
   home: http://rapids.ai/
