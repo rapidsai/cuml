@@ -69,7 +69,7 @@ template <typename DataT, typename IdxT, typename Lambda, int TPB = 256>
 void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len, Lambda op,
              cudaStream_t stream) {
   if (len <= 0) return;
-  size_t maxPerElem = max(sizeof(DataT), sizeof(IdxT));
+  constexpr size_t maxPerElem = max(sizeof(DataT), sizeof(IdxT));
   size_t bytes = len * maxPerElem;
   uint64_t dataAddr = uint64_t(in);
   uint64_t idxAddr = uint64_t(idx);
@@ -77,20 +77,20 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len, Lambda op,
     scatterImpl<DataT, 16 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
                                                            op, stream);
   } else if (8 / maxPerElem && bytes % 8 == 0) {
-    scatterImpl<DataT, 8 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
-                                                          op, stream);
+    scatterImpl<DataT, 8 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+                                                          stream);
   } else if (4 / maxPerElem && bytes % 4 == 0) {
-    scatterImpl<DataT, 4 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
-                                                          op, stream);
+    scatterImpl<DataT, 4 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+                                                          stream);
   } else if (2 / maxPerElem && bytes % 2 == 0) {
-    scatterImpl<DataT, 2 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
-                                                          op, stream);
+    scatterImpl<DataT, 2 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+                                                          stream);
   } else if (1 / maxPerElem) {
-    scatterImpl<DataT, 1 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
-                                                          op, stream);
+    scatterImpl<DataT, 1 / maxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
+                                                          stream);
   } else {
     scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   }
 }
 
-} // end namespace MLCommon
+}  // end namespace MLCommon
