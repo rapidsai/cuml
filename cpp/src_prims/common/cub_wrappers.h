@@ -20,7 +20,6 @@
 #include "device_buffer.hpp"
 
 namespace MLCommon {
-namespace cub {
 
 /**
  * @brief Convenience wrapper over cub's SortPairs method
@@ -36,8 +35,8 @@ namespace cub {
  */
 template <typename KeyT, typename ValueT>
 void sortPairs(device_buffer<char> &workspace, const KeyT *inKeys,
-               KeyT *outKeys, const ValueT *inVals, ValueT *outVals,
-               int len, cudaStream_t stream) {
+               KeyT *outKeys, const ValueT *inVals, ValueT *outVals, int len,
+               cudaStream_t stream) {
   size_t worksize;
   cub::DeviceRadixSort::SortPairs(nullptr, worksize, inKeys, outKeys, inVals,
                                   outVals, len, 0, sizeof(KeyT) * 8, stream);
@@ -47,5 +46,4 @@ void sortPairs(device_buffer<char> &workspace, const KeyT *inKeys,
                                   stream);
 }
 
-} // end namespace cub
-} // end namespace MLCommon
+}  // end namespace MLCommon
