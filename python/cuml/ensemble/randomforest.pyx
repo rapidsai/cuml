@@ -181,11 +181,14 @@ cdef class RandomForest_impl():
 
         try:
             import cupy as cp
-            unique_labels = cp.unique(y)
+            unique_labels = cp.unique(y_m)
         except ImportError:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
-            unique_labels = np.unique(y.copy_to_host())
+            isinstance(y, np.ndarray):
+                unique_labels = np.unique(y)
+            else:
+                unique_labels = np.unique(y_m.copy_to_host())
 
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
