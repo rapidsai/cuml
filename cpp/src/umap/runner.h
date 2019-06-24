@@ -245,13 +245,15 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
                 T *transformed) {
   cudaStream_t stream = handle.getStream();
 
+  std::cout << MLCommon::arr2Str(orig_X, orig_n, "orig_x", stream) << std::endl;
+
   /**
    * Perform kNN of X
    */
   long *knn_indices;
   float *knn_dists;
-  MLCommon::allocate(knn_indices, n * params->n_neighbors);
-  MLCommon::allocate(knn_dists, n * params->n_neighbors);
+  MLCommon::allocate(knn_indices, orig_n * params->n_neighbors);
+  MLCommon::allocate(knn_dists, orig_n * params->n_neighbors);
 
   kNNGraph::run(orig_X, orig_n, d, knn_indices, knn_dists, params->n_neighbors,
                 params, stream);
