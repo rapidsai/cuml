@@ -20,12 +20,12 @@ import numpy as np
 
 
 @jit
-def _shuffle_idx(df: cudf.DataFrame) -> np.ndarray:
+def _shuffle_idx(idx: np.ndarray) -> np.ndarray:
     """ Return indices which represent a randomly shuffled version of `df`
     """
     # TODO this is the bottleneck and should be a gpu operation,
     # when possible replace with the mlprim mentioned in cuml #659
-    return np.random.permutation(len(df))
+    np.random.shuffle(idx)
 
 
 def train_test_split(
@@ -93,8 +93,10 @@ def train_test_split(
     if seed is not None:
         np.random.seed(seed)
 
+    # Replace Numpy/cuDF here when issue mentioned above is solved!
     if shuffle:
-        idxs = _shuffle_idx(X)
+        idxs = cudf.utils.cudautils.arange(len(X)).copy_to_host()
+        _shuffle_idx(idxs)
         X = X.iloc[idxs].reset_index(drop=True)
         y = y.iloc[idxs].reset_index(drop=True)
 
