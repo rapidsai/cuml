@@ -35,8 +35,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, numba_utils
 
-from cython.operator cimport address
-
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
     enum InitMethod:
@@ -480,7 +478,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
-                <double*> address(inertia),    # inertia value
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         elif self.dtype == np.float64:
             predict(
@@ -492,7 +490,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
-                <double*> address(inertia),    # inertia value
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
@@ -542,7 +540,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <float*> preds_ptr,            # transformed output
-                <double*> address(inertia),    # inertia value
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         elif self.dtype == np.float64:
             transform(
@@ -554,7 +552,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,           # n_features (cols)
                 <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <double*> preds_ptr,            # transformed output
-                <double*> address(inertia),     # inertia value
+                <double*> &inertia,     # inertia value
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
@@ -581,6 +579,10 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        Returns
+        -------
+        inertia: double
+                 The inertia score
         """
 
         cdef uintptr_t input_ptr
@@ -606,7 +608,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
-                <double*> address(inertia),    # inertia value
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         elif self.dtype == np.float64:
             score(
@@ -618,7 +620,7 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
-                <double*> address(inertia),    # inertia value
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
