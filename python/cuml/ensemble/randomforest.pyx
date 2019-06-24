@@ -419,11 +419,11 @@ class RandomForestClassifier(Base):
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
-                      'max_features', 'n_bins',
-                      'split_algo', 'min_rows_per_node',
-                      'bootstrap', 'bootstrap_features',
-                      'verbose', 'rows_sample',
-                      'max_leaves']
+                 'max_features', 'n_bins',
+                 'split_algo', 'min_rows_per_node',
+                 'bootstrap', 'bootstrap_features',
+                 'verbose', 'rows_sample',
+                 'max_leaves']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, n_bins=8,
