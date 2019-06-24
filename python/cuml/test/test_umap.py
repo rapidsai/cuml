@@ -126,12 +126,14 @@ def test_umap_trustworthiness_on_iris():
     # As a result, our score drops by 0.006.
     assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
 
+
 def test_umap_transform_on_iris():
 
     iris = datasets.load_iris()
     data = iris.data
 
-    iris_selection = np.random.choice([True, False], 150, replace=True, p=[0.75, 0.25])
+    iris_selection = np.random.choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
@@ -141,8 +143,6 @@ def test_umap_transform_on_iris():
 
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.89
-
-
 
 
 @pytest.mark.parametrize('name', dataset_names)
