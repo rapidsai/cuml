@@ -68,6 +68,8 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
   T weights_max = *(thrust::max_element(thrust::cuda::par.on(stream), d_weights,
                                         d_weights + weights_n));
 
+  std::cout << "Weights Max: " << weights_max << std::endl;
+
   MLCommon::LinAlg::unaryOp<T>(
     result, weights, weights_n,
     [=] __device__(T input) {

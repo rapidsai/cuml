@@ -258,10 +258,6 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::LinAlg::unaryOp<T>(
-    knn_dists, knn_dists, n * params->n_neighbors,
-    [] __device__(T input) { return sqrt(input); }, stream);
-
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
 
@@ -313,7 +309,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
     row_ind, graph_coo.vals, graph_coo.nnz, graph_coo.n_rows, vals_normed,
     stream);
-
+  
   init_transform<TPB_X, T><<<grid_n, blk, 0, stream>>>(
     graph_coo.cols, vals_normed, graph_coo.n_rows, embedding, embedding_n,
     params->n_components, transformed, params->n_neighbors);
@@ -332,7 +328,11 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
-  int n_epochs = 1000;  //params->n_epochs;
+  int n_epochs;
+  if(graph_coo.nnz <= 10000)
+    n_epochs = 100;
+  else
+    n_epochs = 30;
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals, graph_coo.vals, graph_coo.nnz,
@@ -356,7 +356,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::allocate(epochs_per_sample, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
-    comp_coo.vals, comp_coo.nnz, params->n_epochs, epochs_per_sample, stream);
+    comp_coo.vals, comp_coo.nnz, n_epochs, epochs_per_sample, stream);
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows, comp_coo.cols,
