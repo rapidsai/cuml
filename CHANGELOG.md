@@ -48,6 +48,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests. 
 - PR #741: Update API docs for 0.8
+- PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
@@ -66,6 +67,9 @@
 - PR #719: Adding additional checks for dtype of the data
 - PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
+- PR #759: Configure Sphinx to render params correctly
+- PR #762: Apply threshold to remove flakiness of UMAP tests.
+- PR #768: Fixing memory bug from stateless refactor
 
 # cuML 0.7.0 (10 May 2019)
 
