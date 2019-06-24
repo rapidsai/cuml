@@ -134,7 +134,7 @@ class LeaveOneOut(BaseCrossValidator):
     --------
     >>> import cudf
     >>> import cupy as cp
-    >>> from cuml.model_selection import LeaveOneOut
+    >>> from cuml import LeaveOneOut
     >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cudf.Series([1, 2])
     >>> loo = LeaveOneOut()
@@ -210,7 +210,7 @@ class LeavePOut(BaseCrossValidator):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import LeavePOut
+    >>> from cuml import LeavePOut
     >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 3, 4])
     >>> lpo = LeavePOut(2)
@@ -362,7 +362,7 @@ class KFold(_BaseKFold):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import KFold
+    >>> from cuml import KFold
     >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 3, 4])
     >>> kf = KFold(n_splits=2)
@@ -439,7 +439,7 @@ class GroupKFold(_BaseKFold):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import GroupKFold
+    >>> from cuml import GroupKFold
     >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 3, 4])
     >>> groups = cp.array([0, 0, 2, 2])
@@ -554,7 +554,7 @@ class StratifiedKFold(_BaseKFold):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import StratifiedKFold
+    >>> from cuml import StratifiedKFold
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 1, 1])
     >>> skf = StratifiedKFold(n_splits=2)
@@ -694,7 +694,7 @@ class TimeSeriesSplit(_BaseKFold):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import TimeSeriesSplit
+    >>> from cuml import TimeSeriesSplit
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3, 1, 3], 'b': [2, 4, 2, 4, 2, 4]})
     >>> y = cp.array([1, 2, 3, 4, 5, 6])
     >>> tscv = TimeSeriesSplit(n_splits=5)
@@ -781,7 +781,7 @@ class LeaveOneGroupOut(BaseCrossValidator):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection import LeaveOneGroupOut
+    >>> from cuml import LeaveOneGroupOut
     >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 1, 2])
     >>> groups = cp.array([1, 1, 2, 2])
@@ -885,7 +885,7 @@ class LeavePGroupsOut(BaseCrossValidator):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from sklearn.model_selection import LeavePGroupsOut
+    >>> from cuml import LeavePGroupsOut
     >>> X = cudf.DataFrame({'a': [1, 3, 5], 'b': [2, 4, 6]})
     >>> y = cp.array([1, 2, 1])
     >>> groups = cp.array([1, 2, 3])
@@ -1089,7 +1089,7 @@ class RepeatedKFold(_RepeatedSplits):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import RepeatedKFold
+    >>> from cuml import RepeatedKFold
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 1, 1])
     >>> rkf = RepeatedKFold(n_splits=2, n_repeats=2, random_state=2652124)
@@ -1133,7 +1133,7 @@ class RepeatedStratifiedKFold(_RepeatedSplits):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection import RepeatedStratifiedKFold
+   import RepeatedStratifiedKFold
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 1, 1])
     >>> rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=2,
@@ -1259,7 +1259,7 @@ class ShuffleSplit(BaseShuffleSplit):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection import ShuffleSplit
+   import ShuffleSplit
     >>> X = X = cudf.DataFrame({'a':[1, 3, 5, 7, 3, 5],'b':[2, 4, 6, 8, 4, 6]})
     >>> y = cp.array([1, 2, 1, 2, 1, 2])
     >>> rs = ShuffleSplit(n_splits=5, test_size=.25, random_state=0)
@@ -1433,7 +1433,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from sklearn.model_selection import StratifiedShuffleSplit
+    >>import StratifiedShuffleSplit
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3, 1, 3], 'b': [2, 4, 2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 0, 1, 1, 1])
     >>> sss = StratifiedShuffleSplit(n_splits=5, test_size=0.5, random_state=0)
@@ -1703,7 +1703,7 @@ class PredefinedSplit(BaseCrossValidator):
     --------
     >>> import cupy as cp
     >>> import cudf
-    >>> from cuml.model_selection import PredefinedSplit
+   import PredefinedSplit
     >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 1, 1])
     >>> test_fold = [0, 1, -1, 1]
@@ -1864,7 +1864,7 @@ def check_cv(cv=None, y=None, classifier=False):
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
             raise ValueError("Expected cv as an integer, cross-validation "
-                             "object (from sklearn.model_selection) "
+                             "object "
                              "or an iterable. Got %s." % cv)
         return _CVIterableWrapper(cv)
 
@@ -1912,7 +1912,7 @@ def train_test_split(*arrays, **options):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection import train_test_split
+    >>> from cuml import train_test_split
     >>> X = cudf.DataFrame({'a': [0, 2, 4, 6, 8], 'b': [1, 3, 5, 7, 9]})
     >>> y = range(5)
     >>> list(y)

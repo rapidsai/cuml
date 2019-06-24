@@ -25,10 +25,28 @@ import numpy as np
 import cupy as cp
 
 
-try:  # SciPy >= 0.19
-    from scipy.special import comb, logsumexp
-except ImportError:
-    from scipy.misc import comb, logsumexp  # noqa
+def comb(N, k, exact=True):
+    ''' N choose k
+    Parameters
+    ----------
+    exact : is always ignored
+    '''
+    N = int(N)
+    k = int(k)
+
+    if k > N or N < 0 or k < 0:
+        return 0
+
+    M = N + 1
+    nterms = min(k, N - k)
+
+    numerator = 1
+    denominator = 1
+    for j in range(1, nterms + 1):
+        numerator *= M - j
+        denominator *= j
+
+    return numerator // denominator
 
 
 def _safe_accumulator_op(op, x, *args, **kwargs):
@@ -525,7 +543,8 @@ def _approximate_mode(class_counts, n_draws, rng):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection._utils import _approximate_mode
+    >>> from (cuml.thirdparty
+              ._sklearn.model_selection._utils) import _approximate_mode
     >>> _approximate_mode(class_counts=cp.array([4, 2]), n_draws=3, rng=0)
     array([2, 1])
     >>> _approximate_mode(class_counts=cp.array([5, 2]), n_draws=4, rng=0)
@@ -742,7 +761,8 @@ def is_multilabel(y):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection._utils import is_multilabel
+    >>> from (cuml.thirdparty
+              ._sklearn.model_selection._utils) import is_multilabel
     >>> is_multilabel([0, 1, 0, 1])
     False
     >>> is_multilabel([[1], [0, 2], []])

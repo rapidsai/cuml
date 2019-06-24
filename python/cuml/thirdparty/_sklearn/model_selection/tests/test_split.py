@@ -84,7 +84,7 @@ def list_splits(cv, X, y=None):
     of tuples of train_idx and test_idx in cupy.ndarray
     Parameters
     ----------
-    cv : cross-validator object from cuml.model_selection
+    cv : cross-validator object from cuml
     X : data
     y : label
     Returns
