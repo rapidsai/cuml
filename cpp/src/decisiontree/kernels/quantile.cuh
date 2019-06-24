@@ -122,7 +122,8 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
-
+  MLCommon::updateHost(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
+                       nbins * ncols, tempmem->stream);
   d_keys_out->release(tempmem->stream);
   d_offsets->release(tempmem->stream);
   d_temp_storage->release(tempmem->stream);

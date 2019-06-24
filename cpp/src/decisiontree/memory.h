@@ -55,6 +55,7 @@ struct TemporaryMemory {
 
   //For quantiles
   MLCommon::device_buffer<T> *d_quantile = nullptr;
+  MLCommon::host_buffer<T> *h_quantile = nullptr;
 
   const ML::cumlHandle_impl &ml_handle;
 
