@@ -50,6 +50,8 @@ namespace Metrics {
 /**
 * @brief Function to calculate KL Divergence
 * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL Divergence</a> 
+*
+* @tparam DataT: Data type of the input array
 * @param modelPDF: the model array of probability density functions of type DataT
 * @param candidatePDF: the candidate array of probability density functions of type DataT
 * @param size: the size of the data points of type int
@@ -60,18 +62,12 @@ template <typename DataT>
 DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
                    std::shared_ptr<MLCommon::deviceAllocator> allocator,
                    cudaStream_t stream) {
-  MLCommon::device_buffer<DataT> modelPDFCopy(allocator, stream, size);
-  MLCommon::device_buffer<DataT> candidatePDFCopy(allocator, stream, size);
-
-  MLCommon::copy(modelPDFCopy.data(), modelPDF, size, stream);
-  MLCommon::copy(candidatePDFCopy.data(), candidatePDF, size, stream);
-
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
-  MLCommon::LinAlg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, DataT*>(
-    d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDFCopy.data(),
-    candidatePDFCopy.data());
+  MLCommon::LinAlg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
+    d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDF,
+    candidatePDF);
 
   DataT h_KLDVal;
 
