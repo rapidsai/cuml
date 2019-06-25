@@ -510,6 +510,8 @@ class Rng {
    * @tparam WeightsT weights type
    * @tparam IdxT index type
    * @param out output sampled array (of length 'sampledLen')
+   * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
+   * a nullptr if this is not required.
    * @param in input array to be sampled (of length 'len')
    * @param wts weights array (of length 'len'). Pass a nullptr if uniform
    * sampling is desired
@@ -519,7 +521,7 @@ class Rng {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(DataT *out, const DataT *in,
+  void sampleWithoutReplacement(DataT *out, IdxT *outIdx, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
                                 std::shared_ptr<deviceAllocator> allocator,
                                 cudaStream_t stream) {
@@ -528,7 +530,7 @@ class Rng {
     device_buffer<WeightsT> expWts(allocator, stream, len);
     device_buffer<WeightsT> sortedWts(allocator, stream, len);
     device_buffer<IdxT> inIdx(allocator, stream, len);
-    device_buffer<IdxT> outIdx(allocator, stream, len);
+    device_buffer<IdxT> outIdxBuff(allocator, stream);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
     randImpl(
@@ -545,10 +547,16 @@ class Rng {
       NumThreads, nBlocks, type, stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
+    if (outIdx == nullptr) {
+      outIdxBuff.resize(len, stream);
+      outIdxPtr = outIdxBuff.data();
+    } else {
+      outIdxPtr = outIdx;
+    }
     device_buffer<char> workspace(allocator, stream);
-    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr,
-              outIdx.data(), (int)len, stream);
-    scatter<DataT, Nop<DataT, IdxT>, IdxT>(out, in, outIdx.data(), sampledLen,
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+              (int)len, stream);
+    scatter<DataT, Nop<DataT, IdxT>, IdxT>(out, in, outIdxPtr, sampledLen,
                                            Nop<DataT, IdxT>(), stream);
   }
 
