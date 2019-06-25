@@ -20,10 +20,8 @@
 * that are members of a given class are elements of the same cluster.
 */
 
-
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
 #include "metrics/entropy.h"
 #include "metrics/mutualInfoScore.h"
 
@@ -45,27 +43,29 @@ namespace Metrics {
 */
 template <typename T>
 double completenessScore(const T *truthClusterArray, const T *predClusterArray,
-                       int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream) {
-  int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-
+                         int size, T lowerLabelRange, T upperLabelRange,
+                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         cudaStream_t stream) {
   //calculating the golden output
   double computedMI, computedEntropy;
 
-  computedMI = MLCommon::Metrics::mutualInfoScore(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
-  computedEntropy = MLCommon::Metrics::entropy(predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+  computedMI = MLCommon::Metrics::mutualInfoScore(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
+    allocator, stream);
+  computedEntropy =
+    MLCommon::Metrics::entropy(predClusterArray, size, lowerLabelRange,
+                               upperLabelRange, allocator, stream);
 
   double completeness;
 
-  if(computedEntropy){
-      completeness = truthMI/truthEntropy;
-  } else completeness = 1.0;
+  if (computedEntropy) {
+    completeness = computedMI / computedEntropy;
+  } else
+    completeness = 1.0;
 
-  if(size == 0)completeness = 1.0
+  if (size == 0) completeness = 1.0;
 
   return completeness;
-
 }
 
 };  //end namespace Metrics
