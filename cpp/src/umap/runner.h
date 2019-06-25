@@ -334,6 +334,8 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
       n_epochs = 100;
     else
       n_epochs = 30;
+  } else {
+    n_epochs /= 3;
   }
 
   MLCommon::LinAlg::unaryOp<T>(
