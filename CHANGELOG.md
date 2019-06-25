@@ -70,6 +70,7 @@
 - PR #759: Configure Sphinx to render params correctly
 - PR #762: Apply threshold to remove flakiness of UMAP tests.
 - PR #768: Fixing memory bug from stateless refactor
+- PR #782: Nearest neighbors checking properly whether memory should be freed
 - PR #783: UMAP was using wrong size for knn computation
 - PR #776: Hotfix for self.variables in RF
 - PR #777: Fix numpy input bug
