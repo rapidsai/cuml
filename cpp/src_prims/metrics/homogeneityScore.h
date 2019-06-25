@@ -20,10 +20,6 @@
 * contain only data points which are members of a single class.
 */
 
-
-#include "common/cuml_allocator.hpp"
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
 #include "metrics/entropy.h"
 #include "metrics/mutualInfoScore.h"
 
@@ -45,27 +41,29 @@ namespace Metrics {
 */
 template <typename T>
 double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
-                       int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream) {
-  int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-
+                        int size, T lowerLabelRange, T upperLabelRange,
+                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                        cudaStream_t stream) {
   //calculating the golden output
   double computedMI, computedEntropy;
 
-  computedMI = MLCommon::Metrics::mutualInfoScore(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
-  computedEntropy = MLCommon::Metrics::entropy(truthClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+  computedMI = MLCommon::Metrics::mutualInfoScore(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
+    allocator, stream);
+  computedEntropy =
+    MLCommon::Metrics::entropy(truthClusterArray, size, lowerLabelRange,
+                               upperLabelRange, allocator, stream);
 
   double homogeneity;
 
-  if(computedEntropy){
-      homogeneity = truthMI/truthEntropy;
-  } else homogeneity = 1.0;
+  if (computedEntropy) {
+    homogeneity = computedMI / computedEntropy;
+  } else
+    homogeneity = 1.0;
 
-  if(size == 0)homogeneity = 1.0
+  if (size == 0) homogeneity = 1.0;
 
   return homogeneity;
-
 }
 
 };  //end namespace Metrics

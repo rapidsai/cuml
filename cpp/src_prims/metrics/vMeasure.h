@@ -17,12 +17,7 @@
 * @file vMeasure.h
 */
 
-
-#include "common/cuml_allocator.hpp"
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
-#include "metrics/homogeneityScore"
-#include "metrics/completenessScore.h"
+#include "metrics/homogeneityScore.h"
 
 namespace MLCommon {
 
@@ -41,22 +36,26 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double vMeasure(const T *truthClusterArray, const T *predClusterArray,
-                       int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream, double beta = 1.0) {
-
-
+double vMeasure(const T *truthClusterArray, const T *predClusterArray, int size,
+                T lowerLabelRange, T upperLabelRange,
+                std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                cudaStream_t stream, double beta = 1.0) {
   double computedHomogeity, computedCompleteness, computedVMeasure;
 
-  computedHomogeity = MLCommon::Metrics::homogeneityScore(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
-  computedCompleteness = MLCommon::Metrics::completenessScore(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+  computedHomogeity = MLCommon::Metrics::homogeneityScore(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
+    allocator, stream);
+  computedCompleteness = MLCommon::Metrics::homogeneityScore(
+    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange,
+    allocator, stream);
 
-  if(computedCompleteness + computedHomogeity == 0.0) computedVMeasure = 0.0;
-  else computedVMeasure = ((1+beta)*computedHomogeity*computedCompleteness/(beta*computedHomogeity + computedCompleteness));
+  if (computedCompleteness + computedHomogeity == 0.0)
+    computedVMeasure = 0.0;
+  else
+    computedVMeasure = ((1 + beta) * computedHomogeity * computedCompleteness /
+                        (beta * computedHomogeity + computedCompleteness));
 
   return computedVMeasure;
-
 }
 
 };  //end namespace Metrics
