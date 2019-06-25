@@ -95,9 +95,6 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     computedHomogeneity = MLCommon::Metrics::homogeneityScore(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
-
-    printf("computed: %f truth:%f\n entropy:%f mi:%f", computedHomogeneity,
-           truthHomogeneity, truthEntropy, truthMI);
   }
 
   //the destructor

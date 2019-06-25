@@ -33,7 +33,6 @@ namespace Metrics {
 * @param truthClusterArray: the array of truth classes of type T
 * @param predClusterArray: the array of predicted classes of type T
 * @param size: the size of the data points of type int
-* @param numUniqueClasses: number of Unique classes used for clustering
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
@@ -44,7 +43,6 @@ double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
                         int size, T lowerLabelRange, T upperLabelRange,
                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
                         cudaStream_t stream) {
-  //calculating the golden output
   double computedMI, computedEntropy;
 
   computedMI = MLCommon::Metrics::mutualInfoScore(

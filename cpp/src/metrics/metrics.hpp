@@ -123,6 +123,61 @@ double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
                        const int n, const int lower_class_range,
                        const int upper_class_range);
 
+/**
+* Calculates the "homogeneity score" between two clusters
+*
+* A clustering result satisfies homogeneity if all of its clusters
+* contain only data points which are members of a single class.
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The homogeneity score
+*/
+double homogeneityScore(const cumlHandle &handle, const int *y,
+                        const int *y_hat, const int n,
+                        const int lower_class_range,
+                        const int upper_class_range);
+
+/**
+* Calculates the "completeness score" between two clusters
+*
+* A clustering result satisfies completeness if all the data points
+* that are members of a given class are elements of the same cluster.
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The completeness score
+*/
+double completenessScore(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
+
+/**
+* Calculates the "v-measure" between two clusters
+*
+* v-measure is the harmonic mean between the homogeneity
+* and completeness scores of 2 cluster classifications
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The v-measure
+*/
+double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
+                const int n, const int lower_class_range,
+                const int upper_class_range);
 
 }  // namespace Metrics
 }  // namespace ML

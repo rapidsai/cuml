@@ -19,9 +19,12 @@
 #include "metrics.hpp"
 
 #include "metrics/adjustedRandIndex.h"
-#include "metrics/entropy.h"
-#include "metrics/mutualInfoScore.h"
+//#include "metrics/completenessScore.h"
+//#include "metrics/entropy.h"
+//#include "metrics/homogeneityScore.h"
+//#include "metrics/mutualInfoScore.h"
 #include "metrics/randIndex.h"
+#include "metrics/vMeasure.h"
 #include "score/scores.h"
 
 namespace ML {
@@ -62,6 +65,32 @@ double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
                        const int n, const int lower_class_range,
                        const int upper_class_range) {
   return MLCommon::Metrics::mutualInfoScore(
+    y, y_hat, n, lower_class_range, upper_class_range,
+    handle.getDeviceAllocator(), handle.getStream());
+}
+
+double homogeneityScore(const cumlHandle &handle, const int *y,
+                        const int *y_hat, const int n,
+                        const int lower_class_range,
+                        const int upper_class_range) {
+  return MLCommon::Metrics::homogeneityScore(
+    y, y_hat, n, lower_class_range, upper_class_range,
+    handle.getDeviceAllocator(), handle.getStream());
+}
+
+double completenessScore(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range) {
+  return MLCommon::Metrics::homogeneityScore(
+    y_hat, y, n, lower_class_range, upper_class_range,
+    handle.getDeviceAllocator(), handle.getStream());
+}
+
+double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
+                const int n, const int lower_class_range,
+                const int upper_class_range) {
+  return MLCommon::Metrics::vMeasure(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.getDeviceAllocator(), handle.getStream());
 }
