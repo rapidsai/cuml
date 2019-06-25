@@ -133,5 +133,5 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           int rows_sample);
+                           float rows_sample);
 };  // namespace ML
