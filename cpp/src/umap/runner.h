@@ -309,7 +309,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
     row_ind, graph_coo.vals, graph_coo.nnz, graph_coo.n_rows, vals_normed,
     stream);
-  
+
   init_transform<TPB_X, T><<<grid_n, blk, 0, stream>>>(
     graph_coo.cols, vals_normed, graph_coo.n_rows, embedding, embedding_n,
     params->n_components, transformed, params->n_neighbors);
@@ -328,9 +328,13 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
-  int n_epochs = 30;
-  if(graph_coo.nnz <= 10000)
-    n_epochs = 100;
+  int n_epochs = params->n_epochs;
+  if (params->n_epochs <= 0) {
+    if (graph_coo.nnz <= 10000)
+      n_epochs = 100;
+    else
+      n_epochs = 30;
+  }
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals, graph_coo.vals, graph_coo.nnz,

@@ -40,7 +40,7 @@ class UMAPParams {
          * Number of epochs to use in the training of
          * the embedding.
          */
-  int n_epochs = 500;
+  int n_epochs = 0;
 
   /**
          * Initial learning rate for the embedding optimization
