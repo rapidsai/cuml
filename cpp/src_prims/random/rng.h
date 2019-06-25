@@ -498,8 +498,13 @@ class Rng {
    * @brief Sample the input array without replacement, optionally based on the
    * input weight vector for each element in the array
    *
-   * Implementation here is based on the algo described here:
+   * Implementation here is based on the `one-pass sampling` algo described here:
    * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+   *
+   * @note In the sampled array the elements which are picked will always appear
+   * in the increasing order of their weights as computed using the exponential
+   * distribution. So, if you're particular about the order (for eg. array
+   * permutations), then this might not be the right choice!
    *
    * @tparam DataT data type
    * @tparam WeightsT weights type
