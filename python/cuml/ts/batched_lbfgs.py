@@ -1,6 +1,8 @@
 import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
+from .batched_linesearch import batched_line_search_wolfe1
+
 
 from collections import deque
 
@@ -53,6 +55,8 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
     k = 0
 
     is_converged = num_batches * [False]
+
+    reset_LBFGS = False
 
     for k_iter in range(maxiter):
 
@@ -143,36 +147,54 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
 
             alpha_b = np.zeros(num_batches)
             xkp1 = np.copy(xk)
-            for ib in range(num_batches):
-                if is_converged[ib]:
-                    continue
-                way = 1
-                if way == 1:
-                    alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
-                                                                                     fprime,
-                                                                                     np.copy(xk[ib*N:(ib+1)*N]),
-                                                                                     np.copy(pk[ib*N:(ib+1)*N]),
-                                                                                     np.copy(gk[ib*N:(ib+1)*N]),
-                                                                                     args=(ib,xk,))
-                elif way == 2:
-                    alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
-                                                                                     fprime, xk,
-                                                                                     pk,
-                                                                                     gk,
-                                                                                     args=(ib,))
-                if alpha_ib is None:
-                    print("WARNING(k:{},ib:{}): Line search failed, resetting L-BFGS memory".format(k_iter,ib))
+            way = 1
+
+            if way == 1:
+                alpha_batched = batched_line_search_wolfe1(func, fprime,
+                                                           N, num_batches, np.copy(xk), np.copy(pk))
+                for ib in range(num_batches):
+                    if alpha_batched[ib] > 0:
+                        xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_batched[ib]*pk[ib*N:(ib+1)*N]
+                        alpha_b[ib] = alpha_batched[ib]
+                    if alpha_batched[ib] < 0:
+                        print("WARNING(k:{},ib:{}): Line search failed, resetting L-BFGS memory".format(k_iter,ib))
+                        reset_LBFGS = True
+
+                if reset_LBFGS:
+                    # for now, we reset L-BFGS for every series. Eventually we
+                    # should only reset those who need it.
                     k = 0
                     yk.clear()
                     sk.clear()
                     rho.clear()
+                    reset_LBFGS = False
+                    # update state for those series who had line search success.
+                    xkm1 = np.copy(xk)
+                    xk = np.copy(xkp1)
                     continue
-                # else:
-                    # if iprint > 0:
-                    #     print("alpha[{}]={}".format(ib, alpha_ib))
 
-                xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_ib*pk[ib*N:(ib+1)*N]
-                alpha_b[ib] = alpha_ib
+            elif way == 2:
+                for ib in range(num_batches):
+                    if is_converged[ib]:
+                        continue
+
+                        alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
+                                                                                         fprime,
+                                                                                         np.copy(xk[ib*N:(ib+1)*N]),
+                                                                                         np.copy(pk[ib*N:(ib+1)*N]),
+                                                                                         np.copy(gk[ib*N:(ib+1)*N]),
+                                                                                         args=(ib,xk,))
+
+                    if alpha_ib is None:
+                        print("WARNING(k:{},ib:{}): Line search failed, resetting L-BFGS memory".format(k_iter,ib))
+                        k = 0
+                        yk.clear()
+                        sk.clear()
+                        rho.clear()
+                        continue
+
+                    xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_ib*pk[ib*N:(ib+1)*N]
+                    alpha_b[ib] = alpha_ib
 
         else:
             alpha_ib, _, _, _, _, _ = optimize.linesearch.line_search_wolfe1(func,
