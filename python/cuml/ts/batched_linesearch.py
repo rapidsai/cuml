@@ -1,6 +1,12 @@
 import numpy as np
 from typing import Tuple
 from IPython.core.debugger import set_trace
+from scipy.optimize import minpack2
+
+def linesearch_minpack(stx,fx,dx,sty,fy,dy,stp,fp,dp,brackt,
+                       stpmin,stpmax):
+
+    print("Minpack linesearch")
 
 def batched_line_search_armijo(f, nb, r,
                                xk, pk, gfk, fxk,
@@ -130,6 +136,87 @@ def batched_line_search_armijo(f, nb, r,
     # line search failed
     return alpha_return, fcall, None
 
+
+def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.ndarray,
+                               amin=1e-8, amax=100, c1=1e-4, c2=0.9, xtol=1e-14,
+                               max_ls_iter=10):
+
+    # initial alpha = 1
+    alphak = np.ones(nb)
+
+    # Not found: 0
+    # Found: alpha > 0
+    # Line search failed: -1
+    alpha_found = np.zeros(nb)
+    
+    # batched phi and phi'
+    # phi(alpha) = f(xk + alpha*p)
+    def phi(alpha: np.ndarray) -> np.ndarray:
+        xkp1 = np.copy(x0)
+        for i in range(nb):
+            xkp1[i*r:(i+1)*r] += alpha[i]*pk[i*r:(i+1)*r]
+        return f(xkp1, do_sum=False)
+
+    # this returns one scalar per batch
+    def phip(alpha: np.ndarray) -> np.ndarray:
+        xkp1 = np.copy(x0)
+        for i in range(nb):
+            xkp1[i*r:(i+1)*r] += alpha[i]*pk[i*r:(i+1)*r]
+        gfp1 = fg(xkp1)
+        gfp1_dot_pk = np.zeros(nb)
+        for i in range(nb):
+            gfp1_dot_pk[i] = np.dot(gfp1[i*r:(i+1)*r], pk[i*r:(i+1)*r])
+        return gfp1_dot_pk
+    
+
+    k_ls = 0
+
+    # minpack2.dcsrch state. One for each batch member.
+    task = nb*[b'START']
+    isave = nb*[np.zeros((2,), np.intc)]
+    dsave = nb*[np.zeros((13,), float)]
+
+    phi1 = phi(np.zeros(nb))
+    phip1 = phip(np.zeros(nb))
+
+    while (alpha_found == 0.0).any() and k_ls < max_ls_iter:
+        for ib in range(nb):
+
+            # skip line search if:
+            # alpha_found > 0 ("converged")
+            # alpha_found < 0 ("failed")
+            if alpha_found[ib] != 0.0:
+                continue
+
+            alpha_ib, _, _, task_ib = minpack2.dcsrch(alphak[ib], phi1[ib], phip1[ib],
+                                                      c1, c2, xtol,
+                                                      task[ib],
+                                                      amin, amax, isave[ib], dsave[ib])
+
+            alphak[ib] = alpha_ib
+            task[ib] = task_ib
+
+            # line search failed
+            if task_ib[:5] == b'ERROR' or task[:4] == b'WARN':
+                alpha_found[ib] = -1
+                alphak[ib] = 0.0
+            # line search converged
+            elif task_ib[:4] == b'CONV':
+                alpha_found[ib] = alpha_ib
+                alphak[ib] = 0.0
+
+        # re-evaluate batched-function
+        phi1 = phi(alphak)
+        phip1 = phip(alphak)
+        
+        k_ls += 1
+
+    if k_ls >= max_ls_iter:
+        print("WARNING: Linesearch failed to converge under maximum number of line search iterations!")
+
+
+    return alpha_found
+    
 # def batched_line_search_wolfe2(f, gf, r: int, x0: np.ndarray, pk: np.ndarray, nb: int,
 #                         amax=100, c1=1e-4, c2=0.9):
 #     """
@@ -194,3 +281,61 @@ def batched_line_search_armijo(f, nb, r,
 
         
 
+# wolfe2 optimal result (slow way):
+# k=000: 9.8236779 | (1.0000000, 2.0000000) | (0.0000000e+00,3.3045855e-02)
+# k=001: 9.8232249 | (1.0000000, 1.0000000) | (0.0000000e+00,1.4072712e-02)
+# k=002: 9.8223804 | (1.0000000, 16.0000000) | (0.0000000e+00,1.3861202e-02)
+# /home/max/dev/cuml/python/external_builds/scipy/scipy/optimize/linesearch.py:466: LineSearchWarning: The line search algorithm did not converge
+#   warn('The line search algorithm did not converge', LineSearchWarning)
+# /home/max/dev/cuml/python/external_builds/scipy/scipy/optimize/linesearch.py:314: LineSearchWarning: The line search algorithm did not converge
+#   warn('The line search algorithm did not converge', LineSearchWarning)
+# k=003: 9.8222919 | (1.0000000, 1000.0000000) | (0.0000000e+00,1.5233375e-02)
+# k=004: 9.8218456 | (1.0000000, 1.0000000) | (0.0000000e+00,1.5199005e-02)
+# k=005: 9.8211148 | (0.3934023, 1.0000000) | (0.0000000e+00,2.6246457e-02)
+# k=006: 9.8208148 | (1.0000000, 1.0000000) | (0.0000000e+00,4.0411044e-02)
+# k=007: 9.8205507 | (1.0000000, 1.0000000) | (0.0000000e+00,3.9171725e-02)
+# k=008: 9.8202554 | (0.4010477, 4.0000000) | (0.0000000e+00,4.1007900e-02)
+# k=009: 9.8199542 | (1.0000000, 1.0000000) | (0.0000000e+00,4.2129566e-02)
+# k=010: 9.8195398 | (0.0000000, 1.0000000) | (0.0000000e+00,4.9884066e-02)
+# k=011: 9.8188804 | (0.0000000, 2.0000000) | (0.0000000e+00,5.2143261e-02)
+# k=012: 9.8177865 | (0.0000000, 8.0000000) | (0.0000000e+00,5.6899601e-02)
+# k=013: 9.8162097 | (0.0000000, 8.0000000) | (0.0000000e+00,5.4860509e-02)
+# k=014: 9.8144118 | (0.0000000, 4.0000000) | (0.0000000e+00,3.2419256e-02)
+# k=015: 9.8129764 | (0.0000000, 32.0000000) | (0.0000000e+00,1.8510464e-02)
+# INFO(11): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [16:11] pk = [-0.00034   0.003062  0.      ], gk = [ 0.00034  -0.003062 -0.      ]
+# INFO(19): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [16:19] pk = [-0.000295 -0.000457  0.      ], gk = [ 0.000295  0.000457 -0.      ]
+# k=016: 9.8125586 | (0.0000000, 32.0000000) | (0.0000000e+00,1.3405793e-02)
+# INFO(4): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [17:4] pk = [-0.000212 -0.00057   0.      ], gk = [ 0.000212  0.00057  -0.      ]
+# INFO(5): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [17:5] pk = [-0.000249 -0.000343  0.      ], gk = [ 0.000249  0.000343 -0.      ]
+# INFO(12): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [17:12] pk = [-0.000225  0.000391  0.      ], gk = [ 0.000225 -0.000391 -0.      ]
+# k=017: 9.8124362 | (0.0000000, 8.0000000) | (0.0000000e+00,1.8997599e-02)
+# INFO(37): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [18:37] pk = [-9.187483e-05  6.014827e-05  0.000000e+00], gk = [ 9.187483e-05 -6.014827e-05 -0.000000e+00]
+# k=018: 9.8123768 | (0.0000000, 64.0000000) | (0.0000000e+00,2.4321052e-02)
+# INFO(9): Caught invalid step (FloatingPointError=overflow encountered in exp), resetting H=I
+# [19:9] pk = [-0.000118 -0.024321  0.      ], gk = [ 0.000118  0.024321 -0.      ]
+# k=019: 9.8123294 | (0.0000000, 8.0000000) | (0.0000000e+00,1.8285735e-02)
+# k=020: 9.8123021 | (0.0000000, 1.0000000) | (0.0000000e+00,1.2455979e-02)
+# k=021: 9.8122622 | (0.0000000, 2.0000000) | (0.0000000e+00,1.3167844e-02)
+# k=022: 9.8122333 | (0.0000000, 1.0000000) | (0.0000000e+00,2.0281864e-02)
+# k=023: 9.8122045 | (0.0000000, 1.0000000) | (0.0000000e+00,2.3506076e-02)
+# k=024: 9.8121701 | (0.0000000, 1.0000000) | (0.0000000e+00,1.6280352e-02)
+# k=025: 9.8121331 | (0.0000000, 1.0000000) | (0.0000000e+00,1.6132294e-02)
+# k=026: 9.8121030 | (0.0000000, 1.0000000) | (0.0000000e+00,1.9312221e-02)
+# k=027: 9.8120600 | (0.0000000, 1.0000000) | (0.0000000e+00,1.8377610e-02)
+# k=028: 9.8120016 | (0.0000000, 1.0000000) | (0.0000000e+00,1.8987685e-02)
+# k=029: 9.8119455 | (0.0000000, 2.0000000) | (0.0000000e+00,1.1861106e-02)
+# k=030: 9.8119143 | (0.0000000, 1.0000000) | (0.0000000e+00,1.0341536e-02)
+# k=031: 9.8118996 | (0.0000000, 1.0000000) | (0.0000000e+00,6.3307705e-03)
+# k=032: 9.8118948 | (0.0000000, 1.0000000) | (0.0000000e+00,1.6808467e-03)
+# k=033: 9.8118933 | (0.0000000, 1.0000000) | (0.0000000e+00,9.0552888e-05)
+# k=034: 9.8118931 | (0.0000000, 1.0000000) | (0.0000000e+00,2.1812010e-05)
+# k=035: 9.8118931 | (0.0000000, 1.0000000) | (0.0000000e+00,9.9145498e-06)
+# Stopping criterion reached |g|<pgtol: 3.079722963315992e-05 < 1e-05
+# Final result: f(xk)=0, |\/f(xk)|=3.0797e-05, n_iter=36
+# NITER= 36
