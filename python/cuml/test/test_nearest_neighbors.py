@@ -84,7 +84,6 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
         assert I_cuml_arr.all() == I_sk.all()
 
 
-
 def test_knn_fit_twice():
     """
     Test that fitting a model twice does not fail.
@@ -107,7 +106,6 @@ def test_knn_fit_twice():
     knn_cu.kneighbors(X, k)
 
     del knn_cu
-
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
