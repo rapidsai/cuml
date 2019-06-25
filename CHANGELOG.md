@@ -17,6 +17,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
+- PR #789: prims: sampling without replacement
 
 ## Improvements
 
