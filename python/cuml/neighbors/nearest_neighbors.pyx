@@ -206,16 +206,14 @@ class NearestNeighbors(Base):
         self.n_indices = 0
         self.X_m = None
 
-
     def __del__(self):
 
         # Explicitly free these since they were allocated
-        # on the heap. 
+        # on the heap.
         if self.n_indices > 0:
             free(<int*><size_t>self.sizes)
             free(<float**><size_t>self.input)
             self.n_indices = 0
-
 
     def fit(self, X):
         """
