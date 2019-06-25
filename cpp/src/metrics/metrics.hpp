@@ -105,5 +105,24 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
 double entropy(const cumlHandle &handle, const int *y, const int n,
                const int lower_class_range, const int upper_class_range);
 
+/**
+* Calculates the "Mutual Information score" between two clusters
+*
+* Mutual Information is a measure of the similarity between two labels of
+* the same data.
+*
+* @param handle: cumlHandle
+* @param y: Array of response variables of the first clustering classifications
+* @param y_hat: Array of response variables of the second clustering classifications
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The mutual information score
+*/
+double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
+                       const int n, const int lower_class_range,
+                       const int upper_class_range);
+
+
 }  // namespace Metrics
 }  // namespace ML

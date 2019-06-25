@@ -2,7 +2,11 @@
 
 ## New Features
 
+<<<<<<< HEAD
 - PR #724: Entropy metric ml-prim
+=======
+- PR #711: Mutual Information metric ml-prim
+>>>>>>> fea-ext-mutual-information
 - PR #652: Adjusted Rand Index metric ml-prim
 - PR #679: Class label manipulation ml-prim
 - PR #636: Rand Index metric ml-prim
