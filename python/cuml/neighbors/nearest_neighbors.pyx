@@ -204,7 +204,6 @@ class NearestNeighbors(Base):
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.n_indices = 0
-        self.X_m = None
 
     def __del__(self):
 
