@@ -90,9 +90,9 @@ class rfClassifier : public rf<T> {
            int* labels, int n_unique_labels);
   void predict(const cumlHandle& user_handle, const T* input, int n_rows,
                int n_cols, int* predictions, bool verbose = false) const;
-  RF_metrics cross_validate(const cumlHandle& user_handle, const T* input,
-                            const int* ref_labels, int n_rows, int n_cols,
-                            int* predictions, bool verbose = false) const;
+  RF_metrics score(const cumlHandle& user_handle, const T* input,
+                   const int* ref_labels, int n_rows, int n_cols,
+                   int* predictions, bool verbose = false) const;
 };
 
 /* Update labels so they are unique from 0 to n_unique_vals.
@@ -105,7 +105,7 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
 void postprocess_labels(int n_rows, std::vector<int>& labels,
                         std::map<int, int>& labels_map, bool verbose = false);
 
-// Stateless API functions: fit, predict and cross_validate.
+// Stateless API functions: fit, predict and score.
 void fit(const cumlHandle& user_handle, rfClassifier<float>* rf_classifier,
          float* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels);
@@ -120,15 +120,14 @@ void predict(const cumlHandle& user_handle,
              const rfClassifier<double>* rf_classifier, const double* input,
              int n_rows, int n_cols, int* predictions, bool verbose = false);
 
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<float>* rf_classifier,
-                          const float* input, const int* ref_labels, int n_rows,
-                          int n_cols, int* predictions, bool verbose = false);
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<double>* rf_classifier,
-                          const double* input, const int* ref_labels,
-                          int n_rows, int n_cols, int* predictions,
-                          bool verbose = false);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<float>* rf_classifier, const float* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose = false);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<double>* rf_classifier, const double* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose = false);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
