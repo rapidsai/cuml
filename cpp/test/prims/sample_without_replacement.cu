@@ -15,6 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <set>
+#include <vector>
+#include "cuda_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
@@ -45,24 +48,28 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     allocator.reset(new defaultDeviceAllocator);
     Rng r(params.seed, params.gtype);
     allocate(in, params.len);
+    allocate(wts, params.len);
     allocate(out, params.sampledLen);
     allocate(outIdx, params.sampledLen);
     h_outIdx.resize(params.sampledLen);
-    rng.sampledWithoutReplacement(out, outIdx, in, wts, params.sampledLen,
-                                  params.len, allocator, stream);
-    updateHost(&(h_outIdx[0]), outIdx, stream);
+    r.uniform(in, params.len, T(-1.0), T(1.0), stream);
+    r.uniform(wts, params.len, T(1.0), T(10.0), stream);
+    r.sampleWithoutReplacement(out, outIdx, in, wts, params.sampledLen,
+                               params.len, allocator, stream);
+    updateHost(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(in));
+    CUDA_CHECK(cudaFree(wts));
     CUDA_CHECK(cudaFree(out));
     CUDA_CHECK(cudaFree(outIdx));
   }
 
  protected:
   SWoRInputs<T> params;
-  T *in, *out;
+  T *in, *out, *wts;
   int* outIdx;
   std::vector<int> h_outIdx;
   cudaStream_t stream;
@@ -131,16 +138,14 @@ const std::vector<SWoRInputs<float>> inputsf = {
   {1024 + 2, 1024 + 2, GenKiss99, 1234ULL}};
 
 TEST_P(SWoRTestF, Result) {
-  // indices must be in the given range
-  for (int i = 0; i < params.sampledLen; ++i) {
-    auto val = h_outIdx[i];
-    ASSERT_TRUE(0 <= val && val < params.len)
-      << "out-of-range index @i=" << i << " val=" << val
-      << " sampledLen=" << sampledLen;
-  }
-  // indices should not repeat
   std::set<int> occurence;
   for (int i = 0; i < params.sampledLen; ++i) {
+    auto val = h_outIdx[i];
+    // indices must be in the given range
+    ASSERT_TRUE(0 <= val && val < params.len)
+      << "out-of-range index @i=" << i << " val=" << val
+      << " sampledLen=" << params.sampledLen;
+    // indices should not repeat
     ASSERT_TRUE(occurence.find(val) == occurence.end())
       << "repeated index @i=" << i << " idx=" << val;
     occurence.insert(val);
@@ -208,16 +213,14 @@ const std::vector<SWoRInputs<double>> inputsd = {
   {1024 + 2, 1024 + 2, GenKiss99, 1234ULL}};
 
 TEST_P(SWoRTestD, Result) {
-  // indices must be in the given range
-  for (int i = 0; i < params.sampledLen; ++i) {
-    auto val = h_outIdx[i];
-    ASSERT_TRUE(0 <= val && val < params.len)
-      << "out-of-range index @i=" << i << " val=" << val
-      << " sampledLen=" << sampledLen;
-  }
-  // indices should not repeat
   std::set<int> occurence;
   for (int i = 0; i < params.sampledLen; ++i) {
+    auto val = h_outIdx[i];
+    // indices must be in the given range
+    ASSERT_TRUE(0 <= val && val < params.len)
+      << "out-of-range index @i=" << i << " val=" << val
+      << " sampledLen=" << params.sampledLen;
+    // indices should not repeat
     ASSERT_TRUE(occurence.find(val) == occurence.end())
       << "repeated index @i=" << i << " idx=" << val;
     occurence.insert(val);

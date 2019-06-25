@@ -547,6 +547,7 @@ class Rng {
       NumThreads, nBlocks, type, stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
+    IdxT *outIdxPtr;
     if (outIdx == nullptr) {
       outIdxBuff.resize(len, stream);
       outIdxPtr = outIdxBuff.data();
@@ -556,8 +557,7 @@ class Rng {
     device_buffer<char> workspace(allocator, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
               (int)len, stream);
-    scatter<DataT, Nop<DataT, IdxT>, IdxT>(out, in, outIdxPtr, sampledLen,
-                                           Nop<DataT, IdxT>(), stream);
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
  private:
