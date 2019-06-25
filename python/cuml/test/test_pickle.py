@@ -43,6 +43,7 @@ decomposition_models = dict(
     TruncatedSVD=cuml.TruncatedSVD(),
 )
 
+
 decomposition_models_xfail = dict(
     GaussianRandomProjection=cuml.GaussianRandomProjection(),
     SparseRandomProjection=cuml.SparseRandomProjection()
@@ -213,7 +214,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
-    assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
+    assert cu_trust_before == cu_trust_after
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
