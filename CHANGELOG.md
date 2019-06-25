@@ -2,10 +2,13 @@
 
 ## New Features
 
+- PR #766: Expose score method based on inertia for KMeans
+
 ## Improvements
 
 ## Bug Fixes
 
+- PR #772: Add missing cython headers to SGD and CD
 
 # cuML 0.8.0 (Date TBD)
 
@@ -84,6 +87,7 @@
 - PR #776: Hotfix for self.variables in RF
 - PR #777: Fix numpy input bug
 - PR #784: Fix jit of shuffle_idx python function
+- PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 
 # cuML 0.7.0 (10 May 2019)
 
