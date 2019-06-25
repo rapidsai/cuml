@@ -296,7 +296,14 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 	             * Go through COO values and set everything that's less than
 	             * vals.max() / params->n_epochs to 0.0
 	             */
-  T n_epochs = T(params->n_epochs);
+  int n_epochs = params->n_epochs;
+  if (n_epochs <= 0) {
+    if (m <= 10000)
+      n_epochs = 500;
+    else
+      n_epochs = 200;
+  }
+
   MLCommon::LinAlg::unaryOp<T>(
     in->vals, in->vals, nnz,
     [=] __device__(T input) {
