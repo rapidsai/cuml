@@ -95,7 +95,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
-                                    bool, bool, int, int) except +
+                                    bool, bool, int, float) except +
 
 
 cdef class RandomForest_impl():
@@ -205,7 +205,7 @@ cdef class RandomForest_impl():
                                     <bool> self.bootstrap_features,
                                     <bool> self.bootstrap,
                                     <int> self.n_estimators,
-                                    <int> self.rows_sample)
+                                    <float> self.rows_sample)
 
         self.rf_classifier32 = new \
             rfClassifier[float](rf_param)
