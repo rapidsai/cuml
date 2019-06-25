@@ -89,13 +89,17 @@ def test_umap_fit_transform_score(nrows, n_feats):
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
+# Allow slight deviation from expected trust due to numerical error
+TRUST_TOLERANCE_THRESH = 0.005
+
+
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
                        verbose=False).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, 10)
-    assert trust >= 0.97
+    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
 
 def test_semisupervised_umap_trustworthiness_on_iris():
@@ -107,7 +111,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
                        verbose=False).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, 10)
-    assert trust >= 0.97
+    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
 
 def test_umap_trustworthiness_on_iris():
@@ -120,7 +124,23 @@ def test_umap_trustworthiness_on_iris():
     # We are doing a spectral embedding but not a
     # multi-component layout (which is marked experimental).
     # As a result, our score drops by 0.006.
-    assert trust >= 0.964
+    assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
+
+
+def test_umap_transform_on_iris():
+
+    iris = datasets.load_iris()
+    iris_selection = np.random.RandomState(42).choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
+    data = iris.data[iris_selection]
+
+    fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    fitter.fit(data)
+    new_data = iris.data[~iris_selection]
+    embedding = fitter.transform(new_data)
+
+    trust = trustworthiness(new_data, embedding, 10)
+    assert trust >= 0.89
 
 
 @pytest.mark.parametrize('name', dataset_names)
