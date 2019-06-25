@@ -158,6 +158,7 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
         return f(xkp1, do_sum=False)
 
     # this returns one scalar per batch
+    # phi'(alpha) = f'(xk + alpha*p).T * p (per batch member)
     def phip(alpha: np.ndarray) -> np.ndarray:
         xkp1 = np.copy(x0)
         for i in range(nb):
@@ -172,9 +173,9 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
     k_ls = 0
 
     # minpack2.dcsrch state. One for each batch member.
-    task = nb*[b'START']
-    isave = nb*[np.zeros((2,), np.intc)]
-    dsave = nb*[np.zeros((13,), float)]
+    task = [b'START' for ib in range(nb)]
+    isave = [np.copy(np.zeros((2,), np.intc)) for ib in range(nb)]
+    dsave = [np.copy(np.zeros((13,), float)) for ib in range(nb)]
 
     phi1 = phi(np.zeros(nb))
     phip1 = phip(np.zeros(nb))
