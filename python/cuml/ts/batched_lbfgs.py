@@ -68,7 +68,8 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
 
         if iprint > 0 and k % iprint == 0:
             # print("k:{} f={:0.5g}, |\/f|_inf={:0.5g}".format(k, fk[-1], np.linalg.norm(gk, np.inf)))
-            print("k:{} f={}, |\/f|_inf={:0.5g}".format(k, func(xk, do_sum=False), np.linalg.norm(gk, np.inf)))
+            print("k:{} f={}, |\/f|_inf={:0.5g}".format(k_iter, func(xk, do_sum=True),
+                                                        np.linalg.norm(gk, np.inf)))
 
         if np.linalg.norm(gk, np.inf) < pgtol:
             print("CONVERGED: |g|_{inf} < PGTOL, STOPPING.")

@@ -181,16 +181,16 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
     phi1 = phi(np.zeros(nb))
     phip1 = phip(np.zeros(nb))
 
-    while (alpha_found == 0.0).any() and k_ls < max_ls_iter:
+    # Loop while alpha is not yet found (alpha_i == 0) or until we reach the
+    # maximum number of iterations. Note: we skip batch members who have
+    # `is_converged==True`.
+    while ((alpha_found == 0.0) != is_converged).any() and k_ls < max_ls_iter:
         for ib in range(nb):
-
-            # set to non-zero so we escape the while loop
-            if is_converged[ib]:
-                alpha_found[ib] = 1e-16
 
             # skip line search if:
             # alpha_found > 0 ("converged")
             # alpha_found < 0 ("failed")
+            # batch member is converged
             if alpha_found[ib] != 0.0 or is_converged[ib]:
                 continue
 
@@ -222,11 +222,13 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
         print("WARNING: Linesearch failed to converge under maximum number of line search iterations!")
 
     # reset alpha to 0.0 for already converged batch members
+    # set non-converged alphas to -1
     for ib in range(nb):
+        if alpha_found[ib] == 0.0:
+            alpha_found[ib] = -1.0
         if is_converged[ib]:
             alpha_found[ib] = 0.0
     
-    print("af:", alpha_found)
     return alpha_found
     
 # def batched_line_search_wolfe2(f, gf, r: int, x0: np.ndarray, pk: np.ndarray, nb: int,
