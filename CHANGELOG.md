@@ -86,6 +86,7 @@
 - PR #776: Hotfix for self.variables in RF
 - PR #777: Fix numpy input bug
 - PR #784: Fix jit of shuffle_idx python function
+- PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 
 # cuML 0.7.0 (10 May 2019)
 
