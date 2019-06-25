@@ -134,8 +134,6 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
     cudaMemsetAsync(b.data(), 0, numUniqueClasses * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   //calculating the row-wise sums
   MLCommon::LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
                                           numUniqueClasses, numUniqueClasses, 0,
@@ -152,15 +150,11 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   dim3 numBlocks(ceildiv<int>(size, numThreadsPerBlock.x),
                  ceildiv<int>(size, numThreadsPerBlock.y));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
     <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
       dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses, size,
       d_MI.data());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //updating in the host memory
   MLCommon::updateHost(&h_MI, d_MI.data(), 1, stream);
