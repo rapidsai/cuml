@@ -106,6 +106,8 @@ def test_knn_fit_twice():
 
     knn_cu.kneighbors(X, k)
 
+    del knn_cu
+
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
