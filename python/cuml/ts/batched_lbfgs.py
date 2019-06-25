@@ -68,7 +68,7 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
 
         if iprint > 0 and k % iprint == 0:
             # print("k:{} f={:0.5g}, |\/f|_inf={:0.5g}".format(k, fk[-1], np.linalg.norm(gk, np.inf)))
-            print("k:{} f={}, |\/f|_inf={:0.5g}".format(k, func(xk, do_sum=True), np.linalg.norm(gk, np.inf)))
+            print("k:{} f={}, |\/f|_inf={:0.5g}".format(k, func(xk, do_sum=False), np.linalg.norm(gk, np.inf)))
 
         if np.linalg.norm(gk, np.inf) < pgtol:
             print("CONVERGED: |g|_{inf} < PGTOL, STOPPING.")
@@ -147,7 +147,9 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
         xkp1 = np.copy(xk)
 
         alpha_batched = batched_line_search_wolfe1(func, fprime,
-                                                   N, num_batches, np.copy(xk), np.copy(pk))
+                                                   N, num_batches,
+                                                   np.copy(xk), np.copy(pk),
+                                                   is_converged)
         for ib in range(num_batches):
             if alpha_batched[ib] > 0:
                 xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_batched[ib]*pk[ib*N:(ib+1)*N]

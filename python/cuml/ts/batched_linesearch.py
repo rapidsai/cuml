@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 from IPython.core.debugger import set_trace
 from scipy.optimize import minpack2
 
@@ -138,6 +138,7 @@ def batched_line_search_armijo(f, nb, r,
 
 
 def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.ndarray,
+                               is_converged: List[bool],
                                amin=1e-8, amax=100, c1=1e-4, c2=0.9, xtol=1e-14,
                                max_ls_iter=10):
 
@@ -183,12 +184,17 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
     while (alpha_found == 0.0).any() and k_ls < max_ls_iter:
         for ib in range(nb):
 
+            # set to non-zero so we escape the while loop
+            if is_converged[ib]:
+                alpha_found[ib] = 1e-16
+
             # skip line search if:
             # alpha_found > 0 ("converged")
             # alpha_found < 0 ("failed")
-            if alpha_found[ib] != 0.0:
+            if alpha_found[ib] != 0.0 or is_converged[ib]:
                 continue
 
+            # print("input:", phi1[ib], phip1[ib],isave[ib],dsave[ib])
             alpha_ib, _, _, task_ib = minpack2.dcsrch(alphak[ib], phi1[ib], phip1[ib],
                                                       c1, c2, xtol,
                                                       task[ib],
@@ -215,7 +221,12 @@ def batched_line_search_wolfe1(f, fg, r: int, nb: int, x0: np.ndarray, pk: np.nd
     if k_ls >= max_ls_iter:
         print("WARNING: Linesearch failed to converge under maximum number of line search iterations!")
 
-
+    # reset alpha to 0.0 for already converged batch members
+    for ib in range(nb):
+        if is_converged[ib]:
+            alpha_found[ib] = 0.0
+    
+    print("af:", alpha_found)
     return alpha_found
     
 # def batched_line_search_wolfe2(f, gf, r: int, x0: np.ndarray, pk: np.ndarray, nb: int,
