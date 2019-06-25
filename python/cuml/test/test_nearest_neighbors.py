@@ -84,6 +84,30 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
         assert I_cuml_arr.all() == I_sk.all()
 
 
+
+def test_knn_fit_twice():
+    """
+    Test that fitting a model twice does not fail.
+    This is necessary since the NearestNeighbors class
+    needs to free Cython allocated heap memory when
+    fit() is called more than once.
+    """
+
+    n_samples = 50
+    n_feats = 50
+    k = 5
+
+    X, y = make_blobs(n_samples=n_samples,
+                      n_features=n_feats, random_state=0)
+
+    knn_cu = cuKNN()
+    knn_cu.fit(X)
+    knn_cu.fit(X)
+
+    knn_cu.kneighbors(X, k)
+
+
+
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
