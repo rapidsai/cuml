@@ -46,7 +46,8 @@ namespace Metrics {
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
-                                 const int *b, int size, double *d_MI) {
+                                 const int *b, int numUniqueClasses, int size,
+                                 double *d_MI) {
   //calculating the indices of pairs of datapoints compared by the current thread
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -54,10 +55,11 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
   //thread-local variable to count the mutual info
   double localMI = 0.0;
 
-  if (i < size && j < size && a[i] * b[j] != 0 &&
-      dContingencyMatrix[i * size + j] != 0) {
-    localMI += (double(dContingencyMatrix[i * size + j])) *
-               (log(double(dContingencyMatrix[i * size + j])) -
+  if (i < numUniqueClasses && j < numUniqueClasses && a[i] * b[j] != 0 &&
+      dContingencyMatrix[i * numUniqueClasses + j] != 0) {
+    localMI += (double(dContingencyMatrix[i * numUniqueClasses + j])) *
+               (log(double(size) *
+                    double(dContingencyMatrix[i * numUniqueClasses + j])) -
                 log(double(a[i] * b[j])));
   }
 
@@ -155,7 +157,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
     <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses,
+      dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses, size,
       d_MI.data());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));

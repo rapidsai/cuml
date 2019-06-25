@@ -97,8 +97,9 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
         if (a[i] * b[j] != 0 && hGoldenOutput[i * numUniqueClasses + j] != 0) {
           truthmutualInfo +=
             (double)(hGoldenOutput[i * numUniqueClasses + j]) *
-            double(log((double)(hGoldenOutput[i * numUniqueClasses + j])) -
-                   log((double)(a[i] * b[j])));
+            (log((double)(double(nElements) *
+                          hGoldenOutput[i * numUniqueClasses + j])) -
+             log((double)(a[i] * b[j])));
         }
       }
     }
