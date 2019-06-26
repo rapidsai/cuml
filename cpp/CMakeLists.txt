@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.8.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.9.0 LANGUAGES CXX CUDA)
 
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
@@ -41,6 +41,8 @@ endif()
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
+option(BUILD_CUML_C_LIBRARY "Build libcuml shared library" ON)
+
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
@@ -61,13 +63,19 @@ set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
 
 set(GPU_ARCHS "" CACHE STRING
-  "List of GPU architectures (semicolon-separated) to be compiled for")
+  "List of GPU architectures (semicolon-separated) to be compiled for. Pass 'ALL' if you want to compile for all supported GPU architectures. Empty string means to auto-detect the GPUs on the current system")
 
 set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
   "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 
-# Disabling libcuml++ disables buidling algorithm tests and examples
+# Enabling libcuml enables building libcuml++
+if(BUILD_CUML_C_LIBRARY)
+  set(BUILD_CUML_CPP_LIBRARY ON)
+endif(BUILD_CUML_C_LIBRARY)
+
+# Disabling libcuml++ disables building algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
+  set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
@@ -99,6 +107,11 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+find_package(ClangFormat 8.0.0 EXACT REQUIRED)
+# TODO: enable this when we are ready!
+#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
+
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
 
@@ -128,6 +141,16 @@ set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRI
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(CMAKE_CUDA_HOST_COMPILER)
+  # If CMAKE_CUDA_HOST_COMPILER is set to a nonempty string cmake was called with the environment variable CUDAHOSTCXX set or -DCMAKE_CUDA_HOST_COMPILER
+  if(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
+    message(WARNING "CMAKE_CUDA_HOST_COMPILER=${CMAKE_CUDA_HOST_COMPILER} and CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} are inconsistent!")
+  endif(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
+else()
+  # No attempt to set CMAKE_CUDA_HOST_COMPILER has been made. Make sure CMAKE_CXX_COMPILER is used as CUDA host compiler.
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
+endif(CMAKE_CUDA_HOST_COMPILER)
+
 if(OPENMP_FOUND)
   message(STATUS "Building with OpenMP support")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
@@ -150,7 +173,12 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 
-if(NOT "${GPU_ARCHS}")
+if("${GPU_ARCHS}" STREQUAL "")
+  include(cmake/EvalGpuArchs.cmake)
+  evaluate_gpu_archs(GPU_ARCHS)
+endif()
+
+if("${GPU_ARCHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
@@ -159,6 +187,7 @@ if(NOT "${GPU_ARCHS}")
     set(GPU_ARCHS "${GPU_ARCHS};75")
   endif()
 endif()
+message("GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
@@ -177,6 +206,13 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     message(STATUS "Enabling the GLIBCXX11 ABI")
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+###################################################################################################
+# - clang-format targets --------------------------------------------------------------------------
+
+add_clang_format(
+  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
+  SRCDIR ${PROJECT_SOURCE_DIR})
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -257,7 +293,7 @@ set(PRIMS_TEST_UTILS
     src_prims/utils.h)
 
 ###################################################################################################
-# - build libcuml++ shared library ------------------------------------------------------------------
+# - build libcuml++ shared library ----------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
 
@@ -266,6 +302,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
+    src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
@@ -298,8 +335,21 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(OPENMP_FOUND)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
 
 endif(BUILD_CUML_CPP_LIBRARY)
+
+###################################################################################################
+# - build libcuml shared library ------------------------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+  set(CUML_C_TARGET "cuml")
+  add_library(${CUML_C_TARGET} SHARED
+    src/common/cuml_api.cpp
+    src/dbscan/dbscan_api.cpp
+    src/glm/glm_api.cpp)
+  target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
+endif(BUILD_CUML_C_LIBRARY)
 
 ###################################################################################################
 # - build test executables ------------------------------------------------------------------------
@@ -327,4 +377,3 @@ install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
 # add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
 #   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 #   CWD ${CMAKE_CURRENT_BINARY_DIR})
-
