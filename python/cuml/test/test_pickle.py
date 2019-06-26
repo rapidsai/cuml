@@ -260,8 +260,8 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 
     assert state["n_indices"] == 0
     assert "X_m" not in state
-    assert state["sizes"] == None
-    assert state["input"] == None
+    assert state["sizes"] is None
+    assert state["input"] is None
 
     X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
