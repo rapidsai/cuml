@@ -145,10 +145,7 @@ void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h ucp_worker, 
 }
 
 cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker, ucp_ep_h *eps, int size, int rank)
-    : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank), _next_request_id(0) {
-    //initializing NCCL
-//    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
-}
+    : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank), _next_request_id(0) {}
 
 cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl() {}
 
@@ -162,51 +159,37 @@ int cumlNCCLCommunicator_impl::getRank() const {
 
 std::unique_ptr<MLCommon::cumlCommunicator_iface> cumlNCCLCommunicator_impl::commSplit( int color, int key ) const
 {
-    // Not supported by NCCL
-    printf("commSplit called but not supported in NCCL implementation.\n");
+  // Not supported by NCCL
+  ASSERT(false,"ERROR: commSplit called but not supported in this comms implementation.");
 }
 
 void cumlNCCLCommunicator_impl::barrier() const
 {
-    // @TODO:
-    // 1. Have Rank 0 send out predetermined message and blocks until it gets a response from everyone.
-    // 2. All other ranks block until they see the message and reply with a predetermined response.
-    // 3. Upon getting responses from everyone, Rank 0 sends out a message for everyone to continue.
-    printf("barrier called but not supported in NCCL implementation.\n");
+  // @TODO:
+  // 1. Have Rank 0 send out predetermined message and blocks until it gets a response from everyone.
+  // 2. All other ranks block until they see the message and reply with a predetermined response.
+  // 3. Upon getting responses from everyone, Rank 0 sends out a message for everyone to continue.
+  ASSERT(false,"ERROR: barrier called but not supported in this comms implementation.");
 }
 
 static void send_handle(void *request, ucs_status_t status) {
 
-
-    //pthread_mutex_lock(&m);
-    printf("INSIDE SEND HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
 
-    printf("Finished in send handle\n");
-
     printf("[0x%x] send handler called with status %d (%s)\n",
            (unsigned int)pthread_self(), status, ucs_status_string(status));
-
-   // pthread_mutex_unlock(&m);
 }
 
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
 
-    //pthread_mutex_lock(&m);
-
-    printf("INSIDE RECEIVE HANDLE!\n");
     struct ucx_context *context = (struct ucx_context *) request;
     context->completed = 1;
-    printf("Finished in receive handle\n");
-
 
     printf("[0x%x] receive handler called with status %d (%s), length %lu\n",
            (unsigned int)pthread_self(), status, ucs_status_string(status),
            info->length);
-
-    //pthread_mutex_unlock(&m);
 }
 
 static void flush_callback(void *request, ucs_status_t status){}
@@ -250,17 +233,10 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
   ucp_ep_h ep_ptr = _ucp_eps[dest];
 
-
-//  ucp_worker_print_info (_ucp_worker, stdout);
-  
-//  ucp_ep_print_info(ep_ptr, stdout);
-
-
   ucp_request = (struct ucx_context*)ucp_tag_send_nb(ep_ptr, buf, size,
                               ucp_dt_make_contig(1), ucp_tag, send_handle);
 
   if(UCS_PTR_STATUS(ucp_request) == UCS_OK)
-      printf("It's null already!\n");
 
    if (UCS_PTR_IS_ERR(ucp_request)) {
        printf("unable to send UCX data message\n");
@@ -271,7 +247,7 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
        // ucp_request->completed = 0; /* Reset request state before recycling it */
        // ucp_request_release(ucp_request);
 
-       printf("An error occurred sending message.\n");
+       printf("Message is sending. Handler should be invoked.\n");
     } else {
         //request is complete so no need to wait on request
         ucp_request = (struct ucx_context*)malloc(sizeof(struct ucx_context));
@@ -279,14 +255,11 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
         ucp_request->needs_release = false;
     }
 
-
     if(ucp_request == nullptr)
         printf("The request on rank %d was NULL!\n", getRank());
 
-    //pthread_mutex_lock(&m);
     _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
     *request = req_id;
-    //pthread_mutex_unlock(&m);
 
     ucs_status_t flush_status = flush_ep(_ucp_worker, ep_ptr);
     printf("flush_ep completed with status %d (%s)\n",
@@ -309,16 +282,9 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
   ucp_ep_h ep_ptr = _ucp_eps[source];
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
-
- // std::cout << "RECV EP_PTRE: " << ep_ptr << std::endl;
-//  std::cout << "UCP WORKER: " << _ucp_worker << std::endl;
-
-
   ucp_request = (struct ucx_context*)ucp_tag_recv_nb(_ucp_worker, buf, size,
                             ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
                             recv_handle);
-
-
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
       printf("unable to receive UCX data message (%d)\n");
@@ -331,8 +297,6 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
     //wait(_ucp_worker, ucp_request);
     //ucp_request->completed = 0;
     //ucp_request_release(request);
-
-    printf("Cleaned up request on %d\n", getRank());
 }
 
   //pthread_mutex_lock(&m);
@@ -350,7 +314,6 @@ void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]
        auto req_it = _requests_in_flight.find( array_of_requests[i] );
        ASSERT( _requests_in_flight.end() != req_it, "ERROR: waitall on invalid request: %d", array_of_requests[i] );
 
-
        if(req_it->second == nullptr)
            printf("Encountered null request on rank %d\n", getRank());
 
@@ -365,13 +328,6 @@ void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]
   }
 
   int done = 0;
-
-
-  printf("Checking completed on rank %d\n", getRank());
-
-
-
-  done = 0;
   for(struct ucx_context *req : requests) {
 
       if(req == nullptr) {
@@ -380,16 +336,11 @@ void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]
       }
 
       wait(_ucp_worker, req);
-
-      //pthread_mutex_lock(&m);
       req->completed = 0; /* Reset request state before recycling it */
-      //pthread_mutex_unlock(&m);
 
       if(req->needs_release)
           ucp_request_release(req);
       printf("Checked off request on rank %d\n", getRank());
-      
-
   }
 
   printf("Done waitall for rank: %d\n", getRank());

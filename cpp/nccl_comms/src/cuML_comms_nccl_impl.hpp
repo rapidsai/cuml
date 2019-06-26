@@ -31,8 +31,6 @@ struct ucx_context {
     bool needs_release = true;
 };
 
-
-
 namespace ML {
 
 class cumlNCCLCommunicator_impl : public MLCommon::cumlCommunicator_iface {
