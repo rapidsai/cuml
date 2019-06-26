@@ -243,15 +243,25 @@ def test_neighbors_pickle(tmpdir, datatype, model, nrows,
 @pytest.mark.parametrize('k', [unit_param(3)])
 def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 
+    """
+    Note: This test digs down a bit far into the
+    internals of the implementation, but it's
+    important that regressions do not occur
+    from changes to the class.
+    """
+
     model = cuml.neighbors.NearestNeighbors()
 
     unpickled = pickle_save_load(tmpdir, model)
 
     state = unpickled.__dict__
+
+    print(str(state))
+
     assert state["n_indices"] == 0
     assert "X_m" not in state
-    assert "sizes" not in state
-    assert "input" not in state
+    assert state["sizes"] == None
+    assert state["input"] == None
 
     X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
@@ -263,8 +273,8 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 
     assert state["n_indices"] == 1
     assert "X_m" in state
-    assert "sizes" in state
-    assert "input" in state
+    assert state["sizes"] is not None
+    assert state["input"] is not None
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
