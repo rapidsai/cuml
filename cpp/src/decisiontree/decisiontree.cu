@@ -70,12 +70,10 @@ DecisionTreeParams::DecisionTreeParams() {}
 /**
  * @brief Decision tree hyper-parameter object constructor to set all DecisionTreeParams members.
  */
-DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves,
-                                       float cfg_max_features, int cfg_n_bins,
-                                       int cfg_split_algo,
-                                       int cfg_min_rows_per_node,
-                                       bool cfg_bootstrap_features,
-                                       CRITERION cfg_split_criterion)
+DecisionTreeParams::DecisionTreeParams(
+  int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
+  int cfg_split_algo, int cfg_min_rows_per_node, bool cfg_bootstrap_features,
+  CRITERION cfg_split_criterion, bool cfg_quantile_per_tree)
   : max_depth(cfg_max_depth),
     max_leaves(cfg_max_leaves),
     max_features(cfg_max_features),
@@ -83,7 +81,8 @@ DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves,
     split_algo(cfg_split_algo),
     min_rows_per_node(cfg_min_rows_per_node),
     bootstrap_features(cfg_bootstrap_features),
-    split_criterion(cfg_split_criterion) {}
+    split_criterion(cfg_split_criterion),
+    quantile_per_tree(cfg_quantile_per_tree) {}
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
@@ -180,7 +179,8 @@ void DecisionTreeBase<T, L>::plant(
   L *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
   int maxdepth, int max_leaf_nodes, const float colper, int n_bins,
   int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-  CRITERION cfg_split_criterion) {
+  CRITERION cfg_split_criterion, bool quantile_per_tree,
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   split_algo = split_algo_flag;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
@@ -226,10 +226,16 @@ void DecisionTreeBase<T, L>::plant(
          shmem_used);
 
   for (int i = 0; i < MAXSTREAMS; i++) {
-    tempmem[i] = std::make_shared<TemporaryMemory<T, L>>(
-      handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins,
-      split_algo);
-    if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    if (in_tempmem != nullptr) {
+      tempmem[i] = in_tempmem;
+    } else {
+      tempmem[i] = std::make_shared<TemporaryMemory<T, L>>(
+        handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins,
+        split_algo);
+      quantile_per_tree = true;
+    }
+    if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
+        quantile_per_tree == true) {
       preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
                           n_bins, tempmem[i]);
     }
@@ -240,9 +246,10 @@ void DecisionTreeBase<T, L>::plant(
   MLCommon::TimerCPU timer;
   root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
   construct_time = timer.getElapsedSeconds();
-
-  for (int i = 0; i < MAXSTREAMS; i++) {
-    tempmem[i].reset();
+  if (in_tempmem == nullptr) {
+    for (int i = 0; i < MAXSTREAMS; i++) {
+      tempmem[i].reset();
+    }
   }
 }
 
@@ -397,7 +404,8 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(
   const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
   L *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-  DecisionTreeParams &tree_params, bool is_classifier) {
+  DecisionTreeParams &tree_params, bool is_classifier,
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
@@ -426,7 +434,7 @@ void DecisionTreeBase<T, L>::base_fit(
         unique_labels, tree_params.max_depth, tree_params.max_leaves,
         tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
         tree_params.min_rows_per_node, tree_params.bootstrap_features,
-        tree_params.split_criterion);
+        tree_params.split_criterion, tree_params.quantile_per_tree, in_tempmem);
 }
 
 /**
@@ -446,13 +454,13 @@ void DecisionTreeBase<T, L>::base_fit(
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  */
 template <typename T>
-void DecisionTreeClassifier<T>::fit(const ML::cumlHandle &handle, T *data,
-                                    const int ncols, const int nrows,
-                                    int *labels, unsigned int *rowids,
-                                    const int n_sampled_rows, int unique_labels,
-                                    DecisionTreeParams tree_params) {
+void DecisionTreeClassifier<T>::fit(
+  const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
+  int *labels, unsigned int *rowids, const int n_sampled_rows,
+  int unique_labels, DecisionTreeParams tree_params,
+  std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                 unique_labels, tree_params, true);
+                 unique_labels, tree_params, true, in_tempmem);
 }
 
 template <typename T>
@@ -511,13 +519,13 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  */
 template <typename T>
-void DecisionTreeRegressor<T>::fit(const ML::cumlHandle &handle, T *data,
-                                   const int ncols, const int nrows, T *labels,
-                                   unsigned int *rowids,
-                                   const int n_sampled_rows,
-                                   DecisionTreeParams tree_params) {
+void DecisionTreeRegressor<T>::fit(
+  const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
+  T *labels, unsigned int *rowids, const int n_sampled_rows,
+  DecisionTreeParams tree_params,
+  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1,
-                 tree_params, false);
+                 tree_params, false, in_tempmem);
 }
 
 template <typename T>

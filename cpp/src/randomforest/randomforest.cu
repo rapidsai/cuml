@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "../decisiontree/kernels/quantile.h"
+#include "../decisiontree/memory.h"
 #include "random/permute.h"
 #include "random/rng.h"
 #include "randomforest.h"
@@ -260,6 +262,9 @@ void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle,
       1000);  // Ensure the seed for each tree is different and meaningful.
     r.uniformInt(selected_rows, n_sampled_rows, (unsigned int)0,
                  (unsigned int)n_rows, stream);
+    //thrust::sequence(thrust::cuda::par.on(stream), sorted_selected_rows,
+    //           sorted_selected_rows + n_sampled_rows);
+
     CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
       (void*)rows_temp_storage, temp_storage_bytes, selected_rows,
       sorted_selected_rows, n_sampled_rows, 0, 8 * sizeof(unsigned int),
@@ -380,7 +385,15 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   // Allocate temporary storage
   rows_temp_storage = new MLCommon::device_buffer<char>(
     handle.getDeviceAllocator(), stream, temp_storage_bytes);
-
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem =
+    std::make_shared<TemporaryMemory<T, int>>(
+      user_handle.getImpl(), n_sampled_rows, n_cols, 1, n_unique_labels,
+      this->rf_params.tree_params.n_bins,
+      this->rf_params.tree_params.split_algo);
+  if (this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    preprocess_quantile(input, nullptr, n_sampled_rows, n_cols, n_rows,
+                        this->rf_params.tree_params.n_bins, tempmem);
+  }
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     this->prepare_fit_per_tree(handle, i, n_rows, n_sampled_rows,
                                selected_rows.data(),
@@ -396,13 +409,14 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
 
     trees[i].fit(user_handle, input, n_cols, n_rows, labels,
                  sorted_selected_rows.data(), n_sampled_rows, n_unique_labels,
-                 this->rf_params.tree_params);
+                 this->rf_params.tree_params, tempmem);
   }
 
   //Cleanup
   rows_temp_storage->release(stream);
   selected_rows.release(stream);
   sorted_selected_rows.release(stream);
+  tempmem.reset();
   delete rows_temp_storage;
 }
 
@@ -569,7 +583,16 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   // Allocate temporary storage
   rows_temp_storage = new MLCommon::device_buffer<char>(
     handle.getDeviceAllocator(), stream, temp_storage_bytes);
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem =
+    std::make_shared<TemporaryMemory<T, T>>(
+      user_handle.getImpl(), n_sampled_rows, n_cols, 1, 1,
+      this->rf_params.tree_params.n_bins,
+      this->rf_params.tree_params.split_algo);
 
+  if (this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    preprocess_quantile(input, nullptr, n_sampled_rows, n_cols, n_rows,
+                        this->rf_params.tree_params.n_bins, tempmem);
+  }
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     this->prepare_fit_per_tree(handle, i, n_rows, n_sampled_rows,
                                selected_rows.data(),
@@ -585,12 +608,13 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
 
     trees[i].fit(user_handle, input, n_cols, n_rows, labels,
                  sorted_selected_rows.data(), n_sampled_rows,
-                 this->rf_params.tree_params);
+                 this->rf_params.tree_params, tempmem);
   }
   //Cleanup
   rows_temp_storage->release(stream);
   selected_rows.release(stream);
   sorted_selected_rows.release(stream);
+  tempmem.reset();
   delete rows_temp_storage;
 }
 
@@ -810,10 +834,11 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           int rows_sample, CRITERION split_criterion) {
+                           int rows_sample, CRITERION split_criterion,
+                           bool quantile_per_tree) {
   DecisionTree::DecisionTreeParams tree_params(
     max_depth, max_leaves, max_features, n_bins, split_algo, min_rows_per_node,
-    bootstrap_features, split_criterion);
+    bootstrap_features, split_criterion, quantile_per_tree);
   RF_params rf_params(bootstrap, bootstrap_features, n_trees, rows_sample,
                       tree_params);
   return rf_params;
