@@ -33,7 +33,7 @@ def test_end_to_end():
     import cudf
     import numpy as np
 
-    from dask_cuml.neighbors import NearestNeighbors as cumlKNN
+    from cuml.dask.neighbors import NearestNeighbors as cumlKNN
 
     def create_df(f, m, n):
         X = np.random.uniform(-1, 1, (m, n))

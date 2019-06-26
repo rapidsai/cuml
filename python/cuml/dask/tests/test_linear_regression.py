@@ -57,7 +57,7 @@ def test_ols():
     import cudf
     import numpy as np
 
-    from dask_cuml.linear_model import LinearRegression as cumlOLS_dask
+    from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
     nrows = 2**8
     ncols = 399
