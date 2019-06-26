@@ -223,7 +223,7 @@ class UMAP(Base):
                  target_n_neighbors=-1,
                  target_weights=0.5,
                  target_metric="euclidean",
-                 should_downcast=False,
+                 should_downcast=True,
                  handle=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -305,7 +305,7 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        X_m, X_ctype, n_rows, n_cols, dtype = \
+        self.X_m, X_ctype, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
                                                  else None))
