@@ -13,10 +13,10 @@ To install cuML from source, ensure the following dependencies are met:
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
 
-It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example for CUDA 10.0 and Python 3.7, you can use the follow command:
+It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.0 and Python 3.7, you can use the follow command:
 
 ```
-conda env create -n del python=3.7 --file=conda/environments/cuml_dec_cuda10.0.yml
+conda env create -n cuml_dev python=3.7 --file=conda/environments/cuml_dev_cuda10.0.yml
 ```
 
 ## Installing from Source:
