@@ -529,6 +529,11 @@ DataT *KMeans<DataT, IndexT>::centroids() {
   return _centroidsRawData.data();
 }
 
+template <typename DataT, typename IndexT>
+double KMeans<DataT, IndexT>::getInertia() {
+  return inertia;
+}
+
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void KMeans<DataT, IndexT>::initRandom(Tensor<DataT, 2, IndexT> &X) {
