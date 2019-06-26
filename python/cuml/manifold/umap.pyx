@@ -277,7 +277,7 @@ class UMAP(Base):
 
         self.umap_params = <size_t> umap_params
 
-    def __dealloc__(self):
+    def __del__(self):
         cdef UMAPParams * umap_params = \
             <UMAPParams*><size_t> self.umap_params
         del umap_params
@@ -321,7 +321,7 @@ class UMAP(Base):
         self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
-        self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
+        self.arr_embed = cuda.to_device(zeros((self.X_m.shape[0],
                                                umap_params.n_components),
                                               order="C", dtype=np.float32))
         self.embeddings = \
@@ -344,8 +344,8 @@ class UMAP(Base):
             fit(handle_[0],
                 < float*> x_raw,
                 < float*> y_raw,
-                < int > X_m.shape[0],
-                < int > X_m.shape[1],
+                < int > self.X_m.shape[0],
+                < int > self.X_m.shape[1],
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
@@ -353,12 +353,11 @@ class UMAP(Base):
 
             fit(handle_[0],
                 < float*> x_raw,
-                < int > X_m.shape[0],
-                < int > X_m.shape[1],
+                < int > self.X_m.shape[0],
+                < int > self.X_m.shape[1],
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
-        del X_m
         return self
 
     def fit_transform(self, X, y=None, convert_dtype=False):

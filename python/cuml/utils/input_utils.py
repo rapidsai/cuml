@@ -213,7 +213,8 @@ def convert_dtype(X, to_dtype=np.float32):
 
             X_df = cudf.DataFrame()
             X = X_df.from_gpu_matrix(X)
-            return convert_dtype(X, to_dtype=to_dtype)
+            X = convert_dtype(X, to_dtype=to_dtype)
+            return X.as_gpu_matrix()
 
     elif isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)
