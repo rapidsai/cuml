@@ -1,4 +1,16 @@
-# cuML 0.8.0 (Date TBD)
+# cuML 0.9.0 (Date TBD)
+
+## New Features
+
+- PR #766: Expose score method based on inertia for KMeans
+
+## Improvements
+
+## Bug Fixes
+
+- PR #772: Add missing cython headers to SGD and CD
+
+# cuML 0.8.0 (27 June 2019)
 
 ## New Features
 
@@ -14,8 +26,10 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #681: Add MBSGDClassifier and MBSGDRegressor classes around SGD
+- PR #705: Quasi Newton solver and LogisticRegression Python classes
 - PR #670: Add test skipping functionality to build.sh
-- PR #678: Added Random Forest wrapper
+- PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
 
@@ -42,11 +56,15 @@
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
 - PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
 - PR #695: prims: Refactor pairwise distance
-- PR #707: Added stress test and updated documentation for RF 
+- PR #707: Added stress test and updated documentation for RF
 - PR #701: Added emacs temporary file patterns to .gitignore
 - PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 - PR #726: Updated RF docs and stress test
 - PR #730: Update README and RF docs for 0.8
+- PR #744: Random projections generating binomial on device. Fixing tests.
+- PR #741: Update API docs for 0.8
+- PR #753: Made PCA and TSVD picklable
+- PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -60,8 +78,21 @@
 - PR #685: Make CuPy optional to avoid nccl conda package conflicts
 - PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
 - PR #689: Removing extra prints from NearestNeighbors cython
+- PR #718: Bug fix for DBSCAN and increasing batch size of sgd
 - PR #719: Adding additional checks for dtype of the data
+- PR #736: Bug fix for RF wrapper and .cu print function
 - PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
+- PR #759: Configure Sphinx to render params correctly
+- PR #762: Apply threshold to remove flakiness of UMAP tests.
+- PR #768: Fixing memory bug from stateless refactor
+- PR #782: Nearest neighbors checking properly whether memory should be freed
+- PR #783: UMAP was using wrong size for knn computation
+- PR #776: Hotfix for self.variables in RF
+- PR #777: Fix numpy input bug
+- PR #784: Fix jit of shuffle_idx python function
+- PR #790: Fix rows_sample input type for RF
+- PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
+- PR #806: Add a seed for sklearn model in RF test file
 
 # cuML 0.7.0 (10 May 2019)
 
