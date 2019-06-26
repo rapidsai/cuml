@@ -276,8 +276,6 @@ cdef class BaseRandomProjection():
         else:
             return X_new
 
-        del X_m
-
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
     """

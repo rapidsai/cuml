@@ -89,7 +89,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           rfClassifier[float]*,
                           float*,
-                          int,
+                          int*,
                           int,
                           int,
                           int*,
