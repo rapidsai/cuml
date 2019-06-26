@@ -203,6 +203,16 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
+        self.n_indices = 0
+
+    def __del__(self):
+
+        # Explicitly free these since they were allocated
+        # on the heap.
+        if self.n_indices > 0:
+            free(<int*><size_t>self.sizes)
+            free(<float**><size_t>self.input)
+            self.n_indices = 0
 
     def fit(self, X):
         """
@@ -215,6 +225,9 @@ class NearestNeighbors(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+
+        self.__del__()
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -302,6 +315,8 @@ class NearestNeighbors(Base):
             self.sizes = <size_t>sizes_arr
             self.input = <size_t>input_arr
 
+        return self
+
     def _fit_mg(self, n_dims, alloc_info):
         """
         Fits a model using multiple GPUs. This method takes in a list of dict
@@ -316,6 +331,8 @@ class NearestNeighbors(Base):
         """
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        self.__del__()
 
         cdef float** input_arr = \
             <float**> malloc(len(alloc_info) * sizeof(float*))
