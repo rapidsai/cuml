@@ -56,6 +56,7 @@ if(BUILD_CUML_TESTS)
       sg/quasi_newton.cu
       sg/rf_test.cu
       sg/ridge.cu
+      sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
       sg/tsvd_test.cu
@@ -150,6 +151,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/host_buffer.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
