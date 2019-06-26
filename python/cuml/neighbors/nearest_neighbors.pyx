@@ -303,13 +303,10 @@ class NearestNeighbors(Base):
             self.n_indices = len(final_devices)
 
         else:
-            if self._should_downcast:
-                self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_dev_array(X, order='C',
-                                       convert_to_dtype=np.float32)
-            else:
-                self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_dev_array(X, order='C')
+            X_m, X_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
@@ -361,7 +358,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = n_dims
 
-    def kneighbors(self, X, k=None):
+    def kneighbors(self, X, k=None, convert_dtype=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -389,10 +386,15 @@ class NearestNeighbors(Base):
             k = self.n_neighbors
 
         if self._should_downcast:
-            X_m, X_ctype, N, _, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, X_ctype, N, _, dtype = input_to_dev_array(X, order='C')
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
+        X_m, X_ctype, N, _, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
