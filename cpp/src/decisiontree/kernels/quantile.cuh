@@ -17,6 +17,7 @@
 #pragma once
 #include "col_condenser.cuh"
 #include "cub/cub.cuh"
+#include "quantile.h"
 
 __global__ void set_sorting_offset(const int nrows, const int ncols,
                                    int *offsets) {

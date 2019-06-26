@@ -56,7 +56,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     DecisionTree::DecisionTreeParams tree_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_rows_per_node, params.bootstrap_features,
-      CRITERION::GINI);
+      CRITERION::GINI, false);
     RF_params rf_params(params.bootstrap, params.bootstrap_features,
                         params.n_trees, params.rows_sample, tree_params);
     //rf_params.print();
@@ -153,7 +153,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     DecisionTree::DecisionTreeParams tree_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_rows_per_node, params.bootstrap_features,
-      params.split_criterion);
+      params.split_criterion, false);
     RF_params rf_params(params.bootstrap, params.bootstrap_features,
                         params.n_trees, params.rows_sample, tree_params);
     //rf_params.print();

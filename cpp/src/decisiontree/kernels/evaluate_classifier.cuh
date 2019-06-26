@@ -282,7 +282,7 @@ void best_split_all_cols_classifier(
   L* labelptr = tempmem->sampledlabels->data();
   get_sampled_labels<L>(labels, labelptr, rowids, nrows, tempmem->stream);
 
-  int batch_ncols = 1;
+  int batch_ncols;
   size_t shmem_needed = n_hist_bytes;
   if (split_algo == ML::SPLIT_ALGO::HIST) {
     shmem_needed += col_minmax_bytes;
