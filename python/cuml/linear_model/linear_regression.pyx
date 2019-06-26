@@ -264,8 +264,6 @@ class LinearRegression(Base):
             # TODO: Throw exception when this changes algorithm from the user's
             # choice. Github issue #602
             # eig based method doesn't work when there is only one column.
-            warnings.warn("Changing algorithm to `eig`: Only algorithm 'eig' "
-                          "is supported when number of columns is 1.")
             self.algo = 0
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
