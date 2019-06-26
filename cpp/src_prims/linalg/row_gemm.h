@@ -128,47 +128,5 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, stream);
 }
 
-/**
- * @brief the simplest row-major gemm function without passing leading
- * dimensions
- *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
- * @tparam IType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
- * @tparam AccumulatorsPerThread_ number of accumulators per thread
- * @tparam Index_ index type
- * @tparam EpilogueFunctor_ custom epilogue functor
- * @param transA cublas transpose op for A
- * @param transB cublas transpose op for B
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param alpha scalar
- * @param A input matrix
- * @param B input matrix
- * @param beta scalar
- * @param C input matrix
- * @param D output matrix
- * @param stream cuda stream where to launch work
- */
-template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename Index_ = int,
-  typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
-void row_gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-              Index_ n, Index_ k, OType alpha, IType const *A, IType const *B,
-              OType beta, OType const *C, OType *D, cudaStream_t stream) {
-  Index_ lda = (transA == CUBLAS_OP_N) ? k : m;
-  Index_ ldb = (transB == CUBLAS_OP_N) ? n : k;
-  Index_ ldc = n;  // output is always row-major!
-  row_gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-           MainLoopFunctor_, EpilogueFunctor_>(
-    transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, stream);
-}
-
 };  // end namespace LinAlg
 };  // end namespace MLCommon
