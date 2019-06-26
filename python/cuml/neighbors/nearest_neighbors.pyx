@@ -254,7 +254,6 @@ class NearestNeighbors(Base):
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
 
-
             x_ctype = X_m.device_ctypes_pointer.value
 
             sizes_arr[0] = <int>len(X_m)
