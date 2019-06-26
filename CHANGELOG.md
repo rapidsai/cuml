@@ -89,6 +89,7 @@
 - PR #784: Fix jit of shuffle_idx python function
 - PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
+- PR #806: Add a seed for sklearn model in RF test file
 
 # cuML 0.7.0 (10 May 2019)
 
