@@ -19,10 +19,6 @@
 #include "metrics.hpp"
 
 #include "metrics/adjustedRandIndex.h"
-//#include "metrics/completenessScore.h"
-//#include "metrics/entropy.h"
-//#include "metrics/homogeneityScore.h"
-//#include "metrics/mutualInfoScore.h"
 #include "metrics/randIndex.h"
 #include "metrics/vMeasure.h"
 #include "score/scores.h"

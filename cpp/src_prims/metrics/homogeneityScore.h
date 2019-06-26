@@ -43,6 +43,8 @@ double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
                         int size, T lowerLabelRange, T upperLabelRange,
                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
                         cudaStream_t stream) {
+  if (size == 0) return 1.0;
+
   double computedMI, computedEntropy;
 
   computedMI = MLCommon::Metrics::mutualInfoScore(
@@ -58,8 +60,6 @@ double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
     homogeneity = computedMI / computedEntropy;
   } else
     homogeneity = 1.0;
-
-  if (size == 0) homogeneity = 1.0;
 
   return homogeneity;
 }
