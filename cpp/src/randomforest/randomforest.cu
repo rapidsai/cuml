@@ -357,11 +357,9 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
-RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle,
-                                           const T* input,
-                                           const int* ref_labels, int n_rows,
-                                           int n_cols, int* predictions,
-                                           bool verbose) const {
+RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle, const T* input,
+                                  const int* ref_labels, int n_rows, int n_cols,
+                                  int* predictions, bool verbose) const {
   predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
   unsigned long long correctly_predicted = 0ULL;
@@ -384,7 +382,7 @@ template class rf<double>;
 template class rfClassifier<float>;
 template class rfClassifier<double>;
 
-// Stateless API functions: fit, predict and cross_validate
+// Stateless API functions: fit, predict and score
 
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data of type float.
@@ -469,12 +467,12 @@ void predict(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<float>* rf_classifier,
-                          const float* input, const int* ref_labels, int n_rows,
-                          int n_cols, int* predictions, bool verbose) {
-  return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows,
-                                       n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<float>* rf_classifier, const float* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose) {
+  return rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
+                              predictions, verbose);
 }
 
 /**
@@ -488,13 +486,12 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<double>* rf_classifier,
-                          const double* input, const int* ref_labels,
-                          int n_rows, int n_cols, int* predictions,
-                          bool verbose) {
-  return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows,
-                                       n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<double>* rf_classifier, const double* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose) {
+  return rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
+                              predictions, verbose);
 }
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
