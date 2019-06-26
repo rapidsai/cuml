@@ -66,6 +66,25 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     del real_data
 
 
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('check_dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_dtype_check(dtype, check_dtype, input_type):
+    input_data, real_data = get_input(input_type, 10, 10, dtype)
+
+    if input_data is None:
+        pytest.skip('cupy not installed')
+
+    if dtype == check_dtype:
+        _, _, _, _, got_dtype = \
+            input_to_dev_array(input_data, check_dtype=dtype)
+        assert got_dtype == check_dtype
+    else:
+        with pytest.raises(TypeError):
+            _, _, _, _, got_dtype = \
+                input_to_dev_array(input_data, check_dtype=dtype)
+
+
 @pytest.mark.parametrize('num_rows', [1, 100])
 @pytest.mark.parametrize('num_cols', [1, 100])
 @pytest.mark.parametrize('to_dtype', test_dtypes_acceptable)

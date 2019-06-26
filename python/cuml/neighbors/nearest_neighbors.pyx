@@ -211,7 +211,7 @@ class NearestNeighbors(Base):
             free(<int*><size_t>self.sizes)
             free(<float**><size_t>self.inputs)
 
-    def fit(self, X):
+    def fit(self, X, convert_dtype=False):
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -221,7 +221,16 @@ class NearestNeighbors(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+
         """
+
+        if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -238,7 +247,7 @@ class NearestNeighbors(Base):
         if isinstance(X, np.ndarray):
 
             if X.dtype != np.float32:
-                if self._should_downcast:
+                if self._should_downcast or convert_dtype:
                     X = np.ascontiguousarray(X, np.float32)
                     if len(X[X == np.inf]) > 0:
                         raise ValueError("Downcast to single-precision "

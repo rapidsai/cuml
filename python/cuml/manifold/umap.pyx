@@ -297,6 +297,9 @@ class UMAP(Base):
         """
 
         if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
             convert_dtype = True
 
         if len(X.shape) != 2:
