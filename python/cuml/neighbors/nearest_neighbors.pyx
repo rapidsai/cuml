@@ -204,21 +204,34 @@ class NearestNeighbors(Base):
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.n_indices = 0
+        self.sizes = None
+        self.input = None
 
     def __del__(self):
 
         # Explicitly free these since they were allocated
         # on the heap.
         if self.n_indices > 0:
-            free(<int*><size_t>self.sizes)
-            free(<float**><size_t>self.input)
+            if self.sizes is not None:
+                free(<int*><size_t>self.sizes)
+            if self.input is not None:
+                free(<float**><size_t>self.input)
             self.n_indices = 0
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
+        if self.n_indices > 1:
+            print("n_indices: " + str(self.n_indices))
+            raise Exception("Serialization of multi-GPU models is not yet supported")
+
         del state['handle']
-        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            del state["sizes"]
+            del state["input"]
 
         return state
 
@@ -226,7 +239,28 @@ class NearestNeighbors(Base):
         super(NearestNeighbors, self).__init__(handle=None,
                                                verbose=state['verbose'])
 
-        state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
+        cdef float** input_arr
+        cdef int* sizes_arr
+
+        cdef uintptr_t x_ctype
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
+
+            X_m = state["X_m"]
+
+            input_arr = <float**> malloc(sizeof(float *))
+            sizes_arr = <int*> malloc(sizeof(int))
+
+
+            x_ctype = X_m.device_ctypes_pointer.value
+
+            sizes_arr[0] = <int>len(X_m)
+            input_arr[0] = <float*>x_ctype
+
+            self.input = <size_t>input_arr
+            self.sizes = <size_t>sizes_arr
 
         self.__dict__.update(state)
 
@@ -326,7 +360,8 @@ class NearestNeighbors(Base):
 
             self.n_indices = 1
 
-        return self
+            self.input = <size_t>input_arr
+            self.sizes = <size_t>sizes_arr
 
         return self
 
@@ -406,20 +441,8 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef float** inputs
-        cdef int* sizes
-        cdef uintptr_t In_ctype
-        if self.n_indices > 1:
-            inputs = <float**><size_t>self.input
-            sizes = <int*><size_t>self.sizes
-        else:
-            In_ctype = get_dev_array_ptr(self.X_m)
-
-            inputs = <float**> malloc(sizeof(float *))
-            sizes = <int*> malloc(sizeof(int))
-
-            sizes[0] = <int>len(self.X_m)
-            inputs[0] = <float*>In_ctype
+        cdef float** inputs = <float**><size_t>self.input
+        cdef int* sizes = <int*><size_t>self.sizes
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
