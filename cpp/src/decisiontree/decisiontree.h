@@ -86,6 +86,10 @@ struct DecisionTreeParams {
    */
   bool bootstrap_features = false;
   /**
+   * Weather a quantile needs to be computed for individual trees in RF. Default; quantile is compute just once per RF. Only affects GLOBAL_QUANTILE algorithm
+   **/
+  bool quantile_per_tree = false;
+  /**
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion = CRITERION_END;
@@ -94,7 +98,7 @@ struct DecisionTreeParams {
   DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves,
                      float cfg_max_features, int cfg_n_bins, int cfg_split_aglo,
                      int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-                     CRITERION cfg_split_criterion);
+                     CRITERION cfg_split_criterion, bool cfg_quantile_per_tree);
   void validity_check() const;
   void print() const;
 };
@@ -133,7 +137,9 @@ class DecisionTreeBase {
              int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8,
              int split_algo_flag = SPLIT_ALGO::HIST,
              int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
-             CRITERION cfg_split_criterion = CRITERION::CRITERION_END);
+             CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
+             bool cfg_quantile_per_tree = false,
+             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
   void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
                        const unsigned int *rowids, const int n_sampled_rows,
                        const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
@@ -148,7 +154,8 @@ class DecisionTreeBase {
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
                 const int nrows, L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
-                DecisionTreeParams &tree_params, bool is_classifier);
+                DecisionTreeParams &tree_params, bool is_classifier,
+                std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
   // Printing utility for high level tree info.
@@ -176,7 +183,8 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
   void fit(const ML::cumlHandle &handle, T *data, const int ncols,
            const int nrows, int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
-           DecisionTreeParams tree_params);
+           DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
  private:
   /* depth is used to distinguish between root and other tree nodes for computations */
@@ -191,7 +199,8 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
  public:
   void fit(const ML::cumlHandle &handle, T *data, const int ncols,
            const int nrows, T *labels, unsigned int *rowids,
-           const int n_sampled_rows, DecisionTreeParams tree_params);
+           const int n_sampled_rows, DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
  private:
   /* depth is used to distinguish between root and other tree nodes for computations */

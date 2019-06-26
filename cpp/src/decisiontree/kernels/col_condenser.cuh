@@ -58,7 +58,12 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data,
       myrowstart = newcolid * rowoffset;
     }
 
-    int index = rowids[i % nrows] + myrowstart;
+    int index;
+    if (rowids != nullptr) {
+      index = rowids[i % nrows] + myrowstart;
+    } else {
+      index = i % nrows + myrowstart;
+    }
     sampledcols[i] = data[index];
   }
   return;

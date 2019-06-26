@@ -55,8 +55,10 @@ float GiniFunctor::exec(std::vector<int> &hist, int nrows) {
 float EntropyFunctor::exec(std::vector<int> &hist, int nrows) {
   float eval = 0.0;
   for (int i = 0; i < hist.size(); i++) {
-    float prob = ((float)hist[i]) / nrows;
-    eval += prob * logf(prob);
+    if (hist[i] != 0) {
+      float prob = ((float)hist[i]) / nrows;
+      eval += prob * logf(prob);
+    }
   }
   return (-1 * eval);
 }
