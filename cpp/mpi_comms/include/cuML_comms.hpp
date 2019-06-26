@@ -21,6 +21,6 @@
 
 namespace ML {
 
-void initialize_comms(cumlHandle& handle, MPI_Comm comm);
+void inject_comms(cumlHandle& handle, MPI_Comm comm);
 
-} // end namespace ML
+}  // end namespace ML
