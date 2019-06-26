@@ -237,6 +237,49 @@ def test_neighbors_pickle(tmpdir, datatype, model, nrows,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('k', [unit_param(3)])
+def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
+
+    model = cuml.neighbors.NearestNeighbors()
+
+    unpickled = pickle_save_load(tmpdir, model)
+
+    state = unpickled.__dict__
+    assert state["n_indices"] == 0
+    assert "X_m" not in state
+    assert "sizes" not in state
+    assert "input" not in state
+
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+
+    model.fit(X_train)
+
+    unpickled = pickle_save_load(tmpdir, model)
+
+    state = unpickled.__dict__
+
+    assert state["n_indices"] == 1
+    assert "X_m" in state
+    assert "sizes" in state
+    assert "input" in state
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('k', [unit_param(3)])
+@pytest.mark.xfail(strict=True)
+def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
+
+    model = cuml.neighbors.NearestNeighbors()
+    model.n_indices = 2
+
+    pickle_save_load(tmpdir, model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', dbscan_model.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
