@@ -272,7 +272,6 @@ class UMAP(Base):
 
         self.umap_params = <size_t > umap_params
 
-
     def __getstate__(self):
         state = self.__dict__.copy()
 
@@ -339,7 +338,6 @@ class UMAP(Base):
         state["umap_params"] = <size_t>umap_params
 
         self.__dict__.update(state)
-
 
     def fit(self, X, y=None):
         """Fit X into an embedded space.
