@@ -131,7 +131,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     dtype = X_m.dtype
 
     if check_dtype:
-        if isinstance(check_dtype, str):
+        if isinstance(check_dtype, type):
             if dtype != check_dtype:
                 del X_m
                 raise TypeError("Expected " + str(check_dtype) + "input but" +
