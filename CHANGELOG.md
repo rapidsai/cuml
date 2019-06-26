@@ -10,7 +10,7 @@
 
 - PR #772: Add missing cython headers to SGD and CD
 
-# cuML 0.8.0 (Date TBD)
+# cuML 0.8.0 (27 June 2019)
 
 ## New Features
 
@@ -82,10 +82,12 @@
 - PR #759: Configure Sphinx to render params correctly
 - PR #762: Apply threshold to remove flakiness of UMAP tests.
 - PR #768: Fixing memory bug from stateless refactor
+- PR #782: Nearest neighbors checking properly whether memory should be freed
 - PR #783: UMAP was using wrong size for knn computation
 - PR #776: Hotfix for self.variables in RF
 - PR #777: Fix numpy input bug
 - PR #784: Fix jit of shuffle_idx python function
+- PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 
 # cuML 0.7.0 (10 May 2019)
