@@ -112,8 +112,6 @@ void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
   CUDA_CHECK(cub::DeviceHistogram::HistogramEven(
     workspace.data(), temp_storage_bytes, labels, binCountArray, num_levels,
     lower_level, upper_level, nRows, stream));
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -190,8 +188,6 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
     static_cast<Distance::DistanceType>(metric), stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   //deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouetteScoreSamples(allocator, stream, 0);
   DataT *perSampleSilScore = nullptr;
@@ -233,8 +229,6 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   dim3 numThreadsPerBlock(32, 1, 1);
   dim3 numBlocks(ceildiv<int>(nRows, numThreadsPerBlock.x), 1, 1);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   //calling the kernel
   populateAKernel<<<numBlocks, numThreadsPerBlock, 0, stream>>>(
     sampleToClusterSumOfDistances.data(), binCountArray.data(), d_aArray.data(),
@@ -246,22 +240,16 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
   CUDA_CHECK(cudaMemsetAsync(averageDistanceBetweenSampleAndCluster.data(), 0,
                              nRows * nLabels * sizeof(DataT), stream));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   LinAlg::matrixVectorOp<DataT, DivOp<DataT>>(
     averageDistanceBetweenSampleAndCluster.data(),
     sampleToClusterSumOfDistances.data(), binCountArray.data(),
     binCountArray.data(), nLabels, nRows, true, true, DivOp<DataT>(), stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating row-wise minimum
   LinAlg::reduce<DataT, DataT, int, Nop<DataT>, MinOp<DataT>>(
     d_bArray.data(), averageDistanceBetweenSampleAndCluster.data(), nLabels,
     nRows, std::numeric_limits<DataT>::max(), true, true, stream, false,
     Nop<DataT>(), MinOp<DataT>());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating the silhouette score per sample using the d_aArray and d_bArray
   LinAlg::binaryOp<DataT, SilOp<DataT>>(perSampleSilScore, d_aArray.data(),
@@ -275,15 +263,13 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
 
   DataT avgSilhouetteScore;
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   MLCommon::LinAlg::mapThenSumReduce<double, Nop<DataT>>(
     d_avgSilhouetteScore.data(), nRows, Nop<DataT>(), stream, perSampleSilScore,
     perSampleSilScore);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   updateHost(&avgSilhouetteScore, d_avgSilhouetteScore.data(), 1, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   avgSilhouetteScore /= nRows;
 
