@@ -86,16 +86,16 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                       int *,
                       bool) except +
 
-    cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   rfClassifier[float] *, float *, int *,
-                                   int, int, int *, bool)
-    cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   rfClassifier[double] *, double *, int *,
-                                   int, int, int *, bool)
+    cdef RF_metrics score(cumlHandle& handle,
+                          rfClassifier[float] *, float *, int *,
+                          int, int, int *, bool)
+    cdef RF_metrics score(cumlHandle& handle,
+                          rfClassifier[double] *, double *, int *,
+                          int, int, int *, bool)
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
-                                    bool, bool, int, int) except +
+                                    bool, bool, int, float) except +
 
 
 cdef class RandomForest_impl():
@@ -181,11 +181,14 @@ cdef class RandomForest_impl():
 
         try:
             import cupy as cp
-            unique_labels = cp.unique(y)
+            unique_labels = cp.unique(y_m)
         except ImportError:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
-            unique_labels = np.unique(y.copy_to_host())
+            if isinstance(y, np.ndarray):
+                unique_labels = np.unique(y)
+            else:
+                unique_labels = np.unique(y_m.copy_to_host())
 
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
@@ -202,7 +205,7 @@ cdef class RandomForest_impl():
                                     <bool> self.bootstrap_features,
                                     <bool> self.bootstrap,
                                     <int> self.n_estimators,
-                                    <int> self.rows_sample)
+                                    <float> self.rows_sample)
 
         self.rf_classifier32 = new \
             rfClassifier[float](rf_param)
@@ -278,7 +281,7 @@ cdef class RandomForest_impl():
         self.handle.sync()
         return preds
 
-    def cross_validate(self, X, y):
+    def score(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X.ctypes.data
@@ -304,24 +307,24 @@ cdef class RandomForest_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            self.stats = cross_validate(handle_[0],
-                                        self.rf_classifier32,
-                                        <float*> X_ptr,
-                                        <int*> y_ptr,
-                                        <int> n_rows,
-                                        <int> n_cols,
-                                        <int*> preds_ptr,
-                                        <bool> self.verbose)
+            self.stats = score(handle_[0],
+                               self.rf_classifier32,
+                               <float*> X_ptr,
+                               <int*> y_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int*> preds_ptr,
+                               <bool> self.verbose)
 
         elif self.dtype == np.float64:
-            self.stats = cross_validate(handle_[0],
-                                        self.rf_classifier64,
-                                        <double*> X_ptr,
-                                        <int*> y_ptr,
-                                        <int> n_rows,
-                                        <int> n_cols,
-                                        <int*> preds_ptr,
-                                        <bool> self.verbose)
+            self.stats = score(handle_[0],
+                               self.rf_classifier64,
+                               <double*> X_ptr,
+                               <int*> y_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int*> preds_ptr,
+                               <bool> self.verbose)
 
         self.handle.sync()
         return self.stats
@@ -377,18 +380,18 @@ class RandomForestClassifier(Base):
             print("Predicted labels : ", cuml_predict)
 
     Output:
-    .. code-block:: python
+
+    .. code-block:: none
 
             Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
 
     Parameters
     -----------
-
     n_estimators : int (default = 10)
                    number of trees in the forest.
     handle : cuml.Handle
-             If it is None, a new handle is created for this instance.
-    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
+             If it is None, a new one is created just for this class.
+    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 0)
                  the algorithm to determine how nodes are split in the tree.
     bootstrap : boolean (default = True)
@@ -417,6 +420,14 @@ class RandomForestClassifier(Base):
                         to split a node.
 
     """
+
+    variables = ['n_estimators', 'max_depth', 'handle',
+                 'max_features', 'n_bins',
+                 'split_algo', 'min_rows_per_node',
+                 'bootstrap', 'bootstrap_features',
+                 'verbose', 'rows_sample',
+                 'max_leaves']
+
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
@@ -458,7 +469,7 @@ class RandomForestClassifier(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = False
+        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
 
@@ -509,7 +520,7 @@ class RandomForestClassifier(Base):
 
         return self._impl.predict(X)
 
-    def cross_validate(self, X, y):
+    def score(self, X, y):
         """
         Predicts the accuracy of the model for X.
 
@@ -528,7 +539,7 @@ class RandomForestClassifier(Base):
         accuracy : float
         """
 
-        return self._impl.cross_validate(X, y)
+        return self._impl.score(X, y)
 
     def get_params(self, deep=True):
         """
@@ -539,13 +550,7 @@ class RandomForestClassifier(Base):
         deep : boolean (default = True)
         """
         params = dict()
-        self.variables = ['n_estimators', 'max_depth', 'handle',
-                          'max_features', 'n_bins',
-                          'split_algo', 'min_rows_per_node',
-                          'bootstrap', 'bootstrap_features',
-                          'verbose', 'rows_sample',
-                          'max_leaves']
-        for key in self.variables:
+        for key in RandomForestClassifier.variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
@@ -562,7 +567,7 @@ class RandomForestClassifier(Base):
         if not params:
             return self
         for key, value in params.items():
-            if key not in self.variables:
+            if key not in RandomForestClassifier.variables:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)

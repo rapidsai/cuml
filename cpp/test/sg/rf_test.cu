@@ -98,9 +98,9 @@ class RfTest : public ::testing::TestWithParam<RfInputs<T>> {
 
     // Predict and compare against known labels
     predicted_labels.resize(params.n_inference_rows);
-    RF_metrics tmp = cross_validate(
-      handle, rf_classifier, inference_data_h.data(), labels_h.data(),
-      params.n_inference_rows, params.n_cols, predicted_labels.data(), false);
+    RF_metrics tmp = score(handle, rf_classifier, inference_data_h.data(),
+                           labels_h.data(), params.n_inference_rows,
+                           params.n_cols, predicted_labels.data(), false);
     accuracy = tmp.accuracy;
   }
 
