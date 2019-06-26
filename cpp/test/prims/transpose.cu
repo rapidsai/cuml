@@ -20,7 +20,6 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -40,7 +39,7 @@ template <typename T>
 
 template <typename T>
 class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -71,7 +70,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   TranposeInputs<T> params;
   T *data, *data_trans, *data_trans_ref;
   cublasHandle_t handle;
@@ -102,13 +101,11 @@ TEST_P(TransposeTestValD, Result) {
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
-
 INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValF,
                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValD,
                         ::testing::ValuesIn(inputsd2));
 
-
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

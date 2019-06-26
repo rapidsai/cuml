@@ -21,44 +21,11 @@
 #include "common/cumlHandle.hpp"
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include "memory.h"
+#include <fstream>
 
 template<class T>
-struct TemporaryMemory
-{
-	// Labels after boostrapping
-	MLCommon::device_buffer<int> *sampledlabels;
-
-	// Used for gini histograms (root tree node)
-	MLCommon::device_buffer<int> *d_hist;
-	MLCommon::host_buffer<int> *h_hist;
-
-	//Host/Device histograms and device minmaxs
-	MLCommon::device_buffer<T> *d_globalminmax;
-	MLCommon::device_buffer<int> *d_histout, *d_colids;
-	MLCommon::host_buffer<int> *h_histout;
-
-	//Below pointers are shared for split functions
-	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
-	MLCommon::host_buffer<int> *nrowsleftright;
-	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
-	size_t split_temp_storage_bytes = 0;
-
-	MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
-	MLCommon::device_buffer<T> *question_value, *temp_data;
-
-	//Total temp mem
-	size_t totalmem = 0;
-
-	//CUDA stream
-	cudaStream_t stream;
-
-	//For quantiles
-	MLCommon::device_buffer<T> *d_quantile = nullptr;
-	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
-
-	const ML::cumlHandle_impl& ml_handle;
-
-	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
+TemporaryMemory<T>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
 	{
 		
 		//Assign Stream from cumlHandle
@@ -69,7 +36,6 @@ struct TemporaryMemory
 		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
 		d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements);
 		nrowsleftright = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, 2);
-		
 		int extra_elements = Ncols;
 		int quantile_elements = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
 
@@ -106,13 +72,16 @@ struct TemporaryMemory
 
 	}
 
-	void print_info()
+template<class T>
+void TemporaryMemory<T>::print_info()
 	{
+		std::cout <<" Inside the print_info function  \n" << std::flush;
 		std::cout << " Total temporary memory usage--> "<< ((double)totalmem/ (1024*1024)) << "  MB" << std::endl;
 		return;
 	}
 
-	~TemporaryMemory()
+template<class T>
+TemporaryMemory<T>::~TemporaryMemory()
 	{
 
 		h_hist->release(stream);
@@ -161,4 +130,3 @@ struct TemporaryMemory
 
 	}
 
-};

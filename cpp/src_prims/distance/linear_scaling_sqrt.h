@@ -22,17 +22,20 @@
 namespace MLCommon {
 namespace Distance {
 
-template <typename Scalar_, typename FragmentMultiplyAdd_ = FragmentSqrt<Scalar_> >
-struct LinearScalingSqrt : public cutlass::gemm::LinearScaling<Scalar_, FragmentMultiplyAdd_> {
+template <typename Scalar_,
+          typename FragmentMultiplyAdd_ = FragmentSqrt<Scalar_>>
+struct LinearScalingSqrt
+  : public cutlass::gemm::LinearScaling<Scalar_, FragmentMultiplyAdd_> {
   // Base class
-  typedef typename cutlass::gemm::LinearScaling<Scalar_, FragmentMultiplyAdd_> Base;
+  typedef typename cutlass::gemm::LinearScaling<Scalar_, FragmentMultiplyAdd_>
+    Base;
   // The scalar.
   typedef Scalar_ Scalar;
   // The adapater.
   typedef FragmentMultiplyAdd_ FragmentMultiplyAdd;
   /// Ctor.
-  CUTLASS_DEVICE LinearScalingSqrt(typename Base::Params const& params) :
-    Base(params) {}
+  CUTLASS_DEVICE LinearScalingSqrt(typename Base::Params const& params)
+    : Base(params) {}
 
   /// Evaluate the functor.
   template <typename FragmentA_, typename FragmentB_>
@@ -45,7 +48,8 @@ struct LinearScalingSqrt : public cutlass::gemm::LinearScaling<Scalar_, Fragment
 
   /// Evaluate the functor.
   template <typename FragmentA_, typename FragmentB_>
-  CUTLASS_DEVICE void evaluate(FragmentA_ const& accum, FragmentB_ const& old, FragmentB_& output) {
+  CUTLASS_DEVICE void evaluate(FragmentA_ const& accum, FragmentB_ const& old,
+                               FragmentB_& output) {
     FragmentMultiplyAdd mad;
     FragmentB_ tmp0, tmp1;
     mad.multiply(Base::beta, old, tmp0);
@@ -54,5 +58,5 @@ struct LinearScalingSqrt : public cutlass::gemm::LinearScaling<Scalar_, Fragment
   }
 };
 
-} // Distance
-} // MLCommon 
+}  // namespace Distance
+}  // namespace MLCommon

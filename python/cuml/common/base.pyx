@@ -23,8 +23,6 @@
 import cuml.common.handle
 import cuml.common.cuda
 
-import cudf
-
 
 class Base:
     """
@@ -82,7 +80,6 @@ class Base:
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
 
-
     def get_param_names(self):
         """
         Returns a list of hyperparameter names owned by this class. It is
@@ -92,13 +89,12 @@ class Base:
         """
         return []
 
-
     def get_params(self, deep=True):
         """
-        Returns a dict of all params owned by this class. If the child class has
-        appropriately overridden the `get_param_names` method and does not need
-        anything other than what is there in this method, then it doesn't have
-        to override this method
+        Returns a dict of all params owned by this class. If the child class
+        has appropriately overridden the `get_param_names` method and does not
+        need anything other than what is there in this method, then it doesn't
+        have to override this method
         """
         params = dict()
         variables = self.get_param_names()
@@ -106,7 +102,6 @@ class Base:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
@@ -125,14 +120,13 @@ class Base:
                 setattr(self, key, value)
         return self
 
-    def _get_dev_array_ptr(self, obj):
-        """
-        Get ctype pointer of a numba style device array
-        """
-        return obj.device_ctypes_pointer.value
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        # todo: look into/enable pickling handle if necessary
+        del state['handle']
+        return state
 
-    def _get_cudf_column_ptr(self, col):
-        """
-        Get ctype pointer of a cudf column
-        """
-        return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.handle = cuml.common.handle.Handle()

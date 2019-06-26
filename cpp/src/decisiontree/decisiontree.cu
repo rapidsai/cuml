@@ -21,6 +21,17 @@
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate.cuh"
 #include "kernels/quantile.cuh"
+#include "algo_helper.h"
+#include "kernels/gini_def.h"
+#include <common/Timer.h>
+#include "memory.h"
+#include "memory.cu"
+#include <vector>
+#include <algorithm>
+#include <numeric>
+#include <map>
+#include <climits>
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -414,6 +425,5 @@ void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClass
 void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
 	return dt_classifier->predict(handle, rows, n_rows, n_cols, predictions, verbose);
 }
-
 
 } //End namespace ML

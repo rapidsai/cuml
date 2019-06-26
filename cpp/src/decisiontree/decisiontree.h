@@ -16,15 +16,9 @@
 
 #pragma once
 #include "algo_helper.h"
-#include "kernels/gini_def.h"
-#include "memory.cuh"
-#include <common/Timer.h>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <map>
-#include <climits>
 #include <common/cumlHandle.hpp>
+#include "kernels/gini_def.h"
+#include "memory.h"
 
 namespace ML {
 namespace DecisionTree {
@@ -148,17 +142,26 @@ private:
 
 } //End namespace DecisionTree
 
-
 // Stateless API functions
-void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
+void fit(const ML::cumlHandle& handle,
+         DecisionTree::DecisionTreeClassifier<float>* dt_classifier,
+         float* data, const int ncols, const int nrows, int* labels,
+         unsigned int* rowids, const int n_sampled_rows, int unique_labels,
+         DecisionTree::DecisionTreeParams tree_params);
 
-void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
+void fit(const ML::cumlHandle& handle,
+         DecisionTree::DecisionTreeClassifier<double>* dt_classifier,
+         double* data, const int ncols, const int nrows, int* labels,
+         unsigned int* rowids, const int n_sampled_rows, int unique_labels,
+         DecisionTree::DecisionTreeParams tree_params);
 
-void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows,
-			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
-void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows,
-			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+void predict(const ML::cumlHandle& handle,
+             const DecisionTree::DecisionTreeClassifier<float>* dt_classifier,
+             const float* rows, const int n_rows, const int n_cols,
+             int* predictions, bool verbose = false);
+void predict(const ML::cumlHandle& handle,
+             const DecisionTree::DecisionTreeClassifier<double>* dt_classifier,
+             const double* rows, const int n_rows, const int n_cols,
+             int* predictions, bool verbose = false);
 
-} //End namespace ML
+}  //End namespace ML
