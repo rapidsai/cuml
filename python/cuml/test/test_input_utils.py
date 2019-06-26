@@ -66,10 +66,15 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     del real_data
 
 
-@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
-@pytest.mark.parametrize('check_dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('check_dtype', test_dtypes_all)
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_dtype_check(dtype, check_dtype, input_type):
+
+    if (dtype == np.float16 or check_dtype == np.float16)\
+            and input_type != 'numpy':
+        pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
+
     input_data, real_data = get_input(input_type, 10, 10, dtype)
 
     if input_data is None:
@@ -77,12 +82,12 @@ def test_dtype_check(dtype, check_dtype, input_type):
 
     if dtype == check_dtype:
         _, _, _, _, got_dtype = \
-            input_to_dev_array(input_data, check_dtype=dtype)
+            input_to_dev_array(input_data, check_dtype=check_dtype)
         assert got_dtype == check_dtype
     else:
         with pytest.raises(TypeError):
             _, _, _, _, got_dtype = \
-                input_to_dev_array(input_data, check_dtype=dtype)
+                input_to_dev_array(input_data, check_dtype=check_dtype)
 
 
 @pytest.mark.parametrize('num_rows', [1, 100])
