@@ -316,8 +316,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/random_projection/rproj.cu
     src/solver/solver.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
-    src/sandbox/test.cpp)
+    src/umap/umap.cu)
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
