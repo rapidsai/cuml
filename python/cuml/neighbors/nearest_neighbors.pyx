@@ -223,7 +223,8 @@ class NearestNeighbors(Base):
 
         if self.n_indices > 1:
             print("n_indices: " + str(self.n_indices))
-            raise Exception("Serialization of multi-GPU models is not yet supported")
+            raise Exception("Serialization of multi-GPU models is "
+                            "not yet supported")
 
         del state['handle']
 
