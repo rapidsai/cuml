@@ -115,20 +115,14 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
   countLabels(clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange,
               workspace, allocator, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   //scalar dividing by size
   MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size,
                                          numUniqueClasses, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //calculating the aggregate entropy
   MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(
     d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(),
     prob.data());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   //updating in the host memory
   double h_entropy;
