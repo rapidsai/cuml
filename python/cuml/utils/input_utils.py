@@ -135,7 +135,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             if dtype != check_dtype:
                 del X_m
                 raise TypeError("Expected " + str(check_dtype) + "input but" +
-                                + " got " + str(dtype) + " instead.")
+                                " got " + str(dtype) + " instead.")
         elif isinstance(check_dtype, Collection):
             if dtype not in check_dtype:
                 del X_m

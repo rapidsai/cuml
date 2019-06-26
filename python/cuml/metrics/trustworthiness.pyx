@@ -53,7 +53,7 @@ def _get_array_ptr(obj):
 
 
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean', should_downcast=False,
+                    metric='euclidean', should_downcast=True,
                     convert_dtype=False):
     """
     Expresses to what extent the local structure is retained in embedding.

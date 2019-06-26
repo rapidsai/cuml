@@ -32,7 +32,8 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components):
     X, y = make_blobs(n_samples=n_samples, centers=centers,
                       n_features=n_features)
 
-    X_embedded = UMAP(n_components=n_components).fit_transform(X)
+    X_embedded = \
+        UMAP(n_components=n_components).fit_transform(X, convert_dtype=True)
     X = X.astype(np.float32)
     X_embedded = X_embedded.astype(np.float32)
 
