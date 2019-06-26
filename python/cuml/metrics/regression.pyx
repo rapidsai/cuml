@@ -62,14 +62,14 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
     cdef uintptr_t y_hat_ptr
 
     y_m, y_ptr, n_rows, _, ytype = \
-            input_to_dev_array(y, check_dtype=[np.float32, np.float64],
-                               check_cols=1)
+        input_to_dev_array(y, check_dtype=[np.float32, np.float64],
+                           check_cols=1)
 
     y_m2, y_hat_ptr, _, _, _ = \
-            input_to_dev_array(y_hat, check_dtype=ytype,
-                               convert_to_dtype=(ytype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        input_to_dev_array(y_hat, check_dtype=ytype,
+                           convert_to_dtype=(ytype if convert_dtype
+                                             else None),
+                           check_rows=n_rows, check_cols=1)
 
     cdef float result_f32
     cdef double result_f64

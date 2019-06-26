@@ -304,9 +304,10 @@ class NearestNeighbors(Base):
 
         else:
             X_m, X_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+                input_to_dev_array(X, order='C', check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
 
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
