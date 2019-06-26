@@ -102,12 +102,13 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
     // Predict and compare against known labels
-    RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_d,
-                                    labels, params.n_inference_rows,
-                                    params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
+    predicted_labels.resize(params.n_inference_rows);
+    RF_metrics tmp = score(handle, rf_classifier, inference_data_h.data(),
+                           labels_h.data(), params.n_inference_rows,
+                           params.n_cols, predicted_labels.data(), false);
     accuracy = tmp.accuracy;
   }
 

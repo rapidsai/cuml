@@ -93,12 +93,12 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                       int *,
                       bool) except +
 
-    cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   rfClassifier[float] *, float *, int *,
-                                   int, int, int *, bool)
-    cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   rfClassifier[double] *, double *, int *,
-                                   int, int, int *, bool)
+    cdef RF_metrics score(cumlHandle& handle,
+                          rfClassifier[float] *, float *, int *,
+                          int, int, int *, bool)
+    cdef RF_metrics score(cumlHandle& handle,
+                          rfClassifier[double] *, double *, int *,
+                          int, int, int *, bool)
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
@@ -296,7 +296,7 @@ cdef class RandomForest_impl():
         del(preds_m)
         return preds
 
-    def cross_validate(self, X, y):
+    def score(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
@@ -323,24 +323,24 @@ cdef class RandomForest_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            self.stats = cross_validate(handle_[0],
-                                        self.rf_classifier32,
-                                        <float*> X_ptr,
-                                        <int*> y_ptr,
-                                        <int> n_rows,
-                                        <int> n_cols,
-                                        <int*> preds_ptr,
-                                        <bool> self.verbose)
+            self.stats = score(handle_[0],
+                               self.rf_classifier32,
+                               <float*> X_ptr,
+                               <int*> y_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int*> preds_ptr,
+                               <bool> self.verbose)
 
         elif self.dtype == np.float64:
-            self.stats = cross_validate(handle_[0],
-                                        self.rf_classifier64,
-                                        <double*> X_ptr,
-                                        <int*> y_ptr,
-                                        <int> n_rows,
-                                        <int> n_cols,
-                                        <int*> preds_ptr,
-                                        <bool> self.verbose)
+            self.stats = score(handle_[0],
+                               self.rf_classifier64,
+                               <double*> X_ptr,
+                               <int*> y_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int*> preds_ptr,
+                               <bool> self.verbose)
 
         self.handle.sync()
         del(X_m)
@@ -545,7 +545,7 @@ class RandomForestClassifier(Base):
 
         return self._impl.predict(X)
 
-    def cross_validate(self, X, y):
+    def score(self, X, y):
         """
         Predicts the accuracy of the model for X.
 
@@ -564,7 +564,7 @@ class RandomForestClassifier(Base):
         accuracy : float
         """
 
-        return self._impl.cross_validate(X, y)
+        return self._impl.score(X, y)
 
     def get_params(self, deep=True):
         """
