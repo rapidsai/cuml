@@ -2,7 +2,7 @@ import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
 from .batched_linesearch import batched_line_search_wolfe1
-
+from scipy.optimize import _lbfgsb
 
 from collections import deque
 
@@ -29,6 +29,95 @@ def Batched_I(r, num_batches):
     return H
 
 
+def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
+                         approx_grad=0,
+                         bounds=None, m=10, factr=1e7, pgtol=1e-5,
+                         epsilon=1e-8,
+                         iprint=-1, maxfun=15000, maxiter=15000, disp=None,
+                         callback=None, maxls=20):
+
+    n = len(x0) // num_batches
+
+    if fprime is None and approx_grad is True:
+        fprime = lambda x: _fd_fprime(x, func, epsilon)
+
+    def func_nosum(x_in):
+        return func(x_in, do_sum=False)
+
+    if bounds is None:
+        bounds = [(None, None)] * n
+
+    nbd = np.zeros(n, np.int32)
+    low_bnd = np.zeros(n, np.float64)
+    upper_bnd = np.zeros(n, np.float64)
+    bounds_map = {(None, None): 0,
+                  (1, None): 1,
+                  (1, 1): 2,
+                  (None, 1): 3}
+    for i in range(0, n):
+        l, u = bounds[i]
+        if l is not None:
+            low_bnd[i] = l
+            l = 1
+        if u is not None:
+            upper_bnd[i] = u
+            u = 1
+        nbd[i] = bounds_map[l, u]
+
+    x = [np.copy(np.array(x0[ib*n:(ib+1)*n], np.float64)) for ib in range(num_batches)]
+    f = [np.copy(np.array(0.0, np.float64)) for ib in range(num_batches)]
+    g = [np.copy(np.zeros((n,), np.float64)) for ib in range(num_batches)]
+    wa = [np.copy(np.zeros(2*m*n + 5*n + 11*m*m + 8*m, np.float64)) for ib in range(num_batches)]
+    iwa = [np.copy(np.zeros(3*n, np.int32)) for ib in range(num_batches)]
+    task = [np.copy(np.zeros(1, 'S60')) for ib in range(num_batches)]
+    csave = [np.copy(np.zeros(1, 'S60')) for ib in range(num_batches)]
+    lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
+    isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
+    dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
+    for ib in range(num_batches):
+        task[ib][:] = 'START'
+
+    n_iterations = np.zeros(num_batches)
+
+    converged = num_batches * [False]
+
+    warn_flag = np.zeros(num_batches)
+
+    while not all(converged):
+        for ib in range(num_batches):
+            _lbfgsb.setulb(m, x[ib], low_bnd, upper_bnd, nbd, f[ib], g[ib], factr,
+                           pgtol, wa[ib], iwa[ib], task[ib], iprint, csave[ib], lsave[ib],
+                           isave[ib], dsave[ib], maxls)
+
+        xk = np.concatenate(x)
+        fk = func_nosum(xk)
+        gk = fprime(xk)
+        for ib in range(num_batches):
+            if converged[ib]:
+                continue
+            task_str = task[ib].tostring()
+            task_str_strip = task[ib].tostring().strip(b'\x00').strip()
+            if task_str.startswith(b'FG'):
+                # needs function evalation
+                f[ib] = fk[ib]
+                g[ib] = gk[ib*n:(ib+1)*n]
+            elif task_str.startswith(b'NEW_X'):
+                n_iterations[ib] += 1
+                if n_iterations[ib] >= maxiter:
+                    task[ib][:] = 'STOP: TOTAL NO. of ITERATIONS REACHED LIMIT'
+            elif task_str_strip.startswith(b'CONV'):
+                converged[ib] = True
+                warn_flag[ib] = 0
+            else:
+                converged[ib] = True
+                warn_flag[ib] = 2
+                continue
+
+    xk = np.concatenate(x)
+    print("CONVERGED in {} iterations (|\/f|={})".format(n_iterations, np.linalg.norm(fprime(xk), np.inf)))
+    return xk, n_iterations, warn_flag
+
+
 def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
                        factr=10000000.0, pgtol=1e-05, epsilon=1e-08, iprint=-1,
                        maxiter=50,
@@ -36,6 +125,8 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
 
     if fprime is None and approx_grad is True:
         fprime = lambda x: _fd_fprime(x, func, epsilon)
+
+    np.seterr(all='raise')
 
     pk = np.zeros(len(x0))
     sk = np.zeros(len(x0))
@@ -58,6 +149,9 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
 
     reset_LBFGS = False
 
+    if iprint > 100:
+        print("x0 = ", x0)
+
     for k_iter in range(maxiter):
 
         ######################
@@ -66,10 +160,12 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
         gkm1 = gk
         gk = fprime(xk)
 
-        if iprint > 0 and k % iprint == 0:
+        if (iprint > 0 and k % iprint == 0) or iprint > 100:
             # print("k:{} f={:0.5g}, |\/f|_inf={:0.5g}".format(k, fk[-1], np.linalg.norm(gk, np.inf)))
             print("k:{} f={}, |\/f|_inf={:0.5g}".format(k_iter, func(xk, do_sum=True),
                                                         np.linalg.norm(gk, np.inf)))
+            if iprint > 100:
+                print("xk = ", xk)
 
         if np.linalg.norm(gk, np.inf) < pgtol:
             print("CONVERGED: |g|_{inf} < PGTOL, STOPPING.")
@@ -151,6 +247,12 @@ def batched_fmin_lbfgs(func, x0, num_batches, fprime=None, approx_grad=0, m=10,
                                                    N, num_batches,
                                                    np.copy(xk), np.copy(pk),
                                                    is_converged)
+
+        if iprint > 100:
+            print("alpha = ", alpha_batched)
+            print("pk = ", pk)
+            print("gk = ", gk)
+        
         for ib in range(num_batches):
             if alpha_batched[ib] > 0:
                 xkp1[ib*N:(ib+1)*N] = xk[ib*N:(ib+1)*N] + alpha_batched[ib]*pk[ib*N:(ib+1)*N]
