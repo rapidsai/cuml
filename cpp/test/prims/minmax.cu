@@ -55,8 +55,11 @@ __global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols,
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int col = tid / nrows;
   if (col < ncols) {
-    myAtomicMin(&globalmin[col], data[tid]);
-    myAtomicMax(&globalmax[col], data[tid]);
+    T val = data[tid];
+    if (!isnan(val)) {
+      myAtomicMin(&globalmin[col], val);
+      myAtomicMax(&globalmax[col], val);
+    }
   }
 }
 
@@ -76,6 +79,13 @@ void naiveMinMax(const T* data, int nrows, int ncols, T* globalmin,
 }
 
 template <typename T>
+__global__ void nanKernel(T* data, const bool* mask, int len, T nan) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= len) return;
+  if (!mask[tid]) data[tid] = nan;
+}
+
+template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   void SetUp() override {
@@ -84,17 +94,26 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
+    allocate(mask, len);
     allocate(minmax_act, 2 * params.cols);
     allocate(minmax_ref, 2 * params.cols);
     r.normal(data, len, (T)0.0, (T)1.0, stream);
+    T nan_prob = 0.01;
+    r.bernoulli(mask, len, nan_prob, stream);
+    const int TPB = 256;
+    nanKernel<<<ceildiv(len, TPB), TPB, 0, stream>>>(
+      data, mask, len, std::numeric_limits<T>::quiet_NaN());
+    CUDA_CHECK(cudaPeekAtLastError());
     naiveMinMax(data, params.rows, params.cols, minmax_ref,
                 minmax_ref + params.cols, stream);
-    minmax<T>(data, nullptr, nullptr, params.rows, params.cols, params.rows,
-              minmax_act, minmax_act + params.cols, nullptr, stream);
+    minmax<T, 512>(data, nullptr, nullptr, params.rows, params.cols,
+                   params.rows, minmax_act, minmax_act + params.cols, nullptr,
+                   stream);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
+    CUDA_CHECK(cudaFree(mask));
     CUDA_CHECK(cudaFree(minmax_act));
     CUDA_CHECK(cudaFree(minmax_ref));
   }
@@ -102,6 +121,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   MinMaxInputs<T> params;
   T *data, *minmax_act, *minmax_ref;
+  bool* mask;
   cudaStream_t stream;
 };
 
