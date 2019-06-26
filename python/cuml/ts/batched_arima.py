@@ -12,7 +12,7 @@ import statsmodels.tsa.arima_model as sm_arima
 import pandas as pd
 
 from .batched_bfgs import batched_fmin_bfgs
-from .batched_lbfgs import batched_fmin_lbfgs
+from .batched_lbfgs import batched_fmin_lbfgs, batched_fmin_lbfgs_b
 
 # import torch.cuda.nvtx as nvtx
 
@@ -101,7 +101,6 @@ class BatchedARIMAModel:
         else:
             return ll_b
 
-    #TODO: Fix this for multi-(p,q) case
     @staticmethod
     def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=False):
         """Computes fd-gradient of batched loglikelihood given parameters stored in
@@ -135,7 +134,7 @@ class BatchedARIMAModel:
             ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu, trans=trans)
             ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu, trans=trans)
             # ll_b0 = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=trans)
-
+            np.seterr(all='raise')
             grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
             # grad_i_b = (ll_b_ph - ll_b0)/(h)
 
@@ -162,6 +161,9 @@ class BatchedARIMAModel:
         with the given initial parameters. `y` is (num_samples, num_batches)
 
         """
+
+        # turn on floating point exceptions!
+        np.seterr(all='raise')
 
         p, d, q = order
         num_parameters = 1 + p + q
@@ -227,13 +229,13 @@ class BatchedARIMAModel:
             x0 = batch_invtrans(p, q, num_batches, x0)
             
 
-        optimizer = 3
+        optimizer = 4
 
         if optimizer == 1:
         # SciPy l-bfgs (non-batched)
             x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=None,
                                                 approx_grad=True,
-                                                iprint=1,
+                                                iprint=101,
                                                 factr=100,
                                                 m=12,
                                                 pgtol=1e-8)
@@ -264,6 +266,11 @@ class BatchedARIMAModel:
 
             x, niter = batched_fmin_lbfgs(f, x0, num_batches, gf,
                                           alpha_per_batch=True, iprint=opt_disp, factr=1000)
+
+        elif optimizer == 4:
+            x, niter, flag = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
+                                                  iprint=opt_disp, factr=1000)
+
 
         Tx = batch_trans(p, q, num_batches, x)
         mu, ar, ma = unpack(p, q, num_batches, Tx)
