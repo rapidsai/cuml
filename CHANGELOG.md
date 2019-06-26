@@ -6,6 +6,8 @@
 
 ## Improvements
 
+- PR #773: Significant improvemnts to input checking of all classes and common input API for Python
+
 ## Bug Fixes
 
 - PR #772: Add missing cython headers to SGD and CD
