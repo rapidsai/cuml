@@ -15,22 +15,23 @@
 */
 
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <numeric>
 #include "selection/columnWiseSort.h"
 #include "test_utils.h"
-#include <numeric>
-#include <algorithm>
 
 namespace MLCommon {
 namespace Selection {
 
 template <typename T>
-  std::vector<int>* sort_indexes(const std::vector<T> &v) {
+std::vector<int> *sort_indexes(const std::vector<T> &v) {
   // initialize original index locations
   std::vector<int> *idx = new std::vector<int>(v.size());
   std::iota((*idx).begin(), (*idx).end(), 0);
 
   // sort indexes based on comparing values in v
-  std::sort((*idx).begin(), (*idx).end(), [&v](int i1, int i2) {return v[i1] < v[i2]; });
+  std::sort((*idx).begin(), (*idx).end(),
+            [&v](int i1, int i2) { return v[i1] < v[i2]; });
   return idx;
 }
 
@@ -49,7 +50,7 @@ template <typename T>
 
 template <typename T>
 class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
@@ -65,20 +66,24 @@ protected:
 
     std::vector<T> vals(len);
     std::vector<int> cValGolden(len);
-    std::iota(vals.begin(), vals.end(), 1.0f);  //will have to change input param type
+    std::iota(vals.begin(), vals.end(),
+              1.0f);  //will have to change input param type
     std::random_shuffle(vals.begin(), vals.end());
 
     std::vector<T> cKeyGolden(len);
 
     for (int i = 0; i < params.n_row; i++) {
-      std::vector<T> tmp(vals.begin() + i*params.n_col, vals.begin() + (i+1)*params.n_col);
+      std::vector<T> tmp(vals.begin() + i * params.n_col,
+                         vals.begin() + (i + 1) * params.n_col);
       auto cpuOut = sort_indexes(tmp);
-      std::copy((*cpuOut).begin(), (*cpuOut).end(), cValGolden.begin() + i*params.n_col);
+      std::copy((*cpuOut).begin(), (*cpuOut).end(),
+                cValGolden.begin() + i * params.n_col);
       delete cpuOut;
 
       if (params.testKeys) {
         std::sort(tmp.begin(), tmp.end());
-        std::copy(tmp.begin(), tmp.end(), cKeyGolden.begin() + i*params.n_col);
+        std::copy(tmp.begin(), tmp.end(),
+                  cKeyGolden.begin() + i * params.n_col);
       }
     }
 
@@ -90,15 +95,16 @@ protected:
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
-    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, needWorkspace, NULL,
-                        workspaceSize, stream, keySorted);
+    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
+                      needWorkspace, NULL, workspaceSize, stream, keySorted);
     if (needWorkspace) {
       allocate(workspacePtr, workspaceSize);
-      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, needWorkspace, 
-                          workspacePtr, workspaceSize, stream, keySorted);
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
+                        needWorkspace, workspacePtr, workspaceSize, stream,
+                        keySorted);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
-}
+  }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(keyIn));
@@ -108,37 +114,36 @@ protected:
       CUDA_CHECK(cudaFree(keySorted));
       CUDA_CHECK(cudaFree(keySortGolden));
     }
-    if (!workspacePtr)
-      CUDA_CHECK(cudaFree(workspacePtr));
-}
+    if (!workspacePtr) CUDA_CHECK(cudaFree(workspacePtr));
+  }
 
-protected:
+ protected:
   columnSort<T> params;
   T *keyIn;
   T *keySorted = NULL;
   T *keySortGolden = NULL;
-  int *valueOut, *goldenValOut;    // valueOut are indexes
-  char *workspacePtr=NULL;
+  int *valueOut, *goldenValOut;  // valueOut are indexes
+  char *workspacePtr = NULL;
 };
 
-const std::vector<columnSort<float>> inputsf1 = {
-  {0.000001f, 503, 2000, false},
-  {0.000001f, 503, 2000, true},
-  {0.000001f, 113, 20000, true},
-  {0.000001f, 5, 300000, true}};
+const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},
+                                                 {0.000001f, 503, 2000, true},
+                                                 {0.000001f, 113, 20000, true},
+                                                 {0.000001f, 5, 300000, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
   ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
-                  CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance)));
   if (params.testKeys) {
-    ASSERT_TRUE(devArrMatch(keySorted, keySortGolden, params.n_row * params.n_col,
-      CompareApprox<float>(params.tolerance)));
+    ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
+                            params.n_row * params.n_col,
+                            CompareApprox<float>(params.tolerance)));
   }
 }
 
 INSTANTIATE_TEST_CASE_P(ColumnSortTests, ColumnSortF,
-                ::testing::ValuesIn(inputsf1));
+                        ::testing::ValuesIn(inputsf1));
 
-} // end namespace Selection
-} // end namespace MLCommon
+}  // end namespace Selection
+}  // end namespace MLCommon

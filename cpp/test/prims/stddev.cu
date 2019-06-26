@@ -21,7 +21,6 @@
 #include "stats/stddev.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace Stats {
 
@@ -40,7 +39,7 @@ template <typename T>
 
 template <typename T>
 class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -65,7 +64,8 @@ protected:
     stddev(stddev_act, data, mean_act, cols, rows, params.sample,
            params.rowMajor, stream);
 
-    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor, stream);
+    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
+         stream);
 
     Matrix::seqRoot(vars_act, T(1), cols, stream);
   }
@@ -77,7 +77,7 @@ protected:
     CUDA_CHECK(cudaFree(vars_act));
   }
 
-protected:
+ protected:
   StdDevInputs<T> params;
   T *data, *mean_act, *stddev_act, *vars_act;
 };
@@ -136,11 +136,9 @@ TEST_P(StdDevTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestD, ::testing::ValuesIn(inputsd));
 
-
-} // end namespace Stats
-} // end namespace MLCommon
+}  // end namespace Stats
+}  // end namespace MLCommon

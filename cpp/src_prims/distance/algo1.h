@@ -19,8 +19,8 @@
 #include "cuda_utils.h"
 #include "distance/distance_epilogue.h"
 #include "distance/distance_epilogue_functor.h"
-#include "distance/distance_fragment_multiply_add.h"
 #include "distance/distance_epilogue_traits.h"
+#include "distance/distance_fragment_multiply_add.h"
 #include "linalg/gemm.h"
 #include "linalg/norm.h"
 #include "linalg/row_gemm.h"
@@ -30,7 +30,6 @@
 #include <cutlass/shape.h>
 
 #include <type_traits>
-
 
 namespace MLCommon {
 namespace Distance {
@@ -44,6 +43,7 @@ namespace Distance {
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FragmentMultiplyAdd_ cutlass-fragment-level multiply & add
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ index type
  * @param NormLambda the final L2 norm lambda
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
@@ -61,14 +61,16 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,
-          typename FinalLambda, typename NormLambda>
-void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
-                   OutType *pD, bool enable_sqrt, AccType *workspace,
-                   size_t worksize, FinalLambda fin_op, NormLambda norm_op,
-                   cudaStream_t stream) {
+          typename FinalLambda, typename NormLambda, typename Index_ = int>
+void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
+                   InType const *pB, OutType *pD, bool enable_sqrt,
+                   AccType *workspace, size_t worksize, FinalLambda fin_op,
+                   NormLambda norm_op, cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
-  EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
+  typedef typename std::conditional<is_bool::value, AccType, OutType>::type
+    EffOutType;
+  EffOutType *pDCast =
+    reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
       (worksize < m * sizeof(AccType))) {
@@ -92,19 +94,19 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
   typedef cutlass::gemm::ThreadMultiplyAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef int Index_;
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
 
-  typedef ExpandedDistanceEpilogueFunctor<
-    InType, AccType, GemmConfig_, FragmentMultiplyAdd_>
+  typedef ExpandedDistanceEpilogueFunctor<InType, AccType, GemmConfig_,
+                                          FragmentMultiplyAdd_>
     EpilogueFunctor_;
 
-  typedef typename std::conditional<is_bool::value,
+  typedef typename std::conditional<
+    is_bool::value,
     BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-    cutlass::gemm::GemmEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>>::type
-    EpilogueTraitsHelper_;
+    cutlass::gemm::GemmEpilogueTraitsHelper<
+      GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
 
   typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
@@ -116,14 +118,14 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                    AccumulatorsPerThread_, MainLoopFunctor_, Index_,
                    GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
                    GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k, (EffOutType)0,
-    nullptr, n, pDCast,
-    [col_vec, row_vec, enable_sqrt] HD (EpiParams & p) {
+    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
+    (EffOutType)0, nullptr, n, pDCast,
+    [col_vec, row_vec, enable_sqrt] HD(EpiParams & p) {
       int err = p.initializeExtra(col_vec, row_vec, enable_sqrt);
       return err;
     },
     fin_op, stream);
 }
 
-}; // end namespace Distance
-}; // end namespace MLCommon
+};  // end namespace Distance
+};  // end namespace MLCommon

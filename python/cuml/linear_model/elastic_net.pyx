@@ -19,19 +19,20 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-
-import cudf
-import numpy as np
 from cuml.solvers import CD
+
 
 class ElasticNet:
 
     """
-    ElasticNet extends LinearRegression with combined L1 and L2 regularizations on the coefficients when
-    predicting response y with a linear combination of the predictors in X. It can reduce
-    the variance of the predictors, force some coefficients to be smaell, and improves the conditioning of the problem.
+    ElasticNet extends LinearRegression with combined L1 and L2 regularizations
+    on the coefficients when predicting response y with a linear combination of
+    the predictors in X. It can reduce the variance of the predictors, force
+    some coefficients to be smaell, and improves the conditioning of the
+    problem.
 
-    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit a linear model.
+    cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
+    descent to fit a linear model.
 
     Examples
     ---------
@@ -84,26 +85,33 @@ class ElasticNet:
     -----------
     alpha : float or double
         Constant that multiplies the L1 term. Defaults to 1.0.
-        alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object.
-        For numerical reasons, using alpha = 0 with the Lasso object is not advised.
+        alpha = 0 is equivalent to an ordinary least square, solved by the
+        LinearRegression object.
+        For numerical reasons, using alpha = 0 with the Lasso object is not
+        advised.
         Given this, you should use the LinearRegression object.
     l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
-        For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is an L1 penalty.
+        For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
+        an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2 norm.
+        If True, the predictors in X will be normalized by dividing by it's L2
+        norm.
         If False, no scaling will be done.
     max_iter : int
         The maximum number of iterations
     tol : float, optional
-        The tolerance for the optimization: if the updates are smaller than tol,
-        the optimization code checks the dual gap for optimality and continues until it is smaller than tol.
+        The tolerance for the optimization: if the updates are smaller than
+        tol, the optimization code checks the dual gap for optimality and
+        continues until it is smaller than tol.
     selection : str, default ‘cyclic’
-        If set to ‘random’, a random coefficient is updated every iteration rather than looping over features sequentially by default.
-        This (setting to ‘random’) often leads to significantly faster convergence especially when tol is higher than 1e-4.
+        If set to ‘random’, a random coefficient is updated every iteration
+        rather than looping over features sequentially by default.
+        This (setting to ‘random’) often leads to significantly faster
+        convergence especially when tol is higher than 1e-4.
 
     Attributes
     -----------
@@ -113,10 +121,12 @@ class ElasticNet:
         The independent term. If fit_intercept_ is False, will be 0.
 
 
-    For additional docs, see `scikitlearn's ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
+    For additional docs, see `scikitlearn's ElasticNet
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, selection='cyclic'):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
+                 normalize=False, max_iter=1000, tol=1e-3, selection='cyclic'):
 
         """
         Initializes the elastic-net regression class.
@@ -131,7 +141,8 @@ class ElasticNet:
         tol: float or double.
         selection : str, ‘cyclic’, or 'random'
 
-        For additional docs, see `scikitlearn's ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
+        For additional docs, see `scikitlearn's ElasticNet
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
         """
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
@@ -146,7 +157,7 @@ class ElasticNet:
         self.tol = tol
         self.cuElasticNet = None
         if selection in ['cyclic', 'random']:
-             self.selection = selection
+            self.selection = selection
         else:
             msg = "selection {!r} is not supported"
             raise TypeError(msg.format(selection))
@@ -154,7 +165,7 @@ class ElasticNet:
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
-        if alpha<= 0.0:
+        if alpha <= 0.0:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
@@ -169,11 +180,15 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
@@ -181,8 +196,10 @@ class ElasticNet:
         if self.selection == 'random':
             shuffle = True
 
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=self.l1_ratio, shuffle=shuffle, max_iter=self.max_iter)
+        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
+                               normalize=self.normalize, alpha=self.alpha,
+                               l1_ratio=self.l1_ratio, shuffle=shuffle,
+                               max_iter=self.max_iter)
         self.cuElasticNet.fit(X, y)
 
         self.coef_ = self.cuElasticNet.coef_
@@ -196,8 +213,10 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
@@ -208,7 +227,6 @@ class ElasticNet:
 
         return self.cuElasticNet.predict(X)
 
-
     def get_params(self, deep=True):
         """
         Sklearn style return parameter state
@@ -218,12 +236,12 @@ class ElasticNet:
         deep : boolean (default = True)
         """
         params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'selection']
+        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+                     'selection']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
@@ -235,7 +253,8 @@ class ElasticNet:
         """
         if not params:
             return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'selection']
+        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+                     'selection']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter for estimator')

@@ -111,5 +111,5 @@ struct UnexpandedDistanceFragmentMultiplyAdd {
   }
 };
 
-} // end namespace Distance
-} // end namespace MLCommon
+}  // end namespace Distance
+}  // end namespace MLCommon

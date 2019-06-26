@@ -20,11 +20,11 @@
 #include "cuda_utils.h"
 #include "vectorized.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
-template<typename Type, int TPB> __device__ void reduce(Type *out, const Type acc){
+template <typename Type, int TPB>
+__device__ void reduce(Type *out, const Type acc) {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type tmp = BlockReduce(temp_storage).Sum(acc);
@@ -33,14 +33,14 @@ template<typename Type, int TPB> __device__ void reduce(Type *out, const Type ac
   }
 }
 
-template <typename Type, typename MapOp, int TPB, typename ... Args>
-__global__ void mapThenSumReduceKernel(Type *out, size_t len,
-                                       MapOp map, const Type *in, Args... args) {
+template <typename Type, typename MapOp, int TPB, typename... Args>
+__global__ void mapThenSumReduceKernel(Type *out, size_t len, MapOp map,
+                                       const Type *in, Args... args) {
   Type acc = (Type)0;
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
-  
+
   if (idx < len) {
-      acc = map(in[idx], args[idx]...);
+    acc = map(in[idx], args[idx]...);
   }
 
   __syncthreads();
@@ -48,13 +48,13 @@ __global__ void mapThenSumReduceKernel(Type *out, size_t len,
   reduce<Type, TPB>(out, acc);
 }
 
-template <typename Type, typename MapOp, int TPB, typename ... Args>
-void mapThenSumReduceImpl(Type *out, size_t len, MapOp map,
-                          cudaStream_t stream, const Type *in, Args ... args) {
+template <typename Type, typename MapOp, int TPB, typename... Args>
+void mapThenSumReduceImpl(Type *out, size_t len, MapOp map, cudaStream_t stream,
+                          const Type *in, Args... args) {
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(Type), stream));
   const int nblks = ceildiv(len, (size_t)TPB);
-  mapThenSumReduceKernel<Type, MapOp, TPB, Args...><<<nblks, TPB, 0, stream>>>(
-    out, len, map, in, args...);
+  mapThenSumReduceKernel<Type, MapOp, TPB, Args...>
+    <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -72,11 +72,12 @@ void mapThenSumReduceImpl(Type *out, size_t len, MapOp map,
  * @param args additional input arrays
  */
 
-template <typename Type, typename MapOp, int TPB=256, typename ... Args>
-void mapThenSumReduce(Type *out, size_t len, MapOp map,
-                      cudaStream_t stream, const Type *in, Args... args) {
-    mapThenSumReduceImpl<Type, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
+template <typename Type, typename MapOp, int TPB = 256, typename... Args>
+void mapThenSumReduce(Type *out, size_t len, MapOp map, cudaStream_t stream,
+                      const Type *in, Args... args) {
+  mapThenSumReduceImpl<Type, MapOp, TPB, Args...>(out, len, map, stream, in,
+                                                  args...);
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

@@ -9,7 +9,112 @@ cuML is thread safe so its functions can be called from multiple host threads if
 
 The implementation of cuML is single threaded.
 
+## Public cuML interface
+### Terminology
+We have the following supported APIs:
+1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml++.so`
+2. Stateful convenience C++ API - wrapper around core API (WIP)
+3. C API - wrapper around core API aka `libcuml.so`
+
+### Motivation
+Our C++ API is stateless for two main reasons:
+1. To ease the serialization of ML algorithm's state information (model, hyper-params, etc), enabling features such as easy pickling in the python layer.
+2. To easily provide a proper C API for interfacing with languages that can't consume C++ APIs  directly.
+
+Thus, this section lays out guidelines for managing state along the API of cuML.
+
+### General guideline
+As mentioned before, functions exposed via the C++ API must be stateless. Things that are OK to be exposed on the interface:
+1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
+2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
+3. Pointers to POD types (explicitly putting it out, even though it can be considered as a POD).
+Internal to the C++ API, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
+
+### Stateless C++ API
+Using the Decision Tree Classifier algorithm as an example, the following way of exposing its API would be wrong according to the guidelines in this section, since it exposes a non-POD C++ class object in the C++ API:
+```cpp
+template <typename T>
+class DecisionTreeClassifier {
+  TreeNode<T>* root;
+  DTParams params;
+  const cumlHandle &handle;
+public:
+  DecisionTreeClassifier(const cumlHandle &handle, DTParams& params, bool verbose=false);
+  void fit(const T *input, int n_rows, int n_cols, const int *labels);
+  void predict(const T *input, int n_rows, int n_cols, int *predictions);
+};
+
+void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+                               const int *labels, DecisionTreeClassifier<float> *model, DTParams params,
+                               bool verbose=false);
+void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
+                                   DecisionTreeClassifier<float> *model, int n_rows,
+                                   int n_cols, int* predictions, bool verbose=false);
+```
+
+An alternative correct way to expose this could be:
+```cpp
+// NOTE: this example assumes that TreeNode and DTParams are the model/state that need to be stored
+// and passed between fit and predict methods
+template <typename T> struct TreeNode { /* nested tree-like data structure, but written as a POD! */ };
+struct DTParams { /* hyper-params for building DT */ };
+typedef TreeNode<float> TreeNodeF;
+typedef TreeNode<double> TreeNodeD;
+
+void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+                               const int *labels, TreeNodeF *&root, DTParams params,
+                               bool verbose=false);
+void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input, int n_rows,
+                                   int n_cols, const TreeNodeD *root, int* predictions,
+                                   bool verbose=false);
+```
+The above example understates the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
+
+### Other functions on state
+These guidelines also mean that it is the responsibility of C++ API to expose methods to load and store (aka marshalling) such a data structure. Further continuing the Decision Tree Classifier example,  the following methods could achieve this:
+```cpp
+void storeTree(const TreeNodeF *root, std::ostream &os);
+void storeTree(const TreeNodeD *root, std::ostream &os);
+void loadTree(TreeNodeF *&root, std::istream &is);
+void loadTree(TreeNodeD *&root, std::istream &is);
+```
+It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
+
+### C API
+Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
+1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
+2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
+3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
+
+### Stateful C++ API
+This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
+
+### File naming convention
+1. An ML algorithm `<algo>` is to be contained inside the folder named `src/<algo>`.
+2. `<algo>.hpp` and `<algo>.[cpp|cu]` contain C++ API declarations and definitions respectively.
+3. `<algo>_api.h` and `<algo>_api.cpp` contain declarations and definitions respectively for C binding.
+
 ## Coding style
+
+## Code format
+### Introduction
+cuML relies on `clang-format` to enforce code style across all C++ and CUDA source code. The coding style is based on the [Google style guide](https://google.github.io/styleguide/cppguide.html#Formatting). The only digressions from this style are the following.
+1. Do not split empty functions/records/namespaces.
+2. Two-space indentation everywhere, including the line continuations.
+3. Disable reflowing of comments.
+The reasons behind these deviations from the Google style guide are given in comments [here](./.clang-format).
+
+### How is the check done?
+[run-clang-format.py](scripts/run-clang-format.py) is run first by `make`. This script runs clang-format only on modified files. An error is raised if the code diverges from the format suggested by clang-format, and the build fails.
+
+### How to know the formatting violations?
+When there are formatting errors, `run-clang-format.py` prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
+
+### How to fix the formatting violations?
+When there are formatting violations, `run-clang-format.py` prints an `-inplace` command you can use to automatically fix formatting errors. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/248215) shows a typical build-fix-build cycle during cuML development.
+
+### clang-format version?
+To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by a CMake check for the required version. [See here for more details on the dependencies](./README.md#dependencies).
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.

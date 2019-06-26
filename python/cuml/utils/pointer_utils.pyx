@@ -23,8 +23,9 @@ from libc.stdint cimport uintptr_t
 
 
 cdef extern from "ml_cuda_utils.h" namespace "ML":
-   cdef int get_device(void *ptr)
+    cdef int get_device(void *ptr)
+
 
 def device_of_gpu_matrix(g):
-   cdef uintptr_t cptr = g.device_ctypes_pointer.value
-   return get_device( <void*> cptr)
+    cdef uintptr_t cptr = g.device_ctypes_pointer.value
+    return get_device(<void*> cptr)

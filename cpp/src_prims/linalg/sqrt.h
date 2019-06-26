@@ -19,7 +19,6 @@
 #include "cuda_utils.h"
 #include "unary_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -34,13 +33,11 @@ namespace LinAlg {
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void sqrt(math_t *out, const math_t *in, IdxType len,
-          cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [] __device__(math_t in) { return mySqrt(in); },
-          stream);
+void sqrt(math_t *out, const math_t *in, IdxType len, cudaStream_t stream) {
+  unaryOp(
+    out, in, len, [] __device__(math_t in) { return mySqrt(in); }, stream);
 }
 /** @} */
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon
