@@ -90,7 +90,7 @@ template <typename InType, typename AccType, typename OutType,
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
                     InType const *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream,
-                    bool isRowMajor = false) {
+                    bool isRowMajor = true) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -125,22 +125,33 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
 
   cublasOperation_t transa, transb;
   const InType *aPtr, *bPtr;
+  Index_ lda, ldb, ldd;
+  Index_ gemm_m, gemm_n;
   if (isRowMajor) {
     transa = CUBLAS_OP_T;
     transb = CUBLAS_OP_N;
     aPtr = pB;
     bPtr = pA;
+    lda = ldb = k;
+    ldd = n;
+    gemm_m = n;
+    gemm_n = m;
   } else {
     transa = CUBLAS_OP_N;
     transb = CUBLAS_OP_T;
     aPtr = pA;
     bPtr = pB;
+    lda = m;
+    ldb = n;
+    ldd = m;
+    gemm_m = m;
+    gemm_n = n;
   }
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
-    transa, transb, m, n, k, (EffOutType)1, aPtr, k, bPtr, k, (EffOutType)0,
-    nullptr, n, pDCast,
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
     [enable_sqrt] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
       return err;
