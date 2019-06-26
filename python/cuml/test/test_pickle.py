@@ -216,6 +216,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
 
     assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
@@ -271,7 +272,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
 @pytest.mark.xfail(strict=True)
-def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
+def test_neighbors_mg_fails(tmpdir, datatype, nrows, ncols, k):
 
     model = cuml.neighbors.NearestNeighbors()
     model.n_indices = 2
