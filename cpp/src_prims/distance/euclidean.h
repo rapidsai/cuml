@@ -20,10 +20,8 @@
 #include "linalg/custom_accum.h"
 #include "linalg/eltwise2d.h"
 #include "linalg/gemm.h"
-#include "linalg/row_gemm.h"
 
 #include <cutlass/shape.h>
-
 #include <type_traits>
 
 namespace MLCommon {
@@ -84,13 +82,15 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
  * @param enable_sqrt if the square root is computed or not
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
+ * @param isRowMajor whether the input and output matrices are row major
  * @{
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
                     InType const *pB, OutType *pD, bool enable_sqrt,
-                    FinalLambda fin_op, cudaStream_t stream) {
+                    FinalLambda fin_op, cudaStream_t stream,
+                    bool isRowMajor = false) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -123,12 +123,24 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
   typedef UnexpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
-  LinAlg::row_gemm<InType, AccType, EffOutType, OutputTile_,
-                   AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                   GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                   GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
-    (EffOutType)0, nullptr, n, pDCast,
+  cublasOperation_t transa, transb;
+  const InType *aPtr, *bPtr;
+  if (isRowMajor) {
+    transa = CUBLAS_OP_T;
+    transb = CUBLAS_OP_N;
+    aPtr = pB;
+    bPtr = pA;
+  } else {
+    transa = CUBLAS_OP_N;
+    transb = CUBLAS_OP_T;
+    aPtr = pA;
+    bPtr = pB;
+  }
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, m, n, k, (EffOutType)1, aPtr, k, bPtr, k, (EffOutType)0,
+    nullptr, n, pDCast,
     [enable_sqrt] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
       return err;
