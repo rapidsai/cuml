@@ -39,6 +39,9 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
+)
+
+decomposition_models_xfail = dict(
     UMAP=cuml.UMAP(),
     GaussianRandomProjection=cuml.GaussianRandomProjection(),
     SparseRandomProjection=cuml.SparseRandomProjection()
@@ -144,7 +147,7 @@ def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('model', decomposition_models.values())
+@pytest.mark.parametrize('model', decomposition_models_xfail.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.xfail
@@ -162,12 +165,29 @@ def test_decomposition_pickle(tmpdir, datatype, model, nrows,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', decomposition_models.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.xfail
+def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+
+    cu_before_pickle_transform = model.fit_transform(X_train)
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
+
+    assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
-def test_neighbors_pickle(tmpdir, datatype, model, nrows,
-                          ncols, k):
+@pytest.mark.skip(reason="This feature will be in a future version")
+def test_neighbors_pickle(tmpdir, datatype, model, nrows, ncols, k):
     X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train)
