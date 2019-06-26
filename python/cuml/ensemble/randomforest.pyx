@@ -55,43 +55,54 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         rfClassifier(RF_params) except +
 
     cdef void fit(cumlHandle & handle,
-                  rfClassifier[float] *,
-                  float *,
+                  rfClassifier[float]*,
+                  float*,
                   int,
                   int,
-                  int *,
+                  int*,
                   int) except +
 
     cdef void fit(cumlHandle& handle,
-                  rfClassifier[double] *,
-                  double *,
+                  rfClassifier[double]*,
+                  double*,
                   int,
                   int,
-                  int *,
+                  int*,
                   int) except +
 
     cdef void predict(cumlHandle& handle,
-                      rfClassifier[float] *,
-                      float *,
+                      rfClassifier[float]*,
+                      float*,
                       int,
                       int,
-                      int *,
+                      int*,
                       bool) except +
 
     cdef void predict(cumlHandle& handle,
-                      rfClassifier[double] *,
-                      double *,
+                      rfClassifier[double]*,
+                      double*,
                       int,
                       int,
-                      int *,
+                      int*,
                       bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
-                          rfClassifier[float] *, float *, int *,
-                          int, int, int *, bool)
+                          rfClassifier[float]*,
+                          float*,
+                          int,
+                          int,
+                          int,
+                          int*,
+                          bool)
+
     cdef RF_metrics score(cumlHandle& handle,
-                          rfClassifier[double] *, double *, int *,
-                          int, int, int *, bool)
+                          rfClassifier[double]*,
+                          double*,
+                          int*,
+                          int,
+                          int,
+                          int*,
+                          bool)
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
@@ -177,7 +188,8 @@ cdef class RandomForest_impl():
             raise TypeError("The labels need to have dtype = np.int32")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F', check_dtype=[np.float32, np.float64])
+            input_to_dev_array(X, order='F', check_dtype=[np.float32,
+                                                          np.float64])
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -247,8 +259,8 @@ cdef class RandomForest_impl():
                 X = X.astype(self.dtype)
             else:
                 raise TypeError("The datatype of the training data is "
-                                 "different from the datatype of the testing "
-                                 "data")
+                                "different from the datatype of the training "
+                                "data")
 
         cdef uintptr_t X_ptr
         X_ptr = X.ctypes.data
@@ -297,8 +309,8 @@ cdef class RandomForest_impl():
                 X = X.astype(self.dtype)
             else:
                 raise TypeError("The datatype of the training data is "
-                                 "different from the datatype of the testing "
-                                 "data")
+                                "different from the datatype of the training "
+                                "data")
 
         if y.dtype != np.int32:
             if convert_dtype:
