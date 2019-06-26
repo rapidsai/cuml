@@ -77,7 +77,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     for ib in range(num_batches):
         task[ib][:] = 'START'
 
-    n_iterations = np.zeros(num_batches)
+    n_iterations = np.zeros(num_batches, dtype=np.int32)
 
     converged = num_batches * [False]
 
@@ -114,7 +114,16 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 continue
 
     xk = np.concatenate(x)
-    print("CONVERGED in {} iterations (|\/f|={})".format(n_iterations, np.linalg.norm(fprime(xk), np.inf)))
+
+    if iprint > 0:
+        print("CONVERGED in ({}-{}) iterations (|\/f|={})".format(np.min(n_iterations), np.max(n_iterations),
+                                                                  np.linalg.norm(fprime(xk), np.inf)))
+
+        if (warn_flag > 0).any():
+            for ib in range(num_batches):
+                if warn_flag[ib] > 0:
+                    print("WARNING: id={} convergence issue: {}".format(ib, task[ib].tostring()))
+
     return xk, n_iterations, warn_flag
 
 
