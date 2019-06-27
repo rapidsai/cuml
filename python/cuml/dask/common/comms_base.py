@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import ucp
 
 from cuml.nccl import nccl
 
-from nccl_example import nccl, inject_comms_on_handle, SimpleReduce
+from cuml.dask.common import inject_comms_on_handle
 from cuml.common.handle import Handle
 
 from dask.distributed import wait
