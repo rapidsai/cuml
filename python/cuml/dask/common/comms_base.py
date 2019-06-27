@@ -16,10 +16,10 @@
 from cuml.nccl import nccl
 
 from cuml.dask.common import inject_comms_on_handle
+from .utils import parse_host_port
 from cuml.common.handle import Handle
 
-from dask.distributed import wait
-from dask.distributed import get_worker
+from dask.distributed import wait, get_worker, default_client
 
 import random
 
@@ -27,8 +27,6 @@ import asyncio
 import ucp
 
 import uuid
-
-from dask.distributed import default_client
 
 
 async def connection_func(ep, listener):

@@ -18,21 +18,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuml.common.handle import Handle
-
-from cpython cimport array
-import array
-
-import dask.distributed
-from libcpp cimport bool
 from libc.stdlib cimport malloc, free
-import re
-import os
 from cython.operator cimport dereference as deref
-
-import numpy as np
-import numba.cuda
-import cudf
 
 from libc.stdint cimport uintptr_t
 
@@ -52,6 +39,9 @@ cdef extern from "cuML_comms.hpp" namespace "ML":
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
 
+
+    # TODO: This should be passed into this function so the owner class can be responsible for
+    # freeing it.
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
     cdef size_t ep_st
