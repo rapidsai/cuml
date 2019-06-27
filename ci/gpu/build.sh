@@ -50,7 +50,8 @@ conda install \
       umap-learn \
       libclang \
       cupy \
-      dask
+      dask \
+      dask_cuda
 
 logger "Check versions..."
 python --version
