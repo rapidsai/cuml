@@ -122,10 +122,17 @@ const std::vector<DistanceAdjInputs<float>> inputsf = {
   {0.01f, 1024, 1024, 32, true, 1234ULL},
   {0.1f, 1024, 1024, 32, true, 1234ULL},
   {1.0f, 1024, 1024, 32, true, 1234ULL},
-  {10.0f, 1024, 1024, 32, true, 1234ULL}};
+  {10.0f, 1024, 1024, 32, true, 1234ULL},
+  {0.01f, 1024, 1024, 32, false, 1234ULL},
+  {0.1f, 1024, 1024, 32, false, 1234ULL},
+  {1.0f, 1024, 1024, 32, false, 1234ULL},
+  {10.0f, 1024, 1024, 32, false, 1234ULL},
+};
 typedef DistanceAdjTest<float> DistanceAdjTestF;
 TEST_P(DistanceAdjTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
+  int m = params.isRowMajor ? params.m : params.n;
+  int n = params.isRowMajor ? params.n : params.m;
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF,
                         ::testing::ValuesIn(inputsf));
@@ -134,10 +141,17 @@ const std::vector<DistanceAdjInputs<double>> inputsd = {
   {0.01, 1024, 1024, 32, true, 1234ULL},
   {0.1, 1024, 1024, 32, true, 1234ULL},
   {1.0, 1024, 1024, 32, true, 1234ULL},
-  {10.0, 1024, 1024, 32, true, 1234ULL}};
+  {10.0, 1024, 1024, 32, true, 1234ULL},
+  {0.01, 1024, 1024, 32, false, 1234ULL},
+  {0.1, 1024, 1024, 32, false, 1234ULL},
+  {1.0, 1024, 1024, 32, false, 1234ULL},
+  {10.0, 1024, 1024, 32, false, 1234ULL},
+};
 typedef DistanceAdjTest<double> DistanceAdjTestD;
 TEST_P(DistanceAdjTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
+  int m = params.isRowMajor ? params.m : params.n;
+  int n = params.isRowMajor ? params.n : params.m;
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD,
                         ::testing::ValuesIn(inputsd));
