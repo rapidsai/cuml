@@ -27,11 +27,17 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 32, 1024, true, 1234ULL},
   {0.001f, 32, 1024, 1024, true, 1234ULL},
   {0.003f, 1024, 1024, 1024, true, 1234ULL},
+  {0.001f, 1024, 1024, 32, false, 1234ULL},
+  {0.001f, 1024, 32, 1024, false, 1234ULL},
+  {0.001f, 32, 1024, 1024, false, 1234ULL},
+  {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceUnexpL1<float> DistanceUnexpL1F;
 TEST_P(DistanceUnexpL1F, Result) {
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n,
-                          CompareApprox<float>(params.tolerance)));
+  int m = params.isRowMajor ? params.m : params.n;
+  int n = params.isRowMajor ? params.n : params.m;
+  ASSERT_TRUE(
+    devArrMatch(dist_ref, dist, m, n, CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1F,
                         ::testing::ValuesIn(inputsf));
@@ -41,11 +47,17 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 32, 1024, true, 1234ULL},
   {0.001, 32, 1024, 1024, true, 1234ULL},
   {0.003, 1024, 1024, 1024, true, 1234ULL},
+  {0.001, 1024, 1024, 32, false, 1234ULL},
+  {0.001, 1024, 32, 1024, false, 1234ULL},
+  {0.001, 32, 1024, 1024, false, 1234ULL},
+  {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceUnexpL1<double> DistanceUnexpL1D;
 TEST_P(DistanceUnexpL1D, Result) {
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n,
-                          CompareApprox<double>(params.tolerance)));
+  int m = params.isRowMajor ? params.m : params.n;
+  int n = params.isRowMajor ? params.n : params.m;
+  ASSERT_TRUE(
+    devArrMatch(dist_ref, dist, m, n, CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1D,
                         ::testing::ValuesIn(inputsd));
