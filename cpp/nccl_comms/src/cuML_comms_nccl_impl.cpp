@@ -206,24 +206,21 @@ cumlNCCLCommunicator_impl::commSplit(int color, int key) const {
 }
 
 void cumlNCCLCommunicator_impl::barrier() const {
-
   int *sendbuff, *recvbuff;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  CUDA_CHECK(cudaMalloc((void**)&sendbuff, sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void**)&recvbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void **)&sendbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
 
   cudaMemset(sendbuff, 0, sizeof(int));
   cudaMemset(recvbuff, 0, sizeof(int));
 
-  allreduce(sendbuff, recvbuff, 1,
-      MLCommon::cumlCommunicator::INT, MLCommon::cumlCommunicator::SUM,
-      stream);
+  allreduce(sendbuff, recvbuff, 1, MLCommon::cumlCommunicator::INT,
+            MLCommon::cumlCommunicator::SUM, stream);
 
   cudaStreamSynchronize(stream);
-
   cudaStreamDestroy(stream);
 
   CUDA_CHECK(cudaFree(sendbuff));
