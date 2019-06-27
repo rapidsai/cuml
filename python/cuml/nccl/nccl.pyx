@@ -72,6 +72,7 @@ def unique_id():
     free(uid)
     return c_str
 
+
 cdef class nccl:
 
     cdef ncclComm_t *comm
@@ -84,11 +85,11 @@ cdef class nccl:
 
     def __dealloc__(self):
 
-         comm_ = <ncclComm_t*>self.comm
+        comm_ = <ncclComm_t*>self.comm
 
-         if comm_ != NULL:
-             free(self.comm)
-             self.comm = NULL
+        if comm_ != NULL:
+            free(self.comm)
+            self.comm = NULL
 
     @staticmethod
     def get_unique_id():
@@ -104,7 +105,8 @@ cdef class nccl:
 
         comm_ = <ncclComm_t*>self.comm
 
-        cdef ncclResult_t result = ncclCommInitRank(comm_, nranks, deref(ident), rank)
+        cdef ncclResult_t result = ncclCommInitRank(comm_, nranks,
+                                                    deref(ident), rank)
 
         if result != ncclSuccess:
             err_str = ncclGetErrorString(result)
@@ -137,7 +139,6 @@ cdef class nccl:
                 print("NCCL_ERROR: %s" % err_str)
             free(comm_)
             self.comm = NULL
-
 
     def cu_device(self):
         cdef int *dev = <int*>malloc(sizeof(int))
