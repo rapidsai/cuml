@@ -142,7 +142,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
   ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
 
-  ucp_ep_h *new_ep_arr = new ucp_ep_h[size];
+  ucp_ep_h *new_ep_arr = (ucp_ep_h *)eps;
 
   size_t *size_t_ep_arr = (size_t *)eps;
 

@@ -19,9 +19,9 @@
 #include <cuML.hpp>
 
 namespace ML {
-namespace sandbox{
+namespace sandbox {
 
-void mpi_test(const ML::cumlHandle& handle);
+void comms_test(const ML::cumlHandle& handle);
 
-};// end namespace sandbox
-};// end namespace ML
+};  // end namespace sandbox
+};  // end namespace ML
