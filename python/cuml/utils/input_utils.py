@@ -20,7 +20,7 @@ import cudf
 import numpy as np
 import warnings
 
-from import_utils import has_cupy
+from .import_utils import has_cupy
 
 from collections import namedtuple
 from numba import cuda
