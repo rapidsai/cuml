@@ -131,7 +131,9 @@ static void wait(ucp_worker_h ucp_worker, struct ucx_context *context) {
  * in Python as well, before being used to construct a cuML comms instance.
  */
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  ucp_ep_h *eps, int size, int rank) {
+                  std::shared_ptr<ucp_ep_h *>eps, int size, int rank) {
+
+
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
       new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank)));
@@ -142,21 +144,24 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
   ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
 
-  ucp_ep_h *new_ep_arr = (ucp_ep_h *)eps;
+  // Make shared_ptr for endpoints
+  std::shared_ptr<ucp_ep_h*> eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[size]);
 
-  //  size_t *size_t_ep_arr = (size_t *)eps;
-  //
-  //  for (int i = 0; i < size; i++) {
-  //    size_t ptr = size_t_ep_arr[i];
-  //    if (ptr != 0) {
-  //      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
-  //      new_ep_arr[i] = *eps_ptr;
-  //    } else {
-  //      new_ep_arr[i] = nullptr;
-  //    }
-  //  }
+  size_t *size_t_ep_arr = (size_t *)eps;
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, (ucp_ep_h *)new_ep_arr,
+  for (int i = 0; i < size; i++) {
+    size_t ptr = size_t_ep_arr[i];
+    ucp_ep_h *ucp_ep_v = *eps_sp;
+
+    if (ptr != 0) {
+      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
+      ucp_ep_v[i] = *eps_ptr;
+    } else {
+      ucp_ep_v[i] = nullptr;
+    }
+  }
+
+  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp,
                size, rank);
 }
 
@@ -182,7 +187,8 @@ void get_unique_id(char *uid) {
 
 cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm,
                                                      ucp_worker_h ucp_worker,
-                                                     ucp_ep_h *eps, int size,
+                                                     std::shared_ptr<ucp_ep_h*> eps,
+                                                     int size,
                                                      int rank)
   : _nccl_comm(comm),
     _ucp_worker(ucp_worker),
@@ -214,8 +220,8 @@ void cumlNCCLCommunicator_impl::barrier() const {
   CUDA_CHECK(cudaMalloc((void **)&sendbuff, sizeof(int)));
   CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
 
-  cudaMemset(sendbuff, 0, sizeof(int));
-  cudaMemset(recvbuff, 0, sizeof(int));
+  CUDA_CHECK(cudaMemsetAsync(sendbuff, 0, sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(recvbuff, 0, sizeof(int), stream));
 
   allreduce(sendbuff, recvbuff, 1, MLCommon::cumlCommunicator::INT,
             MLCommon::cumlCommunicator::SUM, stream);
@@ -281,7 +287,10 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest,
 
   struct ucx_context *ucp_request = 0;
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
-  ucp_ep_h ep_ptr = _ucp_eps[dest];
+
+  ucp_ep_h *ep_arr = *_ucp_eps;
+
+  ucp_ep_h ep_ptr = ep_arr[dest];
 
   ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -328,7 +337,8 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   }
 
   struct ucx_context *ucp_request = 0;
-  ucp_ep_h ep_ptr = _ucp_eps[source];
+  ucp_ep_h *ep_arr = *_ucp_eps;
+  ucp_ep_h ep_ptr = ep_arr[source];
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
   ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
