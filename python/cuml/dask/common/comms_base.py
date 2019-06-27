@@ -164,8 +164,8 @@ class CommsBase:
         """
         Stops the UCP listeners attached to this session
         """
-        a = [c.submit(CommsBase.ucp_stop_listener, self.sessionId,
-                      random.random(),workers=[w])
+        a = [self.client.submit(CommsBase.ucp_stop_listener, self.sessionId,
+                      random.random(), workers=[w])
              for w in self.workers]
         wait(a)
 
@@ -236,7 +236,6 @@ class CommsBase:
         eps = [None] * len(worker_info)
 
         count = 1
-        size = len(worker_info) - 1
 
         for k in worker_info:
             if k != local_address:
