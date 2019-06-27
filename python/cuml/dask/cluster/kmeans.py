@@ -16,6 +16,8 @@
 from cuml.dask.common import CommsBase, extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
 
+from dask.distributed import wait
+
 import random
 
 
