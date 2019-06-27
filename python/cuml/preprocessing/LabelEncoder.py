@@ -100,13 +100,13 @@ class LabelEncoder(object):
         encoded = le.transform(test_data)
         print(encoded)
 
-        # After train, ordinal label can be inverse_transform() back to 
+        # After train, ordinal label can be inverse_transform() back to
         # string labels
         ord_label = cudf.Series([0, 0, 1, 2, 1])
         ord_label = dask_cudf.from_cudf(data, npartitions=2)
-        str_label = le.inverse_transform(ord_label)        
+        str_label = le.inverse_transform(ord_label)
         print(str_label)
-        
+
     Output:
 
     .. code-block:: python

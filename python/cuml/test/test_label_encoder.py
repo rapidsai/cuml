@@ -97,8 +97,9 @@ def test_inverse_transform(orig_label, ord_label,
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
-    assert(reverted == expected_reverted)
-
+    assert(len(reverted) == len(expected_reverted))
+    assert(len(reverted)
+           == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match='is out of bound'):
         le.inverse_transform(bad_ord_label)
