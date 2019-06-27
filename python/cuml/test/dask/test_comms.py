@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import pytest
 from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client, wait
@@ -22,6 +23,7 @@ from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
 
+@pytest.mark.skip
 def test_allreduce():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -44,6 +46,7 @@ def test_allreduce():
     assert all(list(map(lambda x: x.result(), dfs)))
 
 
+@pytest.mark.skip
 def test_send_recv():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
