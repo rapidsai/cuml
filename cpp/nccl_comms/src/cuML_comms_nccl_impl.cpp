@@ -144,17 +144,17 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
 
   ucp_ep_h *new_ep_arr = (ucp_ep_h *)eps;
 
-  size_t *size_t_ep_arr = (size_t *)eps;
-
-  for (int i = 0; i < size; i++) {
-    size_t ptr = size_t_ep_arr[i];
-    if (ptr != 0) {
-      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
-      new_ep_arr[i] = *eps_ptr;
-    } else {
-      new_ep_arr[i] = nullptr;
-    }
-  }
+  //  size_t *size_t_ep_arr = (size_t *)eps;
+  //
+  //  for (int i = 0; i < size; i++) {
+  //    size_t ptr = size_t_ep_arr[i];
+  //    if (ptr != 0) {
+  //      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
+  //      new_ep_arr[i] = *eps_ptr;
+  //    } else {
+  //      new_ep_arr[i] = nullptr;
+  //    }
+  //  }
 
   inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, (ucp_ep_h *)new_ep_arr,
                size, rank);
