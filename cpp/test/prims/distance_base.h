@@ -34,7 +34,7 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
   for (int i = 0; i < k; ++i) {
     int xidx = isRowMajor ? i + midx * k : i * m + midx;
     int yidx = isRowMajor ? i + nidx * k : i * n + midx;
-    auto diff = x[xidx] - y[idx];
+    auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
   if (type == EucExpandedL2Sqrt || type == EucUnexpandedL2Sqrt)
