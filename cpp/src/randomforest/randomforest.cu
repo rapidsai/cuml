@@ -390,7 +390,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
       user_handle.getImpl(), n_sampled_rows, n_cols, 1, n_unique_labels,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo);
-  if (this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+  if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) && !(this->rf_params.tree_params.quantile_per_tree)) {
     preprocess_quantile(input, nullptr, n_sampled_rows, n_cols, n_rows,
                         this->rf_params.tree_params.n_bins, tempmem);
   }
@@ -498,11 +498,9 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
-RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle,
-                                           const T* input,
-                                           const int* ref_labels, int n_rows,
-                                           int n_cols, int* predictions,
-                                           bool verbose) const {
+RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle, const T* input,
+                                  const int* ref_labels, int n_rows, int n_cols,
+                                  int* predictions, bool verbose) const {
   predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
   cudaStream_t stream = user_handle.getImpl().getStream();
@@ -686,10 +684,10 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
-RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle,
-                                          const T* input, const T* ref_labels,
-                                          int n_rows, int n_cols,
-                                          T* predictions, bool verbose) const {
+RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
+                                 const T* input, const T* ref_labels,
+                                 int n_rows, int n_cols,
+                                 T* predictions, bool verbose) const {
   predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
   cudaStream_t stream = user_handle.getImpl().getStream();
@@ -716,7 +714,7 @@ template class rfClassifier<double>;
 template class rfRegressor<float>;
 template class rfRegressor<double>;
 
-// Stateless API functions: fit, predict and cross_validate
+// Stateless API functions: fit, predict and score
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -803,12 +801,12 @@ void predict(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<float>* rf_classifier,
-                          const float* input, const int* ref_labels, int n_rows,
-                          int n_cols, int* predictions, bool verbose) {
-  return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows,
-                                       n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<float>* rf_classifier, const float* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose) {
+  return rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
+                              predictions, verbose);
 }
 
 /**
@@ -822,19 +820,18 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<double>* rf_classifier,
-                          const double* input, const int* ref_labels,
-                          int n_rows, int n_cols, int* predictions,
-                          bool verbose) {
-  return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows,
-                                       n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<double>* rf_classifier, const double* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose) {
+  return rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
+                              predictions, verbose);
 }
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           int rows_sample, CRITERION split_criterion,
+                           float rows_sample, CRITERION split_criterion,
                            bool quantile_per_tree) {
   DecisionTree::DecisionTreeParams tree_params(
     max_depth, max_leaves, max_features, n_bins, split_algo, min_rows_per_node,
@@ -919,13 +916,13 @@ void predict(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfRegressor<float>* rf_regressor,
-                          const float* input, const float* ref_labels,
-                          int n_rows, int n_cols, float* predictions,
-                          bool verbose) {
-  return rf_regressor->cross_validate(user_handle, input, ref_labels, n_rows,
-                                      n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfRegressor<float>* rf_regressor,
+                 const float* input, const float* ref_labels,
+                 int n_rows, int n_cols, float* predictions,
+                 bool verbose) {
+  return rf_regressor->score(user_handle, input, ref_labels, n_rows,
+                             n_cols, predictions, verbose);
 }
 
 /**
@@ -939,13 +936,13 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfRegressor<double>* rf_regressor,
-                          const double* input, const double* ref_labels,
-                          int n_rows, int n_cols, double* predictions,
-                          bool verbose) {
-  return rf_regressor->cross_validate(user_handle, input, ref_labels, n_rows,
-                                      n_cols, predictions, verbose);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfRegressor<double>* rf_regressor,
+                 const double* input, const double* ref_labels,
+                 int n_rows, int n_cols, double* predictions,
+                 bool verbose) {
+  return rf_regressor->score(user_handle, input, ref_labels, n_rows,
+                             n_cols, predictions, verbose);
 }
 
 };  // namespace ML

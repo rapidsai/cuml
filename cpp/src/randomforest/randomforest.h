@@ -77,7 +77,7 @@ struct RF_params {
 };
 
 /* Update labels so they are unique from 0 to n_unique_vals.
-   		Create an old_label to new_label map per random forest.
+   Create an old_label to new_label map per random forest.
 */
 void preprocess_labels(int n_rows, std::vector<int>& labels,
                        std::map<int, int>& labels_map, bool verbose = false);
@@ -124,9 +124,9 @@ class rfClassifier : public rf<T, int> {
            int* labels, int n_unique_labels);
   void predict(const cumlHandle& user_handle, const T* input, int n_rows,
                int n_cols, int* predictions, bool verbose = false) const;
-  RF_metrics cross_validate(const cumlHandle& user_handle, const T* input,
-                            const int* ref_labels, int n_rows, int n_cols,
-                            int* predictions, bool verbose = false) const;
+  RF_metrics score(const cumlHandle& user_handle, const T* input,
+                   const int* ref_labels, int n_rows, int n_cols,
+                   int* predictions, bool verbose = false) const;
 };
 
 template <class T>
@@ -143,12 +143,12 @@ class rfRegressor : public rf<T, T> {
            T* labels);
   void predict(const cumlHandle& user_handle, const T* input, int n_rows,
                int n_cols, T* predictions, bool verbose = false) const;
-  RF_metrics cross_validate(const cumlHandle& user_handle, const T* input,
-                            const T* ref_labels, int n_rows, int n_cols,
-                            T* predictions, bool verbose = false) const;
+  RF_metrics score(const cumlHandle& user_handle, const T* input,
+                   const T* ref_labels, int n_rows, int n_cols,
+                   T* predictions, bool verbose = false) const;
 };
 
-// Stateless API functions: fit, predict and cross_validate.
+// Stateless API functions: fit, predict and score.
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -166,20 +166,19 @@ void predict(const cumlHandle& user_handle,
              const rfClassifier<double>* rf_classifier, const double* input,
              int n_rows, int n_cols, int* predictions, bool verbose = false);
 
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<float>* rf_classifier,
-                          const float* input, const int* ref_labels, int n_rows,
-                          int n_cols, int* predictions, bool verbose = false);
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfClassifier<double>* rf_classifier,
-                          const double* input, const int* ref_labels,
-                          int n_rows, int n_cols, int* predictions,
-                          bool verbose = false);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<float>* rf_classifier, const float* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose = false);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfClassifier<double>* rf_classifier, const double* input,
+                 const int* ref_labels, int n_rows, int n_cols,
+                 int* predictions, bool verbose = false);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           int rows_sample, CRITERION split_criterion,
+                           float rows_sample, CRITERION split_criterion,
                            bool quantile_per_tree);
 
 // ----------------------------- Regression ----------------------------------- //
@@ -196,15 +195,14 @@ void predict(const cumlHandle& user_handle,
              const rfRegressor<double>* rf_regressor, const double* input,
              int n_rows, int n_cols, double* predictions, bool verbose = false);
 
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfRegressor<float>* rf_regressor,
-                          const float* input, const float* ref_labels,
-                          int n_rows, int n_cols, float* predictions,
-                          bool verbose = false);
-RF_metrics cross_validate(const cumlHandle& user_handle,
-                          const rfRegressor<double>* rf_regressor,
-                          const double* input, const double* ref_labels,
-                          int n_rows, int n_cols, double* predictions,
-                          bool verbose = false);
-
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfRegressor<float>* rf_regressor,
+                 const float* input, const float* ref_labels,
+                 int n_rows, int n_cols, float* predictions,
+                 bool verbose = false);
+RF_metrics score(const cumlHandle& user_handle,
+                 const rfRegressor<double>* rf_regressor,
+                 const double* input, const double* ref_labels,
+                 int n_rows, int n_cols, double* predictions,
+                 bool verbose = false);
 };  // namespace ML
