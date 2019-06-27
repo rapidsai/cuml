@@ -131,9 +131,7 @@ static void wait(ucp_worker_h ucp_worker, struct ucx_context *context) {
  * in Python as well, before being used to construct a cuML comms instance.
  */
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  std::shared_ptr<ucp_ep_h *>eps, int size, int rank) {
-
-
+                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
       new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank)));
@@ -145,7 +143,8 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
   ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
 
   // Make shared_ptr for endpoints
-  std::shared_ptr<ucp_ep_h*> eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[size]);
+  std::shared_ptr<ucp_ep_h *> eps_sp =
+    std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
   size_t *size_t_ep_arr = (size_t *)eps;
 
@@ -161,8 +160,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
     }
   }
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp,
-               size, rank);
+  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
 }
 
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId) {
@@ -185,11 +183,9 @@ void get_unique_id(char *uid) {
   memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm,
-                                                     ucp_worker_h ucp_worker,
-                                                     std::shared_ptr<ucp_ep_h*> eps,
-                                                     int size,
-                                                     int rank)
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(
+  ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
+  int size, int rank)
   : _nccl_comm(comm),
     _ucp_worker(ucp_worker),
     _ucp_eps(eps),

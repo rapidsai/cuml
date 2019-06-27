@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "test.hpp"
+#include "cuML_comms_test.hpp"
 
 #include <common/cumlHandle.hpp>
 #include <common/cuml_comms_int.hpp>
@@ -24,7 +24,36 @@
 namespace ML {
 namespace sandbox {
 
-void comms_test(const ML::cumlHandle& h) {
+  /**
+   * Simple allreduce test for single integet value of 1.
+   * Each rank evaluates whether their allreduced value
+   * equals the size of the clique.
+   */
+bool test_collective_allreduce(const ML::cumlHandle& h) {
+  const cumlHandle_impl& handle = h.getImpl();
+  ML::detail::streamSyncer _(handle);
+  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
+
+  const int rank = communicator.getRank();
+
+  cudaStream_t stream = handle.getStream();
+
+  MLCommon::device_buffer<int> temp_d(handle.getDeviceAllocator(), stream);
+  temp_d.resize(1, stream);
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &rank, sizeof(int),
+                             cudaMemcpyHostToDevice, stream));
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1,
+                         MLCommon::cumlCommunicator::SUM, stream);
+  int temp_h = 0;
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
+                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  communicator.barrier();
+
+  return temp_h == communicator.getSize();
+}
+
+bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h) {
   const cumlHandle_impl& handle = h.getImpl();
   ML::detail::streamSyncer _(handle);
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
@@ -59,37 +88,15 @@ void comms_test(const ML::cumlHandle& h) {
               << " ranks:" << std::endl;
   }
   communicator.barrier();
-  for (int r = 0; r < communicator.getSize(); ++r) {
-    if (r == rank) {
-      std::cout << "Rank " << r << " received :";
-      for (auto i : received_data) std::cout << i << ", ";
-      std::cout << std::endl;
-    }
-    communicator.barrier();
+
+  bool ret = true;
+  for (int rec : received_data) {
+
+    if(rec != communicator.getSize()-1)
+      return false;
   }
 
-  cudaStream_t stream = handle.getStream();
-
-  MLCommon::device_buffer<int> temp_d(handle.getDeviceAllocator(), stream);
-  temp_d.resize(1, stream);
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &rank, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1,
-                         MLCommon::cumlCommunicator::SUM, stream);
-  int temp_h = 0;
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
-                             cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  if (0 == rank) {
-    std::cout << "Sum of all ranks is: " << std::endl;
-  }
-  communicator.barrier();
-  for (int r = 0; r < communicator.getSize(); ++r) {
-    if (r == rank) {
-      std::cout << "For rank " << r << " :" << temp_h << std::endl;
-    }
-    communicator.barrier();
-  }
+  return true;
 }
 
 };  // end namespace sandbox

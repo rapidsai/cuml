@@ -21,7 +21,9 @@
 namespace ML {
 namespace sandbox {
 
-void comms_test(const ML::cumlHandle& handle);
+bool test_collective_allreduce(const ML::cumlHandle& handle);
+
+bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle);
 
 };  // end namespace sandbox
 };  // end namespace ML

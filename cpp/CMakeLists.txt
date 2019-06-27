@@ -302,6 +302,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
+    src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
