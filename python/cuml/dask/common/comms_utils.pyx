@@ -48,13 +48,13 @@ cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h)
 
 
-def test_comms_allreduce(handle):
+def perform_test_comms_allreduce(handle):
 
     cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
     return test_collective_allreduce(deref(h))
 
 
-def test_comms_send_recv(handle):
+def perform_test_comms_send_recv(handle):
 
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h))

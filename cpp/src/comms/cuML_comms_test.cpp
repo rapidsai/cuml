@@ -34,13 +34,13 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
   ML::detail::streamSyncer _(handle);
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
 
-  const int rank = communicator.getRank();
+  const int send = 1;
 
   cudaStream_t stream = handle.getStream();
 
   MLCommon::device_buffer<int> temp_d(handle.getDeviceAllocator(), stream);
   temp_d.resize(1, stream);
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &rank, sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
   communicator.allreduce(temp_d.data(), temp_d.data(), 1,
                          MLCommon::cumlCommunicator::SUM, stream);
@@ -49,6 +49,9 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
+
+  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "final_size: " << temp_h << std::endl;
 
   return temp_h == communicator.getSize();
 }
