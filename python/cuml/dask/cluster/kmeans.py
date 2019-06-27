@@ -55,7 +55,6 @@ class KMeans(CommsBase):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
-        worker_rank_map = self.worker_ranks()
 
         f = [self.client.submit(func,  # Function to run on worker
                       worker_model_map[w],  # Model instance
