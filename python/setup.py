@@ -18,6 +18,7 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import os
+from pathlib import Path
 import versioneer
 from distutils.sysconfig import get_python_lib
 import sys
@@ -54,10 +55,9 @@ else:
     libs.append('cumlMG')
     sys.argv.remove("--multigpu")
 
-
 extensions = [
     Extension("*",
-              sources=['cuml/*/*/*.pyx'],
+              sources=["cuml/**/**/*.pyx"],
               include_dirs=['../cpp/src',
                             '../cpp/external',
                             '../cpp/src_prims',

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -44,25 +43,19 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
 cdef extern from "cuML_comms.hpp" namespace "ML":
     void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker, void *eps, int size, int rank)
 
-cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox":
+cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h)
 
 
-def test_allreduce_on_comm(handle):
-    """
-    Performs a simple allreduce on a rank and returns whether
-    or not it received values from the whole clique
-    """
+def test_comms_allreduce(handle):
+
     cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
     return test_collective_allreduce(deref(h))
 
 
-def test_send_recv_on_comm(handle):
-    """
-    Performs a simple p2p send/recv and returns whether or
-    not it recieved values from the whole clique
-    """
+def test_comms_send_recv(handle):
+
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h))
 
