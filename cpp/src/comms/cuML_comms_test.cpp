@@ -24,7 +24,7 @@
 namespace ML {
 namespace sandbox {
 
-  /**
+/**
    * Simple allreduce test for single integet value of 1.
    * Each rank evaluates whether their allreduced value
    * equals the size of the clique.
@@ -91,9 +91,8 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h) {
 
   bool ret = true;
   for (int rec : received_data) {
-
-    if(rec != communicator.getSize()-1)
-      return false;
+    std::cout << "Rank received: " << rec << std::endl;
+    if (rec == -1) return false;
   }
 
   return true;
