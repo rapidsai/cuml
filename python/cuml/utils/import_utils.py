@@ -17,7 +17,9 @@
 
 def has_dask():
     try:
+        import dask
         import dask.distributed
+        import dask.dataframe
         return True
     except ImportError:
         return False

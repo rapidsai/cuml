@@ -19,4 +19,4 @@ from cuml.utils.import_utils import has_dask
 if has_dask():
     from cuml.dask.linear_model.linear_regression import LinearRegression  # NOQA
 else:
-    raise Warning("Dask is not installed. All Dask-based multi-GPU operation is disabed.")
+    raise Warning("Dask not found. All Dask-based multi-GPU operation is disabed.")
