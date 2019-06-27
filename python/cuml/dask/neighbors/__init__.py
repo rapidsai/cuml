@@ -15,8 +15,9 @@
 #
 
 from cuml.utils.import_utils import has_dask
+import warnings
 
 if has_dask():
     from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors  # NOQA
 else:
-    raise Warning("Dask not found. All Dask-based multi-GPU operation is disabed.")
+    warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")
