@@ -86,7 +86,8 @@ struct DecisionTreeParams {
    */
   bool bootstrap_features = false;
   /**
-   * Weather a quantile needs to be computed for individual trees in RF. Default; quantile is compute just once per RF. Only affects GLOBAL_QUANTILE algorithm
+   * Whether a quantile needs to be computed for individual trees in RF.
+   * Default: compute quantiles once per RF. Only affects GLOBAL_QUANTILE split_algo.
    **/
   bool quantile_per_tree = false;
   /**
