@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,24 +26,28 @@ namespace Distance {
 template <typename DataType>
 __global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x,
                                        const DataType *y, int m, int n, int k,
-                                       DataType eps) {
+                                       DataType eps, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
-    auto diff = x[i + midx * k] - y[i + nidx * k];
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  dist[midx * n + nidx] = acc <= eps;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc <= eps;
 }
 
 template <typename DataType>
 void naiveDistanceAdj(bool *dist, const DataType *x, const DataType *y, int m,
-                      int n, int k, DataType eps) {
+                      int n, int k, DataType eps, bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
-  naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps);
+  naiveDistanceAdjKernel<DataType>
+    <<<nblks, TPB>>>(dist, x, y, m, n, k, eps, isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -51,6 +55,7 @@ template <typename DataType>
 struct DistanceAdjInputs {
   DataType eps;
   int m, n, k;
+  bool isRowMajor;
   unsigned long long int seed;
 };
 
@@ -70,6 +75,7 @@ class DistanceAdjTest
     int m = params.m;
     int n = params.n;
     int k = params.k;
+    bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(x, m * k);
@@ -81,7 +87,7 @@ class DistanceAdjTest
 
     DataType threshold = params.eps;
 
-    naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold);
+    naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold, isRowMajor);
     char *workspace = nullptr;
     size_t worksize =
       getWorkspaceSize<EucExpandedL2, DataType, DataType, bool>(x, y, m, n, k);
@@ -90,13 +96,11 @@ class DistanceAdjTest
     }
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-
     distance<EucExpandedL2, DataType, DataType, bool, OutputTile_t>(
-      x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
+      x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
@@ -115,10 +119,10 @@ class DistanceAdjTest
 };
 
 const std::vector<DistanceAdjInputs<float>> inputsf = {
-  {0.01f, 1024, 1024, 32, 1234ULL},
-  {0.1f, 1024, 1024, 32, 1234ULL},
-  {1.0f, 1024, 1024, 32, 1234ULL},
-  {10.0f, 1024, 1024, 32, 1234ULL}};
+  {0.01f, 1024, 1024, 32, true, 1234ULL},
+  {0.1f, 1024, 1024, 32, true, 1234ULL},
+  {1.0f, 1024, 1024, 32, true, 1234ULL},
+  {10.0f, 1024, 1024, 32, true, 1234ULL}};
 typedef DistanceAdjTest<float> DistanceAdjTestF;
 TEST_P(DistanceAdjTestF, Result) {
   ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
@@ -127,10 +131,10 @@ INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF,
                         ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceAdjInputs<double>> inputsd = {
-  {0.01, 1024, 1024, 32, 1234ULL},
-  {0.1, 1024, 1024, 32, 1234ULL},
-  {1.0, 1024, 1024, 32, 1234ULL},
-  {10.0, 1024, 1024, 32, 1234ULL}};
+  {0.01, 1024, 1024, 32, true, 1234ULL},
+  {0.1, 1024, 1024, 32, true, 1234ULL},
+  {1.0, 1024, 1024, 32, true, 1234ULL},
+  {10.0, 1024, 1024, 32, true, 1234ULL}};
 typedef DistanceAdjTest<double> DistanceAdjTestD;
 TEST_P(DistanceAdjTestD, Result) {
   ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
