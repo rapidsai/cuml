@@ -29,41 +29,42 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cuml.decomposition.utils cimport *
+from cuml.utils import zeros
 
 cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
 
     cdef void tsvdFitSPMG(float *h_input,
                           float *h_components,
                           float *h_singular_vals,
-                  paramsTSVD prms,
+                          paramsTSVD prms,
                           int *gpu_ids,
                           int n_gpus)
 
     cdef void tsvdFitSPMG(double *h_input,
                           double *h_components,
                           double *h_singular_vals,
-                  paramsTSVD prms,
+                          paramsTSVD prms,
                           int *gpu_ids,
                           int n_gpus)
 
     cdef void tsvdFitTransformSPMG(float *h_input,
                                    float *h_trans_input,
-                           float *h_components,
+                                   float *h_components,
                                    float *h_explained_var,
-                           float *h_explained_var_ratio,
+                                   float *h_explained_var_ratio,
                                    float *h_singular_vals,
                                    paramsTSVD prms,
-                           int *gpu_ids,
+                                   int *gpu_ids,
                                    int n_gpus)
 
     cdef void tsvdFitTransformSPMG(double *h_input,
                                    double *h_trans_input,
-                           double *h_components,
+                                   double *h_components,
                                    double *h_explained_var,
-                           double *h_explained_var_ratio,
+                                   double *h_explained_var_ratio,
                                    double *h_singular_vals,
                                    paramsTSVD prms,
-                           int *gpu_ids,
+                                   int *gpu_ids,
                                    int n_gpus)
 
     cdef void tsvdInverseTransformSPMG(float *h_trans_input,
@@ -98,8 +99,10 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                 int *gpu_ids,
                                 int n_gpus)
 
+
 class TSVDparams:
-    def __init__(self,n_components,tol,iterated_power,random_state,svd_solver):
+    def __init__(self, n_components, tol, iterated_power, random_state,
+                 svd_solver):
         self.n_components = n_components
         self.svd_solver = svd_solver
         self.tol = tol
@@ -108,9 +111,11 @@ class TSVDparams:
         self.n_cols = None
         self.n_rows = None
 
+
 class TruncatedSVDSPMG:
     """
-    Create a DataFrame, fill it with data, and compute Truncated Singular Value Decomposition:
+    Create a DataFrame, fill it with data, and compute Truncated Singular Value
+    Decomposition:
 
     .. code-block:: python
 
@@ -123,12 +128,14 @@ class TruncatedSVDSPMG:
             gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
             gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
 
-            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi", n_iter=20, tol=1e-9)
+            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi",
+                                      n_iter=20, tol=1e-9)
             tsvd_float.fit(gdf_float)
 
             print(f'components: {tsvd_float.components_}')
             print(f'explained variance: {tsvd_float.explained_variance_}')
-            print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
+            exp_var = tsvd_float.explained_variance_ratio_
+            print(f'explained variance ratio: {exp_var}')
             print(f'singular values: {tsvd_float.singular_values_}')
 
             trans_gdf_float = tsvd_float.transform(gdf_float)
@@ -158,14 +165,18 @@ class TruncatedSVDSPMG:
 
             Transformed matrix:           0            1
             0 5.1659107    -2.512643
-            1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
+            1 3.4638448 -0.042223275
+            2 4.0809603    3.2164836
 
             Input matrix:           0         1         2
             0       1.0  4.000001  4.000001
             1 2.0000005 2.0000005 2.0000007
             2  5.000001 0.9999999 1.0000004
 
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+    For additional examples, see the Truncated SVD  notebook
+    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_.
+    For additional documentation, see `scikitlearn's TruncatedSVD docs
+    <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
 
     """
 
@@ -187,37 +198,31 @@ class TruncatedSVDSPMG:
         self.explained_variance_ratio_ptr = None
         self.singular_values_ptr = None
 
-        self.algo_dict = {
-                'full': COV_EIG_DQ,
-                'auto': COV_EIG_DQ,
-                'jacobi': COV_EIG_JACOBI
-            }
+        self.algo_dict = {'full': COV_EIG_DQ,
+                          'auto': COV_EIG_DQ,
+                          'jacobi': COV_EIG_JACOBI}
 
     def _get_algorithm_c_name(self, algorithm):
         return self.algo_dict[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cudf.utils.cudautils.zeros(n_rows*n_components,
-                                                       self.gdf_datatype)
+        self.trans_input_ = zeros(n_rows*n_components, self.dtype)
 
-        self.components_ = cudf.utils.cudautils.zeros(n_cols*n_components,
-                                                       self.gdf_datatype)
+        self.components_ = zeros(n_cols*n_components, self.dtype)
 
-        self.explained_variance_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
-                                                       self.gdf_datatype))
+        self.explained_variance_ = \
+            cudf.Series(zeros(n_components, self.dtype))
 
-        self.explained_variance_ratio_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
-                                                       self.gdf_datatype))
+        self.explained_variance_ratio_ = \
+            cudf.Series(zeros(n_components, self.dtype))
 
-        self.mean_ = cudf.Series(cudf.utils.cudautils.zeros(n_cols,
-                                                       self.gdf_datatype))
+        self.mean_ = cudf.Series(zeros(n_cols, self.dtype))
 
-        self.singular_values_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
-                                                       self.gdf_datatype))
+        self.singular_values_ = \
+            cudf.Series(zeros(n_components, self.dtype))
 
-        self.noise_variance_ = cudf.Series(np.zeros(1, dtype=self.gdf_datatype))
-
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -234,7 +239,8 @@ class TruncatedSVDSPMG:
     def _fit_spmg(self, X, _transform=True, gpu_ids=[]):
 
         if (not isinstance(X, np.ndarray)):
-            msg = "X matrix must be a Numpy ndarray. Dask will be supported in the next version."
+            msg = "X matrix must be a Numpy ndarray. Dask will be supported" \
+                  + " in the next version."
             raise TypeError(msg)
 
         n_gpus = len(gpu_ids)
@@ -263,71 +269,75 @@ class TruncatedSVDSPMG:
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
 
-        cdef uintptr_t X_ptr, components_ptr, explained_variance_ptr, explained_variance_ratio_ptr, singular_values_ptr, trans_input_ptr, gpu_ids_ptr
+        cdef uintptr_t X_ptr, components_ptr, explained_variance_ptr
+        cdef uintptr_t explained_variance_ratio_ptr, singular_values_ptr,
+        cdef uintptr_t trans_input_ptr, gpu_ids_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
-        self.components_ = np.zeros((n_cols, self.params.n_components),
-                                    dtype=X.dtype, order='F')
-        self.explained_variance_ = np.zeros(self.params.n_components,
-                                            dtype=X.dtype, order='F')
-        self.explained_variance_ratio_ = np.zeros(self.params.n_components,
-                                                  dtype=X.dtype, order='F')
-        self.singular_values_ = np.zeros(self.params.n_components, dtype=X.dtype, order='F')
-        self.trans_input_ = np.zeros((n_rows, self.params.n_components), dtype=X.dtype, order='F')
+        self.components_ = zeros((n_cols, self.params.n_components),
+                                 dtype=X.dtype, order='F')
+        self.explained_variance_ = zeros(self.params.n_components,
+                                         dtype=X.dtype, order='F')
+        self.explained_variance_ratio_ = zeros(self.params.n_components,
+                                               dtype=X.dtype, order='F')
+        self.singular_values_ = zeros(self.params.n_components,
+                                      dtype=X.dtype, order='F')
+        self.trans_input_ = zeros((n_rows, self.params.n_components),
+                                  dtype=X.dtype, order='F')
 
         X_ptr = X.ctypes.data
         components_ptr = self.components_.ctypes.data
         explained_variance_ptr = self.explained_variance_ratio_.ctypes.data
-        explained_variance_ratio_ptr = self.explained_variance_ratio_.ctypes.data
+        exp_vr = self.explained_variance_ratio_
+        explained_variance_ratio_ptr = exp_vr.ctypes.data
         singular_values_ptr = self.singular_values_.ctypes.data
         trans_input_ptr = self.trans_input_.ctypes.data
         gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
         gpu_ids_ptr = gpu_ids_32.ctypes.data
 
         if not _transform:
-            if self.gdf_datatype.type == np.float32:
+            if self.dtype == np.float32:
                 tsvdFitSPMG(<float*>X_ptr,
                             <float*>components_ptr,
                             <float*>singular_values_ptr,
-                             params,
-                 <int*>gpu_ids_ptr,
-                             <int>n_gpus)
+                            params,
+                            <int*>gpu_ids_ptr,
+                            <int>n_gpus)
 
             else:
                 tsvdFitSPMG(<float*>X_ptr,
                             <float*>components_ptr,
                             <float*>singular_values_ptr,
-                             params,
-                 <int*>gpu_ids_ptr,
-                             <int>n_gpus)
+                            params,
+                            <int*>gpu_ids_ptr,
+                            <int>n_gpus)
         else:
-            if self.gdf_datatype.type == np.float32:
+            if self.dtype == np.float32:
                 tsvdFitTransformSPMG(<float*>X_ptr,
                                      <float*>trans_input_ptr,
-                         <float*>components_ptr,
+                                     <float*>components_ptr,
                                      <float*>explained_variance_ptr,
-                         <float*>explained_variance_ratio_ptr,
+                                     <float*>explained_variance_ratio_ptr,
                                      <float*>singular_values_ptr,
                                      params,
-                         <int*>gpu_ids_ptr,
+                                     <int*>gpu_ids_ptr,
                                      <int>n_gpus)
 
             else:
                 tsvdFitTransformSPMG(<double*>X_ptr,
                                      <double*>trans_input_ptr,
-                         <double*>components_ptr,
+                                     <double*>components_ptr,
                                      <double*>explained_variance_ptr,
-                         <double*>explained_variance_ratio_ptr,
+                                     <double*>explained_variance_ratio_ptr,
                                      <double*>singular_values_ptr,
                                      params,
-                         <int*>gpu_ids_ptr,
+                                     <int*>gpu_ids_ptr,
                                      <int>n_gpus)
 
         self.components_ = np.transpose(self.components_)
 
         return self
-
 
     def _fit_transform_spmg(self, X, gpu_ids):
         self._fit_spmg(X, True, gpu_ids)
@@ -340,7 +350,8 @@ class TruncatedSVDSPMG:
             X = np.array(X, order='F')
 
         if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F', dtype=X.dtype)
+            self.components_ = np.array(self.components_, order='F',
+                                        dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -358,11 +369,12 @@ class TruncatedSVDSPMG:
         params.n_rows = n_rows
         params.n_cols = self.params.n_cols
 
-        original_X = np.zeros((n_rows, self.params.n_cols), dtype=X.dtype, order='F')
+        original_X = zeros((n_rows, self.params.n_cols), dtype=X.dtype,
+                           order='F')
 
         cdef uintptr_t X_ptr, original_X_ptr, gpu_ids_ptr, components_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
         X_ptr = X.ctypes.data
         original_X_ptr = original_X.ctypes.data
@@ -370,7 +382,7 @@ class TruncatedSVDSPMG:
         gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdInverseTransformSPMG(<float*>X_ptr,
                                      <float*>components_ptr,
                                      <bool>False,
@@ -388,7 +400,6 @@ class TruncatedSVDSPMG:
                                      <int*>gpu_ids_ptr,
                                      <int>n_gpus)
 
-
         return original_X
 
     def _transform_spmg(self, X, gpu_ids=[]):
@@ -398,7 +409,8 @@ class TruncatedSVDSPMG:
             X = np.array(X, order='F')
 
         if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F', dtype=X.dtype)
+            self.components_ = np.array(self.components_, order='F',
+                                        dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -416,11 +428,12 @@ class TruncatedSVDSPMG:
         params.n_rows = n_rows
         params.n_cols = self.params.n_cols
 
-        trans_X = np.zeros((n_rows, self.params.n_components), dtype=X.dtype, order='F')
+        trans_X = zeros((n_rows, self.params.n_components), dtype=X.dtype,
+                        order='F')
 
         cdef uintptr_t X_ptr, trans_X_ptr, gpu_ids_ptr, components_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
         X_ptr = X.ctypes.data
         trans_X_ptr = trans_X.ctypes.data
@@ -428,7 +441,7 @@ class TruncatedSVDSPMG:
         gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdTransformSPMG(<float*>X_ptr,
                               <float*>components_ptr,
                               <bool>True,
@@ -458,7 +471,8 @@ class TruncatedSVDSPMG:
             Training data (floats or doubles)
 
         n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter has more than element, this parameter is ignored.
+                 Number of gpus to be used for prediction. If gpu_ids parameter
+                 has more than element, this parameter is ignored.
 
         gpu_ids: int array
                  GPU ids to be used for prediction.
@@ -475,7 +489,6 @@ class TruncatedSVDSPMG:
             raise ValueError('Number of GPUS should be 2 or more'
                              'For single GPU, use the normal TruncatedSVD')
 
-
     def fit_transform(self, X, n_gpus=1, gpu_ids=[]):
         """
         Fit LSI model to X and perform dimensionality reduction on X.
@@ -486,7 +499,8 @@ class TruncatedSVDSPMG:
                 Training data (floats or doubles)
 
         n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter has more than element, this parameter is ignored.
+                 Number of gpus to be used for prediction. If gpu_ids parameter
+                 has more than element, this parameter is ignored.
 
         gpu_ids: int array
                  GPU ids to be used for prediction.
@@ -494,7 +508,8 @@ class TruncatedSVDSPMG:
         Returns
         ----------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense cuDF DataFrame
+                Reduced version of X. This will always be a dense cuDF
+                DataFrame
 
         """
 
@@ -520,7 +535,8 @@ class TruncatedSVDSPMG:
             New data.
 
         n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter has more than element, this parameter is ignored.
+                 Number of gpus to be used for prediction. If gpu_ids parameter
+                 has more than element, this parameter is ignored.
 
         gpu_ids: int array
                  GPU ids to be used for prediction.
@@ -542,7 +558,6 @@ class TruncatedSVDSPMG:
             raise ValueError('Number of GPUS should be 2 or more'
                              'For single GPU, use the normal TruncatedSVD')
 
-
     def transform(self, X, n_gpus=1, gpu_ids=[]):
         """
         Perform dimensionality reduction on X.
@@ -553,7 +568,8 @@ class TruncatedSVDSPMG:
             New data.
 
         n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter has more than element, this parameter is ignored.
+                 Number of gpus to be used for prediction. If gpu_ids parameter
+                 has more than element, this parameter is ignored.
 
         gpu_ids: int array
                  GPU ids to be used for prediction.
@@ -574,4 +590,3 @@ class TruncatedSVDSPMG:
         else:
             raise ValueError('Number of GPUS should be 2 or more'
                              'For single GPU, use the normal TruncatedSVD')
-
