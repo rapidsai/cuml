@@ -55,7 +55,7 @@ namespace ML {
 
 namespace {
 
-size_t getDatatypeSize(const cumlNCCLCommunicator_impl::datatype_t datatype) {
+size_t getDatatypeSize(const cumlStdCommunicator_impl::datatype_t datatype) {
   switch (datatype) {
     case MLCommon::cumlCommunicator::CHAR:
       return sizeof(char);
@@ -77,7 +77,7 @@ size_t getDatatypeSize(const cumlNCCLCommunicator_impl::datatype_t datatype) {
 }
 
 ncclDataType_t getNCCLDatatype(
-  const cumlNCCLCommunicator_impl::datatype_t datatype) {
+  const cumlStdCommunicator_impl::datatype_t datatype) {
   switch (datatype) {
     case MLCommon::cumlCommunicator::CHAR:
       return ncclChar;
@@ -98,7 +98,7 @@ ncclDataType_t getNCCLDatatype(
   }
 }
 
-ncclRedOp_t getNCCLOp(const cumlNCCLCommunicator_impl::op_t op) {
+ncclRedOp_t getNCCLOp(const cumlStdCommunicator_impl::op_t op) {
   switch (op) {
     case MLCommon::cumlCommunicator::SUM:
       return ncclSum;
@@ -134,7 +134,7 @@ void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank)));
+      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
 
@@ -184,7 +184,7 @@ void get_unique_id(char *uid) {
   memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(
+cumlStdCommunicator_impl::cumlStdCommunicator_impl(
   ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
   int size, int rank)
   : _nccl_comm(comm),
@@ -194,21 +194,21 @@ cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(
     _rank(rank),
     _next_request_id(0) {}
 
-cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl() {}
+cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {}
 
-int cumlNCCLCommunicator_impl::getSize() const { return _size; }
+int cumlStdCommunicator_impl::getSize() const { return _size; }
 
-int cumlNCCLCommunicator_impl::getRank() const { return _rank; }
+int cumlStdCommunicator_impl::getRank() const { return _rank; }
 
 std::unique_ptr<MLCommon::cumlCommunicator_iface>
-cumlNCCLCommunicator_impl::commSplit(int color, int key) const {
+cumlStdCommunicator_impl::commSplit(int color, int key) const {
   // Not supported by NCCL
   ASSERT(
     false,
     "ERROR: commSplit called but not supported in this comms implementation.");
 }
 
-void cumlNCCLCommunicator_impl::barrier() const {
+void cumlStdCommunicator_impl::barrier() const {
   int *sendbuff, *recvbuff;
 
   cudaStream_t stream;
@@ -271,8 +271,8 @@ static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep) {
 
 // @TODO: Really, the isend and irecv should be tied to a datatype, as they are in MPI/UCP.
 // This may not matter for p2p, though, if we are just always going to treat them as a contiguous sequence of bytes.
-void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest,
-                                      int tag, request_t *request) const {
+void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
+                                     int tag, request_t *request) const {
   request_t req_id;
   if (_free_requests.empty())
     req_id = _next_request_id++;
@@ -322,8 +322,8 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest,
          ucs_status_string(flush_status));
 }
 
-void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag,
-                                      request_t *request) const {
+void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
+                                     request_t *request) const {
   request_t req_id;
   if (_free_requests.empty())
     req_id = _next_request_id++;
@@ -359,8 +359,8 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   //pthread_mutex_unlock(&m);
 }
 
-void cumlNCCLCommunicator_impl::waitall(int count,
-                                        request_t array_of_requests[]) const {
+void cumlStdCommunicator_impl::waitall(int count,
+                                       request_t array_of_requests[]) const {
   printf("Inside waitall for rank: %d\n", getRank());
   std::vector<struct ucx_context *> requests;
   for (int i = 0; i < count; ++i) {
@@ -398,39 +398,38 @@ void cumlNCCLCommunicator_impl::waitall(int count,
   printf("Done waitall for rank: %d\n", getRank());
 }
 
-void cumlNCCLCommunicator_impl::allreduce(const void *sendbuff, void *recvbuff,
-                                          int count, datatype_t datatype,
-                                          op_t op, cudaStream_t stream) const {
+void cumlStdCommunicator_impl::allreduce(const void *sendbuff, void *recvbuff,
+                                         int count, datatype_t datatype,
+                                         op_t op, cudaStream_t stream) const {
   NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count, getNCCLDatatype(datatype),
                            getNCCLOp(op), _nccl_comm, stream));
 }
 
-void cumlNCCLCommunicator_impl::bcast(void *buff, int count,
-                                      datatype_t datatype, int root,
-                                      cudaStream_t stream) const {
+void cumlStdCommunicator_impl::bcast(void *buff, int count, datatype_t datatype,
+                                     int root, cudaStream_t stream) const {
   NCCL_CHECK(ncclBroadcast(buff, buff, count, getNCCLDatatype(datatype), root,
                            _nccl_comm, stream));
 }
 
-void cumlNCCLCommunicator_impl::reduce(const void *sendbuff, void *recvbuff,
-                                       int count, datatype_t datatype, op_t op,
-                                       int root, cudaStream_t stream) const {
+void cumlStdCommunicator_impl::reduce(const void *sendbuff, void *recvbuff,
+                                      int count, datatype_t datatype, op_t op,
+                                      int root, cudaStream_t stream) const {
   NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count, getNCCLDatatype(datatype),
                         getNCCLOp(op), root, _nccl_comm, stream));
 }
 
-void cumlNCCLCommunicator_impl::allgather(const void *sendbuff, void *recvbuff,
-                                          int sendcount, datatype_t datatype,
-                                          cudaStream_t stream) const {
+void cumlStdCommunicator_impl::allgather(const void *sendbuff, void *recvbuff,
+                                         int sendcount, datatype_t datatype,
+                                         cudaStream_t stream) const {
   NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
                            getNCCLDatatype(datatype), _nccl_comm, stream));
 }
 
-void cumlNCCLCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
-                                           const int recvcounts[],
-                                           const int displs[],
-                                           datatype_t datatype,
-                                           cudaStream_t stream) const {
+void cumlStdCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
+                                          const int recvcounts[],
+                                          const int displs[],
+                                          datatype_t datatype,
+                                          cudaStream_t stream) const {
   //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
   //Listing 1 on page 4.
   for (int root = 0; root < _size; ++root)
@@ -440,10 +439,10 @@ void cumlNCCLCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf,
       recvcounts[root], getNCCLDatatype(datatype), root, _nccl_comm, stream));
 }
 
-void cumlNCCLCommunicator_impl::reducescatter(const void *sendbuff,
-                                              void *recvbuff, int recvcount,
-                                              datatype_t datatype, op_t op,
-                                              cudaStream_t stream) const {
+void cumlStdCommunicator_impl::reducescatter(const void *sendbuff,
+                                             void *recvbuff, int recvcount,
+                                             datatype_t datatype, op_t op,
+                                             cudaStream_t stream) const {
   NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                getNCCLDatatype(datatype), getNCCLOp(op),
                                _nccl_comm, stream));
