@@ -43,7 +43,7 @@ add_definitions(-DHAVE_NCCL)
 include_directories( ${NCCL_INCLUDE_DIRS} )
 list(APPEND CUML_LINK_LIBRARIES ${NCCL_LIBRARIES})
 
-add_library(cumlcomms SHARED src/cuML_comms_nccl_impl.cpp)
+add_library(cumlcomms SHARED src/cuML_std_comms_impl.cpp)
 target_link_libraries(cumlcomms ${CUML_LINK_LIBRARIES})
 
 install(TARGETS cumlcomms DESTINATION lib)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cuML_comms_nccl_impl.hpp"
+#include "cuML_std_comms_impl.hpp"
 
 #include <nccl.h>
 #include <ucp/api/ucp.h>
