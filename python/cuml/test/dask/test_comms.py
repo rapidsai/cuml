@@ -18,7 +18,8 @@ from dask_cuda import LocalCUDACluster
 from dask.distributed import Client, wait
 
 from cuml.dask.common import CommsBase
-from cuml.dask.common.comms_utils import test_allreduce
+from cuml.dask.common.comms_utils import test_allreduce_on_comm
+from cuml.dask.common.comms_utils import test_send_recv_on_comm
 
 
 def test_allreduce_on_comms():
@@ -34,12 +35,36 @@ def test_allreduce_on_comms():
     print(str(workers))
 
     # Create dfs on each worker (gpu)
-    dfs = [client.submit(test_allreduce, handle)
-           for handle in cb.handles]
+    dfs = [client.submit(test_allreduce_on_comm, handle, workers = [w])
+           for wid, w, handle in cb.handles]
+
+
     # Wait for completion
     wait(dfs)
 
-    print(str(dfs.compute()))
+    assert all(list(map(lambda x: x.result(), dfs)))
+
+
+def test_send_recv_on_comms():
+
+    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
+    client = Client(cluster)
+
+    cb = CommsBase(comms_p2p=True, comms_coll=True)
+    cb.init()
+
+    workers = client.has_what().keys()
+
+    print(str(workers))
+
+    dfs = [client.submit(test_send_recv_on_comm, handle, workers=[w])
+           for wid, w, handle in cb.handles]
+
+    wait(dfs)
+
+    assert(list(map(lambda x: x.result(), dfs)))
+
+
 
 
 
