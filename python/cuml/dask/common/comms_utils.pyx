@@ -25,6 +25,13 @@ from libc.stdint cimport uintptr_t
 
 import cudf
 
+cdef extern from "nccl.h":
+
+    cdef struct ncclComm
+
+    ctypedef ncclComm *ncclComm_t
+
+
 cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
     cdef cppclass cumlCommunicator
 
@@ -48,7 +55,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     for i in range(len(eps)):
         if eps[i] is not None:
             ucp_eps[i] = <size_t>eps[i].get_ep()
-            test_ep(<void*><size_t>eps[i].get_ep())
+#            test_ep(<void*><size_t>eps[i].get_ep())
         else:
             ucp_eps[i] = 0
 
