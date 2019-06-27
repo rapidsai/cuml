@@ -119,4 +119,3 @@ def assign_gpus():
     wait(f)
 
     return f, workers
-

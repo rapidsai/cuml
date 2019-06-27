@@ -57,6 +57,6 @@ def get_meta(df):
 def to_dask_cudf(futures):
     c = default_client()
     # Convert a list of futures containing dfs back into a dask_cudf
-    dfs = [d for d in futures if d.type != type(None)]
+    dfs = [d for d in futures if d.type != type(None)]  # NOQA
     meta = c.submit(get_meta, dfs[0]).result()
     return dd.from_delayed(dfs, meta=meta)

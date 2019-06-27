@@ -28,6 +28,8 @@
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
 
+#include <cuda_runtime.h>
+
 #include <utils.h>
 
 #define NCCL_CHECK(call)                                                       \
@@ -204,13 +206,28 @@ cumlNCCLCommunicator_impl::commSplit(int color, int key) const {
 }
 
 void cumlNCCLCommunicator_impl::barrier() const {
-  // @TODO:
-  // 1. Have Rank 0 send out predetermined message and blocks until it gets a response from everyone.
-  // 2. All other ranks block until they see the message and reply with a predetermined response.
-  // 3. Upon getting responses from everyone, Rank 0 sends out a message for everyone to continue.
-  ASSERT(
-    false,
-    "ERROR: barrier called but not supported in this comms implementation.");
+
+  int *sendbuff, *recvbuff;
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  CUDA_CHECK(cudaMalloc((void**)&sendbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void**)&recvbuff, sizeof(int)));
+
+  cudaMemset(sendbuff, 0, sizeof(int));
+  cudaMemset(recvbuff, 0, sizeof(int));
+
+  allreduce(sendbuff, recvbuff, 1,
+      MLCommon::cumlCommunicator::INT, MLCommon::cumlCommunicator::SUM,
+      stream);
+
+  cudaStreamSynchronize(stream);
+
+  cudaStreamDestroy(stream);
+
+  CUDA_CHECK(cudaFree(sendbuff));
+  CUDA_CHECK(cudaFree(recvbuff));
 }
 
 static void send_handle(void *request, ucs_status_t status) {
