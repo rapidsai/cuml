@@ -46,7 +46,7 @@ function sed_runner() {
     sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
 }
 
-sed_runner 's/'"cuML VERSION .* LANGUAGES"'/'"cuML VERSION ${NEXT_FULL_TAG} LANGUAGES"'/g' cuML/CMakeLists.txt
+sed_runner 's/'"cuML VERSION .* LANGUAGES"'/'"cuML VERSION ${NEXT_FULL_TAG} LANGUAGES"'/g' cpp/CMakeLists.txt
 # RTD update
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
 sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
