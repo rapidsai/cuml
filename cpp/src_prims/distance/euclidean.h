@@ -83,7 +83,6 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
- * @{
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
