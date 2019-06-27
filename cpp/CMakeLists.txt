@@ -336,7 +336,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
   add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
-  add_subdirectory("comms")
+
+  # Once ucx & ucx-py packages are ready, uncomment to enable the comms being built w/ cuML 
+  #add_subdirectory("comms")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
