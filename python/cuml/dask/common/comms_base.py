@@ -165,7 +165,7 @@ class CommsBase:
         Stops the UCP listeners attached to this session
         """
         a = [self.client.submit(CommsBase.ucp_stop_listener, self.sessionId,
-                      random.random(), workers=[w])
+                                random.random(), workers=[w])
              for w in self.workers]
         wait(a)
 
