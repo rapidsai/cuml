@@ -51,7 +51,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly \
       libclang \
       cupy \
       dask \
-      dask_cuda
+      dask-cuda
 
 logger "Check versions..."
 python --version
