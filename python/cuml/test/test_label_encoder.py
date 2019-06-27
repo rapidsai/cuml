@@ -76,3 +76,40 @@ def test_labelencoder_unfitted():
 
     with pytest.raises(TypeError):
         le.transform(df)
+
+
+@pytest.mark.parametrize(
+        "orig_label, ord_label, expected_reverted, bad_ord_label",
+        [(cudf.Series(['a', 'b', 'c']),
+          cudf.Series([2, 1, 2, 0]),
+          cudf.Series(['c', 'b', 'c', 'a']),
+          cudf.Series([-1, 1, 2, 0])),
+         (cudf.Series(['Tokyo', 'Paris', 'Austin']),
+          cudf.Series([0, 2, 0]),
+          cudf.Series(['Austin', 'Tokyo', 'Austin']),
+          cudf.Series([0, 1, 2, 3]))])
+def test_inverse_transform(orig_label, ord_label,
+                           expected_reverted, bad_ord_label):
+    # prepare LabelEncoder
+    le = LabelEncoder()
+    le.fit(orig_label)
+    assert(le._fitted is True)
+
+    # test if inverse_transform is correct
+    reverted = le.inverse_transform(ord_label)
+    assert(reverted == expected_reverted)
+
+    # test if correctly raies ValueError
+    with pytest.raises(ValueError, match='is out of bound'):
+        le.inverse_transform(bad_ord_label)
+
+
+def test_unfitted_inverse_transform():
+    """ Try calling `.inverse_transform()` without fitting first
+    """
+    df = cudf.Series(np.random.choice(10, (10,)))
+    le = LabelEncoder()
+    assert(not le._fitted)
+
+    with pytest.raises(TypeError):
+        le.transform(df)

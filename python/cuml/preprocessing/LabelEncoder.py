@@ -30,6 +30,41 @@ def _enforce_str(y: cudf.Series) -> cudf.Series:
     return y
 
 
+def _trans_back(ser, categories, orig_dtype):
+    ''' Helper function to revert encoded label to original label
+
+    Parameters
+    ----------
+    ser : cudf.Series, dtype=object (string)
+        The series to be reverted
+    categories : nvcategory.nvcategory
+        Nvcategory that contains the keys to encoding
+
+    Returns
+    -------
+    reverted : cudf.Series
+        Reverted series
+
+    Notes
+    -----
+    Be aware that, if need inverse_transform(), input labels should not contain
+    any digit !!
+    '''
+    # nvstrings.replace() doesn't take nvstrings for now, so need to_host()
+    ord_label = ser.data.to_host()
+    keys = categories.keys().to_host()
+
+    reverted = ser.data
+    for ord_str in ord_label:
+        ord_int = int(ord_str)
+        if ord_int < 0 or ord_int >= len(categories.keys()):
+            raise ValueError('Input label {} is out of bound'.format(ord_int))
+        reverted = reverted.replace(ord_str, keys[ord_int])
+
+    reverted = cudf.Series(reverted, dtype=orig_dtype)
+    return reverted
+
+
 class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
@@ -65,6 +100,13 @@ class LabelEncoder(object):
         encoded = le.transform(test_data)
         print(encoded)
 
+        # After train, ordinal label can be inverse_transform() back to 
+        # string labels
+        ord_label = cudf.Series([0, 0, 1, 2, 1])
+        ord_label = dask_cudf.from_cudf(data, npartitions=2)
+        str_label = le.inverse_transform(ord_label)        
+        print(str_label)
+        
     Output:
 
     .. code-block:: python
@@ -89,6 +131,14 @@ class LabelEncoder(object):
         0    2
         1    0
         dtype: int64
+
+        0    a
+        1    a
+        2    b
+        3    c
+        4    b
+        dtype: object
+
     """
 
     def __init__(self, *args, **kwargs):
@@ -181,4 +231,27 @@ class LabelEncoder(object):
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        raise NotImplementedError
+        ''' Revert ordinal label to original label
+
+        Parameters
+        ----------
+        y : cudf.Series, dtype=int32
+            Ordinal labels waited to be reverted
+
+        Returns
+        -------
+        reverted : cudf.Series
+            Reverted labels
+        '''
+        self._check_is_fitted()
+
+        if isinstance(y, cudf.Series):
+            # convert int32 to string
+            str_ord_label = _enforce_str(y)
+            # then, convert int32 to original label in original dtype
+            reverted = _trans_back(str_ord_label, self._cats, self._dtype)
+        else:
+            raise TypeError(
+                'Input of type {} is not cudf.Series'.format(type(y)))
+
+        return reverted
