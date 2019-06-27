@@ -17,9 +17,9 @@
 
 def has_dask():
     try:
-        import dask
-        import dask.distributed
-        import dask.dataframe
+        import dask   # NOQA
+        import dask.distributed   # NOQA
+        import dask.dataframe   # NOQA
         return True
     except ImportError:
         return False
@@ -27,7 +27,7 @@ def has_dask():
 
 def has_cupy():
     try:
-        import cupy
+        import cupy   # NOQA
         return True
     except ImportError:
         return False
