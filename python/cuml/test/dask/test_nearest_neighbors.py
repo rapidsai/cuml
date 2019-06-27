@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import pytest
 from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait
 from dask_cuda import LocalCUDACluster
 
 
+@pytest.mark.skip
 def test_end_to_end():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
