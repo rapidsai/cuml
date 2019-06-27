@@ -33,7 +33,7 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
     int xidx = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
@@ -56,7 +56,7 @@ __global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
     int xidx = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a = x[xidx];
     auto b = y[yidx];
     auto diff = (a > b) ? (a - b) : (b - a);
@@ -83,7 +83,7 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
 
   for (int i = 0; i < k; ++i) {
     int xidx = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a = x[xidx];
     auto b = y[yidx];
     acc_a += a * a;
