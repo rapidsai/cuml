@@ -25,7 +25,7 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-cdef extern from "ml_comms_utils.h" namespace "ML":
+cdef extern from "cuML_comms.hpp" namespace "ML":
     void get_unique_id(char *uid)
     void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId)
 
