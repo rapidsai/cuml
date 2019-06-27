@@ -45,7 +45,7 @@ if os.environ.get('CONDA_PREFIX', None):
 
 exc_list = []
 
-libs = ['cuda', 'cuml++', 'rmm']
+libs = ['cuda', 'cuml++', 'cumlcomms', 'nccl', 'rmm']
 
 if "--multigpu" not in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
@@ -63,6 +63,8 @@ extensions = [
                             '../cpp/src_prims',
                             '../thirdparty/cutlass',
                             '../thirdparty/cub',
+                            # Ideally we enable this to be swapped out.
+                            '../cpp/nccl_comms/include',
                             cuda_include_dir,
                             rmm_include_dir],
               library_dirs=[get_python_lib()],
