@@ -74,6 +74,7 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
         sk_model = skrfc(n_estimators=40, max_depth=None,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
+
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_predict)

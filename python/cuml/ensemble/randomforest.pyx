@@ -105,7 +105,6 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                                     bool, bool, int, float, CRITERION,
                                     bool) except +
 
-
 cdef class RandomForest_impl():
 
     cpdef object handle
@@ -117,6 +116,7 @@ cdef class RandomForest_impl():
     cdef object max_features
     cdef object n_bins
     cdef object split_algo
+    cdef object quantile_per_tree
     cdef object split_criterion
     cdef object min_rows_per_node
     cdef object bootstrap
@@ -154,6 +154,7 @@ cdef class RandomForest_impl():
         self.bootstrap = bootstrap
         self.verbose = verbose
         self.n_bins = n_bins
+        self. quantile_per_tree = quantile_per_tree
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
         self.n_cols = None
@@ -472,7 +473,8 @@ class RandomForestClassifier(Base):
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None,
+                 quantile_per_tree=False):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
