@@ -14,8 +14,6 @@
 #
 from dask_cuda import LocalCUDACluster
 
-from sklearn.cluster import KMeans as sklKMeans
-
 from dask.distributed import Client, wait
 
 
@@ -60,7 +58,7 @@ def test_end_to_end():
     # Per gpu/worker
     train_m = 500
     train_n = 25
-    
+
     print("Building dask df")
     X_df = build_dask_df(train_m, train_n)
 
@@ -75,8 +73,6 @@ def test_end_to_end():
 
     print(str(cumlLabels.compute()))
 
+    assert 0 == 1
 
-    assert 0==1
     cluster.close()
-
-    

@@ -18,7 +18,6 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import os
-from pathlib import Path
 import versioneer
 from distutils.sysconfig import get_python_lib
 import sys
