@@ -61,11 +61,7 @@ def test_end_to_end():
     train_m = 500
     train_n = 25
 
-    search_m = 10
-    search_k = 15
-
     X_df = build_dask_df(train_m, train_n)
-    test_DF = build_dask_df(search_m, train_n)
 
     cumlModel = cumlKMeans()
     cumlModel.fit(X_df)
