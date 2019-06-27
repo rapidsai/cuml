@@ -26,8 +26,6 @@ from libcpp cimport bool
 
 from libc.stdint cimport uintptr_t
 
-import cudf
-
 cdef extern from "nccl.h":
 
     cdef struct ncclComm
@@ -55,9 +53,7 @@ def test_allreduce_on_comm(handle):
     """
     Performs a simple allreduce on a rank and returns whether
     or not it received values from the whole clique
-    :param handle: 
-    :return: 
-    """"
+    """
     cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
     return test_collective_allreduce(deref(h))
 
@@ -66,8 +62,6 @@ def test_send_recv_on_comm(handle):
     """
     Performs a simple p2p send/recv and returns whether or
     not it recieved values from the whole clique
-    :param handle:
-    :return:
     """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h))

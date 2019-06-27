@@ -13,33 +13,33 @@
 # limitations under the License.
 #
 
-# from dask_cuda import LocalCUDACluster
-#
-# from dask.distributed import Client, wait
-#
-# from cuml.dask.common import CommsBase
-# from cuml.dask.common.comms_utils import test_allreduce
+from dask_cuda import LocalCUDACluster
+
+from dask.distributed import Client, wait
+
+from cuml.dask.common import CommsBase
+from cuml.dask.common.comms_utils import test_allreduce
 
 
-# def test_allreduce_on_comms():
-#
-#     cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
-#     client = Client(cluster)
-#
-#     cb = CommsBase(comms_p2p = True, comms_coll = True)
-#     cb.init()
-#
-#     workers = client.has_what().keys()
-#
-#     print(str(workers))
-#
-#     # Create dfs on each worker (gpu)
-#     dfs = [client.submit(test_allreduce, handle)
-#            for handle in cb.handles]
-#     # Wait for completion
-#     wait(dfs)
-#
-#     print(str(dfs.compute()))
+def test_allreduce_on_comms():
+
+    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
+    client = Client(cluster)
+
+    cb = CommsBase(comms_p2p = True, comms_coll = True)
+    cb.init()
+
+    workers = client.has_what().keys()
+
+    print(str(workers))
+
+    # Create dfs on each worker (gpu)
+    dfs = [client.submit(test_allreduce, handle)
+           for handle in cb.handles]
+    # Wait for completion
+    wait(dfs)
+
+    print(str(dfs.compute()))
 
 
 
