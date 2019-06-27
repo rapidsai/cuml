@@ -155,6 +155,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
     if (ptr != 0) {
       ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
       ucp_ep_v[i] = *eps_ptr;
+      ucp_ep_print_info(*eps_ptr, stdout);
     } else {
       ucp_ep_v[i] = nullptr;
     }
