@@ -33,7 +33,7 @@ __global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x,
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
     int xidx = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
