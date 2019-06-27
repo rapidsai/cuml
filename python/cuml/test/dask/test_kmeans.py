@@ -21,7 +21,7 @@ from dask.distributed import Client, wait
 
 def test_end_to_end():
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
+    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
     client = Client(cluster)
 
     # NOTE: The LocalCUDACluster needs to be started before any imports that
@@ -32,7 +32,7 @@ def test_end_to_end():
     import cudf
     import numpy as np
 
-    from cuml.dask.cluster import KMeans as cumlKMeans
+    from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
 
     def create_df(f, m, n):
         X = np.random.uniform(-1, 1, (m, n))
@@ -60,19 +60,23 @@ def test_end_to_end():
     # Per gpu/worker
     train_m = 500
     train_n = 25
-
+    
+    print("Building dask df")
     X_df = build_dask_df(train_m, train_n)
 
+    print("Building model")
     cumlModel = cumlKMeans()
+
+    print("Fitting model")
     cumlModel.fit(X_df)
 
-    sklModel = sklKMeans()
-    sklModel.fit(X_df)
-
+    print("Predicting model")
     cumlLabels = cumlModel.predict(X_df)
-    sklLabels = sklModel.predict(X_df)
 
-    print(str(cumlLabels))
-    print(str(sklLabels))
+    print(str(cumlLabels.compute()))
 
+
+    assert 0==1
     cluster.close()
+
+    

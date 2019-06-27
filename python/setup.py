@@ -57,7 +57,7 @@ else:
 
 extensions = [
     Extension("*",
-              sources=['cuml/*/*.pyx'],
+              sources=['cuml/*/*/*.pyx'],
               include_dirs=['../cpp/src',
                             '../cpp/external',
                             '../cpp/src_prims',

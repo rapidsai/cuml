@@ -15,7 +15,7 @@
 
 from cuml.nccl import nccl
 
-from cuml.dask.common import inject_comms_on_handle
+from .comms_utils import inject_comms_on_handle
 from .utils import parse_host_port
 from cuml.common.handle import Handle
 
