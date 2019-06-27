@@ -293,7 +293,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
-    src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -315,8 +314,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     gpufaisslib
-    lapacke
-    cblas
     faisslib)
 
   if(OPENMP_FOUND)
