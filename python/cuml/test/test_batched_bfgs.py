@@ -158,8 +158,10 @@ def test_batched_lbfgs_rosenbrock():
     # print("|res_diff_ref|_max", np.max(res_ref.x-res_true))
 
     # our new batch-aware l-bfgs optimizer
-    res_xk, niter = batched_fmin_lbfgs(f, x0, num_batches, gf, iprint=-1, factr=100)
-    
+    res_xk, niter = batched_fmin_lbfgs(f, x0, num_batches, gf, iprint=-1, factr=100, alpha_per_batch=False)
+
+
+    print("NITER:", niter)
     # print("batched res_xk:", res_xk)
     print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
     np.testing.assert_almost_equal(np.max(np.abs(res_xk-res_true)), 0.0)

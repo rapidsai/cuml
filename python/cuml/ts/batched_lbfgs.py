@@ -3,6 +3,7 @@ import numpy as np
 from IPython.core.debugger import set_trace
 from .batched_linesearch import batched_line_search_wolfe1
 from scipy.optimize import _lbfgsb
+from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 
 from collections import deque
 
@@ -36,6 +37,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                          iprint=-1, maxfun=15000, maxiter=15000, disp=None,
                          callback=None, maxls=20):
 
+    pynvtx_range_push("LBFGS")
     n = len(x0) // num_batches
 
     if fprime is None and approx_grad is True:
@@ -84,7 +86,11 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     warn_flag = np.zeros(num_batches)
 
     while not all(converged):
+        pynvtx_range_push("LBFGS-ITERATION")
         for ib in range(num_batches):
+            if converged[ib]:
+                continue
+
             _lbfgsb.setulb(m, x[ib], low_bnd, upper_bnd, nbd, f[ib], g[ib], factr,
                            pgtol, wa[ib], iwa[ib], task[ib], iprint, csave[ib], lsave[ib],
                            isave[ib], dsave[ib], maxls)
@@ -113,6 +119,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 warn_flag[ib] = 2
                 continue
 
+        pynvtx_range_pop()
     xk = np.concatenate(x)
 
     if iprint > 0:
@@ -124,6 +131,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 if warn_flag[ib] > 0:
                     print("WARNING: id={} convergence issue: {}".format(ib, task[ib].tostring()))
 
+    pynvtx_range_pop()
     return xk, n_iterations, warn_flag
 
 

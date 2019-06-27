@@ -24,10 +24,11 @@ def paperTowelNoBatch(plot=False):
     np.set_printoptions(precision=6)
 
     ns = 44
-    nb = 10
+    nb = 240
     yb = np.zeros((ns, 1), order="F")
 
-    for (i, si) in enumerate(s[:nb]):
+    # for (i, si) in enumerate(s[:nb]):
+    for (i, si) in enumerate(s[160:161]):
         yb[:, 0] = si[0:ns]
         x0 = batched_arima.init_x0((1,1,1), yb[:,0])
         mu0, ar0, ma0 = batched_arima.unpack(1, 1, 1, x0)
@@ -35,12 +36,12 @@ def paperTowelNoBatch(plot=False):
                                                             mu0,
                                                             ar0,
                                                             ma0,
-                                                            opt_disp=1, gpu=True)
-        # print("batch results: ", batched_model.mu, batched_model.ar_params, batched_model.ma_params)
-        # y = yb[:, 0]
-        # sm_model = sm.ARIMA(y, (1, 1, 1))
-        # sm_model_fit = sm_model.fit(disp=-1)
-        # print("sm results: ", sm_model_fit.params)
+                                                            opt_disp=101, gpu=True)
+        print("batch results: ", batched_model.mu, batched_model.ar_params, batched_model.ma_params)
+        y = yb[:, 0]
+        sm_model = sm.ARIMA(y, (1, 1, 1))
+        sm_model_fit = sm_model.fit(disp=101)
+        print("sm results: ", sm_model_fit.params)
 
 def paperTowelBatch(plot=False):
     data = pd.read_csv("/home/max/dev/arima-experiments/data/data_paper_towel.csv",
@@ -51,23 +52,25 @@ def paperTowelBatch(plot=False):
     np.set_printoptions(precision=6)
 
     ns = 44
-    nb = 2
+    nb = 240
     yb = np.zeros((ns, nb), order="F")
 
     num_parameters = 3
     x0 = np.zeros(nb*num_parameters)
-
+    np.seterr(all='warn')
     for (i, si) in enumerate(s[:nb]):
         yb[:, i] = si[0:ns]
+        # np.seterr(all='raise')
         x0i = batched_arima.init_x0((1,1,1), yb[:,i])
+        # np.seterr(all='warn')
         x0[i*num_parameters:(i+1)*num_parameters] = x0i
-        
+
     mu0, ar0, ma0 = batched_arima.unpack(1, 1, nb, x0)
     batched_model = batched_arima.BatchedARIMAModel.fit(yb, (1, 1, 1),
                                                         mu0,
                                                         ar0,
                                                         ma0,
-                                                        opt_disp=1, h=1e-9, gpu=True)
+                                                        opt_disp=-1, h=1e-9, gpu=True)
     # tested on batch of 10 and 50, both had 36 iterations
     if nb == 50 or nb == 10:
         assert batched_model.niter == 36
@@ -210,4 +213,4 @@ def analyze_profile():
     p.sort_stats(SortKey.TIME).print_stats(20)
 
 if __name__ == "__main__":
-    paperTowelNoBatch(False)
+    paperTowelBatch(False)

@@ -151,16 +151,18 @@ def predict_in_sample(model: ARIMAModel, method="mle"):
 
 def forecast(model, nsteps, prev_values=None, method="mle"):
     return forecast_values(model.order, model.pred, model.ar_params, model.mu,
-                           nsteps, prev_values, method)
+                           nsteps, prev_values, model.y, method)
 
-def forecast_values(order, pred, ar_params, mu, nsteps, prev_values, method="mle"):
+def forecast_values(order, pred, ar_params, mu, nsteps, prev_values, y, method="mle"):
 
-    p, d, _ = order
+    p, d, q = order
 
     if prev_values is not None:
         nop = len(prev_values)
     else:
         nop = len(pred)
+
+    # resid = pred[] - y
 
     if nop < 1 or nop < len(ar_params):
         raise AssertionError("Forecast ERROR: Not enough previous values to compute forecast")
@@ -178,9 +180,9 @@ def forecast_values(order, pred, ar_params, mu, nsteps, prev_values, method="mle
     for t in range(nop, nop + nsteps):
         if d == 0:
             yp[t] = mu + np.dot(yp[t-len(ar_params):t],
-                                      ar_params)
+                                ar_params)
         elif d == 1:
-            # set_trace()
+            set_trace()
             yp[t] = yp[t-1] + mu
             if ar_params.size:
                 ypdiff = yp[t-p:t] - yp[t-p-1:t-1]

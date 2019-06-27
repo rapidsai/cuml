@@ -128,7 +128,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             alpha_b = np.zeros(num_batches)
             xkp1 = np.zeros(len(xk))
 
-            ls_option = 3
+            ls_option = 4
 
             if ls_option == 3:
                 ls_iterations = 0
@@ -213,11 +213,19 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                                                                                              f(xk),
                                                                                              args=(ib,))
 
+                                elif ls_option == 4:
+                                    alpha, fc, gc, fkp1, _, gkp1 = optimize.linesearch.line_search_wolfe1(f,
+                                                                                                          g, xk,
+                                                                                                          pk, gk,
+                                                                                                          args=(ib,),
+                                                                                                          amax=10)
+                                    # print("alpha=",alpha)set_
+                                
                                 if alpha is None or fkp1 is None:
-                                    print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
-                                                                          np.linalg.norm(pk[ib*r:(ib+1)*r])))
-                                    print("alpha={}, fkp1={}".format(alpha, fkp1))
-                                    print("INFO: Line search failed: Resetting H=I")
+                                    # print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
+                                                                          # np.linalg.norm(pk[ib*r:(ib+1)*r])))
+                                    # print("alpha={}, fkp1={}".format(alpha, fkp1))
+                                    print("INFO: Line search failed({}): Resetting H=I".format(k))
                                     Hk[:, ib*r:(ib+1)*r] = np.eye(r)
                                     line_search_iterations += 1
                                     if line_search_iterations > 5:
@@ -236,7 +244,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                                 line_search_iterations += 1
                                 if line_search_iterations > 5:
                                     raise ValueError("Line search failed to converge after 5 tries")
-                                print("INFO({}): Caught invalid step (FloatingPointError={}), resetting H=I".format(ib, fpe))
+                                print("INFO({}:{}): Caught invalid step (FloatingPointError={}), resetting H=I".format(k, ib, fpe))
                                 Hk[:, ib*r:(ib+1)*r] = np.eye(r)
                                 continue
 
@@ -246,6 +254,8 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
 
         else:
             ls_option = 1
+            for ib in range(num_batches):
+                pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
             
             # compute alpha for the global optimization problem
             if ls_option == 1:
@@ -285,6 +295,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                     break
 
             # take step along search direction with line-search-computed alpha stepsize
+            print("pk=", pk)
             xkp1 = xk + alpha*pk
             k_ls_reset = 0
 
@@ -322,9 +333,12 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         if disp > 0 and disp < 100:
             if k % disp == 0:
                 disp_amt = min(r, 4)
-                if isinstance(alpha_b, np.ndarray):
-                    print("k={:03d}: {:0.7f} | ({:0.7f}, {:0.7f}) | {}".format(k, f(xk), np.min(alpha_b), np.max(alpha_b),
-                                                                g(xkp1)[:disp_amt]))
+                if isinstance(alpha, np.ndarray):
+                    print("k={:03d}: {:0.7f} | ({:0.7f}, {:0.7f}) | ({:0.7e},{:0.7e})".format(k, f(xk),
+                                                                                              np.min(alpha_b),
+                                                                                              np.max(alpha_b),
+                                                                                              np.min(np.abs(g(xkp1))),
+                                                                                              np.max(np.abs(g(xkp1)))))
                 else:
                     print("k={:03d}: {:0.7f} | {} | {}".format(k, f(xk), alpha,
                                                                g(xkp1)[:disp_amt]))
