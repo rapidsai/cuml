@@ -35,7 +35,7 @@ def _trans_back(ser, categories, orig_dtype):
 
     Parameters
     ----------
-    ser : cudf.Series, dtype=object (string)
+    ser : cudf.Series, dtype=object (int)
         The series to be reverted
     categories : nvcategory.nvcategory
         Nvcategory that contains the keys to encoding
@@ -51,12 +51,12 @@ def _trans_back(ser, categories, orig_dtype):
     any digit !!
     '''
     # nvstrings.replace() doesn't take nvstrings for now, so need to_host()
-    ord_label = ser.data.to_host()
+    sorted_ord_label = ser.sort_values(ascending=False)
     keys = categories.keys().to_host()
 
-    reverted = ser.data
-    for ord_str in ord_label:
-        ord_int = int(ord_str)
+    reverted = ser.astype('str').data
+    for ord_int in sorted_ord_label:
+        ord_str = str(ord_int)
         if ord_int < 0 or ord_int >= len(categories.keys()):
             raise ValueError('Input label {} is out of bound'.format(ord_int))
         reverted = reverted.replace(ord_str, keys[ord_int])
@@ -246,10 +246,8 @@ class LabelEncoder(object):
         self._check_is_fitted()
 
         if isinstance(y, cudf.Series):
-            # convert int32 to string
-            str_ord_label = _enforce_str(y)
-            # then, convert int32 to original label in original dtype
-            reverted = _trans_back(str_ord_label, self._cats, self._dtype)
+            # convert int32 to original label in original dtype
+            reverted = _trans_back(y, self._cats, self._dtype)
         else:
             raise TypeError(
                 'Input of type {} is not cudf.Series'.format(type(y)))
