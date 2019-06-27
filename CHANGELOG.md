@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #766: Expose score method based on inertia for KMeans
+- PR #813: prims: Col major istance prim
 
 ## Improvements
 
