@@ -16,6 +16,6 @@
 
 from cuml.dask.common.comms_base import CommsBase
 
-from cuml.dask.common.comms_utils import inject_comms_on_handle, test_allreduce, test_send_recv
+from cuml.dask.common.comms_utils import inject_comms_on_handle
 
 from cuml.dask.common.dask_df_utils import get_meta, to_dask_cudf, extract_ddf_partitions

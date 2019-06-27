@@ -18,10 +18,10 @@ from dask_cuda import LocalCUDACluster
 from dask.distributed import Client, wait
 
 from cuml.dask.common import CommsBase
-from cuml.dask.common import test_allreduce
+from cuml.dask.common.comms_utils import test_allreduce
 
 
-def test_allreduce():
+def test_allreduce_on_comms():
 
     cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
     client = Client(cluster)
