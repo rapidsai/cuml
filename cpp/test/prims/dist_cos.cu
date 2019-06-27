@@ -47,10 +47,10 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 32, 1024, true, 1234ULL},
   {0.001, 32, 1024, 1024, true, 1234ULL},
   {0.003, 1024, 1024, 1024, true, 1234ULL},
-  // {0.001f, 1024, 1024, 32, false, 1234ULL},
-  // {0.001f, 1024, 32, 1024, false, 1234ULL},
-  // {0.001f, 32, 1024, 1024, false, 1234ULL},
-  // {0.003f, 1024, 1024, 1024, false, 1234ULL},
+  {0.001f, 1024, 1024, 32, false, 1234ULL},
+  {0.001f, 1024, 32, 1024, false, 1234ULL},
+  {0.001f, 32, 1024, 1024, false, 1234ULL},
+  {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceExpCos<double> DistanceExpCosD;
 TEST_P(DistanceExpCosD, Result) {
