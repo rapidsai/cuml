@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,23 +26,27 @@ namespace Distance {
 template <typename DataType>
 __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
                                     const DataType *y, int m, int n, int k,
-                                    DistanceType type) {
+                                    DistanceType type, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
-    auto diff = x[i + midx * k] - y[i + nidx * k];
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    auto diff = x[xidx] - y[idx];
     acc += diff * diff;
   }
   if (type == EucExpandedL2Sqrt || type == EucUnexpandedL2Sqrt)
     acc = mySqrt(acc);
-  dist[midx * n + nidx] = acc;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
 }
 
 template <typename DataType>
 __global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
-                                      const DataType *y, int m, int n, int k) {
+                                      const DataType *y, int m, int n, int k,
+                                      bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -51,19 +55,22 @@ __global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
 
   DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
-    auto a = x[i + midx * k];
-    auto b = y[i + nidx * k];
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    auto a = x[xidx];
+    auto b = y[yidx];
     auto diff = (a > b) ? (a - b) : (b - a);
     acc += diff;
   }
 
-  dist[midx * n + nidx] = acc;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
 }
 
 template <typename DataType>
 __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
                                           const DataType *y, int m, int n,
-                                          int k) {
+                                          int k, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -75,35 +82,40 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
   DataType acc_ab = DataType(0);
 
   for (int i = 0; i < k; ++i) {
-    auto a = x[i + midx * k];
-    auto b = y[i + nidx * k];
-
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + midx;
+    auto a = x[xidx];
+    auto b = y[yidx];
     acc_a += a * a;
     acc_b += b * b;
     acc_ab += a * b;
   }
 
-  dist[midx * n + nidx] = acc_ab / (mySqrt(acc_a) * mySqrt(acc_b));
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc_ab / (mySqrt(acc_a) * mySqrt(acc_b));
 }
 
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
-                   int n, int k, DistanceType type) {
+                   int n, int k, DistanceType type, bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
     case EucUnexpandedL1:
-      naiveL1DistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
+      naiveL1DistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case EucUnexpandedL2Sqrt:
     case EucUnexpandedL2:
     case EucExpandedL2Sqrt:
     case EucExpandedL2:
-      naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type);
+      naiveDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case EucExpandedCosine:
-      naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
+      naiveCosineDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
       FAIL() << "should be here\n";
@@ -115,6 +127,7 @@ template <typename DataType>
 struct DistanceInputs {
   DataType tolerance;
   int m, n, k;
+  bool isRowMajor;
   unsigned long long int seed;
 };
 
@@ -128,13 +141,13 @@ template <DistanceType distanceType, typename DataType, typename OutputTile_t>
 void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
                       int m, int n, int k, DistanceInputs<DataType> &params,
                       DataType threshold, char *workspace, size_t worksize,
-                      cudaStream_t stream) {
+                      cudaStream_t stream, bool isRowMajor) {
   auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
     dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
     return d_val;
   };
   distance<distanceType, DataType, DataType, DataType, OutputTile_t>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
+    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
 }
 
 template <DistanceType distanceType, typename DataType>
@@ -146,6 +159,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
+    bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(x, m * k);
@@ -155,12 +169,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     allocate(dist2, m * n);
     r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
     r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
-    naiveDistance(dist_ref, x, y, m, n, k, distanceType);
+    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
     char *workspace = nullptr;
     size_t worksize =
       getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n,
                                                                    k);
-
     if (worksize != 0) {
       allocate(workspace, worksize);
     }
@@ -169,7 +182,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     DataType threshold = -10000.f;
     distanceLauncher<distanceType, DataType, OutputTile_t>(
       x, y, dist, dist2, m, n, k, params, threshold, workspace, worksize,
-      stream);
+      stream, isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
