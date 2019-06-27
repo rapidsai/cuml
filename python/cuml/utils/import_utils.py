@@ -17,10 +17,11 @@
 
 def has_dask():
     try:
-        import dask
+        import dask.distributed
         return True
     except ImportError:
         return False
+
 
 def has_cupy():
     try:
