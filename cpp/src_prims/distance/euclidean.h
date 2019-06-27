@@ -47,21 +47,21 @@ namespace Distance {
  * @param worksize number of bytes of the workspace
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
                     InType const *pB, OutType *pD, bool enable_sqrt,
                     AccType *workspace, size_t &worksize, FinalLambda fin_op,
-                    cudaStream_t stream) {
+                    cudaStream_t stream, bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(InType in) { return in; };
   distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
                 FinalLambda, decltype(norm_op), Index_>(
     m, n, k, pA, pB, pD, enable_sqrt, workspace, worksize, fin_op, norm_op,
-    stream);
+    stream, isRowMajor);
 }
 
 /**
@@ -88,8 +88,7 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
                     InType const *pB, OutType *pD, bool enable_sqrt,
-                    FinalLambda fin_op, cudaStream_t stream,
-                    bool isRowMajor = true) {
+                    FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
