@@ -26,3 +26,6 @@ log
 
 ## Pycharm
 .idea
+
+## ccls
+.ccls-cache
