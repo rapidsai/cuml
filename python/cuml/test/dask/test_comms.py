@@ -27,19 +27,16 @@ def test_allreduce():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase(comms_p2p = True, comms_coll = True)
+    cb = CommsBase(comms_p2p=True, comms_coll=True)
     cb.init()
 
     workers = client.has_what().keys()
 
     print(str(workers))
 
-    # Create dfs on each worker (gpu)
-    dfs = [client.submit(perform_test_comms_allreduce, handle, workers = [w])
+    dfs = [client.submit(perform_test_comms_allreduce, handle, workers=[w])
            for wid, w, handle in cb.handles]
 
-
-    # Wait for completion
     wait(dfs)
 
     print(str(list(map(lambda x: x.result(), dfs))))

@@ -44,7 +44,8 @@ class CommsBase:
         self.sessionId = uuid.uuid4().bytes
 
         self.worker_addresses = self.get_workers_()
-        self.workers = list(map(lambda x: parse_host_port(x), self.worker_addresses))
+        self.workers = list(map(lambda x: parse_host_port(x),
+                                self.worker_addresses))
 
     def __dealloc__(self):
         self.destroy()
@@ -69,7 +70,8 @@ class CommsBase:
 
     def worker_info(self):
         """
-        Builds a dictionary of { (worker_address, worker_port) : (worker_rank, worker_port ) }
+        Builds a dictionary of { (worker_address, worker_port) :
+                                (worker_rank, worker_port ) }
         """
         ranks = self.worker_ranks() if self.comms_coll else None
         ports = self.worker_ports() if self.comms_p2p else None
@@ -107,10 +109,12 @@ class CommsBase:
     async def ucp_create_listener(sessionId, r):
         dask_worker = get_worker()
         if sessionId in dask_worker.data:
-            print("Listener already started for sessionId=" + str(sessionId))
+            print("Listener already started for sessionId=" +
+                  str(sessionId))
         else:
             ucp.init()
-            listener = ucp.start_listener(connection_func, 0, is_coroutine=True)
+            listener = ucp.start_listener(connection_func, 0,
+                                          is_coroutine=True)
 
             dask_worker.data[sessionId] = listener
             task = asyncio.create_task(listener.coroutine)
@@ -133,14 +137,17 @@ class CommsBase:
 
     def create_ucp_listeners(self):
         """
-        Build a UCP listener on each worker. Since this async function is long-running, the listener is
+        Build a UCP listener on each worker. Since this async
+        function is long-running, the listener is
         placed in the worker's data dict.
 
-        NOTE: This is not the most ideal design because the worker's data dict could be serialized at
-        any point, which would cause an error. Need to sync w/ the Dask team to see if there's a better
+        NOTE: This is not the most ideal design because the worker's
+        data dict could be serialized at any point, which would cause
+        an error. Need to sync w/ the Dask team to see if there's a better
         way to do this.
         """
-        [self.client.run(CommsBase.ucp_create_listener, self.sessionId, random.random(), workers=[w], wait=False) for w
+        [self.client.run(CommsBase.ucp_create_listener, self.sessionId,
+                         random.random(), workers=[w], wait=False) for w
          in
          self.worker_addresses]
 
@@ -149,14 +156,16 @@ class CommsBase:
         Return the UCP listener ports attached to this session
         """
         self.ucp_ports = [
-            (w, self.client.submit(CommsBase.func_get_ucp_port, self.sessionId, random.random(), workers=[w]).result())
+            (w, self.client.submit(CommsBase.func_get_ucp_port, self.sessionId,
+                                   random.random(), workers=[w]).result())
             for w in self.workers]
 
     def stop_ucp_listeners(self):
         """
         Stops the UCP listeners attached to this session
         """
-        a = [c.submit(CommsBase.ucp_stop_listener, self.sessionId, random.random(), workers=[w])
+        a = [c.submit(CommsBase.ucp_stop_listener, self.sessionId,
+                      random.random(),workers=[w])
              for w in self.workers]
         wait(a)
 
@@ -166,7 +175,8 @@ class CommsBase:
         ucp_worker = ucp.get_ucp_worker()
 
         handle = Handle()
-        inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps, nWorkers, workerId)
+        inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
+                               nWorkers, workerId)
         return handle
 
     def init_nccl(self):
@@ -178,11 +188,12 @@ class CommsBase:
 
         workers_indices = list(zip(self.workers, range(len(self.workers))))
 
-        self.nccl_clique = [(idx, worker, self.client.submit(CommsBase.func_init_nccl,
-                                                             idx,
-                                                             len(self.workers),
-                                                             self.uniqueId,
-                                                             workers=[worker]))
+        self.nccl_clique = [(idx, worker,
+                             self.client.submit(CommsBase.func_init_nccl,
+                                                idx,
+                                                len(self.workers),
+                                                self.uniqueId,
+                                                workers=[worker]))
                             for worker, idx in workers_indices]
 
     def init_ucp(self):
@@ -206,7 +217,11 @@ class CommsBase:
         eps_futures = dict(self.ucp_endpoints)
 
         self.handles = [(wid, w,
-                         self.client.submit(CommsBase.func_build_handle, f, eps_futures[w], len(self.workers), wid,
+                         self.client.submit(CommsBase.func_build_handle,
+                                            f,
+                                            eps_futures[w],
+                                            len(self.workers),
+                                            wid,
                                             workers=[w]))
                         for wid, w, f in self.nccl_clique]
 
@@ -246,11 +261,14 @@ class CommsBase:
 
         worker_info = self.worker_info()
 
-        [self.client.run(CommsBase.func_ucp_create_endpoints, self.sessionId, worker_info, random.random(), workers=[w],
+        [self.client.run(CommsBase.func_ucp_create_endpoints, self.sessionId,
+                         worker_info, random.random(), workers=[w],
                          wait=True)
          for w in self.worker_addresses]
 
-        ret = [(w, self.client.submit(CommsBase.func_get_endpoints, self.sessionId, random.random(), workers=[w])) for w
+        ret = [(w, self.client.submit(CommsBase.func_get_endpoints,
+                                      self.sessionId, random.random(),
+                                      workers=[w])) for w
                in self.workers]
         wait(ret)
 
@@ -267,8 +285,9 @@ class CommsBase:
         """
         Destroys all NCCL communicators on workers
         """
-        a = [self.client.submit(CommsBase.func_destroy_nccl, f, random.random(), workers=[w]) for wid, w, f in
-             self.nccl_clique]
+        a = [self.client.submit(CommsBase.func_destroy_nccl, f,
+                                random.random(), workers=[w])
+             for wid, w, f in self.nccl_clique]
         wait(a)
 
     def func_destroy_ep(eps, r):
@@ -283,8 +302,9 @@ class CommsBase:
         """
         Destroys all UCP endpoints on all workers
         """
-        a = [self.client.submit(CommsBase.func_destroy_ep, f, random.random(), workers=[w]) for w, f in
-             self.ucp_endpoints]
+        a = [self.client.submit(CommsBase.func_destroy_ep, f,
+                                random.random(), workers=[w])
+             for w, f in self.ucp_endpoints]
         wait(a)
 
     def destroy_ucp(self):

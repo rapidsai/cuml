@@ -16,8 +16,6 @@
 from cuml.dask.common import CommsBase, extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
 
-from dask.distributed import wait, get_worker
-
 import random
 
 
@@ -25,7 +23,8 @@ class KMeans(CommsBase):
 
     def __init__(self, n_clusters=8, init_method="random", verbose=0):
         super(KMeans, self).__init__(comms_coll=True, comms_p2p=True)
-        self.init_(n_clusters=n_clusters, init_method=init_method, verbose=verbose)
+        self.init_(n_clusters=n_clusters, init_method=init_method,
+                   verbose=verbose)
 
     def init_(self, n_clusters, init_method, verbose=0):
         """
@@ -34,8 +33,13 @@ class KMeans(CommsBase):
         self.init()
 
         self.kmeans = [(w, self.client.submit(KMeans.func_build_kmeans_,
-                                    a, n_clusters, init_method, verbose, i,
-                                    workers=[w])) for i, w, a in self.handles]
+                                              a,
+                                              n_clusters,
+                                              init_method,
+                                              verbose,
+                                              i,
+                                              workers=[w]))
+                       for i, w, a in self.handles]
         wait(self.kmeans)
 
     @staticmethod
@@ -43,7 +47,8 @@ class KMeans(CommsBase):
         """
         Create local KMeans instance on worker
         """
-        return cumlKMeans(handle=handle, init=init_method, n_clusters=n_clusters, verbose=verbose)
+        return cumlKMeans(handle=handle, init=init_method,
+                          n_clusters=n_clusters, verbose=verbose)
 
     @staticmethod
     def func_fit(model, df, r): return model.fit(df)
@@ -57,9 +62,9 @@ class KMeans(CommsBase):
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
 
         f = [self.client.submit(func,  # Function to run on worker
-                      worker_model_map[w],  # Model instance
-                      f,  # Input DataFrame partition
-                      random.random())  # Worker ID
+                                worker_model_map[w],  # Model instance
+                                f,  # Input DataFrame partition
+                                random.random())  # Worker ID
              for w, f in gpu_futures]
         wait(f)
         return f
