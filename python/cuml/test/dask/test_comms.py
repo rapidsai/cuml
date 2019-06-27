@@ -67,9 +67,3 @@ def test_send_recv():
     print(str(list(map(lambda x: x.result(), dfs))))
 
     assert(list(map(lambda x: x.result(), dfs)))
-
-
-
-
-
-
