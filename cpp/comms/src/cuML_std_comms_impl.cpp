@@ -267,10 +267,8 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   struct ucx_context *ucp_request =
     ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag);
 
-  //pthread_mutex_lock(&m);
   _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
   *request = req_id;
-  //pthread_mutex_unlock(&m);
 }
 
 void cumlStdCommunicator_impl::waitall(int count,
