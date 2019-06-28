@@ -15,17 +15,20 @@
 
 from cuml.nccl import nccl
 
-from .comms_utils import inject_comms_on_handle
+from .comms_utils import inject_comms_on_handle, inject_comms_on_handle_coll_only
 from .utils import parse_host_port
 from cuml.common.handle import Handle
 
 from dask.distributed import wait, get_worker, default_client
 
+from cuml.utils.import_utils import has_ucp
+import warnings
+
+if has_ucp():
+    import ucp
+
 import random
-
 import asyncio
-import ucp
-
 import uuid
 
 
@@ -43,14 +46,12 @@ class CommsBase:
     calling `destroy()` to clean up the underlying comms.
     """
 
-    def __init__(self, comms_coll=True, comms_p2p=False):
+    def __init__(self, comms_p2p=False):
         """
         Construct a new BaseComms instance
-        :param comms_coll: bool Should collective comms be initialized?
         :param comms_p2p: bool Should p2p comms be initialized?
         """
         self.client = default_client()
-        self.comms_coll = comms_coll
         self.comms_p2p = comms_p2p
 
         # Used to identify this distinct session on workers
@@ -59,6 +60,13 @@ class CommsBase:
         self.worker_addresses = self.get_workers_()
         self.workers = list(map(lambda x: parse_host_port(x),
                                 self.worker_addresses))
+
+        self.nccl_initialized = False
+        self.ucx_initialized = False
+
+        if comms_p2p and not has_ucp():
+            warnings.warn("ucx-py not found. UCP Integration will be disabled.")
+            self.comms_p2p = False
 
     def get_workers_(self):
         """
@@ -83,19 +91,17 @@ class CommsBase:
         Builds a dictionary of { (worker_address, worker_port) :
                                 (worker_rank, worker_port ) }
         """
-        ranks = self.worker_ranks() if self.comms_coll else None
+        ranks = self.worker_ranks()
         ports = self.worker_ports() if self.comms_p2p else None
 
-        if self.comms_coll and self.comms_p2p:
+        if self.comms_p2p:
             output = {}
             for k in self.worker_ranks().keys():
                 output[k] = (ranks[k], ports[k])
             return output
 
-        elif self.comms_coll:
+        else:
             return ranks
-        elif self.comms_p2p:
-            return ports
 
     @staticmethod
     def func_init_nccl(workerId, nWorkers, uniqueId):
@@ -199,7 +205,7 @@ class CommsBase:
         wait(a)
 
     @staticmethod
-    def func_build_handle(nccl_comm, eps, nWorkers, workerId):
+    def func_build_handle_p2p(nccl_comm, eps, nWorkers, workerId):
         """
         Builds a cumlHandle on the current worker given the initialized comms
         :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -214,6 +220,20 @@ class CommsBase:
         inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
                                nWorkers, workerId)
         return handle
+
+    @staticmethod
+    def func_build_handle(nccl_comm, nWorkers, workerId):
+        """
+        Builds a cumlHandle on the current worker given the initialized comms
+        :param nccl_comm: ncclComm_t Initialized NCCL comm
+        :param nWorkers: int number of workers in cluster
+        :param workerId: int Rank of current worker
+        :return:
+        """
+        handle = Handle()
+        inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
+        return handle
+
 
     def init_nccl(self):
         """
@@ -232,6 +252,8 @@ class CommsBase:
                                                 workers=[worker]))
                             for worker, idx in workers_indices]
 
+        self.nccl_initialized = True
+
     def init_ucp(self):
         """
         Use ucx-py to initialize ucp endpoints so that every
@@ -241,32 +263,37 @@ class CommsBase:
         self.get_ucp_ports()
         self.ucp_create_endpoints()
 
+        self.ucx_initialized = True
+
     def init(self):
         """
-        Initializes the underlying comms. If `comms_coll==True`, NNCL is
-        initilaized. If `comms_coll==False`, UCX is initialized.
-
-        @todo: Currently UCX & NCCL are both required. Need to fix this.
-        :return:
+        Initializes the underlying comms. NCCL is required but
+        UCX is only initialized if `comms_p2p == True`
         """
-        if self.comms_coll:
-            self.init_nccl()
+        self.init_nccl()
 
         if self.comms_p2p:
             self.init_ucp()
 
-        # Combine ucp ports w/ nccl ranks
+            eps_futures = dict(self.ucp_endpoints)
 
-        eps_futures = dict(self.ucp_endpoints)
+            self.handles = [(wid, w,
+                             self.client.submit(CommsBase.func_build_handle_p2p,
+                                                f,
+                                                eps_futures[w],
+                                                len(self.workers),
+                                                wid,
+                                                workers=[w]))
+                            for wid, w, f in self.nccl_clique]
+        else:
+            self.handles = [(wid, w,
+                             self.client.submit(CommsBase.func_build_handle,
+                                                f,
+                                                len(self.workers),
+                                                wid,
+                                                workers=[w]))
+                            for wid, w, f in self.nccl_clique]
 
-        self.handles = [(wid, w,
-                         self.client.submit(CommsBase.func_build_handle,
-                                            f,
-                                            eps_futures[w],
-                                            len(self.workers),
-                                            wid,
-                                            workers=[w]))
-                        for wid, w, f in self.nccl_clique]
 
     @staticmethod
     async def func_ucp_create_endpoints(sessionId, worker_info, r):
@@ -275,7 +302,6 @@ class CommsBase:
         :param sessionId: uuid unique id for this instance
         :param worker_info: dict Maps worker address to rank & UCX port
         :param r: float a random number to stop the function from being cached
-
         """
         dask_worker = get_worker()
         local_address = parse_host_port(dask_worker.address)
@@ -374,6 +400,7 @@ class CommsBase:
         Shuts down initialized comms and cleans up resources.
         """
 
+        # Free handles
         self.handles = None
 
         if self.comms_p2p:
@@ -381,7 +408,6 @@ class CommsBase:
             self.ucp_ports = None
             self.ucp_endpoints = None
 
-        if self.comms_coll:
-            # TODO: Figure out why this fails when UCP + NCCL are both used
-            #             self.destroy_nccl()
-            self.nccl_clique = None
+        # TODO: Figure out why this fails when UCP + NCCL are both used
+        #             self.destroy_nccl()
+        self.nccl_clique = None

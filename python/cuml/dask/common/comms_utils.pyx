@@ -47,6 +47,11 @@ cdef extern from "cuML_comms.hpp" namespace "ML":
                          int size,
                          int rank)
 
+    void inject_comms_py_coll(cumlHandle *handle,
+                           ncclComm_t comm,
+                           int size,
+                           int rank)
+
 
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
@@ -70,6 +75,26 @@ def perform_test_comms_send_recv(handle, n_trials):
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
 
+def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
+    """
+    Given a handle and initialized nccl comm, creates a cumlCommunicator
+    instance and injects it into the handle.
+    :param handle: Handle cumlHandle to inject comms into
+    :param nccl_inst: ncclComm_t initialized nccl comm
+    :param size: int number of workers in cluster
+    :param rank: int rank of current worker
+    """
+
+    cdef size_t handle_size_t = <size_t>handle.getHandle()
+    handle_ = <cumlHandle*>handle_size_t
+
+    cdef size_t nccl_comm_size_t = <size_t>nccl_inst.get_comm()
+    nccl_comm_ = <ncclComm_t*>nccl_comm_size_t
+
+    inject_comms_py_coll(handle_,
+                      deref(nccl_comm_),
+                      size,
+                      rank)
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     """
@@ -81,7 +106,6 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     :param eps: size_t array of initialized ucp_ep_h instances
     :param size: int number of workers in cluster
     :param rank: int rank of current worker
-    :return:
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 

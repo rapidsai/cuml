@@ -132,6 +132,17 @@ void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
   handle.getImpl().setCommunicator(communicator);
 }
 
+void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
+  auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
+    std::unique_ptr<MLCommon::cumlCommunicator_iface>(
+      new cumlStdCommunicator_impl(comm, nullptr, nullptr, size, rank)));
+  handle.getImpl().setCommunicator(communicator);
+}
+
+void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size, int rank) {
+  inject_comms(*handle, comm, size, rank);
+}
+
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
   ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
@@ -226,6 +237,9 @@ void cumlStdCommunicator_impl::barrier() const {
 
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
                                      int tag, request_t *request) const {
+
+  ASSERT(_ucp_worker != nullptr, "ERROR: UCX comms not initialized on communicator.");
+
   request_t req_id;
   if (_free_requests.empty())
     req_id = _next_request_id++;
@@ -252,6 +266,9 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
+
+  ASSERT(_ucp_worker != nullptr, "ERROR: UCX comms not initialized on communicator.");
+
   request_t req_id;
   if (_free_requests.empty())
     req_id = _next_request_id++;
@@ -273,6 +290,9 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
 void cumlStdCommunicator_impl::waitall(int count,
                                        request_t array_of_requests[]) const {
+
+  ASSERT(_ucp_worker != nullptr, "ERROR: UCX comms not initialized on communicator.");
+
   printf("Inside waitall for rank: %d\n", getRank());
   std::vector<struct ucx_context *> requests;
   for (int i = 0; i < count; ++i) {

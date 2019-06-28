@@ -31,3 +31,11 @@ def has_cupy():
         return True
     except ImportError:
         return False
+
+
+def has_ucp():
+    try:
+        import ucp      #NOQA
+        return True
+    except ImportError:
+        return False
