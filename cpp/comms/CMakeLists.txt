@@ -20,6 +20,11 @@ project(cuML-comms VERSION 0.8.0 LANGUAGES CXX CUDA)
 set(CUML_DIR ${PROJECT_SOURCE_DIR}/.. CACHE STRING "Path to the cuML repo")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
+option(WITH_UCX "Uses UCX for p2p comms" OFF)
+
+
+message(${WITH_UCX})
+
 find_package(NCCL REQUIRED)
 find_package(CUDA 9.0 REQUIRED)
 
@@ -35,9 +40,20 @@ set(CUML_LIBRARY ${_CUML_LIBRARY} CACHE STRING "Path to the cuML lib")
 unset(_CUML_LIBRARY)
 unset(_CUML_LIBRARY_HINTS)
 
-include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_DIR}/src ${CUML_DIR}/src_prims ${UCX_PATH}/include )
+add_compile_definitions(WITH_UCX=${WITH_UCX})
 
-set(CUML_LINK_LIBRARIES ${CUML_LIBRARY}  ucp uct ucm ucs pthread)
+include_directories( include 
+	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} 
+	${CUML_DIR}/src 
+	${CUML_DIR}/src_prims 
+	${UCX_PATH}/include
+)
+
+set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
+
+if(WITH_UCX)
+set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ucp uct ucm ucs pthread)
+endif(WITH_UCX)
 
 add_definitions(-DHAVE_NCCL)
 include_directories( ${NCCL_INCLUDE_DIRS} )

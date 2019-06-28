@@ -22,14 +22,18 @@
 
 #include <nccl.h>
 
+#if WITH_UCX == 1
 #include <ucp/api/ucp.h>
+#endif
 
 #include <common/cuml_comms_iface.hpp>
 
+#if WITH_UCX == 1
 struct ucx_context {
   int completed;
   bool needs_release = true;
 };
+#endif
 
 namespace ML {
 
@@ -37,8 +41,12 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
  public:
   cumlStdCommunicator_impl() = delete;
 
+#if WITH_UCX == 1
   cumlStdCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker,
                            std::shared_ptr<ucp_ep_h*> eps, int size, int rank);
+#endif
+
+  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank);
 
   virtual ~cumlStdCommunicator_impl();
 
@@ -82,15 +90,18 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
  private:
   ncclComm_t _nccl_comm;
+
+#if WITH_UCX == 1
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
-  int _size;
-  int _rank;
-
   mutable request_t _next_request_id;
   mutable std::unordered_map<request_t, struct ucx_context*>
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
+#endif
+
+  int _size;
+  int _rank;
 };
 
 }  // end namespace ML

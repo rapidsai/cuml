@@ -27,6 +27,7 @@ from cuml.dask.common import perform_test_comms_allreduce
 def test_comms_init_no_p2p():
 
     cluster = LocalCUDACluster(threads_per_worker=1)    #NOQA
+    client = Client(cluster)
 
     cb = CommsBase()
     cb.init()

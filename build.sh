@@ -136,7 +136,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
           ${GPU_ARCH} \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_UCX=OFF ..
 fi
 
 # Build and (optionally) install libcuml + tests
