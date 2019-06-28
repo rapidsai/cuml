@@ -31,6 +31,13 @@ class IPCThread(Thread):
     """
 
     def __init__(self, ipcs, device):
+        """
+        Initializes the thread with the given IPC handles for the
+        given device
+        :param ipcs: list[ipc] list of ipc handles with memory on the
+                     given device
+        :param device: device id to use.
+        """
 
         Thread.__init__(self)
 
@@ -45,6 +52,10 @@ class IPCThread(Thread):
         self.running = False
 
     def run(self):
+        """
+        Starts the current Thread instance enabling memory from the selected
+        device to be used.
+        """
 
         select_device(self.device)
 

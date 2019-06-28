@@ -27,6 +27,8 @@ from dask.distributed import wait
 def extract_ddf_partitions(ddf):
     """
     Given a Dask cuDF, return a tuple with (worker, future) for each partition
+    :param ddf: Dask.dataframe split dataframe partitions into a list of
+               futures.
     """
     client = default_client()
 
@@ -50,11 +52,21 @@ def extract_ddf_partitions(ddf):
 
 
 def get_meta(df):
+    """
+    Return the metadata from a single dataframe
+    :param df: cudf.dataframe
+    :return: Row data from the first row of the dataframe
+    """
     ret = df.iloc[:0]
     return ret
 
 
 def to_dask_cudf(futures):
+    """
+    Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
+    :param futures: list[cudf.Dataframe] list of futures containing dataframes
+    :return: dask.Dataframe a dask.Dataframe
+    """
     c = default_client()
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA

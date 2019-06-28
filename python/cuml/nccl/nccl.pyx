@@ -66,6 +66,12 @@ cdef extern from "nccl.h":
 
 
 def unique_id():
+    """
+    Returns a new ncclUniqueId converted to a
+    character array that can be safely serialized
+    and shared to a remote worker.
+    :return: string a 128-byte unique id string
+    """
     cdef char *uid = <char *> malloc(128 * sizeof(char))
     get_unique_id(uid)
     c_str = uid[:127]
@@ -74,7 +80,10 @@ def unique_id():
 
 
 cdef class nccl:
-
+    """
+    A NCCL wrapper for initializing and closing NCCL comms
+    in Python.
+    """
     cdef ncclComm_t *comm
 
     cdef int size
@@ -93,9 +102,20 @@ cdef class nccl:
 
     @staticmethod
     def get_unique_id():
+        """
+        Returns a new nccl unique id
+        :return: string nccl unique id
+        """
         return unique_id()
 
     def init(self, nranks, commId, rank):
+        """
+        Construct a nccl-py object
+        :param nranks: int size of clique
+        :param commId: string unique id from client
+        :param rank: int rank of current worker
+        :return: 
+        """
 
         self.size = nranks
         self.rank = rank
@@ -113,7 +133,9 @@ cdef class nccl:
             print("NCCL_ERROR: %s" % err_str)
 
     def destroy(self):
-
+        """
+        Call destroy on the underlying NCCL comm
+        """
         comm_ = <ncclComm_t*>self.comm
 
         cdef ncclResult_t result
@@ -128,7 +150,9 @@ cdef class nccl:
             self.comm = NULL
 
     def abort(self):
-
+        """
+        Call abort on the underlying nccl comm
+        """
         comm_ = <ncclComm_t*>self.comm
         cdef ncclResult_t result
         if comm_ != NULL:
@@ -141,6 +165,10 @@ cdef class nccl:
             self.comm = NULL
 
     def cu_device(self):
+        """
+        Get the device backing the underlying comm
+        :returns int device id
+        """
         cdef int *dev = <int*>malloc(sizeof(int))
 
         comm_ = <ncclComm_t*>self.comm
@@ -155,6 +183,10 @@ cdef class nccl:
         return ret
 
     def user_rank(self):
+        """
+        Get the rank id of the current comm
+        :return: int rank
+        """
 
         cdef int *rank = <int*>malloc(sizeof(int))
 
@@ -171,4 +203,9 @@ cdef class nccl:
         return ret
 
     def get_comm(self):
+        """
+        Returns the underlying nccl comm in a size_t (similar to void*).
+        This can be safely typecasted from size_t into ncclComm_t*
+        :return: size_t ncclComm_t instance
+        """
         return <size_t>self.comm

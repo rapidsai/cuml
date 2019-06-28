@@ -38,6 +38,8 @@ from cuml.metrics.regression import r2_score
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+from cuml.utils.pointer_utils import device_of_gpu_matrix
+
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN

@@ -28,7 +28,6 @@ from libc.stdint cimport uintptr_t
 cdef extern from "nccl.h":
 
     cdef struct ncclComm
-
     ctypedef ncclComm *ncclComm_t
 
 
@@ -48,25 +47,42 @@ cdef extern from "cuML_comms.hpp" namespace "ML":
                          int size,
                          int rank)
 
+
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h)
 
 
 def perform_test_comms_allreduce(handle):
-
+    """
+    Performs an allreduce on the current worker 
+    :param handle: Handle handle containing cumlCommunicator to use
+    """
     cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
     return test_collective_allreduce(deref(h))
 
 
 def perform_test_comms_send_recv(handle):
-
+    """
+    Performs a p2p send/recv on the current worker
+    :param handle: Handle handle containing cumlCommunicator to use
+    """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h))
 
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
-
+    """
+    Given a handle and initialized comms, creates a cumlCommunicator instance
+    and injects it into the handle.
+    :param handle: Handle cumlHandle to inject comms into
+    :param nccl_inst: ncclComm_t initialized nccl comm
+    :param ucp_worker: size_t initialized ucp_worker_h instance
+    :param eps: size_t array of initialized ucp_ep_h instances
+    :param size: int number of workers in cluster
+    :param rank: int rank of current worker
+    :return:
+    """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
     cdef size_t ep_st
