@@ -42,7 +42,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly \
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       cudf=${CUDF_VERSION} \
       rmm=${RMM_VERSION} \
       nvstrings=${NVSTRINGS_VERSION} \
@@ -50,6 +50,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly \
       umap-learn \
       libclang \
       cupy \
+      nccl \
       dask \
       dask-cuda
 

@@ -35,7 +35,7 @@ def has_cupy():
 
 def has_ucp():
     try:
-        import ucp      #NOQA
+        import ucp  # NOQA
         return True
     except ImportError:
         return False

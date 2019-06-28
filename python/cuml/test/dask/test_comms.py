@@ -26,20 +26,20 @@ from cuml.dask.common import perform_test_comms_allreduce
 @pytest.mark.skip
 def test_comms_init_no_p2p():
 
-    cluster = LocalCUDACluster(threads_per_worker=1)    #NOQA
-    client = Client(cluster)
+    cluster = LocalCUDACluster(threads_per_worker=1)
+    client = Client(cluster)  # noqa
 
     cb = CommsBase()
     cb.init()
 
-    assert cb.nccl_initialized == True
-    assert cb.ucx_initialized == False
+    assert cb.nccl_initialized is True
+    assert cb.ucx_initialized is False
 
     cb = CommsBase(comms_p2p=True)
     cb.init()
 
-    assert cb.nccl_initialized == True
-    assert cb.ucx_initialized == True
+    assert cb.nccl_initialized is True
+    assert cb.ucx_initialized is True
 
 
 @pytest.mark.skip
