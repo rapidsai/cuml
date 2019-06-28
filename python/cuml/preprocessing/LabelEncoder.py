@@ -76,7 +76,7 @@ class LabelEncoder(object):
     -----
     Be aware that, if need inverse_transform(), input labels should not contain
     any digit !!
-    
+
     Examples
     --------
     Converting a categorical implementation to a numerical one
