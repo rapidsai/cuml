@@ -35,7 +35,20 @@ async def connection_func(ep, listener):
 
 class CommsBase:
 
+    """
+    A base class to initialize and manage underlying NCCL and UCX
+    comms handles across a Dask cluster. Classes extending CommsBase
+    are responsible for calling `self.init()` to initialize the comms.
+    Classes that extend or use the CommsBase are also responsible for
+    calling `destroy()` to clean up the underlying comms.
+    """
+
     def __init__(self, comms_coll=True, comms_p2p=False):
+        """
+        Construct a new BaseComms instance
+        :param comms_coll: bool Should collective comms be initialized?
+        :param comms_p2p: bool Should p2p comms be initialized?
+        """
         self.client = default_client()
         self.comms_coll = comms_coll
         self.comms_p2p = comms_p2p
@@ -47,10 +60,7 @@ class CommsBase:
         self.workers = list(map(lambda x: parse_host_port(x),
                                 self.worker_addresses))
 
-    def __dealloc__(self):
-        self.destroy()
-
-    def get_workers_(self, parse_address=True):
+    def get_workers_(self):
         """
         Return the list of workers parsed as [(address, port)]
         """
@@ -91,6 +101,10 @@ class CommsBase:
     def func_init_nccl(workerId, nWorkers, uniqueId):
         """
         Initialize ncclComm_t on worker
+        :param workerId: int ID of the current worker running the function
+        :param nWorkers: int Number of workers in the cluster
+        :param uniqueId: array[byte] The NCCL unique Id generated from the
+                         client.
         """
         n = nccl()
         n.init(nWorkers, uniqueId, workerId)
@@ -100,6 +114,8 @@ class CommsBase:
     def func_get_ucp_port(sessionId, r):
         """
         Return the port assigned to a UCP listener on worker
+        :param sessionId: uuid Unique session id for current instance
+        :param r: float a random number to stop the function from being cached
         """
         dask_worker = get_worker()
         port = dask_worker.data[sessionId].port
@@ -107,6 +123,14 @@ class CommsBase:
 
     @staticmethod
     async def ucp_create_listener(sessionId, r):
+        """
+        Creates a UCP listener for incoming endpoint connections.
+        This function runs in a loop asynchronously in the background
+        on the worker
+        :param sessionId: uuid Unique id for current instance
+        :param r: float a random number to stop the function from being cached
+        """
+
         dask_worker = get_worker()
         if sessionId in dask_worker.data:
             print("Listener already started for sessionId=" +
@@ -128,6 +152,11 @@ class CommsBase:
 
     @staticmethod
     def ucp_stop_listener(sessionId, r):
+        """
+        Stops the listener running in the background on the current worker.
+        :param sessionId: uuid Unique id for current instance
+        :param r: float a random number to stop the function from being cached
+        """
         dask_worker = get_worker()
         if sessionId in dask_worker.data:
             listener = dask_worker.data[sessionId]
@@ -171,7 +200,14 @@ class CommsBase:
 
     @staticmethod
     def func_build_handle(nccl_comm, eps, nWorkers, workerId):
-
+        """
+        Builds a cumlHandle on the current worker given the initialized comms
+        :param nccl_comm: ncclComm_t Initialized NCCL comm
+        :param eps: size_t initialized endpoints
+        :param nWorkers: int number of workers in cluster
+        :param workerId: int Rank of current worker
+        :return:
+        """
         ucp_worker = ucp.get_ucp_worker()
 
         handle = Handle()
@@ -206,6 +242,13 @@ class CommsBase:
         self.ucp_create_endpoints()
 
     def init(self):
+        """
+        Initializes the underlying comms. If `comms_coll==True`, NNCL is
+        initilaized. If `comms_coll==False`, UCX is initialized.
+
+        @todo: Currently UCX & NCCL are both required. Need to fix this.
+        :return:
+        """
         if self.comms_coll:
             self.init_nccl()
 
@@ -229,6 +272,10 @@ class CommsBase:
     async def func_ucp_create_endpoints(sessionId, worker_info, r):
         """
         Runs on each worker to create ucp endpoints to all other workers
+        :param sessionId: uuid unique id for this instance
+        :param worker_info: dict Maps worker address to rank & UCX port
+        :param r: float a random number to stop the function from being cached
+
         """
         dask_worker = get_worker()
         local_address = parse_host_port(dask_worker.address)
@@ -250,6 +297,8 @@ class CommsBase:
     def func_get_endpoints(sessionId, r):
         """
         Fetches (and removes) the endpoints from the worker's data dict
+        :param sessionId: uuid unique id for this instance
+        :param r: float a random number to stop the function from being cached
         """
         dask_worker = get_worker()
         eps = dask_worker.data[str(sessionId) + "_eps"]
@@ -257,6 +306,10 @@ class CommsBase:
         return eps
 
     def ucp_create_endpoints(self):
+        """
+        Creates UCX endpoints for each worker in the Dask cluster and
+        connects them to every other worker.
+        """
 
         worker_info = self.worker_info()
 
@@ -277,6 +330,8 @@ class CommsBase:
     def func_destroy_nccl(nccl_comm, r):
         """
         Destroys NCCL communicator on worker
+        :param nccl_comm: ncclComm_t Initialized NCCL comm
+        :param r: float a random number to stop the function from being cached
         """
         nccl_comm.destroy()
 
@@ -292,6 +347,7 @@ class CommsBase:
     def func_destroy_ep(eps, r):
         """
         Destroys UCP endpoints on worker
+        :param r: float a random number to stop the function from being cached
         """
         for ep in eps:
             if ep is not None:
@@ -307,10 +363,16 @@ class CommsBase:
         wait(a)
 
     def destroy_ucp(self):
+        """
+        Stops initialized UCP endpoints and listers on the Dask workers
+        """
         self.destroy_eps()
         self.stop_ucp_listeners()
 
     def destroy(self):
+        """
+        Shuts down initialized comms and cleans up resources.
+        """
 
         self.handles = None
 
