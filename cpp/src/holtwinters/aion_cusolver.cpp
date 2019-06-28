@@ -47,55 +47,64 @@
  * Users Notice.
  */
 
-#include <aion_cusolver.hpp>
+#include "aion_cusolver.hpp"
 
 namespace aion {
 
 thread_local cusolverDnHandle_t cusolver::m_handle = nullptr;
 
 namespace {
-  cusolverStatus_t cusolver_geqrf_bufferSize(cusolverDnHandle_t handle, int m, int n,
-      float *A, int lda, int *Lwork) {
-    return cusolverDnSgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
-  }
-  cusolverStatus_t cusolver_geqrf_bufferSize(cusolverDnHandle_t handle, int m, int n,
-      double *A, int lda, int *Lwork) {
-    return cusolverDnDgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
-  }
+cusolverStatus_t cusolver_geqrf_bufferSize(cusolverDnHandle_t handle, int m,
+                                           int n, float *A, int lda,
+                                           int *Lwork) {
+  return cusolverDnSgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
+}
+cusolverStatus_t cusolver_geqrf_bufferSize(cusolverDnHandle_t handle, int m,
+                                           int n, double *A, int lda,
+                                           int *Lwork) {
+  return cusolverDnDgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
+}
 
-  cusolverStatus_t cusolver_geqrf(cusolverDnHandle_t handle, int m, int n, float *A, int lda,
-      float *TAU, float *Workspace, int Lwork, int *devInfo) {
-    return cusolverDnSgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
-  }
-  cusolverStatus_t cusolver_geqrf(cusolverDnHandle_t handle, int m, int n, double *A, int lda,
-      double *TAU, double *Workspace, int Lwork, int *devInfo) {
-    return cusolverDnDgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
-  }
+cusolverStatus_t cusolver_geqrf(cusolverDnHandle_t handle, int m, int n,
+                                float *A, int lda, float *TAU, float *Workspace,
+                                int Lwork, int *devInfo) {
+  return cusolverDnSgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
+}
+cusolverStatus_t cusolver_geqrf(cusolverDnHandle_t handle, int m, int n,
+                                double *A, int lda, double *TAU,
+                                double *Workspace, int Lwork, int *devInfo) {
+  return cusolverDnDgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
+}
 
-  cusolverStatus_t cusolver_orgqr_bufferSize(cusolverDnHandle_t handle, int m, int n, int k,
-      const float *A, int lda, const float *tau, int *lwork) {
-    return cusolverDnSorgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork);
-  }
-  cusolverStatus_t cusolver_orgqr_bufferSize(cusolverDnHandle_t handle, int m, int n, int k,
-      const double *A, int lda, const double *tau, int *lwork) {
-    return cusolverDnDorgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork);
-  }
+cusolverStatus_t cusolver_orgqr_bufferSize(cusolverDnHandle_t handle, int m,
+                                           int n, int k, const float *A,
+                                           int lda, const float *tau,
+                                           int *lwork) {
+  return cusolverDnSorgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork);
+}
+cusolverStatus_t cusolver_orgqr_bufferSize(cusolverDnHandle_t handle, int m,
+                                           int n, int k, const double *A,
+                                           int lda, const double *tau,
+                                           int *lwork) {
+  return cusolverDnDorgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork);
+}
 
-  cusolverStatus_t cusolver_orgqr(cusolverDnHandle_t handle, int m, int n, int k,
-      float *A, int lda, const float *tau, float *work, int lwork, int *devInfo) {
-    return cusolverDnSorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
-  }
-  cusolverStatus_t cusolver_orgqr(cusolverDnHandle_t handle, int m, int n, int k,
-      double *A, int lda, const double *tau, double *work, int lwork, int *devInfo) {
-    return cusolverDnDorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
-  }
+cusolverStatus_t cusolver_orgqr(cusolverDnHandle_t handle, int m, int n, int k,
+                                float *A, int lda, const float *tau,
+                                float *work, int lwork, int *devInfo) {
+  return cusolverDnSorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
+}
+cusolverStatus_t cusolver_orgqr(cusolverDnHandle_t handle, int m, int n, int k,
+                                double *A, int lda, const double *tau,
+                                double *work, int lwork, int *devInfo) {
+  return cusolverDnDorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
+}
 
 // TODO(ahmad): report mismatch between doc and API in cusolver
 // cusolverStatus_t cusolverDnSorgqr_bufferSize(cusolverDnHandle_t handle,
 // int m, int n, int k, const float *A, int lda, int *lwork); // Doc
 // cusolverStatus_t cusolverDnSorgqr_bufferSize(cusolverDnHandle_t handle,
 // int m, int n, int k, const float *A, int lda, const float *tau, int *lwork); // API
-
 
 }  // namespace.
 
@@ -106,40 +115,47 @@ void cusolver::geqrf_bufferSize(int m, int n, Dtype *A, int lda, int *Lwork) {
 }
 
 template <typename Dtype>
-void cusolver::geqrf(int m, int n, Dtype *A, int lda,
-    Dtype *TAU, Dtype *Workspace, int Lwork, int *devInfo) {
+void cusolver::geqrf(int m, int n, Dtype *A, int lda, Dtype *TAU,
+                     Dtype *Workspace, int Lwork, int *devInfo) {
   cusolverDnHandle_t handle = cusolver::get_handle();
-  CHECK_CUSOLVER(cusolver_geqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo));
+  CHECK_CUSOLVER(
+    cusolver_geqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo));
 }
 
 template <typename Dtype>
-void cusolver::orgqr_bufferSize(int m, int n, int k, const Dtype *A,
-    int lda, const Dtype *tau, int *lwork) {
+void cusolver::orgqr_bufferSize(int m, int n, int k, const Dtype *A, int lda,
+                                const Dtype *tau, int *lwork) {
   cusolverDnHandle_t handle = cusolver::get_handle();
-  CHECK_CUSOLVER(cusolver_orgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork));
+  CHECK_CUSOLVER(
+    cusolver_orgqr_bufferSize(handle, m, n, k, A, lda, tau, lwork));
 }
 template <typename Dtype>
-void cusolver::orgqr(int m, int n, int k,
-      Dtype *A, int lda, const Dtype *tau, Dtype *work, int lwork, int *devInfo) {
+void cusolver::orgqr(int m, int n, int k, Dtype *A, int lda, const Dtype *tau,
+                     Dtype *work, int lwork, int *devInfo) {
   cusolverDnHandle_t handle = cusolver::get_handle();
-  CHECK_CUSOLVER(cusolver_orgqr(handle, m, n, k,  A, lda, tau, work, lwork, devInfo));
+  CHECK_CUSOLVER(
+    cusolver_orgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo));
 }
 
-
-template void cusolver::geqrf_bufferSize(int m, int n, float *A, int lda, int *Lwork);
-template void cusolver::geqrf_bufferSize(int m, int n, double *A, int lda, int *Lwork);
-template void cusolver::geqrf(int m, int n, float *A, int lda,
-  float *TAU, float *Workspace, int Lwork, int *devInfo);
-template void cusolver::geqrf(int m, int n, double *A, int lda,
-  double *TAU, double *Workspace, int Lwork, int *devInfo);
+template void cusolver::geqrf_bufferSize(int m, int n, float *A, int lda,
+                                         int *Lwork);
+template void cusolver::geqrf_bufferSize(int m, int n, double *A, int lda,
+                                         int *Lwork);
+template void cusolver::geqrf(int m, int n, float *A, int lda, float *TAU,
+                              float *Workspace, int Lwork, int *devInfo);
+template void cusolver::geqrf(int m, int n, double *A, int lda, double *TAU,
+                              double *Workspace, int Lwork, int *devInfo);
 
 template void cusolver::orgqr_bufferSize(int m, int n, int k, const float *A,
-  int lda, const float *tau, int *lwork);
+                                         int lda, const float *tau, int *lwork);
 template void cusolver::orgqr_bufferSize(int m, int n, int k, const double *A,
-  int lda, const double *tau, int *lwork);
-template void cusolver::orgqr(int m, int n, int k,
-  float *A, int lda, const float *tau, float *work, int lwork, int *devInfo);
-template void cusolver::orgqr(int m, int n, int k,
-  double *A, int lda, const double *tau, double *work, int lwork, int *devInfo);
+                                         int lda, const double *tau,
+                                         int *lwork);
+template void cusolver::orgqr(int m, int n, int k, float *A, int lda,
+                              const float *tau, float *work, int lwork,
+                              int *devInfo);
+template void cusolver::orgqr(int m, int n, int k, double *A, int lda,
+                              const double *tau, double *work, int lwork,
+                              int *devInfo);
 
 }  // namespace aion

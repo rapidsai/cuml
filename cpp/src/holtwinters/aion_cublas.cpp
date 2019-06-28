@@ -47,114 +47,113 @@
  * Users Notice.
  */
 
-#include <aion_cublas.hpp>
+#include "aion_cublas.hpp"
 
 namespace aion {
 
 thread_local cublasHandle_t cublas::m_handle = nullptr;
 
 namespace {
-  cublasStatus_t cublas_axpy(cublasHandle_t handle, int n, const float* alpha,
-      const float* x, int incx, float* y, int incy) {
-    return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
-  }
-  cublasStatus_t cublas_axpy(cublasHandle_t handle, int n, const double* alpha,
-      const double* x, int incx, double* y, int incy) {
-    return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
-  }
+cublasStatus_t cublas_axpy(cublasHandle_t handle, int n, const float *alpha,
+                           const float *x, int incx, float *y, int incy) {
+  return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
+}
+cublasStatus_t cublas_axpy(cublasHandle_t handle, int n, const double *alpha,
+                           const double *x, int incx, double *y, int incy) {
+  return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
+}
 
-  cublasStatus_t cublas_geam(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
-      int m, int n,
-      const float *alpha, const float *A, int lda,
-      const float *beta, const float *B, int ldb,
-      float *C, int ldc) {
-    return cublasSgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc);
-  }
-  cublasStatus_t cublas_geam(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
-      int m, int n,
-      const double *alpha, const double *A, int lda,
-      const double *beta, const double *B, int ldb,
-      double *C, int ldc) {
-    return cublasDgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc);
-  }
+cublasStatus_t cublas_geam(cublasHandle_t handle, cublasOperation_t transa,
+                           cublasOperation_t transb, int m, int n,
+                           const float *alpha, const float *A, int lda,
+                           const float *beta, const float *B, int ldb, float *C,
+                           int ldc) {
+  return cublasSgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb,
+                     C, ldc);
+}
+cublasStatus_t cublas_geam(cublasHandle_t handle, cublasOperation_t transa,
+                           cublasOperation_t transb, int m, int n,
+                           const double *alpha, const double *A, int lda,
+                           const double *beta, const double *B, int ldb,
+                           double *C, int ldc) {
+  return cublasDgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb,
+                     C, ldc);
+}
 
-  cublasStatus_t cublas_gemm(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
-      int m, int n, int k,
-      const float *alpha, const float *A, int lda,
-      const float *B, int ldb,
-      const float *beta, float *C, int ldc) {
-    return cublasSgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-  }
-  cublasStatus_t cublas_gemm(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
-      int m, int n, int k,
-      const double *alpha, const double *A, int lda,
-      const double *B, int ldb,
-      const double *beta, double *C, int ldc) {
-    return cublasDgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-  }
+cublasStatus_t cublas_gemm(cublasHandle_t handle, cublasOperation_t transa,
+                           cublasOperation_t transb, int m, int n, int k,
+                           const float *alpha, const float *A, int lda,
+                           const float *B, int ldb, const float *beta, float *C,
+                           int ldc) {
+  return cublasSgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb,
+                     beta, C, ldc);
+}
+cublasStatus_t cublas_gemm(cublasHandle_t handle, cublasOperation_t transa,
+                           cublasOperation_t transb, int m, int n, int k,
+                           const double *alpha, const double *A, int lda,
+                           const double *B, int ldb, const double *beta,
+                           double *C, int ldc) {
+  return cublasDgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb,
+                     beta, C, ldc);
+}
 }  // namespace.
 
-
 template <typename Dtype>
-void cublas::axpy(int n, Dtype alpha, const Dtype* x, Dtype* y) {
+void cublas::axpy(int n, Dtype alpha, const Dtype *x, Dtype *y) {
   cublasHandle_t handle = cublas::get_handle();
   CHECK_CUBLAS(cublas_axpy(handle, n, &alpha, x, 1, y, 1));
 }
 
 template <typename Dtype>
-void cublas::axpy(int n, Dtype alpha, const Dtype* x, int incx, Dtype* y, int incy) {
+void cublas::axpy(int n, Dtype alpha, const Dtype *x, int incx, Dtype *y,
+                  int incy) {
   cublasHandle_t handle = cublas::get_handle();
   CHECK_CUBLAS(cublas_axpy(handle, n, &alpha, x, incx, y, incy));
 }
 
 template <typename Dtype>
-void cublas::geam(cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n,
-    const Dtype *alpha, const Dtype *A, int lda,
-    const Dtype *beta, const Dtype *B, int ldb,
-    Dtype *C, int ldc) {
+void cublas::geam(cublasOperation_t transa, cublasOperation_t transb, int m,
+                  int n, const Dtype *alpha, const Dtype *A, int lda,
+                  const Dtype *beta, const Dtype *B, int ldb, Dtype *C,
+                  int ldc) {
   cublasHandle_t handle = cublas::get_handle();
-  CHECK_CUBLAS(cublas_geam(handle, transa, transb, m, n,
-    alpha, A, lda, beta, B, ldb, C, ldc));
+  CHECK_CUBLAS(cublas_geam(handle, transa, transb, m, n, alpha, A, lda, beta, B,
+                           ldb, C, ldc));
 }
 
 template <typename Dtype>
-void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb,
-    int m, int n, int k,
-    const Dtype *alpha, const Dtype *A, int lda,
-    const Dtype *B, int ldb,
-    const Dtype *beta, Dtype *C, int ldc) {
+void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb, int m,
+                  int n, int k, const Dtype *alpha, const Dtype *A, int lda,
+                  const Dtype *B, int ldb, const Dtype *beta, Dtype *C,
+                  int ldc) {
   cublasHandle_t handle = cublas::get_handle();
-  CHECK_CUBLAS(cublas_gemm(handle, transa, transb, m, n, k,
-    alpha, A, lda, B, ldb, beta, C, ldc));
+  CHECK_CUBLAS(cublas_gemm(handle, transa, transb, m, n, k, alpha, A, lda, B,
+                           ldb, beta, C, ldc));
 }
 
-template void cublas::axpy(int n, float alpha, const float* x, float* y);
-template void cublas::axpy(int n, double alpha, const double* x, double* y);
-template void cublas::axpy(int n, float alpha, const float* x, int incx, float* y, int incy);
-template void cublas::axpy(int n, double alpha, const double* x, int incx, double* y, int incy);
+template void cublas::axpy(int n, float alpha, const float *x, float *y);
+template void cublas::axpy(int n, double alpha, const double *x, double *y);
+template void cublas::axpy(int n, float alpha, const float *x, int incx,
+                           float *y, int incy);
+template void cublas::axpy(int n, double alpha, const double *x, int incx,
+                           double *y, int incy);
 
 template void cublas::geam(cublasOperation_t transa, cublasOperation_t transb,
-  int m, int n,
-  const float *alpha, const float *A, int lda,
-  const float *beta, const float *B, int ldb,
-  float *C, int ldc);
+                           int m, int n, const float *alpha, const float *A,
+                           int lda, const float *beta, const float *B, int ldb,
+                           float *C, int ldc);
 template void cublas::geam(cublasOperation_t transa, cublasOperation_t transb,
-  int m, int n,
-  const double *alpha, const double *A, int lda,
-  const double *beta, const double *B, int ldb,
-  double *C, int ldc);
+                           int m, int n, const double *alpha, const double *A,
+                           int lda, const double *beta, const double *B,
+                           int ldb, double *C, int ldc);
 
 template void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb,
-  int m, int n, int k,
-  const float *alpha, const float *A, int lda,
-  const float *B, int ldb,
-  const float *beta, float *C, int ldc);
+                           int m, int n, int k, const float *alpha,
+                           const float *A, int lda, const float *B, int ldb,
+                           const float *beta, float *C, int ldc);
 template void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb,
-  int m, int n, int k,
-  const double *alpha, const double *A, int lda,
-  const double *B, int ldb,
-  const double *beta, double *C, int ldc);
+                           int m, int n, int k, const double *alpha,
+                           const double *A, int lda, const double *B, int ldb,
+                           const double *beta, double *C, int ldc);
 
 }  // namespace aion
-
