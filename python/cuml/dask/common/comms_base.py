@@ -409,6 +409,5 @@ class CommsBase:
             self.ucp_ports = None
             self.ucp_endpoints = None
 
-        # TODO: Figure out why this fails when UCP + NCCL are both used
-        #             self.destroy_nccl()
+        self.destroy_nccl()
         self.nccl_clique = None
