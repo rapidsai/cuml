@@ -45,9 +45,12 @@ def test_allreduce():
 
     assert all(list(map(lambda x: x.result(), dfs)))
 
+    # todo: Destroy is failing here. Need to fix it
+    #cb.destroy()
+
 
 @pytest.mark.skip
-def test_send_recv():
+def test_send_recv(n_trials):
 
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
@@ -59,7 +62,7 @@ def test_send_recv():
 
     print(str(workers))
 
-    dfs = [client.submit(perform_test_comms_send_recv, handle, workers=[w])
+    dfs = [client.submit(perform_test_comms_send_recv, handle, n_trials, workers=[w])
            for wid, w, handle in cb.handles]
 
     wait(dfs)
@@ -67,3 +70,6 @@ def test_send_recv():
     print(str(list(map(lambda x: x.result(), dfs))))
 
     assert(list(map(lambda x: x.result(), dfs)))
+
+    # todo: Destroy is failing here. Need to fix it
+    #cb.destroy()

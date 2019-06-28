@@ -50,7 +50,7 @@ cdef extern from "cuML_comms.hpp" namespace "ML":
 
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
-    bool test_pointToPoint_simple_send_recv(const cumlHandle &h)
+    bool test_pointToPoint_simple_send_recv(const cumlHandle &h, int numTrials)
 
 
 def perform_test_comms_allreduce(handle):
@@ -62,13 +62,13 @@ def perform_test_comms_allreduce(handle):
     return test_collective_allreduce(deref(h))
 
 
-def perform_test_comms_send_recv(handle):
+def perform_test_comms_send_recv(handle, n_trials):
     """
     Performs a p2p send/recv on the current worker
     :param handle: Handle handle containing cumlCommunicator to use
     """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
-    return test_pointToPoint_simple_send_recv(deref(h))
+    return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
 
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
