@@ -23,8 +23,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
 
-message(${WITH_UCX})
-
 find_package(NCCL REQUIRED)
 find_package(CUDA 9.0 REQUIRED)
 
@@ -35,7 +33,8 @@ set(_CUML_LIBRARY_HINTS ${CUML_DIR})
 if (CUML_INSTALL_DIR)
     list(APPEND _CUML_LIBRARY_HINTS ${CUML_INSTALL_DIR})
 endif()
-find_library(_CUML_LIBRARY NAMES libcuml++ cuml++ HINTS ${_CUML_LIBRARY_HINTS} libucp PATH_SUFFIXES lib build)
+find_library(_CUML_LIBRARY NAMES libcuml++ cuml++ HINTS ${_CUML_LIBRARY_HINTS} PATH_SUFFIXES lib build)
+
 set(CUML_LIBRARY ${_CUML_LIBRARY} CACHE STRING "Path to the cuML lib")
 unset(_CUML_LIBRARY)
 unset(_CUML_LIBRARY_HINTS)
