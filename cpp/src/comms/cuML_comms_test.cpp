@@ -24,11 +24,7 @@
 namespace ML {
 namespace sandbox {
 
-/**
-   * Simple allreduce test for single integet value of 1.
-   * Each rank evaluates whether their allreduced value
-   * equals the size of the clique.
-   */
+
 bool test_collective_allreduce(const ML::cumlHandle& h) {
   const cumlHandle_impl& handle = h.getImpl();
   ML::detail::streamSyncer _(handle);
@@ -55,6 +51,7 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
 
   return temp_h == communicator.getSize();
 }
+
 
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
                                         int numTrials) {
