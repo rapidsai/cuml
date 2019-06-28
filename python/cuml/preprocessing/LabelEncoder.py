@@ -51,7 +51,7 @@ def _trans_back(ser, categories, orig_dtype):
     # may be messed up.
     # e.g. if ordinal label '0' is replaced first, '10' will be messed up
     # and become '1label_of_zero' instead of 'label_of_ten'
-    sorted_ord_label = ser.sort_values(ascending=False)
+    sorted_ord_label = ser.unique().sort_values(ascending=False)
 
     # nvstrings.replace() doesn't take nvstrings as param, so need to_host()
     keys = categories.keys().to_host()
