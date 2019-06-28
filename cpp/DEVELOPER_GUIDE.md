@@ -7,18 +7,18 @@ Please start by reading [CONTRIBUTING.md](../CONTRIBUTING.md).
 ## Thread safety
 
 With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
-assumed to be single threaded. They should be able to be called from multiple host threads so long as
-different handles are used.
+assumed to be single threaded. This means they should be able to be called from multiple host threads so 
+long as different instances of `cumlHandle` are used.
 
 Exceptions are made for algorithms that can take advantage of multiple CUDA streams in order to oversubscribe 
 or increase occupancy on a single GPU. In these cases, the use of multiple host threads within cuML algorithms
 should be used only to maintain concurrency of the underlying CUDA streams. Multiple host threads should be 
-used sparingly, be bounded, and should steer clear from performing CPU-intensive computations.
+used sparingly, be bounded, and should steer clear of performing CPU-intensive computations.
 
 A good example of an acceptable use of host threads can be found in [this blog article](https://devblogs.nvidia.com/gpu-pro-tip-cuda-7-streams-simplify-concurrency/)
 
-Though cuML's build enables openMP by default, cuML algorithms should still function properly even when openMP has been
-disabled. For this reason, it would be better to utilize openMP rather than raw pthreads for spawning host threads. 
+Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
+disabled. For this reason, it would be better to utilize OpenMP rather than raw pthreads for spawning host threads. 
 
 The use of threads in thirdparty libraries are okay.
 
