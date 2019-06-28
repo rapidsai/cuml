@@ -17,7 +17,10 @@
 #pragma once
 
 #include <nccl.h>
+
+#if WITH_UCX == 1
 #include <ucp/api/ucp.h>
+#endif
 
 #include <cuML.hpp>
 
@@ -27,15 +30,18 @@ namespace ML {
  * Given initialized comms handles for NCCL and UCP, this function builds a cumlCommunicator
  * object and injects it into the given cumlHandle instance.
  */
+#if WITH_UCX == 1
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   ucp_ep_h *eps, int size, int rank);
+#endif
 
 void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank);
 
 void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank);
 
-void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size, int rank);
+void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
+                          int rank);
 
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId);
 

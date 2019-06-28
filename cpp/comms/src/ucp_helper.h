@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#if WITH_UCX == 1
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-
 static const ucp_tag_t default_tag_mask = -1;
 
 /**
@@ -82,8 +82,8 @@ static void recv_handle(void *request, ucs_status_t status,
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
-struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int tag) {
-
+struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
+                              int tag) {
   struct ucx_context *ucp_request = 0;
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
@@ -111,8 +111,8 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int ta
 /**
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
-struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf, int size, int tag) {
-
+struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
+                              int size, int tag) {
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
@@ -131,7 +131,5 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf, i
   }
 
   return ucp_request;
-
-
 }
-
+#endif
