@@ -114,7 +114,6 @@ cdef class nccl:
         :param nranks: int size of clique
         :param commId: string unique id from client
         :param rank: int rank of current worker
-        :return: 
         """
 
         self.size = nranks

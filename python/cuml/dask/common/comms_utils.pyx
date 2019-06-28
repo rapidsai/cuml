@@ -55,7 +55,7 @@ cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
 
 def perform_test_comms_allreduce(handle):
     """
-    Performs an allreduce on the current worker 
+    Performs an allreduce on the current worker
     :param handle: Handle handle containing cumlCommunicator to use
     """
     cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
