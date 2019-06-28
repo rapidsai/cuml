@@ -32,8 +32,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(_CUML_LIBRARY_HINTS ${CUML_DIR})
 if (CUML_INSTALL_DIR)
     list(APPEND _CUML_LIBRARY_HINTS ${CUML_INSTALL_DIR})
-else
-	set(CUML_INSTALL_DIR ${CUML_DIR}/../../build)
+else()
+	set(CUML_INSTALL_DIR "${CUML_DIR}/../../build" CACHE_STRING
+		"Directory containing compiled libcuml")
 endif()
 find_library(_CUML_LIBRARY NAMES libcuml++ cuml++ HINTS ${_CUML_LIBRARY_HINTS} PATH_SUFFIXES lib build)
 
