@@ -139,13 +139,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
 
-    mkdir -p ${CUML_COMMS_BUILD_DIR}
-    cd ${CUML_COMMS_BUILD_DIR}
-
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
 fi
 
 # Build and (optionally) install libcuml + tests
@@ -153,6 +146,14 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
 
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} cuml++ cuml ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+
+    mkdir -p ${CUML_COMMS_BUILD_DIR}
+    cd ${CUML_COMMS_BUILD_DIR}
+
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
+          -DWITH_UCX=OFF \
+          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
 
     cd ${CUML_COMMS_BUILD_DIR}
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
