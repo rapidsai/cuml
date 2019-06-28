@@ -3,7 +3,7 @@
 ## New Features
 
 - PR #766: Expose score method based on inertia for KMeans
-- PR #???: Forest Inferencing Library (FIL)
+- PR #819: Forest Inferencing Library (FIL)
 
 ## Improvements
 
