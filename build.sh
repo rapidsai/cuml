@@ -151,7 +151,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
     cd ${CUML_COMMS_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DWITH_UCX=OFF \
           -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
 
