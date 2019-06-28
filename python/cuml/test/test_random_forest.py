@@ -63,7 +63,7 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=0, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1) #TODO FIXME confirm max_depth and n_estimators
+                       max_depth=-1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
