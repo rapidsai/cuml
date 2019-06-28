@@ -16,212 +16,128 @@
 
 #pragma once
 
-#include <stdio.h>
-#include "common/cumlHandle.hpp"
-#include "linalg/norm.h"
-#include "sparse/coo.h"
-
 #include "distances.h"
-#include "kernels.h"
+#include "exact_kernels.h"
+#include "symmetrize.h"
 #include "tsne/tsne.h"
+#include "utils.h"
+
+#include "barnes_hut.h"
+#include "exact_tsne.h"
 
 namespace ML {
-using MLCommon::ceildiv;
 
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int n_components, int n_neighbors,
-
-              float perplexity, const int perplexity_max_iter,
-              const int perplexity_tol,
-
-              const float early_exaggeration, const int exaggeration_iter,
-
-              const float min_gain, const double min_grad_norm, const float eta,
-              const int max_iter, const float pre_momentum,
-              const float post_momentum,
-
-              const long long seed, const bool initialize_embeddings,
-              const bool verbose) {
-  assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0 && X != NULL &&
+              const int p, const int dim = 2, int n_neighbors = 1023,
+              const float theta = 0.5f, const float epssq = 0.0025,
+              float perplexity = 50.0f, const int perplexity_max_iter = 100,
+              const float perplexity_tol = 1e-5,
+              const float early_exaggeration = 12.0f,
+              const int exaggeration_iter = 250, const float min_gain = 0.01f,
+              const float pre_learning_rate = 200.0f,
+              const float post_learning_rate = 500.0f,
+              const int max_iter = 1000, const float min_grad_norm = 1e-7,
+              const float pre_momentum = 0.5, const float post_momentum = 0.8,
+              const long long random_state = -1, const bool verbose = true,
+              const bool intialize_embeddings = true, bool barnes_hut = true) {
+  assert(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
          Y != NULL);
+  if (dim > 2 and barnes_hut) {
+    barnes_hut = false;
+    printf(
+      "[Warn]	Barnes Hut only works for dim == 2. Switching to exact "
+      "solution.\n");
+  }
+  if (n_neighbors > n) n_neighbors = n;
+  if (n_neighbors > 1023) {
+    printf("[Warn]	FAISS only supports maximum n_neighbors = 1023.\n");
+    n_neighbors = 1023;
+  }
+  // Perplexity must be less than number of datapoints
+  // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
+  if (perplexity > n) perplexity = n;
+
+  if (verbose) {
+    printf("[Info]	Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
+           dim, perplexity);
+    if (perplexity < 5 or perplexity > 50)
+      printf(
+        "[Warn]	Perplexity should be within ranges (5, 50). Your results might "
+        "be a bit strange...\n");
+    if (n_neighbors < perplexity * 3.0f)
+      printf(
+        "[Warn]	# of Nearest Neighbors should be at least 3 * perplexity. Your "
+        "results might be a bit strange...\n");
+  }
+
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  if (n_neighbors > n) {
-    printf(
-      "[Warn]  Notice n = %d, n_neighbors = %d. n_neighbors must be <= n!\n", n,
-      n_neighbors);
-    n_neighbors = n;
-  }
-  if (perplexity >= n) {
-    printf("[Warn]  Notice n = %d, perplexity = %f. perplexity must be <= n!\n",
-           n, perplexity);
-    perplexity = n;
-  }
-  if (verbose)
-    printf(
-      "[Info]  Data = (%d, %d) with n_components = %d and perplexity = %f\n", n,
-      p, n_components, perplexity);
-
+  START_TIMER;
+  //---------------------------------------------------
   // Get distances
-  if (verbose) printf("[Info] Getting distances.\n");
-
+  if (verbose) printf("[Info]	Getting distances.\n");
   float *distances =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
     (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-
   TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
+  //---------------------------------------------------
+  END_TIMER(DistancesTime);
 
+  START_TIMER;
+  //---------------------------------------------------
   // Normalize distances
   if (verbose)
-    printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
-  TSNE::normalize_distances(n, distances, n * n_neighbors, stream);
+    printf("[Info]	Now normalizing distances so exp(D) doesn't explode.\n");
+  TSNE::normalize_distances(n, distances, n_neighbors, stream);
+  //---------------------------------------------------
+  END_TIMER(NormalizeTime);
 
+  START_TIMER;
+  //---------------------------------------------------
   // Optimal perplexity
   if (verbose)
-    printf("[Info] Searching for optimal perplexity via bisection search.\n");
+    printf("[Info]	Searching for optimal perplexity via bisection search.\n");
   float *P =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-
-  // Determine best blocksize / gridsize
-  int blockSize_N = 1024;  // default to 1024
-  int minGridSize_N;
-  cudaOccupancyMaxPotentialBlockSize(&minGridSize_N, &blockSize_N,
-                                     TSNE::__determine_sigmas, 0, n);
-  const int gridSize_N = ceildiv(n, blockSize_N);
-
-  const float P_sum = TSNE::determine_sigmas(
-    distances, P, perplexity, perplexity_max_iter, perplexity_tol, n,
-    n_neighbors, stream, gridSize_N, blockSize_N, handle);
+  const float P_sum =
+    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
+                            perplexity_tol, n, n_neighbors, stream);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
-  if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
+  if (verbose) printf("[Info]	Perplexity sum = %f\n", P_sum);
+  //---------------------------------------------------
+  END_TIMER(PerplexityTime);
 
+  START_TIMER;
+  //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> P_PT;
-  TSNE::symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum,
-                              early_exaggeration, stream, handle);
+  struct COO_Matrix_t COO_Matrix = TSNE::symmetrize_perplexity(
+    P, indices, n, n_neighbors, P_sum, early_exaggeration, stream, handle);
+  const int NNZ = COO_Matrix.NNZ;
+  float *VAL = COO_Matrix.VAL;
+  const int *COL = COO_Matrix.COL;
+  const int *ROW = COO_Matrix.ROW;
+  //---------------------------------------------------
+  END_TIMER(SymmetrizeTime);
 
-  const int NNZ = P_PT.nnz;
-  float *VAL = P_PT.vals;
-  const int *COL = P_PT.rows;
-  const int *ROW = P_PT.cols;
-
-  // Allocate data [NOTICE Fortran Contiguous for method = Naive and C-Contiguous for fast]
-  if (initialize_embeddings)
-    TSNE::random_vector(Y, -0.01f, 0.01f, n * n_components, stream, seed);
-
-  // Allocate space
-  if (verbose) printf("[Info] Now allocating memory for TSNE.\n");
-  float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  float *Q_sum = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  double *sum = (double *)d_alloc->allocate(sizeof(double), stream);
-
-  float *attract =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
-  float *repel =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_components * 2, stream);
-
-  float *iY =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
-  double *dY = (double *)d_alloc->allocate(sizeof(double) * n, stream);
-  float *gains =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_components, stream);
-  float *means =
-    (float *)d_alloc->allocate(sizeof(float) * n_components, stream);
-
-  // Compute optimal gridSize and blockSize for attractive forces
-  int blockSize_NNZ = 1024;  // default to 1024
-  int minGridSize_NNZ;
-  if (n_components == 2)
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize_NNZ, &blockSize_NNZ,
-                                       TSNE::__attractive_fast_2dim, 0, NNZ);
-  else
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize_NNZ, &blockSize_NNZ,
-                                       TSNE::__attractive_fast, 0, NNZ);
-  const int gridSize_NNZ = ceildiv(NNZ, blockSize_NNZ);
-
-  // Compute optimal gridSize and blockSize for applying forces
-  int blockSize_dimN = 1024;  // default to 1024
-  int minGridSize_dimN;
-  cudaOccupancyMaxPotentialBlockSize(&minGridSize_dimN, &blockSize_dimN,
-                                     TSNE::__apply_forces, 0, n * n_components);
-  const int gridSize_dimN = ceildiv(n * n_components, blockSize_dimN);
-
-  // Blocks setup
-  const dim3 threadsPerBlock(32, 32);
-  const dim3 numBlocks(ceildiv(n, (int)threadsPerBlock.x),
-                       ceildiv(n, (int)threadsPerBlock.y));
-
-  // Do gradient updates
-  float momentum = pre_momentum;
-  float Z;
-  double grad_norm;
-
-  if (verbose) printf("[Info] Start gradient updates!\n");
-  for (int iter = 0; iter < max_iter; iter++) {
-    if (iter == exaggeration_iter) {
-      momentum = post_momentum;
-      // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
-      MLCommon::LinAlg::scalarMultiply(VAL, (const float *)VAL, div, NNZ,
-                                       stream);
-    }
-    // Get norm(Y)
-    MLCommon::LinAlg::rowNorm(norm, Y, n_components, n,
-                              MLCommon::LinAlg::L2Norm, false, stream);
-    // Cache norm(Y) + 1 for faster kernels
-    MLCommon::LinAlg::scalarAdd(norm_add1, (const float *)norm, 1.0f, n,
-                                stream);
-
-    //TSNE::get_norm_fast(Y, norm, n, n_components, stream, gridSize_N, blockSize_N);
-
-    // Fast compute attractive forces from COO matrix
-    TSNE::attractive_fast(VAL, COL, ROW, Y, norm, norm_add1, attract, NNZ, n,
-                          n_components, stream, gridSize_NNZ, blockSize_NNZ);
-
-    // Fast compute repulsive forces
-    Z = TSNE::repulsive_fast(Y, repel, norm, norm_add1, Q_sum, n, n_components,
-                             stream, threadsPerBlock, numBlocks);
-
-    // Integrate forces with momentum
-    grad_norm =
-      TSNE::apply_forces(attract, means, repel, Y, iY, gains, n, n_components,
-                         Z, min_gain, momentum, eta, stream, gridSize_dimN,
-                         blockSize_dimN, dY, (bool)(iter % 100 == 0));
-
-    if (momentum > 0.8) momentum -= 0.001;
-
-    if (verbose && iter % 100 == 0)
-      printf("[Info]  Z at iter = %d is %lf. Grad_norm = %lf. Momentum = %f\n",
-             iter, Z, grad_norm, momentum);
-
-    if (grad_norm <= min_grad_norm) {
-      printf(
-        "[Info]  TSNE early stopped as grad_norm = %lf <= min_grad_norm = "
-        "%lf.\n",
-        grad_norm, min_grad_norm);
-      break;
-    }
+  if (barnes_hut) {
+    TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
+                     early_exaggeration, exaggeration_iter, min_gain,
+                     pre_learning_rate, post_learning_rate, max_iter,
+                     min_grad_norm, pre_momentum, post_momentum, random_state,
+                     verbose);
+  } else {
+    TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
+                     exaggeration_iter, min_gain, pre_learning_rate,
+                     post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+                     post_momentum, random_state, verbose,
+                     intialize_embeddings);
   }
 
-  printf("[Info]  TSNE has finished!\n");
-  // Clean up
-  P_PT.destroy();
-
-  d_alloc->deallocate(norm, sizeof(float) * n, stream);
-  d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
-  d_alloc->deallocate(Q_sum, sizeof(float) * n, stream);
-  d_alloc->deallocate(sum, sizeof(double), stream);
-
-  d_alloc->deallocate(attract, sizeof(float) * n * n_components, stream);
-  d_alloc->deallocate(repel, sizeof(float) * n * n_components * 2, stream);
-
-  d_alloc->deallocate(iY, sizeof(float) * n * n_components, stream);
-  d_alloc->deallocate(dY, sizeof(double) * n, stream);
-  d_alloc->deallocate(gains, sizeof(float) * n * n_components, stream);
-  d_alloc->deallocate(means, sizeof(float) * n_components, stream);
+  d_alloc->deallocate(COO_Matrix.VAL, sizeof(float) * NNZ, stream);
+  d_alloc->deallocate(COO_Matrix.COL, sizeof(int) * NNZ, stream);
+  d_alloc->deallocate(COO_Matrix.ROW, sizeof(int) * NNZ, stream);
 }
 
 }  // namespace ML
