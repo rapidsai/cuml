@@ -4,7 +4,7 @@ This document summarizes rules and best practices for contributions to the cuML 
 ## General
 Please start by reading [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-## Thread safety
+## Threading Model
 
 With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
 assumed to be single threaded. This means they should be able to be called from multiple host threads so 
