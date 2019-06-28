@@ -46,7 +46,7 @@ def test_allreduce():
     assert all(list(map(lambda x: x.result(), dfs)))
 
     # todo: Destroy is failing here. Need to fix it
-    #cb.destroy()
+    # cb.destroy()
 
 
 @pytest.mark.skip
@@ -62,7 +62,8 @@ def test_send_recv(n_trials):
 
     print(str(workers))
 
-    dfs = [client.submit(perform_test_comms_send_recv, handle, n_trials, workers=[w])
+    dfs = [client.submit(perform_test_comms_send_recv, handle,
+                         n_trials, workers=[w])
            for wid, w, handle in cb.handles]
 
     wait(dfs)
@@ -72,4 +73,4 @@ def test_send_recv(n_trials):
     assert(list(map(lambda x: x.result(), dfs)))
 
     # todo: Destroy is failing here. Need to fix it
-    #cb.destroy()
+    # cb.destroy()
