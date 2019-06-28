@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import pytest
 from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait
