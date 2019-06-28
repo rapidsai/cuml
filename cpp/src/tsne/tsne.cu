@@ -45,12 +45,12 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
     printf(
-      "[Warn]	Barnes Hut only works for dim == 2. Switching to exact "
+      "[Warn]  Barnes Hut only works for dim == 2. Switching to exact "
       "solution.\n");
   }
   if (n_neighbors > n) n_neighbors = n;
   if (n_neighbors > 1023) {
-    printf("[Warn]	FAISS only supports maximum n_neighbors = 1023.\n");
+    printf("[Warn]  FAISS only supports maximum n_neighbors = 1023.\n");
     n_neighbors = 1023;
   }
   // Perplexity must be less than number of datapoints
@@ -58,16 +58,16 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   if (perplexity > n) perplexity = n;
 
   if (verbose) {
-    printf("[Info]	Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
+    printf("[Info]  Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
            dim, perplexity);
     if (perplexity < 5 or perplexity > 50)
       printf(
-        "[Warn]	Perplexity should be within ranges (5, 50). Your results might "
-        "be a bit strange...\n");
+        "[Warn]  Perplexity should be within ranges (5, 50). Your results "
+        "might be a bit strange...\n");
     if (n_neighbors < perplexity * 3.0f)
       printf(
-        "[Warn]	# of Nearest Neighbors should be at least 3 * perplexity. Your "
-        "results might be a bit strange...\n");
+        "[Warn]  # of Nearest Neighbors should be at least 3 * perplexity. "
+        "Your results might be a bit strange...\n");
   }
 
   auto d_alloc = handle.getDeviceAllocator();
@@ -76,7 +76,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Get distances
-  if (verbose) printf("[Info]	Getting distances.\n");
+  if (verbose) printf("[Info] Getting distances.\n");
   float *distances =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
@@ -89,7 +89,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Normalize distances
   if (verbose)
-    printf("[Info]	Now normalizing distances so exp(D) doesn't explode.\n");
+    printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
@@ -98,14 +98,14 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Optimal perplexity
   if (verbose)
-    printf("[Info]	Searching for optimal perplexity via bisection search.\n");
+    printf("[Info] Searching for optimal perplexity via bisection search.\n");
   float *P =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   const float P_sum =
     TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                             perplexity_tol, n, n_neighbors, stream);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
-  if (verbose) printf("[Info]	Perplexity sum = %f\n", P_sum);
+  if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
