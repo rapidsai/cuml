@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# from dask.core import *
 
 from cuml.dask.common.spmg import new_ipc_thread
 from cuml.dask.common.utils import parse_host_port
