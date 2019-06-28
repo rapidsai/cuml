@@ -62,6 +62,7 @@
 - PR #741: Update API docs for 0.8
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
+- PR #820: Updating DEVELOPER GUIDE threading guidelines
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
