@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
 
 ## Improvements
