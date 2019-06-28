@@ -47,7 +47,7 @@
  * Users Notice.
  */
 
-#include "util/aion_cblas.hpp"
+#include "aion_cblas.hpp"
 
 namespace aion {
 

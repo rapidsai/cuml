@@ -53,7 +53,7 @@ extern "C" {
 }
 #include <iostream>
 
-#include "util/aion_lapack.hpp"
+#include "aion_lapack.hpp"
 
 namespace aion {
 

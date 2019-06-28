@@ -47,7 +47,7 @@
  * Users Notice.
  */
 
-#include <util/aion_cusolver.hpp>
+#include <aion_cusolver.hpp>
 
 namespace aion {
 

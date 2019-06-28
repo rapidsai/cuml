@@ -47,7 +47,7 @@
  * Users Notice.
  */
 
-#include <util/aion_cublas.hpp>
+#include <aion_cublas.hpp>
 
 namespace aion {
 

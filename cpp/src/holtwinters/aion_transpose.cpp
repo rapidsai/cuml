@@ -48,8 +48,8 @@
  */
 
 #include "aion_transpose.hpp"
-#include "util/aion_cblas.hpp"
-#include "util/aion_cublas.hpp"
+#include "aion_cblas.hpp"
+#include "aion_cublas.hpp"
 
 
 template<typename Dtype>
