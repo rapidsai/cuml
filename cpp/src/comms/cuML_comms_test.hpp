@@ -23,7 +23,8 @@ namespace sandbox {
 
 bool test_collective_allreduce(const ML::cumlHandle& handle);
 
-bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle);
+bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle,
+                                        int n_trials);
 
 };  // end namespace sandbox
 };  // end namespace ML
