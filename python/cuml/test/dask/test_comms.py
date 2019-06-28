@@ -24,12 +24,30 @@ from cuml.dask.common import perform_test_comms_allreduce
 
 
 @pytest.mark.skip
+def test_comms_init_no_p2p():
+
+    cluster = LocalCUDACluster(threads_per_worker=1)    #NOQA
+
+    cb = CommsBase()
+    cb.init()
+
+    assert cb.nccl_initialized == True
+    assert cb.ucx_initialized == False
+
+    cb = CommsBase(comms_p2p=True)
+    cb.init()
+
+    assert cb.nccl_initialized == True
+    assert cb.ucx_initialized == True
+
+
+@pytest.mark.skip
 def test_allreduce():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase(comms_p2p=True, comms_coll=True)
+    cb = CommsBase()
     cb.init()
 
     workers = client.has_what().keys()
@@ -55,7 +73,7 @@ def test_send_recv(n_trials):
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase(comms_p2p=True, comms_coll=True)
+    cb = CommsBase(comms_p2p=True)
     cb.init()
 
     workers = client.has_what().keys()

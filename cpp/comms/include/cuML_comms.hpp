@@ -30,8 +30,12 @@ namespace ML {
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   ucp_ep_h *eps, int size, int rank);
 
-void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank);
+
+void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank);
+
+void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size, int rank);
 
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId);
 
