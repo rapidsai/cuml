@@ -303,6 +303,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/fil/batch_tree_reorg.cu
+    src/fil/fil.cu
+    src/fil/naive.cu
+    src/fil/tree_reorg.cu
     src/glm/glm.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
