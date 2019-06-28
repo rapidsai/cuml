@@ -22,7 +22,7 @@ from dask.distributed import Client, wait
 @pytest.mark.skip
 def test_end_to_end():
 
-    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=3)
+    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     # NOTE: The LocalCUDACluster needs to be started before any imports that

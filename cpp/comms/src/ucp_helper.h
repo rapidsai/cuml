@@ -97,13 +97,9 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int ta
       ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
       return nullptr;
     } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
-      // wait(_ucp_worker, ucp_request);
-      // ucp_request->completed = 0; /* Reset request state before recycling it */
-      // ucp_request_release(ucp_request);
-
       printf("Message is sending. Handler should be invoked.\n");
     } else {
-      //request is complete so no need to wait on request (request will be a nullptr)
+      //request already complete so no need to wait on request (request will be a nullptr)
       ucp_request = (struct ucx_context *)malloc(sizeof(struct ucx_context));
       ucp_request->completed = 1;
       ucp_request->needs_release = false;
