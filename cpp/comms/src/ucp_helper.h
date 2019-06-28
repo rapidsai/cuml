@@ -19,14 +19,23 @@
 
 static const ucp_tag_t default_tag_mask = -1;
 
+/**
+ * @brief Continues progress on worker until a message request has completed
+ */
 static void wait(ucp_worker_h ucp_worker, struct ucx_context *context) {
   while (context->completed == 0) {
     ucp_worker_progress(ucp_worker);
   }
 }
 
+/**
+ * @brief callback for flushing worker
+ */
 static void flush_callback(void *request, ucs_status_t status) {}
 
+/**
+ * @brief Flush the send buffer on the given endpoint for the given worker
+ */
 static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep) {
   void *request;
 
@@ -46,6 +55,9 @@ static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep) {
   }
 }
 
+/**
+ * @brief Asynchronous send callback sets request to completed
+ */
 static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
   context->completed = 1;
@@ -54,6 +66,9 @@ static void send_handle(void *request, ucs_status_t status) {
          (unsigned int)pthread_self(), status, ucs_status_string(status));
 }
 
+/**
+ * @brief Asynchronous recv callback sets request to completed
+ */
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
@@ -64,6 +79,9 @@ static void recv_handle(void *request, ucs_status_t status,
          info->length);
 }
 
+/**
+ * @brief Asynchronously send data to the given endpoint using the given tag
+ */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int tag) {
 
   struct ucx_context *ucp_request = 0;
@@ -85,7 +103,7 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int ta
 
       printf("Message is sending. Handler should be invoked.\n");
     } else {
-      //request is complete so no need to wait on request
+      //request is complete so no need to wait on request (request will be a nullptr)
       ucp_request = (struct ucx_context *)malloc(sizeof(struct ucx_context));
       ucp_request->completed = 1;
       ucp_request->needs_release = false;
@@ -94,6 +112,9 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size, int ta
   return ucp_request;
 }
 
+/**
+ * @bried Asynchronously receive data from given endpoint with the given tag.
+ */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf, int size, int tag) {
 
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
