@@ -72,6 +72,11 @@ class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
 
+    Notes
+    -----
+    Be aware that, if need inverse_transform(), input labels should not contain
+    any digit !!
+    
     Examples
     --------
     Converting a categorical implementation to a numerical one
