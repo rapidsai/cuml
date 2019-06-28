@@ -132,6 +132,7 @@ if(BUILD_PRIMS_TESTS)
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu
+      prims/completenessScore.cu
       prims/contingencyMatrix.cu
       prims/coo.cu
       prims/cov.cu
@@ -152,6 +153,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/homogeneityScore.cu
       prims/host_buffer.cu
       prims/knn.cu
       prims/kselection.cu
@@ -169,6 +171,7 @@ if(BUILD_PRIMS_TESTS)
       prims/minmax.cu
       prims/mvg.cu
       prims/multiply.cu
+      prims/mutualInfoScore.cu
       prims/norm.cu
       prims/penalty.cu
       prims/permute.cu
@@ -192,6 +195,7 @@ if(BUILD_PRIMS_TESTS)
       prims/transpose.cu
       prims/trustworthiness.cu
       prims/unary_op.cu
+      prims/vMeasure.cu
       prims/weighted_mean.cu
       )
 
