@@ -15,6 +15,10 @@ or increase occupancy on a single GPU. In these cases, the use of multiple host 
 should be used only to maintain concurrency of the underlying CUDA streams. Multiple host threads should be 
 used sparingly, be bounded, and should steer clear from performing CPU-intensive computations.
 
+A good example of an acceptable use of host threads can be found in [this blog article](https://devblogs.nvidia.com/gpu-pro-tip-cuda-7-streams-simplify-concurrency/)
+
+cuML's build enables openMP by default, cuML algorithms should still function properly even when openMP has been
+disabled. For this reason, it would be better to utilize openMP rather than raw pthreads for spawning host threads. 
 
 ## Public cuML interface
 ### Terminology
