@@ -17,8 +17,10 @@ used sparingly, be bounded, and should steer clear from performing CPU-intensive
 
 A good example of an acceptable use of host threads can be found in [this blog article](https://devblogs.nvidia.com/gpu-pro-tip-cuda-7-streams-simplify-concurrency/)
 
-cuML's build enables openMP by default, cuML algorithms should still function properly even when openMP has been
+Though cuML's build enables openMP by default, cuML algorithms should still function properly even when openMP has been
 disabled. For this reason, it would be better to utilize openMP rather than raw pthreads for spawning host threads. 
+
+The use of threads in thirdparty libraries are okay.
 
 ## Public cuML interface
 ### Terminology
