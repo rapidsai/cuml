@@ -20,7 +20,6 @@ from dask.distributed import Client, wait
 from dask_cuda import LocalCUDACluster
 
 
-@pytest.mark.skip
 def test_end_to_end():
 
     cluster = LocalCUDACluster(threads_per_worker=1)

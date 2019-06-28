@@ -23,7 +23,6 @@ from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
 
-@pytest.mark.skip
 def test_comms_init_no_p2p():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -35,14 +34,7 @@ def test_comms_init_no_p2p():
     assert cb.nccl_initialized is True
     assert cb.ucx_initialized is False
 
-    cb = CommsBase(comms_p2p=True)
-    cb.init()
 
-    assert cb.nccl_initialized is True
-    assert cb.ucx_initialized is True
-
-
-@pytest.mark.skip
 def test_allreduce():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -68,7 +60,7 @@ def test_allreduce():
     # cb.destroy()
 
 
-@pytest.mark.skip
+@pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_send_recv(n_trials):
 
     cluster = LocalCUDACluster(threads_per_worker=1)

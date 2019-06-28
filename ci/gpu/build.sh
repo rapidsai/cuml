@@ -51,6 +51,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       libclang \
       nccl=2 \
       dask \
+      distributed \
       dask-cuda
 
 logger "Check versions..."
