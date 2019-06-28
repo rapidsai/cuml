@@ -5,9 +5,16 @@ This document summarizes rules and best practices for contributions to the cuML 
 Please start by reading [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Thread safety
-cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
 
-The implementation of cuML is single threaded.
+With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
+assumed to be single threaded. They should be able to be called from multiple host threads so long as
+different handles are used.
+
+Exceptions are made for algorithms that can take advantage of multiple CUDA streams in order to oversubscribe 
+or increase occupancy on a single GPU. In these cases, the use of multiple host threads within cuML algorithms
+should be used only to maintain concurrency of the underlying CUDA streams. Multiple host threads should be 
+used sparingly, be bounded, and should steer clear from performing CPU-intensive computations.
+
 
 ## Public cuML interface
 ### Terminology
