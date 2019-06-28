@@ -12,6 +12,7 @@ To install cuML from source, ensure the dependencies are met:
 6. gcc (>=5.4.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
+9. NCCL2
 
 ## Installing from Source:
 
@@ -27,13 +28,12 @@ $ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 2. Build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 ```bash
 $ cd cpp
-$ mkdir build
-$ cd build
+$ mkdir build && cd build
 $ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not in the PATH. Default CUDA_HOME=/path/to/cuda/)
 $ cmake ..
 ```
 
-If using a conda environment (recommended), then cmake can be configured appropriately via:
+If using a conda environment (recommended), then cmake can be configured appropriately for `libcuml++` via:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
@@ -59,7 +59,7 @@ Additionally, to reduce compile times, you can specify a GPU compute capability 
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
 ```
 
-There are many options to configure the build process, see the [customizing build section](#custom-build-options).
+There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).
 
 3. Build `libcuml++` and `libcuml`:
 
@@ -83,7 +83,27 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-4. Build the `cuml` python package:
+
+
+4. Build and install `libcumlcomms` (C++/CUDA library enabling multi-node multi-GPU communications), starting from the repository root folder:
+```bash
+$ cd cpp/comms
+$ mkdir build && cd build
+$ cmake ..
+
+```
+
+If using a conda environment (recommended), then cmake can be configured appropriately for `libcumlcomms` via:
+
+```bash
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+```
+
+
+See the [customizing build section](#libcumlcomms) for options to configure the build process.
+
+
+5. Build the `cuml` python package:
 
 ```bash
 $ cd ../../python
@@ -135,6 +155,8 @@ $ ./build.sh cuml --multigpu           # build the cuml python package with mult
 
 ### Custom Build Options
 
+#### libcuml & libcumlc++
+
 cuML's cmake has the following configurable flags available:
 
 | Flag | Possible Values | Default Value | Behavior |
@@ -151,3 +173,13 @@ cuML's cmake has the following configurable flags available:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
+
+
+#### libcumlcomms
+
+cuML's multi-GPU communicator cmake has the following configurable flags available:
+
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
+| WITH_UCX | [ON, OFF]  | OFF  | Enable/disable point-to-point support with UCX (experimental) |
+| CUML_INSTALL_DIR | /path/to/libcuml++.so | "" | Specifies location of libcuml for linking |

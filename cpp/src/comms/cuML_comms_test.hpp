@@ -21,8 +21,19 @@
 namespace ML {
 namespace sandbox {
 
+/**
+ * @brief Simple allreduce test for single integer value of 1. Each rank
+ * evaluates whether their allreduced value equals the size of the clique.
+ * @param[in] h cumlHandle instance with initialized cumlCommunicator
+ */
 bool test_collective_allreduce(const ML::cumlHandle& handle);
 
+/**
+ * @brief Simple point-to-point test. Each rank passes its rank to all other
+ * ranks and verifies that it received messages from all other ranks.
+ * @param[in] h cumlHandle instance with initialized cumlCommunicator
+ * @param[in] numTrials number of iterations to pass messages
+ */
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle,
                                         int n_trials);
 

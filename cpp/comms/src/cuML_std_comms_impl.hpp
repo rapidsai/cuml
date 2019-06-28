@@ -22,13 +22,10 @@
 
 #include <nccl.h>
 
-#if WITH_UCX == 1
-#include <ucp/api/ucp.h>
-#endif
-
 #include <common/cuml_comms_iface.hpp>
 
 #if WITH_UCX == 1
+#include <ucp/api/ucp.h>
 struct ucx_context {
   int completed;
   bool needs_release = true;
@@ -37,20 +34,48 @@ struct ucx_context {
 
 namespace ML {
 
+/**
+ * @brief A cumlCommunicator implementation capable of running collective communications
+ * with NCCL and point-to-point-communications with UCX. Note that the latter is optional.
+ *
+ * Underlying comms, like NCCL and UCX, should be initialized and ready for use,
+ * and maintained, outside of the cuML Comms lifecycle. This allows us to decouple the
+ * ownership of the actual comms from cuml so that they can also be used outside of cuml.
+ *
+ * For instance, nccl-py can be used to bootstrap a ncclComm_t before it is
+ * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
+ * in Python using ucx-py, before being used to construct a cuML comms instance.
+ */
 class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
  public:
   cumlStdCommunicator_impl() = delete;
 
 #if WITH_UCX == 1
+
+  /**
+   * @brief Constructor for collective + point-to-point operation.
+   * @param comm initialized nccl comm
+   * @param ucp_worker initialized ucp_worker instance
+   * @param eps shared pointer to array of ucp endpoints
+   * @param size size of the cluster
+   * @param rank rank of the current worker
+   */
   cumlStdCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker,
                            std::shared_ptr<ucp_ep_h*> eps, int size, int rank);
 #endif
 
+  /**
+   * @brief constructor for collective-only operation
+   * @param comm initilized nccl communicator
+   * @param size size of the cluster
+   * @param rank rank of the current worker
+   */
   cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank);
 
   virtual ~cumlStdCommunicator_impl();
 
   virtual int getSize() const;
+
   virtual int getRank() const;
 
   virtual std::unique_ptr<MLCommon::cumlCommunicator_iface> commSplit(
@@ -91,6 +116,9 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
  private:
   ncclComm_t _nccl_comm;
 
+  int _size;
+  int _rank;
+
 #if WITH_UCX == 1
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
@@ -100,8 +128,6 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   mutable std::unordered_set<request_t> _free_requests;
 #endif
 
-  int _size;
-  int _rank;
 };
 
 }  // end namespace ML

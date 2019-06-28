@@ -90,20 +90,32 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
   ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
-  if (UCS_PTR_STATUS(ucp_request) == UCS_OK)
+  /**
+   * On error, close endpoint, set request to completed and close
+   * @TODO: Should the request be closed here as well? How should we handle this?
+   * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
+   */
+  if (UCS_PTR_IS_ERR(ucp_request)) {
+    printf("unable to send UCX data message\n");
+    ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+    return nullptr;
+  /**
+   * If the request didn't fail, but it's not OK, it is in flight.
+   * Expect the handler to be invoked
+   */
+  } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
+    printf("Message is sending. Handler should be invoked.\n");
 
-    if (UCS_PTR_IS_ERR(ucp_request)) {
-      printf("unable to send UCX data message\n");
-      ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
-      return nullptr;
-    } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
-      printf("Message is sending. Handler should be invoked.\n");
-    } else {
-      //request already complete so no need to wait on request (request will be a nullptr)
-      ucp_request = (struct ucx_context *)malloc(sizeof(struct ucx_context));
-      ucp_request->completed = 1;
-      ucp_request->needs_release = false;
-    }
+   /**
+    * If the request is OK, it's already been completed and we don't need to wait on it.
+    * The request will be a nullptr, however, so we need to create a new request
+    * and set it to completed to make the "waitall()" function work properly.
+    */
+  } else {
+    ucp_request = (struct ucx_context *)malloc(sizeof(struct ucx_context));
+    ucp_request->completed = 1;
+    ucp_request->needs_release = false;
+  }
 
   return ucp_request;
 }
@@ -119,12 +131,22 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
     recv_handle);
 
+  /**
+   * If error, endpoint is closed.
+   * @TODO: Should the request be closed here as well? How should we handle this?
+   * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
+   */
   if (UCS_PTR_IS_ERR(ucp_request)) {
     printf("unable to receive UCX data message (%d)\n");
     //       UCS_PTR_STATUS(ucp_request));
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     return nullptr;
+
+  /**
+   * Otherwise, request is successful and handler should get invoked on it.
+   */
   } else {
+
     //wait(_ucp_worker, ucp_request);
     //ucp_request->completed = 0;
     //ucp_request_release(request);

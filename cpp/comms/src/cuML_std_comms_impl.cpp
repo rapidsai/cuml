@@ -117,16 +117,14 @@ ncclRedOp_t getNCCLOp(const cumlStdCommunicator_impl::op_t op) {
 }  // namespace
 
 /**
- * Underlying comms, like NCCL and UCX, should be initialized and ready for use
- * outside of the cuML Comms lifecycle. This allows us to decouple the ownership
- * of the actual comms from cuml so that they can also be used directly, outside of
- * cuml.
+ * @brief Underlying comms, like NCCL and UCX, should be initialized and ready for use,
+ * and maintained, outside of the cuML Comms lifecycle. This allows us to decouple the
+ * ownership of the actual comms from cuml so that they can also be used outside of cuml.
  *
  * For instance, nccl-py can be used to bootstrap a ncclComm_t before it is
  * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
- * in Python as well, before being used to construct a cuML comms instance.
+ * in Python using ucx-py, before being used to construct a cuML comms instance.
  */
-
 #if WITH_UCX == 1
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
