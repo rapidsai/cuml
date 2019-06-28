@@ -15,6 +15,7 @@
 
 from cuml.nccl import nccl
 
+
 def test_nccl_init():
     n = nccl()
     uid = n.get_unique_id()

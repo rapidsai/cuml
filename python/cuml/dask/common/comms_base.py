@@ -15,7 +15,8 @@
 
 from cuml.nccl import nccl
 
-from .comms_utils import inject_comms_on_handle, inject_comms_on_handle_coll_only
+from .comms_utils import inject_comms_on_handle, \
+    inject_comms_on_handle_coll_only
 from .utils import parse_host_port
 from cuml.common.handle import Handle
 
@@ -24,12 +25,12 @@ from dask.distributed import wait, get_worker, default_client
 from cuml.utils.import_utils import has_ucp
 import warnings
 
-if has_ucp():
-    import ucp
-
 import random
 import asyncio
 import uuid
+
+if has_ucp():
+    import ucp
 
 
 async def connection_func(ep, listener):
@@ -65,7 +66,8 @@ class CommsBase:
         self.ucx_initialized = False
 
         if comms_p2p and not has_ucp():
-            warnings.warn("ucx-py not found. UCP Integration will be disabled.")
+            warnings.warn("ucx-py not found. UCP Integration will "
+                          "be disabled.")
             self.comms_p2p = False
 
     def get_workers_(self):
@@ -234,7 +236,6 @@ class CommsBase:
         inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
         return handle
 
-
     def init_nccl(self):
         """
         Use nccl-py to initialize ncclComm_t on each worker and
@@ -278,7 +279,8 @@ class CommsBase:
             eps_futures = dict(self.ucp_endpoints)
 
             self.handles = [(wid, w,
-                             self.client.submit(CommsBase.func_build_handle_p2p,
+                             self.client.submit(CommsBase
+                                                .func_build_handle_p2p,
                                                 f,
                                                 eps_futures[w],
                                                 len(self.workers),
@@ -293,7 +295,6 @@ class CommsBase:
                                                 wid,
                                                 workers=[w]))
                             for wid, w, f in self.nccl_clique]
-
 
     @staticmethod
     async def func_ucp_create_endpoints(sessionId, worker_info, r):
