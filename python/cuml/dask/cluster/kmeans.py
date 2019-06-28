@@ -24,7 +24,7 @@ import random
 class KMeans(CommsBase):
 
     def __init__(self, n_clusters=8, init_method="random", verbose=0):
-        super(KMeans, self).__init__(comms_coll=True, comms_p2p=True)
+        super(KMeans, self).__init__(comms_p2p=False)
         self.init_(n_clusters=n_clusters, init_method=init_method,
                    verbose=verbose)
 
