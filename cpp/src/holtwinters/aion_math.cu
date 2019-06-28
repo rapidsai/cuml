@@ -47,8 +47,8 @@
  * Users Notice.
  */
 
-#include "util/aion_math.hpp"
-#include "util/cuda_helper.hpp"
+#include "aion_math.hpp"
+#include "cuda_helper.hpp"
 
 template <typename Dtype>
 __global__ void div_kernel(int n, const Dtype* a,
