@@ -16,7 +16,7 @@
 from cuml.nccl import nccl
 
 from .comms_utils import inject_comms_on_handle, \
-    inject_comms_on_handle_coll_only
+    inject_comms_on_handle_coll_only, is_ucx_enabled
 from .utils import parse_host_port
 from cuml.common.handle import Handle
 
@@ -29,7 +29,7 @@ import random
 import asyncio
 import uuid
 
-if has_ucp():
+if is_ucx_enabled() and has_ucp():
     import ucp
 
 
@@ -65,7 +65,7 @@ class CommsBase:
         self.nccl_initialized = False
         self.ucx_initialized = False
 
-        if comms_p2p and not has_ucp():
+        if comms_p2p and (not is_ucx_enabled() or not has_ucp()):
             warnings.warn("ucx-py not found. UCP Integration will "
                           "be disabled.")
             self.comms_p2p = False

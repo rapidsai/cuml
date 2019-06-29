@@ -18,6 +18,14 @@
 
 #include <nccl.h>
 
+
+#ifdef WITH_UCX
+  #define UCX_ENABLED true
+#else
+  #define UCX_ENABLED false
+#endif
+
+
 #ifdef WITH_UCX
 #include <pthread.h>
 #include <ucp/api/ucp.h>
@@ -116,6 +124,11 @@ ncclRedOp_t getNCCLOp(const cumlStdCommunicator_impl::op_t op) {
 }
 }  // namespace
 
+
+bool ucx_enabled(){
+  return UCX_ENABLED;
+}
+
 /**
  * @brief Underlying comms, like NCCL and UCX, should be initialized and ready for use,
  * and maintained, outside of the cuML Comms lifecycle. This allows us to decouple the
@@ -176,8 +189,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
   inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
 
 #else
-  std::cout << "UCX support has been disabled" << std::endl;
-
+  inject_comms(*handle, comm, size, rank);
 #endif
 }
 
@@ -282,7 +294,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   printf("flush_ep completed with status %d (%s)\n", flush_status,
          ucs_status_string(flush_status));
 #else
-  std::cout << "UCX support has been disabled" << std::endl;
+  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
 }
 
@@ -310,7 +322,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
   *request = req_id;
 #else
-  std::cout << "UCX support has been disabled" << std::endl;
+  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
 }
 
@@ -348,8 +360,7 @@ void cumlStdCommunicator_impl::waitall(int count,
   printf("Done waitall for rank: %d\n", getRank());
 
 #else
-  std::cout << "UCX support has been disabled" << std::endl;
-
+  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
 }
 
