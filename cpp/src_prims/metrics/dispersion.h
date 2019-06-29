@@ -65,7 +65,9 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
   }
   typedef cub::BlockReduce<DataT, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
+  __syncthreads();
   auto acc = BlockReduce(temp_storage).Sum(sum);
+  __syncthreads();
   if (threadIdx.x == 0) myAtomicAdd(result, acc);
 }
 
