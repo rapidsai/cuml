@@ -41,20 +41,18 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "tsne/tsne.h" namespace "ML":
-    cdef void TSNE_fit(const cumlHandle &handle,
-                const float *X, float *Y,
-                const int n, const int p, const int dim, int n_neighbors,
-                const float theta, const float epssq,
-                float perplexity, const int perplexity_max_iter,
-                const float perplexity_tol,
-                const float early_exaggeration,
-                const int exaggeration_iter, const float min_gain,
-                const float pre_learning_rate, const float post_learning_rate,
-                const int max_iter, const float min_grad_norm,
-                const float pre_momentum, const float post_momentum,
-                const long long random_state, const bool verbose,
-                const bool intialize_embeddings, bool barnes_hut) except +
-
+    cdef void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
+                        const int p, const int dim, int n_neighbors,
+                        const float theta, const float epssq,
+                        float perplexity, const int perplexity_max_iter,
+                        const float perplexity_tol,
+                        const float early_exaggeration,
+                        const int exaggeration_iter, const float min_gain,
+                        const float pre_learning_rate, const float post_learning_rate,
+                        const int max_iter, const float min_grad_norm,
+                        const float pre_momentum, const float post_momentum,
+                        const long long random_state, const bool verbose,
+                        const bool intialize_embeddings, bool barnes_hut) except +
 
 class TSNE(Base):
     """

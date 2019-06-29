@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "distances.h"
 #include "exact_kernels.h"
 #include "symmetrize.h"
@@ -28,18 +26,16 @@
 namespace ML {
 
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int dim = 2, int n_neighbors = 1023,
-              const float theta = 0.5f, const float epssq = 0.0025,
-              float perplexity = 50.0f, const int perplexity_max_iter = 100,
-              const float perplexity_tol = 1e-5,
-              const float early_exaggeration = 12.0f,
-              const int exaggeration_iter = 250, const float min_gain = 0.01f,
-              const float pre_learning_rate = 200.0f,
-              const float post_learning_rate = 500.0f,
-              const int max_iter = 1000, const float min_grad_norm = 1e-7,
-              const float pre_momentum = 0.5, const float post_momentum = 0.8,
-              const long long random_state = -1, const bool verbose = true,
-              const bool intialize_embeddings = true, bool barnes_hut = true) {
+              const int p, const int dim, int n_neighbors, const float theta,
+              const float epssq, float perplexity,
+              const int perplexity_max_iter, const float perplexity_tol,
+              const float early_exaggeration, const int exaggeration_iter,
+              const float min_gain, const float pre_learning_rate,
+              const float post_learning_rate, const int max_iter,
+              const float min_grad_norm, const float pre_momentum,
+              const float post_momentum, const long long random_state,
+              const bool verbose, const bool intialize_embeddings,
+              bool barnes_hut) {
   assert(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
          Y != NULL);
   if (dim > 2 and barnes_hut) {
