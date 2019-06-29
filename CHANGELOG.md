@@ -5,6 +5,7 @@
 - PR #766: Expose score method based on inertia for KMeans
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
 
 ## Bug Fixes
 
