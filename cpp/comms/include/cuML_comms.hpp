@@ -18,7 +18,7 @@
 
 #include <nccl.h>
 
-#if WITH_UCX == ON
+#ifdef WITH_UCX
 #include <ucp/api/ucp.h>
 #endif
 
@@ -36,7 +36,7 @@ namespace ML {
  * @param size the size of the cluster (number of elements in eps)
  * @param rank rank of the current worker
  */
-#if WITH_UCX == ON
+#ifdef WITH_UCX
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   ucp_ep_h *eps, int size, int rank);
 #endif

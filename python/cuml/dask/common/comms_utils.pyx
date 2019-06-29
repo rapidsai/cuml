@@ -39,7 +39,7 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
     cdef cppclass cumlHandle:
         cumlHandle() except +
 
-cdef extern from "cuML_comms.hpp" namespace "ML":
+cdef extern from "cuML_comms_py.hpp" namespace "ML":
     void inject_comms_py(cumlHandle *handle,
                          ncclComm_t comm,
                          void *ucp_worker,

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if WITH_UCX == ON
+#ifdef WITH_UCX
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 static const ucp_tag_t default_tag_mask = -1;
