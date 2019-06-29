@@ -24,7 +24,7 @@
 
 #include <common/cuml_comms_iface.hpp>
 
-#if WITH_UCX == ON
+#ifdef WITH_UCX
 #include <ucp/api/ucp.h>
 struct ucx_context {
   int completed;
@@ -50,7 +50,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
  public:
   cumlStdCommunicator_impl() = delete;
 
-#if WITH_UCX == ON
+#ifdef WITH_UCX
 
   /**
    * @brief Constructor for collective + point-to-point operation.
@@ -119,7 +119,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   int _size;
   int _rank;
 
-#if WITH_UCX == ON
+#ifdef WITH_UCX
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;

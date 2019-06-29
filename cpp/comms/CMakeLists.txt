@@ -22,7 +22,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
-message("WITH_UCX is currently set to ${WITH_UCX}")
 
 find_package(NCCL REQUIRED)
 find_package(CUDA 9.0 REQUIRED)
@@ -43,18 +42,20 @@ set(CUML_LIBRARY ${_CUML_LIBRARY} CACHE STRING "Path to the cuML lib")
 unset(_CUML_LIBRARY)
 unset(_CUML_LIBRARY_HINTS)
 
-add_compile_definitions(WITH_UCX=${WITH_UCX})
+
+
 
 include_directories( include 
 	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} 
 	${CUML_DIR}/src 
 	${CUML_DIR}/src_prims 
-	${UCX_PATH}/include
 )
 
 set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 
 if(WITH_UCX)
+message("WITH_UCX support is enabled")
+add_compile_definitions(WITH_UCX=1)
 set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ucp uct ucm ucs pthread)
 endif(WITH_UCX)
 
