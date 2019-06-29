@@ -28,9 +28,7 @@ import pandas as pd
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-        input_to_dev_array, zeros
-
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, input_to_dev_array, zeros
 from numba import cuda
 
 from libcpp cimport bool
@@ -43,27 +41,19 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "tsne/tsne.h" namespace "ML":
-    void TSNE_fit(cumlHandle &handle,
-                    float *X,
-                    float *Y,
-                    int n,
-                    int p,
-                    int n_components,
-                    int n_neighbors,
-                    float perplexity,
-                    int perplexity_epochs,
-                    int perplexity_tol,
-                    float early_exaggeration,
-                    int exaggeration_iter,
-                    float min_gain,
-                    float eta,
-                    int epochs,
-                    float pre_momentum,
-                    float post_momentum,
-                    long long seed,
-                    bool initialize_embeddings,
-                    bool verbose,
-                    char *method) except +
+    void TSNE_fit(const cumlHandle &handle,
+                const float *X, float *Y,
+                const int n, const int p, const int dim, int n_neighbors,
+                const float theta, const float epssq,
+                float perplexity, const int perplexity_max_iter,
+                const float perplexity_tol,
+                const float early_exaggeration,
+                const int exaggeration_iter, const float min_gain,
+                const float pre_learning_rate, const float post_learning_rate,
+                const int max_iter, const float min_grad_norm,
+                const float pre_momentum, const float post_momentum,
+                const long long random_state, const bool verbose,
+                const bool intialize_embeddings, bool barnes_hut) except +
 
 
 class TSNE:
@@ -141,141 +131,196 @@ class TSNE:
         Efficient Algorithms for t-distributed Stochastic Neighborhood Embedding
     """
 
-    def __cinit__(self,
-                n_neighbors=30,
-                n_components=2,
-                method = "Fast",
-                epochs=300,
-                perplexity=30.0,
-                perplexity_epochs=100,
-                perplexity_tol=1e-5,
-                early_exaggeration=12.0,
-                exaggeration_iter=150,
-                min_gain=0.01,
-                learning_rate=500.0,
-                pre_momentum=0.8,
-                post_momentum=0.5,
-                random_state=-1,
-                verbose=False,
-                should_downcast=True,
-                handle=None):
+    def __init__(self,
+                n_components = 2,
+                perplexity = 30.0,
+                early_exaggeration = 12.0,
+                learning_rate = 200.0,
+                n_iter = 1000,
+                n_iter_without_progress = 300,
+                min_grad_norm = 1e-07,
+                metric = 'euclidean',
+                init = 'random',
+                verbose = 0,
+                random_state = None,
+                method = 'barnes_hut',
+                angle = 0.5,
+
+                n_neighbors = 90,
+                perplexity_max_iter = 100,
+                exaggeration_iter = 250,
+                pre_momentum = 0.5,
+                post_momentum = 0.8,
+                should_downcast = True,
+                handle = None):
 
         self.handle = handle
 
-        self.n_neighbors = n_neighbors
+        if n_components < 0:
+            print("[Error] n_components = {} should be more than 0.".format(n_components))
+            n_components = 2
+        if n_components != 2 and method == 'barnes_hut':
+            print("[Warn] Barnes Hut only works when n_components == 2. Switching to exact.")
+            method = 'exact'
+        if perplexity < 0:
+            print("[Error] perplexity = {} should be more than 0.".format(perplexity))
+            perplexity = 30
+        if early_exaggeration < 0:
+            print("[Error] early_exaggeration = {} should be more than 0.".format(early_exaggeration))
+            early_exaggeration = 12
+        if learning_rate < 0:
+            print("[Error] learning_rate = {} should be more than 0.".format(learning_rate))
+            learning_rate = 200
+        if n_iter < 0:
+            print("[Error] n_iter = {} should be more than 0.".format(n_iter))
+            n_iter = 1000
+        if n_iter <= 100:
+            print("[Warn] n_iter = {} might cause TSNE to output wrong results. Set it higher.".format(n_iter))
+        if metric.lower() != 'euclidean':
+            print("[Warn] TSNE does not support {} but only Euclidean. Will do in the near future.".format(metric))
+            metric = 'euclidean'
+        if init.lower() != 'random':
+            print("[Warn] TSNE does not support {} but only random intialization. Will do in the near future.".format(init))
+            init = 'random'
+        if verbose != 0:
+            verbose = 1
+        if random_state is None:
+            random_state = -1
+        if angle < 0 or angle > 1:
+            print("[Error] angle = {} should be more than 0 and less than 1.".format(angle))
+            angle = 0.5
+        if n_neighbors < 0:
+            print("[Error] n_neighbors = {} should be more than 0.".format(n_neighbors))
+            n_neighbors = perplexity * 3
+        if n_neighbors > 1023:
+            print("[Error] n_neighbors = {} should be less than 1023, as FAISS doesn't support more".format(n_neighbors))
+            n_neighbors = 1023
+        if perplexity_max_iter < 0:
+            print("[Error] perplexity_max_iter = {} should be more than 0.".format(perplexity_max_iter))
+            perplexity_max_iter = 100
+        if exaggeration_iter < 0:
+            print("[Error] exaggeration_iter = {} should be more than 0.".format(exaggeration_iter))
+            exaggeration_iter = 250
+        if exaggeration_iter > n_iter:
+            print("[Error] exaggeration_iter = {} should be more less than n_iter = {}.".format(exaggeration_iter, n_iter))
+            exaggeration_iter = max(int(n_iter * 0.25) , 1)
+        if pre_momentum < 0 or pre_momentum > 1:
+            print("[Error] pre_momentum = {} should be more than 0 and less than 1.".format(pre_momentum))
+            pre_momentum = 0.5
+        if post_momentum < 0 or post_momentum > 1:
+            print("[Error] post_momentum = {} should be more than 0 and less than 1.".format(post_momentum))
+            post_momentum = 0.8
+        if pre_momentum > post_momentum:
+            print("[Error] post_momentum = {} should be more than pre_momentum = {}".format(post_momentum, pre_momentum))
+            pre_momentum = post_momentum * 0.75
+
+
         self.n_components = n_components
-        self.method = 0 if method == "Naive" else 1
-        self.epochs = epochs
         self.perplexity = perplexity
-        self.perplexity_epochs = perplexity_epochs
-        self.perplexity_tol = perplexity_tol
         self.early_exaggeration = early_exaggeration
+        self.learning_rate = learning_rate
+        self.n_iter = n_iter
+        self.n_iter_without_progress = n_iter_without_progress
+        self.min_grad_norm = min_grad_norm
+        self.metric = metric,
+        self.init = init,
+        self.verbose = verbose,
+        self.random_state = random_state,
+        self.method = 1 if method == 'barnes_hut' else 0
+        self.angle = angle
+        self.n_neighbors = n_neighbors
+        self.perplexity_max_iter = perplexity_max_iter
         self.exaggeration_iter = exaggeration_iter
-        self.min_gain = min_gain
-        self.eta = learning_rate
         self.pre_momentum = pre_momentum
         self.post_momentum = post_momentum
 
-        if random_state is None:
-            self.seed = -1
-        elif type(random_state) is int:
-            self.seed = random_state
-        else:
-            self.seed = -1
-        
-        self.verbose = verbose
+        self.epssq = 0.0025
+        self.perplexity_tol = 1e-5
+        self.min_gain = 0.01
+        self.pre_learning_rate = learning_rate
+        self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
+        return
 
 
-        def fit(self, X):
-            """Fit X into an embedded space.
-            Parameters
-            ----------
-            X : array-like (device or host) shape = (n_samples, n_features)
-                    X contains a sample per row.
-                    Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-                    ndarray, cuda array interface compliant array like CuPy
-            y : array-like (device or host) shape = (n_samples, 1)
-                    y contains a label per row.
-                    Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-                    ndarray, cuda array interface compliant array like CuPy
-            """
+    def fit(self, X):
+        """Fit X into an embedded space.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+                X contains a sample per row.
+                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+                ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, 1)
+                y contains a label per row.
+                Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+                ndarray, cuda array interface compliant array like CuPy
+        """
+        cdef int n, p
 
-            if len(X.shape) != 2:
-                raise ValueError("data should be two dimensional")
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
-            if self._should_downcast:
-                X_m, X_ctype, n_rows, n_cols, dtype = \
-                        input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-            else:
-                X_m, X_ctype, n_rows, n_cols, dtype = \
-                        input_to_dev_array(X, order='C', check_dtype=np.float32)
+        if self._should_downcast:
+            X_m, X_ctype, n, p, dtype = input_to_dev_array(X, order = 'C', convert_to_dtype = np.float32)
+        else:
+            X_m, X_ctype, n, p, dtype = input_to_dev_array(X, order = 'C', check_dtype = np.float32)
 
-            if n_rows <= 1:
-                raise ValueError("There needs to be more than 1 sample to "
-                                    "build nearest the neighbors graph")
+        if n <= 1:
+            raise ValueError("There needs to be more than 1 sample to build nearest the neighbors graph")
 
-            self.n_neighbors = min(n_rows, self.n_neighbors)
-            self.n_dims = n_cols
-            self.raw_data = X_ctype
-
-            self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
-                                             self.n_components),
-                                             order="C", dtype=np.float32))
-            self.embeddings = self.arr_embed.device_ctypes_pointer.value
-
-            cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-            cdef uintptr_t X_ptr = self.raw_data
-            cdef uintptr_t embed_ptr = self.embeddings
-
-            cdef uintptr_t y_raw
-            TSNE(handle_[0],
-                     <float*> X_ptr,
-                     <float*>embed_ptr,
-                     <int> X_m.shape[0],
-                     <int> X_m.shape[1],
-                     <int>self.n_components,
-                     <int>self.n_neighbors,
-                     <float>self.perplexity,
-                     <int> self.perplexity_epochs,
-                     <int> self.perplexity_tol,
-                     <float>self.early_exaggeration,
-                     <int> self.exaggeration_iter,
-                     <float> self.min_gain,
-                     <float> self.eta,
-                     <int> self.epochs,
-                     <float> self.pre_momentum,
-                     <float> self.post_momentum,
-                     <long long> self.seed,
-                     <bool>True,
-                     <bool>self.verbose,
-                     <int>self.method)
-            del X_m
-            return self
+        self.n_neighbors = min(n, self.n_neighbors)
+        if self.perplexity > n:
+            print("[Warn] Perplexity = {} should be less than the # of datapoints = {}.".format(self.perplexity, n))
+            self.perplexity = n
 
 
-        def fit_transform(self, X):
-            """Fit X into an embedded space and return that transformed output.
-            Parameters
-            ----------
-            X : array-like (device or host) shape = (n_samples, n_features)
-                    X contains a sample per row.
-                    Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-                    ndarray, cuda array interface compliant array like CuPy
-            Returns
-            -------
-            X_new : array, shape (n_samples, n_components)
-                    Embedding of the training data in low-dimensional space.
-            """
-            self.fit(X)
+        self.arr_embed = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
+        self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-            if isinstance(X, cudf.DataFrame):
-                ret = cudf.DataFrame()
-                for i in range(0, self.arr_embed.shape[1]):
-                        ret[str(i)] = self.arr_embed[:, i]
-            elif isinstance(X, np.ndarray):
-                ret = np.asarray(self.arr_embed)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t X_ptr = X_ctype
+        cdef uintptr_t embed_ptr = self.embeddings
+        cdef uintptr_t y_raw
 
-            return ret
+        TSNE_fit(handle_[0],
+                <float*> X_ptr, <float*> embed_ptr,
+                <int> n, <int> p, <int> self.n_components, <int> self.n_neighbors,
+                <float> self.angle, <float> self.epssq,
+                <float> self.perplexity, <int> self.perplexity_max_iter,
+                <float> self.perplexity_tol,
+                <float> self.early_exaggeration,
+                <int> self.exaggeration_iter, <float> self.min_gain,
+                <float> self.pre_learning_rate, <float> self.post_learning_rate,
+                <int> self.n_iter, <float> self.min_grad_norm,
+                <float> self.pre_momentum, <float> self.post_momentum,
+                <long long> self.random_state, <bool> self.verbose,
+                <bool> True, <bool> self.barnes_hut)
+        del X_m
+        return self
+
+
+    def fit_transform(self, X):
+        """Fit X into an embedded space and return that transformed output.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+                X contains a sample per row.
+                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+                ndarray, cuda array interface compliant array like CuPy
+        Returns
+        -------
+        X_new : array, shape (n_samples, n_components)
+                Embedding of the training data in low-dimensional space.
+        """
+        self.fit(X)
+
+        if isinstance(X, cudf.DataFrame):
+            ret = cudf.DataFrame()
+            for i in range(0, self.arr_embed.shape[1]):
+                ret[str(i)] = self.arr_embed[:, i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(self.arr_embed)
+
+        return ret
