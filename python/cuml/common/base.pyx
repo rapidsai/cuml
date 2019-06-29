@@ -22,7 +22,7 @@
 
 import cuml.common.handle
 import cuml.common.cuda
-
+import inspect
 
 class Base:
     """
@@ -79,6 +79,27 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
+        
+    
+    def __repr__(self):
+        """
+        Pretty prints the arguments of a class using Sklearn standard :)
+        """
+        cdef list signature = inspect.getargspec(self.__init__).args
+        if signature[0] == 'self':
+            del signature[0]
+            
+        cdef dict state = self.__dict__
+        cdef str string = self.__class__.__name__ + '('
+        cdef str key
+        for key in signature:
+            try:
+                string += (str(key) + '=' + str(state[key]) + ', ')
+            except:
+                pass
+        string = string.rstrip(', ')
+        return string + ')'
+    
 
     def get_param_names(self):
         """
