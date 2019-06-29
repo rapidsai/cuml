@@ -94,7 +94,7 @@ class Base:
         cdef str key
         for key in signature:
             try:
-                string += (str(key) + '=' + str(state[key]) + ', ')
+                string += "{}='{}', ".format(key, str(state[key]))
             except:
                 pass
         string = string.rstrip(', ')
