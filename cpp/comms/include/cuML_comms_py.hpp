@@ -20,7 +20,11 @@
 
 #include <cuML.hpp>
 
+
 namespace ML {
+
+  bool ucx_enabled();
+
   /**
    * @brief This function wraps the inject comms functions above to decouple
    * the Python layer from the optional UCX dependency in the C++ build. This
