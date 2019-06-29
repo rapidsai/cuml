@@ -19,8 +19,9 @@
 #include <cub/cub.cuh>
 #include <memory>
 #include "common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
 #include "cuda_utils.h"
-#include "linalg/multiply.h"
+#include "linalg/eltwise.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -100,13 +101,13 @@ DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
   device_buffer<DataT> result(allocator, stream, 1);
   DataT *mu = globalCentroid;
   if (globalCentroid == nullptr) {
-    mean.resize(dim);
+    mean.resize(dim, stream);
     mu = mean.data();
   }
   CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(DataT) * dim, stream));
   CUDA_CHECK(cudaMemsetAsync(result.data(), 0, sizeof(DataT), stream));
   weightedMeanKernel<DataT, IdxT, TPB, ColsPerBlk>
-    <<<grid, TPB, 0, stream>>>(mu, data, clusterSizes, dim, nClusters);
+    <<<grid, TPB, 0, stream>>>(mu, centroids, clusterSizes, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT ratio = DataT(1) / DataT(nPoints);
   LinAlg::scalarMultiply(mu, mu, ratio, dim, stream);

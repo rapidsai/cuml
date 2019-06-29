@@ -58,10 +58,10 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto &val : h_counts) {
       npoints += val;
     }
-    computedVal = dispersion(data, counts, nullptr, params.clusters, npoints,
-                             params.dim, allocator, stream);
+    computedVal = dispersion(data, counts, (T *)nullptr, params.clusters,
+                             npoints, params.dim, allocator, stream);
     actualVal = T(0);
-    std_vector<T> h_data(len, T(0));
+    std::vector<T> h_data(len, T(0));
     updateHost(&(h_data[0]), data, len, stream);
     std::vector<T> mean(params.dim, T(0));
     for (int i = 0; i < params.clusters; ++i) {
