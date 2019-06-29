@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cub/cub.cuh>
+#include <memory>
 #include "common/cuml_allocator.hpp"
 #include "cuda_utils.h"
 #include "linalg/multiply.h"

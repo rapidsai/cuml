@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <vector>
 #include "cuda_utils.h"
-#include "random/rng.h"
 #include "metrics/dispersion.h"
+#include "random/rng.h"
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -34,7 +34,8 @@ struct DispersionInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const DispersionInputs<T> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const DispersionInputs<T> &dims) {
   return os;
 }
 
@@ -48,7 +49,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocator.reset(new defaultDeviceAllocator);
     allocate(data, len);
-    allocate(counts, params.clusters)
+    allocate(counts, params.clusters);
     r.uniform(data, len, (T)-1.0, (T)1.0, stream);
     r.uniformInt(counts, params.clusters, 1, 100, stream);
     std::vector<int> h_counts(params.clusters, 0);
@@ -96,25 +97,26 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
   T actualVal, computedVal;
 };
 
-
 const std::vector<DispersionInputs<float>> inputsf = {
-  {0.001f, 10, 1000, 1234ULL}, {0.001f, 100, 100, 1234ULL},
+  {0.001f, 10, 1000, 1234ULL},
+  {0.001f, 100, 100, 1234ULL},
   {0.001f, 1000, 1000, 1234ULL}};
 typedef DispersionTest<float> DispersionTestF;
 TEST_P(DispersionTestF, Result) {
-  ASSERT_TRUE(match(actualVal, computedVal,
-                    CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    match(actualVal, computedVal, CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestF,
                         ::testing::ValuesIn(inputsf));
 
 const std::vector<DispersionInputs<double>> inputsd = {
-  {0.001, 10, 1000, 1234ULL}, {0.001, 100, 100, 1234ULL},
+  {0.001, 10, 1000, 1234ULL},
+  {0.001, 100, 100, 1234ULL},
   {0.001, 1000, 1000, 1234ULL}};
 typedef DispersionTest<double> DispersionTestD;
 TEST_P(DispersionTestD, Result) {
-  ASSERT_TRUE(match(actualVal, computedVal,
-                    CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(
+    match(actualVal, computedVal, CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestD,
                         ::testing::ValuesIn(inputsd));
