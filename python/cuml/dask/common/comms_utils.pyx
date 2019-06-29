@@ -63,6 +63,7 @@ cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
 def is_ucx_enabled():
     return ucx_enabled()
 
+
 def perform_test_comms_allreduce(handle):
     """
     Performs an allreduce on the current worker
