@@ -18,7 +18,8 @@
 
 #include <nccl.h>
 
-#if WITH_UCX == 1
+
+#if WITH_UCX == ON
 #include <pthread.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
@@ -125,7 +126,7 @@ ncclRedOp_t getNCCLOp(const cumlStdCommunicator_impl::op_t op) {
  * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
  * in Python using ucx-py, before being used to construct a cuML comms instance.
  */
-#if WITH_UCX == 1
+#if WITH_UCX == ON
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
@@ -149,7 +150,9 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
 
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
-#if WITH_UCX == 1
+
+
+#if WITH_UCX == ON
   ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
 
   // Make shared_ptr for endpoints
@@ -172,6 +175,10 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
   }
 
   inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
+
+#else
+  std::cout << "UCX support has been disabled" << std::endl;
+
 #endif
 }
 
@@ -195,7 +202,7 @@ void get_unique_id(char *uid) {
   memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 
-#if WITH_UCX == 1
+#if WITH_UCX == ON
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(
   ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
   int size, int rank)
@@ -249,7 +256,7 @@ void cumlStdCommunicator_impl::barrier() const {
 
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
                                      int tag, request_t *request) const {
-#if WITH_UCX == 1
+#if WITH_UCX == ON
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
@@ -282,7 +289,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
-#if WITH_UCX == 1
+#if WITH_UCX == ON
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
@@ -310,7 +317,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
 void cumlStdCommunicator_impl::waitall(int count,
                                        request_t array_of_requests[]) const {
-#if WITH_UCX == 1
+#if WITH_UCX == ON
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
