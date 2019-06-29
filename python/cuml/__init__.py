@@ -41,6 +41,7 @@ from cuml.solvers.sgd import SGD
 from cuml.solvers.cd import CD
 
 from cuml.manifold.umap import UMAP
+from cuml.manifold.t_sne import TSNE
 
 from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 

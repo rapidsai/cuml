@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
-# cython: profile=False
+# cython: profile = False
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
+# cython: boundscheck = False
+# cython: wraparound = False
 
 import cudf
 import cuml
@@ -33,15 +35,13 @@ from numba import cuda
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
-
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "tsne/tsne.h" namespace "ML":
-    void TSNE_fit(const cumlHandle &handle,
+    cdef void TSNE_fit(const cumlHandle &handle,
                 const float *X, float *Y,
                 const int n, const int p, const int dim, int n_neighbors,
                 const float theta, const float epssq,
@@ -56,7 +56,7 @@ cdef extern from "tsne/tsne.h" namespace "ML":
                 const bool intialize_embeddings, bool barnes_hut) except +
 
 
-class TSNE:
+class TSNE(Base):
     """
     TSNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -132,26 +132,26 @@ class TSNE:
     """
 
     def __init__(self,
-                n_components = 2,
-                perplexity = 30.0,
-                early_exaggeration = 12.0,
-                learning_rate = 200.0,
-                n_iter = 1000,
-                n_iter_without_progress = 300,
-                min_grad_norm = 1e-07,
-                metric = 'euclidean',
-                init = 'random',
-                verbose = 0,
+                int n_components = 2,
+                float perplexity = 30.0,
+                float early_exaggeration = 12.0,
+                float learning_rate = 200.0,
+                int n_iter = 1000,
+                int n_iter_without_progress = 300,
+                float min_grad_norm = 1e-07,
+                str metric = 'euclidean',
+                str init = 'random',
+                int verbose = 0,
                 random_state = None,
-                method = 'barnes_hut',
-                angle = 0.5,
+                str method = 'barnes_hut',
+                float angle = 0.5,
 
-                n_neighbors = 90,
-                perplexity_max_iter = 100,
-                exaggeration_iter = 250,
-                pre_momentum = 0.5,
-                post_momentum = 0.8,
-                should_downcast = True,
+                int n_neighbors = 90,
+                int perplexity_max_iter = 100,
+                int exaggeration_iter = 250,
+                float pre_momentum = 0.5,
+                float post_momentum = 0.8,
+                bool should_downcast = True,
                 handle = None):
 
         self.handle = handle
@@ -191,7 +191,7 @@ class TSNE:
             angle = 0.5
         if n_neighbors < 0:
             print("[Error] n_neighbors = {} should be more than 0.".format(n_neighbors))
-            n_neighbors = perplexity * 3
+            n_neighbors = <int> (perplexity * 3)
         if n_neighbors > 1023:
             print("[Error] n_neighbors = {} should be less than 1023, as FAISS doesn't support more".format(n_neighbors))
             n_neighbors = 1023
@@ -203,7 +203,7 @@ class TSNE:
             exaggeration_iter = 250
         if exaggeration_iter > n_iter:
             print("[Error] exaggeration_iter = {} should be more less than n_iter = {}.".format(exaggeration_iter, n_iter))
-            exaggeration_iter = max(int(n_iter * 0.25) , 1)
+            exaggeration_iter = <int> max(<float>n_iter * 0.25 , 1)
         if pre_momentum < 0 or pre_momentum > 1:
             print("[Error] pre_momentum = {} should be more than 0 and less than 1.".format(pre_momentum))
             pre_momentum = 0.5
@@ -222,10 +222,10 @@ class TSNE:
         self.n_iter = n_iter
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
-        self.metric = metric,
-        self.init = init,
-        self.verbose = verbose,
-        self.random_state = random_state,
+        self.metric = metric
+        self.init = init
+        self.verbose = verbose
+        self.random_state = <long long> random_state
         self.method = 1 if method == 'barnes_hut' else 0
         self.angle = angle
         self.n_neighbors = n_neighbors
@@ -316,6 +316,7 @@ class TSNE:
         """
         self.fit(X)
 
+        cdef int i
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, self.arr_embed.shape[1]):
@@ -324,3 +325,30 @@ class TSNE:
             ret = np.asarray(self.arr_embed)
 
         return ret
+
+
+    def get_params(self, bool deep = True):
+        """
+        Sklearn style return parameter state
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
+        return vars(self)
+
+
+    def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+        Parameters
+        -----------
+        params : dict of new params
+        """
+        if not params:
+            return self
+        for key, value in params.items():
+            try:
+                setattr(self, key, value)
+            except:
+                raise ValueError('Invalid parameter {} for estimator'.format(key))
+        return self
