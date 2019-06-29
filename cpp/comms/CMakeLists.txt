@@ -22,6 +22,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
+message("WITH_UCX is currently set to ${WITH_UCX}")
 
 find_package(NCCL REQUIRED)
 find_package(CUDA 9.0 REQUIRED)
