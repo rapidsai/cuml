@@ -50,6 +50,8 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     allocator.reset(new defaultDeviceAllocator);
     allocate(data, len);
     allocate(counts, params.clusters);
+    allocate(exp_mean, params.dim);
+    allocate(act_mean, params.dim);
     r.uniform(data, len, (T)-1.0, (T)1.0, stream);
     r.uniformInt(counts, params.clusters, 1, 100, stream);
     std::vector<int> h_counts(params.clusters, 0);
@@ -58,9 +60,9 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto &val : h_counts) {
       npoints += val;
     }
-    computedVal = dispersion(data, counts, (T *)nullptr, params.clusters,
-                             npoints, params.dim, allocator, stream);
-    actualVal = T(0);
+    actualVal = dispersion(data, counts, act_mean, params.clusters, npoints,
+                           params.dim, allocator, stream);
+    expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     updateHost(&(h_data[0]), data, len, stream);
     std::vector<T> mean(params.dim, T(0));
@@ -72,12 +74,14 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (int i = 0; i < params.dim; ++i) {
       mean[i] /= T(npoints);
     }
+    updateDevice(exp_mean, &(mean[0]), params.dim, stream);
     for (int i = 0; i < params.clusters; ++i) {
       for (int j = 0; j < params.dim; ++j) {
         auto diff = h_data[i * params.dim + j] - mean[j];
-        actualVal += diff * diff * T(h_counts[i]);
+        expectedVal += diff * diff * T(h_counts[i]);
       }
     }
+    expectedVal = sqrt(expectedVal);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -85,16 +89,18 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(counts));
+    CUDA_CHECK(cudaFree(exp_mean));
+    CUDA_CHECK(cudaFree(act_mean));
   }
 
  protected:
   DispersionInputs<T> params;
-  T *data;
+  T *data, *exp_mean, *act_mean;
   int *counts;
   cudaStream_t stream;
   int npoints;
   std::shared_ptr<deviceAllocator> allocator;
-  T actualVal, computedVal;
+  T expectedVal, actualVal;
 };
 
 const std::vector<DispersionInputs<float>> inputsf = {
@@ -103,8 +109,9 @@ const std::vector<DispersionInputs<float>> inputsf = {
   {0.001f, 1000, 1000, 1234ULL}};
 typedef DispersionTest<float> DispersionTestF;
 TEST_P(DispersionTestF, Result) {
-  ASSERT_TRUE(
-    match(actualVal, computedVal, CompareApprox<float>(params.tolerance)));
+  auto eq = CompareApprox<float>(params.tolerance);
+  ASSERT_TRUE(devArrMatch(exp_mean, act_mean, params.dim, eq));
+  ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestF,
                         ::testing::ValuesIn(inputsf));
@@ -115,8 +122,9 @@ const std::vector<DispersionInputs<double>> inputsd = {
   {0.001, 1000, 1000, 1234ULL}};
 typedef DispersionTest<double> DispersionTestD;
 TEST_P(DispersionTestD, Result) {
-  ASSERT_TRUE(
-    match(actualVal, computedVal, CompareApprox<double>(params.tolerance)));
+  auto eq = CompareApprox<double>(params.tolerance);
+  ASSERT_TRUE(devArrMatch(exp_mean, act_mean, params.dim, eq));
+  ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestD,
                         ::testing::ValuesIn(inputsd));
