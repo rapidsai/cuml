@@ -67,11 +67,30 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
   if (threadIdx.x == 0) myAtomicAdd(result, acc);
 }
 
+/**
+ * @brief Compute cluster dispersion metric. This is very useful for
+ * automatically finding the 'k' (in kmeans) that improves this metric.
+ * @tparam DataT data type
+ * @tparam IdxT index type
+ * @tparam TPB threads block for kernels launched
+ * @param centroids the cluster centroids. This is assumed to be row-major
+ *   and of dimension (nClusters x dim)
+ * @param clusterSizes number of points in the dataset which belong to each
+ *   cluster. This is of length nClusters
+ * @param globalCentroid compute the global weighted centroid of all cluster
+ *   centroids. This is of length dim. Pass a nullptr if this is not needed
+ * @param nClusters number of clusters
+ * @param nPoints number of points in the dataset
+ * @param dim dataset dimensionality
+ * @param allocator device allocator
+ * @param stream cuda stream
+ * @return the cluster dispersion value
+ */
 template <typename DataT, typename IdxT = int, int TPB = 256>
-DataT clusterDispersion(const DataT *clusters, const IdxT *clusterSizes,
-                        DataT *globalCentroid, IdxT nClusters, IdxT nPoints,
-                        IdxT dim, std::shared_ptr<deviceAllocator> allocator,
-                        cudaStream_t stream) {
+DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
+                 DataT *globalCentroid, IdxT nClusters, IdxT nPoints, IdxT dim,
+                 std::shared_ptr<deviceAllocator> allocator,
+                 cudaStream_t stream) {
   static const int RowsPerThread = 4;
   static const int ColsPerBlk = 32;
   static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
@@ -93,8 +112,8 @@ DataT clusterDispersion(const DataT *clusters, const IdxT *clusterSizes,
   // finally, compute the dispersion
   constexpr int ItemsPerThread = 4;
   int nblks = ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
-  dispersionKernel<DataT, IdxT, TPB><<<nblks, TPB, 0, stream>>>
-    (result.data(), clusters, clusterSizes, mu, dim, nClusters);
+  dispersionKernel<DataT, IdxT, TPB><<<nblks, TPB, 0, stream>>>(
+    result.data(), centroids, clusterSizes, mu, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT h_result;
   updateHost(&h_result, result.data(), 1, stream);
@@ -102,5 +121,5 @@ DataT clusterDispersion(const DataT *clusters, const IdxT *clusterSizes,
   return sqrt(h_result);
 }
 
-} // end namespace Metrics
-} // end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon
