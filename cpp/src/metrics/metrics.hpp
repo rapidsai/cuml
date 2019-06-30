@@ -73,7 +73,6 @@ double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
 double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 
 /**
-
 * Calculates the "Silhouette Score"
 *
 * The Silhouette Coefficient is calculated using the mean intra-cluster distance (a)
@@ -111,6 +110,95 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
                          const int upper_class_range);
+
+/**
+* Calculates the "entropy" of a labelling
+*
+* This metric is a measure of the purity/polarity of the clustering 
+*
+* @param handle: cumlHandle
+* @param y: Array of response variables of the clustering
+* @param n: Number of elements in y
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The entropy value of the clustering
+*/
+double entropy(const cumlHandle &handle, const int *y, const int n,
+               const int lower_class_range, const int upper_class_range);
+
+/**
+* Calculates the "Mutual Information score" between two clusters
+*
+* Mutual Information is a measure of the similarity between two labels of
+* the same data.
+*
+* @param handle: cumlHandle
+* @param y: Array of response variables of the first clustering classifications
+* @param y_hat: Array of response variables of the second clustering classifications
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The mutual information score
+*/
+double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
+                       const int n, const int lower_class_range,
+                       const int upper_class_range);
+
+/**
+* Calculates the "homogeneity score" between two clusters
+*
+* A clustering result satisfies homogeneity if all of its clusters
+* contain only data points which are members of a single class.
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The homogeneity score
+*/
+double homogeneityScore(const cumlHandle &handle, const int *y,
+                        const int *y_hat, const int n,
+                        const int lower_class_range,
+                        const int upper_class_range);
+
+/**
+* Calculates the "completeness score" between two clusters
+*
+* A clustering result satisfies completeness if all the data points
+* that are members of a given class are elements of the same cluster.
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The completeness score
+*/
+double completenessScore(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
+
+/**
+* Calculates the "v-measure" between two clusters
+*
+* v-measure is the harmonic mean between the homogeneity
+* and completeness scores of 2 cluster classifications
+*
+* @param handle: cumlHandle
+* @param y: truth labels
+* @param y_hat: predicted labels
+* @param n: Number of elements in y and y_hat
+* @param lower_class_range: the lowest value in the range of classes
+* @param upper_class_range: the highest value in the range of classes
+* @return: The v-measure
+*/
+double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
+                const int n, const int lower_class_range,
+                const int upper_class_range);
 
 }  // namespace Metrics
 }  // namespace ML
