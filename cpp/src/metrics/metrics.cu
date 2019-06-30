@@ -18,6 +18,7 @@
 #include "cuda_utils.h"
 #include "metrics.hpp"
 #include "metrics/adjustedRandIndex.h"
+#include "metrics/klDivergence.h"
 #include "metrics/randIndex.h"
 #include "metrics/silhouetteScore.h"
 #include "metrics/vMeasure.h"
@@ -56,6 +57,18 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
   return MLCommon::Metrics::computeAdjustedRandIndex(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.getDeviceAllocator(), handle.getStream());
+}
+
+double klDivergence(const cumlHandle &handle, const double *y,
+                    const double *y_hat, int n) {
+  return MLCommon::Metrics::klDivergence(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
+}
+
+float klDivergence(const cumlHandle &handle, const float *y, const float *y_hat,
+                   int n) {
+  return MLCommon::Metrics::klDivergence(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
 }
 
 double entropy(const cumlHandle &handle, const int *y, const int n,
