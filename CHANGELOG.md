@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #674: KL Divergence metric ml-prim
 - PR #787: homogeneity, completeness and v-measure metrics ml-prim
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
