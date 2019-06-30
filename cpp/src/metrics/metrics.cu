@@ -17,10 +17,10 @@
 // #include "metrics.h"
 #include "cuda_utils.h"
 #include "metrics.hpp"
-
 #include "metrics/adjustedRandIndex.h"
 #include "metrics/klDivergence.h"
 #include "metrics/randIndex.h"
+#include "metrics/silhouetteScore.h"
 #include "metrics/vMeasure.h"
 #include "score/scores.h"
 
@@ -40,6 +40,14 @@ double randIndex(const cumlHandle &handle, const double *y, const double *y_hat,
                  int n) {
   return MLCommon::Metrics::computeRandIndex(
     y, y_hat, (uint64_t)n, handle.getDeviceAllocator(), handle.getStream());
+}
+
+double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
+                       int nCols, int *labels, int nLabels, double *silScores,
+                       int metric) {
+  return MLCommon::Metrics::silhouetteScore<double, int>(
+    y, nRows, nCols, labels, nLabels, silScores, handle.getDeviceAllocator(),
+    handle.getStream(), metric);
 }
 
 double adjustedRandIndex(const cumlHandle &handle, const int *y,
