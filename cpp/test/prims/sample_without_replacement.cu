@@ -30,6 +30,8 @@ namespace Random {
 template <typename T>
 struct SWoRInputs {
   int len, sampledLen;
+  int largeWeightIndex;
+  T largeWeight;
   GeneratorType gtype;
   unsigned long long int seed;
 };
@@ -53,7 +55,11 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     allocate(outIdx, params.sampledLen);
     h_outIdx.resize(params.sampledLen);
     r.uniform(in, params.len, T(-1.0), T(1.0), stream);
-    r.uniform(wts, params.len, T(1.0), T(10.0), stream);
+    r.uniform(wts, params.len, T(1.0), T(2.0), stream);
+    if (params.largeWeightIndex >= 0) {
+      updateDevice(wts + params.largeWeightIndex, &params.largeWeight, 1,
+                   stream);
+    }
     r.sampleWithoutReplacement(out, outIdx, in, wts, params.sampledLen,
                                params.len, allocator, stream);
     updateHost(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
@@ -76,66 +82,68 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   std::shared_ptr<deviceAllocator> allocator;
 };
 
-///@todo: come up with a way to test the sampling distribution itself
-
 typedef SWoRTest<float> SWoRTestF;
 const std::vector<SWoRInputs<float>> inputsf = {
-  {1024, 512, GenPhilox, 1234ULL},
-  {1024, 1024, GenPhilox, 1234ULL},
-  {1024, 512 + 1, GenPhilox, 1234ULL},
-  {1024, 1024 - 1, GenPhilox, 1234ULL},
-  {1024, 512 + 2, GenPhilox, 1234ULL},
-  {1024, 1024 - 2, GenPhilox, 1234ULL},
-  {1024 + 1, 512, GenPhilox, 1234ULL},
-  {1024 + 1, 1024, GenPhilox, 1234ULL},
-  {1024 + 1, 512 + 1, GenPhilox, 1234ULL},
-  {1024 + 1, 1024 + 1, GenPhilox, 1234ULL},
-  {1024 + 1, 512 + 2, GenPhilox, 1234ULL},
-  {1024 + 1, 1024 - 2, GenPhilox, 1234ULL},
-  {1024 + 2, 512, GenPhilox, 1234ULL},
-  {1024 + 2, 1024, GenPhilox, 1234ULL},
-  {1024 + 2, 512 + 1, GenPhilox, 1234ULL},
-  {1024 + 2, 1024 + 1, GenPhilox, 1234ULL},
-  {1024 + 2, 512 + 2, GenPhilox, 1234ULL},
-  {1024 + 2, 1024 + 2, GenPhilox, 1234ULL},
+  {1024, 512, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 1024, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 512 + 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 1024 - 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 512 + 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 1024 - 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 512, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 1024, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 512, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 1024, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.f, GenPhilox, 1234ULL},
+  {1024, 512, 10, 100000.f, GenPhilox, 1234ULL},
 
-  {1024, 512, GenTaps, 1234ULL},
-  {1024, 1024, GenTaps, 1234ULL},
-  {1024, 512 + 1, GenTaps, 1234ULL},
-  {1024, 1024 - 1, GenTaps, 1234ULL},
-  {1024, 512 + 2, GenTaps, 1234ULL},
-  {1024, 1024 - 2, GenTaps, 1234ULL},
-  {1024 + 1, 512, GenTaps, 1234ULL},
-  {1024 + 1, 1024, GenTaps, 1234ULL},
-  {1024 + 1, 512 + 1, GenTaps, 1234ULL},
-  {1024 + 1, 1024 + 1, GenTaps, 1234ULL},
-  {1024 + 1, 512 + 2, GenTaps, 1234ULL},
-  {1024 + 1, 1024 - 2, GenTaps, 1234ULL},
-  {1024 + 2, 512, GenTaps, 1234ULL},
-  {1024 + 2, 1024, GenTaps, 1234ULL},
-  {1024 + 2, 512 + 1, GenTaps, 1234ULL},
-  {1024 + 2, 1024 + 1, GenTaps, 1234ULL},
-  {1024 + 2, 512 + 2, GenTaps, 1234ULL},
-  {1024 + 2, 1024 + 2, GenTaps, 1234ULL},
+  {1024, 512, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 1024, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 512 + 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 1024 - 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 512 + 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 1024 - 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 512, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 1024, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 512, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 1024, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.f, GenTaps, 1234ULL},
+  {1024, 512, 10, 100000.f, GenTaps, 1234ULL},
 
-  {1024, 512, GenKiss99, 1234ULL},
-  {1024, 1024, GenKiss99, 1234ULL},
-  {1024, 512 + 1, GenKiss99, 1234ULL},
-  {1024, 1024 - 1, GenKiss99, 1234ULL},
-  {1024, 512 + 2, GenKiss99, 1234ULL},
-  {1024, 1024 - 2, GenKiss99, 1234ULL},
-  {1024 + 1, 512, GenKiss99, 1234ULL},
-  {1024 + 1, 1024, GenKiss99, 1234ULL},
-  {1024 + 1, 512 + 1, GenKiss99, 1234ULL},
-  {1024 + 1, 1024 + 1, GenKiss99, 1234ULL},
-  {1024 + 1, 512 + 2, GenKiss99, 1234ULL},
-  {1024 + 1, 1024 - 2, GenKiss99, 1234ULL},
-  {1024 + 2, 512, GenKiss99, 1234ULL},
-  {1024 + 2, 1024, GenKiss99, 1234ULL},
-  {1024 + 2, 512 + 1, GenKiss99, 1234ULL},
-  {1024 + 2, 1024 + 1, GenKiss99, 1234ULL},
-  {1024 + 2, 512 + 2, GenKiss99, 1234ULL},
-  {1024 + 2, 1024 + 2, GenKiss99, 1234ULL}};
+  {1024, 512, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 1024, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 512 + 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 1024 - 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 512 + 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 1024 - 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 512, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 1024, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 512, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 1024, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.f, GenKiss99, 1234ULL},
+  {1024, 512, 10, 100000.f, GenKiss99, 1234ULL},
+};
 
 TEST_P(SWoRTestF, Result) {
   std::set<int> occurence;
@@ -150,67 +158,76 @@ TEST_P(SWoRTestF, Result) {
       << "repeated index @i=" << i << " idx=" << val;
     occurence.insert(val);
   }
+  // if there's a skewed distribution, the top index should correspond to the
+  // particular item with a large weight
+  if (params.largeWeightIndex >= 0) {
+    ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
+  }
 }
 INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestF, ::testing::ValuesIn(inputsf));
 
 typedef SWoRTest<double> SWoRTestD;
 const std::vector<SWoRInputs<double>> inputsd = {
-  {1024, 512, GenPhilox, 1234ULL},
-  {1024, 1024, GenPhilox, 1234ULL},
-  {1024, 512 + 1, GenPhilox, 1234ULL},
-  {1024, 1024 - 1, GenPhilox, 1234ULL},
-  {1024, 512 + 2, GenPhilox, 1234ULL},
-  {1024, 1024 - 2, GenPhilox, 1234ULL},
-  {1024 + 1, 512, GenPhilox, 1234ULL},
-  {1024 + 1, 1024, GenPhilox, 1234ULL},
-  {1024 + 1, 512 + 1, GenPhilox, 1234ULL},
-  {1024 + 1, 1024 + 1, GenPhilox, 1234ULL},
-  {1024 + 1, 512 + 2, GenPhilox, 1234ULL},
-  {1024 + 1, 1024 - 2, GenPhilox, 1234ULL},
-  {1024 + 2, 512, GenPhilox, 1234ULL},
-  {1024 + 2, 1024, GenPhilox, 1234ULL},
-  {1024 + 2, 512 + 1, GenPhilox, 1234ULL},
-  {1024 + 2, 1024 + 1, GenPhilox, 1234ULL},
-  {1024 + 2, 512 + 2, GenPhilox, 1234ULL},
-  {1024 + 2, 1024 + 2, GenPhilox, 1234ULL},
+  {1024, 512, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 1024, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 512 + 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 1024 - 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 512 + 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 1024 - 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 512, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 1024, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 512, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 1024, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.0, GenPhilox, 1234ULL},
+  {1024, 512, 10, 100000.0, GenPhilox, 1234ULL},
 
-  {1024, 512, GenTaps, 1234ULL},
-  {1024, 1024, GenTaps, 1234ULL},
-  {1024, 512 + 1, GenTaps, 1234ULL},
-  {1024, 1024 - 1, GenTaps, 1234ULL},
-  {1024, 512 + 2, GenTaps, 1234ULL},
-  {1024, 1024 - 2, GenTaps, 1234ULL},
-  {1024 + 1, 512, GenTaps, 1234ULL},
-  {1024 + 1, 1024, GenTaps, 1234ULL},
-  {1024 + 1, 512 + 1, GenTaps, 1234ULL},
-  {1024 + 1, 1024 + 1, GenTaps, 1234ULL},
-  {1024 + 1, 512 + 2, GenTaps, 1234ULL},
-  {1024 + 1, 1024 - 2, GenTaps, 1234ULL},
-  {1024 + 2, 512, GenTaps, 1234ULL},
-  {1024 + 2, 1024, GenTaps, 1234ULL},
-  {1024 + 2, 512 + 1, GenTaps, 1234ULL},
-  {1024 + 2, 1024 + 1, GenTaps, 1234ULL},
-  {1024 + 2, 512 + 2, GenTaps, 1234ULL},
-  {1024 + 2, 1024 + 2, GenTaps, 1234ULL},
+  {1024, 512, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 1024, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 512 + 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 1024 - 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 512 + 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 1024 - 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 512, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 1024, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 512, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 1024, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.0, GenTaps, 1234ULL},
+  {1024, 512, 10, 100000.0, GenTaps, 1234ULL},
 
-  {1024, 512, GenKiss99, 1234ULL},
-  {1024, 1024, GenKiss99, 1234ULL},
-  {1024, 512 + 1, GenKiss99, 1234ULL},
-  {1024, 1024 - 1, GenKiss99, 1234ULL},
-  {1024, 512 + 2, GenKiss99, 1234ULL},
-  {1024, 1024 - 2, GenKiss99, 1234ULL},
-  {1024 + 1, 512, GenKiss99, 1234ULL},
-  {1024 + 1, 1024, GenKiss99, 1234ULL},
-  {1024 + 1, 512 + 1, GenKiss99, 1234ULL},
-  {1024 + 1, 1024 + 1, GenKiss99, 1234ULL},
-  {1024 + 1, 512 + 2, GenKiss99, 1234ULL},
-  {1024 + 1, 1024 - 2, GenKiss99, 1234ULL},
-  {1024 + 2, 512, GenKiss99, 1234ULL},
-  {1024 + 2, 1024, GenKiss99, 1234ULL},
-  {1024 + 2, 512 + 1, GenKiss99, 1234ULL},
-  {1024 + 2, 1024 + 1, GenKiss99, 1234ULL},
-  {1024 + 2, 512 + 2, GenKiss99, 1234ULL},
-  {1024 + 2, 1024 + 2, GenKiss99, 1234ULL}};
+  {1024, 512, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 1024, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 512 + 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 1024 - 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 512 + 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 1024 - 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 512, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 1024, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 512 + 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 1024 + 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 512 + 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 1, 1024 - 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 512, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 1024, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 512 + 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 1024 + 1, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 512 + 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024 + 2, 1024 + 2, -1, 0.0, GenKiss99, 1234ULL},
+  {1024, 512, 10, 100000.0, GenKiss99, 1234ULL},
+};
 
 TEST_P(SWoRTestD, Result) {
   std::set<int> occurence;
@@ -224,6 +241,11 @@ TEST_P(SWoRTestD, Result) {
     ASSERT_TRUE(occurence.find(val) == occurence.end())
       << "repeated index @i=" << i << " idx=" << val;
     occurence.insert(val);
+  }
+  // if there's a skewed distribution, the top index should correspond to the
+  // particular item with a large weight
+  if (params.largeWeightIndex >= 0) {
+    ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
   }
 }
 INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
