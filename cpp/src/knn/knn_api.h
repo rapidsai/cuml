@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-  /**
+/**
    * @brief Flat C API function to perform a brute force knn on
    * a series of input arrays and combine the results into a single
    * output array for indexes and distances.
@@ -38,12 +38,9 @@ extern "C" {
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
    */
-cumlError_t knn_search(
-  const cumlHandle_t handle,
-  float **input, int *size, int n_params, int D,
-  const float *search_items, int n,
-  long *res_I, float *res_D, int k
-);
+cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
+                       int n_params, int D, const float *search_items, int n,
+                       long *res_I, float *res_D, int k);
 
 /**
  * @brief A flat C++ API function that chunks a host array up into
@@ -57,11 +54,9 @@ cumlError_t knn_search(
  * @param sizes output array sizes
  * @param n_chunks number of chunks to spread across device arrays
  */
-cumlError_t chunk_host_array(
-  const cumlHandle_t handle,
-  const float *ptr, int n, int D,
-  int* devices, float **output, int *sizes, int n_chunks,
-);
+cumlError_t chunk_host_array(const cumlHandle_t handle, const float *ptr, int n,
+                             int D, int *devices, float **output, int *sizes,
+                             int n_chunks, );
 
 #ifdef __cplusplus
 }
