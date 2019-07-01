@@ -52,7 +52,7 @@ def paperTowelBatch(plot=False):
     np.set_printoptions(precision=6)
 
     ns = 44
-    nb = 240
+    nb = 24
     yb = np.zeros((ns, nb), order="F")
 
     num_parameters = 3
@@ -70,12 +70,10 @@ def paperTowelBatch(plot=False):
                                       mu0,
                                       ar0,
                                       ma0,
-                                      opt_disp=-1, h=1e-9, gpu=True)
+                                      opt_disp=-1, h=1e-9, gpu=False)
 
-    # tested on batch of 10 and 50, both had 36 iterations
-    if nb == 50 or nb == 10:
-        assert batched_model.niter == 36
-    elif nb == 240:
+    # the gpu version achieves these iteration counts
+    if nb == 240:
         niter_ref = [30, 21, 19, 17, 17, 14, 15, 15, 10, 12, 15, 14, 14,
                      13, 14, 13, 8, 12, 10, 14, 10, 15, 13, 15, 21, 18,
                      13, 16, 15, 14, 17, 12, 12, 12, 10, 8, 13, 16, 13,
@@ -96,6 +94,21 @@ def paperTowelBatch(plot=False):
                      15, 15, 14, 16, 17, 13, 13, 12, 17, 16, 12, 16, 16,
                      17, 37, 17, 20, 15]
         assert batched_model.niter == niter_ref
+    elif nb == 24:
+        np.testing.assert_array_almost_equal(batched_model.mu/1000,
+                                             np.array([-243.229039, -234.696535, -210.458314, -220.966423,
+                                                       -286.719963, -257.444149,
+                                                       -251.914561, -243.925907, -242.242119, -268.597857,
+                                                       -277.2744,   -262.303526,
+                                                       -255.062956, -251.819174, -250.417383,
+                                                       -246.469768, -235.482114, -243.779316,
+                                                       -233.669211, -252.49633,  -248.048226,
+                                                       -241.581377, -234.26256,  -236.004749])/1000,
+                                             decimal=3)
+
+    else:
+        print("batched_model.niter=", batched_model.niter)
+        print("batched_model.mu=", batched_model.mu)
 
 
 def paperTowels(plot=False):
