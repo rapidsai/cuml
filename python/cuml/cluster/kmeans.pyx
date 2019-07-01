@@ -25,7 +25,6 @@ import numpy as np
 import warnings
 
 from numba import cuda
-from cuml import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -33,6 +32,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros, numba_utils
 
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
@@ -65,7 +66,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           int n_features,
                           double *centroids,
                           int *labels,
-                          int verbose);
+                          int verbose)
 
     cdef void fit(cumlHandle& handle,
                   int n_clusters,
@@ -99,6 +100,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_features,
                       int metric,
                       int *labels,
+                      double *inertia,
                       int verbose)
 
     cdef void predict(cumlHandle& handle,
@@ -109,6 +111,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_features,
                       int metric,
                       int *labels,
+                      double *inertia,
                       int verbose)
 
     cdef void transform(cumlHandle& handle,
@@ -119,6 +122,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_features,
                         int metric,
                         float *X_new,
+                        double *inertia,
                         int verbose)
 
     cdef void transform(cumlHandle& handle,
@@ -129,7 +133,31 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_features,
                         int metric,
                         double *X_new,
+                        double *inertia,
                         int verbose)
+
+    cdef void score(cumlHandle& handle,
+                    float *centroids,
+                    int n_clusters,
+                    const float *X,
+                    int n_samples,
+                    int n_features,
+                    int metric,
+                    int *labels,
+                    double *inertia,
+                    int verbose)
+
+    cdef void score(cumlHandle& handle,
+                    double *centroids,
+                    int n_clusters,
+                    const double *X,
+                    int n_samples,
+                    int n_features,
+                    int metric,
+                    int *labels,
+                    double *inertia,
+                    int verbose)
+
 
 class KMeans(Base):
 
@@ -140,9 +168,9 @@ class KMeans(Base):
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
-    cuML's KMeans expects a cuDF DataFrame, and supports the scalable KMeans++
-    intialization method. This method is more stable than randomnly selecting
-    K points.
+    cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
+    the scalable KMeans++ intialization method. This method is more stable
+    than randomnly selecting K points.
 
     Examples
     --------
@@ -298,34 +326,22 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
@@ -333,11 +349,11 @@ class KMeans(Base):
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
             init_value = Array
-            self.cluster_centers_ = cuda.device_array(
-                                           self.n_clusters * self.n_cols,
-                                           dtype=self.gdf_datatype)
-            self.cluster_centers_.copy_to_device(
-                                    numba_utils.row_matrix(self.init))
+            dim_cc = self.n_clusters * self.n_cols
+            self.cluster_centers_ = cuda.device_array(dim_cc,
+                                                      dtype=self.dtype)
+            si = self.init
+            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
         elif (isinstance(self.init, np.ndarray)):
             if(self.init.shape[0] != self.n_clusters):
@@ -349,28 +365,27 @@ class KMeans(Base):
 
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             init_value = KMeansPlusPlus
-            clust_cent = np.zeros(self.n_clusters * self.n_cols,
-                                  dtype=self.gdf_datatype)
+            clust_cent = zeros(self.n_clusters * self.n_cols,
+                               dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
         elif (self.init == 'random'):
             init_value = Random
-            clust_cent = np.zeros(self.n_clusters * self.n_cols,
-                                  dtype=self.gdf_datatype)
+            clust_cent = zeros(self.n_clusters * self.n_cols,
+                               dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
         else:
             raise TypeError('initialization method not supported')
 
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(
-                                                        self.cluster_centers_)
+        c_c = self.cluster_centers_
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
 
-
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -381,31 +396,33 @@ class KMeans(Base):
                 <float*> cluster_centers_ptr,  # pred_centroids);
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
-        elif self.gdf_datatype.type == np.float64:
+        elif self.dtype == np.float64:
             fit_predict(
                 handle_[0],
-                <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
-                <InitMethod> init_value,       # init method
-                <int> self.max_iter,           # max_iterations
-                <double> self.tol,             # threshold
-                <int> self.random_state,       # seed
-                <double*> input_ptr,           # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <double*> cluster_centers_ptr, # pred_centroids);
-                <int*> labels_ptr,             # pred_labels
+                <int> self.n_clusters,          # n_clusters
+                <int> 0,                        # distance metric as squared L2: @todo - support other metrics # noqa: E501
+                <InitMethod> init_value,        # init method
+                <int> self.max_iter,            # max_iterations
+                <double> self.tol,              # threshold
+                <int> self.random_state,        # seed
+                <double*> input_ptr,            # srcdata
+                <size_t> self.n_rows,           # n_samples (rows)
+                <size_t> self.n_cols,           # n_features (cols)
+                <double*> cluster_centers_ptr,  # pred_centroids);
+                <int*> labels_ptr,              # pred_labels
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.gdf_datatype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
-        cluster_centers_gdf = cudf.DataFrame()
+        cc_df = cudf.DataFrame()
         for i in range(0, self.n_cols):
-            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols] # noqa
-        self.cluster_centers_ = cluster_centers_gdf
+            n_c = self.n_clusters
+            n_cols = self.n_cols
+            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        self.cluster_centers_ = cc_df
 
         del(X_m)
 
@@ -417,9 +434,10 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
         return self.fit(X).labels_
@@ -430,39 +448,27 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
-        if self.gdf_datatype.type == np.float32:
+        cdef double inertia = 0
+
+        if self.dtype == np.float32:
             predict(
                 handle_[0],
                 <float*> cluster_centers_ptr,  # pred_centroids
@@ -472,8 +478,9 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
-        elif self.gdf_datatype.type == np.float64:
+        elif self.dtype == np.float64:
             predict(
                 handle_[0],
                 <double*> cluster_centers_ptr,  # pred_centroids
@@ -483,10 +490,11 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.gdf_datatype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
@@ -500,41 +508,29 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
-                                    dtype=self.gdf_datatype.type))
+        preds_data = cuda.to_device(zeros(self.n_clusters*self.n_rows,
+                                    dtype=self.dtype))
 
-        cdef uintptr_t preds_ptr = self._get_dev_array_ptr(preds_data)
+        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
 
-        if self.gdf_datatype.type == np.float32:
+        cdef double inertia = 0
+
+        if self.dtype == np.float32:
             transform(
                 handle_[0],
                 <float*> cluster_centers_ptr,  # centroids
@@ -544,8 +540,9 @@ class KMeans(Base):
                 <size_t> self.n_cols,          # n_features (cols)
                 <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <float*> preds_ptr,            # transformed output
+                <double*> &inertia,    # inertia value
                 <int> self.verbose)
-        elif self.gdf_datatype.type == np.float64:
+        elif self.dtype == np.float64:
             transform(
                 handle_[0],
                 <double*> cluster_centers_ptr,  # centroids
@@ -555,10 +552,11 @@ class KMeans(Base):
                 <size_t> self.n_cols,           # n_features (cols)
                 <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <double*> preds_ptr,            # transformed output
+                <double*> &inertia,     # inertia value
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.gdf_datatype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
@@ -570,22 +568,87 @@ class KMeans(Base):
         del(clust_mat)
         return preds_gdf
 
-    def fit_transform(self, input_gdf):
+    def score(self, X):
         """
-        Compute clustering and transform input_gdf to cluster-distance space.
+        Calcualate the inertia value.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        inertia: double
+                 The inertia score
+        """
+
+        cdef uintptr_t input_ptr
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X, order='C')
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
+
+        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+
+        cdef double inertia = 0
+
+        if self.dtype == np.float32:
+            score(
+                handle_[0],
+                <float*> cluster_centers_ptr,  # pred_centroids
+                <int> self.n_clusters,         # n_clusters
+                <float*> input_ptr,            # srcdata
+                <size_t> self.n_rows,          # n_samples (rows)
+                <size_t> self.n_cols,          # n_features (cols)
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
+                <int*> labels_ptr,             # pred_labels
+                <double*> &inertia,    # inertia value
+                <int> self.verbose)
+        elif self.dtype == np.float64:
+            score(
+                handle_[0],
+                <double*> cluster_centers_ptr,  # pred_centroids
+                <int> self.n_clusters,         # n_clusters
+                <double*> input_ptr,           # srcdata
+                <size_t> self.n_rows,          # n_samples (rows)
+                <size_t> self.n_cols,          # n_features (cols)
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
+                <int*> labels_ptr,             # pred_labels
+                <double*> &inertia,    # inertia value
+                <int> self.verbose)
+        else:
+            raise TypeError('KMeans supports only float32 and float64 input,'
+                            'but input type ' + str(self.dtype) +
+                            ' passed.')
+
+        self.handle.sync()
+        del(X_m)
+        del(clust_mat)
+        return inertia
+
+    def fit_transform(self, X):
+        """
+        Compute clustering and transform X to cluster-distance space.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
-        return self.fit(input_gdf).transform(input_gdf)
+        return self.fit(X).transform(X)
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style return parameter state
 
         Parameters
         -----------
@@ -602,7 +665,7 @@ class KMeans(Base):
 
     def set_params(self, **params):
         """
-        Sklearn style set parameter state to dictionary of params.
+        Scikit-learn style set parameter state to dictionary of params.
 
         Parameters
         -----------

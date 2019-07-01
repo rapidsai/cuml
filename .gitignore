@@ -1,6 +1,9 @@
 ## common
 __pycache__
 *.pyc
+*~
+\#*
+.#*
 *.o
 *.so
 *.dylib
@@ -11,6 +14,7 @@ __pycache__
 *.pytest_cache
 htmlcov
 build/
+build_prims/
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp

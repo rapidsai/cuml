@@ -41,25 +41,18 @@ def r2_score(y, y_hat, handle=None):
     if y.dtype == 'float32':
 
         result_f32 = regression.r2_score_py(handle_[0],
-                            <float*> y_ptr,
-                            <float*> y_hat_ptr,
-                            <int> n)
+                                            <float*> y_ptr,
+                                            <float*> y_hat_ptr,
+                                            <int> n)
 
         result = result_f32
 
     else:
         result_f64 = regression.r2_score_py(handle_[0],
-                            <double*> y_ptr,
-                            <double*> y_hat_ptr,
-                            <int> n)
+                                            <double*> y_ptr,
+                                            <double*> y_hat_ptr,
+                                            <int> n)
 
         result = result_f64
 
-
     return result
-
-
-
-
-
-
