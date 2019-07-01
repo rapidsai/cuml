@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import cuml.ts.batched_arima as batched_arima
+import cuml.ts.arima as batched_arima
 import statsmodels.tsa.arima_model as sm
 
 import cuml.ts.arima as arima
@@ -32,11 +32,11 @@ def paperTowelNoBatch(plot=False):
         yb[:, 0] = si[0:ns]
         x0 = batched_arima.init_x0((1,1,1), yb[:,0])
         mu0, ar0, ma0 = batched_arima.unpack(1, 1, 1, x0)
-        batched_model = batched_arima.BatchedARIMAModel.fit(yb, (1, 1, 1),
-                                                            mu0,
-                                                            ar0,
-                                                            ma0,
-                                                            opt_disp=101, gpu=True)
+        batched_model = batched_arima.fit(yb, (1, 1, 1),
+                                          mu0,
+                                          ar0,
+                                          ma0,
+                                          opt_disp=101, gpu=True)
         print("batch results: ", batched_model.mu, batched_model.ar_params, batched_model.ma_params)
         y = yb[:, 0]
         sm_model = sm.ARIMA(y, (1, 1, 1))
@@ -66,14 +66,36 @@ def paperTowelBatch(plot=False):
         x0[i*num_parameters:(i+1)*num_parameters] = x0i
 
     mu0, ar0, ma0 = batched_arima.unpack(1, 1, nb, x0)
-    batched_model = batched_arima.BatchedARIMAModel.fit(yb, (1, 1, 1),
-                                                        mu0,
-                                                        ar0,
-                                                        ma0,
-                                                        opt_disp=-1, h=1e-9, gpu=True)
+    batched_model = batched_arima.fit(yb, (1, 1, 1),
+                                      mu0,
+                                      ar0,
+                                      ma0,
+                                      opt_disp=-1, h=1e-9, gpu=True)
+
     # tested on batch of 10 and 50, both had 36 iterations
     if nb == 50 or nb == 10:
         assert batched_model.niter == 36
+    elif nb == 240:
+        niter_ref = [30, 21, 19, 17, 17, 14, 15, 15, 10, 12, 15, 14, 14,
+                     13, 14, 13, 8, 12, 10, 14, 10, 15, 13, 15, 21, 18,
+                     13, 16, 15, 14, 17, 12, 12, 12, 10, 8, 13, 16, 13,
+                     18, 7, 12, 13, 9, 13, 13, 21, 20, 11, 16, 13, 16, 5,
+                     14, 15, 14, 13, 13, 13, 13, 9, 13, 13, 10, 11, 14,
+                     14, 12, 16, 14, 14, 11, 8, 16, 8, 11, 11, 16, 11,
+                     8, 12, 16, 19, 16, 10, 8, 15, 13, 8, 8, 34, 13, 13,
+                     9, 11, 13, 12, 14, 14, 15, 13, 15, 13, 11, 13, 11,
+                     8, 10, 12, 10, 13, 14, 15, 15, 13, 14, 10, 13, 15,
+                     15, 15, 15, 13, 14, 13, 6, 8, 13, 12, 9, 13, 14,
+                     16, 16, 15, 10, 14, 14, 17, 10, 15, 14, 16, 13,
+                     12, 14, 13, 12, 14, 12, 11, 11, 13, 9, 13, 14, 12,
+                     12, 11, 11, 15, 12, 15, 16, 14, 2, 12, 12, 2, 13,
+                     14, 14, 10, 16, 18, 13, 12, 8, 14, 8, 8, 10, 17,
+                     33, 17, 20, 17, 28, 14, 13, 15, 15, 17, 2, 14, 14,
+                     19, 15, 15, 14, 17, 16, 14, 13, 13, 15, 15, 15, 15,
+                     19, 16, 14, 14, 14, 15, 17, 12, 16, 2, 12, 15, 17,
+                     15, 15, 14, 16, 17, 13, 13, 12, 17, 16, 12, 16, 16,
+                     17, 37, 17, 20, 15]
+        assert batched_model.niter == niter_ref
 
 
 def paperTowels(plot=False):

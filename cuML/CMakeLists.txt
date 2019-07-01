@@ -226,7 +226,6 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/metrics/metrics.cu
   src/decisiontree/decisiontree.cu
   src/randomforest/randomforest.cu
-  src/ts/kalman.cpp
   src/ts/batched_kalman.cu
   )
 
