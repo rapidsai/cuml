@@ -11,6 +11,7 @@
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
 
 ## Bug Fixes
 
