@@ -74,7 +74,7 @@ def test_labelencoder_unfitted():
     le = LabelEncoder()
     assert not le._fitted
 
-    with pytest.raises(TypeError):
+    with pytest.raises(RuntimeError):
         le.transform(df)
 
 
@@ -101,7 +101,7 @@ def test_inverse_transform(orig_label, ord_label,
     assert(len(reverted)
            == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
-    with pytest.raises(ValueError, match='is out of bound'):
+    with pytest.raises(ValueError, match='y contains previously unseen label'):
         le.inverse_transform(bad_ord_label)
 
 
@@ -112,5 +112,24 @@ def test_unfitted_inverse_transform():
     le = LabelEncoder()
     assert(not le._fitted)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(RuntimeError):
         le.transform(df)
+
+
+@pytest.mark.parametrize("empty, ord_label",
+                         [(cudf.Series([]), cudf.Series([2, 1]))])
+def test_empty_input(empty, ord_label):
+    # prepare LabelEncoder
+    le = LabelEncoder()
+    le.fit(empty)
+    assert(le._fitted is True)
+
+    # test if correctly raies ValueError
+    with pytest.raises(ValueError, match='y contains previously unseen label'):
+        le.inverse_transform(ord_label)
+    
+    # check fit_transform()
+    le = LabelEncoder()
+    transformed = le.fit_transform(empty)
+    assert(le._fitted is True)
+    assert(len(transformed) == 0)

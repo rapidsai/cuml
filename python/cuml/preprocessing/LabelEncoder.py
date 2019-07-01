@@ -61,7 +61,8 @@ def _trans_back(ser, categories, orig_dtype):
     for ord_int in sorted_ord_label:
         ord_str = str(ord_int)
         if ord_int < 0 or ord_int >= len(categories.keys()):
-            raise ValueError('Input label {} is out of bound'.format(ord_int))
+            raise ValueError(
+                'y contains previously unseen label {}'.format(ord_int))
         reverted = reverted.replace(ord_str, keys[ord_int])
 
     reverted = cudf.Series(reverted, dtype=orig_dtype)
@@ -74,8 +75,8 @@ class LabelEncoder(object):
 
     Notes
     -----
-    Be aware that, if need inverse_transform(), input labels should not contain
-    any digit !!
+    Be aware that, if inverse_transform() is needed, the input labels shouldn't
+    contain any digit
 
     Examples
     --------
@@ -156,7 +157,7 @@ class LabelEncoder(object):
 
     def _check_is_fitted(self):
         if not self._fitted:
-            raise TypeError("Model must first be .fit()")
+            raise RuntimeError("Model must first be .fit()")
 
     def fit(self, y: cudf.Series) -> "LabelEncoder":
         """
@@ -244,7 +245,7 @@ class LabelEncoder(object):
         Parameters
         ----------
         y : cudf.Series, dtype=int32
-            Ordinal labels waited to be reverted
+            Ordinal labels to be reverted
 
         Returns
         -------
