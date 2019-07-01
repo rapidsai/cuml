@@ -74,8 +74,8 @@ class LabelEncoder(object):
 
     Notes
     -----
-    Be aware that, if need inverse_transform(), input labels should not contain
-    any digit !!
+    Be aware that, if inverse_transform() is needed, the input labels should not contain
+    any digit
 
     Examples
     --------
@@ -244,7 +244,7 @@ class LabelEncoder(object):
         Parameters
         ----------
         y : cudf.Series, dtype=int32
-            Ordinal labels waited to be reverted
+            Ordinal labels to be reverted
 
         Returns
         -------
