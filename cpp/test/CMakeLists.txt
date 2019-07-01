@@ -47,6 +47,7 @@ if(BUILD_CUML_TESTS)
     add_executable(ml
       sg/cd_test.cu
       sg/dbscan_test.cu
+      sg/holtwinters_test.cu
       sg/handle_test.cu
       sg/kmeans_test.cu
       sg/knn_test.cu
