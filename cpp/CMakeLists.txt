@@ -108,7 +108,7 @@ else()
 endif()
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(ClangFormat 8.0.0 EXACT REQUIRED)
+find_package(ClangFormat 8.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
@@ -314,7 +314,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/random_projection/rproj.cu
     src/solver/solver.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu)
+    src/umap/umap.cu
+    src/ts/batched_kalman.cu
+    )
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
