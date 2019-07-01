@@ -127,7 +127,7 @@ def test_empty_input(empty, ord_label):
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match='y contains previously unseen label'):
         le.inverse_transform(ord_label)
-    
+
     # check fit_transform()
     le = LabelEncoder()
     transformed = le.fit_transform(empty)
