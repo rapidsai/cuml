@@ -1,7 +1,6 @@
 import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
-from .batched_linesearch import batched_line_search_wolfe1
 from scipy.optimize import _lbfgsb
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 
