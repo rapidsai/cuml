@@ -1,4 +1,3 @@
-#include "kalman.h"
 #include "batched_kalman.h"
 #include <matrix/batched_matrix.h>
 #include <utils.h>
@@ -183,40 +182,6 @@ double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
                    });
   CUDA_CHECK(cudaPeekAtLastError());
   return d_sumLogFs;
-}
-
-
-void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
-                               int nobs,
-                               const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
-                               const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
-                               const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
-                               int r,
-                               vector<double>& h_loglike_b,
-                               vector<vector<double>>& h_vs_b,
-                               bool initP_with_kalman_iterations
-                               ) {
-
-  nvtxRangePush(__FUNCTION__);
-
-  const size_t num_batches = h_Zb.size();
-  
-  h_loglike_b.resize(num_batches);
-  h_vs_b.resize(num_batches);
-  for(int i=0; i<num_batches; i++) {
-    h_vs_b[i].resize(nobs);
-  }
-  for(int bi=0; bi<num_batches; bi++) {
-    kalman_filter(h_ys_b[bi], nobs,
-                  h_Zb[bi], h_Rb[bi], h_Tb[bi],
-                  r,
-                  h_vs_b[bi].data(),
-                  &h_loglike_b[bi],
-                  initP_with_kalman_iterations
-                  );
-  }
-  
-  nvtxRangePop();
 }
 
 __device__ void Mv(double* A, double* v, int r, int tid, double* out) {
