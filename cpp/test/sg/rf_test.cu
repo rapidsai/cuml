@@ -56,7 +56,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     DecisionTree::DecisionTreeParams tree_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_rows_per_node, params.bootstrap_features,
-      CRITERION::GINI, false);
+      params.split_criterion, false);
     RF_params rf_params(params.bootstrap, params.bootstrap_features,
                         params.n_trees, params.rows_sample, tree_params);
     //rf_params.print();
@@ -102,9 +102,9 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, rf_classifier, inference_data_d,
-                           labels, params.n_inference_rows,
-                           params.n_cols, predicted_labels, false);
+    RF_metrics tmp =
+      score(handle, rf_classifier, inference_data_d, labels,
+            params.n_inference_rows, params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
@@ -196,9 +196,9 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, rf_regressor, inference_data_d,
-                           labels, params.n_inference_rows,
-                           params.n_cols, predicted_labels, false);
+    RF_metrics tmp =
+      score(handle, rf_regressor, inference_data_d, labels,
+            params.n_inference_rows, params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
