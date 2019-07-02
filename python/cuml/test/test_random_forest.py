@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import pdb
 import pytest
 import numpy as np
 from cuml.test.utils import get_handle
@@ -59,7 +58,6 @@ def test_rf_classification(datatype, use_handle, split_algo,
     y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
-    pdb.set_trace()
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
 
@@ -105,9 +103,9 @@ def test_rf_regression(datatype, use_handle, split_algo,
                                random_state=123)
 
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    y_test = np.asarray(y[train_rows:, ]).astype(np.float32)
+    y_test = np.asarray(y[train_rows:, ]).astype(datatype)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[0:train_rows, ]).astype(np.float32)
+    y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
