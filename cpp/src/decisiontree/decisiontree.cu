@@ -476,7 +476,7 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
   const int n_sampled_rows, const int ncols, const int nrows) {
   return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
                         ncols, this->n_unique_labels, this->nbins,
-                        this->tempmem[0]);
+                        this->treedepth, this->tempmem[0]);
 }
 
 template <typename T>
