@@ -9,6 +9,7 @@
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #829: C++: enable nvtx ranges
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
