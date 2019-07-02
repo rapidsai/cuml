@@ -34,6 +34,32 @@ namespace ML {
  * associate the currently generated color with it
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
-uint32_t generateNextColor(const std::string &tag = "");
+uint32_t generateNextColor(const std::string &tag);
+
+
+#ifdef NVTX_ENABLED
+
+#include <nvtoolsExt.h>
+
+#define PUSH_RANGE(name)                                 \
+  do {                                                   \
+    nvtxEventAttributes_t eventAttrib = {0};             \
+    eventAttrib.version = NVTX_VERSION;                  \
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;    \
+    eventAttrib.colorType = NVTX_COLOR_ARGB;             \
+    eventAttrib.color = generateNextColor(name);         \
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;   \
+    eventAttrib.message.ascii = name;                    \
+    nvtxRangePushEx(&eventAttrib);                       \
+  } while(0)
+
+#define POP_RANGE() nvtxRangePop()
+
+#else // NVTX_ENABLED
+
+#define PUSH_RANGE(name)
+#define POP_RANGE()
+
+#endif // NVTX_ENABLED
 
 } // end namespace ML
