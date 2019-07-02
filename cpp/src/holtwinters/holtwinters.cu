@@ -53,12 +53,8 @@
 #include <vector>
 
 #include "Aion.hpp"
+#include "aion_utils.hpp"
 #include "holtwinters.hpp"
-
-#include "aion_cublas.hpp"
-#include "aion_cusolver.hpp"
-#include "aion_math.hpp"
-#include "cuda_helper.hpp"
 
 #define IDX(n, m, N) (n + (m) * (N))
 
