@@ -1,7 +1,7 @@
 #include <mutex>
 #include <stdlib.h>
 #include <unordered_map>
-#include "colorGen.hpp"
+#include "nvtx.hpp"
 
 
 namespace ML {
