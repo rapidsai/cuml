@@ -67,8 +67,10 @@ struct AbsFunctor {
 
 struct GiniFunctor {
   static float exec(std::vector<int>& hist, int nrows);
+  static float max_val(int nclass);
 };
 
 struct EntropyFunctor {
   static float exec(std::vector<int>& hist, int nrows);
+  static float max_val(int nclass);
 };
