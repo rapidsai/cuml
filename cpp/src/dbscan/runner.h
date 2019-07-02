@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <cuda_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include "adjgraph/runner.h"
-#include "vertexdeg/runner.h"
-
+#include "common/cumlHandle.hpp"
+#include "common/device_buffer.hpp"
+#include "common/nvtx.hpp"
+#include "cuda_utils.h"
 #include "label/classlabels.h"
 #include "sparse/csr.h"
+#include "vertexdeg/runner.h"
 
 namespace Dbscan {
 
@@ -110,42 +110,44 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
 
   for (int i = 0; i < nBatches; i++) {
+    PUSH_RANGE("Profile::Dbscan::VertexDeg");
     MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
                                             stream);
     Type startVertexId = i * batchSize;
     int nPoints = min(N - startVertexId, batchSize);
-
     if (nPoints <= 0) continue;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
-
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    POP_RANGE();
 
     // Running AdjGraph
+    PUSH_RANGE("Profile::Dbscan::AdjGraph");
     if (curradjlen > adjlen || adj_graph.data() == NULL) {
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
     }
-
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,
                                 stream);
+    POP_RANGE();
 
+    PUSH_RANGE("Profile::Dbscan::WeakCC");
     MLCommon::Sparse::weak_cc_batched<Type, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, batchSize,
       &state, stream,
       [core_pts] __device__(Type tid) { return core_pts[tid]; });
+    POP_RANGE();
   }
+
+  PUSH_RANGE("Profile::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
-
   Type MAX_LABEL = std::numeric_limits<Type>::max();
-
   int nblks = ceildiv<int>(N, TPB);
   relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
-
   CUDA_CHECK(cudaPeekAtLastError());
-
+  POP_RANGE();
   return (size_t)0;
 }
 }  // namespace Dbscan
