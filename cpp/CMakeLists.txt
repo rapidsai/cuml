@@ -340,7 +340,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(OPENMP_FOUND)
 
   if(NVTX)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvtoolsExt)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
