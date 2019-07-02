@@ -15,8 +15,10 @@
  */
 
 #include "nvtx.hpp"
+#include <stdint.h>
 #include <stdlib.h>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 namespace ML {
@@ -99,6 +101,19 @@ uint32_t hsv2rgb(float h, float s, float v) {
   return out;
 }
 
+/**
+ * @brief Helper method to generate 'visually distinct' colors.
+ * Inspired from https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
+ * However, if an associated tag is passed, it will look up in its history for
+ * any generated color against this tag and if found, just returns it, else
+ * generates a new color, assigns a tag to it and stores it for future usage.
+ * Such a thing is very useful for nvtx markers where the ranges associated
+ * with a specific tag should ideally get the same color for the purpose of
+ * visualizing it on nsight-systems timeline.
+ * @param tag look for any previously generated colors with this tag or
+ * associate the currently generated color with it
+ * @return returns 32b RGB integer with alpha channel set of 0xff
+ */
 uint32_t generateNextColor(const std::string &tag) {
   std::lock_guard<std::mutex> guard(ColorGenState::mapMutex);
   if (!tag.empty()) {
@@ -116,5 +131,30 @@ uint32_t generateNextColor(const std::string &tag) {
   }
   return rgb;
 }
+
+#ifdef NVTX_ENABLED
+
+#include <nvToolsExt.h>
+
+void PUSH_RANGE(const char *name) {
+  nvtxEventAttributes_t eventAttrib = {0};
+  eventAttrib.version = NVTX_VERSION;
+  eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+  eventAttrib.colorType = NVTX_COLOR_ARGB;
+  eventAttrib.color = generateNextColor(name);
+  eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
+  eventAttrib.message.ascii = name;
+  nvtxRangePushEx(&eventAttrib);
+}
+
+void POP_RANGE() { nvtxRangePop(); }
+
+#else  // NVTX_ENABLED
+
+void PUSH_RANGE(const char *name) {}
+
+void POP_RANGE() {}
+
+#endif  // NVTX_ENABLED
 
 }  // end namespace ML

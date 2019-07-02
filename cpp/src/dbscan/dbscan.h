@@ -48,7 +48,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, int min_pts, int *labels,
                    size_t max_bytes_per_batch, cudaStream_t stream,
                    bool verbose) {
-  PUSH_RANGE("ML::Dbscan::Fit");
+  ML::PUSH_RANGE("ML::Dbscan::Fit");
   int algoVd = 1;
   int algoAdj = 1;
   int algoCcl = 2;
@@ -76,7 +76,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                                           workspaceSize);
   Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
               algoAdj, algoCcl, workspace.data(), n_batches, stream);
-  POP_RANGE();
+  ML::POP_RANGE();
 }
 
 };  // namespace ML
