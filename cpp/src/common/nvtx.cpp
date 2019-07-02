@@ -1,8 +1,23 @@
-#include <mutex>
-#include <stdlib.h>
-#include <unordered_map>
-#include "nvtx.hpp"
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+#include "nvtx.hpp"
+#include <stdlib.h>
+#include <mutex>
+#include <unordered_map>
 
 namespace ML {
 
@@ -28,17 +43,16 @@ struct ColorGenState {
 std::unordered_map<std::string, uint32_t> ColorGenState::allColors;
 std::mutex ColorGenState::mapMutex;
 
-
 // all h, s, v are in range [0, 1]
 // Ref: http://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
 uint32_t hsv2rgb(float h, float s, float v) {
   uint32_t out = 0xff000000u;
-  if(s <= 0.0f) {
+  if (s <= 0.0f) {
     return out;
   }
   // convert hue from [0, 1] range to [0, 360]
   float h_deg = h * 360.f;
-  if(0.f < h_deg || h_deg >= 360.f) h_deg = 0.f;
+  if (0.f < h_deg || h_deg >= 360.f) h_deg = 0.f;
   h_deg /= 60.f;
   int h_range = (int)h_deg;
   float h_mod = h_deg - h_range;
@@ -46,20 +60,38 @@ uint32_t hsv2rgb(float h, float s, float v) {
   float y = v * (1.f - (s * h_mod));
   float z = v * (1.f - (s * (1.f - h_mod)));
   float r, g, b;
-  switch(h_range) {
-  case 0:
-    r = v; g = z; b = x; break;
-  case 1:
-    r = y; g = v; b = x; break;
-  case 2:
-    r = x; g = v; b = z; break;
-  case 3:
-    r = x; g = y; b = v; break;
-  case 4:
-    r = z; g = x; b = v; break;
-  case 5:
-  default:
-    r = v; g = x; b = y; break;
+  switch (h_range) {
+    case 0:
+      r = v;
+      g = z;
+      b = x;
+      break;
+    case 1:
+      r = y;
+      g = v;
+      b = x;
+      break;
+    case 2:
+      r = x;
+      g = v;
+      b = z;
+      break;
+    case 3:
+      r = x;
+      g = y;
+      b = v;
+      break;
+    case 4:
+      r = z;
+      g = x;
+      b = v;
+      break;
+    case 5:
+    default:
+      r = v;
+      g = x;
+      b = y;
+      break;
   }
   out |= (uint32_t(r * 256.f) << 16);
   out |= (uint32_t(g * 256.f) << 8);
@@ -79,10 +111,10 @@ uint32_t generateNextColor(const std::string &tag) {
   h += ColorGenState::InvPhi;
   if (h >= 1.f) h -= 1.f;
   auto rgb = hsv2rgb(h, ColorGenState::S, ColorGenState::V);
-  if (!tag.empty) {
+  if (!tag.empty()) {
     ColorGenState::allColors[tag] = rgb;
   }
   return rgb;
 }
 
-} // end namespace ML
+}  // end namespace ML
