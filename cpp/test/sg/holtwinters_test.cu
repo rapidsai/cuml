@@ -24,14 +24,14 @@ namespace ML {
 
 using namespace MLCommon;
 
-#define AION_SAFE_CALL(call)                                                   \
-do {                                                                           \
-  aion::AionStatus status = call;                                              \
-  if (status != aion::AionStatus::AION_SUCCESS) {                              \
-    std::cerr << "Aion error in in line " << __LINE__ << std::endl;            \
-    exit(EXIT_FAILURE);                                                        \
-  }                                                                            \
-} while (0)  
+#define AION_SAFE_CALL(call)                                          \
+  do {                                                                \
+    aion::AionStatus status = call;                                   \
+    if (status != aion::AionStatus::AION_SUCCESS) {                   \
+      std::cerr << "Aion error in in line " << __LINE__ << std::endl; \
+      exit(EXIT_FAILURE);                                             \
+    }                                                                 \
+  } while (0)
 
 struct HoltWintersInputs {
   int batch_size;
@@ -42,7 +42,7 @@ struct HoltWintersInputs {
 
 template <typename T>
 class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
- protected:
+ public:
   void basicTest() {
     params = ::testing::TestWithParam<HoltWintersInputs>::GetParam();
     int batch_size = params.batch_size;
@@ -56,7 +56,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    std::vector<T> dataset_h = {3.0, 2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 2.0, 1.0};
+    std::vector<T> dataset_h = {3.0, 2.0, 1.0, 3.0, 2.0, 1.0,
+                                3.0, 2.0, 1.0, 3.0, 2.0, 1.0};
 
     // initial values for alpha, beta and gamma
     std::vector<T> alpha_h(batch_size, 0.4);
@@ -67,22 +68,22 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     int leveltrend_coef_offset, season_coef_offset;
     int error_len;
 
-    AION_SAFE_CALL(aion::HoltWintersBufferSize(n, batch_size, frequency,
-      optim_beta, optim_gamma,
+    AION_SAFE_CALL(aion::HoltWintersBufferSize(
+      n, batch_size, frequency, optim_beta, optim_gamma,
       &leveltrend_seed_len,     // = batch_size
       &season_seed_len,         // = frequency*batch_size
       &components_len,          // = (n-w_len)*batch_size
       &error_len,               // = batch_size
       &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
-      &season_coef_offset));    // = (n-wlen-frequency)*batch_size(last freq rows)
+      &season_coef_offset));  // = (n-wlen-frequency)*batch_size(last freq rows)
 
-    allocate(dataset_d, batch_size*n);
-    allocate(forecast_d, batch_size*h);
+    allocate(dataset_d, batch_size * n);
+    allocate(forecast_d, batch_size * h);
     allocate(alpha_d, batch_size);
     updateDevice(alpha_d, alpha_h.data(), batch_size, stream);
     allocate(level_seed_d, leveltrend_seed_len);
     allocate(level_d, components_len);
-    
+
     // if optim_beta
     allocate(beta_d, batch_size);
     updateDevice(beta_d, beta_h.data(), batch_size, stream);
@@ -98,32 +99,28 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     allocate(error_d, error_len);
 
     // Step 1: transpose the dataset (aion expects col major dataset)
-    AION_SAFE_CALL(aion::AionTranspose<T>(dataset_h.data(), batch_size, n,
-        dataset_d, mode));
-      
+    AION_SAFE_CALL(
+      aion::AionTranspose<T>(dataset_h.data(), batch_size, n, dataset_d, mode));
+
+    myPrintDevVector("Device Dataset", (const float *)dataset_d, 12);
+
     // Step 2: Decompose dataset to get seed for level, trend and seasonal values
-    AION_SAFE_CALL(aion::HoltWintersDecompose<T>(dataset_d,
-      n, batch_size, frequency,
-      level_seed_d, trend_seed_d, start_season_d, start_periods,
-      seasonal, mode));
+    AION_SAFE_CALL(aion::HoltWintersDecompose<T>(
+      dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
+      start_season_d, start_periods, seasonal, mode));
 
     // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
-    AION_SAFE_CALL(aion::HoltWintersOptim<T>(dataset_d,
-      n, batch_size, frequency,
-      level_seed_d, trend_seed_d, start_season_d,
-      alpha_d, optim_alpha, beta_d, optim_beta, gamma_d, optim_gamma,
-      level_d, trend_d, season_d,
-      nullptr, error_d, nullptr, nullptr,
-      seasonal, mode));
+    AION_SAFE_CALL(aion::HoltWintersOptim<T>(
+      dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
+      start_season_d, alpha_d, optim_alpha, beta_d, optim_beta, gamma_d,
+      optim_gamma, level_d, trend_d, season_d, nullptr, error_d, nullptr,
+      nullptr, seasonal, mode));
 
     // Step 4: Do forecast
-    AION_SAFE_CALL(aion::HoltWintersForecast<T>(forecast_d,
-      h, batch_size, frequency,
-      level_d+leveltrend_coef_offset,
-      trend_d+leveltrend_coef_offset,
-      season_d+season_coef_offset,
-      seasonal, mode));
-  
+    AION_SAFE_CALL(aion::HoltWintersForecast<T>(
+      forecast_d, h, batch_size, frequency, level_d + leveltrend_coef_offset,
+      trend_d + leveltrend_coef_offset, season_d + season_coef_offset, seasonal,
+      mode));
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -131,7 +128,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
 
   void SetUp() override {
     AION_SAFE_CALL(aion::AionInit());
-    basicTest(); 
+    basicTest();
   }
 
   void TearDown() override {
@@ -150,7 +147,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     CUDA_CHECK(cudaFree(error_d));
   }
 
- protected:
+ public:
   HoltWintersInputs params;
   T *dataset_d;
   T *forecast_d;
@@ -160,11 +157,15 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
   T *error_d;
 };
 
-const std::vector<HoltWintersInputs> inputsf = {{1, 3, aion::SeasonalType::ADDITIVE, 2}};
+const std::vector<HoltWintersInputs> inputsf = {
+  {1, 3, aion::SeasonalType::ADDITIVE, 2}};
 
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit) {
-  myPrintDevVector("forecast_d", (const float*) forecast_d, 5);
+  myPrintDevVector("forecast_d", (const float *)forecast_d, 5);
 }
 
-}
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestF,
+                        ::testing::ValuesIn(inputsf));
+
+}  // namespace ML
