@@ -304,9 +304,14 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
-    src/holtwinters/aion_math.cu
+    src/holtwinters/Aion.cpp
+    src/holtwinters/aion_cblas.cpp
     src/holtwinters/aion_cublas.cpp
     src/holtwinters/aion_cusolver.cpp
+    src/holtwinters/aion_lapack.cpp
+    src/holtwinters/aion_math.cu
+    src/holtwinters/aion_transpose.cpp
+    src/holtwinters/holtwinters.cpp
     src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
