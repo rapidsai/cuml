@@ -29,10 +29,12 @@ __global__ void get_sampled_column_kernel(
   return;
 }
 
-void get_sampled_labels(const int* labels, int* outlabels, unsigned int* rowids,
-                        const int n_sampled_rows, const cudaStream_t stream) {
+template <typename T>
+void get_sampled_labels(const T* labels, T* outlabels,
+                        const unsigned int* rowids, const int n_sampled_rows,
+                        const cudaStream_t stream) {
   int threads = 128;
-  get_sampled_column_kernel<int>
+  get_sampled_column_kernel<T>
     <<<MLCommon::ceildiv(n_sampled_rows, threads), threads, 0, stream>>>(
       labels, outlabels, rowids, n_sampled_rows);
   CUDA_CHECK(cudaGetLastError());
@@ -42,7 +44,7 @@ void get_sampled_labels(const int* labels, int* outlabels, unsigned int* rowids,
 template <typename T>
 __global__ void allcolsampler_kernel(const T* __restrict__ data,
                                      const unsigned int* __restrict__ rowids,
-                                     const int* __restrict__ colids,
+                                     const unsigned int* __restrict__ colids,
                                      const int nrows, const int ncols,
                                      const int rowoffset, T* sampledcols) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -50,58 +52,19 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data,
   for (unsigned int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
     int newcolid = (int)(i / nrows);
     int myrowstart;
-    if (colids != nullptr)
+    if (colids != nullptr) {
       myrowstart = colids[newcolid] * rowoffset;
-    else
+    } else {
       myrowstart = newcolid * rowoffset;
+    }
 
-    int index = rowids[i % nrows] + myrowstart;
+    int index;
+    if (rowids != nullptr) {
+      index = rowids[i % nrows] + myrowstart;
+    } else {
+      index = i % nrows + myrowstart;
+    }
     sampledcols[i] = data[index];
   }
-  return;
-}
-
-template <typename T>
-__global__ void allcolsampler_minmax_kernel(
-  const T* __restrict__ data, const unsigned int* __restrict__ rowids,
-  const int* __restrict__ colids, const int nrows, const int ncols,
-  const int rowoffset, T* globalmin, T* globalmax, T* sampledcols,
-  T init_min_val) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  extern __shared__ char shmem[];
-  T* minshared = (T*)shmem;
-  T* maxshared = (T*)(shmem + sizeof(T) * ncols);
-
-  for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-    minshared[i] = init_min_val;
-    maxshared[i] = -init_min_val;
-  }
-
-  // Initialize min max in  global memory
-  if (tid < ncols) {
-    globalmin[tid] = init_min_val;
-    globalmax[tid] = -init_min_val;
-  }
-
-  __syncthreads();
-
-  for (unsigned int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
-    int newcolid = (int)(i / nrows);
-    int myrowstart = colids[newcolid] * rowoffset;
-    int index = rowids[i % nrows] + myrowstart;
-    T coldata = data[index];
-
-    MLCommon::myAtomicMin(&minshared[newcolid], coldata);
-    MLCommon::myAtomicMax(&maxshared[newcolid], coldata);
-    sampledcols[i] = coldata;
-  }
-
-  __syncthreads();
-
-  for (int j = threadIdx.x; j < ncols; j += blockDim.x) {
-    MLCommon::myAtomicMin(&globalmin[j], minshared[j]);
-    MLCommon::myAtomicMax(&globalmax[j], maxshared[j]);
-  }
-
   return;
 }

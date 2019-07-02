@@ -156,6 +156,7 @@ if(BUILD_PRIMS_TESTS)
       prims/homogeneityScore.cu
       prims/host_buffer.cu
       prims/jones_transform.cu
+      prims/klDivergence.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
@@ -187,6 +188,7 @@ if(BUILD_PRIMS_TESTS)
       prims/rsvd.cu
       prims/score.cu
       prims/sigmoid.cu
+      prims/silhouetteScore.cu
       prims/sqrt.cu
       prims/stddev.cu
       prims/strided_reduction.cu
