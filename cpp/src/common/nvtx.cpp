@@ -13,6 +13,8 @@ namespace ML {
 struct ColorGenState {
   /** collection of all tagged colors generated so far */
   static std::unordered_map<std::string, uint32_t> allColors;
+  /** mutex for accessing the above map */
+  static std::mutex mapMutex;
   /** saturation */
   static constexpr float S = 0.9f;
   /** value */
@@ -24,6 +26,7 @@ struct ColorGenState {
 };
 
 std::unordered_map<std::string, uint32_t> ColorGenState::allColors;
+std::mutex ColorGenState::mapMutex;
 
 
 // all h, s, v are in range [0, 1]
@@ -64,8 +67,8 @@ uint32_t hsv2rgb(float h, float s, float v) {
   return out;
 }
 
-///@todo: add mutex
 uint32_t generateNextColor(const std::string &tag) {
+  std::lock_guard<std::mutex> guard(ColorGenState::mapMutex);
   if (!tag.empty()) {
     auto itr = ColorGenState::allColors.find(tag);
     if (itr != ColorGenState::allColors.end()) {
