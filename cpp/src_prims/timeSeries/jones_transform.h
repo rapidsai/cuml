@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 /**
-* @file ar_param_transform.h
-* @brief TODO brief
+* @file jones_transform.h
+* @brief Transforms params to induce stationarity/invertability.
+* reference: Jones(1980) 
 */
 
 #include <math.h>
@@ -31,26 +32,6 @@
 namespace MLCommon {
 
 namespace TimeSeries {
-
-//just a helper function to display stuff
-template <typename DataT>
-void display_helper(DataT *arr, int row, int col, cudaStream_t stream){
-
-  DataT *h_arr = (DataT*) malloc(row*col*sizeof(DataT*));
-
-  updateHost(h_arr, arr, row*col, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  for(int i = 0; i<row; ++i){
-    for(int j=0; j<col; ++j){
-      printf("%f ",h_arr[i*col+j]);
-    }
-    printf("\n");
-  }
-}
-
-
 
 /**
 * @brief Lambda to map to the partial autocorrelation
