@@ -155,6 +155,7 @@ if(BUILD_PRIMS_TESTS)
       prims/hinge.cu
       prims/homogeneityScore.cu
       prims/host_buffer.cu
+      prims/jones_transform.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
