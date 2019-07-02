@@ -38,7 +38,7 @@ uint32_t generateNextColor(const std::string &tag);
 
 #ifdef NVTX_ENABLED
 
-#include <nvtoolsExt.h>
+#include <nvToolsExt.h>
 
 #define PUSH_RANGE(name)                               \
   do {                                                 \
