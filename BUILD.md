@@ -151,3 +151,4 @@ cuML's cmake has the following configurable flags available:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
