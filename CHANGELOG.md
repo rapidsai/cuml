@@ -2,9 +2,16 @@
 
 ## New Features
 
+- PR #697: Silhouette Score metric ml-prim
+- PR #674: KL Divergence metric ml-prim
+- PR #787: homogeneity, completeness and v-measure metrics ml-prim
+- PR #711: Mutual Information metric ml-prim
+- PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
 
 ## Bug Fixes
 
@@ -19,7 +26,6 @@
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
-- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #644: Add train_test_split utility for cuDF dataframes
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so

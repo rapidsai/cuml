@@ -43,6 +43,12 @@ __device__ __forceinline__ T AbsFunctor::exec(T x) {
   return MLCommon::myAbs(x);
 }
 
+float GiniFunctor::max_val(int nclass) { return 1.0; }
+
+float EntropyFunctor::max_val(int nclass) {
+  float prob = 1.0 / nclass;
+  return (-1.0 * nclass * prob * logf(prob));
+}
 float GiniFunctor::exec(std::vector<int> &hist, int nrows) {
   float gval = 1.0;
   for (int i = 0; i < hist.size(); i++) {
