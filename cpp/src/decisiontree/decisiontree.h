@@ -94,7 +94,7 @@ struct DecisionTreeParams {
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion = CRITERION_END;
-
+  bool levelalgo = false;
   DecisionTreeParams();
   DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves,
                      float cfg_max_features, int cfg_n_bins, int cfg_split_aglo,
@@ -126,12 +126,12 @@ class DecisionTreeBase {
   bool bootstrap_features;
   CRITERION split_criterion;
   std::vector<unsigned int> feature_selector;
-
+  
   void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
                   bool isLeft) const;
   void split_branch(T *data, MetricQuestion<T> &ques, const int n_sampled_rows,
                     int &nrowsleft, int &nrowsright, unsigned int *rowids);
-
+  
   void plant(const cumlHandle_impl &handle, T *data, const int ncols,
              const int nrows, L *labels, unsigned int *rowids,
              const int n_sampled_rows, int unique_labels, int maxdepth = -1,
@@ -140,7 +140,8 @@ class DecisionTreeBase {
              int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
              CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
              bool cfg_quantile_per_tree = false,
-             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
+             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr,
+             bool levelalgo = false);
   void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
                        const unsigned int *rowids, const int n_sampled_rows,
                        const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
@@ -152,12 +153,17 @@ class DecisionTreeBase {
                                    unsigned int *rowids,
                                    const int n_sampled_rows,
                                    MetricInfo<T> split_info[3], int depth) = 0;
+  
+  virtual TreeNode<T, L> *grow_deep_tree_member(
+						const ML::cumlHandle_impl &handle, T *data, L *labels, unsigned int *rowids,
+						const int n_sampled_rows, const int ncols, const int nrows) = 0;
+  
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
                 const int nrows, L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
                 DecisionTreeParams &tree_params, bool is_classifier,
                 std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
-
+  
  public:
   // Printing utility for high level tree info.
   void print_tree_summary() const;
@@ -193,6 +199,12 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
                            MetricQuestion<T> &ques, float &gain,
                            unsigned int *rowids, const int n_sampled_rows,
                            MetricInfo<T> split_info[3], int depth);
+  TreeNode<T, int> *grow_deep_tree_member(const ML::cumlHandle_impl &handle,
+                                          T *data, int *labels,
+                                          unsigned int *rowids,
+                                          const int n_sampled_rows,
+                                          const int ncols, const int nrows);
+
 };  // End DecisionTreeClassifier Class
 
 template <class T>

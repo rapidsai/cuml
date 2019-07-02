@@ -22,6 +22,7 @@
 #include "kernels/metric.cuh"
 #include "kernels/quantile.cuh"
 #include "kernels/split_labels.cuh"
+#include "levelalgo/levelfunc.cuh"
 #include "memory.cuh"
 
 namespace ML {
@@ -180,7 +181,7 @@ void DecisionTreeBase<T, L>::plant(
   int maxdepth, int max_leaf_nodes, const float colper, int n_bins,
   int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features,
   CRITERION cfg_split_criterion, bool quantile_per_tree,
-  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem, bool levelalgo) {
   split_algo = split_algo_flag;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
@@ -205,7 +206,7 @@ void DecisionTreeBase<T, L>::plant(
     std::iota(feature_selector.begin(), feature_selector.end(), 0);
   }
 
-  std::random_shuffle(feature_selector.begin(), feature_selector.end());
+  //std::random_shuffle(feature_selector.begin(), feature_selector.end());
   feature_selector.resize((int)(colper * dinfo.Ncols));
 
   cudaDeviceProp prop;
@@ -244,7 +245,13 @@ void DecisionTreeBase<T, L>::plant(
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
-  root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
+  if (levelalgo) {
+    root = grow_deep_tree_member(handle, data, labels, rowids, n_sampled_rows,
+                                 ncols, dinfo.NLocalrows);
+  } else {
+    root =
+      grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
+  }
   construct_time = timer.getElapsedSeconds();
   if (in_tempmem == nullptr) {
     for (int i = 0; i < MAXSTREAMS; i++) {
@@ -434,7 +441,8 @@ void DecisionTreeBase<T, L>::base_fit(
         unique_labels, tree_params.max_depth, tree_params.max_leaves,
         tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
         tree_params.min_rows_per_node, tree_params.bootstrap_features,
-        tree_params.split_criterion, tree_params.quantile_per_tree, in_tempmem);
+        tree_params.split_criterion, tree_params.quantile_per_tree, in_tempmem,
+        tree_params.levelalgo);
 }
 
 /**
@@ -461,6 +469,14 @@ void DecisionTreeClassifier<T>::fit(
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                  unique_labels, tree_params, true, in_tempmem);
+}
+template <typename T>
+TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
+  const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
+  const int n_sampled_rows, const int ncols, const int nrows) {
+  return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
+                        ncols, this->n_unique_labels, this->nbins,
+                        this->tempmem[0]);
 }
 
 template <typename T>
@@ -751,4 +767,4 @@ void predict(const ML::cumlHandle &handle,
                                verbose);
 }
 
-}  //End namespace ML
+}  // namespace ML
