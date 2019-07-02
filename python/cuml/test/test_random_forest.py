@@ -19,8 +19,7 @@ from cuml.test.utils import get_handle
 from sklearn.datasets import make_classification
 from cuml.ensemble import RandomForestClassifier as curfc
 from sklearn.ensemble import RandomForestClassifier as skrfc
-from sklearn.metrics import accuracy_score
-
+from sklearn.metrics import mean_squared_error
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -49,7 +48,7 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=5)
-    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
@@ -63,21 +62,19 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=0, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1) #TODO FIXME confirm max_depth and n_estimators
+                       max_depth=-1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
-    cu_acc = accuracy_score(y_test, cu_predict)
-
+    cu_mse = cuml_model.score(X_test, y_test)
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
         sk_model = skrfc(n_estimators=40, max_depth=None,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
-
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_mse = mean_squared_error(y_test, sk_predict)
 
         # compare the accuracy of the two models
-        assert cu_acc >= (sk_acc - 0.07)
+        assert cu_mse['accuracy'] <= sk_mse

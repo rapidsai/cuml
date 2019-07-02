@@ -15,3 +15,4 @@
 #
 
 from cuml.ensemble.randomforest import RandomForestClassifier
+from cuml.ensemble.randomforestregressor import RandomForestRegressor
