@@ -213,7 +213,7 @@ const std::vector<JonesTransParam> inputs = {
   {3,3,0.001},
   {5,1,0.001},
   {5,4,0.001},
-  {5000,4,0.0001}
+  {500000,4,0.0001}
 };
 
 //writing the test suite
