@@ -341,6 +341,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(NVTX)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
