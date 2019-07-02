@@ -28,12 +28,14 @@ from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import mean_squared_error
 
+
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
 
 def quality_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
 
 def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
@@ -49,7 +51,8 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_classification(datatype, use_handle, split_algo,
-                          n_info, nrows, ncols):
+                           n_info, nrows, ncols):
+
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -96,11 +99,12 @@ def test_rf_classification(datatype, use_handle, split_algo,
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
-                          n_info, nrows, ncols):
+                       n_info, nrows, ncols):
+
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=nrows, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
+                           n_informative=n_info,
+                           random_state=123)
 
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(datatype)
@@ -118,7 +122,6 @@ def test_rf_regression(datatype, use_handle, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=-1, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
     cu_mse = cuml_model.score(X_test, y_test)
     if nrows < 500000:
         # sklearn random forest classification model
