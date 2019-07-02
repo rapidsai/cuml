@@ -34,7 +34,7 @@ namespace ML {
  * associate the currently generated color with it
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
-uint32_t generateNextColor(const std::string &tag);
+uint32_t generateNextColor(const std::string &tag = "");
 
 #ifdef NVTX_ENABLED
 
