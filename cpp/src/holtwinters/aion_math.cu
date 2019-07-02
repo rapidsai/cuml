@@ -47,42 +47,37 @@
  * Users Notice.
  */
 
-#include "aion_math.hpp"
-#include "cuda_helper.hpp"
+#include "aion_utils.hpp"
 
 template <typename Dtype>
-__global__ void div_kernel(int n, const Dtype* a,
-    const Dtype* b, Dtype* y) {
-  GPU_LOOP(i, n) {
-    y[i] = a[i]/b[i];
-  }
+__global__ void div_kernel(int n, const Dtype* a, const Dtype* b, Dtype* y) {
+  GPU_LOOP(i, n) { y[i] = a[i] / b[i]; }
 }
 
 template <typename Dtype>
-void aion::math::div_gpu(int n, const Dtype* a,
-    const Dtype* b, Dtype* y) {
-  div_kernel<Dtype><<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(
-      n, a, b, y);
-}
-
-
-template <typename Dtype>
-__global__ void subtract_kernel(int n, const Dtype* a,
-    const Dtype* b, Dtype* y) {
-  GPU_LOOP(i, n) {
-    y[i] = a[i]-b[i];
-  }
+void aion::math::div_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
+  div_kernel<Dtype>
+    <<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(n, a, b, y);
 }
 
 template <typename Dtype>
-void aion::math::subtract_gpu(int n, const Dtype* a,
-    const Dtype* b, Dtype* y) {
-  subtract_kernel<Dtype><<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(
-      n, a, b, y);
+__global__ void subtract_kernel(int n, const Dtype* a, const Dtype* b,
+                                Dtype* y) {
+  GPU_LOOP(i, n) { y[i] = a[i] - b[i]; }
 }
 
-template void aion::math::div_gpu<float>(int n, const float* a, const float* b, float* y);
-template void aion::math::div_gpu<double>(int n, const double* a, const double* b, double* y);
+template <typename Dtype>
+void aion::math::subtract_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
+  subtract_kernel<Dtype>
+    <<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(n, a, b, y);
+}
 
-template void aion::math::subtract_gpu<float>(int n, const float* a, const float* b, float* y);
-template void aion::math::subtract_gpu<double>(int n, const double* a, const double* b, double* y);
+template void aion::math::div_gpu<float>(int n, const float* a, const float* b,
+                                         float* y);
+template void aion::math::div_gpu<double>(int n, const double* a,
+                                          const double* b, double* y);
+
+template void aion::math::subtract_gpu<float>(int n, const float* a,
+                                              const float* b, float* y);
+template void aion::math::subtract_gpu<double>(int n, const double* a,
+                                               const double* b, double* y);

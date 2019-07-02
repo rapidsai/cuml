@@ -50,10 +50,7 @@
 #include <cuda_runtime.h>
 
 #include "Aion.hpp"
-#include "aion_cblas.hpp"
-#include "aion_cublas.hpp"
-#include "aion_cusolver.hpp"
-#include "aion_transpose.hpp"
+#include "aion_utils.hpp"
 #include "holtwinters.hpp"
 
 aion::AionStatus aion::AionInit() {
