@@ -2,12 +2,16 @@
 
 ## New Features
 
+- PR #697: Silhouette Score metric ml-prim
+- PR #674: KL Divergence metric ml-prim
 - PR #787: homogeneity, completeness and v-measure metrics ml-prim
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
 
 ## Bug Fixes
 
