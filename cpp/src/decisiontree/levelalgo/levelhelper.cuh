@@ -109,13 +109,13 @@ void get_me_best_split(unsigned int *hist,
 template <typename T>
 void make_level_split(T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes, int *split_colidx,
-                      int *split_binidx, bool *leaf_flag, unsigned int *flags,
+                      int *split_binidx, const unsigned int *new_node_flags, unsigned int *flags,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   split_level_kernel<<<threads, blocks, 0, tempmem->stream>>>(
     data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows, ncols,
-    nbins, n_nodes, leaf_flag, flags);
+    nbins, n_nodes, new_node_flags, flags);
 }
 
 template <typename T>
@@ -139,7 +139,7 @@ ML::DecisionTree::TreeNode<T, int> *go_recursive(
 
 template <typename T>
 void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
-               bool *leaf_flag, std::vector<FlatTreeNode<T>> &flattree,
+               unsigned int *new_node_flags, std::vector<FlatTreeNode<T>> &flattree,
                std::vector<std::vector<int>> hist) {
   int n_nodes_before = 0;
   for (int i = 0; i <= (curr_depth - 1); i++) {
@@ -147,13 +147,13 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
   }
 
   for (int i = 0; i < gain.size(); i++) {
-    bool loop_leaf_flag = false;
+    unsigned int node_flag = i;
     if (gain[i] == 0.0 || curr_depth == max_depth) {
-      loop_leaf_flag = true;
+      node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + i].type = true;
       flattree[n_nodes_before + i].prediction =
         get_class_hist(hist[n_nodes_before + i]);
     }
-    leaf_flag[i] = loop_leaf_flag;
+    new_node_flags[i] = node_flag;
   }
 }

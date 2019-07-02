@@ -63,7 +63,7 @@ __global__ void split_level_kernel(const T* __restrict__ data,
                                    const int* __restrict__ split_bin_index,
                                    const int nrows, const int ncols,
                                    const int nbins, const int n_nodes,
-                                   const bool* __restrict__ leaf_flag,
+                                   const unsigned int* __restrict__ new_node_flags,
                                    unsigned int* __restrict__ flags) {
   unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag;
@@ -75,8 +75,8 @@ __global__ void split_level_kernel(const T* __restrict__ data,
   }
 
   if (local_flag != LEAF) {
-    bool local_leaf_flag = leaf_flag[local_flag];
-    if(local_leaf_flag != true) {
+    unsigned int local_leaf_flag = new_node_flags[local_flag];
+    if(local_leaf_flag != LEAF) {
       int colidx = split_col_index[local_flag];
       T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
       T local_data = data[colidx * nrows + tid];

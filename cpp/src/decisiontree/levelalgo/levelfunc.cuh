@@ -1,5 +1,4 @@
 #pragma once
-#define DEPTH 8
 template <class T>
 struct FlatTreeNode {
   int prediction = -1;
@@ -21,7 +20,7 @@ template <typename T>
 ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
   int n_sampled_rows, const int nrows, const int ncols,
-  const int n_unique_labels, const int nbins,
+  const int n_unique_labels, const int nbins, int maxdepth,
   const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
@@ -61,7 +60,7 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
   node.best_metric_val = split_info.best_metric;
   flattree.push_back(node);
   //this can be depth loop
-  for (int depth = 0; depth < DEPTH; depth++) {
+  for (int depth = 0; depth < maxdepth; depth++) {
     int n_nodes = pow(2, depth);
     size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
     //Allocate all here
@@ -122,34 +121,35 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
     MLCommon::updateDevice(d_split_colidx->data(), h_split_colidx->data(),
                            n_nodes, tempmem->stream);
 
-    MLCommon::host_buffer<bool> *h_leaf_flag =
-      new MLCommon::host_buffer<bool>(handle.getHostAllocator(),
-				      tempmem->stream, n_nodes);
-    
-    leaf_eval(infogain, depth, DEPTH, h_leaf_flag->data(), flattree, histstate);
-    
-    MLCommon::device_buffer<bool> *d_leaf_flag =
-      new MLCommon::device_buffer<bool>(handle.getDeviceAllocator(),
-                                        tempmem->stream, n_nodes);
-    
-    MLCommon::updateDevice(d_leaf_flag->data(), h_leaf_flag->data(), n_nodes,
+    MLCommon::host_buffer<unsigned int> *h_new_node_flags =
+      new MLCommon::host_buffer<unsigned int>(handle.getHostAllocator(),
+                                              tempmem->stream, n_nodes);
+
+    leaf_eval(infogain, depth, maxdepth, h_new_node_flags->data(), flattree,
+              histstate);
+
+    MLCommon::device_buffer<unsigned int> *d_new_node_flags =
+      new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
+                                                tempmem->stream, n_nodes);
+
+    MLCommon::updateDevice(d_new_node_flags->data(), h_new_node_flags->data(), n_nodes,
                            tempmem->stream);
-    
+
     make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx->data(),
-                     d_split_binidx->data(), d_leaf_flag->data(), flagsptr,
+                     d_split_binidx->data(), d_new_node_flags->data(), flagsptr,
                      tempmem);
 
     //Free
-    h_leaf_flag->release(tempmem->stream);
-    d_leaf_flag->release(tempmem->stream);
+    h_new_node_flags->release(tempmem->stream);
+    d_new_node_flags->release(tempmem->stream);
     h_histogram->release(tempmem->stream);
     d_histogram->release(tempmem->stream);
     h_split_colidx->release(tempmem->stream);
     d_split_colidx->release(tempmem->stream);
     h_split_binidx->release(tempmem->stream);
     d_split_binidx->release(tempmem->stream);
-    delete h_leaf_flag;
-    delete d_leaf_flag;
+    delete h_new_node_flags;
+    delete d_new_node_flags;
     delete d_histogram;
     delete h_histogram;
     delete h_split_colidx;
@@ -157,7 +157,7 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
     delete h_split_binidx;
     delete d_split_binidx;
   }
-  int nleaves = pow(2, DEPTH);
+  int nleaves = pow(2, maxdepth);
   int leaf_st = flattree.size() - nleaves;
   for (int i = 0; i < nleaves; i++) {
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
