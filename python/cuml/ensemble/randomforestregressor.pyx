@@ -261,7 +261,7 @@ cdef class RandomForest_impl():
             raise ValueError(" The datatype of the training data is different"
                              " from the datatype of the testing data")
 
-        preds = np.zeros(n_rows, dtype=np.float32)
+        preds = np.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -313,7 +313,7 @@ cdef class RandomForest_impl():
                              " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
-                         dtype=np.float32)
+                         dtype=self.dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -334,12 +334,12 @@ cdef class RandomForest_impl():
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
-                                    self.rf_regressor32,
-                                    <float*> X_ptr,
-                                    <float*> y_ptr,
+                                    self.rf_regressor64,
+                                    <double*> X_ptr,
+                                    <double*> y_ptr,
                                     <int> n_rows,
                                     <int> n_cols,
-                                    <float*> preds_ptr,
+                                    <double*> preds_ptr,
                                     <bool> self.verbose)
 
         if self.accuracy_metric == 'median_ae' :
