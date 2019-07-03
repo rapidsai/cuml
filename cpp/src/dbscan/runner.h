@@ -110,7 +110,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
 
   for (int i = 0; i < nBatches; i++) {
-    ML::PUSH_RANGE("Profile::Dbscan::VertexDeg");
+    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
     MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
                                             stream);
     Type startVertexId = i * batchSize;
@@ -123,7 +123,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     // Running AdjGraph
-    ML::PUSH_RANGE("Profile::Dbscan::AdjGraph");
+    ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > adjlen || adj_graph.data() == NULL) {
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
@@ -133,7 +133,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
                                 stream);
     ML::POP_RANGE();
 
-    ML::PUSH_RANGE("Profile::Dbscan::WeakCC");
+    ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
     MLCommon::Sparse::weak_cc_batched<Type, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, batchSize,
       &state, stream,
@@ -141,7 +141,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
   }
 
-  ML::PUSH_RANGE("Profile::Dbscan::FinalRelabel");
+  ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
   Type MAX_LABEL = std::numeric_limits<Type>::max();
   int nblks = ceildiv<int>(N, TPB);
