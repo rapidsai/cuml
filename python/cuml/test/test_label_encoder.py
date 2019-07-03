@@ -18,7 +18,6 @@ import numpy as np
 
 from cuml.test import utils
 import pytest
-# from sklearn.utils.testing import assert_warns_message
 
 
 def _df_to_similarity_mat(df):
