@@ -15,6 +15,7 @@
 
 ## Bug Fixes
 
+- PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 
 # cuML 0.8.0 (27 June 2019)
