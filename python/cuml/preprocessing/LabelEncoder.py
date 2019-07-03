@@ -23,7 +23,7 @@ import warnings
 
 
 DIGIT_WARNING = (
-    'If inverse_transform() is needed, string labels should not contain '
+    'If inverse_transform is needed, string labels should not contain '
     + 'any digit in them, otherwise they may be incorrectly inversed')
 
 
