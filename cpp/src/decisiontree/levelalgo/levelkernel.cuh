@@ -73,7 +73,7 @@ __global__ void split_level_kernel(const T* __restrict__ data,
   } else {
     local_flag = LEAF;
   }
-
+  
   if (local_flag != LEAF) {
     unsigned int local_leaf_flag = new_node_flags[local_flag];
     if(local_leaf_flag != LEAF) {
@@ -82,9 +82,9 @@ __global__ void split_level_kernel(const T* __restrict__ data,
       T local_data = data[colidx * nrows + tid];
       //The inverse comparision here to push right instead of left
       if (local_data <= quesval) {
-	local_flag = local_flag << 1;
+	local_flag = local_leaf_flag << 1;
       } else {
-	local_flag = (local_flag << 1) | PUSHRIGHT;
+	local_flag = (local_leaf_flag << 1) | PUSHRIGHT;
       }
     } else {
       local_flag = LEAF;
