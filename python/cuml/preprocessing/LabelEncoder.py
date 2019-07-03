@@ -23,8 +23,9 @@ import warnings
 
 
 DIGIT_WARNING = (
-    'If inverse_transform is needed, string labels should not contain '
-    + 'any digit in them, otherwise they may be incorrectly inversed')
+    'If inverse_transform is needed, string labels cannot be non-negative '
+    + 'integers, otherwise they may be incorrectly inversed. '
+    + 'Negative integer or integer with leading 0 are fine, e.g. -1, 001')
 
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
@@ -69,7 +70,7 @@ def _trans_back(ser, categories, orig_dtype):
         if ord_int < 0 or ord_int >= len(categories.keys()):
             raise ValueError(
                 'y contains previously unseen label {}'.format(ord_int))
-        reverted = reverted.replace(ord_str, keys[ord_int])
+        reverted = reverted.replace('^{}$'.format(ord_str), keys[ord_int])
 
     reverted = cudf.Series(reverted, dtype=orig_dtype)
     return reverted
