@@ -15,41 +15,38 @@ struct FlatTreeNode {
 #include "../memory.cuh"
 #include "levelhelper.cuh"
 #include "levelkernel.cuh"
+#include "levelmem.cuh"
 
 template <typename T>
-ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
-  const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
+ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
+  const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   int n_sampled_rows, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, int maxdepth,
   const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  LevelTemporaryMemory<T, int>* leveltempmem = new LevelTemporaryMemory<T, int>(
+    handle, nrows, ncols, nbins, n_unique_labels, maxdepth);
+
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
 
-  CUDA_CHECK(cudaHostRegister(colselector.data(),
+  /*CUDA_CHECK(cudaHostRegister(colselector.data(),
                               sizeof(unsigned int) * colselector.size(),
                               cudaHostRegisterDefault));
   // Copy sampled column IDs to device memory
   MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(),
                          colselector.size(), tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+			 
   CUDA_CHECK(cudaHostUnregister(colselector.data()));
-
+  */
+  
   MetricInfo<T> split_info;
   gini<T, GiniFunctor>(labels, n_sampled_rows, tempmem, split_info,
                        n_unique_labels);
 
-  MLCommon::device_buffer<unsigned int> *d_flags =
-    new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                              tempmem->stream, nrows);
-  unsigned int *flagsptr = d_flags->data();
+  unsigned int* flagsptr = leveltempmem->d_flags->data();
   CUDA_CHECK(cudaMemsetAsync(flagsptr, 0, nrows * sizeof(unsigned int),
                              tempmem->stream));
-
-  MLCommon::host_buffer<T> *h_quantile = new MLCommon::host_buffer<T>(
-    handle.getHostAllocator(), tempmem->stream, nbins * ncols);
-  MLCommon::updateHost(h_quantile->data(), tempmem->d_quantile->data(),
-                       nbins * ncols, tempmem->stream);
 
   std::vector<std::vector<int>> histstate;
   histstate.push_back(split_info.hist);
@@ -62,44 +59,34 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
   std::vector<int> nodelist;
   nodelist.push_back(0);
   //this can be depth loop
+
+  //Setup pointers
+  unsigned int* d_histogram = leveltempmem->d_histogram->data();
+  unsigned int* h_histogram = leveltempmem->h_histogram->data();
+  int* h_split_binidx = leveltempmem->h_split_binidx->data();
+  int* d_split_binidx = leveltempmem->d_split_binidx->data();
+  int* h_split_colidx = leveltempmem->h_split_colidx->data();
+  int* d_split_colidx = leveltempmem->d_split_colidx->data();
+  unsigned int* h_new_node_flags = leveltempmem->h_new_node_flags->data();
+  unsigned int* d_new_node_flags = leveltempmem->d_new_node_flags->data();
+
   for (int depth = 0; depth < maxdepth; depth++) {
     n_nodes = n_nodes_nextitr;
-    /*    std::cout << "number of nodes -->" << n_nodes << std::endl;
+    /*std::cout << "number of nodes -->" << n_nodes << std::endl;
     for (int i = 0; i < n_nodes; i++) {
       printf("%d  ", nodelist[i]);
     }
     printf("\n");*/
     size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
-    //Allocate all here
-    MLCommon::device_buffer<unsigned int> *d_histogram =
-      new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                                tempmem->stream, histcount);
-    MLCommon::host_buffer<unsigned int> *h_histogram =
-      new MLCommon::host_buffer<unsigned int>(handle.getHostAllocator(),
-                                              tempmem->stream, histcount);
-    MLCommon::host_buffer<int> *h_split_colidx = new MLCommon::host_buffer<int>(
-      handle.getHostAllocator(), tempmem->stream, n_nodes);
-    MLCommon::host_buffer<int> *h_split_binidx = new MLCommon::host_buffer<int>(
-      handle.getHostAllocator(), tempmem->stream, n_nodes);
 
-    MLCommon::device_buffer<int> *d_split_colidx =
-      new MLCommon::device_buffer<int>(handle.getDeviceAllocator(),
-                                       tempmem->stream, n_nodes);
-    MLCommon::device_buffer<int> *d_split_binidx =
-      new MLCommon::device_buffer<int>(handle.getDeviceAllocator(),
-                                       tempmem->stream, n_nodes);
-
-    CUDA_CHECK(cudaMemsetAsync(d_histogram->data(), 0,
-                               histcount * sizeof(unsigned int),
+    CUDA_CHECK(cudaMemsetAsync(d_histogram, 0, histcount * sizeof(unsigned int),
                                tempmem->stream));
     //End allocation and setups
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     get_me_histogram(data, labels, flagsptr, nrows, ncols, n_unique_labels,
-                     nbins, n_nodes, tempmem, d_histogram->data());
+                     nbins, n_nodes, tempmem, d_histogram);
 
-    MLCommon::updateHost(h_histogram->data(), d_histogram->data(), histcount,
-                         tempmem->stream);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    MLCommon::updateHost(h_histogram, d_histogram, histcount, tempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     /*    unsigned int *hist = h_histogram->data();
     for (int nid = 0; nid < n_nodes; nid++) {
       for (int j = 0; j < ncols; j++) {
@@ -119,63 +106,34 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
     */
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor>(
-      h_histogram->data(), colselector, nbins, n_unique_labels, n_nodes, depth,
-      infogain, histstate, flattree, nodelist, h_split_colidx->data(),
-      h_split_binidx->data(), h_quantile->data());
+      h_histogram, colselector, nbins, n_unique_labels, n_nodes, depth,
+      infogain, histstate, flattree, nodelist, h_split_colidx, h_split_binidx,
+      tempmem->h_quantile->data());
 
-    MLCommon::updateDevice(d_split_binidx->data(), h_split_binidx->data(),
-                           n_nodes, tempmem->stream);
-    MLCommon::updateDevice(d_split_colidx->data(), h_split_colidx->data(),
-                           n_nodes, tempmem->stream);
+    MLCommon::updateDevice(d_split_binidx, h_split_binidx, n_nodes,
+                           tempmem->stream);
+    MLCommon::updateDevice(d_split_colidx, h_split_colidx, n_nodes,
+                           tempmem->stream);
 
-    MLCommon::host_buffer<unsigned int> *h_new_node_flags =
-      new MLCommon::host_buffer<unsigned int>(handle.getHostAllocator(),
-                                              tempmem->stream, n_nodes);
+    leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
+              n_nodes_nextitr, nodelist);
 
-    MLCommon::device_buffer<unsigned int> *d_new_node_flags =
-      new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                                tempmem->stream, n_nodes);
+    MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
+                           tempmem->stream);
 
-    leaf_eval(infogain, depth, maxdepth, h_new_node_flags->data(), flattree,
-              histstate, n_nodes_nextitr, nodelist);
-
-    MLCommon::updateDevice(d_new_node_flags->data(), h_new_node_flags->data(),
-                           n_nodes, tempmem->stream);
-
-    make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx->data(),
-                     d_split_binidx->data(), d_new_node_flags->data(), flagsptr,
-                     tempmem);
-
-    //Free
-    h_new_node_flags->release(tempmem->stream);
-    d_new_node_flags->release(tempmem->stream);
-    h_histogram->release(tempmem->stream);
-    d_histogram->release(tempmem->stream);
-    h_split_colidx->release(tempmem->stream);
-    d_split_colidx->release(tempmem->stream);
-    h_split_binidx->release(tempmem->stream);
-    d_split_binidx->release(tempmem->stream);
-    delete h_new_node_flags;
-    delete d_new_node_flags;
-    delete d_histogram;
-    delete h_histogram;
-    delete h_split_colidx;
-    delete d_split_colidx;
-    delete h_split_binidx;
-    delete d_split_binidx;
+    make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
+                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
   int nleaves = pow(2, maxdepth);
   int leaf_st = flattree.size() - nleaves;
   for (int i = 0; i < nleaves; i++) {
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
   }
-  h_quantile->release(tempmem->stream);
-  d_flags->release(tempmem->stream);
-  delete d_flags;
-  delete h_quantile;
   /*  for (int i = 0; i < flattree.size(); i++) {
     printf("node id--> %d, colid --> %d ques_val --> %f best metric-->%f\n", i,
            flattree[i].colid, flattree[i].quesval, flattree[i].best_metric_val);
 	   }*/
+  delete leveltempmem;
   return go_recursive(flattree);
 }
