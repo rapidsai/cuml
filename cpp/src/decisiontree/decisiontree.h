@@ -127,12 +127,12 @@ class DecisionTreeBase {
   bool bootstrap_features;
   CRITERION split_criterion;
   std::vector<unsigned int> feature_selector;
-  
+
   void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
                   bool isLeft) const;
   void split_branch(T *data, MetricQuestion<T> &ques, const int n_sampled_rows,
                     int &nrowsleft, int &nrowsright, unsigned int *rowids);
-  
+
   void plant(const cumlHandle_impl &handle, T *data, const int ncols,
              const int nrows, L *labels, unsigned int *rowids,
              const int n_sampled_rows, int unique_labels, int maxdepth = -1,
@@ -154,17 +154,17 @@ class DecisionTreeBase {
                                    unsigned int *rowids,
                                    const int n_sampled_rows,
                                    MetricInfo<T> split_info[3], int depth) = 0;
-  
+
   virtual TreeNode<T, L> *grow_deep_tree_member(
-						const ML::cumlHandle_impl &handle, T *data, L *labels, unsigned int *rowids,
-						const int n_sampled_rows, const int ncols, const int nrows) = 0;
-  
+    const ML::cumlHandle_impl &handle, T *data, L *labels, unsigned int *rowids,
+    const int n_sampled_rows, const int ncols, const int nrows) = 0;
+
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
                 const int nrows, L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
                 DecisionTreeParams &tree_params, bool is_classifier,
                 std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
-  
+
  public:
   // Printing utility for high level tree info.
   void print_tree_summary() const;
@@ -222,6 +222,12 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
                            MetricQuestion<T> &ques, float &gain,
                            unsigned int *rowids, const int n_sampled_rows,
                            MetricInfo<T> split_info[3], int depth);
+  TreeNode<T, T> *grow_deep_tree_member(const ML::cumlHandle_impl &handle,
+                                        T *data, T *labels,
+                                        unsigned int *rowids,
+                                        const int n_sampled_rows,
+                                        const int ncols, const int nrows);
+
 };  // End DecisionTreeRegressor Class
 
 }  //End namespace DecisionTree

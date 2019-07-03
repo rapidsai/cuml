@@ -545,6 +545,15 @@ void DecisionTreeRegressor<T>::fit(
 }
 
 template <typename T>
+TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree_member(
+  const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
+  const int n_sampled_rows, const int ncols, const int nrows) {
+  std::cout << " sorry bad place to be in....\n\n";
+  return (new TreeNode<T,T>);
+
+}
+
+template <typename T>
 void DecisionTreeRegressor<T>::find_best_fruit_all(
   T *data, T *labels, const float colper, MetricQuestion<T> &ques, float &gain,
   unsigned int *rowids, const int n_sampled_rows, MetricInfo<T> split_info[3],
