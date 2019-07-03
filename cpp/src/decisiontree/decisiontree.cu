@@ -244,20 +244,27 @@ void DecisionTreeBase<T, L>::plant(
   total_temp_mem = tempmem[0]->totalmem;
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
+
+  LevelTemporaryMemory *leveltempmem = new LevelTemporaryMemory(
+    handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
+
   MLCommon::TimerCPU timer;
   if (levelalgo) {
     root = grow_deep_tree_member(handle, data, labels, rowids, n_sampled_rows,
-                                 ncols, dinfo.NLocalrows);
+                                 ncols, dinfo.NLocalrows, leveltempmem);
   } else {
     root =
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
   }
   construct_time = timer.getElapsedSeconds();
+  std::cout << "Growwww tree time -->  " << construct_time << std::endl;
   if (in_tempmem == nullptr) {
     for (int i = 0; i < MAXSTREAMS; i++) {
       tempmem[i].reset();
     }
   }
+
+  delete leveltempmem;
 }
 
 template <typename T, typename L>
@@ -473,10 +480,11 @@ void DecisionTreeClassifier<T>::fit(
 template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
-  const int n_sampled_rows, const int ncols, const int nrows) {
+  const int n_sampled_rows, const int ncols, const int nrows,
+  LevelTemporaryMemory *leveltempmem) {
   return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
                         ncols, this->n_unique_labels, this->nbins,
-                        this->treedepth, this->tempmem[0]);
+                        this->treedepth, this->tempmem[0], leveltempmem);
 }
 
 template <typename T>
@@ -547,10 +555,10 @@ void DecisionTreeRegressor<T>::fit(
 template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree_member(
   const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
-  const int n_sampled_rows, const int ncols, const int nrows) {
+  const int n_sampled_rows, const int ncols, const int nrows,
+  LevelTemporaryMemory *leveltempmem) {
   std::cout << " sorry bad place to be in....\n\n";
-  return (new TreeNode<T,T>);
-
+  return (new TreeNode<T, T>);
 }
 
 template <typename T>

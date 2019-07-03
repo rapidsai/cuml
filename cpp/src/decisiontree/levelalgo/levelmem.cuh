@@ -1,6 +1,5 @@
 #pragma once
 
-template <class T, class L>
 struct LevelTemporaryMemory {
   cudaStream_t stream;
   MLCommon::device_buffer<unsigned int> *d_flags;

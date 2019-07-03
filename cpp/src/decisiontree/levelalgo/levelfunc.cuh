@@ -22,9 +22,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   int n_sampled_rows, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, int maxdepth,
-  const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  LevelTemporaryMemory<T, int>* leveltempmem = new LevelTemporaryMemory<T, int>(
-    handle, nrows, ncols, nbins, n_unique_labels, maxdepth);
+  const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  LevelTemporaryMemory* leveltempmem) {
 
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
@@ -39,7 +38,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
 			 
   CUDA_CHECK(cudaHostUnregister(colselector.data()));
   */
-  
+
   MetricInfo<T> split_info;
   gini<T, GiniFunctor>(labels, n_sampled_rows, tempmem, split_info,
                        n_unique_labels);
@@ -134,6 +133,5 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
     printf("node id--> %d, colid --> %d ques_val --> %f best metric-->%f\n", i,
            flattree[i].colid, flattree[i].quesval, flattree[i].best_metric_val);
 	   }*/
-  delete leveltempmem;
   return go_recursive(flattree);
 }
