@@ -30,7 +30,7 @@ def test_warning():
     ''' Test if DIGIT_WARNING is thrown
     '''
     with pytest.warns(UserWarning, match=DIGIT_WARNING):
-        le = LabelEncoder()
+        LabelEncoder()
 
 
 @pytest.mark.parametrize("length", [10, 100, 1000])
