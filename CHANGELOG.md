@@ -13,6 +13,8 @@
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
 
+- PR #807: Added development conda yml files
+
 ## Bug Fixes
 
 - PR #772: Add missing cython headers to SGD and CD
