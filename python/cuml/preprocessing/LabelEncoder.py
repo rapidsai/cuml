@@ -16,9 +16,15 @@
 
 import cudf
 import nvcategory
-
 from librmm_cffi import librmm
 import numpy as np
+
+import warnings
+
+
+DIGIT_WARNING = (
+    'If inverse_transform() is needed, string labels should not contain '
+    + 'any digit in them, otherwise they may be incorrectly inversed')
 
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
@@ -151,6 +157,7 @@ class LabelEncoder(object):
     """
 
     def __init__(self, *args, **kwargs):
+        warnings.warn(DIGIT_WARNING, UserWarning)
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False

@@ -12,16 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing.LabelEncoder import LabelEncoder, DIGIT_WARNING
 import cudf
+import numpy as np
+
 from cuml.test import utils
 import pytest
-import numpy as np
+# from sklearn.utils.testing import assert_warns_message
 
 
 def _df_to_similarity_mat(df):
     arr = utils.to_nparray(df).reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
+
+
+def test_warning():
+    ''' Test if DIGIT_WARNING is thrown
+    '''
+    with pytest.warns(UserWarning, match=DIGIT_WARNING):
+        le = LabelEncoder()
 
 
 @pytest.mark.parametrize("length", [10, 100, 1000])
