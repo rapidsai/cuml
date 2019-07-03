@@ -52,16 +52,23 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
                        nbins * ncols, tempmem->stream);
 
   std::vector<std::vector<int>> histstate;
-  std::vector<T> bestmetric;
   histstate.push_back(split_info.hist);
-  bestmetric.push_back(split_info.best_metric);
   std::vector<FlatTreeNode<T>> flattree;
   FlatTreeNode<T> node;
   node.best_metric_val = split_info.best_metric;
   flattree.push_back(node);
+  int n_nodes = 1;
+  int n_nodes_nextitr = 1;
+  std::vector<int> nodelist;
+  nodelist.push_back(0);
   //this can be depth loop
   for (int depth = 0; depth < maxdepth; depth++) {
-    int n_nodes = pow(2, depth);
+    n_nodes = n_nodes_nextitr;
+    /*    std::cout << "number of nodes -->" << n_nodes << std::endl;
+    for (int i = 0; i < n_nodes; i++) {
+      printf("%d  ", nodelist[i]);
+    }
+    printf("\n");*/
     size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
     //Allocate all here
     MLCommon::device_buffer<unsigned int> *d_histogram =
@@ -113,7 +120,7 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor>(
       h_histogram->data(), colselector, nbins, n_unique_labels, n_nodes, depth,
-      infogain, histstate, bestmetric, flattree, h_split_colidx->data(),
+      infogain, histstate, flattree, nodelist, h_split_colidx->data(),
       h_split_binidx->data(), h_quantile->data());
 
     MLCommon::updateDevice(d_split_binidx->data(), h_split_binidx->data(),
@@ -125,15 +132,15 @@ ML::DecisionTree::TreeNode<T, int> *grow_deep_tree(
       new MLCommon::host_buffer<unsigned int>(handle.getHostAllocator(),
                                               tempmem->stream, n_nodes);
 
-    leaf_eval(infogain, depth, maxdepth, h_new_node_flags->data(), flattree,
-              histstate);
-
     MLCommon::device_buffer<unsigned int> *d_new_node_flags =
       new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
                                                 tempmem->stream, n_nodes);
 
-    MLCommon::updateDevice(d_new_node_flags->data(), h_new_node_flags->data(), n_nodes,
-                           tempmem->stream);
+    leaf_eval(infogain, depth, maxdepth, h_new_node_flags->data(), flattree,
+              histstate, n_nodes_nextitr, nodelist);
+
+    MLCommon::updateDevice(d_new_node_flags->data(), h_new_node_flags->data(),
+                           n_nodes, tempmem->stream);
 
     make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx->data(),
                      d_split_binidx->data(), d_new_node_flags->data(), flagsptr,
