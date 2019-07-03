@@ -1,0 +1,67 @@
+#pragma once
+
+template <class T, class L>
+struct LevelTemporaryMemory {
+  cudaStream_t stream;
+  MLCommon::device_buffer<unsigned int> *d_flags;
+  MLCommon::device_buffer<unsigned int> *d_histogram;
+  MLCommon::host_buffer<unsigned int> *h_histogram;
+  MLCommon::host_buffer<int> *h_split_colidx;
+  MLCommon::host_buffer<int> *h_split_binidx;
+  MLCommon::device_buffer<int> *d_split_colidx;
+  MLCommon::device_buffer<int> *d_split_binidx;
+  MLCommon::host_buffer<unsigned int> *h_new_node_flags;
+  MLCommon::device_buffer<unsigned int> *d_new_node_flags;
+
+  LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
+                       const int ncols, const int nbins,
+                       const int n_unique_labels, const int depth) {
+    int maxnodes = pow(2, depth);
+    size_t histcount = ncols * nbins * n_unique_labels * maxnodes;
+    stream = handle.getStream();
+    d_flags = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, nrows);
+    d_histogram = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, histcount);
+    h_histogram = new MLCommon::host_buffer<unsigned int>(
+      handle.getHostAllocator(), stream, histcount);
+    h_split_colidx = new MLCommon::host_buffer<int>(handle.getHostAllocator(),
+                                                    stream, maxnodes);
+    h_split_binidx = new MLCommon::host_buffer<int>(handle.getHostAllocator(),
+                                                    stream, maxnodes);
+
+    d_split_colidx = new MLCommon::device_buffer<int>(
+      handle.getDeviceAllocator(), stream, maxnodes);
+    d_split_binidx = new MLCommon::device_buffer<int>(
+      handle.getDeviceAllocator(), stream, maxnodes);
+
+    h_new_node_flags = new MLCommon::host_buffer<unsigned int>(
+      handle.getHostAllocator(), stream, maxnodes);
+
+    d_new_node_flags = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, maxnodes);
+  }
+
+  ~LevelTemporaryMemory() {
+    //Free
+    h_new_node_flags->release(stream);
+    d_new_node_flags->release(stream);
+    h_histogram->release(stream);
+    d_histogram->release(stream);
+    h_split_colidx->release(stream);
+    d_split_colidx->release(stream);
+    h_split_binidx->release(stream);
+    d_split_binidx->release(stream);
+    delete h_new_node_flags;
+    delete d_new_node_flags;
+    delete d_histogram;
+    delete h_histogram;
+    delete h_split_colidx;
+    delete d_split_colidx;
+    delete h_split_binidx;
+    delete d_split_binidx;
+
+    d_flags->release(stream);
+    delete d_flags;
+  }
+};
