@@ -5,15 +5,16 @@ template <typename T>
 void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       const int nrows, const int ncols,
                       const int n_unique_labels, const int nbins,
-                      const int n_nodes,
+                      const int n_nodes, const int maxnodes,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
                       unsigned int *histout) {
-  size_t shmem = nbins * n_unique_labels * sizeof(int) * n_nodes;
+  int node_batch = min(n_nodes, maxnodes);
+  size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
     data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-    tempmem->d_quantile->data(), histout);
+    tempmem->d_quantile->data(), node_batch, histout);
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F>

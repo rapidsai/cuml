@@ -43,8 +43,7 @@ struct LevelTemporaryMemory {
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
     size_t max_shared_mem = prop.sharedMemPerBlock;
-    maxnodes = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
-    
+    max_nodes = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
   }
 
   ~LevelTemporaryMemory() {
