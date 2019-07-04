@@ -24,20 +24,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   const int n_unique_labels, const int nbins, int maxdepth,
   const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
   LevelTemporaryMemory* leveltempmem) {
-
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
-
-  /*CUDA_CHECK(cudaHostRegister(colselector.data(),
-                              sizeof(unsigned int) * colselector.size(),
-                              cudaHostRegisterDefault));
-  // Copy sampled column IDs to device memory
-  MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(),
-                         colselector.size(), tempmem->stream);
-			 
-  CUDA_CHECK(cudaHostUnregister(colselector.data()));
-  */
 
   MetricInfo<T> split_info;
   gini<T, GiniFunctor>(labels, n_sampled_rows, tempmem, split_info,
@@ -62,20 +51,15 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   //Setup pointers
   unsigned int* d_histogram = leveltempmem->d_histogram->data();
   unsigned int* h_histogram = leveltempmem->h_histogram->data();
-  int* h_split_binidx = leveltempmem->h_split_binidx->data();
-  int* d_split_binidx = leveltempmem->d_split_binidx->data();
-  int* h_split_colidx = leveltempmem->h_split_colidx->data();
-  int* d_split_colidx = leveltempmem->d_split_colidx->data();
+  unsigned int* h_split_binidx = leveltempmem->h_split_binidx->data();
+  unsigned int* d_split_binidx = leveltempmem->d_split_binidx->data();
+  unsigned int* h_split_colidx = leveltempmem->h_split_colidx->data();
+  unsigned int* d_split_colidx = leveltempmem->d_split_colidx->data();
   unsigned int* h_new_node_flags = leveltempmem->h_new_node_flags->data();
   unsigned int* d_new_node_flags = leveltempmem->d_new_node_flags->data();
 
   for (int depth = 0; depth < maxdepth; depth++) {
     n_nodes = n_nodes_nextitr;
-    /*std::cout << "number of nodes -->" << n_nodes << std::endl;
-    for (int i = 0; i < n_nodes; i++) {
-      printf("%d  ", nodelist[i]);
-    }
-    printf("\n");*/
     size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
 
     CUDA_CHECK(cudaMemsetAsync(d_histogram, 0, histcount * sizeof(unsigned int),
@@ -83,26 +67,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
     //End allocation and setups
     get_me_histogram(data, labels, flagsptr, nrows, ncols, n_unique_labels,
                      nbins, n_nodes, tempmem, d_histogram);
-
+    
     MLCommon::updateHost(h_histogram, d_histogram, histcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    /*    unsigned int *hist = h_histogram->data();
-    for (int nid = 0; nid < n_nodes; nid++) {
-      for (int j = 0; j < ncols; j++) {
-        printf("colid --> %d ;;; ", j);
-        for (int i = 0; i < nbins; i++) {
-          printf("(%d,%d,%d) ",
-                 hist[nid * n_unique_labels * nbins +
-                      j * n_nodes * n_unique_labels * nbins + 3 * i],
-                 hist[nid * n_unique_labels * nbins +
-                      j * n_nodes * n_unique_labels * nbins + 3 * i + 1],
-                 hist[nid * n_unique_labels * nbins +
-                      j * n_nodes * n_unique_labels * nbins + 3 * i + 2]);
-        }
-        printf("\n");
-      }
-    }
-    */
+
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor>(
       h_histogram, colselector, nbins, n_unique_labels, n_nodes, depth,
@@ -129,9 +97,5 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   for (int i = 0; i < nleaves; i++) {
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
   }
-  /*  for (int i = 0; i < flattree.size(); i++) {
-    printf("node id--> %d, colid --> %d ques_val --> %f best metric-->%f\n", i,
-           flattree[i].colid, flattree[i].quesval, flattree[i].best_metric_val);
-	   }*/
   return go_recursive(flattree);
 }

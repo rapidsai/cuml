@@ -11,10 +11,10 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   size_t shmem = nbins * n_unique_labels * sizeof(int) * n_nodes;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-
   get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
     data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
     tempmem->d_quantile->data(), histout);
+  CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F>
 void get_me_best_split(unsigned int *hist,
@@ -24,11 +24,11 @@ void get_me_best_split(unsigned int *hist,
                        std::vector<float> &gain,
                        std::vector<std::vector<int>> &histstate,
                        std::vector<FlatTreeNode<T>> &flattree,
-                       std::vector<int> &nodelist, int *split_colidx,
-                       int *split_binidx, T *quantile) {
+                       std::vector<int> &nodelist, unsigned int *split_colidx,
+                       unsigned int *split_binidx, T *quantile) {
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
-
+  int ncols = colselector.size();
   for (int i = 0; i <= (depth - 1); i++) {
     n_nodes_before += pow(2, i);
   }
@@ -50,7 +50,6 @@ void get_me_best_split(unsigned int *hist,
     int parentid = nodeid + n_nodes_before;
     int best_col_id = -1;
     int best_bin_id = -1;
-    int ncols = colselector.size();
     std::vector<int> besthist_left(n_unique_labels);
     std::vector<int> besthist_right(n_unique_labels);
 
@@ -102,8 +101,6 @@ void get_me_best_split(unsigned int *hist,
     }
     split_colidx[nodecnt] = best_col_id;
     split_binidx[nodecnt] = best_bin_id;
-    //printf("Node id %d, quantile_val %f, col id %d\n", nodeid,
-    //       quantile[best_col_id * nbins + best_bin_id], best_col_id);
     histstate[2 * nodeid + n_nodes_before + pow(2, depth)] = besthist_left;
     histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] = besthist_right;
     flattree[nodeid + n_nodes_before].colid = best_col_id;
@@ -119,15 +116,16 @@ void get_me_best_split(unsigned int *hist,
 
 template <typename T>
 void make_level_split(T *data, const int nrows, const int ncols,
-                      const int nbins, const int n_nodes, int *split_colidx,
-                      int *split_binidx, const unsigned int *new_node_flags,
-                      unsigned int *flags,
+                      const int nbins, const int n_nodes,
+                      unsigned int *split_colidx, unsigned int *split_binidx,
+                      const unsigned int *new_node_flags, unsigned int *flags,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  split_level_kernel<<<threads, blocks, 0, tempmem->stream>>>(
+  split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(
     data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows, ncols,
     nbins, n_nodes, new_node_flags, flags);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename T>
