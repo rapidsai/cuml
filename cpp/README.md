@@ -40,6 +40,7 @@ Current cmake offers the following configuration options:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compiles only for that.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
 
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
