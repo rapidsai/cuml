@@ -12,9 +12,15 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
-    data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-    tempmem->d_quantile->data(), node_batch, histout);
+  if (n_nodes == node_batch) {
+    get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
+      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
+      tempmem->d_quantile->data(), histout);
+  } else {
+    get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
+      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
+      tempmem->d_quantile->data(), node_batch, histout);
+  }
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F>
