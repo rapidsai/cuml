@@ -15,6 +15,7 @@
 - PR #822: build: build.sh update to club all make targets together
 
 - PR #807: Added development conda yml files
+- PR #832: Stateless Decision Tree and Random Forest API
 
 ## Bug Fixes
 
