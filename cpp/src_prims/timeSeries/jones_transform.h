@@ -16,7 +16,8 @@
 /**
 * @file jones_transform.h
 * @brief Transforms params to induce stationarity/invertability.
-* reference: Jones(1980)
+* reference: Jones(1980) 
+
 */
 
 #include <math.h>
