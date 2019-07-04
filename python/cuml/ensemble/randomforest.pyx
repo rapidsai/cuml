@@ -36,7 +36,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "randomforest/randomforest.h" namespace "ML":
+cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef struct RF_metrics:
         float accuracy
