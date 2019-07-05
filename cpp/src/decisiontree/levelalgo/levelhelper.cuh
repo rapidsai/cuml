@@ -8,6 +8,9 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       const int n_nodes, const int maxnodes,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
                       unsigned int *histout) {
+  size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
+  CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
+                             tempmem->stream));
   int node_batch = min(n_nodes, maxnodes);
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
@@ -27,7 +30,7 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F>
-void get_me_best_split(unsigned int *hist,
+void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
                        const std::vector<unsigned int> &colselector,
                        const int nbins, const int n_unique_labels,
                        const int n_nodes, const int depth,
@@ -35,10 +38,16 @@ void get_me_best_split(unsigned int *hist,
                        std::vector<std::vector<int>> &histstate,
                        std::vector<FlatTreeNode<T>> &flattree,
                        std::vector<int> &nodelist, unsigned int *split_colidx,
-                       unsigned int *split_binidx, T *quantile) {
+                       unsigned int *split_binidx,
+                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  T* quantile = tempmem->h_quantile->data();
+  int ncols = colselector.size();
+  size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
+  MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
-  int ncols = colselector.size();
   for (int i = 0; i <= (depth - 1); i++) {
     n_nodes_before += pow(2, i);
   }

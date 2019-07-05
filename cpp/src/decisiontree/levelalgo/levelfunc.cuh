@@ -60,21 +60,16 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
 
   for (int depth = 0; depth < maxdepth; depth++) {
     n_nodes = n_nodes_nextitr;
-    size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
-
-    CUDA_CHECK(cudaMemsetAsync(d_histogram, 0, histcount * sizeof(unsigned int),
-                               tempmem->stream));
     //End allocation and setups
     get_me_histogram(data, labels, flagsptr, nrows, ncols, n_unique_labels,
-                     nbins, n_nodes, leveltempmem->max_nodes, tempmem, d_histogram);
-    
-    MLCommon::updateHost(h_histogram, d_histogram, histcount, tempmem->stream);
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+                     nbins, n_nodes, leveltempmem->max_nodes, tempmem,
+                     d_histogram);
+
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor>(
-      h_histogram, colselector, nbins, n_unique_labels, n_nodes, depth,
-      infogain, histstate, flattree, nodelist, h_split_colidx, h_split_binidx,
-      tempmem->h_quantile->data());
+      h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
+      depth, infogain, histstate, flattree, nodelist, h_split_colidx,
+      h_split_binidx, tempmem);
 
     MLCommon::updateDevice(d_split_binidx, h_split_binidx, n_nodes,
                            tempmem->stream);
