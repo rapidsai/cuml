@@ -59,7 +59,7 @@ __global__ void get_me_hist_kernel_batched(
           }
         }
       }
-      
+
       __syncthreads();
       for (unsigned int i = threadIdx.x; i < nbins * nodecnt * n_unique_labels;
            i += blockDim.x) {
@@ -92,33 +92,31 @@ __global__ void get_me_hist_kernel(
   }
 
   for (unsigned int colid = 0; colid < ncols; colid++) {
-
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
-	 i += blockDim.x) {
+         i += blockDim.x) {
       shmemhist[i] = 0;
     }
     __syncthreads();
-    
+
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
       //Loop over nbins
-      
+
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-	T quesval = quantile[colid * nbins + binid];
-	if (local_data <= quesval) {
-	  unsigned int nodeoff =
-	    local_flag * nbins * n_unique_labels;
-	  atomicAdd(
-		    &shmemhist[nodeoff + binid * n_unique_labels + local_label], 1);
-	}
+        T quesval = quantile[colid * nbins + binid];
+        if (local_data <= quesval) {
+          unsigned int nodeoff = local_flag * nbins * n_unique_labels;
+          atomicAdd(&shmemhist[nodeoff + binid * n_unique_labels + local_label],
+                    1);
+        }
       }
     }
-    
+
     __syncthreads();
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
-	 i += blockDim.x) {
+         i += blockDim.x) {
       unsigned int offset = colid * nbins * n_nodes * n_unique_labels;
       atomicAdd(&histout[offset + i], shmemhist[i]);
     }
@@ -126,6 +124,41 @@ __global__ void get_me_hist_kernel(
   }
 }
 
+template <typename T>
+__global__ void get_me_hist_kernel_global(
+  const T* __restrict__ data, const int* __restrict__ labels,
+  const unsigned int* __restrict__ flags, const int nrows, const int ncols,
+  const int n_unique_labels, const int nbins, const int n_nodes,
+  const T* __restrict__ quantile, unsigned int* histout) {
+  unsigned int local_flag;
+  int local_label;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (tid < nrows) {
+    local_flag = flags[tid];
+    local_label = labels[tid];
+
+    for (unsigned int colid = 0; colid < ncols; colid++) {
+      //Check if leaf
+      if (local_flag != LEAF) {
+	T local_data = data[tid + colid * nrows];
+	//Loop over nbins
+	
+#pragma unroll(8)
+	for (unsigned int binid = 0; binid < nbins; binid++) {
+	  T quesval = quantile[colid * nbins + binid];
+	  if (local_data <= quesval) {
+	    unsigned int coloff = colid * nbins * n_nodes * n_unique_labels;
+	    unsigned int nodeoff = local_flag * nbins * n_unique_labels;
+	    atomicAdd(
+		      &histout[coloff + nodeoff + binid * n_unique_labels + local_label],
+		      1);
+	  }
+	}
+      }
+    }
+  }
+}
 
 template <typename T>
 __global__ void split_level_kernel(
