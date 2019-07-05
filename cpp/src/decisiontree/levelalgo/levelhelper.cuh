@@ -17,9 +17,12 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
       data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
       tempmem->d_quantile->data(), histout);
   } else {
-    get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
+    /*get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-      tempmem->d_quantile->data(), node_batch, histout);
+      tempmem->d_quantile->data(), node_batch, histout);*/
+    get_me_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
+      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
+      tempmem->d_quantile->data(), histout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
