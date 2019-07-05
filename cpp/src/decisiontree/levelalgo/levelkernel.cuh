@@ -195,3 +195,4 @@ __global__ void split_level_kernel(
     flags[tid] = local_flag;
   }
 }
+
