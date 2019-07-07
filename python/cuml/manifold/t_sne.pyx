@@ -305,7 +305,7 @@ class TSNE(Base):
         cdef uintptr_t embed_ptr = self.embeddings
         cdef uintptr_t y_raw
 
-
+        # Adaptive learning method changes n_neighbors and other params as n->inf
         if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
             if self.verbose:
                 print("Learning rate is adpative. In TSNE paper, it has been shown that as n->inf, "
