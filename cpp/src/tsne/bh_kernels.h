@@ -60,12 +60,13 @@ __global__ void InitializationKernel(int *__restrict__ errd) {
   stepd = -1;
   maxdepthd = 1;
   blkcntd = 0;
+  Z_norm = 0.0f;
 }
 
-__global__ void Process_Z_norm(const float *__restrict__ ZZ) {
-  // TODO: Confirm that - n is correct
-  // Z_norm = __fdividef(1.0f, (*ZZ - (float)n));
-  Z_norm = __fdividef(1.0f, *ZZ);
+__global__ void Reset_Normalization(void) { Z_norm = 0.0f; }
+
+__global__ void Find_Normalization(void) {
+  Z_norm = __fdividef(1.0f, Z_norm - (float)N);
 }
 
 __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
@@ -489,13 +490,15 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
   const int *__restrict__ sortd, const int *__restrict__ childd,
   const float *__restrict__ massd, const float *__restrict__ posxd,
   const float *__restrict__ posyd, float *__restrict__ velxd,
-  float *__restrict__ velyd, float *__restrict__ normd) {
+  float *__restrict__ velyd)
+//float * __restrict__ normd)
+{
   register int depth, pd, nd;
   register float vx, vy, normsum, tmp, mult;
   __shared__ int pos[32 * THREADS5 / 32], node[32 * THREADS5 / 32];
   __shared__ float dq[32 * THREADS5 / 32];
 
-  if (0 == threadIdx.x) {
+  if (threadIdx.x == 0) {
     dq[0] = __fdividef((radiusd * radiusd), theta_squared);
 
     for (int i = 1; i < maxdepthd; i++) {
@@ -589,9 +592,8 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
               pd = 0;
               nd = n * 4;
             }
-          } else {
+          } else
             pd = 4;  // early out because all remaining children are also zero
-          }
         }
         depth--;  // done with this level
       } while (depth >= j);
@@ -600,8 +602,9 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
         // update velocity
         velxd[i] += vx;
         velyd[i] += vy;
-        normd[i] = normsum - 1.0f;  // subtract one for self computation (qii)
-                                    //normd[i] = normsum;
+        //normd[i] = normsum - 1.0f; // subtract one for self computation (qii)
+        // normd[i] = normsum;
+        atomicAdd(&Z_norm, normsum);
       }
     }
   }
@@ -623,36 +626,21 @@ __global__ void attractive_kernel_bh(
   const float *__restrict__ VAL, const int *__restrict__ COL,
   const int *__restrict__ ROW, const float *__restrict__ Y1,
   const float *__restrict__ Y2, const float *__restrict__ norm,
-  const float *__restrict__ norm_add1, float *__restrict__ attract1A,
-  float *__restrict__ attract2A, float *__restrict__ attract1B,
-  float *__restrict__ attract2B, const int NNZ) {
+  const float *__restrict__ norm_add1, float *__restrict__ attract1,
+  float *__restrict__ attract2, const int NNZ) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
-  const int i = ROW[index], j = COL[index];
+  const int i = ROW[index];
+  const int j = COL[index];
 
   // TODO: Calculate Kullback-Leibler divergence
-  const float PQ =
-    __fdividef(VAL[index], norm_add1[i] + norm[j] -
-                             2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]));  // P*Q
+  const float PQ = __fdividef(
+    VAL[index],
+    norm_add1[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]));  // P*Q
 
   // Apply forces
-  if (i % 2) {
-    atomicAdd(&attract1A[i], PQ * (Y1[i] - Y1[j]));
-    atomicAdd(&attract2A[i], PQ * (Y2[i] - Y2[j]));
-  } else {
-    atomicAdd(&attract1B[i], PQ * (Y1[i] - Y1[j]));
-    atomicAdd(&attract2B[i], PQ * (Y2[i] - Y2[j]));
-  }
-}
-
-__global__ void reduce_attract(float *__restrict__ attract1A,
-                               float *__restrict__ attract2A,
-                               const float *__restrict__ attract1B,
-                               const float *__restrict__ attract2B) {
-  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i >= N) return;
-  attract1A[i] += attract1B[i];
-  attract2A[i] += attract2B[i];
+  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
+  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
 /****************************************/
@@ -670,12 +658,7 @@ void AttractiveKernel(const float *__restrict__ VAL,
   // For general embedding dimensions
   attractive_kernel_bh<<<ceil(NNZ, 1024), 1024, 0, stream>>>(
     VAL, COL, ROW, Y, Y + nnodes + 1, norm, norm_add1, attract, attract + n,
-    attract + 2 * n, attract + 3 * n, NNZ);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  // Reduce attract1 = (attract1A + attract1B) and for attract2.
-  reduce_attract<<<ceil(n, 1024), 1024, 0, stream>>>(
-    attract, attract + n, attract + 2 * n, attract + 3 * n);
+    NNZ);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

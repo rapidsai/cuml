@@ -16,6 +16,7 @@
 
 # cython: profile = False
 # distutils: language = c++
+# distutils: extra_compile_args = -Ofast
 # cython: embedsignature = True
 # cython: language_level = 3
 # cython: boundscheck = False
@@ -26,6 +27,7 @@ import cuml
 import ctypes
 import numpy as np
 import pandas as pd
+import inspect
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -63,11 +65,11 @@ class TSNE(Base):
     music analysis and neural network weight visualizations.
 
     cuML's TSNE implementation handles any # of n_components although specifying
-    n_components = 2 will yield a somewhat extra speedup.
+    n_components = 2 will yield a somewhat extra speedup as it uses the O(nlogn)
+    Barnes Hut algorithm.
 
     Currently, TSNE only has a fit_transform method. For embedding new data, we
-    are currently working on using weighted nearest neighborhood methods. This
-    can also reduce the time complexity of TSNE's Naive O(n^2) to O(p * log(n)).
+    are currently working on using weighted nearest neighborhood methods.
 
     A FFT based approach (pseudo-O(n)) is also in the works! We are also working on
     a (pseudo-O(p * log(n))) version using the Nystroem method to approximate the
@@ -144,6 +146,7 @@ class TSNE(Base):
                 str method = 'barnes_hut',
                 float angle = 0.5,
 
+                str learning_rate_method = 'adaptive',
                 int n_neighbors = 90,
                 int perplexity_max_iter = 100,
                 int exaggeration_iter = 250,
@@ -152,7 +155,7 @@ class TSNE(Base):
                 bool should_downcast = True,
                 handle = None):
 
-        self.handle = handle
+        super(TSNE, self).__init__(handle = handle, verbose = False)
 
         if n_components < 0:
             print("[Error] n_components = {} should be more than 0.".format(n_components))
@@ -182,8 +185,6 @@ class TSNE(Base):
             init = 'random'
         if verbose != 0:
             verbose = 1
-        if random_state is None:
-            random_state = -1
         if angle < 0 or angle > 1:
             print("[Error] angle = {} should be more than 0 and less than 1.".format(angle))
             angle = 0.5
@@ -212,7 +213,6 @@ class TSNE(Base):
             print("[Error] post_momentum = {} should be more than pre_momentum = {}".format(post_momentum, pre_momentum))
             pre_momentum = post_momentum * 0.75
 
-
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
@@ -223,14 +223,15 @@ class TSNE(Base):
         self.metric = metric
         self.init = init
         self.verbose = verbose
-        self.random_state = <long long> random_state
-        self.method = 1 if method == 'barnes_hut' else 0
+        self.random_state = random_state
+        self.method = method
         self.angle = angle
         self.n_neighbors = n_neighbors
         self.perplexity_max_iter = perplexity_max_iter
         self.exaggeration_iter = exaggeration_iter
         self.pre_momentum = pre_momentum
         self.post_momentum = post_momentum
+        self.learning_rate_method = learning_rate_method
 
         self.epssq = 0.0025
         self.perplexity_tol = 1e-5
@@ -240,6 +241,27 @@ class TSNE(Base):
 
         self._should_downcast = should_downcast
         return
+
+
+    def __repr__(self):
+        cdef list signature = inspect.getargspec(self.__init__).args
+        if signature[0] == 'self':
+            del signature[0]
+            
+        cdef dict state = self.__dict__
+        cdef str string = self.__class__.__name__ + '('
+        cdef str key
+        for key in signature:
+            try:
+                if type(state[key]) is str:
+                    string += "{}='{}', ".format(key, state[key])
+                else:
+                    string += "{}={}, ".format(key, str(state[key]))
+            except:
+                pass
+        string = string.rstrip(', ')
+        return string + ')'
+
 
 
     def fit(self, X):
@@ -256,6 +278,8 @@ class TSNE(Base):
                 ndarray, cuda array interface compliant array like CuPy
         """
         cdef int n, p
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        assert(handle_ != NULL)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -277,10 +301,28 @@ class TSNE(Base):
         self.arr_embed = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t X_ptr = X_ctype
         cdef uintptr_t embed_ptr = self.embeddings
         cdef uintptr_t y_raw
+
+
+        if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
+            if self.verbose:
+                print("Learning rate is adpative. In TSNE paper, it has been shown that as n->inf, "
+                    "Barnes Hut works well if n_neighbors->30, learning_rate->20000, early_exaggeration->24.")
+                print("cuML uses an adpative method. n_neighbors decreases to 30 as n->inf. Likewise for the other params.")
+            if n <= 2000:
+                self.n_neighbors = max(self.n_neighbors, 100)
+            else:
+                # A linear trend from (n=2000, neigh=100) to (n=60000, neigh=30)
+                self.n_neighbors = max(int(102 - 0.0012 * n), 30)
+            self.pre_learning_rate = max(n / 3.0, 1)
+            self.post_learning_rate = self.pre_learning_rate
+            self.early_exaggeration = 24.0
+            if self.verbose:
+                print("New n_neighbors = {}, learning_rate = {}, early_exaggeration = {}".format(
+                    self.n_neighbors, self.pre_learning_rate, self.early_exaggeration))
+
 
         TSNE_fit(handle_[0],
                 <float*> X_ptr, <float*> embed_ptr,
@@ -293,8 +335,9 @@ class TSNE(Base):
                 <float> self.pre_learning_rate, <float> self.post_learning_rate,
                 <int> self.n_iter, <float> self.min_grad_norm,
                 <float> self.pre_momentum, <float> self.post_momentum,
-                <long long> self.random_state, <bool> self.verbose,
-                <bool> True, <bool> self.barnes_hut)
+                <long long> (-1 if self.random_state is None else self.random_state),
+                <bool> self.verbose,
+                <bool> True, <bool> (self.method == 'barnes_hut'))
         del X_m
         return self
 

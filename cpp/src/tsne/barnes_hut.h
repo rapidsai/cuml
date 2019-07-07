@@ -49,7 +49,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Allocate more space
   //---------------------------------------------------
   int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
-  TSNE::InitializationKernel<<<1, 1>>>(errl);
+  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(errl);
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES_ = 4 * nnodes;
@@ -97,10 +97,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *rep_forces =
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
   float *attr_forces = (float *)d_alloc->allocate(
-    sizeof(float) * n * 4, stream);  // n*2 double for reduction sum
+    sizeof(float) * n * 2, stream);  // n*2 double for reduction sum
 
-  float *norml =
-    (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
+  //float *norml = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
   float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
 
@@ -135,16 +134,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 #endif
   cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
 
-  // Set up CUB fast block summation
-  //---------------------------------------------------
-  void *temp_storage = NULL;
-  size_t temp_size = 0;
-  float *ZZ = (float *)d_alloc->allocate(sizeof(float), stream);
-
-  CubDebugExit(cub::DeviceReduce::Sum(temp_storage, temp_size, norml, ZZ,
-                                      nnodes + 1, stream));
-  // Allocate temporary storage
-  temp_storage = (void *)d_alloc->allocate(temp_size, stream);
+  //thrust::device_ptr<float> norml_begin = thrust::device_pointer_cast(norml);
+  //thrust::device_ptr<float> norml_end = norml_begin + nnodes + 1;
 
   // Do gradient updates
   //---------------------------------------------------
@@ -154,9 +145,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    CUDA_CHECK(
-      cudaMemsetAsync(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2));
-    CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 4));
+    CUDA_CHECK(cudaMemset(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2));
+    CUDA_CHECK(cudaMemset(attr_forces, 0, sizeof(float) * n * 2));
+    TSNE::Reset_Normalization<<<1, 1, 0, stream>>>();
+    CUDA_CHECK(cudaPeekAtLastError());
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
@@ -166,50 +158,52 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     }
 
     START_TIMER;
-    TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1>>>(
+    TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl, childl, massl, YY, YY + nnodes + 1, maxxl, maxyl, minxl, minyl);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(BoundingBoxKernel_time);
 
     START_TIMER;
-    TSNE::ClearKernel1<<<blocks, 1024>>>(childl);
+    TSNE::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(ClearKernel1_time);
 
     START_TIMER;
-    TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2>>>(errl, childl, YY,
-                                                             YY + nnodes + 1);
+    TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
+      errl, childl, YY, YY + nnodes + 1);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
-    TSNE::ClearKernel2<<<blocks * 1, 1024>>>(startl, massl);
+    TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(startl, massl);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(ClearKernel2_time);
 
     START_TIMER;
-    TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3>>>(
+    TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl, childl, massl, YY, YY + nnodes + 1);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
-    TSNE::SortKernel<<<blocks * FACTOR4, THREADS4>>>(sortl, countl, startl,
-                                                     childl);
+    TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(sortl, countl,
+                                                                startl, childl);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(SortKernel_time);
 
     START_TIMER;
-    TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5>>>(
+    TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
       errl, theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
-      rep_forces + nnodes + 1, norml);
+      rep_forces + nnodes + 1);
+    //norml);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(RepulsionTime);
 
     START_TIMER;
-    CubDebugExit(cub::DeviceReduce::Sum(temp_storage, temp_size, norml, ZZ,
-                                        nnodes + 1, stream));
-    TSNE::Process_Z_norm<<<1, 1>>>(ZZ);
+    //const float Z = 1.0f / thrust::reduce(norml_begin, norml_end);
+    //CUDA_CHECK(cudaMemcpyToSymbolAsync(Z_norm, &Z, sizeof(float), 0, cudaMemcpyHostToDevice, stream));
+    TSNE::Find_Normalization<<<1, 1, 0, stream>>>();
+    CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(Reduction_time);
 
     START_TIMER;
@@ -219,7 +213,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(attractive_time);
 
     START_TIMER;
-    TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6>>>(
+    TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
       learning_rate, momentum, early_exaggeration, YY, YY + nnodes + 1,
       attr_forces, attr_forces + n, rep_forces, rep_forces + nnodes + 1,
       gains_bh, gains_bh + n, old_forces, old_forces + n);
@@ -248,8 +242,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   d_alloc->deallocate(sortl, sizeof(int) * (nnodes + 1), stream);
 
   d_alloc->deallocate(rep_forces, sizeof(float) * (nnodes + 1) * 2, stream);
-  d_alloc->deallocate(attr_forces, sizeof(float) * n * 4, stream);
-  d_alloc->deallocate(norml, sizeof(float) * (nnodes + 1), stream);
+  d_alloc->deallocate(attr_forces, sizeof(float) * n * 2, stream);
+  //d_alloc->deallocate(norml, sizeof(float) * (nnodes + 1), stream);
   d_alloc->deallocate(norm, sizeof(float) * n, stream);
   d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
 
@@ -257,9 +251,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
 
   d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
-
-  d_alloc->deallocate(ZZ, sizeof(float), stream);
-  d_alloc->deallocate(temp_storage, temp_size, stream);
 }
 
 }  // namespace TSNE

@@ -99,7 +99,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   const float P_sum =
     TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                            perplexity_tol, n, n_neighbors, stream);
+                            perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
