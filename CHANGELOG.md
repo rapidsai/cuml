@@ -13,13 +13,13 @@
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
-
 - PR #807: Added development conda yml files
 
 ## Bug Fixes
 
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
+- PR #833: Update RF classifier wrapper
 
 # cuML 0.8.0 (27 June 2019)
 
