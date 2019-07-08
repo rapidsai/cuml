@@ -17,7 +17,7 @@ import pytest
 import numpy as np
 from cuml.test.utils import get_handle
 
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_regression, fetch_california_housing
 from sklearn.datasets import make_classification
 
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -89,8 +89,8 @@ def test_rf_classification(datatype, use_handle, split_algo,
         assert cu_acc >= (sk_acc - 0.07)
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
+                         stress_param('stress')])
 @pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
@@ -99,13 +99,21 @@ def test_rf_classification(datatype, use_handle, split_algo,
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
-                       n_info, nrows, ncols):
+                       n_info, mode, ncols):
 
-    train_rows = np.int32(nrows*0.8)
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info,
-                           random_state=123)
+    if mode == 'unit':
+        X, y = make_regression(n_samples=30, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=123)
+    elif mode == 'quality':
+        X, y = fetch_california_housing(return_X_y=True)
 
+    else:
+        X, y = make_regression(n_samples=100000, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=123)
+
+    train_rows = np.int32(X.shape[0]*0.8)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(datatype)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
@@ -117,16 +125,16 @@ def test_rf_regression(datatype, use_handle, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=4, split_algo=0, split_criterion=4,
+                       n_bins=16, split_algo=0, split_criterion=2,
                        min_rows_per_node=2,
-                       n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1, accuracy_metric='mse')
+                       n_estimators=10, handle=handle, max_leaves=-1,
+                       max_depth=50, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     cu_mse = cuml_model.score(X_test, y_test)
-    if nrows < 500000:
+    if mode != 'stress':
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=40, max_depth=None,
+        sk_model = skrfr(n_estimators=10, max_depth=None,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
@@ -134,4 +142,4 @@ def test_rf_regression(datatype, use_handle, split_algo,
         sk_mse = mean_squared_error(y_test, sk_predict)
 
         # compare the accuracy of the two models
-        assert cu_mse <= sk_mse
+        assert cu_mse <= (sk_mse + 0.07)

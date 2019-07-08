@@ -508,17 +508,18 @@ class RandomForestClassifier(Base):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
+        self.type_model = type_model
         self.quantile_per_tree = quantile_per_tree
-
-        self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
-                                       max_features, n_bins,
-                                       split_algo, split_criterion,
-                                       min_rows_per_node,
-                                       bootstrap, bootstrap_features,
-                                       type_model, verbose,
-                                       rows_sample, max_leaves,
-                                       quantile_per_tree,
-                                       gdf_datatype)
+        self.gdf_datatype = gdf_datatype
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth, self.handle,
+                                       self.max_features, self.n_bins,
+                                       self.split_algo, self.split_criterion,
+                                       self.min_rows_per_node,
+                                       self.bootstrap, self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
     def fit(self, X, y):
         """
@@ -610,5 +611,15 @@ class RandomForestClassifier(Base):
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
+
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth, self.handle,
+                                       self.max_features, self.n_bins,
+                                       self.split_algo, self.split_criterion,
+                                       self.min_rows_per_node,
+                                       self.bootstrap, self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
         return self
