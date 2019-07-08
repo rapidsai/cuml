@@ -105,7 +105,6 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                                     bool, bool, int, float, CRITERION,
                                     bool) except +
 
-
 cdef class RandomForest_impl():
 
     cpdef object handle
@@ -117,6 +116,7 @@ cdef class RandomForest_impl():
     cdef object max_features
     cdef object n_bins
     cdef object split_algo
+    cdef object quantile_per_tree
     cdef object split_criterion
     cdef object min_rows_per_node
     cdef object bootstrap
@@ -126,7 +126,6 @@ cdef class RandomForest_impl():
     cdef object n_cols
     cdef object rows_sample
     cdef object max_leaves
-    cdef object quantile_per_tree
     cdef object gdf_datatype
     cdef object stats
     cdef object dtype
@@ -154,6 +153,7 @@ cdef class RandomForest_impl():
         self.bootstrap = bootstrap
         self.verbose = verbose
         self.n_bins = n_bins
+        self. quantile_per_tree = quantile_per_tree
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
         self.n_cols = None
@@ -350,7 +350,7 @@ cdef class RandomForest_impl():
         del(X_m)
         del(y_m)
         del(preds_m)
-        return self.stats
+        return self.stats['accuracy']
 
 
 class RandomForestClassifier(Base):
@@ -467,12 +467,13 @@ class RandomForestClassifier(Base):
                  split_algo=0, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
-                 rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
+                 rows_sample=1.0, max_leaves=-1,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None,
+                 quantile_per_tree=False):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -507,17 +508,19 @@ class RandomForestClassifier(Base):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
+        self.type_model = type_model
         self.quantile_per_tree = quantile_per_tree
-
-        self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
-                                       max_features, n_bins,
-                                       split_algo, split_criterion,
-                                       min_rows_per_node,
-                                       bootstrap, bootstrap_features,
-                                       type_model, verbose,
-                                       rows_sample, max_leaves,
-                                       quantile_per_tree,
-                                       gdf_datatype)
+        self.gdf_datatype = gdf_datatype
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
     def fit(self, X, y):
         """
@@ -609,5 +612,16 @@ class RandomForestClassifier(Base):
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
+
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
         return self
