@@ -25,13 +25,6 @@ def _df_to_similarity_mat(df):
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
-def test_warning():
-    ''' Test if DIGIT_WARNING is thrown
-    '''
-    with pytest.warns(UserWarning, match=DIGIT_WARNING):
-        LabelEncoder()
-
-
 @pytest.mark.parametrize("length", [10, 100, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
 def test_labelencoder_fit_transform(length, cardinality):
