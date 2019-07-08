@@ -41,11 +41,6 @@ class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
 
-    Notes
-    -----
-    Be aware that, if inverse_transform() is needed, the input labels shouldn't
-    contain any digit
-
     Examples
     --------
     Converting a categorical implementation to a numerical one
@@ -119,7 +114,6 @@ class LabelEncoder(object):
     """
 
     def __init__(self, *args, **kwargs):
-        warnings.warn(DIGIT_WARNING, UserWarning)
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False
