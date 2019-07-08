@@ -1,4 +1,5 @@
 #pragma once
+#include "cub/cub.cuh"
 
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
@@ -141,20 +142,20 @@ __global__ void get_me_hist_kernel_global(
     for (unsigned int colid = 0; colid < ncols; colid++) {
       //Check if leaf
       if (local_flag != LEAF) {
-	T local_data = data[tid + colid * nrows];
-	//Loop over nbins
-	
+        T local_data = data[tid + colid * nrows];
+        //Loop over nbins
+
 #pragma unroll(8)
-	for (unsigned int binid = 0; binid < nbins; binid++) {
-	  T quesval = quantile[colid * nbins + binid];
-	  if (local_data <= quesval) {
-	    unsigned int coloff = colid * nbins * n_nodes * n_unique_labels;
-	    unsigned int nodeoff = local_flag * nbins * n_unique_labels;
-	    atomicAdd(
-		      &histout[coloff + nodeoff + binid * n_unique_labels + local_label],
-		      1);
-	  }
-	}
+        for (unsigned int binid = 0; binid < nbins; binid++) {
+          T quesval = quantile[colid * nbins + binid];
+          if (local_data <= quesval) {
+            unsigned int coloff = colid * nbins * n_nodes * n_unique_labels;
+            unsigned int nodeoff = local_flag * nbins * n_unique_labels;
+            atomicAdd(&histout[coloff + nodeoff + binid * n_unique_labels +
+                               local_label],
+                      1);
+          }
+        }
       }
     }
   }
@@ -195,4 +196,131 @@ __global__ void split_level_kernel(
     flags[tid] = local_flag;
   }
 }
+__device__ __forceinline__ float gini_dev(unsigned int* hist, int nrows,
+                                          int n_unique_labels) {
+  float gval = 1.0;
+  for (int i = 0; i < n_unique_labels; i++) {
+    float prob = ((float)hist[i]) / nrows;
+    gval -= prob * prob;
+  }
+  return gval;
+}
 
+struct GainIdxPair {
+  float gain;
+  int idx;
+};
+template <typename KeyReduceOp>
+struct ReducePair {
+  KeyReduceOp op;
+  __device__ __forceinline__ ReducePair() {}
+  __device__ __forceinline__ ReducePair(KeyReduceOp op) : op(op) {}
+  __device__ __forceinline__ GainIdxPair operator()(const GainIdxPair& a,
+                                                    const GainIdxPair& b) {
+    GainIdxPair retval;
+    retval.gain = op(a.gain, b.gain);
+    if (retval.gain == a.gain) {
+      retval.idx = a.idx;
+    } else {
+      retval.idx = b.idx;
+    }
+    return retval;
+  }
+};
+
+__global__ void get_me_best_split_kernel(
+  const unsigned int* __restrict__ hist,
+  const unsigned int* __restrict__ parent_hist,
+  const float* __restrict__ parent_metric, const int nbins, const int ncols,
+  const int n_nodes, const int n_unique_labels, float* outgain,
+  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
+  float* child_best_metric) {
+  extern __shared__ unsigned int shmem_split_eval[];
+  __shared__ int best_nrows[2];
+  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  unsigned int* tmp_histleft =
+    &shmem_split_eval[threadIdx.x * 2 * n_unique_labels];
+  unsigned int* tmp_histright =
+    &shmem_split_eval[threadIdx.x * 2 * n_unique_labels + n_unique_labels];
+  unsigned int* best_split_hist =
+    &shmem_split_eval[2 * n_unique_labels * blockDim.x];
+  unsigned int* parent_hist_local =
+    &shmem_split_eval[2 * n_unique_labels * (blockDim.x + 1)];
+
+  if (threadIdx.x < 2) {
+    best_nrows[threadIdx.x] = 0;
+  }
+  const unsigned int& nodeid = blockIdx.x;
+  int nodeoffset = nodeid * nbins * n_unique_labels;
+  float parent_metric_local = parent_metric[nodeid];
+  
+  for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
+    parent_hist_local[j] = parent_hist[nodeid * n_unique_labels + j];
+  }
+
+  __syncthreads();
+  
+  GainIdxPair tid_pair;
+  tid_pair.gain = 0.0;
+  tid_pair.idx = -1;
+  for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+    int coloffset = ((int)(id / nbins)) * nbins * n_unique_labels * n_nodes;
+    int binoffset = (id % nbins) * n_unique_labels;
+    int tmp_lnrows = 0;
+    int tmp_rnrows = 0;
+    for (int j = 0; j < n_unique_labels; j++) {
+      tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
+      tmp_lnrows += tmp_histleft[j];
+      tmp_histright[j] = parent_hist_local[j] - tmp_histleft[j];
+      tmp_rnrows += tmp_histright[j];
+    }
+
+    int totalrows = tmp_lnrows + tmp_rnrows;
+    if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
+
+    float tmp_gini_left = gini_dev(tmp_histleft, tmp_lnrows, n_unique_labels);
+    float tmp_gini_right = gini_dev(tmp_histright, tmp_rnrows, n_unique_labels);
+
+    float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
+                     (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
+    float info_gain = parent_metric_local - impurity;
+    if (info_gain > tid_pair.gain) {
+      tid_pair.gain = info_gain;
+      tid_pair.idx = id;
+    }
+  }
+  __syncthreads();
+  GainIdxPair ans =
+    BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
+  __syncthreads();
+
+  if (threadIdx.x == 0) {
+    outgain[nodeid] = ans.gain;
+    best_col_id[nodeid] = (int)(ans.idx / nbins);
+    best_bin_id[nodeid] = ans.idx % nbins;
+  }
+
+  int coloffset = ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
+  int binoffset = (ans.idx % nbins) * n_unique_labels;
+
+  for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
+    unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
+    unsigned int val_right = parent_hist_local[j] - val_left;
+    best_split_hist[j] = val_left;
+    atomicAdd(&best_nrows[0], val_left);
+    best_split_hist[j + n_unique_labels] = val_right;
+    atomicAdd(&best_nrows[1], val_right);
+  }
+  __syncthreads();
+
+  for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
+    child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
+  }
+
+  if (threadIdx.x < 2) {
+    child_best_metric[2 * nodeid + threadIdx.x] =
+      gini_dev(best_split_hist, best_nrows[threadIdx.x], n_unique_labels);
+  }
+}

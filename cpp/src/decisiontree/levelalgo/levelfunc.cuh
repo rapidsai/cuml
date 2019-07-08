@@ -69,12 +69,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
     get_me_best_split<T, GiniFunctor>(
       h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
       depth, infogain, histstate, flattree, nodelist, h_split_colidx,
-      h_split_binidx, tempmem);
-
-    MLCommon::updateDevice(d_split_binidx, h_split_binidx, n_nodes,
-                           tempmem->stream);
-    MLCommon::updateDevice(d_split_colidx, h_split_colidx, n_nodes,
-                           tempmem->stream);
+      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
               n_nodes_nextitr, nodelist);
