@@ -46,15 +46,15 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
 cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
-        int max_depth;
-        int max_leaves;
-        float max_features;
-        int n_bins;
-        int split_algo;
-        int min_rows_per_node;
-        bool bootstrap_features;
-        bool quantile_per_tree;
-        CRITERION split_criterion;
+        int max_depth
+        int max_leaves
+        float max_features
+        int n_bins
+        int split_algo
+        int min_rows_per_node
+        bool bootstrap_features
+        bool quantile_per_tree
+        CRITERION split_criterion
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
@@ -72,7 +72,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
-        DecisionTreeParams tree_params;
+        DecisionTreeParams tree_params
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -130,7 +130,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void print_rf_detailed(RandomForestMetaData[float, int] *) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, int] *) except +
 
-    #cdef void print(RF_params) except +
+    # cdef void print(RF_params) except +
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
@@ -435,7 +435,7 @@ cdef class RandomForest_impl():
         if self.dtype == np.float64:
             print_rf_summary(self.rf_forest64)
         else:
-            #print(self.rf_forest32.rf_params)
+            # print(self.rf_forest32.rf_params)
             print_rf_summary(self.rf_forest32)
 
     def print_detailed(self):
