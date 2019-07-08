@@ -231,8 +231,8 @@ class LabelEncoder(object):
                 raise ValueError(
                     'y contains previously unseen label {}'.format(ordi))
         # convert ordinal label to string label
-        reverted = self._cats.gather_strings(
-            y.data.mem.device_ctypes_pointer.value, len(y))
+        reverted = cudf.Series(self._cats.gather_strings(
+            y.data.mem.device_ctypes_pointer.value, len(y)))
 
         # convert to original datatype?
         # if y.dtype != self._dtype:
