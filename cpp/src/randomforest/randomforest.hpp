@@ -29,18 +29,22 @@ struct RF_metrics {
   RF_type rf_type;
 
   // Classification metrics
-  float accuracy = -1.0f;
+  float accuracy;
 
   // Regression metrics
-  double mean_abs_error = -1.0;
-  double mean_squared_error = -1.0;
-  double median_abs_error = -1.0;
-
-  RF_metrics(float cfg_accuracy);
-  RF_metrics(double cfg_mean_abs_error, double cfg_mean_squared_error,
-             double cfg_median_abs_error);
-  void print();
+  double mean_abs_error;
+  double mean_squared_error;
+  double median_abs_error;
 };
+
+RF_metrics set_all_rf_metrics(RF_type rf_type, float accuracy,
+                              double mean_abs_error, double mean_squared_error,
+                              double median_abs_error);
+RF_metrics set_rf_metrics_classification(float accuracy);
+RF_metrics set_rf_metrics_regression(double mean_abs_error,
+                                     double mean_squared_error,
+                                     double median_abs_error);
+void print(const RF_metrics rf_metrics);
 
 struct RF_params {
   /**

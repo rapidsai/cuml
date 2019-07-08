@@ -324,8 +324,8 @@ RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle, const T* input,
   auto d_alloc = user_handle.getDeviceAllocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
                                                    n_rows, d_alloc, stream);
-  RF_metrics stats(accuracy);
-  if (verbose) stats.print();
+  RF_metrics stats = set_rf_metrics_classification(accuracy);
+  if (verbose) print(stats);
 
   /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
      For non binary classification problems (i.e., one target and  > 2 labels), need avg.
@@ -525,8 +525,9 @@ RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle, const T* input,
   MLCommon::Score::regression_metrics(predictions, ref_labels, n_rows, d_alloc,
                                       stream, mean_abs_error,
                                       mean_squared_error, median_abs_error);
-  RF_metrics stats(mean_abs_error, mean_squared_error, median_abs_error);
-  if (verbose) stats.print();
+  RF_metrics stats = set_rf_metrics_regression(
+    mean_abs_error, mean_squared_error, median_abs_error);
+  if (verbose) print(stats);
 
   return stats;
 }
