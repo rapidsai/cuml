@@ -49,6 +49,7 @@
 
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include "Aion.hpp"
 #include "aion_utils.hpp"
 #include "holtwinters.hpp"
@@ -205,7 +206,7 @@ aion::AionStatus aion::HoltWintersOptim(
   SeasonalType seasonal, ComputeMode mode) {
   // default values
   OptimParams<Dtype> optim_params_;
-  optim_params_.eps = (Dtype)2.2204e-7;
+  optim_params_.eps = (Dtype)2.2204e-3;
   optim_params_.min_param_diff = (Dtype)1e-8;
   optim_params_.min_error_diff = (Dtype)1e-8;
   optim_params_.min_grad_norm = (Dtype)1e-4;
