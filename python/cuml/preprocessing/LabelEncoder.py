@@ -19,8 +19,6 @@ import nvcategory
 from librmm_cffi import librmm
 import numpy as np
 
-import warnings
-
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
     """
