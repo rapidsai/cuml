@@ -38,9 +38,10 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
                        std::vector<std::vector<int>> &histstate,
                        std::vector<FlatTreeNode<T>> &flattree,
                        std::vector<int> &nodelist, unsigned int *split_colidx,
-                       unsigned int *split_binidx,
+                       unsigned int *split_binidx, unsigned int *d_split_colidx,
+                       unsigned int *d_split_binidx,
                        const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  T* quantile = tempmem->h_quantile->data();
+  T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
@@ -61,6 +62,71 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
     histstate.push_back(tmp_histleft);
     histstate.push_back(tmp_histright);
   }
+
+  //GPU based best split
+  unsigned int *h_parent_hist, *d_parent_hist, *d_child_hist, *h_child_hist;
+  int *d_best_bin_id, *d_best_col_id;
+  int *h_best_bin_id, *h_best_col_id;
+  float *d_parent_metric, *d_outgain, *d_child_best_metric;
+  float *h_parent_metric;
+  h_parent_hist =
+    (unsigned int *)malloc(n_nodes * n_unique_labels * sizeof(unsigned int));
+  h_child_hist = (unsigned int *)malloc(2 * n_nodes * n_unique_labels *
+                                        sizeof(unsigned int));
+  h_best_bin_id = (int *)malloc(n_nodes * sizeof(int));
+  h_best_col_id = (int *)malloc(n_nodes * sizeof(int));
+  h_parent_metric = (float *)malloc(n_nodes * sizeof(float));
+
+  for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+    int nodeid = nodelist[nodecnt];
+    int parentid = nodeid + n_nodes_before;
+    std::vector<int> &parent_hist = histstate[parentid];
+    h_parent_metric[nodecnt] = flattree[parentid].best_metric_val;
+    for (int j = 0; j < n_unique_labels; j++) {
+      h_parent_hist[nodecnt * n_unique_labels + j] = parent_hist[j];
+    }
+  }
+
+  CUDA_CHECK(cudaMalloc((void **)&d_parent_hist,
+                        n_nodes * n_unique_labels * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMalloc((void **)&d_child_hist,
+                        2 * n_nodes * n_unique_labels * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMalloc((void **)&d_best_bin_id, n_nodes * sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void **)&d_best_col_id, n_nodes * sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void **)&d_parent_metric, n_nodes * sizeof(float)));
+  CUDA_CHECK(
+    cudaMalloc((void **)&d_child_best_metric, 2 * n_nodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc((void **)&d_outgain, n_nodes * sizeof(float)));
+  MLCommon::updateDevice(d_parent_hist, h_parent_hist,
+                         n_nodes * n_unique_labels, tempmem->stream);
+  MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
+                         tempmem->stream);
+  int threads = 64;
+  size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
+  get_me_best_split_kernel<<<n_nodes, threads, shmemsz, tempmem->stream>>>(
+    d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
+    n_unique_labels, d_outgain, d_best_col_id, d_best_bin_id, d_child_hist,
+    d_child_best_metric);
+  CUDA_CHECK(cudaGetLastError());
+  MLCommon::updateHost(h_best_bin_id, d_best_bin_id, n_nodes, tempmem->stream);
+  MLCommon::updateHost(h_best_col_id, d_best_col_id, n_nodes, tempmem->stream);
+  MLCommon::updateHost(h_child_hist, d_child_hist,
+                       2 * n_nodes * n_unique_labels, tempmem->stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  CUDA_CHECK(cudaFree(d_parent_hist));
+  CUDA_CHECK(cudaFree(d_child_hist));
+  CUDA_CHECK(cudaFree(d_best_bin_id));
+  CUDA_CHECK(cudaFree(d_best_col_id));
+  CUDA_CHECK(cudaFree(d_parent_metric));
+  CUDA_CHECK(cudaFree(d_outgain));
+  CUDA_CHECK(cudaFree(d_child_best_metric));
+  free(h_parent_hist);
+  free(h_parent_metric);
+  free(h_child_hist);
+  free(h_best_bin_id);
+  free(h_best_col_id);
+  //End GPU based hist
 
   for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
     std::vector<T> bestmetric(2, 0);
@@ -131,6 +197,11 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
     flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)].best_metric_val =
       bestmetric[1];
   }
+  
+  MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
+			 tempmem->stream);
+  MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
+                           tempmem->stream);
 }
 
 template <typename T>
