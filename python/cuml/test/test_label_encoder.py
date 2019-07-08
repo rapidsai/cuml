@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.preprocessing.LabelEncoder import LabelEncoder, DIGIT_WARNING
+from cuml.preprocessing.LabelEncoder import LabelEncoder
 import cudf
 import numpy as np
 
