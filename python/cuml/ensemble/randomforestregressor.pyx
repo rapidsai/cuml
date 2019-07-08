@@ -23,6 +23,7 @@ import ctypes
 import numpy as np
 import warnings
 from numba import cuda
+import math
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -145,7 +146,7 @@ cdef class RandomForest_impl():
     cdef object dtype
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
-                  max_features=1.0, n_bins=8,
+                  max_features=None, n_bins=8,
                   split_algo=0, split_criterion=2, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   verbose=False, rows_sample=1.0,
@@ -183,6 +184,19 @@ cdef class RandomForest_impl():
         else:
             return CRITERION_END
 
+    def _get_max_feat_val(self):
+        if type(self.max_features) == int:
+            max_feature_val = 1/(self.max_features)
+        elif type(self.max_features) == float:
+            max_feature_val = self.max_features
+        elif self.max_features == 'sqrt':
+            max_feature_val = 1/np.sqrt(self.n_cols)
+        elif self.max_features == 'log2':
+            max_feature_val = 1/math.log2(self.n_cols)
+        else:
+            max_feature_val = 1.0
+        return max_feature_val
+
     def fit(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
@@ -201,10 +215,15 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
+        max_feature_val = self._get_max_feat_val()
+        if type(self.min_rows_per_node) == float:
+            self.min_rows_per_node = math.ceil(self.min_rows_per_node * n_rows)
+
         self.split_criterion = self._get_type()
+
         rf_param = set_rf_class_obj(<int> self.max_depth,
                                     <int> self.max_leaves,
-                                    <float> self.max_features,
+                                    <float> max_feature_val,
                                     <int> self.n_bins,
                                     <int> self.split_algo,
                                     <int> self.min_rows_per_node,
@@ -440,8 +459,8 @@ class RandomForestRegressor(Base):
                  'accuracy_metric']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8,
-                 split_algo=0, split_criterion=2,
+                 max_features=None, n_bins=8,
+                 split_algo=2, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
