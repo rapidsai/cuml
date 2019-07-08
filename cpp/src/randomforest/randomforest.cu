@@ -207,7 +207,7 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
  */
 template <class T, class L>
 void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
-  if (!forest->trees) {
+  if (!forest || !forest->trees) {
     std::cout << "Empty forest" << std::endl;
   } else {
     std::cout << "Forest has " << forest->rf_params.n_trees
@@ -230,7 +230,7 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
  */
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
-  if (!forest->trees) {
+  if (!forest || !forest->trees) {
     std::cout << "Empty forest" << std::endl;
   } else {
     std::cout << "Forest has " << forest->rf_params.n_trees
