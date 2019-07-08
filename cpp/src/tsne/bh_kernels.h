@@ -42,9 +42,11 @@
 #include <math.h>
 #include "utils.h"
 
-__device__ volatile int stepd, bottomd, maxdepthd;
+__device__ volatile int stepd, bottomd;
+__device__ int maxdepthd;
 __device__ unsigned int blkcntd;
 __device__ volatile float radiusd;
+__device__ float radiusd_squared;
 __device__ float Z_norm;
 __constant__ int FOUR_NNODES;  // nnodesd * 4
 __constant__ int FOUR_N;       // n * 4
@@ -61,9 +63,15 @@ __global__ void InitializationKernel(int *__restrict__ errd) {
   maxdepthd = 1;
   blkcntd = 0;
   Z_norm = 0.0f;
+  radiusd_squared = 0.0f;
+  radiusd = 0.0f;
+  bottomd = 0.0f;
 }
 
-__global__ void Reset_Normalization(void) { Z_norm = 0.0f; }
+__global__ void Reset_Normalization(void) {
+  Z_norm = 0.0f;
+  radiusd_squared = radiusd * radiusd;
+}
 
 __global__ void Find_Normalization(void) {
   Z_norm = __fdividef(1.0f, Z_norm - (float)N);
@@ -300,7 +308,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     if (skip == 2) childd[locked] = patch;
   }
   // record maximum tree depth
-  atomicMax((int *)&maxdepthd, localmaxdepth);
+  atomicMax(&maxdepthd, localmaxdepth);
 }
 
 __global__ __launch_bounds__(1024,
@@ -375,9 +383,9 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
         __threadfence();  // make sure data are visible before setting mass
         massd[k] = cm;
       }
+    CONTINUE_LOOP:
       k += inc;  // move on to next cell
     }
-  CONTINUE_LOOP:
     k = restart;
   }
 
@@ -494,26 +502,35 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
 //float * __restrict__ normd)
 {
   register int depth, pd, nd;
-  register float vx, vy, normsum, tmp, mult;
+  register float vx, vy, normsum;
   __shared__ int pos[32 * THREADS5 / 32], node[32 * THREADS5 / 32];
   __shared__ float dq[32 * THREADS5 / 32];
 
+  register const int max_depth = (int)maxdepthd;
   if (threadIdx.x == 0) {
-    dq[0] = __fdividef((radiusd * radiusd), theta_squared);
+    dq[0] = __fdividef(radiusd_squared, theta_squared);
 
-    for (int i = 1; i < maxdepthd; i++) {
+#if DEBUG
+    if (max_depth >= 32 * THREADS5 / 32) {
+      printf("Over bounds line 535 -> x = %d >= %d\n", max_depth,
+             32 * THREADS5 / 32);
+      return;
+    }
+#endif
+
+    for (int i = 1; i < max_depth; i++) {
       dq[i] =
         dq[i - 1] *
         0.25f;  // radius is halved every level of tree so squared radius is quartered
       dq[i - 1] += epssqd;
     }
-    dq[maxdepthd - 1] += epssqd;
+    dq[max_depth - 1] += epssqd;
 
-    if (maxdepthd > 32) *errd = maxdepthd;
+    if (max_depth > 32) *errd = max_depth;
   }
   __syncthreads();
 
-  if (maxdepthd <= 32) {
+  if (max_depth <= 32) {
     // figure out first thread in each warp (lane 0)
     const int base = threadIdx.x / 32;
     const int sbase = base * 32;
@@ -521,6 +538,15 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
 
     const int diff = threadIdx.x - sbase;
     // make multiple copies to avoid index calculations later
+
+#if DEBUG
+    if (diff + j >= 32 * THREADS5 / 32) {
+      printf("Over bounds line 563 -> x = %d >= %d\n", diff + j,
+             32 * THREADS5 / 32);
+      return;
+    }
+#endif
+
     if (diff < 32) dq[diff + j] = dq[diff];
 
     __syncthreads();
@@ -530,7 +556,15 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
     for (int k = threadIdx.x + blockIdx.x * blockDim.x; k < N;
          k += blockDim.x * gridDim.x) {
       const int i = sortd[k];  // get permuted/sorted index
-      // cache position info
+                               // cache position info
+
+#if DEBUG
+      if (i >= 2 * (NNODES + 1)) {
+        printf("Over bounds line 581 -> x = %d >= %d\n", i, 2 * (NNODES + 1));
+        break;
+      }
+#endif
+
       const float px = posxd[i];
       const float py = posyd[i];
 
@@ -540,6 +574,15 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
 
       // initialize iteration stack, i.e., push root node onto stack
       depth = j;
+
+#if DEBUG
+      if (depth >= 32 * THREADS5 / 32 or j >= 32 * THREADS5 / 32) {
+        printf("Over bounds line 601 -> x = %d >= %d\n", depth,
+               32 * THREADS5 / 32);
+        break;
+      }
+#endif
+
       if (sbase == threadIdx.x) {
         pos[j] = 0;
         node[j] = FOUR_NNODES;
@@ -551,13 +594,30 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
         nd = node[depth];
         while (pd < 4) {
           // node on top of stack has more children to process
+
+#if DEBUG
+          if (nd + pd >= 4 * (NNODES + 1)) {
+            printf("Over bounds line 620 -> x = %d >= %d\n", nd + pd,
+                   4 * (NNODES + 1));
+            break;
+          }
+#endif
+
           const int n = childd[nd + pd];  // load child pointer
           pd++;
+
+#if DEBUG
+          if (n >= 2 * (NNODES + 1)) {
+            printf("Over bounds line 630 -> x = %d >= %d\n", n,
+                   2 * (NNODES + 1));
+            break;
+          }
+#endif
 
           if (n >= 0) {
             const float dx = px - posxd[n];
             const float dy = py - posyd[n];
-            tmp =
+            register float tmp =
               dx * dx + dy * dy +
               epssqd;  // distance squared plus small constant to prevent zeros
 #if (CUDART_VERSION >= 9000)
@@ -575,8 +635,17 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
                 dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
 #endif
               // from bhtsne - sptree.cpp
+
+#if DEBUG
+              if (n >= (NNODES + 1)) {
+                printf("Over bounds line 648 -> x = %d >= %d\n", n,
+                       (NNODES + 1));
+                break;
+              }
+#endif
+
               tmp = __fdividef(1.0f, (1.0f + tmp));
-              mult = massd[n] * tmp;
+              register float mult = massd[n] * tmp;
               normsum += mult;
               mult *= tmp;
               vx += dx * mult;

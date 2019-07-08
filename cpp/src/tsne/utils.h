@@ -50,99 +50,85 @@
 #include <sys/time.h>
 #include <cub/cub.cuh>
 
-#include <unistd.h>
 #include <sys/time.h>
-#include <iostream>
+#include <unistd.h>
 #include <chrono>
+#include <iostream>
 
-
-void
-random_vector(float *vector, const float minimum, const float maximum,
-            const int size, cudaStream_t stream, long long seed = -1) {
-    if (seed <= 0) {
-        // Get random seed based on time of day
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        seed = tp.tv_sec * 1000 + tp.tv_usec;
-    }
-    MLCommon::Random::Rng random(seed);
-    random.uniform<float>(vector, size, minimum, maximum, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+void random_vector(float *vector, const float minimum, const float maximum,
+                   const int size, cudaStream_t stream, long long seed = -1) {
+  if (seed <= 0) {
+    // Get random seed based on time of day
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    seed = tp.tv_sec * 1000 + tp.tv_usec;
+  }
+  MLCommon::Random::Rng random(seed);
+  random.uniform<float>(vector, size, minimum, maximum, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-#ifdef TIMER_ON
-#undef
-#endif
-#define TIMER_ON true
-
+//#define TIMER_ON false
+#define DEBUG true
 
 long start, end;
 struct timeval timecheck;
 double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
-    PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
-    TreeBuildingKernel_time = 0, ClearKernel2_time = 0, SummarizationKernel_time = 0,
-    SortKernel_time = 0, RepulsionTime = 0, Reduction_time = 0,
-    attractive_time = 0, IntegrationKernel_time = 0;
+       PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
+       TreeBuildingKernel_time = 0, ClearKernel2_time = 0,
+       SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
+       Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
 
 // To silence warnings
 
-#if TIMER_ON
-    #define START_TIMER \
-        gettimeofday(&timecheck, NULL); \
-        start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000
-#else
-    #define START_TIMER
-#endif
+#define START_TIMER                                                         \
+  if (verbose) {                                                            \
+    gettimeofday(&timecheck, NULL);                                         \
+    start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
+  }
 
+#define END_TIMER(add_onto)                                               \
+  if (verbose) {                                                          \
+    gettimeofday(&timecheck, NULL);                                       \
+    end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
+    add_onto += (end - start);                                            \
+  }
 
-#if TIMER_ON
-    #define END_TIMER(add_onto) \
-        gettimeofday(&timecheck, NULL); \
-        end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
-        add_onto += (end - start)
-#else
-    #define END_TIMER(add_onto)
-#endif
-
-
-#if TIMER_ON
-    #define PRINT_TIMES \
-        double total = (SymmetrizeTime + DistancesTime + NormalizeTime + \
-            PerplexityTime + BoundingBoxKernel_time + ClearKernel1_time + \
-            TreeBuildingKernel_time + ClearKernel2_time + SummarizationKernel_time + \
-            SortKernel_time + RepulsionTime + Reduction_time + attractive_time + \
-            IntegrationKernel_time)/100.0; \
-        printf("SymmetrizeTime = %.lf (%.lf)\n" \
-        "DistancesTime = %.lf (%.lf)\n" \
-        "NormalizeTime = %.lf (%.lf)\n" \
-        "PerplexityTime = %.lf (%.lf)\n" \
-        "BoundingBoxKernel_time = %.lf (%.lf)\n" \
-         "ClearKernel1_time  = %.lf (%.lf)\n" \
-         "TreeBuildingKernel_time  = %.lf (%.lf)\n" \
-         "ClearKernel2_time  = %.lf (%.lf)\n" \
-         "SummarizationKernel_time  = %.lf (%.lf)\n" \
-         "SortKernel_time  = %.lf (%.lf)\n" \
-         "RepulsionTime  = %.lf (%.lf)\n" \
-         "Reduction_time  = %.lf (%.lf)\n" \
-         "attractive_time  = %.lf (%.lf)\n" \
-         "IntegrationKernel_time = %.lf (%.lf)\n" \
-         "TOTAL TIME = %.lf\n\n", \
-         SymmetrizeTime, SymmetrizeTime/total, \
-         DistancesTime, DistancesTime/total, \
-         NormalizeTime, NormalizeTime/total, \
-         PerplexityTime, PerplexityTime/total, \
-         BoundingBoxKernel_time, BoundingBoxKernel_time/total, \
-         ClearKernel1_time, ClearKernel1_time/total, \
-         TreeBuildingKernel_time, TreeBuildingKernel_time/total, \
-         ClearKernel2_time, ClearKernel2_time/total, \
-         SummarizationKernel_time, SummarizationKernel_time/total, \
-         SortKernel_time, SortKernel_time/total, \
-         RepulsionTime, RepulsionTime/total, \
-         Reduction_time, Reduction_time/total, \
-         attractive_time, attractive_time/total, \
-         IntegrationKernel_time, IntegrationKernel_time/total, \
-         total*100.0)
-#else
-    #define PRINT_TIMES  
-#endif
+#define PRINT_TIMES                                                           \
+  if (verbose) {                                                              \
+    double total =                                                            \
+      (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +      \
+       BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
+       ClearKernel2_time + SummarizationKernel_time + SortKernel_time +       \
+       RepulsionTime + Reduction_time + attractive_time +                     \
+       IntegrationKernel_time) /                                              \
+      100.0;                                                                  \
+    printf(                                                                   \
+      "SymmetrizeTime = %.lf (%.lf)\n"                                        \
+      "DistancesTime = %.lf (%.lf)\n"                                         \
+      "NormalizeTime = %.lf (%.lf)\n"                                         \
+      "PerplexityTime = %.lf (%.lf)\n"                                        \
+      "BoundingBoxKernel_time = %.lf (%.lf)\n"                                \
+      "ClearKernel1_time  = %.lf (%.lf)\n"                                    \
+      "TreeBuildingKernel_time  = %.lf (%.lf)\n"                              \
+      "ClearKernel2_time  = %.lf (%.lf)\n"                                    \
+      "SummarizationKernel_time  = %.lf (%.lf)\n"                             \
+      "SortKernel_time  = %.lf (%.lf)\n"                                      \
+      "RepulsionTime  = %.lf (%.lf)\n"                                        \
+      "Reduction_time  = %.lf (%.lf)\n"                                       \
+      "attractive_time  = %.lf (%.lf)\n"                                      \
+      "IntegrationKernel_time = %.lf (%.lf)\n"                                \
+      "TOTAL TIME = %.lf\n\n",                                                \
+      SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
+      DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
+      PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \
+      BoundingBoxKernel_time / total, ClearKernel1_time,                      \
+      ClearKernel1_time / total, TreeBuildingKernel_time,                     \
+      TreeBuildingKernel_time / total, ClearKernel2_time,                     \
+      ClearKernel2_time / total, SummarizationKernel_time,                    \
+      SummarizationKernel_time / total, SortKernel_time,                      \
+      SortKernel_time / total, RepulsionTime, RepulsionTime / total,          \
+      Reduction_time, Reduction_time / total, attractive_time,                \
+      attractive_time / total, IntegrationKernel_time,                        \
+      IntegrationKernel_time / total, total * 100.0);                         \
+  }
