@@ -170,7 +170,6 @@ cdef class RandomForest_impl():
         self.rf_regressor32 = NULL
         self.rf_regressor64 = NULL
         self.n_cols = None
-        print('verbose in cinit : ',self.verbose)
 
     def _get_type(self):
         if self.criterion == 0:
@@ -220,13 +219,6 @@ cdef class RandomForest_impl():
             rfRegressor[float](rf_param)
         self.rf_regressor64 = new \
             rfRegressor[double](rf_param)
-        print('verbose in fit : ',self.verbose)
-        print('nbins in fit : ',self.n_bins)
-        print('split_algo in fit : ',self.split_algo)
-        print('min_rows_per_node in fit : ',self.min_rows_per_node)
-        print('n_estimators in fit : ',self.n_estimators)
-        print('bootstrap in fit : ',self.bootstrap)
-        print('bootstrap_features in fit : ',self.bootstrap_features)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -269,7 +261,6 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        print('verbose in predict : ',self.verbose)
         if self.dtype == np.float32:
             predict(handle_[0],
                     self.rf_regressor32,
@@ -323,7 +314,6 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        print('verbose in score : ',self.verbose)
         if self.dtype == np.float32:
             self.temp_stats = score(handle_[0],
                                     self.rf_regressor32,
@@ -497,7 +487,6 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
-        print('verbose : ',self.verbose)
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, n_bins,
                                        split_algo, split_criterion,
@@ -507,6 +496,7 @@ class RandomForestRegressor(Base):
                                        rows_sample, max_leaves,
                                        accuracy_metric,
                                        quantile_per_tree)
+
     def fit(self, X, y):
         """
         Perform Random Forest Regression on the input data. The input array X
@@ -563,7 +553,7 @@ class RandomForestRegressor(Base):
         Returns
         ----------
         mean_square_error : float or
-        median_abs_error : float or 
+        median_abs_error : float or
         mean_abs_error : float
         """
         return self._impl.score(X, y)
@@ -599,12 +589,12 @@ class RandomForestRegressor(Base):
             else:
                 setattr(self, key, value)
 
-        self._impl = RandomForest_impl(self.n_estimators, self.max_depth, self.handle,
-                                       self.max_features, self.n_bins,
-                                       self.split_algo, self.split_criterion,
-                                       self.min_rows_per_node,
-                                       self.bootstrap, self.bootstrap_features,
-                                       self.verbose,
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.verbose, self.bootstrap_features,
                                        self.rows_sample, self.max_leaves,
                                        self.accuracy_metric,
                                        self.quantile_per_tree)
