@@ -511,11 +511,12 @@ class RandomForestClassifier(Base):
         self.type_model = type_model
         self.quantile_per_tree = quantile_per_tree
         self.gdf_datatype = gdf_datatype
-        self._impl = RandomForest_impl(self.n_estimators, self.max_depth, self.handle,
-                                       self.max_features, self.n_bins,
-                                       self.split_algo, self.split_criterion,
-                                       self.min_rows_per_node,
-                                       self.bootstrap, self.bootstrap_features,
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
                                        self.type_model, self.verbose,
                                        self.rows_sample, self.max_leaves,
                                        self.quantile_per_tree,
@@ -612,11 +613,12 @@ class RandomForestClassifier(Base):
             else:
                 setattr(self, key, value)
 
-        self._impl = RandomForest_impl(self.n_estimators, self.max_depth, self.handle,
-                                       self.max_features, self.n_bins,
-                                       self.split_algo, self.split_criterion,
-                                       self.min_rows_per_node,
-                                       self.bootstrap, self.bootstrap_features,
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
                                        self.type_model, self.verbose,
                                        self.rows_sample, self.max_leaves,
                                        self.quantile_per_tree,

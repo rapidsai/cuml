@@ -594,7 +594,7 @@ class RandomForestRegressor(Base):
                                        self.n_bins, self.split_algo,
                                        self.split_criterion,
                                        self.min_rows_per_node, self.bootstrap,
-                                       self.verbose, self.bootstrap_features,
+                                       self.bootstrap_features, self.verbose,
                                        self.rows_sample, self.max_leaves,
                                        self.accuracy_metric,
                                        self.quantile_per_tree)
