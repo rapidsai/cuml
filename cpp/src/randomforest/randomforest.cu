@@ -20,36 +20,65 @@
 namespace ML {
 
 /**
- * @brief Construct RF_metrics.
+ * @brief Set RF_metrics.
+ * @param[in] rf_type: Random Forest type: classification or regression
  * @param[in] cfg_accuracy: accuracy.
+ * @param[in] mean_abs_error: mean absolute error.
+ * @param[in] mean_squared_error: mean squared error.
+ * @param[in] median_abs_error: median absolute error.
+ * @return RF_metrics struct with classification or regression score.
  */
-RF_metrics::RF_metrics(float cfg_accuracy)
-  : rf_type(RF_type::CLASSIFICATION), accuracy(cfg_accuracy){};
+RF_metrics set_all_rf_metrics(RF_type rf_type, float accuracy,
+                              double mean_abs_error, double mean_squared_error,
+                              double median_abs_error) {
+  RF_metrics rf_metrics;
+  rf_metrics.rf_type = rf_type;
+  rf_metrics.accuracy = accuracy;
+  rf_metrics.mean_abs_error = mean_abs_error;
+  rf_metrics.mean_squared_error = mean_squared_error;
+  rf_metrics.median_abs_error = median_abs_error;
+  return rf_metrics;
+}
 
 /**
- * @brief Construct RF_metrics.
- * @param[in] cfg_mean_abs_error: mean absolute error.
- * @param[in] cfg_mean_squared_error: mean squared error.
- * @param[in] cfg_median_abs_error: median absolute error.
+ * @brief Set RF_metrics for classification.
+ * @param[in] cfg_accuracy: accuracy.
+ * @return RF_metrics struct with classification score.
  */
-RF_metrics::RF_metrics(double cfg_mean_abs_error, double cfg_mean_squared_error,
-                       double cfg_median_abs_error)
-  : rf_type(RF_type::REGRESSION),
-    mean_abs_error(cfg_mean_abs_error),
-    mean_squared_error(cfg_mean_squared_error),
-    median_abs_error(cfg_median_abs_error){};
+RF_metrics set_rf_metrics_classification(float accuracy) {
+  return set_all_rf_metrics(RF_type::CLASSIFICATION, accuracy, -1.0, -1.0,
+                            -1.0);
+}
+
+/**
+ * @brief Set RF_metrics for regression.
+ * @param[in] mean_abs_error: mean absolute error.
+ * @param[in] mean_squared_error: mean squared error.
+ * @param[in] median_abs_error: median absolute error.
+ * @return RF_metrics struct with regression score.
+ */
+RF_metrics set_rf_metrics_regression(double mean_abs_error,
+                                     double mean_squared_error,
+                                     double median_abs_error) {
+  return set_all_rf_metrics(RF_type::REGRESSION, -1.0, mean_abs_error,
+                            mean_squared_error, median_abs_error);
+}
 
 /**
  * @brief Print either accuracy metric for classification, or mean absolute error,
-   mean squared error, and median absolute error metrics for regression.
+ *   mean squared error, and median absolute error metrics for regression.
+ * @param[in] rf_metrics: random forest metrics to print.
  */
-void RF_metrics::print() {
-  if (rf_type == RF_type::CLASSIFICATION) {
-    std::cout << "Accuracy: " << accuracy << std::endl;
-  } else if (rf_type == RF_type::REGRESSION) {
-    std::cout << "Mean Absolute Error: " << mean_abs_error << std::endl;
-    std::cout << "Mean Squared Error: " << mean_squared_error << std::endl;
-    std::cout << "Median Absolute Error: " << median_abs_error << std::endl;
+void print(const RF_metrics rf_metrics) {
+  if (rf_metrics.rf_type == RF_type::CLASSIFICATION) {
+    std::cout << "Accuracy: " << rf_metrics.accuracy << std::endl;
+  } else if (rf_metrics.rf_type == RF_type::REGRESSION) {
+    std::cout << "Mean Absolute Error: " << rf_metrics.mean_abs_error
+              << std::endl;
+    std::cout << "Mean Squared Error: " << rf_metrics.mean_squared_error
+              << std::endl;
+    std::cout << "Median Absolute Error: " << rf_metrics.median_abs_error
+              << std::endl;
   }
 }
 
