@@ -18,20 +18,19 @@
 
 #include "common/cumlHandle.hpp"
 
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/gpu/IndexProxy.h>
 #include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/IndexProxy.h>
+#include <faiss/gpu/StandardGpuResources.h>
 
-#include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
 #include <faiss/gpu/GpuDistance.h>
+#include <faiss/gpu/GpuResources.h>
 
 #include <iostream>
 
 namespace ML {
 
-
-  /**
+/**
    * @brief Flat C++ API function to perform a brute force knn on
    * a series of input arrays and combine the results into a single
    * output array for indexes and distances.
@@ -47,13 +46,11 @@ namespace ML {
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
    */
-  void brute_force_knn(
-         cumlHandle &handle,
-         float **input, int*sizes, int n_params, int D,
-         float *search_items, int n,
-         long *res_I, float *res_D, int k);
+void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
+                     int n_params, int D, float *search_items, int n,
+                     long *res_I, float *res_D, int k);
 
-  /**
+/**
    * @brief A flat C++ API function that chunks a host array up into
    * some number of different devices
    *
@@ -65,36 +62,32 @@ namespace ML {
    * @param sizes output array sizes
    * @param n_chunks number of chunks to spread across device arrays
    */
-  void chunk_host_array(
-    cumlHandle &handle,
-    const float *ptr, int n, int D,
-    int* devices, float **output, int *sizes, int n_chunks);
+void chunk_host_array(cumlHandle &handle, const float *ptr, int n, int D,
+                      int *devices, float **output, int *sizes, int n_chunks);
 
-	class kNN {
+class kNN {
+  float **ptrs;
+  int *sizes;
 
-		float **ptrs;
-		int *sizes;
+  int total_n;
+  int indices;
+  int D;
+  bool verbose;
+  bool owner;
 
-		int total_n;
-		int indices;
-		int D;
-		bool verbose;
-		bool owner;
+  cumlHandle *handle;
 
-		cumlHandle *handle;
-
-    public:
-	    /**
+ public:
+  /**
 	     * Build a kNN object for training and querying a k-nearest neighbors model.
 	     * @param D     number of features in each vector
 	     */
-		kNN(const cumlHandle &handle, int D, bool verbose = false);
-		~kNN();
+  kNN(const cumlHandle &handle, int D, bool verbose = false);
+  ~kNN();
 
-    void reset();
+  void reset();
 
-
-    /**
+  /**
      * Search the kNN for the k-nearest neighbors of a set of query vectors
      * @param search_items set of vectors to query for neighbors
      * @param n            number of items in search_items
@@ -102,18 +95,18 @@ namespace ML {
      * @param res_D        pointer to device memory for returning k nearest distances
      * @param k            number of neighbors to query
      */
-		void search(float *search_items, int search_items_size,
-		        long *res_I, float *res_D, int k);
+  void search(float *search_items, int search_items_size, long *res_I,
+              float *res_D, int k);
 
-    /**
+  /**
      * Fit a kNN model by creating separate indices for multiple given
      * instances of kNNParams.
      * @param input  an array of pointers to data on (possibly different) devices
      * @param N      number of items in input array.
      */
-		void fit(float **input, int *sizes, int N);
+  void fit(float **input, int *sizes, int N);
 
-		/**
+  /**
 		 * Chunk a host array up into one or many GPUs (determined by the provided
 		 * list of gpu ids) and fit a knn model.
 		 *
@@ -123,7 +116,6 @@ namespace ML {
 		 * @param n_chunks  number of elements in gpus
 		 * @param out       host pointer to copy output
 		 */
-		void fit_from_host(float *ptr, int n, int* devices, int n_chunks);
-  };
+  void fit_from_host(float *ptr, int n, int *devices, int n_chunks);
 };
-
+};  // namespace ML
