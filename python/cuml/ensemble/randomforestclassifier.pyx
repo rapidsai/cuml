@@ -22,6 +22,7 @@
 import ctypes
 import numpy as np
 import warnings
+import math
 
 from numba import cuda
 
@@ -105,7 +106,6 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                                     bool, bool, int, float, CRITERION,
                                     bool) except +
 
-
 cdef class RandomForest_impl():
 
     cpdef object handle
@@ -117,6 +117,7 @@ cdef class RandomForest_impl():
     cdef object max_features
     cdef object n_bins
     cdef object split_algo
+    cdef object quantile_per_tree
     cdef object split_criterion
     cdef object min_rows_per_node
     cdef object bootstrap
@@ -126,13 +127,12 @@ cdef class RandomForest_impl():
     cdef object n_cols
     cdef object rows_sample
     cdef object max_leaves
-    cdef object quantile_per_tree
     cdef object gdf_datatype
     cdef object stats
     cdef object dtype
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
-                  max_features=1.0, n_bins=8,
+                  max_features='auto', n_bins=8,
                   split_algo=0, split_criterion=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   type_model="classifier", verbose=False,
@@ -154,6 +154,7 @@ cdef class RandomForest_impl():
         self.bootstrap = bootstrap
         self.verbose = verbose
         self.n_bins = n_bins
+        self. quantile_per_tree = quantile_per_tree
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
         self.n_cols = None
@@ -163,6 +164,19 @@ cdef class RandomForest_impl():
             self.type_model = 1
         else:
             self.type_model = 0
+
+    def _get_max_feat_val(self):
+        if type(self.max_features) == int:
+            max_feature_val = self.max_features/self.n_cols
+        elif type(self.max_features) == float:
+            max_feature_val = self.max_features
+        elif self.max_features == 'sqrt' or self.max_features == 'auto':
+            max_feature_val = 1/np.sqrt(self.n_cols)
+        elif self.max_features == 'log2':
+            max_feature_val = math.log2(self.n_cols)/self.n_cols
+        elif self.max_features == None:
+            max_feature_val = 1.0
+        return max_feature_val
 
     """
     TODO:
@@ -208,9 +222,13 @@ cdef class RandomForest_impl():
                 raise ValueError("The labels need "
                                  "to be from 0 to num_unique_label values")
 
+        max_feature_val = self._get_max_feat_val()
+        if type(self.min_rows_per_node) == float:
+            self.min_rows_per_node = math.ceil(self.min_rows_per_node * n_rows)
+
         rf_param = set_rf_class_obj(<int> self.max_depth,
                                     <int> self.max_leaves,
-                                    <float> self.max_features,
+                                    <float> max_feature_val,
                                     <int> self.n_bins,
                                     <int> self.split_algo,
                                     <int> self.min_rows_per_node,
@@ -363,23 +381,6 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial preview release of the cuML
-    Random Forest code. It contains a number of known
-    limitations:
-
-       * Only classification is supported. Regression support is planned for
-         the next release.
-
-       * The implementation relies on limited CUDA shared memory for scratch
-         space, so models with a very large number of features or bins will
-         generate a memory limit exception. This limitation will be lifted in
-         the next release.
-
-       * Inference/prediction takes place on the CPU. A GPU-based inference
-         solution is planned for a near-future release release.
-
-       * Instances of RandomForestClassifier cannot be pickled currently.
-
     The code is under heavy development, so users who need these features may
     wish to pull from nightly builds of cuML. (See https://rapids.ai/start.html
     for instructions to download nightly packages via conda.)
@@ -441,14 +442,22 @@ class RandomForestClassifier(Base):
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : int or float or string or None (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
+                   If int then max_features/n_features.
+                   If float then max_features is a fraction.
+                   If 'auto' then max_features=1/sqrt(n_features).
+                   If 'sqrt' then max_features=1/sqrt(n_features).
+                   If 'log2' then max_features=log2(n_features)/n_features.
+                   If None, then max_features=n_features which is 1.0.
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
+    min_rows_per_node : int or float (default = 2)
                         The minimum number of samples (rows) needed
                         to split a node.
+                        If int then number of sample rows.
+                        If float the min_rows_per_sample*n_rows.
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
@@ -463,16 +472,17 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8,
+                 max_features='auto', n_bins=8,
                  split_algo=0, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
-                 rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
+                 rows_sample=1.0, max_leaves=-1,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None,
+                 quantile_per_tree=False):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -507,17 +517,19 @@ class RandomForestClassifier(Base):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
+        self.type_model = type_model
         self.quantile_per_tree = quantile_per_tree
-
-        self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
-                                       max_features, n_bins,
-                                       split_algo, split_criterion,
-                                       min_rows_per_node,
-                                       bootstrap, bootstrap_features,
-                                       type_model, verbose,
-                                       rows_sample, max_leaves,
-                                       quantile_per_tree,
-                                       gdf_datatype)
+        self.gdf_datatype = gdf_datatype
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
     def fit(self, X, y):
         """
@@ -609,5 +621,16 @@ class RandomForestClassifier(Base):
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
+
+        self._impl = RandomForest_impl(self.n_estimators, self.max_depth,
+                                       self.handle, self.max_features,
+                                       self.n_bins, self.split_algo,
+                                       self.split_criterion,
+                                       self.min_rows_per_node, self.bootstrap,
+                                       self.bootstrap_features,
+                                       self.type_model, self.verbose,
+                                       self.rows_sample, self.max_leaves,
+                                       self.quantile_per_tree,
+                                       self.gdf_datatype)
 
         return self
