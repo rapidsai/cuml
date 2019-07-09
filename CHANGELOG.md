@@ -12,6 +12,7 @@
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
