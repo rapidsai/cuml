@@ -165,8 +165,8 @@ template <typename T>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ quantile,
   const int* __restrict__ split_col_index,
-  const int* __restrict__ split_bin_index, const int nrows,
-  const int ncols, const int nbins, const int n_nodes,
+  const int* __restrict__ split_bin_index, const int nrows, const int ncols,
+  const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
   unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -196,15 +196,32 @@ __global__ void split_level_kernel(
     flags[tid] = local_flag;
   }
 }
-__device__ __forceinline__ float gini_dev(unsigned int* hist, int nrows,
-                                          int n_unique_labels) {
-  float gval = 1.0;
-  for (int i = 0; i < n_unique_labels; i++) {
-    float prob = ((float)hist[i]) / nrows;
-    gval -= prob * prob;
+
+struct GiniDevFunctor {
+  static __device__ __forceinline__ float exec(unsigned int* hist, int nrows,
+                                               int n_unique_labels) {
+    float gval = 1.0;
+    for (int i = 0; i < n_unique_labels; i++) {
+      float prob = ((float)hist[i]) / nrows;
+      gval -= prob * prob;
+    }
+    return gval;
   }
-  return gval;
-}
+};
+
+struct EntropyDevFunctor {
+  static __device__ __forceinline__ float exec(unsigned int* hist, int nrows,
+                                               int n_unique_labels) {
+    float eval = 0.0;
+    for (int i = 0; i < n_unique_labels; i++) {
+      if (hist[i] != 0) {
+        float prob = ((float)hist[i]) / nrows;
+        eval += prob * logf(prob);
+      }
+    }
+    return (-1 * eval);
+  }
+};
 
 struct GainIdxPair {
   float gain;
@@ -228,13 +245,14 @@ struct ReducePair {
   }
 };
 
+template <typename F>
 __global__ void get_me_best_split_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
   const float* __restrict__ parent_metric, const int nbins, const int ncols,
   const int n_nodes, const int n_unique_labels, float* outgain,
-  int* best_col_id, int* best_bin_id,
-  unsigned int* child_hist, float* child_best_metric) {
+  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
+  float* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
@@ -280,8 +298,8 @@ __global__ void get_me_best_split_kernel(
     int totalrows = tmp_lnrows + tmp_rnrows;
     if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
 
-    float tmp_gini_left = gini_dev(tmp_histleft, tmp_lnrows, n_unique_labels);
-    float tmp_gini_right = gini_dev(tmp_histright, tmp_rnrows, n_unique_labels);
+    float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows, n_unique_labels);
+    float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows, n_unique_labels);
 
     float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
                      (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
@@ -314,13 +332,14 @@ __global__ void get_me_best_split_kernel(
     atomicAdd(&best_nrows[1], val_right);
   }
   __syncthreads();
-  
+
   for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
     child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
   }
 
   if (threadIdx.x < 2) {
     child_best_metric[2 * nodeid + threadIdx.x] =
-      gini_dev(&best_split_hist[threadIdx.x * n_unique_labels], best_nrows[threadIdx.x], n_unique_labels);
+      F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
+              best_nrows[threadIdx.x], n_unique_labels);
   }
 }
