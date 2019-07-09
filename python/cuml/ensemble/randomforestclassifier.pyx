@@ -174,7 +174,7 @@ cdef class RandomForest_impl():
             max_feature_val = 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
             max_feature_val = math.log2(self.n_cols)/self.n_cols
-        elif self.max_features == None:
+        elif self.max_features is None:
             max_feature_val = 1.0
         return max_feature_val
 
