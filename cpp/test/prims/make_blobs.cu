@@ -49,8 +49,7 @@ struct MakeBlobsInputs {
 };
 
 template <typename T>
-class MakeBlobsTest
-  : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
+class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
  protected:
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
@@ -95,7 +94,7 @@ class MakeBlobsTest
 
  protected:
   MakeBlobsInputs<T> params;
-  int *labels;
+  int* labels;
   T *data, *stats, *mu_vec;
   T h_stats[2];  // mean, var
   std::shared_ptr<deviceAllocator> allocator;

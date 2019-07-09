@@ -186,6 +186,8 @@ if(BUILD_PRIMS_TESTS)
       prims/rng.cu
       prims/rng_int.cu
       prims/rsvd.cu
+      prims/sample_without_replacement.cu
+      prims/scatter.cu
       prims/score.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu

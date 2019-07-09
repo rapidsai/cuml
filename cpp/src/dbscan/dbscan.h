@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
+#include "common/device_buffer.hpp"
+#include "common/nvtx.hpp"
 #include "runner.h"
 
 namespace ML {
@@ -47,6 +48,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, int min_pts, int *labels,
                    size_t max_bytes_per_batch, cudaStream_t stream,
                    bool verbose) {
+  ML::PUSH_RANGE("ML::Dbscan::Fit");
   int algoVd = 1;
   int algoAdj = 1;
   int algoCcl = 2;
@@ -74,9 +76,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                                           workspaceSize);
   Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
               algoAdj, algoCcl, workspace.data(), n_batches, stream);
+  ML::POP_RANGE();
 }
 
-/** @} */
-
 };  // namespace ML
-// end namespace ML

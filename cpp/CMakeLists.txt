@@ -59,6 +59,8 @@ option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
+option(NVTX "Enable nvtx markers" OFF)
+
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
 
@@ -167,6 +169,11 @@ endif(LINE_INFO)
 if(KERNEL_INFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
 endif(KERNEL_INFO)
+
+if(NVTX)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
+endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
@@ -300,6 +307,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
+    src/common/nvtx.cpp
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
@@ -337,6 +345,11 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
   endif(OPENMP_FOUND)
+
+  if(NVTX)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+  endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
   add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
