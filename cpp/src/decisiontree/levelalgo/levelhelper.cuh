@@ -94,7 +94,7 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
                            tempmem->stream);
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
-    get_me_best_split_kernel<<<n_nodes, threads, shmemsz, tempmem->stream>>>(
+    get_me_best_split_kernel<GiniDevFunctor><<<n_nodes, threads, shmemsz, tempmem->stream>>>(
       d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
       n_unique_labels, d_outgain, d_split_colidx, d_split_binidx, d_child_hist,
       d_child_best_metric);
