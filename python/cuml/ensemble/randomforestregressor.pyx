@@ -370,8 +370,8 @@ cdef class RandomForest_impl():
 class RandomForestRegressor(Base):
 
     """
-    Implements a Random Forest classifier model which fits multiple decision
-    tree classifiers in an ensemble.
+    Implements a Random Forest regressor model which fits multiple decision
+    trees in an ensemble.
     Note that the underlying algorithm for tree node splits differs from that
     used in scikit-learn. By default, the cuML Random Forest uses a
     histogram-based algorithms to determine splits, rather than an exact
@@ -411,14 +411,14 @@ class RandomForestRegressor(Base):
                    number of trees in the forest.
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
-    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
-                 (default = 0)
+    split_algo : int (default = 1)
+                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
                  The type of algorithm to be used to create the trees.
-    split_criterion: The criterion used to split nodes.
+    split_criterion: int (default = 2)
+                     The criterion used to split nodes.
                      0 for GINI, 1 for ENTROPY,
-                     2 for MAE, 3 for MSE and 4 for CRITERION_END.
-                     0 and 1 not valid for classification
-                     (default = 2)
+                     2 for MSE, 3 for MAE and 4 for CRITERION_END.
+                     0 and 1 not valid for regression
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
@@ -435,14 +435,22 @@ class RandomForestRegressor(Base):
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : int or float or string or None (default = 1.0)
                    Ratio of number of features (columns) to consider
                    per node split.
+                   If int then max_features/n_features.
+                   If float then max_features is a fraction.
+                   If 'auto' then max_features=n_features which is 1.0.
+                   If 'sqrt' then max_features=1/sqrt(n_features).
+                   If 'log2' then max_features=log2(n_features)/n_features.
+                   If None, then max_features=n_features which is 1.0.
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
+    min_rows_per_node : int or float (default = 2)
                         The minimum number of samples (rows) needed
                         to split a node.
+                        If int then number of sample rows
+                        If float the min_rows_per_sample*n_rows
     accuracy_metric : string (default = 'mse')
                       Decides the metric used to evaluate the performance
                       of the model.
