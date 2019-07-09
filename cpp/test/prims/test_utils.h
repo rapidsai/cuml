@@ -168,9 +168,10 @@ template <typename T, typename L>
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  */
 template <typename T, typename L>
-::testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
-                                       size_t size, L eq_compare,
-                                       cudaStream_t stream = 0) {
+::testing::AssertionResult devArrMatchHost(const T *expected_h,
+                                           const T *actual_d, size_t size,
+                                           L eq_compare,
+                                           cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
   updateHost<T>(act_h.get(), actual_d, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -180,8 +181,8 @@ template <typename T, typename L>
     auto exp = expected_h[i];
     auto act = act_h.get()[i];
     if (!eq_compare(exp, act)) {
-      ok  = false;
-      fail<<"actual=" << act << " != expected=" << exp << " @" << i <<"; ";
+      ok = false;
+      fail << "actual=" << act << " != expected=" << exp << " @" << i << "; ";
     }
   }
   if (!ok) return fail;
