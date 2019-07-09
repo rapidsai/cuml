@@ -30,18 +30,15 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F>
-void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
-                       const std::vector<unsigned int> &colselector,
-                       const int nbins, const int n_unique_labels,
-                       const int n_nodes, const int depth,
-                       std::vector<float> &gain,
-                       std::vector<std::vector<int>> &histstate,
-                       std::vector<FlatTreeNode<T>> &flattree,
-                       std::vector<int> &nodelist, int *split_colidx,
-                       int *split_binidx, int *d_split_colidx,
-                       int *d_split_binidx,
-                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-                       LevelTemporaryMemory *leveltempmem) {
+void get_me_best_split(
+  unsigned int *hist, unsigned int *d_hist,
+  const std::vector<unsigned int> &colselector, const int nbins,
+  const int n_unique_labels, const int n_nodes, const int depth,
+  std::vector<float> &gain, std::vector<std::vector<int>> &histstate,
+  std::vector<FlatTreeNode<T>> &flattree, std::vector<int> &nodelist,
+  int *split_colidx, int *split_binidx, int *d_split_colidx,
+  int *d_split_binidx, const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  LevelTemporaryMemory<T> *leveltempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
@@ -65,8 +62,9 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
   if (use_gpu_flag) {
     //GPU based best split
     unsigned int *h_parent_hist, *d_parent_hist, *d_child_hist, *h_child_hist;
-    float *d_parent_metric, *d_outgain, *d_child_best_metric;
-    float *h_parent_metric, *h_outgain, *h_child_best_metric;
+    T *d_parent_metric, *d_child_best_metric;
+    T *h_parent_metric, *h_child_best_metric;
+    float *d_outgain, *h_outgain;
     h_parent_hist = leveltempmem->h_parent_hist->data();
     h_child_hist = leveltempmem->h_child_hist->data();
     h_parent_metric = leveltempmem->h_parent_metric->data();
@@ -94,10 +92,11 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
                            tempmem->stream);
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
-    get_me_best_split_kernel<GiniDevFunctor><<<n_nodes, threads, shmemsz, tempmem->stream>>>(
-      d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
-      n_unique_labels, d_outgain, d_split_colidx, d_split_binidx, d_child_hist,
-      d_child_best_metric);
+    get_me_best_split_kernel<T, GiniDevFunctor>
+      <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
+        d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
+        n_unique_labels, d_outgain, d_split_colidx, d_split_binidx,
+        d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
     MLCommon::updateHost(h_child_hist, d_child_hist,
                          2 * n_nodes * n_unique_labels, tempmem->stream);
@@ -210,9 +209,9 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
 
 template <typename T>
 void make_level_split(T *data, const int nrows, const int ncols,
-                      const int nbins, const int n_nodes,
-                      int *split_colidx, int *split_binidx,
-                      const unsigned int *new_node_flags, unsigned int *flags,
+                      const int nbins, const int n_nodes, int *split_colidx,
+                      int *split_binidx, const unsigned int *new_node_flags,
+                      unsigned int *flags,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);

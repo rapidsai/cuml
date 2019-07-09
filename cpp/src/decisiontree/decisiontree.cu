@@ -245,7 +245,7 @@ void DecisionTreeBase<T, L>::plant(
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
 
-  LevelTemporaryMemory *leveltempmem = new LevelTemporaryMemory(
+  LevelTemporaryMemory<T> *leveltempmem = new LevelTemporaryMemory<T>(
     handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
 
   MLCommon::TimerCPU timer;
@@ -481,7 +481,7 @@ template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const int nrows,
-  LevelTemporaryMemory *leveltempmem) {
+  LevelTemporaryMemory<T> *leveltempmem) {
   return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
                         ncols, this->n_unique_labels, this->nbins,
                         this->treedepth, this->tempmem[0], leveltempmem);
@@ -556,7 +556,7 @@ template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree_member(
   const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const int nrows,
-  LevelTemporaryMemory *leveltempmem) {
+  LevelTemporaryMemory<T> *leveltempmem) {
   std::cout << " sorry bad place to be in....\n\n";
   return (new TreeNode<T, T>);
 }

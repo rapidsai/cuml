@@ -23,7 +23,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   int n_sampled_rows, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, int maxdepth,
   const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-  LevelTemporaryMemory* leveltempmem) {
+  LevelTemporaryMemory<T>* leveltempmem) {
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);

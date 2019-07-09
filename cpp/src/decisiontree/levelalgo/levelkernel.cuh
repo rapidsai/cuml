@@ -245,14 +245,14 @@ struct ReducePair {
   }
 };
 
-template <typename F>
+template <typename T, typename F>
 __global__ void get_me_best_split_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
-  const float* __restrict__ parent_metric, const int nbins, const int ncols,
+  const T* __restrict__ parent_metric, const int nbins, const int ncols,
   const int n_nodes, const int n_unique_labels, float* outgain,
   int* best_col_id, int* best_bin_id, unsigned int* child_hist,
-  float* child_best_metric) {
+  T* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
