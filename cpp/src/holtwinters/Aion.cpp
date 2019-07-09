@@ -53,6 +53,7 @@
 #include "Aion.hpp"
 #include "aion_utils.hpp"
 #include "holtwinters.hpp"
+#include "utils.h"
 
 aion::AionStatus aion::AionInit() {
   aion::cublas::get_handle();
@@ -296,6 +297,132 @@ aion::AionStatus aion::HoltWintersForecast(
   return aion::AionStatus::AION_SUCCESS;
 }
 
+template <typename Dtype>
+void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
+                                 int start_periods, SeasonalType seasonal,
+                                 Dtype *data, Dtype *alpha_ptr, Dtype *beta_ptr,
+                                 Dtype *gamma_ptr, Dtype *SSE_error_ptr,
+                                 Dtype *forecast_ptr) {
+  AION_SAFE_CALL(aion::AionInit());
+
+  cudaStream_t stream;
+  CUDA_SAFE_CALL(cudaStreamCreate(&stream));
+
+  bool optim_alpha = true, optim_beta = true, optim_gamma = true;
+  aion::ComputeMode mode = aion::ComputeMode::GPU;
+  // initial values for alpha, beta and gamma
+  std::vector<Dtype> alpha_h(batch_size, 0.4);
+  std::vector<Dtype> beta_h(batch_size, 0.3);
+  std::vector<Dtype> gamma_h(batch_size, 0.3);
+
+  int leveltrend_seed_len, season_seed_len, components_len;
+  int leveltrend_coef_offset, season_coef_offset;
+  int error_len;
+
+  AION_SAFE_CALL(aion::HoltWintersBufferSize(
+    n, batch_size, frequency, optim_beta, optim_gamma,
+    &leveltrend_seed_len,     // = batch_size
+    &season_seed_len,         // = frequency*batch_size
+    &components_len,          // = (n-w_len)*batch_size
+    &error_len,               // = batch_size
+    &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
+    &season_coef_offset));    // = (n-wlen-frequency)*batch_size(last freq rows)
+
+  Dtype *dataset_d;
+  Dtype *forecast_d;
+  Dtype *level_seed_d, *trend_seed_d = nullptr, *start_season_d = nullptr;
+  Dtype *level_d, *trend_d = nullptr, *season_d = nullptr;
+  Dtype *alpha_d, *beta_d = nullptr, *gamma_d = nullptr;
+  Dtype *error_d;
+
+  MLCommon::allocate(dataset_d, batch_size * n);
+  MLCommon::allocate(forecast_d, batch_size * h);
+  MLCommon::allocate(alpha_d, batch_size);
+  MLCommon::updateDevice(alpha_d, alpha_h.data(), batch_size, stream);
+  MLCommon::allocate(level_seed_d, leveltrend_seed_len);
+  MLCommon::allocate(level_d, components_len);
+
+  if (optim_beta) {
+    MLCommon::allocate(beta_d, batch_size);
+    MLCommon::updateDevice(beta_d, beta_h.data(), batch_size, stream);
+    MLCommon::allocate(trend_seed_d, leveltrend_seed_len);
+    MLCommon::allocate(trend_d, components_len);
+  }
+
+  if (optim_gamma) {
+    MLCommon::allocate(gamma_d, batch_size);
+    MLCommon::updateDevice(gamma_d, gamma_h.data(), batch_size, stream);
+    MLCommon::allocate(start_season_d, season_seed_len);
+    MLCommon::allocate(season_d, components_len);
+  }
+
+  MLCommon::allocate(error_d, error_len);
+
+  // Step 1: transpose the dataset (aion expects col major dataset)
+  AION_SAFE_CALL(
+    aion::AionTranspose<Dtype>(data, batch_size, n, dataset_d, mode));
+
+  // Step 2: Decompose dataset to get seed for level, trend and seasonal values
+  AION_SAFE_CALL(aion::HoltWintersDecompose<Dtype>(
+    dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
+    start_season_d, start_periods, seasonal, mode));
+
+  // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
+  AION_SAFE_CALL(aion::HoltWintersOptim<Dtype>(
+    dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
+    start_season_d, alpha_d, optim_alpha, beta_d, optim_beta, gamma_d,
+    optim_gamma, level_d, trend_d, season_d, nullptr, error_d, nullptr, nullptr,
+    seasonal, mode));
+
+  // Step 4: Do forecast
+  AION_SAFE_CALL(aion::HoltWintersForecast<Dtype>(
+    forecast_d, h, batch_size, frequency, level_d + leveltrend_coef_offset,
+    trend_d + leveltrend_coef_offset, season_d + season_coef_offset, seasonal,
+    mode));
+
+  //getting alpha values from Device to Host for output:
+  MLCommon::updateHost(alpha_ptr, alpha_d, batch_size, stream);
+
+  //getting beta values Device to Host for output:
+  MLCommon::updateHost(beta_ptr, beta_d, batch_size, stream);
+
+  //getting gamma values Device to Host for output:
+  MLCommon::updateHost(gamma_ptr, gamma_d, batch_size, stream);
+
+  //getting error values Device to Host for output:
+  MLCommon::updateHost(SSE_error_ptr, error_d, batch_size, stream);
+
+  std::vector<Dtype> forecast(batch_size * h);
+  //getting forecasted values
+  MLCommon::updateHost(forecast.data(), forecast_d, batch_size * h, stream);
+
+  // Get data from 1-D column major to 1-D row major for output
+  long index = 0;
+  for (auto i = 0; i < batch_size; ++i) {
+    for (auto j = 0; j < h; ++j)
+      forecast_ptr[index++] = forecast[i + j * batch_size];
+  }
+
+  CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
+  CUDA_SAFE_CALL(cudaStreamDestroy(stream));
+
+  AION_SAFE_CALL(aion::AionDestroy());
+
+  // Free the allocated memory on GPU
+  CUDA_SAFE_CALL(cudaFree(dataset_d));
+  CUDA_SAFE_CALL(cudaFree(forecast_d));
+  CUDA_SAFE_CALL(cudaFree(level_seed_d));
+  CUDA_SAFE_CALL(cudaFree(trend_seed_d));
+  CUDA_SAFE_CALL(cudaFree(start_season_d));
+  CUDA_SAFE_CALL(cudaFree(level_d));
+  CUDA_SAFE_CALL(cudaFree(trend_d));
+  CUDA_SAFE_CALL(cudaFree(season_d));
+  CUDA_SAFE_CALL(cudaFree(alpha_d));
+  CUDA_SAFE_CALL(cudaFree(beta_d));
+  CUDA_SAFE_CALL(cudaFree(gamma_d));
+  CUDA_SAFE_CALL(cudaFree(error_d));
+}
+
 template aion::AionStatus aion::AionTranspose<float>(const float *data_in,
                                                      int m, int n,
                                                      float *data_out,
@@ -351,3 +478,12 @@ template aion::AionStatus aion::HoltWintersForecast<double>(
   double *forecast, int h, int batch_size, int frequency,
   const double *level_coef, const double *trend_coef, const double *season_coef,
   SeasonalType seasonal, ComputeMode mode);
+
+template void aion::HoltWintersFitPredict<float>(
+  int n, int batch_size, int frequency, int h, int start_periods,
+  SeasonalType seasonal, float *data, float *alpha_ptr, float *beta_ptr,
+  float *gamma_ptr, float *SSE_error_ptr, float *forecast_ptr);
+template void aion::HoltWintersFitPredict<double>(
+  int n, int batch_size, int frequency, int h, int start_periods,
+  SeasonalType seasonal, double *data, double *alpha_ptr, double *beta_ptr,
+  double *gamma_ptr, double *SSE_error_ptr, double *forecast_ptr);
