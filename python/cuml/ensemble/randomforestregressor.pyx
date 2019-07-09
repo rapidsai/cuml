@@ -147,7 +147,7 @@ cdef class RandomForest_impl():
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
                   max_features=None, n_bins=8,
-                  split_algo=0, split_criterion=2, min_rows_per_node=2,
+                  split_algo=1, split_criterion=2, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   verbose=False, rows_sample=1.0,
                   max_leaves=-1, accuracy_metric='mse',
@@ -186,13 +186,13 @@ cdef class RandomForest_impl():
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
-            max_feature_val = 1/(self.max_features)
+            max_feature_val = self.max_features/self.n_cols
         elif type(self.max_features) == float:
             max_feature_val = self.max_features
         elif self.max_features == 'sqrt':
             max_feature_val = 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
-            max_feature_val = 1/math.log2(self.n_cols)
+            max_feature_val = math.log2(self.n_cols)/self.n_cols
         else:
             max_feature_val = 1.0
         return max_feature_val
@@ -460,7 +460,7 @@ class RandomForestRegressor(Base):
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=None, n_bins=8,
-                 split_algo=2, split_criterion=2,
+                 split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
