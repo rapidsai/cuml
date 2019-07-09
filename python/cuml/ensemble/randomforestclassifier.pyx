@@ -368,7 +368,7 @@ cdef class RandomForest_impl():
         del(X_m)
         del(y_m)
         del(preds_m)
-        return self.stats['accuracy']
+        return self.stats
 
 
 class RandomForestClassifier(Base):
