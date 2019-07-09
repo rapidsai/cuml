@@ -22,14 +22,11 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
+from cuml.utils import input_to_dev_array, get_dev_array_ptr
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+
 
 cdef extern from "holtwinters/Aion.hpp" namespace "aion":
     enum SeasonalType:
@@ -48,7 +45,18 @@ class Holtwinters(Base):
 
         self.batch_size = batch_size # Total number of Time Series for forecasting
         self.frequency =freq_season  # Season length in the time series
-        self.season_type =season_type # Whether to perform additive or multiplicative STL decomposition
+        
+
+        #whether to perform additive or multiplicative STL decomposition
+        if season_type == "ADDITIVE":
+            self.season_type = season_type
+            self._cpp_stype = ADDITIVE
+        elif season_type ==  "MULTIPLICATIVE":
+            self.season_type = season_type
+            self._cpp_stype = MULTIPLICATIVE
+        else:
+            raise ValueError("Season type must be either \"ADDITIVE\" or \"MULTIPLICATIVE\"")
+        
         self.forecasted_points = []  # list for final forecast output
         self.alpha  = [] # list for alpha values for each time series in batch
         self.beta   = []  # list for beta values for each time series in batch
@@ -62,8 +70,49 @@ class Holtwinters(Base):
             self.start_periods = start_periods # number of seasons to be used for seasonal seed values
 
     def fit(self, ts_input, pointsToForecast = 50):
-        pass
-   
+        self.h = pointsToForecast
+        
+        cdef uintptr_t input_ptr
+        X_m, input_ptr, n_rows, n_cols, self.dtype = input_to_dev_array(ts_input, order='C')
+        
+        np_alpha = np.empty(self.batch_size, dtype = self.dtype)
+        np_beta = np.empty(self.batch_size, dtype = self.dtype)
+        np_gamma = np.empty(self.batch_size, dtype = self.dtype)
+        np_SSE = np.empty(self.batch_size, dtype = self.dtype)
+        np_forecast = np.empty(self.batch_size*self.h, dtype = self.dtype)
+
+        cdef uintptr_t alpha_ptr, beta_ptr, gamma_ptr, SSE_error_ptr, forecast_ptr
+        alpha_m, alpha_ptr, _, _, _ = input_to_dev_array(np_alpha)
+        beta_m, beta_ptr, _, _, _ = input_to_dev_array(np_beta)
+        gamma_m, gamma_ptr, _, _, _ = input_to_dev_array(np_gamma)
+        SSE_m, SSE_error_ptr, _, _, _ = input_to_dev_array(np_SSE)
+        forecast_m, forecast_ptr, _, _, _ = input_to_dev_array(np_forecast)
+        
+
+        if self.dtype == np.float32:
+            HoltWintersFitPredict(<int> n_rows, <int> self.batch_size, <int> self.frequency, <int> self.h, <int> self.start_periods, <SeasonalType> self._cpp_stype,
+                                  <float*> input_ptr, <float*> alpha_ptr, <float*> beta_ptr, <float*> gamma_ptr, <float*> SSE_error_ptr, <float*> forecast_ptr)
+        elif self.dtype == np.float64:
+            HoltWintersFitPredict(<int> n_rows, <int> self.batch_size, <int> self.frequency, <int> self.h, <int> self.start_periods, <SeasonalType> self._cpp_stype,
+                                  <double*> input_ptr, <double*> alpha_ptr, <double*> beta_ptr, <double*> gamma_ptr, <double*> SSE_error_ptr, <double*> forecast_ptr)
+        else:
+            raise TypeError("HoltWinters supports only float32 and float64 input, but input type " + str(self.dtype) + " passed.")
+         
+        self.alpha = np_alpha
+        self.beta = np_beta
+        self.gamma = np_gamma
+        self.SSE_error = np_SSE
+        self.forecasted_points = np_forecast
+        self.fit_executed_flag = True
+
+        del(X_m)
+        del(alpha_m)
+        del(beta_m)
+        del(gamma_m)
+        del(SSE_m)
+        del(forecast_m)         
+
+
     def score(self,index):
 
         index = index - 1
