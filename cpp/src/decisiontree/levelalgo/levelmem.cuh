@@ -1,5 +1,6 @@
 #pragma once
 
+template <typename T>
 struct LevelTemporaryMemory {
   cudaStream_t stream;
   MLCommon::device_buffer<unsigned int> *d_flags;
@@ -13,10 +14,10 @@ struct LevelTemporaryMemory {
   MLCommon::device_buffer<unsigned int> *d_new_node_flags;
   MLCommon::host_buffer<unsigned int> *h_parent_hist, *h_child_hist;
   MLCommon::device_buffer<unsigned int> *d_parent_hist, *d_child_hist;
-  MLCommon::host_buffer<float> *h_parent_metric, *h_outgain,
-    *h_child_best_metric;
-  MLCommon::device_buffer<float> *d_parent_metric, *d_outgain,
-    *d_child_best_metric;
+  MLCommon::host_buffer<T> *h_parent_metric, *h_child_best_metric;
+  MLCommon::host_buffer<float> *h_outgain;
+  MLCommon::device_buffer<float> *d_outgain;
+  MLCommon::device_buffer<T> *d_parent_metric, *d_child_best_metric;
 
   int max_nodes = 0;
   LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
@@ -31,10 +32,10 @@ struct LevelTemporaryMemory {
       handle.getDeviceAllocator(), stream, histcount);
     h_histogram = new MLCommon::host_buffer<unsigned int>(
       handle.getHostAllocator(), stream, histcount);
-    h_split_colidx = new MLCommon::host_buffer<int>(
-      handle.getHostAllocator(), stream, maxnodes);
-    h_split_binidx = new MLCommon::host_buffer<int>(
-      handle.getHostAllocator(), stream, maxnodes);
+    h_split_colidx = new MLCommon::host_buffer<int>(handle.getHostAllocator(),
+                                                    stream, maxnodes);
+    h_split_binidx = new MLCommon::host_buffer<int>(handle.getHostAllocator(),
+                                                    stream, maxnodes);
 
     d_split_colidx = new MLCommon::device_buffer<int>(
       handle.getDeviceAllocator(), stream, maxnodes);
@@ -51,9 +52,9 @@ struct LevelTemporaryMemory {
       handle.getHostAllocator(), stream, maxnodes * n_unique_labels);
     h_child_hist = new MLCommon::host_buffer<unsigned int>(
       handle.getHostAllocator(), stream, 2 * maxnodes * n_unique_labels);
-    h_parent_metric = new MLCommon::host_buffer<float>(
-      handle.getHostAllocator(), stream, maxnodes);
-    h_child_best_metric = new MLCommon::host_buffer<float>(
+    h_parent_metric =
+      new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, maxnodes);
+    h_child_best_metric = new MLCommon::host_buffer<T>(
       handle.getHostAllocator(), stream, 2 * maxnodes);
     h_outgain = new MLCommon::host_buffer<float>(handle.getHostAllocator(),
                                                  stream, maxnodes);
@@ -62,12 +63,12 @@ struct LevelTemporaryMemory {
       handle.getDeviceAllocator(), stream, maxnodes * n_unique_labels);
     d_child_hist = new MLCommon::device_buffer<unsigned int>(
       handle.getDeviceAllocator(), stream, 2 * maxnodes * n_unique_labels);
-    d_parent_metric = new MLCommon::device_buffer<float>(
+    d_parent_metric = new MLCommon::device_buffer<T>(
       handle.getDeviceAllocator(), stream, maxnodes);
-    d_child_best_metric = new MLCommon::device_buffer<float>(
+    d_child_best_metric = new MLCommon::device_buffer<T>(
       handle.getDeviceAllocator(), stream, 2 * maxnodes);
     d_outgain = new MLCommon::device_buffer<float>(handle.getDeviceAllocator(),
-                                                 stream, maxnodes);
+                                                   stream, maxnodes);
 
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
@@ -96,7 +97,7 @@ struct LevelTemporaryMemory {
     d_child_best_metric->release(stream);
     d_outgain->release(stream);
     d_flags->release(stream);
-	
+
     delete h_new_node_flags;
     delete d_new_node_flags;
     delete d_histogram;
