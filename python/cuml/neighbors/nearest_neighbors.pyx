@@ -27,7 +27,7 @@ import cuml
 
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, row_matrix
 
 from cython.operator cimport dereference as deref
 
@@ -247,7 +247,7 @@ class NearestNeighbors(Base):
         # Only need to recover state if model had been previously fit
         if state["n_indices"] == 1:
 
-            state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
+            state['X_m'] = row_matrix(state['X_m'])
 
             X_m = state["X_m"]
 
