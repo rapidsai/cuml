@@ -141,11 +141,19 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
 fi
 
-# Build and (optionally) install libcuml + tests
+# Run all make targets at once
+MAKE_TARGETS=
 if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
+fi
+if (( ${NUMARGS} == 0 )) || hasArg prims; then
+    MAKE_TARGETS="${MAKE_TARGETS} prims"
+fi
 
+# Build and (optionally) install libcuml + tests
+if [ "${MAKE_TARGETS}" != "" ]; then
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} cuml++ cuml ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
     mkdir -p ${CUML_COMMS_BUILD_DIR}
     cd ${CUML_COMMS_BUILD_DIR}
@@ -168,11 +176,4 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
     else
 	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
     fi
-fi
-
-# Build the ML prims tests
-if (( ${NUMARGS} == 0 )) || hasArg prims; then
-
-    cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} prims
 fi
