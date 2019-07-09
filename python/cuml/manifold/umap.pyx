@@ -28,7 +28,7 @@ import pandas as pd
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, row_matrix
 
 from numba import cuda
 
@@ -311,8 +311,8 @@ class UMAP(Base):
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['X_m'] = state['X_m'].as_gpu_matrix(order="C")
-        state["arr_embed"] = state["arr_embed"].as_gpu_matrix(order="C")
+        state['X_m'] = row_matrix(state['X_m'])
+        state["arr_embed"] = row_matrix(state["arr_embed"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
