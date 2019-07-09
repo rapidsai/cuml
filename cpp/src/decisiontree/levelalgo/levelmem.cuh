@@ -23,7 +23,6 @@ struct LevelTemporaryMemory {
                        const int ncols, const int nbins,
                        const int n_unique_labels, const int depth) {
     int maxnodes = pow(2, depth);
-    std::cout << "max nodes  " << maxnodes << std::endl;
     size_t histcount = ncols * nbins * n_unique_labels * maxnodes;
     stream = handle.getStream();
     d_flags = new MLCommon::device_buffer<unsigned int>(
