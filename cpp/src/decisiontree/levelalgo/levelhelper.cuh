@@ -37,16 +37,16 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
                        std::vector<float> &gain,
                        std::vector<std::vector<int>> &histstate,
                        std::vector<FlatTreeNode<T>> &flattree,
-                       std::vector<int> &nodelist, unsigned int *split_colidx,
-                       unsigned int *split_binidx, unsigned int *d_split_colidx,
-                       unsigned int *d_split_binidx,
-                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+                       std::vector<int> &nodelist, int *split_colidx,
+                       int *split_binidx, int *d_split_colidx,
+                       int *d_split_binidx,
+                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+                       LevelTemporaryMemory *leveltempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
-  MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
+  bool use_gpu_flag = false;
+  if (depth > 6) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
@@ -62,152 +62,156 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
     histstate.push_back(tmp_histleft);
     histstate.push_back(tmp_histright);
   }
+  if (use_gpu_flag) {
+    //GPU based best split
+    unsigned int *h_parent_hist, *d_parent_hist, *d_child_hist, *h_child_hist;
+    float *d_parent_metric, *d_outgain, *d_child_best_metric;
+    float *h_parent_metric, *h_outgain, *h_child_best_metric;
+    h_parent_hist = leveltempmem->h_parent_hist->data();
+    h_child_hist = leveltempmem->h_child_hist->data();
+    h_parent_metric = leveltempmem->h_parent_metric->data();
+    h_child_best_metric = leveltempmem->h_child_best_metric->data();
+    h_outgain = leveltempmem->h_outgain->data();
 
-  //GPU based best split
-  unsigned int *h_parent_hist, *d_parent_hist, *d_child_hist, *h_child_hist;
-  int *d_best_bin_id, *d_best_col_id;
-  int *h_best_bin_id, *h_best_col_id;
-  float *d_parent_metric, *d_outgain, *d_child_best_metric;
-  float *h_parent_metric;
-  h_parent_hist =
-    (unsigned int *)malloc(n_nodes * n_unique_labels * sizeof(unsigned int));
-  h_child_hist = (unsigned int *)malloc(2 * n_nodes * n_unique_labels *
-                                        sizeof(unsigned int));
-  h_best_bin_id = (int *)malloc(n_nodes * sizeof(int));
-  h_best_col_id = (int *)malloc(n_nodes * sizeof(int));
-  h_parent_metric = (float *)malloc(n_nodes * sizeof(float));
-
-  for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-    int nodeid = nodelist[nodecnt];
-    int parentid = nodeid + n_nodes_before;
-    std::vector<int> &parent_hist = histstate[parentid];
-    h_parent_metric[nodecnt] = flattree[parentid].best_metric_val;
-    for (int j = 0; j < n_unique_labels; j++) {
-      h_parent_hist[nodecnt * n_unique_labels + j] = parent_hist[j];
-    }
-  }
-
-  CUDA_CHECK(cudaMalloc((void **)&d_parent_hist,
-                        n_nodes * n_unique_labels * sizeof(unsigned int)));
-  CUDA_CHECK(cudaMalloc((void **)&d_child_hist,
-                        2 * n_nodes * n_unique_labels * sizeof(unsigned int)));
-  CUDA_CHECK(cudaMalloc((void **)&d_best_bin_id, n_nodes * sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **)&d_best_col_id, n_nodes * sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **)&d_parent_metric, n_nodes * sizeof(float)));
-  CUDA_CHECK(
-    cudaMalloc((void **)&d_child_best_metric, 2 * n_nodes * sizeof(float)));
-  CUDA_CHECK(cudaMalloc((void **)&d_outgain, n_nodes * sizeof(float)));
-  MLCommon::updateDevice(d_parent_hist, h_parent_hist,
-                         n_nodes * n_unique_labels, tempmem->stream);
-  MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
-                         tempmem->stream);
-  int threads = 64;
-  size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
-  get_me_best_split_kernel<<<n_nodes, threads, shmemsz, tempmem->stream>>>(
-    d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
-    n_unique_labels, d_outgain, d_best_col_id, d_best_bin_id, d_child_hist,
-    d_child_best_metric);
-  CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(h_best_bin_id, d_best_bin_id, n_nodes, tempmem->stream);
-  MLCommon::updateHost(h_best_col_id, d_best_col_id, n_nodes, tempmem->stream);
-  MLCommon::updateHost(h_child_hist, d_child_hist,
-                       2 * n_nodes * n_unique_labels, tempmem->stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  CUDA_CHECK(cudaFree(d_parent_hist));
-  CUDA_CHECK(cudaFree(d_child_hist));
-  CUDA_CHECK(cudaFree(d_best_bin_id));
-  CUDA_CHECK(cudaFree(d_best_col_id));
-  CUDA_CHECK(cudaFree(d_parent_metric));
-  CUDA_CHECK(cudaFree(d_outgain));
-  CUDA_CHECK(cudaFree(d_child_best_metric));
-  free(h_parent_hist);
-  free(h_parent_metric);
-  free(h_child_hist);
-  free(h_best_bin_id);
-  free(h_best_col_id);
-  //End GPU based hist
-
-  for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-    std::vector<T> bestmetric(2, 0);
-    int nodeoffset = nodecnt * nbins * n_unique_labels;
-    int nodeid = nodelist[nodecnt];
-    int parentid = nodeid + n_nodes_before;
-    int best_col_id = -1;
-    int best_bin_id = -1;
-    std::vector<int> besthist_left(n_unique_labels);
-    std::vector<int> besthist_right(n_unique_labels);
-
-    for (int colid = 0; colid < ncols; colid++) {
-      int coloffset = colid * nbins * n_unique_labels * n_nodes;
-      for (int binid = 0; binid < nbins; binid++) {
-        int binoffset = binid * n_unique_labels;
-        int tmp_lnrows = 0;
-        int tmp_rnrows = 0;
-        std::vector<int> tmp_histleft(n_unique_labels);
-        std::vector<int> tmp_histright(n_unique_labels);
-
-        std::vector<int> &parent_hist = histstate[parentid];
-        // Compute gini right and gini left value for each bin.
-        for (int j = 0; j < n_unique_labels; j++) {
-          tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
-          tmp_histright[j] = parent_hist[j] - tmp_histleft[j];
-        }
-        for (int j = 0; j < n_unique_labels; j++) {
-          tmp_lnrows += tmp_histleft[j];
-          tmp_rnrows += tmp_histright[j];
-        }
-        int totalrows = tmp_lnrows + tmp_rnrows;
-        if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
-
-        float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows);
-        float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows);
-
-        ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f),
-               "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
-        ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f),
-               "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
-
-        float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
-                         (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
-        float info_gain = flattree[parentid].best_metric_val - impurity;
-
-        // Compute best information col_gain so far
-        if (info_gain > gain[nodeid]) {
-          gain[nodeid] = info_gain;
-          best_bin_id = binid;
-          best_col_id = colid;
-          besthist_left = tmp_histleft;
-          besthist_right = tmp_histright;
-          bestmetric[0] = tmp_gini_left;
-          bestmetric[1] = tmp_gini_right;
-        }
+    d_parent_hist = leveltempmem->d_parent_hist->data();
+    d_child_hist = leveltempmem->d_child_hist->data();
+    d_parent_metric = leveltempmem->d_parent_metric->data();
+    d_child_best_metric = leveltempmem->d_child_best_metric->data();
+    d_outgain = leveltempmem->d_outgain->data();
+    for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+      int nodeid = nodelist[nodecnt];
+      int parentid = nodeid + n_nodes_before;
+      std::vector<int> &parent_hist = histstate[parentid];
+      h_parent_metric[nodecnt] = flattree[parentid].best_metric_val;
+      for (int j = 0; j < n_unique_labels; j++) {
+        h_parent_hist[nodecnt * n_unique_labels + j] = parent_hist[j];
       }
     }
-    split_colidx[nodecnt] = best_col_id;
-    split_binidx[nodecnt] = best_bin_id;
-    histstate[2 * nodeid + n_nodes_before + pow(2, depth)] = besthist_left;
-    histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] = besthist_right;
-    flattree[nodeid + n_nodes_before].colid = best_col_id;
-    flattree[nodeid + n_nodes_before].quesval =
-      quantile[best_col_id * nbins + best_bin_id];
 
-    flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-      bestmetric[0];
-    flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)].best_metric_val =
-      bestmetric[1];
-  }
-  
-  MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
-			 tempmem->stream);
-  MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
+    MLCommon::updateDevice(d_parent_hist, h_parent_hist,
+                           n_nodes * n_unique_labels, tempmem->stream);
+    MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
                            tempmem->stream);
+    int threads = 64;
+    size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
+    get_me_best_split_kernel<<<n_nodes, threads, shmemsz, tempmem->stream>>>(
+      d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
+      n_unique_labels, d_outgain, d_split_colidx, d_split_binidx, d_child_hist,
+      d_child_best_metric);
+    CUDA_CHECK(cudaGetLastError());
+    MLCommon::updateHost(h_child_hist, d_child_hist,
+                         2 * n_nodes * n_unique_labels, tempmem->stream);
+    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
+    MLCommon::updateHost(h_child_best_metric, d_child_best_metric, 2 * n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
+                         tempmem->stream);
+
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+      int nodeid = nodelist[nodecnt];
+      gain[nodeid] = h_outgain[nodecnt];
+      for (int j = 0; j < n_unique_labels; j++) {
+        histstate[2 * nodeid + n_nodes_before + pow(2, depth)][j] =
+          h_child_hist[n_unique_labels * nodecnt * 2 + j];
+        histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)][j] =
+          h_child_hist[n_unique_labels * nodecnt * 2 + j + n_unique_labels];
+      }
+      flattree[nodeid + n_nodes_before].colid = split_colidx[nodecnt];
+      flattree[nodeid + n_nodes_before].quesval =
+        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
+        h_child_best_metric[2 * nodecnt];
+      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
+        .best_metric_val = h_child_best_metric[2 * nodecnt + 1];
+    }
+  } else {
+    MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
+    for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+      std::vector<T> bestmetric(2, 0);
+      int nodeoffset = nodecnt * nbins * n_unique_labels;
+      int nodeid = nodelist[nodecnt];
+      int parentid = nodeid + n_nodes_before;
+      int best_col_id = -1;
+      int best_bin_id = -1;
+      std::vector<int> besthist_left(n_unique_labels);
+      std::vector<int> besthist_right(n_unique_labels);
+
+      for (int colid = 0; colid < ncols; colid++) {
+        int coloffset = colid * nbins * n_unique_labels * n_nodes;
+        for (int binid = 0; binid < nbins; binid++) {
+          int binoffset = binid * n_unique_labels;
+          int tmp_lnrows = 0;
+          int tmp_rnrows = 0;
+          std::vector<int> tmp_histleft(n_unique_labels);
+          std::vector<int> tmp_histright(n_unique_labels);
+
+          std::vector<int> &parent_hist = histstate[parentid];
+          // Compute gini right and gini left value for each bin.
+          for (int j = 0; j < n_unique_labels; j++) {
+            tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
+            tmp_histright[j] = parent_hist[j] - tmp_histleft[j];
+          }
+          for (int j = 0; j < n_unique_labels; j++) {
+            tmp_lnrows += tmp_histleft[j];
+            tmp_rnrows += tmp_histright[j];
+          }
+          int totalrows = tmp_lnrows + tmp_rnrows;
+          if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
+
+          float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows);
+          float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows);
+
+          ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f),
+                 "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
+          ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f),
+                 "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
+
+          float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
+                           (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
+          float info_gain = flattree[parentid].best_metric_val - impurity;
+
+          // Compute best information col_gain so far
+          if (info_gain > gain[nodeid]) {
+            gain[nodeid] = info_gain;
+            best_bin_id = binid;
+            best_col_id = colid;
+            besthist_left = tmp_histleft;
+            besthist_right = tmp_histright;
+            bestmetric[0] = tmp_gini_left;
+            bestmetric[1] = tmp_gini_right;
+          }
+        }
+      }
+      split_colidx[nodecnt] = best_col_id;
+      split_binidx[nodecnt] = best_bin_id;
+      histstate[2 * nodeid + n_nodes_before + pow(2, depth)] = besthist_left;
+      histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
+        besthist_right;
+      flattree[nodeid + n_nodes_before].colid = best_col_id;
+      flattree[nodeid + n_nodes_before].quesval =
+        quantile[best_col_id * nbins + best_bin_id];
+
+      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
+        bestmetric[0];
+      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
+        .best_metric_val = bestmetric[1];
+    }
+    MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
+                           tempmem->stream);
+    MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
+                           tempmem->stream);
+  }
 }
 
 template <typename T>
 void make_level_split(T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes,
-                      unsigned int *split_colidx, unsigned int *split_binidx,
+                      int *split_colidx, int *split_binidx,
                       const unsigned int *new_node_flags, unsigned int *flags,
                       const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int threads = 256;

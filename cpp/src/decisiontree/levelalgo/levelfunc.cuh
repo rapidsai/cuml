@@ -51,10 +51,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   //Setup pointers
   unsigned int* d_histogram = leveltempmem->d_histogram->data();
   unsigned int* h_histogram = leveltempmem->h_histogram->data();
-  unsigned int* h_split_binidx = leveltempmem->h_split_binidx->data();
-  unsigned int* d_split_binidx = leveltempmem->d_split_binidx->data();
-  unsigned int* h_split_colidx = leveltempmem->h_split_colidx->data();
-  unsigned int* d_split_colidx = leveltempmem->d_split_colidx->data();
+  int* h_split_binidx = leveltempmem->h_split_binidx->data();
+  int* d_split_binidx = leveltempmem->d_split_binidx->data();
+  int* h_split_colidx = leveltempmem->h_split_colidx->data();
+  int* d_split_colidx = leveltempmem->d_split_colidx->data();
   unsigned int* h_new_node_flags = leveltempmem->h_new_node_flags->data();
   unsigned int* d_new_node_flags = leveltempmem->d_new_node_flags->data();
 
@@ -69,7 +69,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
     get_me_best_split<T, GiniFunctor>(
       h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
       depth, infogain, histstate, flattree, nodelist, h_split_colidx,
-      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+      h_split_binidx, d_split_colidx, d_split_binidx, tempmem, leveltempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
               n_nodes_nextitr, nodelist);

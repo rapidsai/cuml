@@ -164,8 +164,8 @@ __global__ void get_me_hist_kernel_global(
 template <typename T>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ quantile,
-  const unsigned int* __restrict__ split_col_index,
-  const unsigned int* __restrict__ split_bin_index, const int nrows,
+  const int* __restrict__ split_col_index,
+  const int* __restrict__ split_bin_index, const int nrows,
   const int ncols, const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
@@ -233,8 +233,8 @@ __global__ void get_me_best_split_kernel(
   const unsigned int* __restrict__ parent_hist,
   const float* __restrict__ parent_metric, const int nbins, const int ncols,
   const int n_nodes, const int n_unique_labels, float* outgain,
-  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
-  float* child_best_metric) {
+  int* best_col_id, int* best_bin_id,
+  unsigned int* child_hist, float* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
@@ -255,13 +255,13 @@ __global__ void get_me_best_split_kernel(
   const unsigned int& nodeid = blockIdx.x;
   int nodeoffset = nodeid * nbins * n_unique_labels;
   float parent_metric_local = parent_metric[nodeid];
-  
+
   for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
     parent_hist_local[j] = parent_hist[nodeid * n_unique_labels + j];
   }
 
   __syncthreads();
-  
+
   GainIdxPair tid_pair;
   tid_pair.gain = 0.0;
   tid_pair.idx = -1;
@@ -314,13 +314,13 @@ __global__ void get_me_best_split_kernel(
     atomicAdd(&best_nrows[1], val_right);
   }
   __syncthreads();
-
+  
   for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
     child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
   }
 
   if (threadIdx.x < 2) {
     child_best_metric[2 * nodeid + threadIdx.x] =
-      gini_dev(best_split_hist, best_nrows[threadIdx.x], n_unique_labels);
+      gini_dev(&best_split_hist[threadIdx.x * n_unique_labels], best_nrows[threadIdx.x], n_unique_labels);
   }
 }
