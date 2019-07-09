@@ -2,12 +2,23 @@
 
 ## New Features
 
+- PR #697: Silhouette Score metric ml-prim
+- PR #674: KL Divergence metric ml-prim
+- PR #787: homogeneity, completeness and v-measure metrics ml-prim
+- PR #711: Mutual Information metric ml-prim
+- PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #829: C++: enable nvtx ranges
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
+
+- PR #807: Added development conda yml files
 
 ## Bug Fixes
 
+- PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 
 # cuML 0.8.0 (27 June 2019)
@@ -90,6 +101,7 @@
 - PR #784: Fix jit of shuffle_idx python function
 - PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
+- PR #806: Add a seed for sklearn model in RF test file
 
 # cuML 0.7.0 (10 May 2019)
 
