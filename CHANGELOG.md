@@ -8,11 +8,19 @@
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #789: prims: sampling without replacement
+- PR #813: prims: Col major istance prim
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #829: C++: enable nvtx ranges
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
+
+- PR #807: Added development conda yml files
 
 ## Bug Fixes
 
+- PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 
 # cuML 0.8.0 (27 June 2019)

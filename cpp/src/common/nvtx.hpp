@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <distance/distance.h>
-#include <common/cumlHandle.hpp>
-
 namespace ML {
-namespace Metrics {
 
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
-double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors);
-}
-}  // namespace ML
+/**
+ * @brief Push a named nvtx range
+ * @param name range name
+ */
+void PUSH_RANGE(const char *name);
+
+/** Pop the latest range */
+void POP_RANGE();
+
+}  // end namespace ML
