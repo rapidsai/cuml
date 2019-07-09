@@ -23,4 +23,13 @@ enum SPLIT_ALGO {
   GLOBAL_QUANTILE,
   SPLIT_ALGO_END,
 };
+
+enum CRITERION {
+  GINI,
+  ENTROPY,
+  MSE,
+  MAE,
+  CRITERION_END,
 };
+
+};  // namespace ML
