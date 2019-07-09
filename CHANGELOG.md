@@ -43,6 +43,7 @@
 - PR #673: prims: reduce cols by key primitive
 - PR #810: dask-cuml merged into cuml
 - PR #812: Adding kmeans to dask.cuml
+- PR #834: Just making CI happy
 
 ## Improvements
 
