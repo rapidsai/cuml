@@ -27,7 +27,7 @@ import cuml
 
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, row_matrix
 
 from cython.operator cimport dereference as deref
 
@@ -203,13 +203,66 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
+        self.n_indices = 0
         self.sizes = None
-        self.inputs = None
+        self.input = None
 
     def __del__(self):
-        if self.sizes is not None:
-            free(<int*><size_t>self.sizes)
-            free(<float**><size_t>self.inputs)
+
+        # Explicitly free these since they were allocated
+        # on the heap.
+        if self.n_indices > 0:
+            if self.sizes is not None:
+                free(<int*><size_t>self.sizes)
+            if self.input is not None:
+                free(<float**><size_t>self.input)
+            self.n_indices = 0
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        if self.n_indices > 1:
+            print("n_indices: " + str(self.n_indices))
+            raise Exception("Serialization of multi-GPU models is "
+                            "not yet supported")
+
+        del state['handle']
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            del state["sizes"]
+            del state["input"]
+
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        cdef float** input_arr
+        cdef int* sizes_arr
+
+        cdef uintptr_t x_ctype
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['X_m'] = row_matrix(state['X_m'])
+
+            X_m = state["X_m"]
+
+            input_arr = <float**> malloc(sizeof(float *))
+            sizes_arr = <int*> malloc(sizeof(int))
+
+            x_ctype = X_m.device_ctypes_pointer.value
+
+            sizes_arr[0] = <int>len(X_m)
+            input_arr[0] = <float*>x_ctype
+
+            self.input = <size_t>input_arr
+            self.sizes = <size_t>sizes_arr
+
+        self.__dict__.update(state)
 
     def fit(self, X):
         """
@@ -222,6 +275,9 @@ class NearestNeighbors(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+
+        self.__del__()
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -235,7 +291,7 @@ class NearestNeighbors(Base):
         cdef float** input_arr
         cdef int* sizes_arr
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) and self.n_gpus > 1:
 
             if X.dtype != np.float32:
                 if self._should_downcast:
@@ -304,10 +360,8 @@ class NearestNeighbors(Base):
 
             self.n_indices = 1
 
-            inp = <uintptr_t>deref(input_arr)
-
-            self.sizes = <size_t>sizes_arr
             self.input = <size_t>input_arr
+            self.sizes = <size_t>sizes_arr
 
         return self
 
@@ -325,6 +379,8 @@ class NearestNeighbors(Base):
         """
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        self.__del__()
 
         cdef float** input_arr = \
             <float**> malloc(len(alloc_info) * sizeof(float*))

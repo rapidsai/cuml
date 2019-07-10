@@ -60,8 +60,10 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=8, split_algo=split_algo, min_rows_per_node=2,
-                       n_estimators=30, handle=handle, max_leaves=-1)
+                       n_bins=8, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=-1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
@@ -70,7 +72,8 @@ def test_rf_predict_numpy(datatype, use_handle, split_algo,
         # sklearn random forest classification model
         # initialization, fit and predict
         sk_model = skrfc(n_estimators=40, max_depth=None,
-                         min_samples_split=2, max_features=1.0)
+                         min_samples_split=2, max_features=1.0,
+                         random_state=10)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_predict)
