@@ -6,7 +6,7 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       const int nrows, const int ncols,
                       const int n_unique_labels, const int nbins,
                       const int n_nodes, const int maxnodes,
-                      const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+                      LevelTemporaryMemory<T>* tempmem,
                       unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
@@ -37,9 +37,8 @@ void get_me_best_split(
   std::vector<float> &gain, std::vector<std::vector<int>> &histstate,
   std::vector<FlatTreeNode<T>> &flattree, std::vector<int> &nodelist,
   int *split_colidx, int *split_binidx, int *d_split_colidx,
-  int *d_split_binidx, const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-  LevelTemporaryMemory<T> *leveltempmem) {
-  T *quantile = tempmem->h_quantile->data();
+  int *d_split_binidx, LevelTemporaryMemory<T> *leveltempmem) {
+  T *quantile = leveltempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
@@ -87,28 +86,28 @@ void get_me_best_split(
     }
 
     MLCommon::updateDevice(d_parent_hist, h_parent_hist,
-                           n_nodes * n_unique_labels, tempmem->stream);
+                           n_nodes * n_unique_labels, leveltempmem->stream);
     MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
-                           tempmem->stream);
+                           leveltempmem->stream);
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
     get_me_best_split_kernel<T, GiniDevFunctor>
-      <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
+      <<<n_nodes, threads, shmemsz, leveltempmem->stream>>>(
         d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
         n_unique_labels, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
     MLCommon::updateHost(h_child_hist, d_child_hist,
-                         2 * n_nodes * n_unique_labels, tempmem->stream);
-    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
+                         2 * n_nodes * n_unique_labels, leveltempmem->stream);
+    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, leveltempmem->stream);
     MLCommon::updateHost(h_child_best_metric, d_child_best_metric, 2 * n_nodes,
-                         tempmem->stream);
+                         leveltempmem->stream);
     MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
-                         tempmem->stream);
+                         leveltempmem->stream);
     MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
-                         tempmem->stream);
+                         leveltempmem->stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    CUDA_CHECK(cudaStreamSynchronize(leveltempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       int nodeid = nodelist[nodecnt];
       gain[nodeid] = h_outgain[nodecnt];
@@ -127,8 +126,8 @@ void get_me_best_split(
         .best_metric_val = h_child_best_metric[2 * nodecnt + 1];
     }
   } else {
-    MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    MLCommon::updateHost(hist, d_hist, histcount, leveltempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(leveltempmem->stream));
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       std::vector<T> bestmetric(2, 0);
@@ -201,9 +200,9 @@ void get_me_best_split(
         .best_metric_val = bestmetric[1];
     }
     MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
-                           tempmem->stream);
+                           leveltempmem->stream);
     MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
-                           tempmem->stream);
+                           leveltempmem->stream);
   }
 }
 
@@ -212,7 +211,7 @@ void make_level_split(T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes, int *split_colidx,
                       int *split_binidx, const unsigned int *new_node_flags,
                       unsigned int *flags,
-                      const std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+                      LevelTemporaryMemory<T>* tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(

@@ -18,6 +18,8 @@ struct LevelTemporaryMemory {
   MLCommon::host_buffer<float> *h_outgain;
   MLCommon::device_buffer<float> *d_outgain;
   MLCommon::device_buffer<T> *d_parent_metric, *d_child_best_metric;
+  MLCommon::device_buffer<T> *d_quantile;
+  MLCommon::host_buffer<T> *h_quantile;
 
   int max_nodes = 0;
   LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
@@ -70,6 +72,11 @@ struct LevelTemporaryMemory {
     d_outgain = new MLCommon::device_buffer<float>(handle.getDeviceAllocator(),
                                                    stream, maxnodes);
 
+    h_quantile = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream,
+                                              nbins * ncols);
+    d_quantile = new MLCommon::device_buffer<T>(
+      handle.getDeviceAllocator(), stream, nbins * ncols);
+    
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
     size_t max_shared_mem = prop.sharedMemPerBlock;
@@ -97,7 +104,9 @@ struct LevelTemporaryMemory {
     d_child_best_metric->release(stream);
     d_outgain->release(stream);
     d_flags->release(stream);
-
+    h_quantile->release(stream);
+    d_quantile->release(stream);
+      
     delete h_new_node_flags;
     delete d_new_node_flags;
     delete d_histogram;
@@ -117,5 +126,7 @@ struct LevelTemporaryMemory {
     delete d_child_best_metric;
     delete d_outgain;
     delete d_flags;
+    delete h_quantile;
+    delete d_quantile;
   }
 };

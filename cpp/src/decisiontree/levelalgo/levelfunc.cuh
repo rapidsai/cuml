@@ -22,25 +22,33 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   int n_sampled_rows, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, int maxdepth,
-  const std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-  LevelTemporaryMemory<T>* leveltempmem) {
+  LevelTemporaryMemory<T>* tempmem) {
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
 
-  MetricInfo<T> split_info;
-  gini<T, GiniFunctor>(labels, n_sampled_rows, tempmem, split_info,
-                       n_unique_labels);
-
-  unsigned int* flagsptr = leveltempmem->d_flags->data();
+  gini_kernel<<<MLCommon::ceildiv(nrows, 128), 128, sizeof(int) * n_unique_labels,
+                tempmem->stream>>>(labels, nrows, n_unique_labels,
+                                   (int*)tempmem->d_parent_hist->data());
+  CUDA_CHECK(cudaGetLastError());
+  MLCommon::updateHost(tempmem->h_parent_hist->data(),
+                       tempmem->d_parent_hist->data(), n_unique_labels,
+                       tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  std::vector<int> histvec;
+  histvec.assign(tempmem->h_parent_hist->data(),
+                 tempmem->h_parent_hist->data() + n_unique_labels);
+  T initial_metric = GiniFunctor::exec(histvec, nrows);
+  
+  unsigned int* flagsptr = tempmem->d_flags->data();
   CUDA_CHECK(cudaMemsetAsync(flagsptr, 0, nrows * sizeof(unsigned int),
                              tempmem->stream));
 
   std::vector<std::vector<int>> histstate;
-  histstate.push_back(split_info.hist);
+  histstate.push_back(histvec);
   std::vector<FlatTreeNode<T>> flattree;
   FlatTreeNode<T> node;
-  node.best_metric_val = split_info.best_metric;
+  node.best_metric_val = initial_metric;
   flattree.push_back(node);
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
@@ -49,27 +57,26 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   //this can be depth loop
 
   //Setup pointers
-  unsigned int* d_histogram = leveltempmem->d_histogram->data();
-  unsigned int* h_histogram = leveltempmem->h_histogram->data();
-  int* h_split_binidx = leveltempmem->h_split_binidx->data();
-  int* d_split_binidx = leveltempmem->d_split_binidx->data();
-  int* h_split_colidx = leveltempmem->h_split_colidx->data();
-  int* d_split_colidx = leveltempmem->d_split_colidx->data();
-  unsigned int* h_new_node_flags = leveltempmem->h_new_node_flags->data();
-  unsigned int* d_new_node_flags = leveltempmem->d_new_node_flags->data();
+  unsigned int* d_histogram = tempmem->d_histogram->data();
+  unsigned int* h_histogram = tempmem->h_histogram->data();
+  int* h_split_binidx = tempmem->h_split_binidx->data();
+  int* d_split_binidx = tempmem->d_split_binidx->data();
+  int* h_split_colidx = tempmem->h_split_colidx->data();
+  int* d_split_colidx = tempmem->d_split_colidx->data();
+  unsigned int* h_new_node_flags = tempmem->h_new_node_flags->data();
+  unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
 
   for (int depth = 0; depth < maxdepth; depth++) {
     n_nodes = n_nodes_nextitr;
     //End allocation and setups
     get_me_histogram(data, labels, flagsptr, nrows, ncols, n_unique_labels,
-                     nbins, n_nodes, leveltempmem->max_nodes, tempmem,
-                     d_histogram);
+                     nbins, n_nodes, tempmem->max_nodes, tempmem, d_histogram);
 
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor>(
       h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
       depth, infogain, histstate, flattree, nodelist, h_split_colidx,
-      h_split_binidx, d_split_colidx, d_split_binidx, tempmem, leveltempmem);
+      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
               n_nodes_nextitr, nodelist);
