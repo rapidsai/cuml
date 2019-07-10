@@ -14,7 +14,7 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  if (n_nodes == node_batch) {
+  if ((n_nodes == node_batch) && (blocks < 65536)) {
     get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
       tempmem->d_quantile->data(), histout);

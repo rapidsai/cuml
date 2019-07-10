@@ -20,7 +20,7 @@ struct LevelTemporaryMemory {
   MLCommon::device_buffer<T> *d_parent_metric, *d_child_best_metric;
   MLCommon::device_buffer<T> *d_quantile;
   MLCommon::host_buffer<T> *h_quantile;
-
+  
   int max_nodes = 0;
   LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
                        const int ncols, const int nbins,
