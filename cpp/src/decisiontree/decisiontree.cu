@@ -247,6 +247,12 @@ void DecisionTreeBase<T, L>::plant(
 
   LevelTemporaryMemory<T> *leveltempmem = new LevelTemporaryMemory<T>(
     handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
+  MLCommon::updateHost(leveltempmem->h_quantile->data(),
+                       tempmem[0]->d_quantile->data(), nbins * ncols,
+                       tempmem[0]->stream);
+  MLCommon::updateDevice(leveltempmem->d_quantile->data(),
+                         leveltempmem->h_quantile->data(), nbins * ncols,
+                         tempmem[0]->stream);
 
   MLCommon::TimerCPU timer;
   if (levelalgo) {
@@ -484,7 +490,7 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
   LevelTemporaryMemory<T> *leveltempmem) {
   return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
                         ncols, this->n_unique_labels, this->nbins,
-                        this->treedepth, this->tempmem[0], leveltempmem);
+                        this->treedepth, leveltempmem);
 }
 
 template <typename T>
