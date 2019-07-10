@@ -27,9 +27,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
 
-  gini_kernel<<<MLCommon::ceildiv(nrows, 128), 128, sizeof(int) * n_unique_labels,
-                tempmem->stream>>>(labels, nrows, n_unique_labels,
-                                   (int*)tempmem->d_parent_hist->data());
+  gini_kernel<<<MLCommon::ceildiv(nrows, 128), 128,
+                sizeof(int) * n_unique_labels, tempmem->stream>>>(
+    labels, nrows, n_unique_labels, (int*)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
   MLCommon::updateHost(tempmem->h_parent_hist->data(),
                        tempmem->d_parent_hist->data(), n_unique_labels,
@@ -39,17 +39,27 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
   histvec.assign(tempmem->h_parent_hist->data(),
                  tempmem->h_parent_hist->data() + n_unique_labels);
   T initial_metric = GiniFunctor::exec(histvec, nrows);
-  
+
   unsigned int* flagsptr = tempmem->d_flags->data();
   CUDA_CHECK(cudaMemsetAsync(flagsptr, 0, nrows * sizeof(unsigned int),
                              tempmem->stream));
 
+  size_t total_nodes = 0;
+  for (int i = 0; i <= maxdepth; i++) {
+    total_nodes += pow(2, i);
+  }
   std::vector<std::vector<int>> histstate;
-  histstate.push_back(histvec);
+  histstate.resize(total_nodes);
+  for (int i = 0; i < total_nodes; i++) {
+    std::vector<int> tmp(n_unique_labels, 0);
+    histstate[i] = tmp;
+  }
+  histstate[0] = histvec;
   std::vector<FlatTreeNode<T>> flattree;
+  flattree.resize(total_nodes);
   FlatTreeNode<T> node;
   node.best_metric_val = initial_metric;
-  flattree.push_back(node);
+  flattree[0] = node;
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
   std::vector<int> nodelist;

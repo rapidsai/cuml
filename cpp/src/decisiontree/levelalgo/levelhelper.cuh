@@ -6,8 +6,7 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       const int nrows, const int ncols,
                       const int n_unique_labels, const int nbins,
                       const int n_nodes, const int maxnodes,
-                      LevelTemporaryMemory<T>* tempmem,
-                      unsigned int *histout) {
+                      LevelTemporaryMemory<T> *tempmem, unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
@@ -47,16 +46,6 @@ void get_me_best_split(
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
     n_nodes_before += pow(2, i);
-  }
-
-  for (int i = 0; i < pow(2, depth); i++) {
-    FlatTreeNode<T> leftnode, rightnode;
-    std::vector<int> tmp_histleft(n_unique_labels, 0);
-    std::vector<int> tmp_histright(n_unique_labels, 0);
-    flattree.push_back(leftnode);
-    flattree.push_back(rightnode);
-    histstate.push_back(tmp_histleft);
-    histstate.push_back(tmp_histright);
   }
   if (use_gpu_flag) {
     //GPU based best split
@@ -210,8 +199,7 @@ template <typename T>
 void make_level_split(T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes, int *split_colidx,
                       int *split_binidx, const unsigned int *new_node_flags,
-                      unsigned int *flags,
-                      LevelTemporaryMemory<T>* tempmem) {
+                      unsigned int *flags, LevelTemporaryMemory<T> *tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(
