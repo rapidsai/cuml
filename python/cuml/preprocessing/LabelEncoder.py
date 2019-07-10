@@ -234,8 +234,4 @@ class LabelEncoder(object):
         reverted = cudf.Series(self._cats.gather_strings(
             y.data.mem.device_ctypes_pointer.value, len(y)))
 
-        # convert to original datatype?
-        # if y.dtype != self._dtype:
-        #     y = y.astype(self._dtype)
-
         return reverted
