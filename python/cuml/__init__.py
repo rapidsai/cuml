@@ -26,6 +26,8 @@ from cuml.decomposition.tsvd import TruncatedSVD
 
 from cuml.filter.kalman_filter import KalmanFilter
 
+from cuml.holtwinters.holtwinters import HoltWinters
+
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
