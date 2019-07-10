@@ -315,7 +315,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/Aion.cpp
     src/holtwinters/aion_utils.cpp
     src/holtwinters/aion_math.cu
-    src/holtwinters/holtwinters.cpp
     src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
@@ -338,8 +337,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     gpufaisslib
-    lapacke
-    cblas
     faisslib)
 
   if(OPENMP_FOUND)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,6 @@ enum AionStatus {
 
 enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
 
-enum ComputeMode { CPU, GPU };
-
 enum OptimCriterion {
   OPTIM_BFGS_ITER_LIMIT = 0,
   OPTIM_MIN_PARAM_DIFF = 1,
@@ -77,8 +75,7 @@ AionStatus AionInit();
 AionStatus AionDestroy();
 
 template <typename Dtype>
-AionStatus AionTranspose(const Dtype *data_in, int m, int n, Dtype *data_out,
-                         ComputeMode mode = GPU);
+AionStatus AionTranspose(const Dtype *data_in, int m, int n, Dtype *data_out);
 
 AionStatus HoltWintersBufferSize(int n, int batch_size, int frequency,
                                  bool use_beta, bool use_gamma,
@@ -92,8 +89,7 @@ AionStatus HoltWintersDecompose(const Dtype *ts, int n, int batch_size,
                                 int frequency, Dtype *start_level,
                                 Dtype *start_trend, Dtype *start_season,
                                 int start_periods,
-                                SeasonalType seasonal = ADDITIVE,
-                                ComputeMode mode = GPU);
+                                SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 AionStatus HoltWintersOptim(
@@ -102,8 +98,7 @@ AionStatus HoltWintersOptim(
   Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
   bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
   Dtype *error, OptimCriterion *optim_result,
-  OptimParams<Dtype> *optim_params = nullptr, SeasonalType seasonal = ADDITIVE,
-  ComputeMode mode = GPU);
+  OptimParams<Dtype> *optim_params = nullptr, SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 AionStatus HoltWintersEval(const Dtype *ts, int n, int batch_size,
@@ -112,16 +107,14 @@ AionStatus HoltWintersEval(const Dtype *ts, int n, int batch_size,
                            const Dtype *alpha, const Dtype *beta,
                            const Dtype *gamma, Dtype *level, Dtype *trend,
                            Dtype *season, Dtype *xhat, Dtype *error,
-                           SeasonalType seasonal = ADDITIVE,
-                           ComputeMode mode = GPU);
+                           SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 AionStatus HoltWintersForecast(Dtype *forecast, int h, int batch_size,
                                int frequency, const Dtype *level_coef,
                                const Dtype *trend_coef,
                                const Dtype *season_coef,
-                               SeasonalType seasonal = ADDITIVE,
-                               ComputeMode mode = GPU);
+                               SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 void HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
