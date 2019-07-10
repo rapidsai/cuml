@@ -80,16 +80,13 @@ __global__ void get_me_hist_kernel(
   const int n_unique_labels, const int nbins, const int n_nodes,
   const T* __restrict__ quantile, unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
-  unsigned int local_flag;
-  int local_label;
+  unsigned int local_flag = LEAF;
+  int local_label = -1;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tid < nrows) {
     local_flag = flags[tid];
     local_label = labels[tid];
-  } else {
-    local_flag = LEAF;
-    local_label = -1;
   }
 
   for (unsigned int colid = 0; colid < ncols; colid++) {
@@ -102,7 +99,6 @@ __global__ void get_me_hist_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-      //Loop over nbins
 
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
@@ -133,9 +129,9 @@ __global__ void get_me_hist_kernel_global(
   const T* __restrict__ quantile, unsigned int* histout) {
   unsigned int local_flag;
   int local_label;
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tid < nrows) {
+  for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
     local_flag = flags[tid];
     local_label = labels[tid];
 
@@ -169,31 +165,33 @@ __global__ void split_level_kernel(
   const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
-  unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag;
 
-  if (tid < nrows) {
-    local_flag = flags[tid];
-  } else {
-    local_flag = LEAF;
-  }
-
-  if (local_flag != LEAF) {
-    unsigned int local_leaf_flag = new_node_flags[local_flag];
-    if (local_leaf_flag != LEAF) {
-      int colidx = split_col_index[local_flag];
-      T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
-      T local_data = data[colidx * nrows + tid];
-      //The inverse comparision here to push right instead of left
-      if (local_data <= quesval) {
-        local_flag = local_leaf_flag << 1;
-      } else {
-        local_flag = (local_leaf_flag << 1) | PUSHRIGHT;
-      }
+  for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
+    if (tid < nrows) {
+      local_flag = flags[tid];
     } else {
       local_flag = LEAF;
     }
-    flags[tid] = local_flag;
+
+    if (local_flag != LEAF) {
+      unsigned int local_leaf_flag = new_node_flags[local_flag];
+      if (local_leaf_flag != LEAF) {
+        int colidx = split_col_index[local_flag];
+        T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
+        T local_data = data[colidx * nrows + tid];
+        //The inverse comparision here to push right instead of left
+        if (local_data <= quesval) {
+          local_flag = local_leaf_flag << 1;
+        } else {
+          local_flag = (local_leaf_flag << 1) | PUSHRIGHT;
+        }
+      } else {
+        local_flag = LEAF;
+      }
+      flags[tid] = local_flag;
+    }
   }
 }
 
@@ -267,79 +265,84 @@ __global__ void get_me_best_split_kernel(
   unsigned int* parent_hist_local =
     &shmem_split_eval[2 * n_unique_labels * (blockDim.x + 1)];
 
-  if (threadIdx.x < 2) {
-    best_nrows[threadIdx.x] = 0;
-  }
-  const unsigned int& nodeid = blockIdx.x;
-  int nodeoffset = nodeid * nbins * n_unique_labels;
-  float parent_metric_local = parent_metric[nodeid];
-
-  for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
-    parent_hist_local[j] = parent_hist[nodeid * n_unique_labels + j];
-  }
-
-  __syncthreads();
-
-  GainIdxPair tid_pair;
-  tid_pair.gain = 0.0;
-  tid_pair.idx = -1;
-  for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
-    int coloffset = ((int)(id / nbins)) * nbins * n_unique_labels * n_nodes;
-    int binoffset = (id % nbins) * n_unique_labels;
-    int tmp_lnrows = 0;
-    int tmp_rnrows = 0;
-    for (int j = 0; j < n_unique_labels; j++) {
-      tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
-      tmp_lnrows += tmp_histleft[j];
-      tmp_histright[j] = parent_hist_local[j] - tmp_histleft[j];
-      tmp_rnrows += tmp_histright[j];
+  for (unsigned int nodeid = blockIdx.x; nodeid < n_nodes;
+       nodeid += gridDim.x) {
+    if (threadIdx.x < 2) {
+      best_nrows[threadIdx.x] = 0;
     }
 
-    int totalrows = tmp_lnrows + tmp_rnrows;
-    if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
+    int nodeoffset = nodeid * nbins * n_unique_labels;
+    float parent_metric_local = parent_metric[nodeid];
 
-    float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows, n_unique_labels);
-    float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows, n_unique_labels);
-
-    float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
-                     (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
-    float info_gain = parent_metric_local - impurity;
-    if (info_gain > tid_pair.gain) {
-      tid_pair.gain = info_gain;
-      tid_pair.idx = id;
+    for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
+      parent_hist_local[j] = parent_hist[nodeid * n_unique_labels + j];
     }
-  }
-  __syncthreads();
-  GainIdxPair ans =
-    BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
-  __syncthreads();
 
-  if (threadIdx.x == 0) {
-    outgain[nodeid] = ans.gain;
-    best_col_id[nodeid] = (int)(ans.idx / nbins);
-    best_bin_id[nodeid] = ans.idx % nbins;
-  }
+    __syncthreads();
 
-  int coloffset = ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
-  int binoffset = (ans.idx % nbins) * n_unique_labels;
+    GainIdxPair tid_pair;
+    tid_pair.gain = 0.0;
+    tid_pair.idx = -1;
+    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+      int coloffset = ((int)(id / nbins)) * nbins * n_unique_labels * n_nodes;
+      int binoffset = (id % nbins) * n_unique_labels;
+      int tmp_lnrows = 0;
+      int tmp_rnrows = 0;
+      for (int j = 0; j < n_unique_labels; j++) {
+        tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
+        tmp_lnrows += tmp_histleft[j];
+        tmp_histright[j] = parent_hist_local[j] - tmp_histleft[j];
+        tmp_rnrows += tmp_histright[j];
+      }
 
-  for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
-    unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
-    unsigned int val_right = parent_hist_local[j] - val_left;
-    best_split_hist[j] = val_left;
-    atomicAdd(&best_nrows[0], val_left);
-    best_split_hist[j + n_unique_labels] = val_right;
-    atomicAdd(&best_nrows[1], val_right);
-  }
-  __syncthreads();
+      int totalrows = tmp_lnrows + tmp_rnrows;
+      if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
 
-  for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
-    child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
-  }
+      float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows, n_unique_labels);
+      float tmp_gini_right =
+        F::exec(tmp_histright, tmp_rnrows, n_unique_labels);
 
-  if (threadIdx.x < 2) {
-    child_best_metric[2 * nodeid + threadIdx.x] =
-      F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
-              best_nrows[threadIdx.x], n_unique_labels);
+      float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
+                       (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
+      float info_gain = parent_metric_local - impurity;
+      if (info_gain > tid_pair.gain) {
+        tid_pair.gain = info_gain;
+        tid_pair.idx = id;
+      }
+    }
+    __syncthreads();
+    GainIdxPair ans =
+      BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+      outgain[nodeid] = ans.gain;
+      best_col_id[nodeid] = (int)(ans.idx / nbins);
+      best_bin_id[nodeid] = ans.idx % nbins;
+    }
+
+    int coloffset =
+      ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
+    int binoffset = (ans.idx % nbins) * n_unique_labels;
+
+    for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
+      unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
+      unsigned int val_right = parent_hist_local[j] - val_left;
+      best_split_hist[j] = val_left;
+      atomicAdd(&best_nrows[0], val_left);
+      best_split_hist[j + n_unique_labels] = val_right;
+      atomicAdd(&best_nrows[1], val_right);
+    }
+    __syncthreads();
+
+    for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
+      child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
+    }
+
+    if (threadIdx.x < 2) {
+      child_best_metric[2 * nodeid + threadIdx.x] =
+        F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
+                best_nrows[threadIdx.x], n_unique_labels);
+    }
   }
 }

@@ -105,3 +105,11 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   }
   return go_recursive(flattree);
 }
+
+template <typename T>
+ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
+  const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
+  const int n_sampled_rows, const int nrows, const int ncols, const int nbins,
+  int maxdepth, LevelTemporaryMemory<T>* tempmem) {
+  return (new ML::DecisionTree::TreeNode<T, T>());
+}
