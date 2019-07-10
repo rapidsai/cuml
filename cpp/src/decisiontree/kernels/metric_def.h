@@ -15,11 +15,13 @@
  */
 
 #pragma once
+#include <math.h>
 #include <utils.h>
 #include <vector>
+#include "../memory.h"
 
 template <class T>
-struct GiniQuestion {
+struct MetricQuestion {
   int bootstrapped_column;
   int original_column;
   T value;
@@ -45,8 +47,30 @@ struct GiniQuestion {
                            T cfg_value);
 };
 
-struct GiniInfo {
-  float best_gini = -1.0f;
+template <class T>
+struct MetricInfo {
+  float best_metric = -1.0f;
+  T predict = 0;
   std::vector<int>
-    hist;  //Element hist[i] stores # labels with label i for a given node.
+    hist;  //Element hist[i] stores # labels with label i for a given node. for classification
+};
+
+struct SquareFunctor {
+  template <typename T>
+  static __device__ __forceinline__ T exec(T x);
+};
+
+struct AbsFunctor {
+  template <typename T>
+  static __device__ __forceinline__ T exec(T x);
+};
+
+struct GiniFunctor {
+  static float exec(std::vector<int>& hist, int nrows);
+  static float max_val(int nclass);
+};
+
+struct EntropyFunctor {
+  static float exec(std::vector<int>& hist, int nrows);
+  static float max_val(int nclass);
 };
