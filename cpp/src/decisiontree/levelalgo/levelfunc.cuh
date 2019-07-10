@@ -83,7 +83,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
                      nbins, n_nodes, tempmem->max_nodes, tempmem, d_histogram);
 
     std::vector<float> infogain;
-    get_me_best_split<T, GiniFunctor>(
+    get_me_best_split<T, GiniFunctor, GiniDevFunctor>(
       h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
       depth, infogain, histstate, flattree, nodelist, h_split_colidx,
       h_split_binidx, d_split_colidx, d_split_binidx, tempmem);

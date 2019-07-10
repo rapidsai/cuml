@@ -28,7 +28,7 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   }
   CUDA_CHECK(cudaGetLastError());
 }
-template <typename T, typename F>
+template <typename T, typename F, typename DF>
 void get_me_best_split(
   unsigned int *hist, unsigned int *d_hist,
   const std::vector<unsigned int> &colselector, const int nbins,
@@ -80,7 +80,7 @@ void get_me_best_split(
                            leveltempmem->stream);
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
-    get_me_best_split_kernel<T, GiniDevFunctor>
+    get_me_best_split_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, leveltempmem->stream>>>(
         d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
         n_unique_labels, d_outgain, d_split_colidx, d_split_binidx,
