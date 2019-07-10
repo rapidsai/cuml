@@ -18,7 +18,7 @@ struct FlatTreeNode {
 #include "levelmem.cuh"
 
 template <typename T>
-ML::DecisionTree::TreeNode<T, int>* grow_deep_tree(
+ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   int n_sampled_rows, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, int maxdepth,
