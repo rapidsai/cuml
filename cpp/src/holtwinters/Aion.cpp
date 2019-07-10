@@ -1,50 +1,17 @@
 /*
- * Copyright 1993-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
- * NOTICE TO LICENSEE:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This source code and/or documentation ("Licensed Deliverables") are
- * subject to NVIDIA intellectual property rights under U.S. and
- * international Copyright laws.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * These Licensed Deliverables contained herein is PROPRIETARY and
- * CONFIDENTIAL to NVIDIA and is being provided under the terms and
- * conditions of a form of NVIDIA software license agreement by and
- * between NVIDIA and Licensee ("License Agreement") or electronically
- * accepted by Licensee.  Notwithstanding any terms or conditions to
- * the contrary in the License Agreement, reproduction or disclosure
- * of the Licensed Deliverables to any third party without the express
- * written consent of NVIDIA is prohibited.
- *
- * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
- * LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
- * SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
- * PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
- * NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
- * DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
- * NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
- * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
- * LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
- * SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
- * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
- * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
- * OF THESE LICENSED DELIVERABLES.
- *
- * U.S. Government End Users.  These Licensed Deliverables are a
- * "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
- * 1995), consisting of "commercial computer software" and "commercial
- * computer software documentation" as such terms are used in 48
- * C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
- * only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
- * 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
- * U.S. Government End Users acquire the Licensed Deliverables with
- * only those rights set forth herein.
- *
- * Any use of the Licensed Deliverables in individual and commercial
- * software must include, in the user documentation and internal
- * comments to the code, the above Disclaimer and U.S. Government End
- * Users Notice.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #include <cuda_runtime.h>
@@ -69,17 +36,11 @@ aion::AionStatus aion::AionDestroy() {
 
 template <typename Dtype>
 aion::AionStatus aion::AionTranspose(const Dtype *data_in, int m, int n,
-                                     Dtype *data_out, ComputeMode mode) {
+                                     Dtype *data_out) {
   if (!data_in || !data_out || n < 1 || m < 1)
     return aion::AionStatus::AION_INVALID_VALUE;
 
-  if (mode == aion::ComputeMode::CPU) {
-    return transpose_cpu(data_in, m, n, data_out);
-  } else if (mode == aion::ComputeMode::GPU) {
-    return transpose_gpu(data_in, m, n, data_out);
-  } else {
-    return aion::AionStatus::AION_INVALID_VALUE;
-  }
+  return transpose_gpu(data_in, m, n, data_out);
 }
 
 aion::AionStatus aion::HoltWintersBufferSize(
@@ -110,11 +71,10 @@ template <typename Dtype>
 aion::AionStatus aion::HoltWintersDecompose(
   const Dtype *ts, int n, int batch_size, int frequency, Dtype *start_level,
   Dtype *start_trend, Dtype *start_season, int start_periods,
-  SeasonalType seasonal, ComputeMode mode) {
+  SeasonalType seasonal) {
   if (!ts) return aion::AionStatus::AION_INVALID_VALUE;
   if (n <= 0) return aion::AionStatus::AION_INVALID_VALUE;
   if (batch_size <= 0) return aion::AionStatus::AION_INVALID_VALUE;
-  if (mode != GPU && mode != CPU) return aion::AionStatus::AION_INVALID_VALUE;
   if (seasonal != ADDITIVE && seasonal != MULTIPLICATIVE)
     return aion::AionStatus::AION_INVALID_VALUE;
 
@@ -128,11 +88,7 @@ aion::AionStatus aion::HoltWintersDecompose(
                cudaMemcpyDefault);
     cudaMemcpy(start_trend, ts + batch_size, sizeof(Dtype) * batch_size,
                cudaMemcpyDefault);
-    if (mode == aion::ComputeMode::GPU)
-      cublas::axpy<Dtype>(batch_size, (Dtype)-1., ts,
-                          start_trend);  // TODO(ahmad): check return value.
-    else
-      cblas::axpy<Dtype>(batch_size, (Dtype)-1., ts, start_trend);
+    cublas::axpy<Dtype>(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season != nullptr) {
     if (frequency < 2)  // Non-seasonal time series don't have STL decomposition
@@ -143,28 +99,22 @@ aion::AionStatus aion::HoltWintersDecompose(
     if (start_periods * frequency >
         n)  // Make sure we have enough data points to cover all start_periods
       return aion::AionStatus::AION_INVALID_VALUE;
-    if (mode == GPU)
-      return stl_decomposition_gpu(ts, n, batch_size, frequency, start_periods,
-                                   start_level, start_trend, start_season,
-                                   seasonal);
-    else
-      return stl_decomposition_cpu(ts, batch_size, frequency, start_periods,
-                                   start_level, start_trend, start_season,
-                                   seasonal);
-  } else {
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return stl_decomposition_gpu(ts, n, batch_size, frequency, start_periods,
+                                 start_level, start_trend, start_season,
+                                 seasonal);
+    return aion::AionStatus::AION_SUCCESS;
   }
-
-  return aion::AionStatus::AION_SUCCESS;
 }
 
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersEval(
-  const Dtype *ts, int n, int batch_size, int frequency,
-  const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
-  const Dtype *alpha, const Dtype *beta, const Dtype *gamma, Dtype *level,
-  Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error, SeasonalType seasonal,
-  ComputeMode mode) {
+aion::AionStatus aion::HoltWintersEval(const Dtype *ts, int n, int batch_size,
+                                       int frequency, const Dtype *start_level,
+                                       const Dtype *start_trend,
+                                       const Dtype *start_season,
+                                       const Dtype *alpha, const Dtype *beta,
+                                       const Dtype *gamma, Dtype *level,
+                                       Dtype *trend, Dtype *season, Dtype *xhat,
+                                       Dtype *error, SeasonalType seasonal) {
   if (!ts) return aion::AionStatus::AION_INVALID_VALUE;
   if (n < 1 || batch_size < 1) return aion::AionStatus::AION_INVALID_VALUE;
   if ((!start_trend) != (!beta) || (!start_season) != (!gamma))
@@ -174,19 +124,10 @@ aion::AionStatus aion::HoltWintersEval(
     return aion::AionStatus::AION_INVALID_VALUE;
   if (!level && !trend && !season && !xhat && !error)
     return aion::AionStatus::AION_SUCCESS;  // Nothing to do
-  if (mode == CPU) {
-    holtwinters_eval_cpu<Dtype>(ts, n, batch_size, frequency, start_level,
-                                start_trend, start_season, alpha, beta, gamma,
-                                level, trend, season, xhat, error,
-                                seasonal);  // TODO(ahmad): return value
-  } else if (mode == GPU) {
-    holtwinters_eval_gpu<Dtype>(ts, n, batch_size, frequency, start_level,
-                                start_trend, start_season, alpha, beta, gamma,
-                                level, trend, season, xhat, error,
-                                seasonal);  // TODO(ahmad): return value
-  } else {
-    return aion::AionStatus::AION_INVALID_VALUE;
-  }
+  holtwinters_eval_gpu<Dtype>(ts, n, batch_size, frequency, start_level,
+                              start_trend, start_season, alpha, beta, gamma,
+                              level, trend, season, xhat, error,
+                              seasonal);  // TODO(ahmad): return value
   return aion::AionStatus::AION_SUCCESS;
 }
 
@@ -204,7 +145,7 @@ aion::AionStatus aion::HoltWintersOptim(
   Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
   bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
   Dtype *error, OptimCriterion *optim_result, OptimParams<Dtype> *optim_params,
-  SeasonalType seasonal, ComputeMode mode) {
+  SeasonalType seasonal) {
   // default values
   OptimParams<Dtype> optim_params_;
   optim_params_.eps = (Dtype)2.2204e-3;
@@ -251,48 +192,30 @@ aion::AionStatus aion::HoltWintersOptim(
   if (!alpha && !beta && !gamma & !level && !trend && !season && !xhat &&
       !error)
     return aion::AionStatus::AION_SUCCESS;  // Nothing to do
-
-  if (mode == aion::ComputeMode::CPU) {
-    holtwinters_optim_cpu<Dtype>(
-      ts, n, batch_size, frequency, start_level, start_trend, start_season,
-      alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma, level, trend,
-      season, xhat, error, optim_result, seasonal,
-      optim_params_);  // TODO(ahmad): return
-  } else if (mode == aion::ComputeMode::GPU) {
-    holtwinters_optim_gpu<Dtype>(
-      ts, n, batch_size, frequency, start_level, start_trend, start_season,
-      alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma, level, trend,
-      season, xhat, error, optim_result, seasonal,
-      optim_params_);  // TODO(ahmad): return
-  } else {
-    return aion::AionStatus::AION_INVALID_VALUE;
-  }
+  holtwinters_optim_gpu<Dtype>(
+    ts, n, batch_size, frequency, start_level, start_trend, start_season, alpha,
+    optim_alpha, beta, optim_beta, gamma, optim_gamma, level, trend, season,
+    xhat, error, optim_result, seasonal,
+    optim_params_);  // TODO(ahmad): return
 
   return aion::AionStatus::AION_SUCCESS;
 }
 
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersForecast(
-  Dtype *forecast, int h, int batch_size, int frequency,
-  const Dtype *level_coef, const Dtype *trend_coef, const Dtype *season_coef,
-  SeasonalType seasonal, ComputeMode mode) {
+aion::AionStatus aion::HoltWintersForecast(Dtype *forecast, int h,
+                                           int batch_size, int frequency,
+                                           const Dtype *level_coef,
+                                           const Dtype *trend_coef,
+                                           const Dtype *season_coef,
+                                           SeasonalType seasonal) {
   if (!forecast) return aion::AionStatus::AION_INVALID_VALUE;
   if (h < 1 || batch_size < 1) return aion::AionStatus::AION_INVALID_VALUE;
   if (!level_coef && !trend_coef && !season_coef)
     return aion::AionStatus::AION_INVALID_VALUE;
   if (season_coef && frequency < 2) return aion::AionStatus::AION_INVALID_VALUE;
-
-  if (mode == aion::ComputeMode::CPU) {
-    holtwinters_forecast_cpu<Dtype>(forecast, h, batch_size, frequency,
-                                    level_coef, trend_coef, season_coef,
-                                    seasonal);  // TODO(ahmad): return value
-  } else if (mode == aion::ComputeMode::GPU) {
-    holtwinters_forecast_gpu<Dtype>(forecast, h, batch_size, frequency,
-                                    level_coef, trend_coef, season_coef,
-                                    seasonal);  // TODO(ahmad): return value
-  } else {
-    return aion::AionStatus::AION_INVALID_VALUE;
-  }
+  holtwinters_forecast_gpu<Dtype>(forecast, h, batch_size, frequency,
+                                  level_coef, trend_coef, season_coef,
+                                  seasonal);  // TODO(ahmad): return value
 
   return aion::AionStatus::AION_SUCCESS;
 }
@@ -309,7 +232,6 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   CUDA_SAFE_CALL(cudaStreamCreate(&stream));
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
-  aion::ComputeMode mode = aion::ComputeMode::GPU;
   // initial values for alpha, beta and gamma
   std::vector<Dtype> alpha_h(batch_size, 0.4);
   std::vector<Dtype> beta_h(batch_size, 0.3);
@@ -359,26 +281,24 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   MLCommon::allocate(error_d, error_len);
 
   // Step 1: transpose the dataset (aion expects col major dataset)
-  AION_SAFE_CALL(
-    aion::AionTranspose<Dtype>(data, batch_size, n, dataset_d, mode));
+  AION_SAFE_CALL(aion::AionTranspose<Dtype>(data, batch_size, n, dataset_d));
 
   // Step 2: Decompose dataset to get seed for level, trend and seasonal values
   AION_SAFE_CALL(aion::HoltWintersDecompose<Dtype>(
     dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
-    start_season_d, start_periods, seasonal, mode));
+    start_season_d, start_periods, seasonal));
 
   // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
   AION_SAFE_CALL(aion::HoltWintersOptim<Dtype>(
     dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
     start_season_d, alpha_d, optim_alpha, beta_d, optim_beta, gamma_d,
     optim_gamma, level_d, trend_d, season_d, nullptr, error_d, nullptr, nullptr,
-    seasonal, mode));
+    seasonal));
 
   // Step 4: Do forecast
   AION_SAFE_CALL(aion::HoltWintersForecast<Dtype>(
     forecast_d, h, batch_size, frequency, level_d + leveltrend_coef_offset,
-    trend_d + leveltrend_coef_offset, season_d + season_coef_offset, seasonal,
-    mode));
+    trend_d + leveltrend_coef_offset, season_d + season_coef_offset, seasonal));
 
   //getting alpha values from Device to Host for output:
   MLCommon::updateHost(alpha_ptr, alpha_d, batch_size, stream);
@@ -425,34 +345,32 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
 
 template aion::AionStatus aion::AionTranspose<float>(const float *data_in,
                                                      int m, int n,
-                                                     float *data_out,
-                                                     ComputeMode mode);
+                                                     float *data_out);
 template aion::AionStatus aion::AionTranspose<double>(const double *data_in,
                                                       int m, int n,
-                                                      double *data_out,
-                                                      ComputeMode mode);
+                                                      double *data_out);
 
 template aion::AionStatus aion::HoltWintersDecompose<float>(
   const float *ts, int n, int batch_size, int frequency, float *start_level,
   float *start_trend, float *start_season, int start_periods,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 template aion::AionStatus aion::HoltWintersDecompose<double>(
   const double *ts, int n, int batch_size, int frequency, double *start_level,
   double *start_trend, double *start_season, int start_periods,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 
 template aion::AionStatus aion::HoltWintersEval<float>(
   const float *ts, int n, int batch_size, int frequency,
   const float *start_level, const float *start_trend, const float *start_season,
   const float *alpha, const float *beta, const float *gamma, float *level,
-  float *trend, float *season, float *xhat, float *error, SeasonalType seasonal,
-  ComputeMode mode);
+  float *trend, float *season, float *xhat, float *error,
+  SeasonalType seasonal);
 template aion::AionStatus aion::HoltWintersEval<double>(
   const double *ts, int n, int batch_size, int frequency,
   const double *start_level, const double *start_trend,
   const double *start_season, const double *alpha, const double *beta,
   const double *gamma, double *level, double *trend, double *season,
-  double *xhat, double *error, SeasonalType seasonal, ComputeMode mode);
+  double *xhat, double *error, SeasonalType seasonal);
 
 template aion::AionStatus aion::HoltWintersOptim(
   const float *ts, int n, int batch_size, int frequency,
@@ -460,7 +378,7 @@ template aion::AionStatus aion::HoltWintersOptim(
   float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
   bool optim_gamma, float *level, float *trend, float *season, float *xhat,
   float *error, OptimCriterion *optim_result, OptimParams<float> *optim_params,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 template aion::AionStatus aion::HoltWintersOptim(
   const double *ts, int n, int batch_size, int frequency,
   const double *start_level, const double *start_trend,
@@ -468,16 +386,16 @@ template aion::AionStatus aion::HoltWintersOptim(
   bool optim_beta, double *gamma, bool optim_gamma, double *level,
   double *trend, double *season, double *xhat, double *error,
   OptimCriterion *optim_result, OptimParams<double> *optim_params,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 
 template aion::AionStatus aion::HoltWintersForecast<float>(
   float *forecast, int h, int batch_size, int frequency,
   const float *level_coef, const float *trend_coef, const float *season_coef,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 template aion::AionStatus aion::HoltWintersForecast<double>(
   double *forecast, int h, int batch_size, int frequency,
   const double *level_coef, const double *trend_coef, const double *season_coef,
-  SeasonalType seasonal, ComputeMode mode);
+  SeasonalType seasonal);
 
 template void aion::HoltWintersFitPredict<float>(
   int n, int batch_size, int frequency, int h, int start_periods,

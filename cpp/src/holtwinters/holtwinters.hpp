@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,6 @@
   (a) = (b);                   \
   (c) = (d);
 
-//holtwinters_decompose.hpp
-template <typename Dtype>
-aion::AionStatus stl_decomposition_cpu(const Dtype *ts, int batch_size,
-                                       int frequency, int start_periods,
-                                       Dtype *level, Dtype *trend,
-                                       Dtype *season,
-                                       aion::SeasonalType seasonal);
 template <typename Dtype>
 aion::AionStatus stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
                                        int frequency, int start_periods,
@@ -41,14 +34,6 @@ aion::AionStatus stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
                                        Dtype *season,
                                        aion::SeasonalType seasonal);
 
-//holtwinters_eval.hpp
-template <typename Dtype>
-void holtwinters_eval_cpu(const Dtype *ts, int n, int batch_size, int frequency,
-                          const Dtype *start_level, const Dtype *start_trend,
-                          const Dtype *start_season, const Dtype *alpha,
-                          const Dtype *beta, const Dtype *gamma, Dtype *level,
-                          Dtype *trend, Dtype *season, Dtype *xhat,
-                          Dtype *error, aion::SeasonalType seasonal);
 template <typename Dtype>
 void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
                           const Dtype *start_level, const Dtype *start_trend,
@@ -57,14 +42,6 @@ void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
                           Dtype *trend, Dtype *season, Dtype *xhat,
                           Dtype *error, aion::SeasonalType seasonal);
 
-template <typename Dtype>
-Dtype holtwinters_eval_host(int id, const Dtype *ts, int n, int batch_size,
-                            int frequency, int shift, Dtype plevel,
-                            Dtype ptrend, const Dtype *start_season,
-                            const Dtype *beta, const Dtype *gamma, Dtype alpha_,
-                            Dtype beta_, Dtype gamma_, Dtype *level,
-                            Dtype *trend, Dtype *season, Dtype *xhat,
-                            aion::SeasonalType seasonal);
 template <typename Dtype, bool additive_seasonal>
 __device__ Dtype holtwinters_eval_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
@@ -74,34 +51,16 @@ __device__ Dtype holtwinters_eval_device(
   Dtype *season, Dtype *xhat);
 
 template <typename Dtype>
-Dtype bound_host(Dtype val, Dtype min = .0, Dtype max = 1.);
-
-template <typename Dtype>
 __device__ Dtype abs_device(Dtype val);
 template <typename Dtype>
 __device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.);
 
-//holtwinters_forecast.hpp
-template <typename Dtype>
-void holtwinters_forecast_cpu(Dtype *forecast, int h, int batch_size,
-                              int frequency, const Dtype *level_coef,
-                              const Dtype *trend_coef, const Dtype *season_coef,
-                              aion::SeasonalType seasonal = aion::ADDITIVE);
 template <typename Dtype>
 void holtwinters_forecast_gpu(Dtype *forecast, int h, int batch_size,
                               int frequency, const Dtype *level_coef,
                               const Dtype *trend_coef, const Dtype *season_coef,
                               aion::SeasonalType seasonal = aion::ADDITIVE);
 
-//holtwinters_optim.hpp
-template <typename Dtype>
-void holtwinters_optim_cpu(
-  const Dtype *ts, int n, int batch_size, int frequency,
-  const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
-  Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
-  bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-  Dtype *error, aion::OptimCriterion *optim_result, aion::SeasonalType seasonal,
-  const aion::OptimParams<Dtype> optim_params);
 template <typename Dtype>
 void holtwinters_optim_gpu(
   const Dtype *ts, int n, int batch_size, int frequency,
@@ -118,10 +77,3 @@ __device__ void holtwinters_finite_gradient_device(
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *g_alpha, Dtype *g_beta,
   Dtype *g_gamma, Dtype eps = 2.2204e-6);
-template <typename Dtype>
-void holtwinters_finite_gradient_host(
-  int id, const Dtype *ts, int n, int batch_size, int frequency, int shift,
-  Dtype plevel, Dtype ptrend, const Dtype *start_season, const Dtype *beta,
-  const Dtype *gamma, Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *g_alpha,
-  Dtype *g_beta, Dtype *g_gamma, aion::SeasonalType seasonal,
-  Dtype eps = 2.2204e-6);
