@@ -362,6 +362,7 @@ void DecisionTreeBase<T, L>::base_fit(
   L *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
   TreeNode<T, L> *&root, DecisionTreeParams &tree_params, bool is_classifier,
   std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
