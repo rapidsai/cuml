@@ -256,7 +256,7 @@ void DecisionTreeBase<T, L>::plant(
 
   MLCommon::TimerCPU timer;
   if (levelalgo) {
-    root = grow_deep_tree_member(handle, data, labels, rowids, n_sampled_rows,
+    root = grow_deep_tree(handle, data, labels, rowids, n_sampled_rows,
                                  ncols, dinfo.NLocalrows, leveltempmem);
   } else {
     root =
@@ -484,11 +484,11 @@ void DecisionTreeClassifier<T>::fit(
                  unique_labels, tree_params, true, in_tempmem);
 }
 template <typename T>
-TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree_member(
+TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const int nrows,
   LevelTemporaryMemory<T> *leveltempmem) {
-  return grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, nrows,
+  return grow_deep_tree_classification(handle, data, labels, rowids, n_sampled_rows, nrows,
                         ncols, this->n_unique_labels, this->nbins,
                         this->treedepth, leveltempmem);
 }
@@ -559,7 +559,7 @@ void DecisionTreeRegressor<T>::fit(
 }
 
 template <typename T>
-TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree_member(
+TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const int nrows,
   LevelTemporaryMemory<T> *leveltempmem) {
