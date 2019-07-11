@@ -16,6 +16,8 @@
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
+
+#include <utils.h>
 static const ucp_tag_t default_tag_mask = -1;
 
 /**
@@ -88,9 +90,9 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
    * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
    */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    fprintf(stderr, "unable to send UCX data message (%d)\n", UCS_PTR_STATUS(ucp_request));
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
-    return nullptr;
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to send UCX data message (%d)\n",
+           UCS_PTR_STATUS(ucp_request));
     /**
    * If the request didn't fail, but it's not OK, it is in flight.
    * Expect the handler to be invoked
@@ -127,17 +129,12 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
    * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
    */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    fprintf(stderr, "unable to receive UCX data message (%d)\n", UCS_PTR_STATUS(ucp_request));
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
-    return nullptr;
-
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to receive UCX data message (%d)\n",
+           UCS_PTR_STATUS(ucp_request));
     /**
    * Otherwise, request is successful and handler should get invoked on it.
    */
-  } else {
-    //wait(_ucp_worker, ucp_request);
-    //ucp_request->completed = 0;
-    //ucp_request_release(request);
   }
 
   return ucp_request;
