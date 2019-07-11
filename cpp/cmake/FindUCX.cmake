@@ -27,7 +27,7 @@ Imported targets
 
 This module defines the following :prop_tgt:`IMPORTED` target:
 
-``UCX::UCP``
+``UCX::UCX``
   The UCX libraries, if found.
 
 Result variables
@@ -46,7 +46,7 @@ This module will set the following variables in your project:
 
 #]=======================================================================]
 
-find_path(UCX_UCX_INCLUDE_DIR ucp.h HINTS ${UCX_INSTALL_DIR} PATH_SUFFIXES include)
+find_path(UCX_UCX_INCLUDE_DIR NAMES ucp/api/ucp.h HINTS ${UCX_INSTALL_DIR} PATH_SUFFIXES include)
 
 list(APPEND UCX_NAMES ucp libucp ucs libucs ucm libucm uct libuct)
 set(_UCX_VERSION_SUFFIXES 0)
