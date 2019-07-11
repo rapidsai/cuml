@@ -16,15 +16,15 @@
 
 #pragma once
 
-#define AION_SAFE_CALL(call)                                            \
-  {                                                                     \
-    do {                                                                \
-      aion::AionStatus status = call;                                   \
-      if (status != aion::AionStatus::AION_SUCCESS) {                   \
-        std::cerr << "Aion error in in line " << __LINE__ << std::endl; \
-        exit(EXIT_FAILURE);                                             \
-      }                                                                 \
-    } while (0);                                                        \
+#define HW_SAFE_CALL(call)                                            \
+  {                                                                   \
+    do {                                                              \
+      ML::HWStatus status = call;                                     \
+      if (status != ML::HWStatus::HW_SUCCESS) {                       \
+        std::cerr << "HW error in in line " << __LINE__ << std::endl; \
+        exit(EXIT_FAILURE);                                           \
+      }                                                               \
+    } while (0);                                                      \
   }
 
 #define CUDA_SAFE_CALL(call)                                               \
@@ -36,14 +36,14 @@
     } while (0);                                                           \
   }
 
-namespace aion {
+namespace ML {
 
-enum AionStatus {
-  AION_SUCCESS = 0,
-  AION_NOT_INITIALIZED = 1,
-  AION_INVALID_VALUE = 2,
-  AION_ALLOC_FAILED = 3,
-  AION_INTERNAL_ERROR = 4
+enum HWStatus {
+  HW_SUCCESS = 0,
+  HW_NOT_INITIALIZED = 1,
+  HW_INVALID_VALUE = 2,
+  HW_ALLOC_FAILED = 3,
+  HW_INTERNAL_ERROR = 4
 };
 
 enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
@@ -70,51 +70,51 @@ struct OptimParams {
 
 enum Norm { L0, L1, L2, LINF };
 
-// Aion misc functions
-AionStatus AionInit();
-AionStatus AionDestroy();
+// HW misc functions
+HWStatus HWInit();
+HWStatus HWDestroy();
 
 template <typename Dtype>
-AionStatus AionTranspose(const Dtype *data_in, int m, int n, Dtype *data_out);
+HWStatus HWTranspose(const Dtype *data_in, int m, int n, Dtype *data_out);
 
-AionStatus HoltWintersBufferSize(int n, int batch_size, int frequency,
-                                 bool use_beta, bool use_gamma,
-                                 int *start_leveltrend_len,
-                                 int *start_season_len, int *components_len,
-                                 int *error_len, int *leveltrend_coef_shift,
-                                 int *season_coef_shift);
-
-template <typename Dtype>
-AionStatus HoltWintersDecompose(const Dtype *ts, int n, int batch_size,
-                                int frequency, Dtype *start_level,
-                                Dtype *start_trend, Dtype *start_season,
-                                int start_periods,
-                                SeasonalType seasonal = ADDITIVE);
+HWStatus HoltWintersBufferSize(int n, int batch_size, int frequency,
+                               bool use_beta, bool use_gamma,
+                               int *start_leveltrend_len, int *start_season_len,
+                               int *components_len, int *error_len,
+                               int *leveltrend_coef_shift,
+                               int *season_coef_shift);
 
 template <typename Dtype>
-AionStatus HoltWintersOptim(
-  const Dtype *ts, int n, int batch_size, int frequency,
-  const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
-  Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
-  bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-  Dtype *error, OptimCriterion *optim_result,
-  OptimParams<Dtype> *optim_params = nullptr, SeasonalType seasonal = ADDITIVE);
+HWStatus HoltWintersDecompose(const Dtype *ts, int n, int batch_size,
+                              int frequency, Dtype *start_level,
+                              Dtype *start_trend, Dtype *start_season,
+                              int start_periods,
+                              SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
-AionStatus HoltWintersEval(const Dtype *ts, int n, int batch_size,
-                           int frequency, const Dtype *start_level,
-                           const Dtype *start_trend, const Dtype *start_season,
-                           const Dtype *alpha, const Dtype *beta,
-                           const Dtype *gamma, Dtype *level, Dtype *trend,
-                           Dtype *season, Dtype *xhat, Dtype *error,
-                           SeasonalType seasonal = ADDITIVE);
+HWStatus HoltWintersOptim(const Dtype *ts, int n, int batch_size, int frequency,
+                          const Dtype *start_level, const Dtype *start_trend,
+                          const Dtype *start_season, Dtype *alpha,
+                          bool optim_alpha, Dtype *beta, bool optim_beta,
+                          Dtype *gamma, bool optim_gamma, Dtype *level,
+                          Dtype *trend, Dtype *season, Dtype *xhat,
+                          Dtype *error, OptimCriterion *optim_result,
+                          OptimParams<Dtype> *optim_params = nullptr,
+                          SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
-AionStatus HoltWintersForecast(Dtype *forecast, int h, int batch_size,
-                               int frequency, const Dtype *level_coef,
-                               const Dtype *trend_coef,
-                               const Dtype *season_coef,
-                               SeasonalType seasonal = ADDITIVE);
+HWStatus HoltWintersEval(const Dtype *ts, int n, int batch_size, int frequency,
+                         const Dtype *start_level, const Dtype *start_trend,
+                         const Dtype *start_season, const Dtype *alpha,
+                         const Dtype *beta, const Dtype *gamma, Dtype *level,
+                         Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error,
+                         SeasonalType seasonal = ADDITIVE);
+
+template <typename Dtype>
+HWStatus HoltWintersForecast(Dtype *forecast, int h, int batch_size,
+                             int frequency, const Dtype *level_coef,
+                             const Dtype *trend_coef, const Dtype *season_coef,
+                             SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 void HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
@@ -123,4 +123,4 @@ void HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
                            Dtype *gamma_ptr, Dtype *SSE_error_ptr,
                            Dtype *forecast_ptr);
 
-}  // namespace aion
+}  // namespace ML
