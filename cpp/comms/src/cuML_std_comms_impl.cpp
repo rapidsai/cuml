@@ -18,13 +18,11 @@
 
 #include <nccl.h>
 
-
 #ifdef WITH_UCX
-  #define UCX_ENABLED true
+#define UCX_ENABLED true
 #else
-  #define UCX_ENABLED false
+#define UCX_ENABLED false
 #endif
-
 
 #ifdef WITH_UCX
 #include <pthread.h>
@@ -124,10 +122,7 @@ ncclRedOp_t getNCCLOp(const cumlStdCommunicator_impl::op_t op) {
 }
 }  // namespace
 
-
-bool ucx_enabled(){
-  return UCX_ENABLED;
-}
+bool ucx_enabled() { return UCX_ENABLED; }
 
 /**
  * @brief Underlying comms, like NCCL and UCX, should be initialized and ready for use,
@@ -162,11 +157,7 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
 
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
-
-
 #ifdef WITH_UCX
-  ucp_worker_print_info((ucp_worker_h)ucp_worker, stdout);
-
   // Make shared_ptr for endpoints
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
@@ -193,8 +184,8 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
 #endif
 }
 
-void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId) {
-  memcpy(id->internal, uniqueId, NCCL_UNIQUE_ID_BYTES);
+void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
+  memcpy(id->internal, uniqueId, size);
 }
 
 /**
@@ -206,11 +197,11 @@ void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId) {
  * @returns the generated NCCL unique ID for establishing a
  * new clique.
  */
-void get_unique_id(char *uid) {
+void get_unique_id(char *uid, int size) {
   ncclUniqueId id;
   ncclGetUniqueId(&id);
 
-  memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
+  memcpy(uid, id.internal, size);
 }
 
 #ifdef WITH_UCX
@@ -222,14 +213,33 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
     _ucp_eps(eps),
     _size(size),
     _rank(rank),
-    _next_request_id(0) {}
+    _next_request_id(0) {
+  initialize();
+}
 #endif
 
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
                                                    int rank)
-  : _nccl_comm(comm), _size(size), _rank(rank) {}
+  : _nccl_comm(comm), _size(size), _rank(rank) {
+  initialize();
+}
 
-cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {}
+void cumlStdCommunicator_impl::initialize() {
+  cudaStreamCreate(&stream);
+
+  CUDA_CHECK(cudaMalloc((void **)&sendbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
+}
+
+
+
+cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
+
+  cudaStreamDestroy(stream);
+
+  CUDA_CHECK_NO_THROW(cudaFree(sendbuff));
+  CUDA_CHECK_NO_THROW(cudaFree(recvbuff));
+}
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }
 
@@ -244,14 +254,6 @@ cumlStdCommunicator_impl::commSplit(int color, int key) const {
 }
 
 void cumlStdCommunicator_impl::barrier() const {
-  int *sendbuff, *recvbuff;
-
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  CUDA_CHECK(cudaMalloc((void **)&sendbuff, sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
-
   CUDA_CHECK(cudaMemsetAsync(sendbuff, 0, sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(recvbuff, 0, sizeof(int), stream));
 
@@ -259,10 +261,6 @@ void cumlStdCommunicator_impl::barrier() const {
             MLCommon::cumlCommunicator::SUM, stream);
 
   cudaStreamSynchronize(stream);
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(sendbuff));
-  CUDA_CHECK(cudaFree(recvbuff));
 }
 
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
@@ -291,11 +289,9 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   *request = req_id;
 
   ucs_status_t flush_status = flush_ep(_ucp_worker, ep_ptr);
-  printf("flush_ep completed with status %d (%s)\n", flush_status,
-         ucs_status_string(flush_status));
-#else
-  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
+
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
@@ -321,9 +317,9 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
   *request = req_id;
-#else
-  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
+
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::waitall(int count,
@@ -332,8 +328,9 @@ void cumlStdCommunicator_impl::waitall(int count,
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
-  printf("Inside waitall for rank: %d\n", getRank());
   std::vector<struct ucx_context *> requests;
+  requests.reserve(count);
+
   for (int i = 0; i < count; ++i) {
     auto req_it = _requests_in_flight.find(array_of_requests[i]);
     ASSERT(_requests_in_flight.end() != req_it,
@@ -346,7 +343,6 @@ void cumlStdCommunicator_impl::waitall(int count,
   int done = 0;
   for (struct ucx_context *req : requests) {
     if (req == nullptr) {
-      printf("Encountered null request on rank %d\n", getRank());
       continue;
     }
 
@@ -354,14 +350,10 @@ void cumlStdCommunicator_impl::waitall(int count,
     req->completed = 0; /* Reset request state before recycling it */
 
     if (req->needs_release) ucp_request_release(req);
-    printf("Checked off request on rank %d\n", getRank());
   }
-
-  printf("Done waitall for rank: %d\n", getRank());
-
-#else
-  std::cout << "cuML Comms not built with UCX support" << std::endl;
 #endif
+
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::allreduce(const void *sendbuff, void *recvbuff,
