@@ -29,6 +29,37 @@ airpassengers = [112, 118, 132, 129, 121, 135, 148, 148, 136, 119, 104, 118,
                  315, 301, 356, 348, 355, 422, 465, 467, 404, 347, 305, 336,
                  340, 318, 362, 348, 363, 435, 491, 505, 404, 359, 310, 337]
 
+co2 = [315.42, 316.31, 316.50, 317.56, 318.13, 318.00, 316.39, 314.65, 313.68,
+       313.18, 314.66, 315.43, 316.27, 316.81, 317.42, 318.87, 319.87, 319.43,
+       318.01, 315.74, 314.00, 313.68, 314.84, 316.03, 316.73, 317.54, 318.38,
+       319.31, 320.42, 319.61, 318.42, 316.63, 314.83, 315.16, 315.94, 316.85,
+       317.78, 318.40, 319.53, 320.42, 320.85, 320.45, 319.45, 317.25, 316.11,
+       315.27, 316.53, 317.53, 318.58, 318.92, 319.70, 321.22, 322.08, 321.31,
+       319.58, 317.61, 316.05, 315.83, 316.91, 318.20, 319.41, 320.07, 320.74,
+       321.40, 322.06, 321.73, 320.27, 318.54, 316.54, 316.71, 317.53, 318.55,
+       319.27, 320.28, 320.73, 321.97, 322.00, 321.71, 321.05, 318.71, 317.66,
+       317.14, 318.70, 319.25, 320.46, 321.43, 322.23, 323.54, 323.91, 323.59,
+       322.24, 320.20, 318.48, 317.94, 319.63, 320.87, 322.17, 322.34, 322.88,
+       324.25, 324.83, 323.93, 322.38, 320.76, 319.10, 319.24, 320.56, 321.80,
+       322.40, 322.99, 323.73, 324.86, 325.40, 325.20, 323.98, 321.95, 320.18,
+       320.09, 321.16, 322.74]
+
+nybirths = [26.663, 23.598, 26.931, 24.740, 25.806, 24.364, 24.477, 23.901,
+            23.175, 23.227, 21.672, 21.870, 21.439, 21.089, 23.709, 21.669,
+            21.752, 20.761, 23.479, 23.824, 23.105, 23.110, 21.759, 22.073,
+            21.937, 20.035, 23.590, 21.672, 22.222, 22.123, 23.950, 23.504,
+            22.238, 23.142, 21.059, 21.573, 21.548, 20.000, 22.424, 20.615,
+            21.761, 22.874, 24.104, 23.748, 23.262, 22.907, 21.519, 22.025,
+            22.604, 20.894, 24.677, 23.673, 25.320, 23.583, 24.671, 24.454,
+            24.122, 24.252, 22.084, 22.991, 23.287, 23.049, 25.076, 24.037,
+            24.430, 24.667, 26.451, 25.618, 25.014, 25.110, 22.964, 23.981,
+            23.798, 22.270, 24.775, 22.646, 23.988, 24.737, 26.276, 25.816,
+            25.210, 25.199, 23.162, 24.707, 24.364, 22.644, 25.565, 24.062,
+            25.431, 24.635, 27.009, 26.606, 26.268, 26.462, 25.246, 25.180,
+            24.657, 23.304, 26.982, 26.199, 27.210, 26.122, 26.706, 26.878,
+            26.152, 26.379, 24.712, 25.688, 24.990, 24.239, 26.721, 23.475,
+            24.767, 26.219, 28.361, 28.599, 27.914, 27.784, 25.693, 26.881]
+
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -45,14 +76,14 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
 @pytest.mark.parametrize('datatype', [np.float64])
-def test_holtwinters(seasonal, h, datatype):
+def test_singlets_holtwinters(seasonal, h, datatype):
     global airpassengers
     airpassengers = np.asarray(airpassengers, dtype=datatype)
     train = airpassengers[:-h]
     test = airpassengers[-h:]
 
     cu_hw = HoltWinters(1, 12, seasonal)
-    cu_hw.fit(airpassengers)
+    cu_hw.fit(train)
 
     sm_hw = ExponentialSmoothing(train, seasonal=seasonal.lower(),
                                  seasonal_periods=12)
@@ -64,4 +95,19 @@ def test_holtwinters(seasonal, h, datatype):
     cu_r2 = r2_score(cu_pred, test)
     sm_r2 = r2_score(sm_pred, test)
 
-    assert (cu_r2 >= sm_r2) or (abs(cu_r2 - sm_r2) < 1e-2)
+    assert (cu_r2 >= sm_r2) or (abs(cu_r2 - sm_r2) < 2e-1)
+
+@pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
+@pytest.mark.parametrize('h', [12, 24])
+@pytest.mark.parametrize('datatype', [np.float64])
+@pytest.mark.xfail
+def test_multits_holtwinters(seasonal, h, datatype):
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
+    train = data[:-h]
+    test = data[-h:]
+
+    cu_hw = HoltWinters(3, 12, seasonal)
+    cu_hw.fit(train)
+
+    cu_pred = cu_hw.predict(1, h)
