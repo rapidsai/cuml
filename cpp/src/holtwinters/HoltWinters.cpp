@@ -17,9 +17,9 @@
 #include <cuda_runtime.h>
 
 #include <iostream>
-#include "Aion.hpp"
-#include "aion_utils.hpp"
-#include "holtwinters.hpp"
+#include "HoltWinters.hpp"
+#include "hw_cu_utils.hpp"
+#include "holtwinters_utils.hpp"
 #include "utils.h"
 
 aion::AionStatus aion::AionInit() {
