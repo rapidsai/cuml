@@ -338,7 +338,3 @@ void foo(const ML::cumlHandle_impl& h, ...)
     ...
 }
 ```
-
-## C APIs
-
-ML algorithms implemented in cuML should have C++ APIs that are easy to wrap in C. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`). Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
