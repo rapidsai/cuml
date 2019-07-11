@@ -25,9 +25,9 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-cdef extern from "cuML_comms.hpp" namespace "ML":
-    void get_unique_id(char *uid)
-    void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId)
+cdef extern from "cuML_comms_py.hpp" namespace "ML":
+    void get_unique_id(char *uid, int size)
+    void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size)
 
 cdef extern from "nccl.h":
 
@@ -64,6 +64,7 @@ cdef extern from "nccl.h":
 
     ncclResult_t ncclCommDestroy(ncclComm_t comm)
 
+NCCL_UNIQUE_ID_BYTES = 128
 
 def unique_id():
     """
@@ -72,9 +73,9 @@ def unique_id():
     and shared to a remote worker.
     :return: string a 128-byte unique id string
     """
-    cdef char *uid = <char *> malloc(128 * sizeof(char))
-    get_unique_id(uid)
-    c_str = uid[:127]
+    cdef char *uid = <char *> malloc(NCCL_UNIQUE_ID_BYTES * sizeof(char))
+    get_unique_id(uid, NCCL_UNIQUE_ID_BYTES)
+    c_str = uid[:NCCL_UNIQUE_ID_BYTES-1]
     free(uid)
     return c_str
 
@@ -120,7 +121,7 @@ cdef class nccl:
         self.rank = rank
 
         cdef ncclUniqueId *ident = <ncclUniqueId*>malloc(sizeof(ncclUniqueId))
-        ncclUniqueIdFromChar(ident, commId)
+        ncclUniqueIdFromChar(ident, commId, NCCL_UNIQUE_ID_BYTES)
 
         comm_ = <ncclComm_t*>self.comm
 

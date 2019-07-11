@@ -61,9 +61,6 @@ static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep) {
 static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
   context->completed = 1;
-
-  printf("[0x%x] send handler called with status %d (%s)\n",
-         (unsigned int)pthread_self(), status, ucs_status_string(status));
 }
 
 /**
@@ -73,10 +70,6 @@ static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
   context->completed = 1;
-
-  printf("[0x%x] receive handler called with status %d (%s), length %lu\n",
-         (unsigned int)pthread_self(), status, ucs_status_string(status),
-         info->length);
 }
 
 /**
@@ -99,14 +92,12 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
     printf("unable to send UCX data message\n");
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     return nullptr;
-  /**
+    /**
    * If the request didn't fail, but it's not OK, it is in flight.
    * Expect the handler to be invoked
    */
   } else if (UCS_PTR_STATUS(ucp_request) != UCS_OK) {
-    printf("Message is sending. Handler should be invoked.\n");
-
-   /**
+    /**
     * If the request is OK, it's already been completed and we don't need to wait on it.
     * The request will be a nullptr, however, so we need to create a new request
     * and set it to completed to make the "waitall()" function work properly.
@@ -142,11 +133,10 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     return nullptr;
 
-  /**
+    /**
    * Otherwise, request is successful and handler should get invoked on it.
    */
   } else {
-
     //wait(_ucp_worker, ucp_request);
     //ucp_request->completed = 0;
     //ucp_request_release(request);
