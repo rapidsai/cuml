@@ -15,14 +15,15 @@
 #
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(cuML-comms VERSION 0.8.0 LANGUAGES CXX CUDA)
+project(cuML-comms VERSION 0.9.0 LANGUAGES CXX CUDA)
 
-set(CUML_DIR ${PROJECT_SOURCE_DIR}/.. CACHE STRING "Path to the cuML repo")
+set(CUML_DIR ${PROJECT_SOURCE_DIR}/../.. CACHE STRING "Path to the cuML repo")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
 find_package(NCCL REQUIRED)
+find_package(UCX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,7 +32,7 @@ set(_CUML_LIBRARY_HINTS ${CUML_DIR})
 if (CUML_INSTALL_DIR)
     list(APPEND _CUML_LIBRARY_HINTS ${CUML_INSTALL_DIR})
 else()
-	set(CUML_INSTALL_DIR "${CUML_DIR}/../../build" CACHE_STRING
+	set(CUML_INSTALL_DIR "${CUML_DIR}/../../../build" CACHE_STRING
 		"Directory containing compiled libcuml")
 endif()
 
@@ -51,8 +52,6 @@ set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 
 # Note this option will be removed once UCX conda package is released
 if(WITH_UCX)
-	message("WITH_UCX support is enabled")
-	find_package(UCX REQUIRED)
 	set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${UCX_LIBRARIES} pthread)
 	include_directories(${UCX_INCLUDE_DIRS})
 	add_compile_definitions(WITH_UCX=1)
