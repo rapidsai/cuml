@@ -88,7 +88,7 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
    * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
    */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    printf("unable to send UCX data message\n");
+    fprintf(stderr, "unable to send UCX data message (%d)\n", UCS_PTR_STATUS(ucp_request));
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     return nullptr;
     /**
@@ -127,8 +127,7 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
    * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
    */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    printf("unable to receive UCX data message (%d)\n");
-    //       UCS_PTR_STATUS(ucp_request));
+    fprintf(stderr, "unable to receive UCX data message (%d)\n", UCS_PTR_STATUS(ucp_request));
     ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     return nullptr;
 
