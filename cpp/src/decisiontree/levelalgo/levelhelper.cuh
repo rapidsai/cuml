@@ -7,16 +7,16 @@ void setup_sampling(unsigned int *flagsptr, int *sample_cnt,
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   if (blocks > 65536) blocks = 65536;
-  setup_count_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, rowids,
-                                                     n_sampled_rows);
+  setup_counts_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, rowids,
+                                                      n_sampled_rows);
   CUDA_CHECK(cudaGetLastError());
-  setup_flags_kernel<<<blocks, threads, 0, stream>>>(flagsptr, sample_cnt,
+  setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
                                                      nrows);
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
 void get_me_histogram(T *data, int *labels, unsigned int *flags,
-                      const int nrows, const int ncols,
+                      int *sample_cnt, const int nrows, const int ncols,
                       const int n_unique_labels, const int nbins,
                       const int n_nodes, const int maxnodes,
                       LevelTemporaryMemory<T> *tempmem, unsigned int *histout) {
@@ -29,15 +29,15 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   int blocks = MLCommon::ceildiv(nrows, threads);
   if ((n_nodes == node_batch) && (blocks < 65536)) {
     get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
-      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-      tempmem->d_quantile->data(), histout);
+      data, labels, flags, sample_cnt, nrows, ncols, n_unique_labels, nbins,
+      n_nodes, tempmem->d_quantile->data(), histout);
   } else {
     /*get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
       tempmem->d_quantile->data(), node_batch, histout);*/
     get_me_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
-      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-      tempmem->d_quantile->data(), histout);
+      data, labels, flags, sample_cnt, nrows, ncols, n_unique_labels, nbins,
+      n_nodes, tempmem->d_quantile->data(), histout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
