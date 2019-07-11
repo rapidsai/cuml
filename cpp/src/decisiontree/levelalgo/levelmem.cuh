@@ -20,7 +20,7 @@ struct LevelTemporaryMemory {
   MLCommon::device_buffer<T> *d_parent_metric, *d_child_best_metric;
   MLCommon::device_buffer<T> *d_quantile;
   MLCommon::host_buffer<T> *h_quantile;
-  MLCommon::device_buffer<int> *d_sample_cnt;
+  MLCommon::device_buffer<unsigned int> *d_sample_cnt;
   int max_nodes = 0;
   LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
                        const int ncols, const int nbins,
@@ -77,8 +77,8 @@ struct LevelTemporaryMemory {
     d_quantile = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(),
                                                 stream, nbins * ncols);
 
-    d_sample_cnt = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(),
-                                                    stream, nrows);
+    d_sample_cnt = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, nrows);
 
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
