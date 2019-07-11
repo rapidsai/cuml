@@ -4,7 +4,31 @@
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
 
-__global__ void setup_counts_kernel(int* sample_cnt,
+__global__ void gini_kernel_level(const int* __restrict__ labels,
+                                  const unsigned int* __restrict__ sample_cnt,
+                                  const int nrows, const int nmax,
+                                  int* histout) {
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
+  extern __shared__ unsigned int shmemhist[];
+  if (threadIdx.x < nmax) shmemhist[threadIdx.x] = 0;
+
+  __syncthreads();
+
+  for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
+    int label = labels[tid];
+    int count = sample_cnt[tid];
+    atomicAdd(&shmemhist[label], count);
+  }
+
+  __syncthreads();
+
+  if (threadIdx.x < nmax)
+    atomicAdd(&histout[threadIdx.x], shmemhist[threadIdx.x]);
+
+  return;
+}
+
+__global__ void setup_counts_kernel(unsigned int* sample_cnt,
                                     const unsigned int* __restrict__ rowids,
                                     const int n_sampled_rows) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -14,11 +38,11 @@ __global__ void setup_counts_kernel(int* sample_cnt,
     atomicAdd(&sample_cnt[stid], 1);
   }
 }
-__global__ void setup_flags_kernel(const int* __restrict__ sample_cnt,
+__global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
                                    unsigned int* flags, const int nrows) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
-    int local_cnt = sample_cnt[tid];
+    unsigned int local_cnt = sample_cnt[tid];
     unsigned int local_flag = LEAF;
     if (local_cnt != 0) local_flag = 0x00000000;
     flags[tid] = local_flag;
@@ -28,9 +52,10 @@ __global__ void setup_flags_kernel(const int* __restrict__ sample_cnt,
 template <typename T>
 __global__ void get_me_hist_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
-  const unsigned int* __restrict__ flags, const int* __restrict__ sample_cnt,
-  const int nrows, const int ncols, const int n_unique_labels, const int nbins,
-  const int n_nodes, const T* __restrict__ quantile, unsigned int* histout) {
+  const unsigned int* __restrict__ flags,
+  const unsigned int* __restrict__ sample_cnt, const int nrows, const int ncols,
+  const int n_unique_labels, const int nbins, const int n_nodes,
+  const T* __restrict__ quantile, unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
   unsigned int local_flag = LEAF;
   int local_label = -1;
@@ -78,9 +103,10 @@ __global__ void get_me_hist_kernel(
 template <typename T>
 __global__ void get_me_hist_kernel_global(
   const T* __restrict__ data, const int* __restrict__ labels,
-  const unsigned int* __restrict__ flags, const int* __restrict__ sample_cnt,
-  const int nrows, const int ncols, const int n_unique_labels, const int nbins,
-  const int n_nodes, const T* __restrict__ quantile, unsigned int* histout) {
+  const unsigned int* __restrict__ flags,
+  const unsigned int* __restrict__ sample_cnt, const int nrows, const int ncols,
+  const int n_unique_labels, const int nbins, const int n_nodes,
+  const T* __restrict__ quantile, unsigned int* histout) {
   unsigned int local_flag;
   int local_label;
   int local_cnt;

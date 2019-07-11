@@ -27,9 +27,15 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
 
-  gini_kernel<<<MLCommon::ceildiv(nrows, 128), 128,
-                sizeof(int) * n_unique_labels, tempmem->stream>>>(
-    labels, nrows, n_unique_labels, (int*)tempmem->d_parent_hist->data());
+  unsigned int* flagsptr = tempmem->d_flags->data();
+  unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
+  setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
+                 tempmem->stream);
+
+  gini_kernel_level<<<MLCommon::ceildiv(nrows, 128), 128,
+                      sizeof(int) * n_unique_labels, tempmem->stream>>>(
+    labels, sample_cnt, nrows, n_unique_labels,
+    (int*)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
   MLCommon::updateHost(tempmem->h_parent_hist->data(),
                        tempmem->d_parent_hist->data(), n_unique_labels,
@@ -39,11 +45,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   histvec.assign(tempmem->h_parent_hist->data(),
                  tempmem->h_parent_hist->data() + n_unique_labels);
   T initial_metric = GiniFunctor::exec(histvec, nrows);
-
-  unsigned int* flagsptr = tempmem->d_flags->data();
-  int* sample_cnt = tempmem->d_sample_cnt->data();
-  setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
-                 tempmem->stream);
 
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
