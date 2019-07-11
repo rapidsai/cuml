@@ -27,13 +27,23 @@ class KMeans(CommsBase):
     """
 
     def __init__(self, n_clusters=8, init_method="random", verbose=0):
+        """
+        Constructor for distributed KMeans model
+        :param n_clusters: Number of clusters to fit
+        :param init_method: Method for finding initial centroids
+        :param verbose: Print useful info while executing
+        """
         super(KMeans, self).__init__(comms_p2p=False)
         self.init_(n_clusters=n_clusters, init_method=init_method,
                    verbose=verbose)
 
     def init_(self, n_clusters, init_method, verbose=0):
         """
-        Creates local kmeans instance on each worker
+        Creates a local KMeans instance on each worker
+        :param n_clusters: Number of clusters to fit
+        :param init_method: Method for finding initial centroids
+        :param verbose: Print useful info while executing
+        :return:
         """
         self.init()
 
@@ -51,17 +61,44 @@ class KMeans(CommsBase):
     def func_build_kmeans_(handle, n_clusters, init_method, verbose, r):
         """
         Create local KMeans instance on worker
+        :param handle: instance of cuml.handle.Handle
+        :param n_clusters: Number of clusters to fit
+        :param init_method: Method for finding initial centroids
+        :param verbose: Print useful info while executing
+        :param r: Stops memoization caching
         """
         return cumlKMeans(handle=handle, init=init_method,
                           n_clusters=n_clusters, verbose=verbose)
 
     @staticmethod
-    def func_fit(model, df, r): return model.fit(df)
+    def func_fit(model, df, r):
+        """
+        Runs on each worker to call fit on local KMeans instance
+        :param model: Local KMeans instance
+        :param df: cudf.Dataframe to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
+        """
+        return model.fit(df)
 
     @staticmethod
-    def func_predict(model, df, r): return model.predict(df)
+    def func_predict(model, df, r):
+        """
+        Runs on each worker to call fit on local KMeans instance
+        :param model: Local KMeans instance
+        :param df: cudf.Dataframe to use
+        :param r: Stops memoization caching
+        :return: cudf.Series with predictions
+        """
+        return model.predict(df)
 
     def run_model_func_on_dask_cudf(self, func, X):
+        """
+        Runs a function on a local KMeans instance on each worker
+        :param func: The function to execute on each worker
+        :param X: Input dask_cudf.Dataframe
+        :return: Futures containing results of func
+        """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
@@ -75,12 +112,27 @@ class KMeans(CommsBase):
         return f
 
     def fit(self, X):
+        """
+        Fits a distributed KMeans model
+        :param X: dask_cudf.Dataframe to fit
+        :return: This KMeans instance
+        """
         self.run_model_func_on_dask_cudf(KMeans.func_fit, X)
         return self
 
     def predict(self, X):
+        """
+        Predicts the labels using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to predict
+        :return: A dask_cudf.Dataframe containing label predictions
+        """
         f = self.run_model_func_on_dask_cudf(KMeans.func_predict, X)
         return to_dask_cudf(f)
 
     def fit_predict(self, X):
+        """
+        Calls fit followed by predict using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to fit & predict
+        :return: A dask_cudf.Dataframe containing label predictions
+        """
         return self.fit(X).predict(X)
