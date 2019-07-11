@@ -32,14 +32,14 @@ requirements:
     - libcuml={{ version }}
     - libcumlMG
     - cudatoolkit {{ cuda_version }}.*
-    - cupy 6.0.*
+    - cupy 6.1.*
   run:
     - python x.x
     - cudf 0.8*
     - libcuml={{ version }}
     - libcumlMG
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
-    - cupy 6.0.*
+    - cupy 6.1.*
 
 about:
   home: http://rapids.ai/
