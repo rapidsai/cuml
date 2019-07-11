@@ -21,6 +21,7 @@ cmake_policy(SET CMP0079 NEW)
 
 project(CUML VERSION 0.9.0 LANGUAGES CXX CUDA)
 
+
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
 
@@ -135,6 +136,9 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
+set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
+  "Path to treelite install directory")
+
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
@@ -222,6 +226,26 @@ add_clang_format(
   SRCDIR ${PROJECT_SOURCE_DIR})
 
 ###################################################################################################
+# - treelite build --------------------------------------------------------------------------------
+
+include(ExternalProject)
+
+ExternalProject_Add(treelite
+    PREFIX ${TREELITE_DIR}
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
+    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
+
+add_library(dmlclib STATIC IMPORTED)
+add_library(treelitelib STATIC IMPORTED)
+
+add_dependencies(dmlclib treelite)
+add_dependencies(treelitelib treelite)
+
+set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
+set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
+
+###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
@@ -255,7 +279,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
 
 
-  include (ExternalProject)
   ExternalProject_Add(faiss
     SOURCE_DIR ${FAISS_DIR}
     CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
@@ -291,6 +314,7 @@ include_directories(
   ${GTEST_DIR}/include
   ${CUTLASS_DIR}
   ${CUB_DIR}
+  ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -336,6 +360,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    dmlclib
+    treelitelib
     gpufaisslib
     faisslib)
 
