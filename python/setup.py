@@ -63,7 +63,7 @@ extensions = [
                             '../thirdparty/cutlass',
                             '../thirdparty/cub',
                             # Ideally we enable this to be swapped out.
-                            '../cpp/comms/include',
+                            '../cpp/comms/std/include',
                             cuda_include_dir,
                             rmm_include_dir],
               library_dirs=[get_python_lib()],
