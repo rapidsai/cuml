@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 project(cuML-comms VERSION 0.9.0 LANGUAGES CXX CUDA)
 
 set(CUML_DIR ${PROJECT_SOURCE_DIR}/../.. CACHE STRING "Path to the cuML repo")

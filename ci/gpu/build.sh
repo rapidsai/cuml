@@ -49,7 +49,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       lapack cmake==3.14.3 \
       umap-learn \
       libclang \
-      nccl=2 \
+      nccl>=2.4 \
       dask \
       distributed \
       dask-cudf \
