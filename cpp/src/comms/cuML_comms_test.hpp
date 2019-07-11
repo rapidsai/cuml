@@ -19,7 +19,7 @@
 #include <cuML.hpp>
 
 namespace ML {
-namespace sandbox {
+namespace Comms {
 
 /**
  * @brief Simple allreduce test for single integer value of 1. Each rank
@@ -37,5 +37,5 @@ bool test_collective_allreduce(const ML::cumlHandle& handle);
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle,
                                         int n_trials);
 
-};  // end namespace sandbox
+};  // namespace Comms
 };  // end namespace ML

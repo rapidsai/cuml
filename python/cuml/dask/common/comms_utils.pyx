@@ -55,7 +55,7 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
     bool ucx_enabled()
 
 
-cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::sandbox" nogil:
+cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h, int numTrials)
 
