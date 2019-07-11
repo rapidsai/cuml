@@ -3,6 +3,9 @@ import cudf
 import numpy as np
 from cupyx.scipy import sparse
 
+from cuml.thirdparty._sklearn._utils import (
+    check_array, _safe_accumulator_op, comb)
+
 
 __all__ = [
     'Binarizer',
@@ -58,33 +61,6 @@ def _handle_zeros_in_scale(scale, copy=True):
             scale = scale.copy()
         scale[scale == 0.0] = 1.0
         return scale
-
-
-def _safe_accumulator_op(op, x, *args, **kwargs):
-    """
-    This function provides cupy accumulator functions with a float64 dtype
-    when used on a floating point input. This prevents accumulator overflow on
-    smaller floating point dtypes.
-    Parameters
-    ----------
-    op : function
-        A cupy accumulator function such as cp.mean or cp.sum
-    x : cupy array
-        A cupy array to apply the accumulator function
-    *args : positional arguments
-        Positional arguments passed to the accumulator function after the
-        input x
-    **kwargs : keyword arguments
-        Keyword arguments passed to the accumulator function
-    Returns
-    -------
-    result : The output of the accumulator function passed to this function
-    """
-    if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
-        result = op(x, *args, **kwargs, dtype=cp.float64)
-    else:
-        result = op(x, *args, **kwargs)
-    return result
 
 
 def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
