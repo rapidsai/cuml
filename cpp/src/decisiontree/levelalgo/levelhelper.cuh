@@ -1,6 +1,19 @@
 #pragma once
 #include "levelkernel.cuh"
-
+void setup_sampling(unsigned int *flagsptr, int *sample_cnt,
+                    const unsigned int *rowids, const int nrows,
+                    const int n_sampled_rows, cudaStream_t &stream) {
+  CUDA_CHECK(cudaMemsetAsync(sample_cnt, 0, nrows * sizeof(int), stream));
+  int threads = 256;
+  int blocks = MLCommon::ceildiv(nrows, threads);
+  if (blocks > 65536) blocks = 65536;
+  setup_count_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, rowids,
+                                                     n_sampled_rows);
+  CUDA_CHECK(cudaGetLastError());
+  setup_flags_kernel<<<blocks, threads, 0, stream>>>(flagsptr, sample_cnt,
+                                                     nrows);
+  CUDA_CHECK(cudaGetLastError());
+}
 template <typename T>
 void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       const int nrows, const int ncols,
