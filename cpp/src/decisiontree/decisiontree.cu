@@ -206,7 +206,7 @@ void DecisionTreeBase<T, L>::plant(
     std::iota(feature_selector.begin(), feature_selector.end(), 0);
   }
 
-  //std::random_shuffle(feature_selector.begin(), feature_selector.end());
+  std::random_shuffle(feature_selector.begin(), feature_selector.end());
   feature_selector.resize((int)(colper * dinfo.Ncols));
 
   cudaDeviceProp prop;
@@ -256,8 +256,9 @@ void DecisionTreeBase<T, L>::plant(
 
   MLCommon::TimerCPU timer;
   if (levelalgo) {
-    root = grow_deep_tree(handle, data, labels, rowids, n_sampled_rows, ncols,
-                          dinfo.NLocalrows, leveltempmem);
+    root =
+      grow_deep_tree(handle, data, labels, rowids, feature_selector,
+                     n_sampled_rows, ncols, dinfo.NLocalrows, leveltempmem);
   } else {
     root =
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
@@ -486,11 +487,11 @@ void DecisionTreeClassifier<T>::fit(
 template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
-  const int n_sampled_rows, const int ncols, const int nrows,
-  LevelTemporaryMemory<T> *leveltempmem) {
+  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+  const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem) {
   return grow_deep_tree_classification(
-    handle, data, labels, rowids, n_sampled_rows, nrows, ncols,
-    this->n_unique_labels, this->nbins, this->treedepth, leveltempmem);
+    handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
+    ncols, this->n_unique_labels, this->nbins, this->treedepth, leveltempmem);
 }
 
 template <typename T>
@@ -561,11 +562,11 @@ void DecisionTreeRegressor<T>::fit(
 template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
-  const int n_sampled_rows, const int ncols, const int nrows,
-  LevelTemporaryMemory<T> *leveltempmem) {
-  return grow_deep_tree_regression(handle, data, labels, rowids, n_sampled_rows,
-                                   nrows, ncols, this->nbins, this->treedepth,
-                                   leveltempmem);
+  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+  const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem) {
+  return grow_deep_tree_regression(
+    handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
+    ncols, this->nbins, this->treedepth, leveltempmem);
 }
 
 template <typename T>

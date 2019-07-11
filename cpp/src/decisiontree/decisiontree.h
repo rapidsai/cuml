@@ -158,7 +158,8 @@ class DecisionTreeBase {
 
   virtual TreeNode<T, L> *grow_deep_tree(
     const ML::cumlHandle_impl &handle, T *data, L *labels, unsigned int *rowids,
-    const int n_sampled_rows, const int ncols, const int nrows,
+    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+    const int ncols, const int nrows,
     LevelTemporaryMemory<T> *leveltempmem) = 0;
 
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
@@ -204,8 +205,9 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
                            MetricInfo<T> split_info[3], int depth);
   TreeNode<T, int> *grow_deep_tree(
     const ML::cumlHandle_impl &handle, T *data, int *labels,
-    unsigned int *rowids, const int n_sampled_rows, const int ncols,
-    const int nrows, LevelTemporaryMemory<T> *leveltempmem);
+    unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
+    const int n_sampled_rows, const int ncols, const int nrows,
+    LevelTemporaryMemory<T> *leveltempmem);
 
 };  // End DecisionTreeClassifier Class
 
@@ -223,12 +225,10 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
                            MetricQuestion<T> &ques, float &gain,
                            unsigned int *rowids, const int n_sampled_rows,
                            MetricInfo<T> split_info[3], int depth);
-  TreeNode<T, T> *grow_deep_tree(const ML::cumlHandle_impl &handle,
-                                        T *data, T *labels,
-                                        unsigned int *rowids,
-                                        const int n_sampled_rows,
-                                        const int ncols, const int nrows,
-                                        LevelTemporaryMemory<T> *leveltempmem);
+  TreeNode<T, T> *grow_deep_tree(
+    const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
+    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+    const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem);
 
 };  // End DecisionTreeRegressor Class
 
