@@ -115,11 +115,6 @@ class Exception : public std::exception {
     }                                                                          \
   } while (0)
 
-
-
-///@todo: add a similar CUDA_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
-
 /**
  * @brief Generic copy method for all kinds of transfers
  * @tparam Type data type
