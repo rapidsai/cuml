@@ -13,6 +13,7 @@
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
+- PR #837: treelite for decision forest exchange format
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -74,6 +75,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests.
 - PR #741: Update API docs for 0.8
+- PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
 
