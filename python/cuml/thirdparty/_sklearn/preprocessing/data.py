@@ -124,9 +124,9 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 
 def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
 
-    # X = check_array(X, accept_sparse='csc', copy=copy, ensure_2d=False,
-    #                 estimator='the scale function', dtype=FLOAT_DTYPES,
-    #                 force_all_finite='allow-nan')    
+    X = check_array(X, copy=copy, ensure_2d=False,
+                    estimator='the scale function', dtype=FLOAT_DTYPES,
+                    force_all_finite=True)    
     X = to_cupy(X)
 
     if with_mean:
@@ -249,10 +249,7 @@ class MinMaxScaler(TransformerMixin):
         if feature_range[0] >= feature_range[1]:
             raise ValueError("Minimum of desired feature range must be smaller"
                              " than maximum. Got %s." % str(feature_range))
-        ###########################################################
-        # X = check_array(X, copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite="allow-nan")
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         data_min = cp.min(X, axis=0)
         data_max = cp.max(X, axis=0)
@@ -284,8 +281,7 @@ class MinMaxScaler(TransformerMixin):
         """
         check_fitted(self, 'scale_')
 
-        # X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-        #                 force_all_finite="allow-nan")
+        X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
         X += self.min_
@@ -300,8 +296,7 @@ class MinMaxScaler(TransformerMixin):
         """
         check_fitted(self, 'scale_')
 
-        # X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-        #                 force_all_finite="allow-nan")
+        X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X -= self.min_
         X /= self.scale_
@@ -311,8 +306,7 @@ class MinMaxScaler(TransformerMixin):
 def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
-    # X = check_array(X, copy=False, ensure_2d=False,
-    #                 dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+    X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -381,9 +375,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         y
             Ignored
         """
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         # Even in the case of `with_mean=False`, we update the mean anyway
         # This is needed for the incremental computation of the var
@@ -428,9 +420,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         check_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
-        # X = check_array(X, accept_sparse='csr', copy=copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_mean:
             X -= self.mean_
@@ -508,9 +498,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
         y
             Ignored
         """
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         max_abs = cp.max(cp.abs(X), axis=0)
 
@@ -534,9 +522,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
             The data that should be scaled.
         """
         check_fitted(self, 'scale_')
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X /= self.scale_
         return X
@@ -549,9 +535,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
             The data that should be transformed back.
         """
         check_fitted(self, 'scale_')
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
         return X
@@ -561,9 +545,7 @@ def maxabs_scale(X, axis=0, copy=True):
     # Unlike the scaler object, this function allows 1d input.
 
     # If copy is required, it will be done inside the scaler object.
-    # X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
-    #                 ensure_2d=False, dtype=FLOAT_DTYPES,
-    #                 force_all_finite='allow-nan')
+    X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -600,8 +582,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
         """
         # at fit, convert sparse matrices to csc for optimized computation of
         # the quantiles
-        # X = check_array(X, accept_sparse='csc', copy=self.copy, estimator=self,
-        #                 dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         q_min, q_max = self.quantile_range
         if not 0 <= q_min <= q_max <= 100:
@@ -638,9 +619,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_centering:
             X -= self.center_
@@ -656,9 +635,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
-        # X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-        #                 estimator=self, dtype=FLOAT_DTYPES,
-        #                 force_all_finite='allow-nan')
+        X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_scaling:
             X *= self.scale_
@@ -671,9 +648,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
 def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
 
-    # X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
-    #                 ensure_2d=False, dtype=FLOAT_DTYPES,
-    #                 force_all_finite='allow-nan')
+    X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -708,8 +683,8 @@ def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
     if axis != 0 and axis != 1:
         raise ValueError("'%d' is not a supported axis" % axis)
 
-    # X = check_array(X, sparse_format, copy=copy,
-    #                 estimator='the normalize function', dtype=FLOAT_DTYPES)
+    X = check_array(X, copy=copy,
+                    estimator='the normalize function', dtype=FLOAT_DTYPES)
     if axis == 0:
         X = X.T
 
@@ -745,7 +720,7 @@ class Normalizer(TransformerMixin):
         ----------
         X : array-like
         """
-        # check_array(X, accept_sparse='csr')
+        check_array(X)
         return self
 
     def transform(self, X, copy=None):
@@ -759,12 +734,12 @@ class Normalizer(TransformerMixin):
             Copy the input X or not.
         """
         copy = copy if copy is not None else self.copy
-        # X = check_array(X, accept_sparse='csr')
+        X = check_array(X)
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
 def binarize(X, threshold=0.0, copy=True):
-    # X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy)
+    X = check_array(X, copy=copy)
     cond = X > threshold
     not_cond = cp.logical_not(cond)
     X[cond] = 1
@@ -785,7 +760,7 @@ class Binarizer(TransformerMixin):
         ----------
         X : array-like
         """
-        # check_array(X, accept_sparse='csr')
+        check_array(X)
         return self
 
     def transform(self, X, copy=None):
@@ -819,7 +794,7 @@ class KernelCenterer(BaseEstimator, TransformerMixin):
         -------
         self : returns an instance of self.
         """
-        # K = check_array(K, dtype=FLOAT_DTYPES)
+        K = check_array(K, dtype=FLOAT_DTYPES)
         n_samples = K.shape[0]
         self.K_fit_rows_ = cp.sum(K, axis=0) / n_samples
         self.K_fit_all_ = self.K_fit_rows_.sum() / n_samples
@@ -839,7 +814,7 @@ class KernelCenterer(BaseEstimator, TransformerMixin):
         """
         check_fitted(self, 'K_fit_all_')
 
-        # K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
+        K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
 
         K_pred_cols = (cp.sum(K, axis=1) /
                        self.K_fit_rows_.shape[0])[:, cp.newaxis]
@@ -876,7 +851,7 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
-    # X = check_array(X, accept_sparse=['csc', 'csr', 'coo'], dtype=FLOAT_DTYPES)
+    X = check_array(X, dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
     shape = (n_samples, n_features + 1)
     return cp.hstack((cp.full((n_samples, 1), value), X))
