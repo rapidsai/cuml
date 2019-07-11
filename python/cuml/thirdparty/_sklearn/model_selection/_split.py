@@ -26,7 +26,7 @@ import numpy as np
 import cupy as cp
 import cudf
 
-from cuml.thirdparty._sklearn.model_selection._utils import (
+from cuml.thirdparty._sklearn._utils import (
     safe_indexing, indexable, _num_samples, comb, _pprint, check_random_state,
     column_or_1d, type_of_target, check_array, in1d, _approximate_mode,
     _np_approximate_mode, np_check_random_state)
@@ -34,7 +34,7 @@ from cuml.thirdparty._sklearn.model_selection._utils import (
 
 NSPLIT_WARNING = (
     "The default value of n_split will change from 3 to 5 "
-    "in version 0.9. Specify it explicitly to silence this warning.")
+    "in version 1.0. Specify it explicitly to silence this warning.")
 
 
 class BaseCrossValidator(metaclass=ABCMeta):
