@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "aion_utils.hpp"
+#include "hw_cu_utils.hpp"
 #include <iostream>
 
 template <typename Dtype>
-aion::AionStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst) {
+ML::HWStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst) {
   // TODO(ahmad): check cublas return value
   Dtype a = 1.0;
   Dtype b = 0.0;
-  aion::cublas::geam<Dtype>(
+  ML::cublas::geam<Dtype>(
     CUBLAS_OP_T,  // 02/ transa
     CUBLAS_OP_N,  // 03/ transb
     m,            // 04/ m - number of rows of matrix op(A) and C
@@ -37,15 +37,15 @@ aion::AionStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst) {
     m,  // 11/ ldb - leading dimension of two-dimensional array used to store matrix B.
     dst,  // 12/ C - ldc x n
     m);  // 13/ ldc - leading dimension of a two-dimensional array used to store the matrix C.
-  return aion::AionStatus::AION_SUCCESS;
+  return ML::HWStatus::HW_SUCCESS;
 }
 
-template aion::AionStatus transpose_gpu<float>(const float *src, int m, int n,
-                                               float *dst);
-template aion::AionStatus transpose_gpu<double>(const double *src, int m, int n,
-                                                double *dst);
+template ML::HWStatus transpose_gpu<float>(const float *src, int m, int n,
+                                           float *dst);
+template ML::HWStatus transpose_gpu<double>(const double *src, int m, int n,
+                                            double *dst);
 
-namespace aion {
+namespace ML {
 thread_local cublasHandle_t cublas::m_handle = nullptr;
 
 namespace {
@@ -258,4 +258,4 @@ template void cusolver::orgqr(int m, int n, int k, double *A, int lda,
                               const double *tau, double *work, int lwork,
                               int *devInfo);
 
-}  // namespace aion
+}  // namespace ML

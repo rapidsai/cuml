@@ -17,7 +17,7 @@
 #pragma once
 #include <cublas_v2.h>
 #include <cusolverDn.h>
-#include "Aion.hpp"
+#include "HoltWinters.hpp"
 
 #define MAX_BLOCKS_PER_DIM 65535
 #define GPU_LOOP(i, n)                                         \
@@ -98,9 +98,9 @@ inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
 #endif
 
 template <typename Dtype>
-aion::AionStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
+ML::HWStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
 
-namespace aion {
+namespace ML {
 class cublas;
 class cusolver;
 
@@ -172,42 +172,4 @@ class cusolver {
   static void orgqr(int m, int n, int k, Dtype *A, int lda, const Dtype *tau,
                     Dtype *work, int lwork, int *devInfo);
 };
-
-namespace math {
-
-template <typename Dtype>
-void div_gpu(int n, const Dtype *a, const Dtype *b, Dtype *y);
-
-template <typename Dtype>
-void subtract_gpu(int n, const Dtype *a, const Dtype *b, Dtype *y);
-
-template <typename Dtype>
-void subtract_gpu(int n, const Dtype *a, const Dtype *b, Dtype *y);
-
-__device__ __forceinline__ float log_device(float x) { return logf(x); }
-__device__ __forceinline__ double log_device(double x) { return log(x); }
-
-__device__ __forceinline__ float exp_device(float x) { return expf(x); }
-__device__ __forceinline__ double exp_device(double x) { return exp(x); }
-
-__device__ __forceinline__ float expm1_device(float x) { return expm1f(x); }
-__device__ __forceinline__ double expm1_device(double x) { return expm1(x); }
-
-__device__ __forceinline__ float pow_device(float base, float exponent) {
-  return powf(base, exponent);
-}
-__device__ __forceinline__ double pow_device(double base, double exponent) {
-  return pow(base, exponent);
-}
-
-__device__ __forceinline__ float log1p_device(float x) { return log1pf(x); }
-__device__ __forceinline__ double log1p_device(double x) { return log1p(x); }
-
-__device__ __forceinline__ float abs_device(float x) { return fabsf(x); }
-__device__ __forceinline__ double abs_device(double x) { return fabs(x); }
-
-__device__ __forceinline__ float sqrt_device(float x) { return sqrtf(x); }
-__device__ __forceinline__ double sqrt_device(double x) { return sqrt(x); }
-
-}  // namespace math
-}  // namespace aion
+}  // namespace ML

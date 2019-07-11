@@ -17,7 +17,7 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <vector>
-#include "Aion.hpp"
+#include "HoltWinters.hpp"
 
 #define STMP_EPS (1e-6)
 #define GOLD \
@@ -28,11 +28,10 @@
   (c) = (d);
 
 template <typename Dtype>
-aion::AionStatus stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
-                                       int frequency, int start_periods,
-                                       Dtype *level, Dtype *trend,
-                                       Dtype *season,
-                                       aion::SeasonalType seasonal);
+ML::HWStatus stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
+                                   int frequency, int start_periods,
+                                   Dtype *level, Dtype *trend, Dtype *season,
+                                   ML::SeasonalType seasonal);
 
 template <typename Dtype>
 void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
@@ -40,7 +39,7 @@ void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
                           const Dtype *start_season, const Dtype *alpha,
                           const Dtype *beta, const Dtype *gamma, Dtype *level,
                           Dtype *trend, Dtype *season, Dtype *xhat,
-                          Dtype *error, aion::SeasonalType seasonal);
+                          Dtype *error, ML::SeasonalType seasonal);
 
 template <typename Dtype, bool additive_seasonal>
 __device__ Dtype holtwinters_eval_device(
@@ -59,7 +58,7 @@ template <typename Dtype>
 void holtwinters_forecast_gpu(Dtype *forecast, int h, int batch_size,
                               int frequency, const Dtype *level_coef,
                               const Dtype *trend_coef, const Dtype *season_coef,
-                              aion::SeasonalType seasonal = aion::ADDITIVE);
+                              ML::SeasonalType seasonal = ML::ADDITIVE);
 
 template <typename Dtype>
 void holtwinters_optim_gpu(
@@ -67,8 +66,8 @@ void holtwinters_optim_gpu(
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
   bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-  Dtype *error, aion::OptimCriterion *optim_result, aion::SeasonalType seasonal,
-  const aion::OptimParams<Dtype> optim_params);
+  Dtype *error, ML::OptimCriterion *optim_result, ML::SeasonalType seasonal,
+  const ML::OptimParams<Dtype> optim_params);
 
 template <typename Dtype, bool additive_seasonal>
 __device__ void holtwinters_finite_gradient_device(

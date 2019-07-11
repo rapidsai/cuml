@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "aion_utils.hpp"
+#include "hw_cu_utils.hpp"
+#include "hw_math.hpp"
 
 template <typename Dtype>
 __global__ void div_kernel(int n, const Dtype* a, const Dtype* b, Dtype* y) {
@@ -22,7 +23,7 @@ __global__ void div_kernel(int n, const Dtype* a, const Dtype* b, Dtype* y) {
 }
 
 template <typename Dtype>
-void aion::math::div_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
+void ML::math::div_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
   div_kernel<Dtype>
     <<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(n, a, b, y);
 }
@@ -34,17 +35,17 @@ __global__ void subtract_kernel(int n, const Dtype* a, const Dtype* b,
 }
 
 template <typename Dtype>
-void aion::math::subtract_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
+void ML::math::subtract_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y) {
   subtract_kernel<Dtype>
     <<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(n, a, b, y);
 }
 
-template void aion::math::div_gpu<float>(int n, const float* a, const float* b,
-                                         float* y);
-template void aion::math::div_gpu<double>(int n, const double* a,
-                                          const double* b, double* y);
+template void ML::math::div_gpu<float>(int n, const float* a, const float* b,
+                                       float* y);
+template void ML::math::div_gpu<double>(int n, const double* a, const double* b,
+                                        double* y);
 
-template void aion::math::subtract_gpu<float>(int n, const float* a,
-                                              const float* b, float* y);
-template void aion::math::subtract_gpu<double>(int n, const double* a,
-                                               const double* b, double* y);
+template void ML::math::subtract_gpu<float>(int n, const float* a,
+                                            const float* b, float* y);
+template void ML::math::subtract_gpu<double>(int n, const double* a,
+                                             const double* b, double* y);
