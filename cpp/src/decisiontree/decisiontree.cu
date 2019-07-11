@@ -146,11 +146,11 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params) {
-  DecisionTreeClassifier<float> *dt_classifier =
-    new DecisionTreeClassifier<float>;
+  std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
+    std::make_shared<DecisionTreeClassifier<float>>();
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, tree, tree_params);
-  delete dt_classifier;
+  dt_classifier.reset();
 }
 
 void decisionTreeClassifierFit(const ML::cumlHandle &handle,
@@ -159,11 +159,11 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params) {
-  DecisionTreeClassifier<double> *dt_classifier =
-    new DecisionTreeClassifier<double>;
+  std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
+    std::make_shared<DecisionTreeClassifier<double>>();
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, tree, tree_params);
-  delete dt_classifier;
+  dt_classifier.reset();
 }
 /** @} */
 
@@ -187,12 +187,12 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
                                    bool verbose) {
-  DecisionTreeClassifier<float> *dt_classifier =
-    new DecisionTreeClassifier<float>;
+  std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
+    std::make_shared<DecisionTreeClassifier<float>>();
   dt_classifier->print(tree->root);
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
                          verbose);
-  delete dt_classifier;
+  dt_classifier.reset();
 }
 
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
@@ -200,11 +200,11 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
                                    bool verbose) {
-  DecisionTreeClassifier<double> *dt_classifier =
-    new DecisionTreeClassifier<double>;
+  std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
+    std::make_shared<DecisionTreeClassifier<double>>();
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
                          verbose);
-  delete dt_classifier;
+  dt_classifier.reset();
 }
 /** @} */
 
@@ -234,10 +234,11 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
                               DecisionTree::DecisionTreeParams tree_params) {
-  DecisionTreeRegressor<float> *dt_regressor = new DecisionTreeRegressor<float>;
+  std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
+    std::make_shared<DecisionTreeRegressor<float>>();
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     tree, tree_params);
-  delete dt_regressor;
+  dt_regressor.reset();
 }
 
 void decisionTreeRegressorFit(const ML::cumlHandle &handle,
@@ -245,11 +246,11 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
                               DecisionTree::DecisionTreeParams tree_params) {
-  DecisionTreeRegressor<double> *dt_regressor =
-    new DecisionTreeRegressor<double>;
+  std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
+    std::make_shared<DecisionTreeRegressor<double>>();
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     tree, tree_params);
-  delete dt_regressor;
+  dt_regressor.reset();
 }
 /** @} */
 
@@ -272,10 +273,11 @@ void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
                                   float *predictions, bool verbose) {
-  DecisionTreeRegressor<float> *dt_regressor = new DecisionTreeRegressor<float>;
+  std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
+    std::make_shared<DecisionTreeRegressor<float>>();
   dt_regressor->predict(handle, tree, rows, n_rows, n_cols, predictions,
                         verbose);
-  delete dt_regressor;
+  dt_regressor.reset();
 }
 
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
@@ -283,11 +285,11 @@ void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
                                   bool verbose) {
-  DecisionTreeRegressor<double> *dt_regressor =
-    new DecisionTreeRegressor<double>;
+  std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
+    std::make_shared<DecisionTreeRegressor<double>>();
   dt_regressor->predict(handle, tree, rows, n_rows, n_cols, predictions,
                         verbose);
-  delete dt_regressor;
+  dt_regressor.reset();
 }
 /** @} */
 
