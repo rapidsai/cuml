@@ -24,6 +24,7 @@
 #include <numeric>
 #include <vector>
 #include "algo_helper.h"
+#include "decisiontree.hpp"
 #include "kernels/metric_def.h"
 #include "levelalgo/levelmem.cuh"
 
@@ -33,23 +34,15 @@ bool is_dev_ptr(const void *p);
 
 namespace DecisionTree {
 
-template <class T>
-struct Question {
-  int column;
-  T value;
-  void update(const MetricQuestion<T> &ques);
-};
+template <class T, class L>
+void null_tree_node_child_ptrs(TreeNode<T, L> &node);
 
 template <class T, class L>
-struct TreeNode {
-  TreeNode *left = nullptr;
-  TreeNode *right = nullptr;
-  L prediction;
-  Question<T> question;
-  T split_metric_val;
+void print(const TreeNode<T, L> &node, std::ostream &os);
 
-  void print(std::ostream &os) const;
-};
+template <class T, class L>
+void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
+                bool isLeft);
 
 struct DataInfo {
   unsigned int NLocalrows;
@@ -57,60 +50,10 @@ struct DataInfo {
   unsigned int Ncols;
 };
 
-struct DecisionTreeParams {
-  /**
-   * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
-   */
-  int max_depth = -1;
-  /**
-   * Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
-   */
-  int max_leaves = -1;
-  /**
-   * Ratio of number of features (columns) to consider per node split.
-   * TODO SKL's default is sqrt(n_cols)
-   */
-  float max_features = 1.0;
-  /**
-   * Number of bins used by the split algorithm.
-   */
-  int n_bins = 8;
-  /**
-   * The split algorithm: HIST or GLOBAL_QUANTILE.
-   */
-  int split_algo = SPLIT_ALGO::HIST;
-  /**
-   * The minimum number of samples (rows) needed to split a node.
-   */
-  int min_rows_per_node = 2;
-  /**
-   * Whether to bootstrap columns with or without replacement.
-   */
-  bool bootstrap_features = false;
-  /**
-   * Whether a quantile needs to be computed for individual trees in RF.
-   * Default: compute quantiles once per RF. Only affects GLOBAL_QUANTILE split_algo.
-   **/
-  bool quantile_per_tree = false;
-  /**
-   * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
-   */
-  CRITERION split_criterion = CRITERION_END;
-  bool levelalgo = false;
-  DecisionTreeParams();
-  DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves,
-                     float cfg_max_features, int cfg_n_bins, int cfg_split_aglo,
-                     int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-                     CRITERION cfg_split_criterion, bool cfg_quantile_per_tree);
-  void validity_check() const;
-  void print() const;
-};
-
 template <class T, class L>
 class DecisionTreeBase {
  protected:
   int split_algo;
-  TreeNode<T, L> *root = nullptr;
   int nbins;
   DataInfo dinfo;
   int treedepth;
@@ -123,19 +66,19 @@ class DecisionTreeBase {
   size_t max_shared_mem;
   size_t shmem_used = 0;
   int n_unique_labels = -1;  // number of unique labels in dataset
-  double construct_time;
+  double prepare_time = 0;
+  double train_time = 0;
   int min_rows_per_node;
   bool bootstrap_features;
   CRITERION split_criterion;
   std::vector<unsigned int> feature_selector;
+  MLCommon::TimerCPU prepare_fit_timer;
 
-  void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
-                  bool isLeft) const;
   void split_branch(T *data, MetricQuestion<T> &ques, const int n_sampled_rows,
                     int &nrowsleft, int &nrowsright, unsigned int *rowids);
 
-  void plant(const cumlHandle_impl &handle, T *data, const int ncols,
-             const int nrows, L *labels, unsigned int *rowids,
+  void plant(const cumlHandle_impl &handle, TreeNode<T, L> *&root, T *data,
+             const int ncols, const int nrows, L *labels, unsigned int *rowids,
              const int n_sampled_rows, int unique_labels, int maxdepth = -1,
              int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8,
              int split_algo_flag = SPLIT_ALGO::HIST,
@@ -165,7 +108,8 @@ class DecisionTreeBase {
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
                 const int nrows, L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
-                DecisionTreeParams &tree_params, bool is_classifier,
+                TreeNode<T, L> *&root, DecisionTreeParams &tree_params,
+                bool is_classifier,
                 std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
@@ -173,15 +117,19 @@ class DecisionTreeBase {
   void print_tree_summary() const;
 
   // Printing utility for debug and looking at nodes and leaves.
-  void print() const;
+  void print(const TreeNode<T, L> *root) const;
 
   // Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
-  void predict(const ML::cumlHandle &handle, const T *rows, const int n_rows,
-               const int n_cols, L *predictions, bool verbose = false) const;
-  void predict_all(const T *rows, const int n_rows, const int n_cols, L *preds,
+  void predict(const ML::cumlHandle &handle, const TreeMetaDataNode<T, L> *tree,
+               const T *rows, const int n_rows, const int n_cols,
+               L *predictions, bool verbose = false) const;
+  void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
+                   const int n_rows, const int n_cols, L *preds,
                    bool verbose = false) const;
   L predict_one(const T *row, const TreeNode<T, L> *const node,
                 bool verbose = false) const;
+
+  void set_metadata(TreeMetaDataNode<T, L> *&tree);
 
 };  // End DecisionTreeBase Class
 
@@ -194,7 +142,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
   void fit(const ML::cumlHandle &handle, T *data, const int ncols,
            const int nrows, int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
-           DecisionTreeParams tree_params,
+           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
  private:
@@ -216,7 +164,8 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
  public:
   void fit(const ML::cumlHandle &handle, T *data, const int ncols,
            const int nrows, T *labels, unsigned int *rowids,
-           const int n_sampled_rows, DecisionTreeParams tree_params,
+           const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
+           DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
  private:
@@ -233,53 +182,5 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
 };  // End DecisionTreeRegressor Class
 
 }  //End namespace DecisionTree
-
-// Stateless API functions
-
-// ----------------------------- Classification ----------------------------------- //
-
-void fit(const ML::cumlHandle &handle,
-         DecisionTree::DecisionTreeClassifier<float> *dt_classifier,
-         float *data, const int ncols, const int nrows, int *labels,
-         unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-         DecisionTree::DecisionTreeParams tree_params);
-
-void fit(const ML::cumlHandle &handle,
-         DecisionTree::DecisionTreeClassifier<double> *dt_classifier,
-         double *data, const int ncols, const int nrows, int *labels,
-         unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-         DecisionTree::DecisionTreeParams tree_params);
-
-void predict(const ML::cumlHandle &handle,
-             const DecisionTree::DecisionTreeClassifier<float> *dt_classifier,
-             const float *rows, const int n_rows, const int n_cols,
-             int *predictions, bool verbose = false);
-void predict(const ML::cumlHandle &handle,
-             const DecisionTree::DecisionTreeClassifier<double> *dt_classifier,
-             const double *rows, const int n_rows, const int n_cols,
-             int *predictions, bool verbose = false);
-
-// ----------------------------- Regression ----------------------------------- //
-
-void fit(const ML::cumlHandle &handle,
-         DecisionTree::DecisionTreeRegressor<float> *dt_regressor, float *data,
-         const int ncols, const int nrows, float *labels, unsigned int *rowids,
-         const int n_sampled_rows,
-         DecisionTree::DecisionTreeParams tree_params);
-
-void fit(const ML::cumlHandle &handle,
-         DecisionTree::DecisionTreeRegressor<double> *dt_regressor,
-         double *data, const int ncols, const int nrows, double *labels,
-         unsigned int *rowids, const int n_sampled_rows,
-         DecisionTree::DecisionTreeParams tree_params);
-
-void predict(const ML::cumlHandle &handle,
-             const DecisionTree::DecisionTreeRegressor<float> *dt_regressor,
-             const float *rows, const int n_rows, const int n_cols,
-             float *predictions, bool verbose = false);
-void predict(const ML::cumlHandle &handle,
-             const DecisionTree::DecisionTreeRegressor<double> *dt_regressor,
-             const double *rows, const int n_rows, const int n_cols,
-             double *predictions, bool verbose = false);
 
 }  //End namespace ML
