@@ -76,6 +76,6 @@ def test_end_to_end():
 
     print(str(cumlLabels.compute()))
 
-    assert 0 == 1
+    assert False
 
     cluster.close()

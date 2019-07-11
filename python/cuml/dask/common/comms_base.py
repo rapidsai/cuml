@@ -130,7 +130,7 @@ class CommsBase:
         return port
 
     @staticmethod
-    async def ucp_create_listener(sessionId, r):
+    async def func_ucp_create_listener(sessionId, r):
         """
         Creates a UCP listener for incoming endpoint connections.
         This function runs in a loop asynchronously in the background
@@ -159,7 +159,7 @@ class CommsBase:
             del dask_worker.data[sessionId]
 
     @staticmethod
-    def ucp_stop_listener(sessionId, r):
+    def func_ucp_stop_listener(sessionId, r):
         """
         Stops the listener running in the background on the current worker.
         :param sessionId: uuid Unique id for current instance
@@ -182,8 +182,9 @@ class CommsBase:
         data dict could be serialized at any point, which would cause
         an error. Need to sync w/ the Dask team to see if there's a better
         way to do this.
+        Ref: https://github.com/rapidsai/cuml/issues/841
         """
-        [self.client.run(CommsBase.ucp_create_listener, self.sessionId,
+        [self.client.run(CommsBase.func_ucp_create_listener, self.sessionId,
                          random.random(), workers=[w], wait=False) for w
          in
          self.worker_addresses]
@@ -201,7 +202,7 @@ class CommsBase:
         """
         Stops the UCP listeners attached to this session
         """
-        a = [self.client.submit(CommsBase.ucp_stop_listener, self.sessionId,
+        a = [self.client.submit(CommsBase.func_ucp_stop_listener, self.sessionId,
                                 random.random(), workers=[w])
              for w in self.workers]
         wait(a)
@@ -371,6 +372,7 @@ class CommsBase:
              for wid, w, f in self.nccl_clique]
         wait(a)
 
+    @staticmethod
     def func_destroy_ep(eps, r):
         """
         Destroys UCP endpoints on worker

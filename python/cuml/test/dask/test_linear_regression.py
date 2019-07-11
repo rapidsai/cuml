@@ -24,7 +24,7 @@ import os
 
 
 def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
-    # Loading intop pandas to not create any clusters before LocalCUDACluster
+    # Loading into pandas to not create any clusters before LocalCUDACluster
     if os.path.exists(cached):
         print('use mortgage data')
         with gzip.open(cached) as f:

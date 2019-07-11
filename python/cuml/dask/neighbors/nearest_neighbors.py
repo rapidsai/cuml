@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.spmg import new_ipc_thread
+from cuml.dask.common.spmg_ipc import new_ipc_thread
 from cuml.dask.common.utils import parse_host_port
 from cuml.dask.common.utils import device_of_devicendarray, build_host_dict
 

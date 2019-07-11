@@ -18,10 +18,15 @@ from cuml.cluster import KMeans as cumlKMeans
 
 from dask.distributed import wait
 
+import warnings
+
 import random
 
 
 class KMeans(CommsBase):
+    """
+    Multi-Node Multi-GPU implementation of KMeans
+    """
 
     def __init__(self, n_clusters=8, init_method="random", verbose=0):
         super(KMeans, self).__init__(comms_p2p=False)
