@@ -277,7 +277,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
     std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
-  rf_classifier.reset();
 }
 
 void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
@@ -295,7 +294,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
     std::make_shared<rfClassifier<double>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
-  rf_classifier.reset();
 }
 /** @} */
 
@@ -321,7 +319,6 @@ void predict(const cumlHandle& user_handle,
     std::make_shared<rfClassifier<float>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbose);
-  rf_classifier.reset();
 }
 
 void predict(const cumlHandle& user_handle,
@@ -332,7 +329,6 @@ void predict(const cumlHandle& user_handle,
     std::make_shared<rfClassifier<double>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbose);
-  rf_classifier.reset();
 }
 /** @} */
 
@@ -361,7 +357,6 @@ RF_metrics score(const cumlHandle& user_handle,
   RF_metrics classification_score =
     rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
                          predictions, forest, verbose);
-  rf_classifier.reset();
   return classification_score;
 }
 
@@ -375,7 +370,6 @@ RF_metrics score(const cumlHandle& user_handle,
   RF_metrics classification_score =
     rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
                          predictions, forest, verbose);
-  rf_classifier.reset();
   return classification_score;
 }
 /** @} */
@@ -422,7 +416,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
-  rf_regressor.reset();
 }
 
 void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
@@ -439,7 +432,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
-  rf_regressor.reset();
 }
 /** @} */
 
@@ -464,7 +456,6 @@ void predict(const cumlHandle& user_handle,
     std::make_shared<rfRegressor<float>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbose);
-  rf_regressor.reset();
 }
 
 void predict(const cumlHandle& user_handle,
@@ -475,7 +466,6 @@ void predict(const cumlHandle& user_handle,
     std::make_shared<rfRegressor<double>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbose);
-  rf_regressor.reset();
 }
 /** @} */
 
@@ -505,7 +495,6 @@ RF_metrics score(const cumlHandle& user_handle,
   RF_metrics regression_score =
     rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
                         predictions, forest, verbose);
-  rf_regressor.reset();
   return regression_score;
 }
 
@@ -519,7 +508,6 @@ RF_metrics score(const cumlHandle& user_handle,
   RF_metrics regression_score =
     rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
                         predictions, forest, verbose);
-  rf_regressor.reset();
   return regression_score;
 }
 /** @} */
