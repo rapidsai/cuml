@@ -30,7 +30,6 @@
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
-- PR #811: cuML Comms API w/ Communicators for MPI[+NCCL] and NCCL-only
 - PR #644: Add train_test_split utility for cuDF dataframes
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
@@ -41,8 +40,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
-- PR #810: dask-cuml merged into cuml
-- PR #812: Adding kmeans to dask.cuml
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 
