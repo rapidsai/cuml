@@ -310,7 +310,7 @@ int main(int argc, char * argv[])
 
     {
         ML::cumlHandle cumlHandle;
-        initialize_mpi_comms(cumlHandle, cuml_mpi_comm);
+        inject_comms(cumlHandle, cuml_mpi_comm);
         
         ...
         
