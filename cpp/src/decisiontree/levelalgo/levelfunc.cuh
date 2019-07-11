@@ -80,8 +80,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int depth = 0; depth < maxdepth; depth++) {
     n_nodes = n_nodes_nextitr;
     //End allocation and setups
-    get_me_histogram(data, labels, flagsptr, nrows, ncols, n_unique_labels,
-                     nbins, n_nodes, tempmem->max_nodes, tempmem, d_histogram);
+    get_me_histogram(data, labels, flagsptr, sample_cnt, nrows, ncols,
+                     n_unique_labels, nbins, n_nodes, tempmem->max_nodes,
+                     tempmem, d_histogram);
 
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor, GiniDevFunctor>(
