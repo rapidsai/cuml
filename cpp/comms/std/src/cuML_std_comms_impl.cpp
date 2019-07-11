@@ -342,9 +342,8 @@ void cumlStdCommunicator_impl::waitall(int count,
 
   int done = 0;
   for (struct ucx_context *req : requests) {
-    if (req == nullptr) {
-      continue;
-    }
+
+    ASSERT(req != nullptr, "Request %d should not be null");
 
     wait(_ucp_worker, req);
     req->completed = 0; /* Reset request state before recycling it */
