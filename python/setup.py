@@ -63,6 +63,7 @@ extensions = [
                             '../thirdparty/cutlass',
                             '../thirdparty/cub',
                             # Ideally we enable this to be swapped out.
+                            '../cpp/comms/std/src',
                             '../cpp/comms/std/include',
                             cuda_include_dir,
                             rmm_include_dir],
