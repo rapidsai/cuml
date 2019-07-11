@@ -59,8 +59,7 @@ from cuml.thirdparty._sklearn.model_selection._split import (
 from sklearn.datasets import load_digits
 # from sklearn.datasets import make_classification
 
-from cuml.thirdparty._sklearn._utils import (_num_samples,
-                                                             comb, in1d)
+from cuml.thirdparty._sklearn._utils import _num_samples, comb, in1d
 
 X = cudf.DataFrame({'a': range(10)})
 y = cp.arange(10) // 2
