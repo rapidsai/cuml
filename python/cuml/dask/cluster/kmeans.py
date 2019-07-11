@@ -18,8 +18,6 @@ from cuml.cluster import KMeans as cumlKMeans
 
 from dask.distributed import wait
 
-import warnings
-
 import random
 
 
