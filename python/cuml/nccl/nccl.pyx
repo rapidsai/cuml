@@ -66,6 +66,7 @@ cdef extern from "nccl.h":
 
 NCCL_UNIQUE_ID_BYTES = 128
 
+
 def unique_id():
     """
     Returns a new ncclUniqueId converted to a
