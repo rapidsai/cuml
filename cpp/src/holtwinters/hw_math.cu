@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "aion_utils.hpp"
+#include "hw_math.hpp"
+#include "hw_cu_utils.hpp"
 
 template <typename Dtype>
 __global__ void div_kernel(int n, const Dtype* a, const Dtype* b, Dtype* y) {

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "aion_utils.hpp"
+#include "hw_cu_utils.hpp"
 #include <iostream>
 
 template <typename Dtype>

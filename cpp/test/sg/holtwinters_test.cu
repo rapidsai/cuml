@@ -17,7 +17,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include "holtwinters/Aion.hpp"
+#include "holtwinters/HoltWinters.hpp"
 #include "ml_utils.h"
 
 namespace ML {
@@ -72,13 +72,9 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void SetUp() override {
-    basicTest();
-  }
+  void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-  }
+  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
 
  public:
   HoltWintersInputs params;

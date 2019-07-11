@@ -19,9 +19,10 @@
 #include <iostream>
 #include <vector>
 
-#include "Aion.hpp"
-#include "aion_utils.hpp"
-#include "holtwinters.hpp"
+#include "HoltWinters.hpp"
+#include "hw_cu_utils.hpp"
+#include "hw_math.hpp"
+#include "holtwinters_utils.hpp"
 
 #define IDX(n, m, N) (n + (m) * (N))
 
