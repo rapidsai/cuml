@@ -273,10 +273,11 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
   }
   forest->rf_params = rf_params;
 
-  rfClassifier<float>* rf_classifier = new rfClassifier<float>(rf_params);
+  std::shared_ptr<rfClassifier<float>> rf_classifier =
+    std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
-  delete rf_classifier;
+  rf_classifier.reset();
 }
 
 void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
@@ -290,10 +291,11 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
   }
   forest->rf_params = rf_params;
 
-  rfClassifier<double>* rf_classifier = new rfClassifier<double>(rf_params);
+  std::shared_ptr<rfClassifier<double>> rf_classifier =
+    std::make_shared<rfClassifier<double>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
-  delete rf_classifier;
+  rf_classifier.reset();
 }
 /** @} */
 
@@ -315,22 +317,22 @@ void predict(const cumlHandle& user_handle,
              const RandomForestClassifierF* forest, const float* input,
              int n_rows, int n_cols, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfClassifier<float>* rf_classifier =
-    new rfClassifier<float>(forest->rf_params);
+  std::shared_ptr<rfClassifier<float>> rf_classifier =
+    std::make_shared<rfClassifier<float>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbose);
-  delete rf_classifier;
+  rf_classifier.reset();
 }
 
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfClassifier<double>* rf_classifier =
-    new rfClassifier<double>(forest->rf_params);
+  std::shared_ptr<rfClassifier<double>> rf_classifier =
+    std::make_shared<rfClassifier<double>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbose);
-  delete rf_classifier;
+  rf_classifier.reset();
 }
 /** @} */
 
@@ -354,12 +356,12 @@ RF_metrics score(const cumlHandle& user_handle,
                  const int* ref_labels, int n_rows, int n_cols,
                  int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfClassifier<float>* rf_classifier =
-    new rfClassifier<float>(forest->rf_params);
+  std::shared_ptr<rfClassifier<float>> rf_classifier =
+    std::make_shared<rfClassifier<float>>(forest->rf_params);
   RF_metrics classification_score =
     rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
                          predictions, forest, verbose);
-  delete rf_classifier;
+  rf_classifier.reset();
   return classification_score;
 }
 
@@ -368,12 +370,12 @@ RF_metrics score(const cumlHandle& user_handle,
                  const int* ref_labels, int n_rows, int n_cols,
                  int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfClassifier<double>* rf_classifier =
-    new rfClassifier<double>(forest->rf_params);
+  std::shared_ptr<rfClassifier<double>> rf_classifier =
+    std::make_shared<rfClassifier<double>>(forest->rf_params);
   RF_metrics classification_score =
     rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
                          predictions, forest, verbose);
-  delete rf_classifier;
+  rf_classifier.reset();
   return classification_score;
 }
 /** @} */
@@ -417,9 +419,10 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
   }
   forest->rf_params = rf_params;
 
-  rfRegressor<float>* rf_regressor = new rfRegressor<float>(rf_params);
+  std::shared_ptr<rfRegressor<float>> rf_regressor =
+    std::make_shared<rfRegressor<float>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
-  delete rf_regressor;
+  rf_regressor.reset();
 }
 
 void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
@@ -433,9 +436,10 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
   }
   forest->rf_params = rf_params;
 
-  rfRegressor<double>* rf_regressor = new rfRegressor<double>(rf_params);
+  std::shared_ptr<rfRegressor<double>> rf_regressor =
+    std::make_shared<rfRegressor<double>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
-  delete rf_regressor;
+  rf_regressor.reset();
 }
 /** @} */
 
@@ -456,21 +460,22 @@ void predict(const cumlHandle& user_handle,
              const RandomForestRegressorF* forest, const float* input,
              int n_rows, int n_cols, float* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfRegressor<float>* rf_regressor = new rfRegressor<float>(forest->rf_params);
+  std::shared_ptr<rfRegressor<float>> rf_regressor =
+    std::make_shared<rfRegressor<float>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbose);
-  delete rf_regressor;
+  rf_regressor.reset();
 }
 
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorD* forest, const double* input,
              int n_rows, int n_cols, double* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfRegressor<double>* rf_regressor =
-    new rfRegressor<double>(forest->rf_params);
+  std::shared_ptr<rfRegressor<double>> rf_regressor =
+    std::make_shared<rfRegressor<double>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbose);
-  delete rf_regressor;
+  rf_regressor.reset();
 }
 /** @} */
 
@@ -495,11 +500,12 @@ RF_metrics score(const cumlHandle& user_handle,
                  const float* ref_labels, int n_rows, int n_cols,
                  float* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfRegressor<float>* rf_regressor = new rfRegressor<float>(forest->rf_params);
+  std::shared_ptr<rfRegressor<float>> rf_regressor =
+    std::make_shared<rfRegressor<float>>(forest->rf_params);
   RF_metrics regression_score =
     rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
                         predictions, forest, verbose);
-  delete rf_regressor;
+  rf_regressor.reset();
   return regression_score;
 }
 
@@ -508,12 +514,12 @@ RF_metrics score(const cumlHandle& user_handle,
                  const double* ref_labels, int n_rows, int n_cols,
                  double* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  rfRegressor<double>* rf_regressor =
-    new rfRegressor<double>(forest->rf_params);
+  std::shared_ptr<rfRegressor<double>> rf_regressor =
+    std::make_shared<rfRegressor<double>>(forest->rf_params);
   RF_metrics regression_score =
     rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
                         predictions, forest, verbose);
-  delete rf_regressor;
+  rf_regressor.reset();
   return regression_score;
 }
 /** @} */
