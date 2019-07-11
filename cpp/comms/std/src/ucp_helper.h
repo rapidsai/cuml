@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#ifdef WITH_UCX
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 static const ucp_tag_t default_tag_mask = -1;
@@ -144,4 +143,3 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
 
   return ucp_request;
 }
-#endif
