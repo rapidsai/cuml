@@ -98,9 +98,9 @@ inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
 #endif
 
 template <typename Dtype>
-aion::AionStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
+ML::HWStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
 
-namespace aion {
+namespace ML {
 class cublas;
 class cusolver;
 
@@ -172,4 +172,4 @@ class cusolver {
   static void orgqr(int m, int n, int k, Dtype *A, int lda, const Dtype *tau,
                     Dtype *work, int lwork, int *devInfo);
 };
-}  // namespace aion
+}  // namespace ML

@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include "holtwinters/HoltWinters.hpp"
-#include "ml_utils.h"
 
 namespace ML {
 
@@ -27,7 +26,7 @@ using namespace MLCommon;
 struct HoltWintersInputs {
   int batch_size;
   int frequency;
-  aion::SeasonalType seasonal;
+  ML::SeasonalType seasonal;
   int start_periods;
 };
 
@@ -38,7 +37,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     params = ::testing::TestWithParam<HoltWintersInputs>::GetParam();
     batch_size = params.batch_size;
     frequency = params.frequency;
-    aion::SeasonalType seasonal = params.seasonal;
+    ML::SeasonalType seasonal = params.seasonal;
     start_periods = params.start_periods;
 
     cudaStream_t stream;
@@ -63,10 +62,10 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     allocate(data, batch_size * n);
     updateDevice(data, dataset_h.data(), batch_size * n, stream);
 
-    aion::HoltWintersFitPredict(n, batch_size, frequency, h, start_periods,
-                                seasonal, data, alpha_ptr.data(),
-                                beta_ptr.data(), gamma_ptr.data(),
-                                SSE_error_ptr.data(), forecast_ptr.data());
+    ML::HoltWintersFitPredict(n, batch_size, frequency, h, start_periods,
+                              seasonal, data, alpha_ptr.data(), beta_ptr.data(),
+                              gamma_ptr.data(), SSE_error_ptr.data(),
+                              forecast_ptr.data());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -85,7 +84,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
 };
 
 const std::vector<HoltWintersInputs> inputsf = {
-  {1, 12, aion::SeasonalType::ADDITIVE, 2}};
+  {1, 12, ML::SeasonalType::ADDITIVE, 2}};
 
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit) {

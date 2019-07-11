@@ -18,37 +18,37 @@
 
 #include <iostream>
 #include "HoltWinters.hpp"
-#include "hw_cu_utils.hpp"
 #include "holtwinters_utils.hpp"
+#include "hw_cu_utils.hpp"
 #include "utils.h"
 
-aion::AionStatus aion::AionInit() {
-  aion::cublas::get_handle();
-  aion::cusolver::get_handle();
-  return aion::AionStatus::AION_SUCCESS;  // TODO(ahmad): check cublas
+ML::HWStatus ML::HWInit() {
+  ML::cublas::get_handle();
+  ML::cusolver::get_handle();
+  return ML::HWStatus::HW_SUCCESS;  // TODO(ahmad): check cublas
 }
 
-aion::AionStatus aion::AionDestroy() {
-  aion::cublas::destroy_handle();
-  aion::cusolver::destroy_handle();
-  return aion::AionStatus::AION_SUCCESS;  // TODO(ahmad): check cublas
+ML::HWStatus ML::HWDestroy() {
+  ML::cublas::destroy_handle();
+  ML::cusolver::destroy_handle();
+  return ML::HWStatus::HW_SUCCESS;  // TODO(ahmad): check cublas
 }
 
 template <typename Dtype>
-aion::AionStatus aion::AionTranspose(const Dtype *data_in, int m, int n,
-                                     Dtype *data_out) {
+ML::HWStatus ML::HWTranspose(const Dtype *data_in, int m, int n,
+                             Dtype *data_out) {
   if (!data_in || !data_out || n < 1 || m < 1)
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
 
   return transpose_gpu(data_in, m, n, data_out);
 }
 
-aion::AionStatus aion::HoltWintersBufferSize(
+ML::HWStatus ML::HoltWintersBufferSize(
   int n, int batch_size, int frequency, bool use_beta, bool use_gamma,
   int *start_leveltrend_len, int *start_season_len, int *components_len,
   int *error_len, int *leveltrend_coef_shift, int *season_coef_shift) {
-  if (n <= 0 || batch_size <= 0) return aion::AionStatus::AION_INVALID_VALUE;
-  if (use_gamma && frequency <= 0) return aion::AionStatus::AION_INVALID_VALUE;
+  if (n <= 0 || batch_size <= 0) return ML::HWStatus::HW_INVALID_VALUE;
+  if (use_gamma && frequency <= 0) return ML::HWStatus::HW_INVALID_VALUE;
 
   int w_len = use_gamma ? frequency : (use_beta ? 2 : 1);
 
@@ -64,26 +64,27 @@ aion::AionStatus aion::HoltWintersBufferSize(
 
   if (error_len) *error_len = batch_size;
 
-  return aion::AionStatus::AION_SUCCESS;
+  return ML::HWStatus::HW_SUCCESS;
 }
 
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersDecompose(
-  const Dtype *ts, int n, int batch_size, int frequency, Dtype *start_level,
-  Dtype *start_trend, Dtype *start_season, int start_periods,
-  SeasonalType seasonal) {
-  if (!ts) return aion::AionStatus::AION_INVALID_VALUE;
-  if (n <= 0) return aion::AionStatus::AION_INVALID_VALUE;
-  if (batch_size <= 0) return aion::AionStatus::AION_INVALID_VALUE;
+ML::HWStatus ML::HoltWintersDecompose(const Dtype *ts, int n, int batch_size,
+                                      int frequency, Dtype *start_level,
+                                      Dtype *start_trend, Dtype *start_season,
+                                      int start_periods,
+                                      SeasonalType seasonal) {
+  if (!ts) return ML::HWStatus::HW_INVALID_VALUE;
+  if (n <= 0) return ML::HWStatus::HW_INVALID_VALUE;
+  if (batch_size <= 0) return ML::HWStatus::HW_INVALID_VALUE;
   if (seasonal != ADDITIVE && seasonal != MULTIPLICATIVE)
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
 
   if (start_level != nullptr && start_trend == nullptr &&
       start_season == nullptr) {  // level decomposition
     cudaMemcpy(start_level, ts, sizeof(Dtype) * batch_size, cudaMemcpyDefault);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season == nullptr) {  // trend decomposition
-    if (n < 2) return aion::AionStatus::AION_INVALID_VALUE;
+    if (n < 2) return ML::HWStatus::HW_INVALID_VALUE;
     cudaMemcpy(start_level, ts + batch_size, sizeof(Dtype) * batch_size,
                cudaMemcpyDefault);
     cudaMemcpy(start_trend, ts + batch_size, sizeof(Dtype) * batch_size,
@@ -92,43 +93,43 @@ aion::AionStatus aion::HoltWintersDecompose(
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season != nullptr) {
     if (frequency < 2)  // Non-seasonal time series don't have STL decomposition
-      return aion::AionStatus::AION_INVALID_VALUE;
+      return ML::HWStatus::HW_INVALID_VALUE;
     if (start_periods <
         2)  // We need at least two periods for STL decomposition
-      return aion::AionStatus::AION_INVALID_VALUE;
+      return ML::HWStatus::HW_INVALID_VALUE;
     if (start_periods * frequency >
         n)  // Make sure we have enough data points to cover all start_periods
-      return aion::AionStatus::AION_INVALID_VALUE;
+      return ML::HWStatus::HW_INVALID_VALUE;
     return stl_decomposition_gpu(ts, n, batch_size, frequency, start_periods,
                                  start_level, start_trend, start_season,
                                  seasonal);
-    return aion::AionStatus::AION_SUCCESS;
+    return ML::HWStatus::HW_SUCCESS;
   }
 }
 
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersEval(const Dtype *ts, int n, int batch_size,
-                                       int frequency, const Dtype *start_level,
-                                       const Dtype *start_trend,
-                                       const Dtype *start_season,
-                                       const Dtype *alpha, const Dtype *beta,
-                                       const Dtype *gamma, Dtype *level,
-                                       Dtype *trend, Dtype *season, Dtype *xhat,
-                                       Dtype *error, SeasonalType seasonal) {
-  if (!ts) return aion::AionStatus::AION_INVALID_VALUE;
-  if (n < 1 || batch_size < 1) return aion::AionStatus::AION_INVALID_VALUE;
+ML::HWStatus ML::HoltWintersEval(const Dtype *ts, int n, int batch_size,
+                                 int frequency, const Dtype *start_level,
+                                 const Dtype *start_trend,
+                                 const Dtype *start_season, const Dtype *alpha,
+                                 const Dtype *beta, const Dtype *gamma,
+                                 Dtype *level, Dtype *trend, Dtype *season,
+                                 Dtype *xhat, Dtype *error,
+                                 SeasonalType seasonal) {
+  if (!ts) return ML::HWStatus::HW_INVALID_VALUE;
+  if (n < 1 || batch_size < 1) return ML::HWStatus::HW_INVALID_VALUE;
   if ((!start_trend) != (!beta) || (!start_season) != (!gamma))
-    return aion::AionStatus::AION_INVALID_VALUE;
-  if (!alpha || !start_level) return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
+  if (!alpha || !start_level) return ML::HWStatus::HW_INVALID_VALUE;
   if (start_season != nullptr && frequency < 2)
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
   if (!level && !trend && !season && !xhat && !error)
-    return aion::AionStatus::AION_SUCCESS;  // Nothing to do
+    return ML::HWStatus::HW_SUCCESS;  // Nothing to do
   holtwinters_eval_gpu<Dtype>(ts, n, batch_size, frequency, start_level,
                               start_trend, start_season, alpha, beta, gamma,
                               level, trend, season, xhat, error,
                               seasonal);  // TODO(ahmad): return value
-  return aion::AionStatus::AION_SUCCESS;
+  return ML::HWStatus::HW_SUCCESS;
 }
 
 // TODO(ahmad): expose line search step size
@@ -139,7 +140,7 @@ aion::AionStatus aion::HoltWintersEval(const Dtype *ts, int n, int batch_size,
 // TODO(ahmad): if linesearch_iter_limit is reached, we update wrong nx values (nx values that don't minimze loss).
 // change this to at least keep the old xs
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersOptim(
+ML::HWStatus ML::HoltWintersOptim(
   const Dtype *ts, int n, int batch_size, int frequency,
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
@@ -178,55 +179,53 @@ aion::AionStatus aion::HoltWintersOptim(
       optim_params_.linesearch_step_size = optim_params->linesearch_step_size;
   }
 
-  if (!ts) return aion::AionStatus::AION_INVALID_VALUE;
-  if (n < 1 || batch_size < 1) return aion::AionStatus::AION_INVALID_VALUE;
-  if (!alpha || !start_level) return aion::AionStatus::AION_INVALID_VALUE;
+  if (!ts) return ML::HWStatus::HW_INVALID_VALUE;
+  if (n < 1 || batch_size < 1) return ML::HWStatus::HW_INVALID_VALUE;
+  if (!alpha || !start_level) return ML::HWStatus::HW_INVALID_VALUE;
   if ((!start_trend) != (!beta) || (!start_season) != (!gamma))
-    return aion::AionStatus::AION_INVALID_VALUE;
-  if (start_season && frequency < 2)
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
+  if (start_season && frequency < 2) return ML::HWStatus::HW_INVALID_VALUE;
   if (!optim_alpha && !optim_beta && !optim_gamma)
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
   if ((optim_beta && !beta) || (optim_gamma && !gamma))
-    return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
   if (!alpha && !beta && !gamma & !level && !trend && !season && !xhat &&
       !error)
-    return aion::AionStatus::AION_SUCCESS;  // Nothing to do
+    return ML::HWStatus::HW_SUCCESS;  // Nothing to do
   holtwinters_optim_gpu<Dtype>(
     ts, n, batch_size, frequency, start_level, start_trend, start_season, alpha,
     optim_alpha, beta, optim_beta, gamma, optim_gamma, level, trend, season,
     xhat, error, optim_result, seasonal,
     optim_params_);  // TODO(ahmad): return
 
-  return aion::AionStatus::AION_SUCCESS;
+  return ML::HWStatus::HW_SUCCESS;
 }
 
 template <typename Dtype>
-aion::AionStatus aion::HoltWintersForecast(Dtype *forecast, int h,
-                                           int batch_size, int frequency,
-                                           const Dtype *level_coef,
-                                           const Dtype *trend_coef,
-                                           const Dtype *season_coef,
-                                           SeasonalType seasonal) {
-  if (!forecast) return aion::AionStatus::AION_INVALID_VALUE;
-  if (h < 1 || batch_size < 1) return aion::AionStatus::AION_INVALID_VALUE;
+ML::HWStatus ML::HoltWintersForecast(Dtype *forecast, int h, int batch_size,
+                                     int frequency, const Dtype *level_coef,
+                                     const Dtype *trend_coef,
+                                     const Dtype *season_coef,
+                                     SeasonalType seasonal) {
+  if (!forecast) return ML::HWStatus::HW_INVALID_VALUE;
+  if (h < 1 || batch_size < 1) return ML::HWStatus::HW_INVALID_VALUE;
   if (!level_coef && !trend_coef && !season_coef)
-    return aion::AionStatus::AION_INVALID_VALUE;
-  if (season_coef && frequency < 2) return aion::AionStatus::AION_INVALID_VALUE;
+    return ML::HWStatus::HW_INVALID_VALUE;
+  if (season_coef && frequency < 2) return ML::HWStatus::HW_INVALID_VALUE;
   holtwinters_forecast_gpu<Dtype>(forecast, h, batch_size, frequency,
                                   level_coef, trend_coef, season_coef,
                                   seasonal);  // TODO(ahmad): return value
 
-  return aion::AionStatus::AION_SUCCESS;
+  return ML::HWStatus::HW_SUCCESS;
 }
 
 template <typename Dtype>
-void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
-                                 int start_periods, SeasonalType seasonal,
-                                 Dtype *data, Dtype *alpha_ptr, Dtype *beta_ptr,
-                                 Dtype *gamma_ptr, Dtype *SSE_error_ptr,
-                                 Dtype *forecast_ptr) {
-  AION_SAFE_CALL(aion::AionInit());
+void ML::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
+                               int start_periods, SeasonalType seasonal,
+                               Dtype *data, Dtype *alpha_ptr, Dtype *beta_ptr,
+                               Dtype *gamma_ptr, Dtype *SSE_error_ptr,
+                               Dtype *forecast_ptr) {
+  HW_SAFE_CALL(ML::HWInit());
 
   cudaStream_t stream;
   CUDA_SAFE_CALL(cudaStreamCreate(&stream));
@@ -241,7 +240,7 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   int leveltrend_coef_offset, season_coef_offset;
   int error_len;
 
-  AION_SAFE_CALL(aion::HoltWintersBufferSize(
+  HW_SAFE_CALL(ML::HoltWintersBufferSize(
     n, batch_size, frequency, optim_beta, optim_gamma,
     &leveltrend_seed_len,     // = batch_size
     &season_seed_len,         // = frequency*batch_size
@@ -280,23 +279,23 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
 
   MLCommon::allocate(error_d, error_len);
 
-  // Step 1: transpose the dataset (aion expects col major dataset)
-  AION_SAFE_CALL(aion::AionTranspose<Dtype>(data, batch_size, n, dataset_d));
+  // Step 1: transpose the dataset (ML expects col major dataset)
+  HW_SAFE_CALL(ML::HWTranspose<Dtype>(data, batch_size, n, dataset_d));
 
   // Step 2: Decompose dataset to get seed for level, trend and seasonal values
-  AION_SAFE_CALL(aion::HoltWintersDecompose<Dtype>(
+  HW_SAFE_CALL(ML::HoltWintersDecompose<Dtype>(
     dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
     start_season_d, start_periods, seasonal));
 
   // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
-  AION_SAFE_CALL(aion::HoltWintersOptim<Dtype>(
+  HW_SAFE_CALL(ML::HoltWintersOptim<Dtype>(
     dataset_d, n, batch_size, frequency, level_seed_d, trend_seed_d,
     start_season_d, alpha_d, optim_alpha, beta_d, optim_beta, gamma_d,
     optim_gamma, level_d, trend_d, season_d, nullptr, error_d, nullptr, nullptr,
     seasonal));
 
   // Step 4: Do forecast
-  AION_SAFE_CALL(aion::HoltWintersForecast<Dtype>(
+  HW_SAFE_CALL(ML::HoltWintersForecast<Dtype>(
     forecast_d, h, batch_size, frequency, level_d + leveltrend_coef_offset,
     trend_d + leveltrend_coef_offset, season_d + season_coef_offset, seasonal));
 
@@ -326,7 +325,7 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
   CUDA_SAFE_CALL(cudaStreamDestroy(stream));
 
-  AION_SAFE_CALL(aion::AionDestroy());
+  HW_SAFE_CALL(ML::HWDestroy());
 
   // Free the allocated memory on GPU
   CUDA_SAFE_CALL(cudaFree(dataset_d));
@@ -343,43 +342,41 @@ void aion::HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   CUDA_SAFE_CALL(cudaFree(error_d));
 }
 
-template aion::AionStatus aion::AionTranspose<float>(const float *data_in,
-                                                     int m, int n,
-                                                     float *data_out);
-template aion::AionStatus aion::AionTranspose<double>(const double *data_in,
-                                                      int m, int n,
-                                                      double *data_out);
+template ML::HWStatus ML::HWTranspose<float>(const float *data_in, int m, int n,
+                                             float *data_out);
+template ML::HWStatus ML::HWTranspose<double>(const double *data_in, int m,
+                                              int n, double *data_out);
 
-template aion::AionStatus aion::HoltWintersDecompose<float>(
+template ML::HWStatus ML::HoltWintersDecompose<float>(
   const float *ts, int n, int batch_size, int frequency, float *start_level,
   float *start_trend, float *start_season, int start_periods,
   SeasonalType seasonal);
-template aion::AionStatus aion::HoltWintersDecompose<double>(
+template ML::HWStatus ML::HoltWintersDecompose<double>(
   const double *ts, int n, int batch_size, int frequency, double *start_level,
   double *start_trend, double *start_season, int start_periods,
   SeasonalType seasonal);
 
-template aion::AionStatus aion::HoltWintersEval<float>(
+template ML::HWStatus ML::HoltWintersEval<float>(
   const float *ts, int n, int batch_size, int frequency,
   const float *start_level, const float *start_trend, const float *start_season,
   const float *alpha, const float *beta, const float *gamma, float *level,
   float *trend, float *season, float *xhat, float *error,
   SeasonalType seasonal);
-template aion::AionStatus aion::HoltWintersEval<double>(
+template ML::HWStatus ML::HoltWintersEval<double>(
   const double *ts, int n, int batch_size, int frequency,
   const double *start_level, const double *start_trend,
   const double *start_season, const double *alpha, const double *beta,
   const double *gamma, double *level, double *trend, double *season,
   double *xhat, double *error, SeasonalType seasonal);
 
-template aion::AionStatus aion::HoltWintersOptim(
+template ML::HWStatus ML::HoltWintersOptim(
   const float *ts, int n, int batch_size, int frequency,
   const float *start_level, const float *start_trend, const float *start_season,
   float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
   bool optim_gamma, float *level, float *trend, float *season, float *xhat,
   float *error, OptimCriterion *optim_result, OptimParams<float> *optim_params,
   SeasonalType seasonal);
-template aion::AionStatus aion::HoltWintersOptim(
+template ML::HWStatus ML::HoltWintersOptim(
   const double *ts, int n, int batch_size, int frequency,
   const double *start_level, const double *start_trend,
   const double *start_season, double *alpha, bool optim_alpha, double *beta,
@@ -388,20 +385,20 @@ template aion::AionStatus aion::HoltWintersOptim(
   OptimCriterion *optim_result, OptimParams<double> *optim_params,
   SeasonalType seasonal);
 
-template aion::AionStatus aion::HoltWintersForecast<float>(
+template ML::HWStatus ML::HoltWintersForecast<float>(
   float *forecast, int h, int batch_size, int frequency,
   const float *level_coef, const float *trend_coef, const float *season_coef,
   SeasonalType seasonal);
-template aion::AionStatus aion::HoltWintersForecast<double>(
+template ML::HWStatus ML::HoltWintersForecast<double>(
   double *forecast, int h, int batch_size, int frequency,
   const double *level_coef, const double *trend_coef, const double *season_coef,
   SeasonalType seasonal);
 
-template void aion::HoltWintersFitPredict<float>(
+template void ML::HoltWintersFitPredict<float>(
   int n, int batch_size, int frequency, int h, int start_periods,
   SeasonalType seasonal, float *data, float *alpha_ptr, float *beta_ptr,
   float *gamma_ptr, float *SSE_error_ptr, float *forecast_ptr);
-template void aion::HoltWintersFitPredict<double>(
+template void ML::HoltWintersFitPredict<double>(
   int n, int batch_size, int frequency, int h, int start_periods,
   SeasonalType seasonal, double *data, double *alpha_ptr, double *beta_ptr,
   double *gamma_ptr, double *SSE_error_ptr, double *forecast_ptr);
