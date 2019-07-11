@@ -13,12 +13,10 @@
 # limitations under the License.
 #
 import logging
-import random
 import os
 import numba.cuda
 
 from cuml.utils import device_of_gpu_matrix
-from dask.distributed import wait, default_client
 
 
 def get_visible_devices():
