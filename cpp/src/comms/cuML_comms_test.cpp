@@ -22,8 +22,7 @@
 #include <iostream>
 
 namespace ML {
-namespace sandbox {
-
+namespace Comms {
 
 bool test_collective_allreduce(const ML::cumlHandle& h) {
   const cumlHandle_impl& handle = h.getImpl();
@@ -51,7 +50,6 @@ bool test_collective_allreduce(const ML::cumlHandle& h) {
 
   return temp_h == communicator.getSize();
 }
-
 
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
                                         int numTrials) {
@@ -105,5 +103,5 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
   return true;
 }
 
-};  // end namespace sandbox
+};  // namespace Comms
 };  // end namespace ML

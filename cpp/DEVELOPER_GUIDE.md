@@ -275,8 +275,7 @@ void ml_algo(const ML::cumlHandle& handle, ...)
 
 ## Multi GPU
 
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any dependencies to any communication library. A multi GPU implementation can use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](../ml-prims/src/common/cuml_comms_int.hpp) for inter rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`. 
-
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi GPU implementation can use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](src_prims/src/common/cuml_comms_int.hpp) for inter rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`.
 
 E.g. with a CUDA-aware MPI a cuML algorithm could use code like this for 
 collective communications:
@@ -310,7 +309,7 @@ int main(int argc, char * argv[])
 
     {
         ML::cumlHandle cumlHandle;
-        initialize_mpi_comms(cumlHandle, cuml_mpi_comm);
+        inject_comms(cumlHandle, cuml_mpi_comm);
         
         ...
         
@@ -339,7 +338,3 @@ void foo(const ML::cumlHandle_impl& h, ...)
     ...
 }
 ```
-
-## C APIs
-
-ML algorithms implemented in cuML should have C++ APIs that are easy to wrap in C. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`). Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.

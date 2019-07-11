@@ -38,7 +38,7 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
-CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/build
+CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"

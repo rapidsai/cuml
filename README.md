@@ -39,9 +39,9 @@ Output:
 dtype: int32
 ```
 
-Using [Dask](https://www.dask.org) cuML also features multi-GPU and multi-node-multi-GPU operation for a 
+cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a 
 growing list of algorithms. The following Python snippet reads input from a CSV file and performs 
-a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs:
+a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 ```python
 # Create a Dask CUDA cluster w/ one worker per device
 from dask_cuda import LocalCUDACluster

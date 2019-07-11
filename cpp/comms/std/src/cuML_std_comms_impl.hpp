@@ -115,9 +115,14 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
  private:
   ncclComm_t _nccl_comm;
+  cudaStream_t stream;
+
+  int *sendbuff, *recvbuff;
 
   int _size;
   int _rank;
+
+  void initialize();
 
 #ifdef WITH_UCX
   ucp_worker_h _ucp_worker;
@@ -127,7 +132,6 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 #endif
-
 };
 
 }  // end namespace ML
