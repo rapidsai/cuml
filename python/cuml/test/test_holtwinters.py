@@ -97,6 +97,7 @@ def test_singlets_holtwinters(seasonal, h, datatype):
 
     assert (cu_r2 >= sm_r2) or (abs(cu_r2 - sm_r2) < 2e-1)
 
+
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
 @pytest.mark.parametrize('datatype', [np.float64])
@@ -105,9 +106,9 @@ def test_multits_holtwinters(seasonal, h, datatype):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
     train = data[:-h]
-    test = data[-h:]
+    # test = data[-h:]
 
     cu_hw = HoltWinters(3, 12, seasonal)
     cu_hw.fit(train)
 
-    cu_pred = cu_hw.predict(1, h)
+    # cu_pred = cu_hw.predict(1, h)
