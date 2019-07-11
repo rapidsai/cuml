@@ -41,8 +41,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   T initial_metric = GiniFunctor::exec(histvec, nrows);
 
   unsigned int* flagsptr = tempmem->d_flags->data();
-  CUDA_CHECK(cudaMemsetAsync(flagsptr, 0, nrows * sizeof(unsigned int),
-                             tempmem->stream));
+  int* sample_cnt = tempmem->d_sample_cnt->data();
+  setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
+                 tempmem->stream);
 
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
