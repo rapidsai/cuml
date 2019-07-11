@@ -64,7 +64,7 @@ class HoltWinters(Base):
         self.beta = []   # list for beta values for each time series in batch
         self.gamma = []  # list for gamma values for each time series in batch
         self.SSE_error = []          # SSE Error for all time series in batch
-        self.h = 50      # Default number of points to furecast in future
+        self.h = 50      # Default number of points to forecast in future
         self.fit_executed_flag = False
         if freq_season < start_periods:
             raise Exception("Frequency cannot be less than 2 "
@@ -159,11 +159,12 @@ class HoltWinters(Base):
             raise Exception("Fit() the model before score()")
 
     def predict(self, n, h):
-        if h > 50:
-            raise Exception("Default value of forecasted points is 50."
+        if h > self.h:
+            raise Exception("Number of points must be <= pointsToForecast"
+                            " (default = 50)."
                             " To get more points, execute fit() function"
                             " with pointsToForecast > 50. \nUsage : fit"
-                            "(numpyInputList, pointsToForecast) \n ")
+                            "(inputList, pointsToForecast) \n ")
 
         if self.fit_executed_flag:
             forecast = []
