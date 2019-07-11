@@ -28,8 +28,8 @@ import cudf
 
 from cuml.thirdparty._sklearn.model_selection._utils import (
     safe_indexing, indexable, _num_samples, comb, _pprint, check_random_state,
-    np_check_random_state, column_or_1d, type_of_target, check_array, in1d,
-    _approximate_mode, _np_approximate_mode)
+    column_or_1d, type_of_target, check_array, in1d, _approximate_mode,
+    _np_approximate_mode, np_check_random_state)
 
 
 NSPLIT_WARNING = (
@@ -1469,7 +1469,10 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
             default_test_size=self._default_test_size)
 
         if y.ndim == 2:
-            # for multi-label y, map each distinct row to a string repr
+            # For multi-label y, need to convert to numpy, as cupy does not
+            # support string dtype
+
+            # Map each distinct row to a string repr
             # using join because str(row) uses an ellipsis if len(row) > 1000
             y = cp.asnumpy(y)
             y = np.array([' '.join(row.astype('str')) for row in y])
@@ -1517,10 +1520,6 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                     train.extend(perm_indices_class_i[:n_i[i]])
                     test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
 
-                # !!!!!!!!!!!!!!!!!!!!!!!!!
-                # have to go through the indirect approach below
-                # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
-                # Get rid of this once cp.RS.perm support cp array
                 train = nprng.permutation(train)
                 train = cp.asarray([int(i) for i in train])
                 test = nprng.permutation(test)
@@ -1554,10 +1553,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                 cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
 
             rng = check_random_state(self.random_state)
-            # !! have to get a np rng, since cp.RandomState.permutation
-            # does not accept cp.ndarray as input.
-            # Get rid of this once cp.RS.perm supports cp array
-            nprng = np_check_random_state(self.random_state)
+
             for _ in range(self.n_splits):
                 # if there are ties in the class-counts, we want
                 # to make sure to break them anew in each iteration
@@ -1575,15 +1571,8 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                     train.extend(perm_indices_class_i[:n_i[i]])
                     test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
 
-                # !! have to go through the indirect approach below
-                # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
-                # Get rid of this once cp.RS.perm support cp array
-                train = nprng.permutation(cp.asnumpy(train))
-                train = cp.asarray([int(i) for i in train])
-                test = nprng.permutation(cp.asnumpy(test))
-                test = cp.asarray([int(i) for i in test])
-                # train = rng.permutation(train)
-                # test = rng.permutation(test)
+                train = rng.permutation(train)
+                test = rng.permutation(test)
                 yield train, test
 
     def split(self, X, y, groups=None):
