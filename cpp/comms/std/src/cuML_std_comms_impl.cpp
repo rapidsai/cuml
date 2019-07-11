@@ -19,9 +19,9 @@
 #include <nccl.h>
 
 #ifdef WITH_UCX
-#define UCX_ENABLED true
+constexpr bool UCX_ENABLED = true;
 #else
-#define UCX_ENABLED false
+constexpr bool UCX_ENABLED = false;
 #endif
 
 #ifdef WITH_UCX
