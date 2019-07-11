@@ -34,45 +34,43 @@ struct JonesTransParam {
 template
 
   <typename DataT>
-  class JonesTransTest
-  : public ::testing::TestWithParam<JonesTransParam> {
+  class JonesTransTest : public ::testing::TestWithParam<JonesTransParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
     params = ::testing::TestWithParam<JonesTransParam>::GetParam();
 
-    nElements = params.batchSize* params.pValue;
+    nElements = params.batchSize * params.pValue;
 
     //generating random value test input that is stored in row major
     std::vector<double> arr1(nElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_real_distribution<double> realGenerator(0,1);
+    std::uniform_real_distribution<double> realGenerator(0, 1);
 
     std::generate(arr1.begin(), arr1.end(),
                   [&]() { return realGenerator(dre); });
 
+    //>>>>>>>>>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-//>>>>>>>>>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-    double *newParams = (double*) malloc(nElements*sizeof(double*));
-    double *tmp = (double*) malloc(params.pValue*sizeof(double*));
+    double *newParams = (double *)malloc(nElements * sizeof(double *));
+    double *tmp = (double *)malloc(params.pValue * sizeof(double *));
 
     //for every model in the batch
-    for(int i=0; i<params.batchSize; ++i){
-
+    for (int i = 0; i < params.batchSize; ++i) {
       //storing the partial autocorrelation of each ar coefficient of a given batch in newParams and the same in another temporary copy
-      for(int j=0; j<params.pValue; ++j){
-        newParams[i*params.pValue + j] = ((1-exp(-1*arr1[i*params.pValue + j]))/(1+exp(-1*arr1[i*params.pValue + j])));
-        tmp[j] = newParams[i*params.pValue + j];
+      for (int j = 0; j < params.pValue; ++j) {
+        newParams[i * params.pValue + j] =
+          ((1 - exp(-1 * arr1[i * params.pValue + j])) /
+           (1 + exp(-1 * arr1[i * params.pValue + j])));
+        tmp[j] = newParams[i * params.pValue + j];
       }
 
       //calculating according to jone's recursive formula: phi(j,k) = phi(j-1,k) - a(j)*phi(j-1,j-k)
-      for(int j=1; j<params.pValue; ++j){
-
+      for (int j = 1; j < params.pValue; ++j) {
         //a is partial autocorrelation for jth coefficient
-        DataT a = newParams[i*params.pValue + j];
+        DataT a = newParams[i * params.pValue + j];
 
         /*the recursive implementation of the transformation with:
         - lhs tmp[k] => phi(j,k)
@@ -80,15 +78,13 @@ template
         - a => a(j)
         - newParam[i*params.pValue + j-k-1] => phi(j-1, j-k)
         */
-        for(int k = 0; k<j; ++k){
-
-          tmp[k] -= a*newParams[i*params.pValue + (j-k-1)];
+        for (int k = 0; k < j; ++k) {
+          tmp[k] -= a * newParams[i * params.pValue + (j - k - 1)];
         }
 
         //copying it back for the next iteration
-        for(int iter = 0; iter<j; ++iter){
-
-          newParams[i*params.pValue + iter] = tmp[iter];
+        for (int iter = 0; iter < j; ++iter) {
+          newParams[i * params.pValue + iter] = tmp[iter];
         }
       }
     }
@@ -106,26 +102,26 @@ template
       new defaultDeviceAllocator);
 
     //calling the ar_trans_param CUDA implementation
-    MLCommon::TimeSeries::ar_param_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ar_trans, allocator, stream);
-
+    MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
+                                          params.pValue, d_computed_ar_trans,
+                                          true, false, allocator, stream);
 
     //>>>>>>>>>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     //for every model in the batch
-    for(int i=0; i<params.batchSize; ++i){
-
+    for (int i = 0; i < params.batchSize; ++i) {
       //storing the partial autocorrelation of each ma coefficient of a given batch in newParams and the same in another temporary copy
-      for(int j=0; j<params.pValue; ++j){
-        newParams[i*params.pValue + j] = ((1-exp(-1*arr1[i*params.pValue + j]))/(1+exp(-1*arr1[i*params.pValue + j])));
-        tmp[j] = newParams[i*params.pValue + j];
+      for (int j = 0; j < params.pValue; ++j) {
+        newParams[i * params.pValue + j] =
+          ((1 - exp(-1 * arr1[i * params.pValue + j])) /
+           (1 + exp(-1 * arr1[i * params.pValue + j])));
+        tmp[j] = newParams[i * params.pValue + j];
       }
 
       //calculating according to jone's recursive formula: phi(j,k) = phi(j-1,k) - a(j)*phi(j-1,j-k)
-      for(int j=1; j<params.pValue; ++j){
-
+      for (int j = 1; j < params.pValue; ++j) {
         //a is partial autocorrelation for jth coefficient
-        DataT a = newParams[i*params.pValue + j];
+        DataT a = newParams[i * params.pValue + j];
 
         /*the recursive implementation of the transformation with:
         - lhs tmp[k] => phi(j,k)
@@ -133,15 +129,13 @@ template
         - a => a(j)
         - newParam[i*params.pValue + j-k-1] => phi(j-1, j-k)
         */
-        for(int k = 0; k<j; ++k){
-
-          tmp[k] += a*newParams[i*params.pValue + (j-k-1)];
+        for (int k = 0; k < j; ++k) {
+          tmp[k] += a * newParams[i * params.pValue + (j - k - 1)];
         }
 
         //copying it back for the next iteration
-        for(int iter = 0; iter<j; ++iter){
-
-          newParams[i*params.pValue + iter] = tmp[iter];
+        for (int iter = 0; iter < j; ++iter) {
+          newParams[i * params.pValue + iter] = tmp[iter];
         }
       }
     }
@@ -154,9 +148,9 @@ template
                            stream);
 
     //calling the ma_param_transform CUDA implementation
-    MLCommon::TimeSeries::ma_param_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ma_trans, allocator, stream);
-
+    MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
+                                          params.pValue, d_computed_ma_trans,
+                                          false, false, allocator, stream);
 
     //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -164,21 +158,19 @@ template
     MLCommon::allocate(d_computed_ar_invtrans, nElements, true);
 
     //calling the ar_param_inverse_transform CUDA implementation
-    MLCommon::TimeSeries::ar_param_inverse_transform(
-      d_computed_ar_trans, params.batchSize, params.pValue, d_computed_ar_invtrans, allocator, stream);
-
+    MLCommon::TimeSeries::jones_transform(d_computed_ar_trans, params.batchSize,
+                                          params.pValue, d_computed_ar_invtrans,
+                                          true, true, allocator, stream);
 
     //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     MLCommon::allocate(d_computed_ma_invtrans, nElements, true);
 
     //calling the ma_param_inverse_transform CUDA implementation
-    MLCommon::TimeSeries::ma_param_inverse_transform(
-      d_computed_ma_trans, params.batchSize, params.pValue, d_computed_ma_invtrans, allocator, stream);
-
-
+    MLCommon::TimeSeries::jones_transform(d_computed_ma_trans, params.batchSize,
+                                          params.pValue, d_computed_ma_invtrans,
+                                          false, true, allocator, stream);
   }
-
 
   //the destructor
   void TearDown() override {
@@ -217,16 +209,20 @@ const std::vector<JonesTransParam> inputs = {
 //writing the test suite
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result) {
-  ASSERT_TRUE(devArrMatch(d_computed_ar_trans, d_golden_ar_trans, nElements, CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ma_trans, d_golden_ma_trans, nElements, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(d_computed_ar_trans, d_golden_ar_trans, nElements,
+                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(d_computed_ma_trans, d_golden_ma_trans, nElements,
+                          CompareApprox<double>(params.tolerance)));
   /*
   Test verifying the inversion property:
   initially generated random coefficients -> ar_param_transform() / ma_param_transform() -> 
   transformed coefficients -> ar_param_inverse_transform()/ma_param_inverse_transform() -> 
   initially generated random coefficients
   */
-  ASSERT_TRUE(devArrMatch(d_computed_ma_invtrans, d_params, nElements, CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ar_invtrans, d_params, nElements, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(d_computed_ma_invtrans, d_params, nElements,
+                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(d_computed_ar_invtrans, d_params, nElements,
+                          CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass,
                         ::testing::ValuesIn(inputs));

@@ -39,133 +39,29 @@ namespace TimeSeries {
 */
 template <typename Type>
 struct PAC {
-  HDI Type operator()(Type in) { return myTanh(in / 2); }
+  HDI Type operator()(Type in) { return myTanh(in * 0.5); }
 };
 
 /**
- * @brief kernel to perform jones inverse transformation on the autoregressive params
- * @tparam DataT: type of the params
- * @tparam P_VALUE: p-parameter for the batch of ARIMA(p,q,d) models
- * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
- * @param newParams: pointer to the memory where the new params are to be stored, which is also where the initial mapped input is stored
- * @param batchSize: number of models in a batch
- */
-template <typename DataT, int P_VALUE, typename IdxT, int BLOCK_DIM_X,
-          int BLOCK_DIM_Y>
-__global__ void ar_param_invtransform_kernel(DataT* newParams, IdxT batchSize) {
-  //calculating the index of the model that the coefficients belong to
-  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
+* @brief Inline device function for the transformation operation
 
-  DataT tmp[P_VALUE];
-  DataT myNewParams[P_VALUE];
-
-  if (modelIndex < batchSize) {
-    //populating the local memory with the global memory
-
-#pragma unroll
-    for (int i = 0; i < P_VALUE; ++i) {
-      tmp[i] = newParams[modelIndex * P_VALUE + i];
-      myNewParams[i] = tmp[i];
-    }
-
-    for (int j = P_VALUE - 1; j > 0; --j) {
-      DataT a = myNewParams[j];
-
-      for (int k = 0; k < j; ++k) {
-        tmp[k] = (myNewParams[k] + a * myNewParams[j - k - 1]) / (1 - (a * a));
-      }
-
-      for (int iter = 0; iter < j; ++iter) {
-        myNewParams[iter] = tmp[iter];
-      }
-    }
-
-#pragma unroll
-    for (int i = 0; i < P_VALUE; ++i) {
-      newParams[modelIndex * P_VALUE + i] = 2 * myATanh(myNewParams[i]);
-    }
+* @tparam Type: Data type of the input
+* @tparam IdxT: indexing data type
+* @tparam value: the pValue/qValue for the transformation
+* @param tmp: the temporary array used in transformation
+* @param myNewParam: will contain the transformed params
+* @param: isAr: tell the type of transform (if ar or ma transform)
+*/
+template <typename DataT, typename IdxT, int VALUE>
+inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr) {
+  //do the ar transformation
+  PAC<DataT> pac;
+  for (int i = 0; i < VALUE; ++i) {
+    tmp[i] = pac(tmp[i]);
+    myNewParams[i] = tmp[i];
   }
-}
-
-/**
- * @brief kernel to perform jones inverse transformation on the moving average params
- * @tparam DataT: type of the params
- * @tparam Q_VALUE: q-parameter for the batch of ARIMA(p,d,q) models
- * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
- * @param newParams: pointer to the memory where the new params are to be stored, which is also where the initial mapped input is stored
- * @param batchSize: number of models in a batch
- */
-template <typename DataT, int Q_VALUE, typename IdxT, int BLOCK_DIM_X,
-          int BLOCK_DIM_Y>
-__global__ void ma_param_invtransform_kernel(DataT* newParams, IdxT batchSize) {
-  //calculating the index of the model that the coefficients belong to
-  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
-  IdxT k, j;
-
-  DataT tmp[Q_VALUE];
-  DataT myNewParams[Q_VALUE];
-
-  if (modelIndex < batchSize) {
-    //populating the local memory with the global memory
-
-#pragma unroll
-    for (k = 0; k < Q_VALUE; ++k) {
-      tmp[k] = newParams[modelIndex * Q_VALUE + k];
-      myNewParams[k] = tmp[k];
-    }
-
-    for (j = Q_VALUE - 1; j > 0; --j) {
-      DataT b = myNewParams[j];
-
-      for (k = 0; k < j; ++k) {
-        tmp[k] = (myNewParams[k] - b * myNewParams[j - k - 1]) / (1 - (b * b));
-      }
-
-      for (k = 0; k < j; ++k) {
-        myNewParams[k] = tmp[k];
-      }
-    }
-
-#pragma unroll
-    for (k = 0; k < Q_VALUE; ++k) {
-      newParams[modelIndex * Q_VALUE + k] = 2 * myATanh(myNewParams[k]);
-    }
-  }
-}
-
-/**
- * @brief kernel to perform jones transformation on the autoregressive params
- * @tparam DataT: type of the params
- * @tparam P_VALUE: p-parameter for the batch of ARIMA(p,d,q) models
- * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
- * @param newParams: pointer to the memory where the new params are to be stored, which is also where the initial mapped input is stored
- * @param batchSize: number of models in a batch
- */
-template <typename DataT, int P_VALUE, typename IdxT, int BLOCK_DIM_X,
-          int BLOCK_DIM_Y>
-__global__ void ar_param_transform_kernel(DataT* newParams, IdxT batchSize) {
-  //calculating the index of the model that the coefficients belong to
-  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
-
-  DataT tmp[P_VALUE];
-  DataT myNewParams[P_VALUE];
-
-  if (modelIndex < batchSize) {
-    //populating the local memory with the global memory
-
-#pragma unroll
-    for (int i = 0; i < P_VALUE; ++i) {
-      tmp[i] = newParams[modelIndex * P_VALUE + i];
-      myNewParams[i] = tmp[i];
-    }
-
-    for (int j = 1; j < P_VALUE; ++j) {
+  if (isAr) {
+    for (int j = 1; j < VALUE; ++j) {
       DataT a = myNewParams[j];
 
       for (int k = 0; k < j; ++k) {
@@ -176,232 +72,130 @@ __global__ void ar_param_transform_kernel(DataT* newParams, IdxT batchSize) {
         myNewParams[iter] = tmp[iter];
       }
     }
-
-#pragma unroll
-    for (int i = 0; i < P_VALUE; ++i) {
-      newParams[modelIndex * P_VALUE + i] = myNewParams[i];
-    }
-  }
-}
-
-/**
- * @brief kernel to perform jones transformation on the moving average params
- * @tparam DataT: type of the params
- * @tparam Q_VALUE: q-parameter for the batch of ARIMA(p,d,q) models
- * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
- * @param newParams: pointer to the memory where the new params are to be stored, which is also where the initial mapped input is stored
- * @param batchSize: number of models in a batch
- */
-template <typename DataT, int Q_VALUE, typename IdxT, int BLOCK_DIM_X,
-          int BLOCK_DIM_Y>
-__global__ void ma_param_transform_kernel(DataT* newParams, IdxT batchSize) {
-  //calculating the index of the model that the coefficients belong to
-  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
-
-  DataT tmp[Q_VALUE];
-  DataT myNewParams[Q_VALUE];
-
-  if (modelIndex < batchSize) {
-    //populating the local memory with the global memory
-#pragma unroll
-    for (int i = 0; i < Q_VALUE; ++i) {
-      tmp[i] = newParams[modelIndex * Q_VALUE + i];
-      myNewParams[i] = tmp[i];
-    }
-
-    for (int j = 1; j < Q_VALUE; ++j) {
+  } else {  //do the ma transformation
+    for (int j = 1; j < VALUE; ++j) {
       DataT a = myNewParams[j];
 
       for (int k = 0; k < j; ++k) {
         tmp[k] += a * myNewParams[j - k - 1];
       }
 
-#pragma unroll
       for (int iter = 0; iter < j; ++iter) {
         myNewParams[iter] = tmp[iter];
       }
     }
+  }
+}
 
-    for (int i = 0; i < Q_VALUE; ++i) {
-      newParams[modelIndex * Q_VALUE + i] = myNewParams[i];
+/**
+* @brief Inline device function for the inverse transformation operation
+
+* @tparam Type: Data type of the input
+* @tparam IdxT: indexing data type
+* @tparam value: the pValue/qValue for the inverse transformation
+* @param tmp: the temporary array used in transformation
+* @param myNewParam: will contain the transformed params
+* @param: isAr: tell the type of inverse transform (if ar or ma transform)
+*/
+template <typename DataT, typename IdxT, int VALUE>
+inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
+  //do the ar transformation
+  if (isAr) {
+    for (int j = VALUE - 1; j > 0; --j) {
+      DataT a = myNewParams[j];
+
+      for (int k = 0; k < j; ++k) {
+        tmp[k] = (myNewParams[k] + a * myNewParams[j - k - 1]) / (1 - (a * a));
+      }
+
+      for (int iter = 0; iter < j; ++iter) {
+        myNewParams[iter] = tmp[iter];
+      }
+    }
+  } else {  //do the ma transformation
+    for (int j = VALUE - 1; j > 0; --j) {
+      DataT a = myNewParams[j];
+
+      for (int k = 0; k < j; ++k) {
+        tmp[k] = (myNewParams[k] - a * myNewParams[j - k - 1]) / (1 - (a * a));
+      }
+
+      for (int iter = 0; iter < j; ++iter) {
+        myNewParams[iter] = tmp[iter];
+      }
+    }
+  }
+
+  for (int i = 0; i < VALUE; ++i) {
+    myNewParams[i] = 2 * myATanh(myNewParams[i]);
+  }
+}
+
+/**
+ * @brief kernel to perform jones transformation
+ * @tparam DataT: type of the params
+ * @tparam VALUE: the parameter for the batch of ARIMA(p,q,d) models (either p or q depending on whether coefficients are of type AR or MA respectively)
+ * @tparam IdxT: type of indexing
+ * @tparam BLOCK_DIM_X: number of threads in block in x dimension
+ * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
+ * @param newParams: pointer to the memory where the new params are to be stored
+ * @param params: pointer to the memory where the initial params are stored
+ * @param batchSize: number of models in a batch
+ * @param isAr: if the coefficients to be transformed are Autoregressive or moving average
+ * @param isInv: if the transformation type is regular or inverse 
+ */
+template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X,
+          int BLOCK_DIM_Y>
+__global__ void jones_transform_kernel(DataT* newParams, const DataT* params,
+                                       IdxT batchSize, bool isAr, bool isInv) {
+  //calculating the index of the model that the coefficients belong to
+  IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
+
+  DataT tmp[VALUE];
+  DataT myNewParams[VALUE];
+
+  if (modelIndex < batchSize) {
+//load
+#pragma unroll
+    for (int i = 0; i < VALUE; ++i) {
+      tmp[i] = params[modelIndex * VALUE + i];
+      myNewParams[i] = tmp[i];
+    }
+
+    //the transformation/inverse transformation operation
+    if (isInv)
+      invtransform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr);
+    else
+      transform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr);
+
+//store
+#pragma unroll
+    for (int i = 0; i < VALUE; ++i) {
+      newParams[modelIndex * VALUE + i] = myNewParams[i];
     }
   }
 }
 
 /**
-* @brief Host Function to batchwise transform the autoregressive coefficients according to "jone's (1980)" transformation 
-*
-* @param params: 2D array where each row represents the AR coefficients of a particular model
-* @param batchSize: the number of models in a batch (number of rows in params)
-* @param pValue: the number of coefficients per model (basically number of columns in params)
-* @param newParams: the transformed params (output)
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
-template <typename DataT, typename IdxT = int>
-void ar_param_transform(const DataT* params, IdxT batchSize, IdxT pValue,
-                        DataT* newParams,
-                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                        cudaStream_t stream) {
-  ASSERT(batchSize >= 1 && pValue >= 1, "not defined!");
-
-  IdxT nElements = batchSize * pValue;
-
-  //elementWise transforming the params matrix
-  LinAlg::unaryOp(newParams, params, nElements, PAC<DataT>(), stream);
-
-  //setting the kernel configuration
-  static const int BLOCK_DIM_Y = 1, BLOCK_DIM_X = 256;
-  dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
-
-  //calling the kernel
-  switch (pValue) {
-    case 1:
-      ar_param_transform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 2:
-      ar_param_transform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 3:
-      ar_param_transform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 4:
-      ar_param_transform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    default:
-      ASSERT(false, "Unsupported pValue '%d'!", pValue);
-  }
-
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
-/**
-* @brief Host Function to batchwise transform the autoregressive coefficients according to "jone's (1980)" transformation 
-*
-* @param params: 2D array where each row represents the AR coefficients of a particular model
-* @param batchSize: the number of models in a batch (number of rows in params)
-* @param pValue: the number of coefficients per model (basically number of columns in params)
-* @param newParams: the transformed params (output)
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
-template <typename DataT, typename IdxT = int>
-void ar_param_inverse_transform(
-  const DataT* params, IdxT batchSize, IdxT pValue, DataT* newParams,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-  ASSERT(batchSize >= 1 && pValue >= 1, "not defined!");
-
-  IdxT nElements = batchSize * pValue;
-
-  //elementWise transforming the params matrix
-  copy(newParams, params, (size_t)nElements, stream);
-
-  //setting the kernel configuration
-  static const int BLOCK_DIM_Y = 1, BLOCK_DIM_X = 256;
-  dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
-
-  //calling the kernel
-  switch (pValue) {
-    case 1:
-      ar_param_invtransform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 2:
-      ar_param_invtransform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 3:
-      ar_param_invtransform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 4:
-      ar_param_invtransform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    default:
-      ASSERT(false, "Unsupported pValue '%d'!", pValue);
-  }
-
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
-/**
-* @brief Host Function to batchwise transform the moving average coefficients according to "jone's (1980)" transformation 
-*
-* @param params: 2D array where each row represents the MA coefficients of a particular model
-* @param batchSize: the number of models in a batch (number of rows in params)
-* @param qValue: the number of coefficients per model (basically number of columns in params)
-* @param newParams: the transformed params (output)
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
-template <typename DataT, typename IdxT = int>
-void ma_param_transform(const DataT* params, IdxT batchSize, IdxT qValue,
-                        DataT* newParams,
-                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                        cudaStream_t stream) {
-  ASSERT(batchSize >= 1 && qValue >= 1, "not defined!");
-
-  IdxT nElements = batchSize * qValue;
-
-  //elementWise transforming the params matrix
-  LinAlg::unaryOp(newParams, params, nElements, PAC<DataT>(), stream);
-
-  //setting the kernel configuration
-  static const int BLOCK_DIM_Y = 1, BLOCK_DIM_X = 256;
-  dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
-
-  //calling the kernel
-  switch (qValue) {
-    case 1:
-      ma_param_transform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 2:
-      ma_param_transform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 3:
-      ma_param_transform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    case 4:
-      ma_param_transform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
-      break;
-    default:
-      ASSERT(false, "Unsupported qValue '%d'!", qValue);
-  }
-
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
-/**
-* @brief Host Function to batchwise inverse transform the moving average coefficients according to "jone's (1980)" transformation 
+* @brief Host Function to batchwise transform/inverse transform the moving average coefficients/autoregressive coefficients according to "jone's (1980)" transformation 
 *
 * @param params: 2D array where each row represents the transformed MA coefficients of a transformed model
 * @param batchSize: the number of models in a batch (number of rows in params)
-* @param qValue: the number of coefficients per model (basically number of columns in params)
+* @param parameter: the number of coefficients per model (basically number of columns in params)
 * @param newParams: the inverse transformed params (output)
+* @param isAR: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
+* @param isInv: set to true if the transformation is an inverse type transformation, false if regular transform
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
 */
 template <typename DataT, typename IdxT = int>
-void ma_param_inverse_transform(
-  const DataT* params, IdxT batchSize, IdxT qValue, DataT* newParams,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-  ASSERT(batchSize >= 1 && qValue >= 1, "not defined!");
+void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
+                     DataT* newParams, bool isAr, bool isInv,
+                     std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                     cudaStream_t stream) {
+  ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");
 
-  IdxT nElements = batchSize * qValue;
+  IdxT nElements = batchSize * parameter;
 
   //copying contents
   copy(newParams, params, (size_t)nElements, stream);
@@ -412,25 +206,30 @@ void ma_param_inverse_transform(
   dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
 
   //calling the kernel
-  switch (qValue) {
+
+  switch (parameter) {
     case 1:
-      ma_param_invtransform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
+      jones_transform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
       break;
     case 2:
-      ma_param_invtransform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
+      jones_transform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
       break;
     case 3:
-      ma_param_invtransform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
+      jones_transform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
       break;
     case 4:
-      ma_param_invtransform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, batchSize);
+      jones_transform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
       break;
     default:
-      ASSERT(false, "Unsupported qValue '%d'!", qValue);
+      ASSERT(false, "Unsupported parameter '%d'!", parameter);
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
