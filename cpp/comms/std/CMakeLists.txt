@@ -23,7 +23,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
 find_package(NCCL REQUIRED)
-find_package(UCX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,6 +51,7 @@ set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 
 # Note this option will be removed once UCX conda package is released
 if(WITH_UCX)
+	find_package(UCX)
 	set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${UCX_LIBRARIES} pthread)
 	include_directories(${UCX_INCLUDE_DIRS})
 	add_compile_definitions(WITH_UCX=1)
