@@ -264,12 +264,12 @@ void cumlStdCommunicator_impl::barrier() const {
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
   request_t req_id;
-  if (_free_requests.empty())
-    req_id = _next_request_id++;
+  if (this->_free_requests.empty())
+    req_id = this->_next_request_id++;
   else {
-    auto it = _free_requests.begin();
+    auto it = this->_free_requests.begin();
     req_id = *it;
-    _free_requests.erase(it);
+    this->_free_requests.erase(it);
   }
 
   *req = req_id;
