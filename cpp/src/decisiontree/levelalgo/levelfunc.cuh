@@ -36,7 +36,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int ncols, const int n_unique_labels, const int nbins,
-  int maxdepth, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const int maxdepth, const int maxleaves, const int min_rows_per_node,
+  int& depth_cnt, int& leaf_cnt,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
@@ -128,6 +130,7 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
   const int nrows, const int ncols, const int nbins, int maxdepth,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int maxleaves, const int min_rows_per_node, int& depth_cnt,
+  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   return (new ML::DecisionTree::TreeNode<T, T>());
 }

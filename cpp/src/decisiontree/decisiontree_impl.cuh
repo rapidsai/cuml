@@ -206,7 +206,6 @@ void DecisionTreeBase<T, L>::plant(
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
   }
   train_time = timer.getElapsedSeconds();
-  std::cout << "Growwww tree time -->  " << train_time << std::endl;
   if (in_tempmem == nullptr) {
     tempmem.reset();
   }
@@ -507,9 +506,15 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
   const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  return grow_deep_tree_classification(
+  int leaf_cnt = 0;
+  int depth_cnt = 0;
+  TreeNode<T, int> *root = grow_deep_tree_classification(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->n_unique_labels, this->nbins, this->treedepth, tempmem);
+    ncols, this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
+    this->min_rows_per_node, depth_cnt, leaf_cnt, tempmem);
+  this->depth_counter = depth_cnt;
+  this->leaf_counter = leaf_cnt;
+  return root;
 }
 
 template <typename T>
@@ -518,9 +523,15 @@ TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
   const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-  return grow_deep_tree_regression(
+  int leaf_cnt = 0;
+  int depth_cnt = 0;
+  TreeNode<T, T> *root = grow_deep_tree_regression(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->nbins, this->treedepth, tempmem);
+    ncols, this->nbins, this->treedepth, this->maxleaves,
+    this->min_rows_per_node, depth_cnt, leaf_cnt, tempmem);
+  this->depth_counter = depth_cnt;
+  this->leaf_counter = leaf_cnt;
+  return root;
 }
 
 //Class specializations
