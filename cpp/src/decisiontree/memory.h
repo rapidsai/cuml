@@ -65,7 +65,12 @@ struct TemporaryMemory {
 
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   int maxstr, int n_unique, int n_bins, const int split_algo);
-
+  void NodeMemAllocator(int N, int Ncols, int maxstr, int n_unique, int n_bins,
+                        const int split_algo);
+  void LevelMemAllocator(int N, int Ncols, int maxstr, int n_unique, int n_bins,
+                         const int split_algo);
   void print_info();
   ~TemporaryMemory();
+  void NodeMemCleaner();
+  void LevelMemCleaner();
 };
