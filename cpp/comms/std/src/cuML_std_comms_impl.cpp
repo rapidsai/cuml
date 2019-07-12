@@ -285,10 +285,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   get_request_id(request);
 
-  ucp_tag_t ucp_tag = (ucp_tag_t)tag;
-
-  ucp_ep_h *ep_arr = *_ucp_eps;
-  ucp_ep_h ep_ptr = ep_arr[dest];
+  ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
   struct ucx_context *ucp_request = ucp_isend(ep_ptr, buf, size, tag);
 
@@ -308,8 +305,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   get_request_id(request);
 
-  ucp_ep_h *ep_arr = *_ucp_eps;
-  ucp_ep_h ep_ptr = ep_arr[source];
+  ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
   struct ucx_context *ucp_request =
     ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag);
