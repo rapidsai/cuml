@@ -23,6 +23,8 @@
 #include "kernels/metric.cuh"
 #include "kernels/quantile.cuh"
 #include "kernels/split_labels.cuh"
+#include "levelalgo/levelfunc.cuh"
+#include "levelalgo/levelmem.cuh"
 #include "memory.cuh"
 
 namespace ML {
@@ -132,7 +134,7 @@ void DecisionTreeBase<T, L>::plant(
   const float colper, int n_bins, int split_algo_flag,
   int cfg_min_rows_per_node, bool cfg_bootstrap_features,
   CRITERION cfg_split_criterion, bool quantile_per_tree,
-  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem, bool levelalgo) {
   split_algo = split_algo_flag;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
@@ -176,6 +178,7 @@ void DecisionTreeBase<T, L>::plant(
   ASSERT(shmem_used <= max_shared_mem,
          "Shared memory per block limit %zd , requested %zd \n", max_shared_mem,
          shmem_used);
+
   for (int i = 0; i < MAXSTREAMS; i++) {
     if (in_tempmem != nullptr) {
       tempmem[i] = in_tempmem;
@@ -185,16 +188,19 @@ void DecisionTreeBase<T, L>::plant(
         split_algo);
       quantile_per_tree = true;
     }
-    if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
-        quantile_per_tree == true) {
+    if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
       preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
                           n_bins, tempmem[i]);
     }
+    CUDA_CHECK(cudaStreamSynchronize(
+      tempmem[i]->stream));  // added to ensure accurate measurement
   }
+  prepare_time = prepare_fit_timer.getElapsedSeconds();
+
   total_temp_mem = tempmem[0]->totalmem;
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
-
+  
   LevelTemporaryMemory<T> *leveltempmem = new LevelTemporaryMemory<T>(
     handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
   MLCommon::updateHost(leveltempmem->h_quantile->data(),
@@ -213,8 +219,8 @@ void DecisionTreeBase<T, L>::plant(
     root =
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
   }
-  construct_time = timer.getElapsedSeconds();
-  std::cout << "Growwww tree time -->  " << construct_time << std::endl;
+  train_time = timer.getElapsedSeconds();
+  std::cout << "Growwww tree time -->  " << train_time << std::endl;
   if (in_tempmem == nullptr) {
     for (int i = 0; i < MAXSTREAMS; i++) {
       tempmem[i].reset();
@@ -408,8 +414,7 @@ void DecisionTreeBase<T, L>::base_fit(
         tree_params.max_leaves, tree_params.max_features, tree_params.n_bins,
         tree_params.split_algo, tree_params.min_rows_per_node,
         tree_params.bootstrap_features, tree_params.split_criterion,
-
-        tree_params.quantile_per_tree, in_tempmem);
+        tree_params.quantile_per_tree, in_tempmem, tree_params.levelalgo);
 }
 
 template <typename T>

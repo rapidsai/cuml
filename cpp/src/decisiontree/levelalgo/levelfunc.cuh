@@ -24,7 +24,8 @@ struct FlatTreeNode {
 };
 
 #include <iostream>
-#include "../decisiontree.h"
+#include <numeric>
+#include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
 #include "../memory.cuh"

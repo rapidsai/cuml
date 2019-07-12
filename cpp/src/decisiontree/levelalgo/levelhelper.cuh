@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "levelkernel.cuh"
+#include "levelmem.cuh"
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
                     const unsigned int *rowids, const int nrows,
                     const int n_sampled_rows, cudaStream_t &stream) {
