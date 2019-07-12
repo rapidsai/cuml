@@ -103,5 +103,58 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
   return true;
 }
 
+bool test_pointToPoint_simple_send_recv_cuda(const ML::cumlHandle& h,
+                                        int numTrials) {
+  const cumlHandle_impl& handle = h.getImpl();
+  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
+  const int rank = communicator.getRank();
+
+  for (int i = 0; i < numTrials; i++) {
+    std::cout << "#############################" << std::endl;
+    std::cout << "Trial " << i << " -> rank " << rank << std::endl;
+    std::cout << "############################" << std::endl;
+
+    std::vector<int> received_data((communicator.getSize() - 1), -1);
+
+    std::vector<MLCommon::cumlCommunicator::request_t> requests;
+    requests.resize(2 * (communicator.getSize() - 1));
+    int request_idx = 0;
+    //post receives
+    for (int r = 0; r < communicator.getSize(); ++r) {
+      if (r != rank) {
+        communicator.irecv(received_data.data() + request_idx, 1, r, 0,
+                           requests.data() + request_idx);
+        ++request_idx;
+      }
+    }
+
+    for (int r = 0; r < communicator.getSize(); ++r) {
+      if (r != rank) {
+        communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
+        ++request_idx;
+      }
+    }
+
+    communicator.waitall(requests.size(), requests.data());
+
+    if (0 == rank) {
+      std::cout << "There are " << communicator.getSize()
+                << " ranks:" << std::endl;
+    }
+    communicator.barrier();
+
+    bool ret = true;
+    for (int rec : received_data) {
+      std::cout << "Rank received: " << rec << std::endl;
+      if (rec == -1) return false;
+    }
+
+    std::cout << "############################" << std::endl;
+  }
+
+  return true;
+}
+
+
 };  // namespace Comms
 };  // end namespace ML

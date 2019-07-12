@@ -159,7 +159,6 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
 #ifdef WITH_UCX
-  // Make shared_ptr for endpoints
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
@@ -172,7 +171,6 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
     if (ptr != 0) {
       ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
       ucp_ep_v[i] = *eps_ptr;
-      ucp_ep_print_info(*eps_ptr, stdout);
     } else {
       ucp_ep_v[i] = nullptr;
     }
@@ -263,9 +261,11 @@ void cumlStdCommunicator_impl::barrier() const {
 }
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
-  request_t req_id;
 
 #ifdef WITH_UCX
+
+  request_t req_id;
+
   if (this->_free_requests.empty())
     req_id = this->_next_request_id++;
   else {
@@ -273,9 +273,8 @@ void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
     req_id = *it;
     this->_free_requests.erase(it);
   }
-#endif
-
   *req = req_id;
+#endif
 }
 
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
