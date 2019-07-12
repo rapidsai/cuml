@@ -16,7 +16,7 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
 project(CUML VERSION 0.9.0 LANGUAGES CXX CUDA)
