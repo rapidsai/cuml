@@ -27,7 +27,7 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - cmake>=3.12.4
+    - cmake>=3.14
     - cudf 0.9*
     - libcuml={{ version }}
     - cudatoolkit {{ cuda_version }}.*
