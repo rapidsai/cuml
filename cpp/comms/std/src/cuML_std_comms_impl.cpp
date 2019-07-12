@@ -264,12 +264,7 @@ void cumlStdCommunicator_impl::barrier() const {
   cudaStreamSynchronize(stream);
 }
 
-void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
-                                     int tag, request_t *request) const {
-#ifdef WITH_UCX
-  ASSERT(_ucp_worker != nullptr,
-         "ERROR: UCX comms not initialized on communicator.");
-
+void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
   request_t req_id;
   if (_free_requests.empty())
     req_id = _next_request_id++;
@@ -278,6 +273,17 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
     req_id = *it;
     _free_requests.erase(it);
   }
+
+  *req = req_id;
+}
+
+void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
+                                     int tag, request_t *request) const {
+#ifdef WITH_UCX
+  ASSERT(_ucp_worker != nullptr,
+         "ERROR: UCX comms not initialized on communicator.");
+
+  get_request_id(request);
 
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
@@ -286,12 +292,13 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   struct ucx_context *ucp_request = ucp_isend(ep_ptr, buf, size, tag);
 
-  _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
-  *request = req_id;
+  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
 
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
+
+
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
@@ -299,14 +306,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
-  request_t req_id;
-  if (_free_requests.empty())
-    req_id = _next_request_id++;
-  else {
-    auto it = _free_requests.begin();
-    req_id = *it;
-    _free_requests.erase(it);
-  }
+  get_request_id(request);
 
   ucp_ep_h *ep_arr = *_ucp_eps;
   ucp_ep_h ep_ptr = ep_arr[source];
@@ -314,8 +314,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   struct ucx_context *ucp_request =
     ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag);
 
-  _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
-  *request = req_id;
+  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
 
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
@@ -340,6 +339,8 @@ void cumlStdCommunicator_impl::waitall(int count,
   }
 
   std::vector<struct ucx_context *> done_requests;
+  done_requests.reserve(count);
+
   while(done_requests.size() < count) {
 
     for (struct ucx_context *req : requests) {

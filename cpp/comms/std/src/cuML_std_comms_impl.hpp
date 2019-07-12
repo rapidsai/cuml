@@ -123,6 +123,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   int _rank;
 
   void initialize();
+  void get_request_id(request_t *req) const;
 
 #ifdef WITH_UCX
   ucp_worker_h _ucp_worker;
