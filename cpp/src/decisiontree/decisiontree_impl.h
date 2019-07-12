@@ -26,7 +26,6 @@
 #include "algo_helper.h"
 #include "decisiontree.hpp"
 #include "kernels/metric_def.h"
-#include "levelalgo/levelmem.cuh"
 
 namespace ML {
 
@@ -85,8 +84,7 @@ class DecisionTreeBase {
              int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
              CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
              bool cfg_quantile_per_tree = false,
-             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr,
-             bool levelalgo = false);
+             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
   void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
                        const unsigned int *rowids, const int n_sampled_rows,
                        const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
@@ -103,7 +101,7 @@ class DecisionTreeBase {
     const ML::cumlHandle_impl &handle, T *data, L *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
-    LevelTemporaryMemory<T> *leveltempmem) = 0;
+    std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(const ML::cumlHandle &handle, T *data, const int ncols,
                 const int nrows, L *labels, unsigned int *rowids,
@@ -155,7 +153,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
     const ML::cumlHandle_impl &handle, T *data, int *labels,
     unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
     const int n_sampled_rows, const int ncols, const int nrows,
-    LevelTemporaryMemory<T> *leveltempmem);
+    std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
 
@@ -177,7 +175,8 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
   TreeNode<T, T> *grow_deep_tree(
     const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-    const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem);
+    const int ncols, const int nrows,
+    std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class
 

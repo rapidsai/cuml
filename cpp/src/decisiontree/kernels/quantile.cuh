@@ -41,7 +41,7 @@ __global__ void get_all_quantiles(const T *__restrict__ data, T *quantile,
 }
 
 template <typename T, typename L>
-void preprocess_quantile(const T *data, const unsigned int *rowids,
+void preprocess_quantile(T *data, const unsigned int *rowids,
                          const int n_sampled_rows, const int ncols,
                          const int rowoffset, const int nbins,
                          std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
@@ -59,17 +59,22 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   int threads = 128;
   MLCommon::device_buffer<int> *d_offsets;
   MLCommon::device_buffer<T> *d_keys_out;
-  T *d_keys_in = tempmem->temp_data->data();
-  unsigned int *colids = nullptr;
-
+  T *d_keys_in;
+  int blocks;
+  if (tempmem->temp_data != nullptr) {
+    d_keys_in = tempmem->temp_data->data();
+    unsigned int *colids = nullptr;
+    blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
+    allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(
+      data, rowids, colids, n_sampled_rows, ncols, rowoffset,
+      d_keys_in);  // d_keys_in already allocated for all ncols
+    CUDA_CHECK(cudaGetLastError());
+  } else {
+    d_keys_in = data;
+  }
+  
   d_offsets = new MLCommon::device_buffer<int>(
     tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_cols + 1);
-
-  int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
-  allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(
-    data, rowids, colids, n_sampled_rows, ncols, rowoffset,
-    d_keys_in);  // d_keys_in already allocated for all ncols
-  CUDA_CHECK(cudaGetLastError());
 
   blocks = MLCommon::ceildiv(batch_cols + 1, threads);
   set_sorting_offset<<<blocks, threads, 0, tempmem->stream>>>(

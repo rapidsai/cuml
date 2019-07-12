@@ -61,10 +61,6 @@ struct DecisionTreeParams {
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion;
-  /**
-   * Depth level algorithm
-   */
-  bool levelalgo = false;
 };
 
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,

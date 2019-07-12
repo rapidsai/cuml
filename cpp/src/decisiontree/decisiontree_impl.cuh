@@ -134,7 +134,7 @@ void DecisionTreeBase<T, L>::plant(
   const float colper, int n_bins, int split_algo_flag,
   int cfg_min_rows_per_node, bool cfg_bootstrap_features,
   CRITERION cfg_split_criterion, bool quantile_per_tree,
-  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem, bool levelalgo) {
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   split_algo = split_algo_flag;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
@@ -185,7 +185,7 @@ void DecisionTreeBase<T, L>::plant(
     } else {
       tempmem[i] = std::make_shared<TemporaryMemory<T, L>>(
         handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins,
-        split_algo);
+        split_algo, maxdepth);
       quantile_per_tree = true;
     }
     if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
@@ -200,7 +200,7 @@ void DecisionTreeBase<T, L>::plant(
   total_temp_mem = tempmem[0]->totalmem;
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
-  
+  /*
   LevelTemporaryMemory<T> *leveltempmem = new LevelTemporaryMemory<T>(
     handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
   MLCommon::updateHost(leveltempmem->h_quantile->data(),
@@ -209,12 +209,11 @@ void DecisionTreeBase<T, L>::plant(
   MLCommon::updateDevice(leveltempmem->d_quantile->data(),
                          leveltempmem->h_quantile->data(), nbins * ncols,
                          tempmem[0]->stream);
-
+  */
   MLCommon::TimerCPU timer;
-  if (levelalgo) {
-    root =
-      grow_deep_tree(handle, data, labels, rowids, feature_selector,
-                     n_sampled_rows, ncols, dinfo.NLocalrows, leveltempmem);
+  if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    root = grow_deep_tree(handle, data, labels, rowids, feature_selector,
+                          n_sampled_rows, ncols, dinfo.NLocalrows, tempmem[0]);
   } else {
     root =
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
@@ -227,7 +226,7 @@ void DecisionTreeBase<T, L>::plant(
     }
   }
 
-  delete leveltempmem;
+  //  delete leveltempmem;
 }
 
 template <typename T, typename L>
@@ -414,7 +413,7 @@ void DecisionTreeBase<T, L>::base_fit(
         tree_params.max_leaves, tree_params.max_features, tree_params.n_bins,
         tree_params.split_algo, tree_params.min_rows_per_node,
         tree_params.bootstrap_features, tree_params.split_criterion,
-        tree_params.quantile_per_tree, in_tempmem, tree_params.levelalgo);
+        tree_params.quantile_per_tree, in_tempmem);
 }
 
 template <typename T>
@@ -525,20 +524,22 @@ template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-  const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem) {
+  const int ncols, const int nrows,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   return grow_deep_tree_classification(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->n_unique_labels, this->nbins, this->treedepth, leveltempmem);
+    ncols, this->n_unique_labels, this->nbins, this->treedepth, tempmem);
 }
 
 template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-  const int ncols, const int nrows, LevelTemporaryMemory<T> *leveltempmem) {
+  const int ncols, const int nrows,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   return grow_deep_tree_regression(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->nbins, this->treedepth, leveltempmem);
+    ncols, this->nbins, this->treedepth, tempmem);
 }
 
 //Class specializations
