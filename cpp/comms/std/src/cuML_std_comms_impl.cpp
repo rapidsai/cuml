@@ -264,6 +264,8 @@ void cumlStdCommunicator_impl::barrier() const {
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
   request_t req_id;
+
+#ifdef WITH_UCX
   if (this->_free_requests.empty())
     req_id = this->_next_request_id++;
   else {
@@ -271,6 +273,7 @@ void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
     req_id = *it;
     this->_free_requests.erase(it);
   }
+#endif
 
   *req = req_id;
 }
