@@ -243,6 +243,12 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   d_sample_cnt = new MLCommon::device_buffer<unsigned int>(
     ml_handle.getDeviceAllocator(), stream, nrows);
 
+  totalmem += nrows * 2 * sizeof(int);
+  totalmem += histcount * sizeof(int);
+  totalmem += maxnodes * 3 * sizeof(int);
+  totalmem += maxnodes * 3 * sizeof(float);
+  totalmem += n_unique_labels * maxnodes * 3 * sizeof(float);
+
   cudaDeviceProp prop;
   CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
   size_t max_shared_mem = prop.sharedMemPerBlock;
