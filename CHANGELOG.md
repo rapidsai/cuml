@@ -16,9 +16,9 @@
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
-
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
+- PR #832: Stateless Decision Tree and Random Forest API
 
 ## Bug Fixes
 
