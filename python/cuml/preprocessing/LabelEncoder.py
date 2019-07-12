@@ -21,15 +21,14 @@ import numpy as np
 
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
-    """
-    Ensure that nvcategory is being given strings
-    """
+    ''' Ensure that nvcategory is being given strings
+    '''
     if y.dtype != "object":
         return y.astype("str")
     return y
 
 
-def _check_npint32(y: cudf.Series) -> cudf.Series:
+def _enforce_npint32(y: cudf.Series) -> cudf.Series:
     if y.dtype != np.int32:
         return y.astype(np.int32)
     return y
@@ -221,7 +220,7 @@ class LabelEncoder(object):
                 'Input of type {} is not cudf.Series'.format(type(y)))
 
         # check if y's dtype is np.int32, otherwise convert it
-        y = _check_npint32(y)
+        y = _enforce_npint32(y)
 
         # check if ord_label out of bound
         ord_label = y.unique()
