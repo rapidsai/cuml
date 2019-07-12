@@ -18,24 +18,28 @@
 template <typename T>
 struct LevelTemporaryMemory {
   cudaStream_t stream;
-  MLCommon::device_buffer<unsigned int> *d_flags;
-  MLCommon::device_buffer<unsigned int> *d_histogram;
-  MLCommon::host_buffer<unsigned int> *h_histogram;
-  MLCommon::host_buffer<int> *h_split_colidx;
-  MLCommon::host_buffer<int> *h_split_binidx;
-  MLCommon::device_buffer<int> *d_split_colidx;
-  MLCommon::device_buffer<int> *d_split_binidx;
-  MLCommon::host_buffer<unsigned int> *h_new_node_flags;
-  MLCommon::device_buffer<unsigned int> *d_new_node_flags;
-  MLCommon::host_buffer<unsigned int> *h_parent_hist, *h_child_hist;
-  MLCommon::device_buffer<unsigned int> *d_parent_hist, *d_child_hist;
-  MLCommon::host_buffer<T> *h_parent_metric, *h_child_best_metric;
-  MLCommon::host_buffer<float> *h_outgain;
-  MLCommon::device_buffer<float> *d_outgain;
-  MLCommon::device_buffer<T> *d_parent_metric, *d_child_best_metric;
-  MLCommon::device_buffer<T> *d_quantile;
-  MLCommon::host_buffer<T> *h_quantile;
-  MLCommon::device_buffer<unsigned int> *d_sample_cnt;
+  MLCommon::device_buffer<unsigned int> *d_flags = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_histogram = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_histogram = nullptr;
+  MLCommon::host_buffer<int> *h_split_colidx = nullptr;
+  MLCommon::host_buffer<int> *h_split_binidx = nullptr;
+  MLCommon::device_buffer<int> *d_split_colidx = nullptr;
+  MLCommon::device_buffer<int> *d_split_binidx = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_new_node_flags = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_new_node_flags = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_parent_hist = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_child_hist = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_parent_hist = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_child_hist = nullptr;
+  MLCommon::host_buffer<T> *h_parent_metric = nullptr;
+  MLCommon::host_buffer<T> *h_child_best_metric = nullptr;
+  MLCommon::host_buffer<float> *h_outgain = nullptr;
+  MLCommon::device_buffer<float> *d_outgain = nullptr;
+  MLCommon::device_buffer<T> *d_parent_metric = nullptr;
+  MLCommon::device_buffer<T> *d_child_best_metric = nullptr;
+  MLCommon::device_buffer<T> *d_quantile = nullptr;
+  MLCommon::host_buffer<T> *h_quantile = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_sample_cnt = nullptr;
   int max_nodes = 0;
   LevelTemporaryMemory(const ML::cumlHandle_impl &handle, const int nrows,
                        const int ncols, const int nbins,
