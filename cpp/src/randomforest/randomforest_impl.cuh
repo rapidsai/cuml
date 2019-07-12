@@ -204,7 +204,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
       this->rf_params.tree_params.max_depth);
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    preprocess_quantile(input, nullptr, n_sampled_rows, n_cols, n_rows,
+    preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
                         this->rf_params.tree_params.n_bins, tempmem);
   }
   for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -411,7 +411,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
 
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    preprocess_quantile(input, nullptr, n_sampled_rows, n_cols, n_rows,
+    preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
                         this->rf_params.tree_params.n_bins, tempmem);
   }
   for (int i = 0; i < this->rf_params.n_trees; i++) {
