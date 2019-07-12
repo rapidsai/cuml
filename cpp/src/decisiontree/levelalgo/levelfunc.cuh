@@ -28,17 +28,15 @@ struct FlatTreeNode {
 #include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
-#include "../memory.cuh"
 #include "levelhelper.cuh"
 #include "levelkernel.cuh"
-#include "levelmem.cuh"
 
 template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int ncols, const int n_unique_labels, const int nbins,
-  int maxdepth, LevelTemporaryMemory<T>* tempmem) {
+  int maxdepth, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   std::vector<unsigned int> colselector;
   colselector.resize(ncols);
   std::iota(colselector.begin(), colselector.end(), 0);
@@ -130,6 +128,6 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
   const int nrows, const int ncols, const int nbins, int maxdepth,
-  LevelTemporaryMemory<T>* tempmem) {
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   return (new ML::DecisionTree::TreeNode<T, T>());
 }

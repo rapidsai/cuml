@@ -62,15 +62,42 @@ struct TemporaryMemory {
   MLCommon::host_buffer<T> *h_quantile = nullptr;
 
   const ML::cumlHandle_impl &ml_handle;
+  //Split algo
+  int splitalgo;
+  
+  //For level algorithm
+  MLCommon::device_buffer<unsigned int> *d_flags = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_histogram = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_histogram = nullptr;
+  MLCommon::host_buffer<int> *h_split_colidx = nullptr;
+  MLCommon::host_buffer<int> *h_split_binidx = nullptr;
+  MLCommon::device_buffer<int> *d_split_colidx = nullptr;
+  MLCommon::device_buffer<int> *d_split_binidx = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_new_node_flags = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_new_node_flags = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_parent_hist = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_child_hist = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_parent_hist = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_child_hist = nullptr;
+  MLCommon::host_buffer<T> *h_parent_metric = nullptr;
+  MLCommon::host_buffer<T> *h_child_best_metric = nullptr;
+  MLCommon::host_buffer<float> *h_outgain = nullptr;
+  MLCommon::device_buffer<float> *d_outgain = nullptr;
+  MLCommon::device_buffer<T> *d_parent_metric = nullptr;
+  MLCommon::device_buffer<T> *d_child_best_metric = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_sample_cnt = nullptr;
+  int max_nodes = 0;
 
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
-                  int maxstr, int n_unique, int n_bins, const int split_algo);
+                  int maxstr, int n_unique, int n_bins, const int split_algo,
+                  int depth);
+  ~TemporaryMemory();
   void NodeMemAllocator(int N, int Ncols, int maxstr, int n_unique, int n_bins,
                         const int split_algo);
-  void LevelMemAllocator(int N, int Ncols, int maxstr, int n_unique, int n_bins,
-                         const int split_algo);
-  void print_info();
-  ~TemporaryMemory();
+  void LevelMemAllocator(int nrows, int ncols, int n_unique_labels, int nbins,
+                         int depth);
   void NodeMemCleaner();
   void LevelMemCleaner();
+  void print_info();
 };
+#include "memory.cuh"
