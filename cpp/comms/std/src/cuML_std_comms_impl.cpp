@@ -232,8 +232,6 @@ void cumlStdCommunicator_impl::initialize() {
   CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
 }
 
-
-
 cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
 
   cudaStreamDestroy(stream);

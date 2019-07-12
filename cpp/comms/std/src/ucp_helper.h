@@ -20,12 +20,6 @@
 #include <utils.h>
 static const ucp_tag_t default_tag_mask = -1;
 
-/**
- * @brief callback for flushing worker
- */
-static void flush_callback(void *request, ucs_status_t status) {
-  ucp_request_free(request);
-}
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -74,7 +68,6 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
     ucp_request->needs_release = false;
   }
 
-  ucp_ep_flush_nb(ep_ptr, 0, flush_callback);
   return ucp_request;
 }
 
