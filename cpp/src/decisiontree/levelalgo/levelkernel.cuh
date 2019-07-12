@@ -316,29 +316,30 @@ __global__ void get_me_best_split_kernel(
       best_col_id[nodeid] = (int)(ans.idx / nbins);
       best_bin_id[nodeid] = ans.idx % nbins;
     }
+    if (ans.idx != -1) {
+      int coloffset =
+        ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
+      int binoffset = (ans.idx % nbins) * n_unique_labels;
 
-    int coloffset =
-      ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
-    int binoffset = (ans.idx % nbins) * n_unique_labels;
+      for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
+        unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
+        unsigned int val_right = parent_hist_local[j] - val_left;
+        best_split_hist[j] = val_left;
+        atomicAdd(&best_nrows[0], val_left);
+        best_split_hist[j + n_unique_labels] = val_right;
+        atomicAdd(&best_nrows[1], val_right);
+      }
+      __syncthreads();
 
-    for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
-      unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
-      unsigned int val_right = parent_hist_local[j] - val_left;
-      best_split_hist[j] = val_left;
-      atomicAdd(&best_nrows[0], val_left);
-      best_split_hist[j + n_unique_labels] = val_right;
-      atomicAdd(&best_nrows[1], val_right);
-    }
-    __syncthreads();
+      for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
+        child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
+      }
 
-    for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
-      child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
-    }
-
-    if (threadIdx.x < 2) {
-      child_best_metric[2 * nodeid + threadIdx.x] =
-        F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
-                best_nrows[threadIdx.x], n_unique_labels);
+      if (threadIdx.x < 2) {
+        child_best_metric[2 * nodeid + threadIdx.x] =
+          F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
+                  best_nrows[threadIdx.x], n_unique_labels);
+      }
     }
   }
 }
