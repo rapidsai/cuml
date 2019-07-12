@@ -18,6 +18,7 @@
 #include <ucp/api/ucp_def.h>
 
 #include <utils.h>
+
 static const ucp_tag_t default_tag_mask = -1;
 
 
@@ -42,9 +43,9 @@ static void recv_handle(void *request, ucs_status_t status,
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag) {
+                              int tag, int rank) {
 
-  ucp_tag_t ucp_tag = (ucp_tag_t)tag;
+  ucp_tag_t ucp_tag = (rank << 31) | tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -75,8 +76,8 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag) {
-  ucp_tag_t ucp_tag = (ucp_tag_t)tag;
+                              int size, int tag, int sender_rank) {
+  ucp_tag_t ucp_tag = (sender_rank << 31) | tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
