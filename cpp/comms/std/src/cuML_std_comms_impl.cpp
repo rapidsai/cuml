@@ -34,6 +34,7 @@ constexpr bool UCX_ENABLED = false;
 #include <cstdio>
 #include <exception>
 #include <memory>
+#include <algorithm>
 
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
@@ -250,7 +251,7 @@ cumlStdCommunicator_impl::commSplit(int color, int key) const {
   // Not supported by NCCL
   ASSERT(
     false,
-    "ERROR: commSplit called but not supported in this comms implementation.");
+    "ERROR: commSplit called but not yet supported in this comms implementation.");
 }
 
 void cumlStdCommunicator_impl::barrier() const {
@@ -287,8 +288,6 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   _requests_in_flight.insert(std::make_pair(req_id, ucp_request));
   *request = req_id;
-
-  ucs_status_t flush_status = flush_ep(_ucp_worker, ep_ptr);
 #endif
 
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
@@ -340,16 +339,24 @@ void cumlStdCommunicator_impl::waitall(int count,
     _requests_in_flight.erase(req_it);
   }
 
-  int done = 0;
-  for (struct ucx_context *req : requests) {
+  std::vector<struct ucx_context *> done_requests;
+  while(done_requests.size() < count) {
 
-    ASSERT(req != nullptr, "Request %d should not be null");
+    for (struct ucx_context *req : requests) {
 
-    wait(_ucp_worker, req);
-    req->completed = 0; /* Reset request state before recycling it */
+      ucp_worker_progress(_ucp_worker);
 
-    if (req->needs_release) ucp_request_release(req);
+      auto req_it = std::find(done_requests.begin(), done_requests.end(), req);
+      if(req->completed == 1 && req_it == done_requests.end())
+        done_requests.push_back(req);
+    }
   }
+
+  for(struct ucx_context *req : done_requests) {
+    req->completed = 0;
+    if (req->needs_release) ucp_request_free(req);
+  }
+
 #endif
 
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
