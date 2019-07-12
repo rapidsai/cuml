@@ -275,11 +275,12 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
+    std::vector<int>& nodehist = hist[n_nodes_before + nodeid];
     if (gain[nodeid] == 0.0 || curr_depth == max_depth) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].type = true;
       flattree[n_nodes_before + nodeid].prediction =
-        get_class_hist(hist[n_nodes_before + nodeid]);
+        get_class_hist(nodehist);
     } else {
       nodelist.push_back(2 * nodeid);
       nodelist.push_back(2 * nodeid + 1);
