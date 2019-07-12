@@ -94,7 +94,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   unsigned int* h_new_node_flags = tempmem->h_new_node_flags->data();
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
 
-  for (int depth = 0; depth < maxdepth; depth++) {
+  for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
+    depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     //End allocation and setups
     get_me_histogram(data, labels, flagsptr, sample_cnt, nrows, ncols,
@@ -108,7 +109,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
       h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
-              n_nodes_nextitr, nodelist);
+              n_nodes_nextitr, nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);

@@ -126,7 +126,7 @@ void get_me_best_split(
                          tempmem->stream);
     MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
                          tempmem->stream);
-    
+
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       int nodeid = nodelist[nodecnt];
@@ -264,7 +264,7 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
                unsigned int *new_node_flags,
                std::vector<FlatTreeNode<T>> &flattree,
                std::vector<std::vector<int>> hist, int &n_nodes_next,
-               std::vector<int> &nodelist) {
+               std::vector<int> &nodelist, int &tree_leaf_cnt) {
   std::vector<int> tmp_nodelist(nodelist);
   nodelist.clear();
   int n_nodes_before = 0;
@@ -275,12 +275,11 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
-    std::vector<int>& nodehist = hist[n_nodes_before + nodeid];
+    std::vector<int> &nodehist = hist[n_nodes_before + nodeid];
     if (gain[nodeid] == 0.0 || curr_depth == max_depth) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].type = true;
-      flattree[n_nodes_before + nodeid].prediction =
-        get_class_hist(nodehist);
+      flattree[n_nodes_before + nodeid].prediction = get_class_hist(nodehist);
     } else {
       nodelist.push_back(2 * nodeid);
       nodelist.push_back(2 * nodeid + 1);
@@ -290,5 +289,6 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
     new_node_flags[i] = node_flag;
   }
   int nleafed = tmp_nodelist.size() - leaf_counter;
+  tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * leaf_counter;
 }
