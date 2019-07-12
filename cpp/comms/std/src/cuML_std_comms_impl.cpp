@@ -287,7 +287,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
-  struct ucx_context *ucp_request = ucp_isend(ep_ptr, buf, size, tag);
+  struct ucx_context *ucp_request = ucp_isend(ep_ptr, buf, size, tag, getRank());
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
@@ -308,7 +308,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
   struct ucx_context *ucp_request =
-    ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag);
+    ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag, source);
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
