@@ -77,12 +77,13 @@ class HoltWinters(Base):
     def fit(self, ts_input, pointsToForecast=50):
         self.h = pointsToForecast
 
-        cdef uintptr_t input_ptr 
+        cdef uintptr_t input_ptr
 
-        if isinstance(ts_input, cudf.dataframe.DataFrame):
+        if isinstance(ts_input, cudf.DataFrame):
             self.n = len(ts_input.index)
-            ts_input = ts_input.as_gpu_matrix().reshape((self.n*self.batch_size,))
-        if cuda.is_cuda_array(ts_input):
+            ts_input = ts_input.as_gpu_matrix()\
+                .reshape((self.n*self.batch_size,))
+        elif cuda.is_cuda_array(ts_input):
             try:
                 import cupy as cp
                 if len(ts_input.shape) > 1:
@@ -91,8 +92,8 @@ class HoltWinters(Base):
                 elif len(ts_input.shape) == 1:
                     self.n = len(ts_input)
                 else:
-                     raise ValueError("Undetermined ndarray input size") 
-            except:
+                    raise ValueError("Undetermined ndarray input size")
+            except Exception:
                 ts_input = cuda.as_cuda_array(ts_input)
                 ts_input = ts_input.copy_to_host()
         if isinstance(ts_input, np.ndarray):
@@ -103,7 +104,7 @@ class HoltWinters(Base):
                 self.n = len(ts_input)
             else:
                 raise ValueError("Undetermined ndarray input size")
- 
+
         X_m, input_ptr, n_rows, _, self.dtype = \
             input_to_dev_array(ts_input, order='C')
 
