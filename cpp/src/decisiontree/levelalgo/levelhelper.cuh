@@ -60,14 +60,17 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F, typename DF>
-void get_me_best_split(
-  unsigned int *hist, unsigned int *d_hist,
-  const std::vector<unsigned int> &colselector, const int nbins,
-  const int n_unique_labels, const int n_nodes, const int depth,
-  std::vector<float> &gain, std::vector<std::vector<int>> &histstate,
-  std::vector<FlatTreeNode<T>> &flattree, std::vector<int> &nodelist,
-  int *split_colidx, int *split_binidx, int *d_split_colidx,
-  int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
+                       const std::vector<unsigned int> &colselector,
+                       const int nbins, const int n_unique_labels,
+                       const int n_nodes, const int depth, const int min_rpn,
+                       std::vector<float> &gain,
+                       std::vector<std::vector<int>> &histstate,
+                       std::vector<FlatTreeNode<T>> &flattree,
+                       std::vector<int> &nodelist, int *split_colidx,
+                       int *split_binidx, int *d_split_colidx,
+                       int *d_split_binidx,
+                       std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
@@ -114,7 +117,7 @@ void get_me_best_split(
     get_me_best_split_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
         d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
-        n_unique_labels, d_outgain, d_split_colidx, d_split_binidx,
+        n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
     MLCommon::updateHost(h_child_hist, d_child_hist,
@@ -179,7 +182,8 @@ void get_me_best_split(
             tmp_rnrows += tmp_histright[j];
           }
           int totalrows = tmp_lnrows + tmp_rnrows;
-          if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
+          if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn)
+            continue;
 
           float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows);
           float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows);

@@ -244,8 +244,8 @@ __global__ void get_me_best_split_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
   const T* __restrict__ parent_metric, const int nbins, const int ncols,
-  const int n_nodes, const int n_unique_labels, float* outgain,
-  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
+  const int n_nodes, const int n_unique_labels, const int min_rpn,
+  float* outgain, int* best_col_id, int* best_bin_id, unsigned int* child_hist,
   T* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
@@ -292,7 +292,7 @@ __global__ void get_me_best_split_kernel(
       }
 
       int totalrows = tmp_lnrows + tmp_rnrows;
-      if (tmp_lnrows == 0 || tmp_rnrows == 0) continue;
+      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn) continue;
 
       float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows, n_unique_labels);
       float tmp_gini_right =
