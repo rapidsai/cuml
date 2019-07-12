@@ -43,10 +43,10 @@ static void recv_handle(void *request, ucs_status_t status,
  */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag) {
-  struct ucx_context *ucp_request = 0;
+
   ucp_tag_t ucp_tag = (ucp_tag_t)tag;
 
-  ucp_request = (struct ucx_context *)ucp_tag_send_nb(
+  struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {

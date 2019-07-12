@@ -84,4 +84,4 @@ def test_send_recv(n_trials):
     assert(list(map(lambda x: x.result(), dfs)))
 
     # todo: Destroy is failing here. Need to fix it
-    # cb.destroy()
+    cb.destroy()
