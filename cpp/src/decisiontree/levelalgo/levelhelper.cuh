@@ -75,7 +75,7 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  if (depth > 6) use_gpu_flag = true;
+  if (n_nodes > 512) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
