@@ -126,7 +126,7 @@ void get_me_best_split(
                          tempmem->stream);
     MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
                          tempmem->stream);
-
+    
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       int nodeid = nodelist[nodecnt];

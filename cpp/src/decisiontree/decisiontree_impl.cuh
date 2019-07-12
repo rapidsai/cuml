@@ -119,10 +119,10 @@ void DecisionTreeBase<T, L>::split_branch(T *data, MetricQuestion<T> &ques,
                                           const int n_sampled_rows,
                                           int &nrowsleft, int &nrowsright,
                                           unsigned int *rowids) {
-  T *temp_data = tempmem[0]->temp_data->data();
+  T *temp_data = tempmem->temp_data->data();
   T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
   make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids,
-             split_algo, tempmem[0]);
+             split_algo, tempmem);
 }
 
 template <typename T, typename L>
@@ -141,7 +141,6 @@ void DecisionTreeBase<T, L>::plant(
   nbins = n_bins;
   treedepth = maxdepth;
   maxleaves = max_leaf_nodes;
-  tempmem.resize(MAXSTREAMS);
   n_unique_labels = unique_labels;
   min_rows_per_node = cfg_min_rows_per_node;
   bootstrap_features = cfg_bootstrap_features;
@@ -178,41 +177,30 @@ void DecisionTreeBase<T, L>::plant(
          "Shared memory per block limit %zd , requested %zd \n", max_shared_mem,
          shmem_used);
 
-  for (int i = 0; i < MAXSTREAMS; i++) {
-    if (in_tempmem != nullptr) {
-      tempmem[i] = in_tempmem;
-    } else {
-      tempmem[i] = std::make_shared<TemporaryMemory<T, L>>(
-        handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins,
-        split_algo, maxdepth);
-      quantile_per_tree = true;
-    }
-    if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
-      preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
-                          n_bins, tempmem[i]);
-    }
-    CUDA_CHECK(cudaStreamSynchronize(
-      tempmem[i]->stream));  // added to ensure accurate measurement
+  if (in_tempmem != nullptr) {
+    tempmem = in_tempmem;
+  } else {
+    tempmem = std::make_shared<TemporaryMemory<T, L>>(
+      handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins,
+      split_algo, maxdepth);
+    quantile_per_tree = true;
   }
+  if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
+    preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
+                        n_bins, tempmem);
+  }
+  CUDA_CHECK(cudaStreamSynchronize(
+    tempmem->stream));  // added to ensure accurate measurement
+
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
-  total_temp_mem = tempmem[0]->totalmem;
+  total_temp_mem = tempmem->totalmem;
   total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
-  /*
-  LevelTemporaryMemory<T> *leveltempmem = new LevelTemporaryMemory<T>(
-    handle, dinfo.NLocalrows, ncols, nbins, n_unique_labels, treedepth);
-  MLCommon::updateHost(leveltempmem->h_quantile->data(),
-                       tempmem[0]->d_quantile->data(), nbins * ncols,
-                       tempmem[0]->stream);
-  MLCommon::updateDevice(leveltempmem->d_quantile->data(),
-                         leveltempmem->h_quantile->data(), nbins * ncols,
-                         tempmem[0]->stream);
-  */
   MLCommon::TimerCPU timer;
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
     root = grow_deep_tree(handle, data, labels, rowids, feature_selector,
-                          n_sampled_rows, ncols, dinfo.NLocalrows, tempmem[0]);
+                          n_sampled_rows, ncols, dinfo.NLocalrows, tempmem);
   } else {
     root =
       grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
@@ -220,12 +208,8 @@ void DecisionTreeBase<T, L>::plant(
   train_time = timer.getElapsedSeconds();
   std::cout << "Growwww tree time -->  " << train_time << std::endl;
   if (in_tempmem == nullptr) {
-    for (int i = 0; i < MAXSTREAMS; i++) {
-      tempmem[i].reset();
-    }
+    tempmem.reset();
   }
-
-  //  delete leveltempmem;
 }
 
 template <typename T, typename L>
@@ -437,13 +421,13 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(
   // Optimize ginibefore; no need to compute except for root.
   if (depth == 0) {
     this->init_depth_zero(labels, colselector, rowids, n_sampled_rows,
-                          this->tempmem[0]);
-    int *labelptr = this->tempmem[0]->sampledlabels->data();
+                          this->tempmem);
+    int *labelptr = this->tempmem->sampledlabels->data();
     if (this->split_criterion == CRITERION::GINI) {
-      gini<T, GiniFunctor>(labelptr, n_sampled_rows, this->tempmem[0],
+      gini<T, GiniFunctor>(labelptr, n_sampled_rows, this->tempmem,
                            split_info[0], this->n_unique_labels);
     } else {
-      gini<T, EntropyFunctor>(labelptr, n_sampled_rows, this->tempmem[0],
+      gini<T, EntropyFunctor>(labelptr, n_sampled_rows, this->tempmem,
                               split_info[0], this->n_unique_labels);
     }
   }
@@ -457,15 +441,13 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(
   if (this->split_criterion == CRITERION::GINI) {
     best_split_all_cols_classifier<T, int, GiniFunctor>(
       data, rowids, labels, current_nbins, n_sampled_rows,
-      this->n_unique_labels, this->dinfo.NLocalrows, colselector,
-      this->tempmem[0], &split_info[0], ques, gain, this->split_algo,
-      this->max_shared_mem);
+      this->n_unique_labels, this->dinfo.NLocalrows, colselector, this->tempmem,
+      &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
   } else {
     best_split_all_cols_classifier<T, int, EntropyFunctor>(
       data, rowids, labels, current_nbins, n_sampled_rows,
-      this->n_unique_labels, this->dinfo.NLocalrows, colselector,
-      this->tempmem[0], &split_info[0], ques, gain, this->split_algo,
-      this->max_shared_mem);
+      this->n_unique_labels, this->dinfo.NLocalrows, colselector, this->tempmem,
+      &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
   }
 }
 
@@ -489,13 +471,13 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(
 
   if (depth == 0) {
     this->init_depth_zero(labels, colselector, rowids, n_sampled_rows,
-                          this->tempmem[0]);
-    T *labelptr = this->tempmem[0]->sampledlabels->data();
+                          this->tempmem);
+    T *labelptr = this->tempmem->sampledlabels->data();
     if (this->split_criterion == CRITERION::MSE) {
-      mse<T, SquareFunctor>(labelptr, n_sampled_rows, this->tempmem[0],
+      mse<T, SquareFunctor>(labelptr, n_sampled_rows, this->tempmem,
                             split_info[0]);
     } else {
-      mse<T, AbsFunctor>(labelptr, n_sampled_rows, this->tempmem[0],
+      mse<T, AbsFunctor>(labelptr, n_sampled_rows, this->tempmem,
                          split_info[0]);
     }
   }
@@ -509,12 +491,12 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(
   if (this->split_criterion == CRITERION::MSE) {
     best_split_all_cols_regressor<T, SquareFunctor>(
       data, rowids, labels, current_nbins, n_sampled_rows,
-      this->dinfo.NLocalrows, colselector, this->tempmem[0], split_info, ques,
+      this->dinfo.NLocalrows, colselector, this->tempmem, split_info, ques,
       gain, this->split_algo, this->max_shared_mem);
   } else {
     best_split_all_cols_regressor<T, AbsFunctor>(
       data, rowids, labels, current_nbins, n_sampled_rows,
-      this->dinfo.NLocalrows, colselector, this->tempmem[0], split_info, ques,
+      this->dinfo.NLocalrows, colselector, this->tempmem, split_info, ques,
       gain, this->split_algo, this->max_shared_mem);
   }
 }
