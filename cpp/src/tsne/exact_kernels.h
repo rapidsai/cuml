@@ -20,6 +20,7 @@
 #include <linalg/eltwise.h>
 #include <math.h>
 #include "utils.h"
+#define restrict __restrict__
 
 namespace ML {
 namespace TSNE {
@@ -27,10 +28,10 @@ namespace TSNE {
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel(const float *__restrict__ distances,
-                              float *__restrict__ P, const float perplexity,
+__global__ void sigmas_kernel(const float *restrict distances,
+                              float *restrict P, const float perplexity,
                               const float desired_entropy,
-                              float *__restrict__ P_sum, const int epochs,
+                              float *restrict P_sum, const int epochs,
                               const float tol, const int n, const int k) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -85,10 +86,10 @@ __global__ void sigmas_kernel(const float *__restrict__ distances,
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel_2d(const float *__restrict__ distances,
-                                 float *__restrict__ P, const float perplexity,
+__global__ void sigmas_kernel_2d(const float *restrict distances,
+                                 float *restrict P, const float perplexity,
                                  const float desired_entropy,
-                                 float *__restrict__ P_sum, const int epochs,
+                                 float *restrict P_sum, const int epochs,
                                  const float tol, const int n) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -136,10 +137,10 @@ __global__ void sigmas_kernel_2d(const float *__restrict__ distances,
 }
 
 /****************************************/
-float perplexity_search(const float *__restrict__ distances,
-                        float *__restrict__ P, const float perplexity,
-                        const int epochs, const float tol, const int n,
-                        const int dim, const cumlHandle &handle) {
+float perplexity_search(const float *restrict distances, float *restrict P,
+                        const float perplexity, const int epochs,
+                        const float tol, const int n, const int dim,
+                        const cumlHandle &handle) {
   const float desired_entropy = logf(perplexity);
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -165,15 +166,12 @@ float perplexity_search(const float *__restrict__ distances,
 /****************************************/
 /* Compute attractive forces in O(uN) time.
     Uses only nearest neighbors         */
-__global__ void attractive_kernel(const float *__restrict__ VAL,
-                                  const int *__restrict__ COL,
-                                  const int *__restrict__ ROW,
-                                  const float *__restrict__ Y,
-                                  const float *__restrict__ norm,
-                                  float *__restrict__ attract, const int NNZ,
-                                  const int n, const int dim,
-                                  const float df_power,  // -(df + 1)/2)
-                                  const float recp_df)   // 1 / df
+__global__ void attractive_kernel(
+  const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
+  const float *restrict Y, const float *restrict norm, float *restrict attract,
+  const int NNZ, const int n, const int dim,
+  const float df_power,  // -(df + 1)/2)
+  const float recp_df)   // 1 / df
 {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -198,10 +196,10 @@ __global__ void attractive_kernel(const float *__restrict__ VAL,
 /* Special case when dim == 2. Can speed
     up many calculations up             */
 __global__ void attractive_kernel_2d(
-  const float *__restrict__ VAL, const int *__restrict__ COL,
-  const int *__restrict__ ROW, const float *__restrict__ Y1,
-  const float *__restrict__ Y2, const float *__restrict__ norm,
-  float *__restrict__ attract1, float *__restrict__ attract2, const int NNZ) {
+  const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
+  const float *restrict Y1, const float *restrict Y2,
+  const float *restrict norm, float *restrict attract1,
+  float *restrict attract2, const int NNZ) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
   const int i = ROW[index], j = COL[index];
@@ -220,12 +218,10 @@ __global__ void attractive_kernel_2d(
 }
 
 /****************************************/
-void attractive_forces(const float *__restrict__ VAL,
-                       const int *__restrict__ COL, const int *__restrict__ ROW,
-                       const float *__restrict__ Y,
-                       const float *__restrict__ norm,
-                       float *__restrict__ attract, const int NNZ, const int n,
-                       const int dim,
+void attractive_forces(const float *restrict VAL, const int *restrict COL,
+                       const int *restrict ROW, const float *restrict Y,
+                       const float *restrict norm, float *restrict attract,
+                       const int NNZ, const int n, const int dim,
                        const float df_power,  // -(df + 1)/2)
                        const float recp_df,   // 1 / df
                        cudaStream_t stream) {
@@ -249,12 +245,10 @@ void attractive_forces(const float *__restrict__ VAL,
 /* Computes repulsive forces in pseudo-O(N^2)
     time where many of the math ops are
     made considerably faster.           */
-__global__ void repulsive_kernel(const float *__restrict__ Y,
-                                 float *__restrict__ repel,
-                                 const float *__restrict__ norm,
-                                 float *__restrict__ Z_sum1,
-                                 float *__restrict__ Z_sum2, const int n,
-                                 const int dim,
+__global__ void repulsive_kernel(const float *restrict Y, float *restrict repel,
+                                 const float *restrict norm,
+                                 float *restrict Z_sum1, float *restrict Z_sum2,
+                                 const int n, const int dim,
                                  const float df_power,  // -(df + 1)/2)
                                  const float recp_df)   // 1 / df
 {
@@ -290,13 +284,10 @@ __global__ void repulsive_kernel(const float *__restrict__ Y,
 /****************************************/
 /* Special case when dim == 2. Much faster
     since calculations are streamlined. */
-__global__ void repulsive_kernel_2d(const float *__restrict__ Y1,
-                                    const float *__restrict__ Y2,
-                                    float *__restrict__ repel1,
-                                    float *__restrict__ repel2,
-                                    const float *__restrict__ norm,
-                                    float *__restrict__ Z_sum1,
-                                    float *__restrict__ Z_sum2, const int n) {
+__global__ void repulsive_kernel_2d(
+  const float *restrict Y1, const float *restrict Y2, float *restrict repel1,
+  float *restrict repel2, const float *restrict norm, float *restrict Z_sum1,
+  float *restrict Z_sum2, const int n) {
   const int j =
     (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
@@ -328,9 +319,9 @@ __global__ void repulsive_kernel_2d(const float *__restrict__ Y1,
 
 /****************************************/
 template <int TPB_X = 32, int TPB_Y = 32>
-float repulsive_forces(const float *__restrict__ Y, float *__restrict__ repel,
-                       const float *__restrict__ norm,
-                       float *__restrict__ Z_sum, const int n, const int dim,
+float repulsive_forces(const float *restrict Y, float *restrict repel,
+                       const float *restrict norm, float *restrict Z_sum,
+                       const int n, const int dim,
                        const float df_power,  // -(df + 1)/2)
                        const float recp_df, cudaStream_t stream) {
   CUDA_CHECK(cudaMemset(Z_sum, 0, sizeof(float) * 2 * n));
@@ -364,15 +355,14 @@ float repulsive_forces(const float *__restrict__ Y, float *__restrict__ repel,
     more gains and contrains the output
     for output stability                */
 __global__ void apply_kernel(
-  float *__restrict__ Y, float *__restrict__ velocity,
-  const float *__restrict__ attract, const float *__restrict__ repel,
-  float *__restrict__ means, float *__restrict__ gains,
+  float *restrict Y, float *restrict velocity, const float *restrict attract,
+  const float *restrict repel, float *restrict means, float *restrict gains,
   const float Z,  // sum(Q)
   const float learning_rate,
   const float C,  // constant from T-Dist Degrees of Freedom
   const float momentum,
   const float SIZE,  // SIZE = n*dim
-  const int n, const float min_gain, float *__restrict__ gradient,
+  const int n, const float min_gain, float *restrict gradient,
   const bool check_convergence) {
   const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= SIZE) return;
@@ -398,15 +388,14 @@ __global__ void apply_kernel(
 
 /****************************************/
 template <int TPB_X = 32, int TPB_Y = 32>
-float apply_forces(float *__restrict__ Y, float *__restrict__ velocity,
-                   const float *__restrict__ attract,
-                   const float *__restrict__ repel, float *__restrict__ means,
-                   float *__restrict__ gains,
+float apply_forces(float *restrict Y, float *restrict velocity,
+                   const float *restrict attract, const float *restrict repel,
+                   float *restrict means, float *restrict gains,
                    const float Z,  // sum(Q)
                    const float learning_rate,
                    const float C,  // constant from T-dist
                    const float momentum, const float dim, const int n,
-                   const float min_gain, float *__restrict__ gradient,
+                   const float min_gain, float *restrict gradient,
                    const bool check_convergence, cudaStream_t stream) {
   //cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)

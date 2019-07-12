@@ -116,6 +116,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *YY =
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
   random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
+  assert(YY != NULL && rep_forces != NULL);
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -145,6 +146,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
+    //printf("%d, ", iter);
+
     CUDA_CHECK(cudaMemset(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2));
     CUDA_CHECK(cudaMemset(attr_forces, 0, sizeof(float) * n * 2));
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>();
@@ -161,34 +164,40 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl, childl, massl, YY, YY + nnodes + 1, maxxl, maxyl, minxl, minyl);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(BoundingBoxKernel_time);
 
     START_TIMER;
     TSNE::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(ClearKernel1_time);
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
       errl, childl, YY, YY + nnodes + 1);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
     TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(startl, massl);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(ClearKernel2_time);
 
     START_TIMER;
     TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl, childl, massl, YY, YY + nnodes + 1);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
     TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(sortl, countl,
                                                                 startl, childl);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(SortKernel_time);
 
     START_TIMER;
@@ -197,6 +206,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       rep_forces + nnodes + 1);
     //norml);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(RepulsionTime);
 
     START_TIMER;
@@ -204,6 +214,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     //CUDA_CHECK(cudaMemcpyToSymbolAsync(Z_norm, &Z, sizeof(float), 0, cudaMemcpyHostToDevice, stream));
     TSNE::Find_Normalization<<<1, 1, 0, stream>>>();
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(Reduction_time);
 
     START_TIMER;
@@ -218,6 +229,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       attr_forces, attr_forces + n, rep_forces, rep_forces + nnodes + 1,
       gains_bh, gains_bh + n, old_forces, old_forces + n);
     CUDA_CHECK(cudaPeekAtLastError());
+
     END_TIMER(IntegrationKernel_time);
   }
   PRINT_TIMES;

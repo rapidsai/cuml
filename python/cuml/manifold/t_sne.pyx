@@ -42,7 +42,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "tsne/tsne.h" namespace "ML":
+cdef extern from "tsne/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                         const int p, const int dim, int n_neighbors,
                         const float theta, const float epssq,
@@ -306,23 +306,28 @@ class TSNE(Base):
         cdef uintptr_t y_raw
 
         # Adaptive learning method changes n_neighbors and other params as n->inf
+        # if n <= 1000:
+        #     self.method = "exact"
+
         if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
             if self.verbose:
                 print("Learning rate is adpative. In TSNE paper, it has been shown that as n->inf, "
                     "Barnes Hut works well if n_neighbors->30, learning_rate->20000, early_exaggeration->24.")
                 print("cuML uses an adpative method. n_neighbors decreases to 30 as n->inf. Likewise for the other params.")
             if n <= 2000:
-                self.n_neighbors = max(self.n_neighbors, 100)
+                self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
                 # A linear trend from (n=2000, neigh=100) to (n=60000, neigh=30)
                 self.n_neighbors = max(int(102 - 0.0012 * n), 30)
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
-            self.early_exaggeration = 24.0
+            self.early_exaggeration = 24.0 if n > 10000 else 12.0
             if self.verbose:
                 print("New n_neighbors = {}, learning_rate = {}, early_exaggeration = {}".format(
                     self.n_neighbors, self.pre_learning_rate, self.early_exaggeration))
 
+
+        assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
 
         TSNE_fit(handle_[0],
                 <float*> X_ptr, <float*> embed_ptr,
@@ -337,7 +342,7 @@ class TSNE(Base):
                 <float> self.pre_momentum, <float> self.post_momentum,
                 <long long> (-1 if self.random_state is None else self.random_state),
                 <bool> self.verbose,
-                <bool> True, <bool> (self.method == 'barnes_hut'))
+                <bool> True, <bool> True)
         del X_m
         return self
 

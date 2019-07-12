@@ -48,7 +48,6 @@
 #include <random/rng.h>
 #include <stats/sum.h>
 #include <sys/time.h>
-#include <cub/cub.cuh>
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -69,7 +68,7 @@ void random_vector(float *vector, const float minimum, const float maximum,
 }
 
 //#define TIMER_ON false
-#define DEBUG true
+#define DEBUG false
 
 long start, end;
 struct timeval timecheck;

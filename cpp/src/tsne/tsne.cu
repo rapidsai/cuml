@@ -16,7 +16,6 @@
 
 #include "distances.h"
 #include "exact_kernels.h"
-#include "symmetrize.h"
 #include "tsne/tsne.h"
 #include "utils.h"
 
@@ -108,12 +107,13 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  struct COO_Matrix_t COO_Matrix = TSNE::symmetrize_perplexity(
-    P, indices, n, n_neighbors, P_sum, early_exaggeration, stream, handle);
-  const int NNZ = COO_Matrix.NNZ;
-  float *VAL = COO_Matrix.VAL;
-  const int *COL = COO_Matrix.COL;
-  const int *ROW = COO_Matrix.ROW;
+  MLCommon::Sparse::COO<float> COO_Matrix;
+  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
+                              early_exaggeration, &COO_Matrix, stream, handle);
+  const int NNZ = COO_Matrix.nnz;
+  float *VAL = COO_Matrix.vals;
+  const int *COL = COO_Matrix.cols;
+  const int *ROW = COO_Matrix.rows;
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
@@ -131,9 +131,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      intialize_embeddings);
   }
 
-  d_alloc->deallocate(COO_Matrix.VAL, sizeof(float) * NNZ, stream);
-  d_alloc->deallocate(COO_Matrix.COL, sizeof(int) * NNZ, stream);
-  d_alloc->deallocate(COO_Matrix.ROW, sizeof(int) * NNZ, stream);
+  COO_Matrix.destroy();
 }
 
 }  // namespace ML
