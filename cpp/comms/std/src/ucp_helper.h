@@ -21,39 +21,10 @@
 static const ucp_tag_t default_tag_mask = -1;
 
 /**
- * @brief Continues progress on worker until a message request has completed
- */
-static void wait(ucp_worker_h ucp_worker, struct ucx_context *context) {
-  while (context->completed == 0) {
-    ucp_worker_progress(ucp_worker);
-  }
-}
-
-/**
  * @brief callback for flushing worker
  */
-static void flush_callback(void *request, ucs_status_t status) {}
-
-/**
- * @brief Flush the send buffer on the given endpoint for the given worker
- */
-static ucs_status_t flush_ep(ucp_worker_h worker, ucp_ep_h ep) {
-  void *request;
-
-  request = ucp_ep_flush_nb(ep, 0, flush_callback);
-  if (request == NULL) {
-    return UCS_OK;
-  } else if (UCS_PTR_IS_ERR(request)) {
-    return UCS_PTR_STATUS(request);
-  } else {
-    ucs_status_t status;
-    do {
-      ucp_worker_progress(worker);
-      status = ucp_request_check_status(request);
-    } while (status == UCS_INPROGRESS);
-    ucp_request_release(request);
-    return status;
-  }
+static void flush_callback(void *request, ucs_status_t status) {
+  ucp_request_free(request);
 }
 
 /**
@@ -84,13 +55,7 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
   ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
-  /**
-   * On error, close endpoint, set request to completed and close
-   * @TODO: Should the request be closed here as well? How should we handle this?
-   * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
-   */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to send UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
     /**
@@ -109,6 +74,7 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
     ucp_request->needs_release = false;
   }
 
+  ucp_ep_flush_nb(ep_ptr, 0, flush_callback);
   return ucp_request;
 }
 
@@ -123,18 +89,9 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
     recv_handle);
 
-  /**
-   * If error, endpoint is closed.
-   * @TODO: Should the request be closed here as well? How should we handle this?
-   * @TODO: Should the Python layer be attempting to reconnect endpoints when they are closed?
-   */
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ucp_ep_close_nb(ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
     ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to receive UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
-    /**
-   * Otherwise, request is successful and handler should get invoked on it.
-   */
   }
 
   return ucp_request;
