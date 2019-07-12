@@ -24,7 +24,6 @@
 #include "kernels/quantile.cuh"
 #include "kernels/split_labels.cuh"
 #include "levelalgo/levelfunc.cuh"
-#include "levelalgo/levelmem.cuh"
 #include "memory.cuh"
 
 namespace ML {

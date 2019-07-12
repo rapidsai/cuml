@@ -17,7 +17,7 @@
 #pragma once
 #include "../memory.h"
 template <typename T, typename L>
-void preprocess_quantile(const T *data, const unsigned int *rowids,
+void preprocess_quantile(T *data, const unsigned int *rowids,
                          const int n_sampled_rows, const int ncols,
                          const int rowoffset, const int nbins,
                          std::shared_ptr<TemporaryMemory<T, L>> tempmem);
