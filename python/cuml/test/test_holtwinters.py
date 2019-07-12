@@ -17,6 +17,7 @@ from cuml.holtwinters.holtwinters import HoltWinters
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import pytest
 from sklearn.metrics import r2_score
+import cudf
 
 airpassengers = [112, 118, 132, 129, 121, 135, 148, 148, 136, 119, 104, 118,
                  115, 126, 141, 135, 125, 149, 170, 170, 158, 133, 114, 140,
@@ -100,15 +101,13 @@ def test_singlets_holtwinters(seasonal, h, datatype):
 
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
-@pytest.mark.parametrize('datatype', [np.float64])
-@pytest.mark.xfail
-def test_multits_holtwinters(seasonal, h, datatype):
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['cudf', 'np'])
+def test_multits_holtwinters(seasonal, h, datatype, input_type):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
-    train = data[:-h]
-    # test = data[-h:]
+    if input_type == 'cudf':
+        data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
 
     cu_hw = HoltWinters(3, 12, seasonal)
-    cu_hw.fit(train)
-
-    # cu_pred = cu_hw.predict(1, h)
+    cu_hw.fit(data)
