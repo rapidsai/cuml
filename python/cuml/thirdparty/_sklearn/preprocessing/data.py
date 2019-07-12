@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cupy as cp
 import cudf
 import numpy as np
@@ -5,6 +21,9 @@ from cupyx.scipy import sparse
 
 from cuml.thirdparty._sklearn._utils import (
     check_array, _safe_accumulator_op, comb)
+
+
+FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 
 __all__ = [
@@ -38,6 +57,8 @@ def check_fitted(self, attributes):
 
 
 def to_cupy(X):
+    ''' convert input to cupy and 
+    '''
     # TODO: accept numba cuda array input 
     if isinstance(X, cudf.DataFrame):
         X = cp.array(X.as_gpu_matrix())
@@ -63,12 +84,19 @@ def _handle_zeros_in_scale(scale, copy=True):
         return scale
 
 
+def row_norms(X, squared=False):
+    norms = cp.einsum('ij,ij->i', X, X)
+    if not squared:
+        cp.sqrt(norms, norms)
+    return norms
+
+
 def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
     # old = stats until now
     # new = the current increment
     # updated = the aggregated stats
     last_sum = last_mean * last_sample_count
-    new_sum = _safe_accumulator_op(cp.nansum, X, axis=0)
+    new_sum = _safe_accumulator_op(cp.sum, X, axis=0)
 
     new_sample_count = cp.sum(~cp.isnan(X), axis=0)
     updated_sample_count = last_sample_count + new_sample_count
@@ -79,7 +107,7 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         updated_variance = None
     else:
         new_unnormalized_variance = (
-            _safe_accumulator_op(cp.nanvar, X, axis=0) * new_sample_count)
+            _safe_accumulator_op(cp.var, X, axis=0) * new_sample_count)
         last_unnormalized_variance = last_variance * last_sample_count
 
         # with np.errstate(divide='ignore', invalid='ignore'):
@@ -99,11 +127,11 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 
 
 def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
-
+    
+    X = to_cupy(X)
     X = check_array(X, copy=copy, ensure_2d=False,
                     estimator='the scale function', dtype=FLOAT_DTYPES,
                     force_all_finite=True)    
-    X = to_cupy(X)
 
     if with_mean:
         mean_ = cp.mean(X, axis)
@@ -145,6 +173,7 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
                               "very close to 0. ")
                 Xr -= mean_2
     return X
+
 
 class TransformerMixin:
     """Mixin class for all transformers in scikit-learn."""
@@ -225,6 +254,7 @@ class MinMaxScaler(TransformerMixin):
         if feature_range[0] >= feature_range[1]:
             raise ValueError("Minimum of desired feature range must be smaller"
                              " than maximum. Got %s." % str(feature_range))
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         data_min = cp.min(X, axis=0)
@@ -256,7 +286,7 @@ class MinMaxScaler(TransformerMixin):
             Input data that will be transformed.
         """
         check_fitted(self, 'scale_')
-
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
@@ -271,7 +301,7 @@ class MinMaxScaler(TransformerMixin):
             Input data that will be transformed. It cannot be sparse.
         """
         check_fitted(self, 'scale_')
-
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X -= self.min_
@@ -282,6 +312,7 @@ class MinMaxScaler(TransformerMixin):
 def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
+    X = to_cupy(X)
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
@@ -300,8 +331,8 @@ def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
     return X
 
 
-class StandardScaler(BaseEstimator, TransformerMixin):
-        def __init__(self, copy=True, with_mean=True, with_std=True):
+class StandardScaler(TransformerMixin):
+    def __init__(self, copy=True, with_mean=True, with_std=True):
         self.with_mean = with_mean
         self.with_std = with_std
         self.copy = copy
@@ -351,6 +382,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         y
             Ignored
         """
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         # Even in the case of `with_mean=False`, we update the mean anyway
@@ -396,6 +428,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         check_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
+        X = to_cupy(X)
         X = check_array(X, copy=copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_mean:
@@ -431,7 +464,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
         return X
 
 
-class MaxAbsScaler(BaseEstimator, TransformerMixin):
+class MaxAbsScaler(TransformerMixin):
 
     def __init__(self, copy=True):
         self.copy = copy
@@ -474,6 +507,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
         y
             Ignored
         """
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         max_abs = cp.max(cp.abs(X), axis=0)
@@ -498,6 +532,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
             The data that should be scaled.
         """
         check_fitted(self, 'scale_')
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X /= self.scale_
@@ -511,6 +546,7 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
             The data that should be transformed back.
         """
         check_fitted(self, 'scale_')
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
@@ -518,8 +554,9 @@ class MaxAbsScaler(BaseEstimator, TransformerMixin):
 
 
 def maxabs_scale(X, axis=0, copy=True):
-    # Unlike the scaler object, this function allows 1d input.
 
+    X = to_cupy(X)
+    # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
@@ -539,8 +576,7 @@ def maxabs_scale(X, axis=0, copy=True):
     return X
 
 
-
-class RobustScaler(BaseEstimator, TransformerMixin):
+class RobustScaler(TransformerMixin):
     def __init__(self, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
         self.with_centering = with_centering
@@ -556,8 +592,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
             The data used to compute the median and quantiles
             used for later scaling along the features axis.
         """
-        # at fit, convert sparse matrices to csc for optimized computation of
-        # the quantiles
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         q_min, q_max = self.quantile_range
@@ -595,6 +630,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_centering:
@@ -611,6 +647,7 @@ class RobustScaler(BaseEstimator, TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
+        X = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_scaling:
@@ -620,10 +657,10 @@ class RobustScaler(BaseEstimator, TransformerMixin):
         return X
 
 
-
 def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
 
+    X = to_cupy(X)
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
@@ -641,14 +678,6 @@ def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
         X = X.ravel()
 
     return X
-
-
-def row_norms(X, squared=False):
-    norms = cp.einsum('ij,ij->i', X, X)
-
-    if not squared:
-        cp.sqrt(norms, norms)
-    return norms
 
 
 def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
@@ -696,6 +725,7 @@ class Normalizer(TransformerMixin):
         ----------
         X : array-like
         """
+        X = to_cupy(X)
         check_array(X)
         return self
 
@@ -710,11 +740,13 @@ class Normalizer(TransformerMixin):
             Copy the input X or not.
         """
         copy = copy if copy is not None else self.copy
+        X = to_cupy(X)
         X = check_array(X)
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
 def binarize(X, threshold=0.0, copy=True):
+    X = to_cupy(X)
     X = check_array(X, copy=copy)
     cond = X > threshold
     not_cond = cp.logical_not(cond)
@@ -736,6 +768,7 @@ class Binarizer(TransformerMixin):
         ----------
         X : array-like
         """
+        X = to_cupy(X)
         check_array(X)
         return self
 
@@ -754,7 +787,7 @@ class Binarizer(TransformerMixin):
         return binarize(X, threshold=self.threshold, copy=copy)
 
 
-class KernelCenterer(BaseEstimator, TransformerMixin):
+class KernelCenterer(TransformerMixin):
 
     def __init__(self):
         # Needed for backported inspect.signature compatibility with PyPy
@@ -770,6 +803,7 @@ class KernelCenterer(BaseEstimator, TransformerMixin):
         -------
         self : returns an instance of self.
         """
+        K = to_cupy(K)
         K = check_array(K, dtype=FLOAT_DTYPES)
         n_samples = K.shape[0]
         self.K_fit_rows_ = cp.sum(K, axis=0) / n_samples
@@ -789,7 +823,7 @@ class KernelCenterer(BaseEstimator, TransformerMixin):
         K_new : numpy array of shape [n_samples1, n_samples2]
         """
         check_fitted(self, 'K_fit_all_')
-
+        K = to_cupy(K)
         K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
 
         K_pred_cols = (cp.sum(K, axis=1) /
@@ -827,6 +861,7 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
+    X = to_cupy(X)
     X = check_array(X, dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
     shape = (n_samples, n_features + 1)
