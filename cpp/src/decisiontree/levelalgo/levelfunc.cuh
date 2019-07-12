@@ -105,8 +105,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor, GiniDevFunctor>(
       h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
-      depth, infogain, histstate, flattree, nodelist, h_split_colidx,
-      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+      depth, min_rows_per_node, infogain, histstate, flattree, nodelist,
+      h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
               n_nodes_nextitr, nodelist, leaf_cnt);
@@ -116,6 +116,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
     make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
   int nleaves = pow(2, maxdepth);
