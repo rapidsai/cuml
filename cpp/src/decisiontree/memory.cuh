@@ -243,12 +243,15 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   d_sample_cnt = new MLCommon::device_buffer<unsigned int>(
     ml_handle.getDeviceAllocator(), stream, nrows);
 
+  d_colids = new MLCommon::device_buffer<unsigned int>(
+    ml_handle.getDeviceAllocator(), stream, ncols);
+
   totalmem += nrows * 2 * sizeof(int);
   totalmem += histcount * sizeof(int);
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * 3 * sizeof(float);
   totalmem += n_unique_labels * maxnodes * 3 * sizeof(float);
-
+  totalmem += ncols * sizeof(int);
   cudaDeviceProp prop;
   CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
   size_t max_shared_mem = prop.sharedMemPerBlock;
@@ -279,7 +282,8 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   h_quantile->release(stream);
   d_quantile->release(stream);
   d_sample_cnt->release(stream);
-
+  d_colids->release(stream);
+  
   delete h_new_node_flags;
   delete d_new_node_flags;
   delete d_histogram;
@@ -302,4 +306,5 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   delete h_quantile;
   delete d_quantile;
   delete d_sample_cnt;
+  delete d_colids;
 }
