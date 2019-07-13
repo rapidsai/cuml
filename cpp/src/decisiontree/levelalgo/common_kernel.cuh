@@ -17,6 +17,27 @@
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
 
+__global__ void setup_counts_kernel(unsigned int* sample_cnt,
+                                    const unsigned int* __restrict__ rowids,
+                                    const int n_sampled_rows) {
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int tid = threadid; tid < n_sampled_rows;
+       tid += blockDim.x * gridDim.x) {
+    unsigned int stid = rowids[tid];
+    atomicAdd(&sample_cnt[stid], 1);
+  }
+}
+__global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
+                                   unsigned int* flags, const int nrows) {
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
+    unsigned int local_cnt = sample_cnt[tid];
+    unsigned int local_flag = LEAF;
+    if (local_cnt != 0) local_flag = 0x00000000;
+    flags[tid] = local_flag;
+  }
+}
+
 template <typename T>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ quantile,

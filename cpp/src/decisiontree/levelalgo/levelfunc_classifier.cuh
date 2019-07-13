@@ -19,9 +19,9 @@
 #include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
+#include "common_helper.cuh"
 #include "flatnode.h"
 #include "levelhelper_classifier.cuh"
-#include "levelkernel_classifier.cuh"
 
 template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
@@ -39,24 +39,16 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
   setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
                  tempmem->stream);
-
-  gini_kernel_level<<<MLCommon::ceildiv(nrows, 128), 128,
-                      sizeof(int) * n_unique_labels, tempmem->stream>>>(
-    labels, sample_cnt, nrows, n_unique_labels,
-    (int*)tempmem->d_parent_hist->data());
-  CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(tempmem->h_parent_hist->data(),
-                       tempmem->d_parent_hist->data(), n_unique_labels,
-                       tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   std::vector<int> histvec;
-  histvec.assign(tempmem->h_parent_hist->data(),
-                 tempmem->h_parent_hist->data() + n_unique_labels);
   T initial_metric;
   if (split_cr == ML::CRITERION::GINI) {
-    initial_metric = GiniFunctor::exec(histvec, nrows);
+    initial_metric_classification<T, GiniFunctor>(labels, sample_cnt, nrows,
+                                                  n_unique_labels, histvec,
+                                                  initial_metric, tempmem);
   } else {
-    initial_metric = EntropyFunctor::exec(histvec, nrows);
+    initial_metric_classification<T, EntropyFunctor>(labels, sample_cnt, nrows,
+                                                     n_unique_labels, histvec,
+                                                     initial_metric, tempmem);
   }
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
