@@ -22,8 +22,7 @@ import time
 
 from dask.distributed import Client, wait
 
-from cuml.dask.common import CommsBase
-from cuml.dask.common.comms_base import worker_state, default_comms
+from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
@@ -33,7 +32,7 @@ def test_comms_init_no_p2p():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)  # noqa
 
-    cb = CommsBase()
+    cb = CommsContext()
     cb.init()
 
     assert cb.nccl_initialized is True
@@ -67,7 +66,7 @@ def test_default_comms():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase(comms_p2p=True, client=client)
+    cb = CommsContext(comms_p2p=True, client=client)
     cb.init()
 
     comms = default_comms()
@@ -83,7 +82,7 @@ def test_allreduce():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase()
+    cb = CommsContext()
     cb.init()
 
     start = time.time()
@@ -109,7 +108,7 @@ def test_send_recv(n_trials):
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsBase(comms_p2p=True)
+    cb = CommsContext(comms_p2p=True)
     cb.init()
 
     cb = default_comms()

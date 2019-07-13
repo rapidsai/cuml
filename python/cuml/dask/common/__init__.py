@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.comms_base import CommsBase
+from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 
 from cuml.dask.common.comms_utils import inject_comms_on_handle, \
     perform_test_comms_allreduce, perform_test_comms_send_recv, \
