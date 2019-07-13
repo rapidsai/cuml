@@ -35,47 +35,45 @@ template <typename T>
 void get_me_histogram(T *data, int *labels, unsigned int *flags,
                       unsigned int *sample_cnt, const int nrows,
                       const int ncols, const int n_unique_labels,
-                      const int nbins, const int n_nodes, const int maxnodes,
+                      const int nbins, const int n_nodes,
                       std::shared_ptr<TemporaryMemory<T, int>> tempmem,
                       unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
-  int node_batch = min(n_nodes, maxnodes);
+  int node_batch = min(n_nodes, tempmem->max_nodes);
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   if ((n_nodes == node_batch) && (blocks < 65536)) {
     get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, nrows, ncols, n_unique_labels, nbins,
-      n_nodes, tempmem->d_quantile->data(), histout);
+      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
+      n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
   } else {
     /*get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
       tempmem->d_quantile->data(), node_batch, histout);*/
     get_me_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, nrows, ncols, n_unique_labels, nbins,
-      n_nodes, tempmem->d_quantile->data(), histout);
+      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
+      n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F, typename DF>
-void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
-                       const std::vector<unsigned int> &colselector,
-                       const int nbins, const int n_unique_labels,
-                       const int n_nodes, const int depth, const int min_rpn,
-                       std::vector<float> &gain,
-                       std::vector<std::vector<int>> &histstate,
-                       std::vector<FlatTreeNode<T>> &flattree,
-                       std::vector<int> &nodelist, int *split_colidx,
-                       int *split_binidx, int *d_split_colidx,
-                       int *d_split_binidx,
-                       std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+void get_me_best_split(
+  unsigned int *hist, unsigned int *d_hist,
+  const std::vector<unsigned int> &colselector, unsigned int *d_colids,
+  const int nbins, const int n_unique_labels, const int n_nodes,
+  const int depth, const int min_rpn, std::vector<float> &gain,
+  std::vector<std::vector<int>> &histstate,
+  std::vector<FlatTreeNode<T>> &flattree, std::vector<int> &nodelist,
+  int *split_colidx, int *split_binidx, int *d_split_colidx,
+  int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  if (n_nodes > 512) use_gpu_flag = true;
+  //if (n_nodes > 512) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
@@ -116,7 +114,7 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
     get_me_best_split_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
-        d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
+        d_hist, d_parent_hist, d_parent_metric, d_colids, nbins, ncols, n_nodes,
         n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
@@ -201,7 +199,7 @@ void get_me_best_split(unsigned int *hist, unsigned int *d_hist,
           if (info_gain > gain[nodeid]) {
             gain[nodeid] = info_gain;
             best_bin_id = binid;
-            best_col_id = colid;
+            best_col_id = colselector[colid];
             besthist_left = tmp_histleft;
             besthist_right = tmp_histright;
             bestmetric[0] = tmp_gini_left;

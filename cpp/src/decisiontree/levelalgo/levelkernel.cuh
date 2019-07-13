@@ -68,7 +68,8 @@ template <typename T>
 __global__ void get_me_hist_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
-  const unsigned int* __restrict__ sample_cnt, const int nrows, const int ncols,
+  const unsigned int* __restrict__ sample_cnt,
+  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, const int n_nodes,
   const T* __restrict__ quantile, unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
@@ -83,7 +84,8 @@ __global__ void get_me_hist_kernel(
     local_cnt = sample_cnt[tid];
   }
 
-  for (unsigned int colid = 0; colid < ncols; colid++) {
+  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+    unsigned int colid = colids[colcnt];
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
          i += blockDim.x) {
       shmemhist[i] = 0;
@@ -108,7 +110,7 @@ __global__ void get_me_hist_kernel(
     __syncthreads();
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
          i += blockDim.x) {
-      unsigned int offset = colid * nbins * n_nodes * n_unique_labels;
+      unsigned int offset = colcnt * nbins * n_nodes * n_unique_labels;
       atomicAdd(&histout[offset + i], shmemhist[i]);
     }
     __syncthreads();
@@ -119,7 +121,8 @@ template <typename T>
 __global__ void get_me_hist_kernel_global(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
-  const unsigned int* __restrict__ sample_cnt, const int nrows, const int ncols,
+  const unsigned int* __restrict__ sample_cnt,
+  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, const int n_nodes,
   const T* __restrict__ quantile, unsigned int* histout) {
   unsigned int local_flag;
@@ -131,7 +134,8 @@ __global__ void get_me_hist_kernel_global(
     local_flag = flags[tid];
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
-    for (unsigned int colid = 0; colid < ncols; colid++) {
+    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+      unsigned int colid = colids[colcnt];
       //Check if leaf
       if (local_flag != LEAF) {
         T local_data = data[tid + colid * nrows];
@@ -141,7 +145,7 @@ __global__ void get_me_hist_kernel_global(
         for (unsigned int binid = 0; binid < nbins; binid++) {
           T quesval = quantile[colid * nbins + binid];
           if (local_data <= quesval) {
-            unsigned int coloff = colid * nbins * n_nodes * n_unique_labels;
+            unsigned int coloff = colcnt * nbins * n_nodes * n_unique_labels;
             unsigned int nodeoff = local_flag * nbins * n_unique_labels;
             atomicAdd(&histout[coloff + nodeoff + binid * n_unique_labels +
                                local_label],
@@ -243,9 +247,10 @@ template <typename T, typename F>
 __global__ void get_me_best_split_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
-  const T* __restrict__ parent_metric, const int nbins, const int ncols,
-  const int n_nodes, const int n_unique_labels, const int min_rpn,
-  float* outgain, int* best_col_id, int* best_bin_id, unsigned int* child_hist,
+  const T* __restrict__ parent_metric, const unsigned int* __restrict__ colids,
+  const int nbins, const int ncols, const int n_nodes,
+  const int n_unique_labels, const int min_rpn, float* outgain,
+  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
   T* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
@@ -313,7 +318,7 @@ __global__ void get_me_best_split_kernel(
 
     if (threadIdx.x == 0) {
       outgain[nodeid] = ans.gain;
-      best_col_id[nodeid] = (int)(ans.idx / nbins);
+      best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
       best_bin_id[nodeid] = ans.idx % nbins;
     }
     if (ans.idx != -1) {
