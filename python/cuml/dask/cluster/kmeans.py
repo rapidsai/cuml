@@ -15,13 +15,13 @@
 
 from cuml.dask.common import CommsBase, extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
-
+from cuml.dask.common.comms_base import worker_state, default_comms
 from dask.distributed import wait
 
 import random
 
 
-class KMeans(CommsBase):
+class KMeans(object):
     """
     Multi-Node Multi-GPU implementation of KMeans
     """
@@ -33,11 +33,10 @@ class KMeans(CommsBase):
         :param init_method: Method for finding initial centroids
         :param verbose: Print useful info while executing
         """
-        super(KMeans, self).__init__(comms_p2p=False)
-        self.init_(n_clusters=n_clusters, init_method=init_method,
+        self.init(n_clusters=n_clusters, init_method=init_method,
                    verbose=verbose)
 
-    def init_(self, n_clusters, init_method, verbose=0):
+    def init(self, n_clusters, init_method, verbose=0):
         """
         Creates a local KMeans instance on each worker
         :param n_clusters: Number of clusters to fit
@@ -45,20 +44,21 @@ class KMeans(CommsBase):
         :param verbose: Print useful info while executing
         :return:
         """
-        self.init()
 
-        self.kmeans = [(w, self.client.submit(KMeans.func_build_kmeans_,
-                                              a,
+        comms = default_comms()
+
+        self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
+                                              comms.sessionId,
                                               n_clusters,
                                               init_method,
                                               verbose,
                                               i,
                                               workers=[w]))
-                       for i, w, a in self.handles]
+                       for i, w in zip(range(len(comms.workers)), comms.workers)]
         wait(self.kmeans)
 
     @staticmethod
-    def func_build_kmeans_(handle, n_clusters, init_method, verbose, r):
+    def func_build_kmeans_(sessionId, n_clusters, init_method, verbose, r):
         """
         Create local KMeans instance on worker
         :param handle: instance of cuml.handle.Handle
@@ -67,6 +67,7 @@ class KMeans(CommsBase):
         :param verbose: Print useful info while executing
         :param r: Stops memoization caching
         """
+        handle = worker_state(sessionId)["handle"]
         return cumlKMeans(handle=handle, init=init_method,
                           n_clusters=n_clusters, verbose=verbose)
 
@@ -99,11 +100,13 @@ class KMeans(CommsBase):
         :param X: Input dask_cudf.Dataframe
         :return: Futures containing results of func
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        comms = default_comms()
+
+        gpu_futures = comms.client.sync(extract_ddf_partitions, X)
 
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
 
-        f = [self.client.submit(func,  # Function to run on worker
+        f = [comms.client.submit(func,  # Function to run on worker
                                 worker_model_map[w],  # Model instance
                                 f,  # Input DataFrame partition
                                 random.random())  # Worker ID

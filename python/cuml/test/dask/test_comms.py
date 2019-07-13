@@ -16,9 +16,14 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
+import random
+
+import time
+
 from dask.distributed import Client, wait
 
 from cuml.dask.common import CommsBase
+from cuml.dask.common.comms_base import worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
@@ -35,6 +40,41 @@ def test_comms_init_no_p2p():
     assert cb.ucx_initialized is False
 
 
+def func_test_allreduce(sessionId, r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_allreduce(handle)
+
+
+def func_test_send_recv(sessionId, n_trials, r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_send_recv(handle, n_trials)
+
+
+@pytest.mark.xfail(strict=True, raises=ValueError)
+def test_default_comms_fails():
+    cluster = LocalCUDACluster(threads_per_worker=1)
+    client = Client(cluster)
+    default_comms()
+    client.close()
+    cluster.close()
+
+
+def test_default_comms():
+
+    cluster = LocalCUDACluster(threads_per_worker=1)
+    client = Client(cluster)
+
+    cb = CommsBase(comms_p2p=True, client=client)
+    cb.init()
+
+    comms = default_comms()
+    assert(cb.sessionId == comms.sessionId)
+
+    comms.destroy()
+    client.close()
+    cluster.close()
+
+
 def test_allreduce():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -43,21 +83,20 @@ def test_allreduce():
     cb = CommsBase()
     cb.init()
 
-    workers = client.has_what().keys()
-
-    print(str(workers))
-
-    dfs = [client.submit(perform_test_comms_allreduce, handle, workers=[w])
-           for wid, w, handle in cb.handles]
-
+    start = time.time()
+    dfs = [client.submit(func_test_allreduce, cb.sessionId, random.random(), workers=[w])
+           for wid, w in zip(range(len(cb.workers)), cb.workers)]
     wait(dfs)
+
+    print("Time: " + str(time.time() - start))
 
     print(str(list(map(lambda x: x.result(), dfs))))
 
     assert all(list(map(lambda x: x.result(), dfs)))
 
-    # todo: Destroy is failing here. Need to fix it
-    # cb.destroy()
+    cb.destroy()
+    client.close()
+    cluster.close()
 
 
 @pytest.mark.skip(reason="UCX support not enabled in CI")
@@ -69,19 +108,25 @@ def test_send_recv(n_trials):
     cb = CommsBase(comms_p2p=True)
     cb.init()
 
-    workers = client.has_what().keys()
+    cb = default_comms()
 
-    print(str(workers))
-
-    dfs = [client.submit(perform_test_comms_send_recv, handle,
-                         n_trials, workers=[w])
-           for wid, w, handle in cb.handles]
+    start = time.time()
+    dfs = [client.submit(func_test_send_recv,
+                         cb.sessionId,
+                         n_trials,
+                         random.random(),
+                         workers=[w])
+           for wid, w in zip(range(len(cb.workers)), cb.workers)]
 
     wait(dfs)
+    print("Time: " + str(time.time() - start))
 
-    print(str(list(map(lambda x: x.result(), dfs))))
+    result = list(map(lambda x: x.result(), dfs))
 
-    assert(list(map(lambda x: x.result(), dfs)))
+    print(str(result))
 
-    # todo: Destroy is failing here. Need to fix it
+    assert(result)
+
     cb.destroy()
+    client.close()
+    cluster.close()
