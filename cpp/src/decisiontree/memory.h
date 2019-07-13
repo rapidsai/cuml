@@ -32,7 +32,6 @@ struct TemporaryMemory {
   //Host/Device histograms and device minmaxs
   MLCommon::device_buffer<T> *d_globalminmax = nullptr;
   MLCommon::device_buffer<int> *d_histout = nullptr;
-  MLCommon::device_buffer<unsigned int> *d_colids = nullptr;
   MLCommon::host_buffer<int> *h_histout = nullptr;
   MLCommon::device_buffer<T> *d_mseout = nullptr;
   MLCommon::device_buffer<T> *d_predout = nullptr;
@@ -57,10 +56,11 @@ struct TemporaryMemory {
   //CUDA stream
   cudaStream_t stream;
 
-  //For quantiles
+  //For quantiles and colids; this part is common
   MLCommon::device_buffer<T> *d_quantile = nullptr;
   MLCommon::host_buffer<T> *h_quantile = nullptr;
-
+  MLCommon::device_buffer<unsigned int> *d_colids = nullptr;
+  
   const ML::cumlHandle_impl &ml_handle;
   //Split algo
   int splitalgo;

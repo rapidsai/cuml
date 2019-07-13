@@ -39,9 +39,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
   int& depth_cnt, int& leaf_cnt,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  std::vector<unsigned int> colselector;
-  colselector.resize(ncols);
-  std::iota(colselector.begin(), colselector.end(), 0);
+  const std::vector<unsigned int>& colselector = feature_selector;
+
+  MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(),
+                         colselector.size(), tempmem->stream);
 
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
