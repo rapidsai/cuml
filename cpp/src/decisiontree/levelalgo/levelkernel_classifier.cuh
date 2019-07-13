@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+#include "common_kernel.cuh"
 #include "cub/cub.cuh"
-
-#define LEAF 0xFFFFFFFF
-#define PUSHRIGHT 0x00000001
 
 __global__ void gini_kernel_level(const int* __restrict__ labels,
                                   const unsigned int* __restrict__ sample_cnt,
@@ -153,44 +151,6 @@ __global__ void get_hist_kernel_global(
           }
         }
       }
-    }
-  }
-}
-
-template <typename T>
-__global__ void split_level_kernel(
-  const T* __restrict__ data, const T* __restrict__ quantile,
-  const int* __restrict__ split_col_index,
-  const int* __restrict__ split_bin_index, const int nrows, const int ncols,
-  const int nbins, const int n_nodes,
-  const unsigned int* __restrict__ new_node_flags,
-  unsigned int* __restrict__ flags) {
-  unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int local_flag;
-
-  for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
-    if (tid < nrows) {
-      local_flag = flags[tid];
-    } else {
-      local_flag = LEAF;
-    }
-
-    if (local_flag != LEAF) {
-      unsigned int local_leaf_flag = new_node_flags[local_flag];
-      if (local_leaf_flag != LEAF) {
-        int colidx = split_col_index[local_flag];
-        T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
-        T local_data = data[colidx * nrows + tid];
-        //The inverse comparision here to push right instead of left
-        if (local_data <= quesval) {
-          local_flag = local_leaf_flag << 1;
-        } else {
-          local_flag = (local_leaf_flag << 1) | PUSHRIGHT;
-        }
-      } else {
-        local_flag = LEAF;
-      }
-      flags[tid] = local_flag;
     }
   }
 }
@@ -347,13 +307,4 @@ __global__ void get_best_split_classification_kernel(
       }
     }
   }
-}
-
-__device__ __forceinline__ bool check_condition(unsigned int local_flag,
-                                                unsigned int nodectr,
-                                                int batch_nodes) {
-  if (local_flag == LEAF) return false;
-  if (local_flag < nodectr * batch_nodes) return false;
-  if (local_flag >= (nodectr + 1) * batch_nodes) return false;
-  return true;
 }

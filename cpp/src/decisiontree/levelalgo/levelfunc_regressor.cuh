@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 #pragma once
+#include <iostream>
+#include <numeric>
+#include "flatnode.h"
+#include "../decisiontree.hpp"
+#include "../kernels/metric.cuh"
+#include "../kernels/metric_def.h"
+#include "levelhelper_regressor.cuh"
+#include "levelkernel_regressor.cuh"
 
 template <typename T>
 ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
@@ -22,5 +30,14 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const int nrows, const int nbins, int maxdepth, const int maxleaves,
   const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
   int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int ncols = feature_selector.size();
+  MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
+                         feature_selector.size(), tempmem->stream);
+  
+  unsigned int* flagsptr = tempmem->d_flags->data();
+  unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
+  setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
+                 tempmem->stream);
+  
   return (new ML::DecisionTree::TreeNode<T, T>());
 }

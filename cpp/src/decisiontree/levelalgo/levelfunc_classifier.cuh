@@ -16,12 +16,10 @@
 #pragma once
 #include <iostream>
 #include <numeric>
-#include <type_traits>
-#include <typeinfo>
-#include "flatnode.h"
 #include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
+#include "flatnode.h"
 #include "levelhelper_classifier.cuh"
 #include "levelkernel_classifier.cuh"
 
@@ -60,7 +58,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   } else {
     initial_metric = EntropyFunctor::exec(histvec, nrows);
   }
-  std::cout << "max leaves " << maxleaves << std::endl;
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
     total_nodes += pow(2, i);
