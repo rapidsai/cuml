@@ -61,7 +61,6 @@ async def _connection_func(ep, listener):
     pass
 
 
-
 def worker_state(sessionId=None):
     """
     Retrieves cuML comms state on local worker for the given
