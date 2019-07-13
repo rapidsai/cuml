@@ -22,9 +22,10 @@ struct FlatTreeNode {
   T best_metric_val;
   bool type = false;  // true for leaf node
 };
-
 #include <iostream>
 #include <numeric>
+#include <type_traits>
+#include <typeinfo>
 #include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
@@ -37,7 +38,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int n_unique_labels, const int nbins,
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
-  int& depth_cnt, int& leaf_cnt,
+  const ML::CRITERION split_cr, int& depth_cnt, int& leaf_cnt,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
@@ -60,8 +61,13 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   std::vector<int> histvec;
   histvec.assign(tempmem->h_parent_hist->data(),
                  tempmem->h_parent_hist->data() + n_unique_labels);
-  T initial_metric = GiniFunctor::exec(histvec, nrows);
-
+  T initial_metric;
+  if (split_cr == ML::CRITERION::GINI) {
+    initial_metric = GiniFunctor::exec(histvec, nrows);
+  } else {
+    initial_metric = EntropyFunctor::exec(histvec, nrows);
+  }
+  std::cout << "max leaves " << maxleaves << std::endl;
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
     total_nodes += pow(2, i);
@@ -99,18 +105,27 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     //End allocation and setups
-    get_me_histogram(data, labels, flagsptr, sample_cnt, nrows, ncols,
-                     n_unique_labels, nbins, n_nodes, tempmem, d_histogram);
+    get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
+                                 ncols, n_unique_labels, nbins, n_nodes,
+                                 tempmem, d_histogram);
 
     std::vector<float> infogain;
-    get_me_best_split<T, GiniFunctor, GiniDevFunctor>(
-      h_histogram, d_histogram, feature_selector, d_colids, nbins,
-      n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
-      flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
-      d_split_binidx, tempmem);
+    if (split_cr == ML::CRITERION::GINI) {
+      get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
+        h_histogram, d_histogram, feature_selector, d_colids, nbins,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
+        flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+        d_split_binidx, tempmem);
+    } else {
+      get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
+        h_histogram, d_histogram, feature_selector, d_colids, nbins,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
+        flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+        d_split_binidx, tempmem);
+    }
 
-    leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
-              n_nodes_nextitr, nodelist, leaf_cnt);
+    leaf_eval(infogain, depth, maxdepth, maxleaves, h_new_node_flags, flattree,
+              histstate, n_nodes_nextitr, nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
@@ -133,7 +148,7 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
   const int nrows, const int nbins, int maxdepth, const int maxleaves,
-  const int min_rows_per_node, int& depth_cnt, int& leaf_cnt,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
+  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   return (new ML::DecisionTree::TreeNode<T, T>());
 }
