@@ -32,12 +32,11 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
-void get_me_histogram(T *data, int *labels, unsigned int *flags,
-                      unsigned int *sample_cnt, const int nrows,
-                      const int ncols, const int n_unique_labels,
-                      const int nbins, const int n_nodes,
-                      std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-                      unsigned int *histout) {
+void get_histogram_classification(
+  T *data, int *labels, unsigned int *flags, unsigned int *sample_cnt,
+  const int nrows, const int ncols, const int n_unique_labels, const int nbins,
+  const int n_nodes, std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
@@ -46,21 +45,18 @@ void get_me_histogram(T *data, int *labels, unsigned int *flags,
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   if ((n_nodes == node_batch) && (blocks < 65536)) {
-    get_me_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
+    get_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
       n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
   } else {
-    /*get_me_hist_kernel_batched<<<blocks, threads, shmem, tempmem->stream>>>(
-      data, labels, flags, nrows, ncols, n_unique_labels, nbins, n_nodes,
-      tempmem->d_quantile->data(), node_batch, histout);*/
-    get_me_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
+    get_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
       data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
       n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename F, typename DF>
-void get_me_best_split(
+void get_best_split_classification(
   unsigned int *hist, unsigned int *d_hist,
   const std::vector<unsigned int> &colselector, unsigned int *d_colids,
   const int nbins, const int n_unique_labels, const int n_nodes,
@@ -73,7 +69,7 @@ void get_me_best_split(
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  //if (n_nodes > 512) use_gpu_flag = true;
+  if (n_nodes > 512) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
@@ -112,7 +108,7 @@ void get_me_best_split(
                            tempmem->stream);
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
-    get_me_best_split_kernel<T, DF>
+    get_best_split_classification_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
         d_hist, d_parent_hist, d_parent_metric, d_colids, nbins, ncols, n_nodes,
         n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
@@ -262,8 +258,8 @@ ML::DecisionTree::TreeNode<T, int> *go_recursive(
 }
 
 template <typename T>
-void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
-               unsigned int *new_node_flags,
+void leaf_eval(std::vector<float> &gain, int curr_depth, const int max_depth,
+               const int max_leaves, unsigned int *new_node_flags,
                std::vector<FlatTreeNode<T>> &flattree,
                std::vector<std::vector<int>> hist, int &n_nodes_next,
                std::vector<int> &nodelist, int &tree_leaf_cnt) {
@@ -278,7 +274,11 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, int max_depth,
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
     std::vector<int> &nodehist = hist[n_nodes_before + nodeid];
-    if (gain[nodeid] == 0.0 || curr_depth == max_depth) {
+    bool condition = (gain[nodeid] == 0.0);
+    condition = condition || (curr_depth == max_depth);
+    if (max_leaves != -1)
+      condition = condition || (tree_leaf_cnt >= max_leaves);
+    if (condition) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].type = true;
       flattree[n_nodes_before + nodeid].prediction = get_class_hist(nodehist);
