@@ -16,6 +16,8 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
+from cuml.dask.common.comms import default_comms
+
 from dask.distributed import Client, wait
 
 
@@ -34,7 +36,6 @@ def test_end_to_end():
     import numpy as np
 
     from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
-    from cuml.dask.common.comms_base import CommsBase
 
     def create_df(f, m, n):
         X = np.random.uniform(-1, 1, (m, n))
@@ -79,6 +80,6 @@ def test_end_to_end():
 
     assert False
 
-    cb.destroy()
+    default_comms().destroy()
     client.close()
     cluster.close()

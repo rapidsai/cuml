@@ -15,7 +15,7 @@
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
-from cuml.dask.common.comms_base import worker_state, default_comms
+from cuml.dask.common.comms import worker_state, default_comms
 from dask.distributed import wait
 
 import random
@@ -34,7 +34,7 @@ class KMeans(object):
         :param verbose: Print useful info while executing
         """
         self.init(n_clusters=n_clusters, init_method=init_method,
-                   verbose=verbose)
+                  verbose=verbose)
 
     def init(self, n_clusters, init_method, verbose=0):
         """
