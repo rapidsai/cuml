@@ -50,11 +50,14 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
-@pytest.mark.xfail(strict=True, raises=ValueError)
-def test_default_comms_fails():
+def test_default_comms_no_exist():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
-    default_comms()
+    cb = default_comms()
+    assert cb is not None
+
+    cb2 = default_comms()
+    assert cb.sessionId == cb2.sessionId
     client.close()
     cluster.close()
 
@@ -84,7 +87,8 @@ def test_allreduce():
     cb.init()
 
     start = time.time()
-    dfs = [client.submit(func_test_allreduce, cb.sessionId, random.random(), workers=[w])
+    dfs = [client.submit(func_test_allreduce, cb.sessionId,
+                         random.random(), workers=[w])
            for wid, w in zip(range(len(cb.workers)), cb.workers)]
     wait(dfs)
 

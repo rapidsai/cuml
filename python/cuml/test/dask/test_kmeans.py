@@ -36,9 +36,6 @@ def test_end_to_end():
     from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
     from cuml.dask.common.comms_base import CommsBase
 
-    cb = CommsBase()
-    cb.init()
-
     def create_df(f, m, n):
         X = np.random.uniform(-1, 1, (m, n))
         ret = cudf.DataFrame([(i,

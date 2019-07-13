@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import CommsBase, extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
 from cuml.dask.common.comms_base import worker_state, default_comms
 from dask.distributed import wait
@@ -48,13 +48,14 @@ class KMeans(object):
         comms = default_comms()
 
         self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
-                                              comms.sessionId,
-                                              n_clusters,
-                                              init_method,
-                                              verbose,
-                                              i,
-                                              workers=[w]))
-                       for i, w in zip(range(len(comms.workers)), comms.workers)]
+                                               comms.sessionId,
+                                               n_clusters,
+                                               init_method,
+                                               verbose,
+                                               i,
+                                               workers=[w]))
+                       for i, w in zip(range(len(comms.workers)),
+                                       comms.workers)]
         wait(self.kmeans)
 
     @staticmethod
@@ -107,9 +108,9 @@ class KMeans(object):
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
 
         f = [comms.client.submit(func,  # Function to run on worker
-                                worker_model_map[w],  # Model instance
-                                f,  # Input DataFrame partition
-                                random.random())  # Worker ID
+                                 worker_model_map[w],  # Model instance
+                                 f,  # Input DataFrame partition
+                                 random.random())  # Worker ID
              for w, f in gpu_futures]
         wait(f)
         return f

@@ -15,8 +15,6 @@
 
 from cuml.nccl import nccl
 
-import threading
-
 import weakref
 
 from .comms_utils import inject_comms_on_handle, \
@@ -24,7 +22,7 @@ from .comms_utils import inject_comms_on_handle, \
 from .utils import parse_host_port
 from cuml.common.handle import Handle
 
-from dask.distributed import wait, get_worker, default_client
+from dask.distributed import get_worker, default_client
 
 from cuml.utils.import_utils import has_ucp
 import warnings
@@ -63,7 +61,7 @@ async def connection_func(ep, listener):
     pass
 
 
-def worker_state(sessionId = None):
+def worker_state(sessionId=None):
     """
     Retrieves cuML comms state on local worker for the given
     sessionId, creating a new session if it does not exist.
@@ -109,11 +107,12 @@ def default_comms(c=None):
     if c:
         return c
     else:
-        raise ValueError(
-            "No comms instances found\n"
-            "Start a comms instance and initialize it\n"
-        )
+        cb = CommsBase()
+        cb.init()
 
+        _set_global_comms(cb)
+
+        return _get_global_comms()
 
 
 class CommsBase:
@@ -128,7 +127,7 @@ class CommsBase:
     This class is not meant to be thread-safe and each instance
     """
 
-    def __init__(self, comms_p2p=False, client = None):
+    def __init__(self, comms_p2p=False, client=None):
         """
         Construct a new BaseComms instance
         :param comms_p2p: bool Should p2p comms be initialized?
@@ -170,7 +169,8 @@ class CommsBase:
         return [(w, self.client.submit(CommsBase.func_ucp_listener_port,
                                        self.sessionId,
                                        random.random(),
-                                       workers=[w]).result()) for w in self.workers]
+                                       workers=[w]).result())
+                for w in self.workers]
 
     def worker_ports(self):
         """
@@ -324,7 +324,6 @@ class CommsBase:
         inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
         session_state["handle"] = handle
 
-
     @staticmethod
     def func_wait_for_key(sessionId, key):
 
@@ -392,13 +391,13 @@ class CommsBase:
             self.init_ucp()
 
             self.client.run(CommsBase.func_build_handle_p2p,
-                             self.sessionId,
-                             wait=False)
+                            self.sessionId,
+                            wait=False)
 
         else:
             self.client.run(CommsBase.func_build_handle,
-                              self.sessionId,
-                              wait=False)
+                            self.sessionId,
+                            wait=False)
 
         self.block_for_init("handle")
 
@@ -475,8 +474,8 @@ class CommsBase:
         Destroys all UCP endpoints on all workers
         """
         self.client.run(CommsBase.func_destroy_ep,
-                         self.sessionId,
-                         wait=True)
+                        self.sessionId,
+                        wait=True)
 
     def destroy_ucp(self):
         """
