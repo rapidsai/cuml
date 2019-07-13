@@ -23,7 +23,8 @@
 #include "kernels/metric.cuh"
 #include "kernels/quantile.cuh"
 #include "kernels/split_labels.cuh"
-#include "levelalgo/levelfunc.cuh"
+#include "levelalgo/levelfunc_classifier.cuh"
+#include "levelalgo/levelfunc_regressor.cuh"
 #include "memory.cuh"
 
 namespace ML {

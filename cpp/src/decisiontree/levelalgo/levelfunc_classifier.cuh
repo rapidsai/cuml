@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 #pragma once
-template <class T>
-struct FlatTreeNode {
-  int prediction = -1;
-  int colid = -1;
-  T quesval = -99999999999;
-  T best_metric_val;
-  bool type = false;  // true for leaf node
-};
 #include <iostream>
 #include <numeric>
 #include <type_traits>
 #include <typeinfo>
+#include "flatnode.h"
 #include "../decisiontree.hpp"
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
-#include "levelhelper.cuh"
-#include "levelkernel.cuh"
+#include "levelhelper_classifier.cuh"
+#include "levelkernel_classifier.cuh"
 
 template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
@@ -141,14 +134,4 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
   }
   return go_recursive(flattree);
-}
-
-template <typename T>
-ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
-  const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
-  const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
-  const int nrows, const int nbins, int maxdepth, const int maxleaves,
-  const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
-  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-  return (new ML::DecisionTree::TreeNode<T, T>());
 }
