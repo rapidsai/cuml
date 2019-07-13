@@ -34,6 +34,10 @@ def test_end_to_end():
     import numpy as np
 
     from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
+    from cuml.dask.common.comms_base import CommsBase
+
+    cb = CommsBase()
+    cb.init()
 
     def create_df(f, m, n):
         X = np.random.uniform(-1, 1, (m, n))
@@ -78,4 +82,6 @@ def test_end_to_end():
 
     assert False
 
+    cb.destroy()
+    client.close()
     cluster.close()

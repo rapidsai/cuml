@@ -117,7 +117,6 @@ cdef class nccl:
         :param commId: string unique id from client
         :param rank: int rank of current worker
         """
-
         self.size = nranks
         self.rank = rank
 

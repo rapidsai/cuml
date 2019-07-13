@@ -15,6 +15,10 @@
 
 from cuml.nccl import nccl
 
+import threading
+
+import weakref
+
 from .comms_utils import inject_comms_on_handle, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
 from .utils import parse_host_port
@@ -25,16 +29,91 @@ from dask.distributed import wait, get_worker, default_client
 from cuml.utils.import_utils import has_ucp
 import warnings
 
+import time
+
 import random
 import asyncio
 import uuid
+
+
+_global_comms = weakref.WeakValueDictionary()
+_global_comms_index = [0]
+
+
+def _set_global_comms(c):
+    if c is not None:
+        _global_comms[_global_comms_index[0]] = c
+        _global_comms_index[0] += 1
+
+
+def _del_global_comms(c):
+    for k in list(_global_comms):
+        try:
+            if _global_comms[k] is c:
+                del _global_comms[k]
+        except KeyError:
+            pass
+
 
 if is_ucx_enabled() and has_ucp():
     import ucp
 
 
 async def connection_func(ep, listener):
-    print("connection received from " + str(ep))
+    pass
+
+
+def worker_state(sessionId = None):
+    """
+    Retrieves cuML comms state on local worker for the given
+    sessionId, creating a new session if it does not exist.
+    If no session id is given, returns the state dict for all
+    sessions.
+    :param sessionId:
+    :return:
+    """
+    worker = get_worker()
+    if not hasattr(worker, "_cuml_comm_state"):
+        worker._cuml_comm_state = {}
+    if sessionId is not None and sessionId not in worker._cuml_comm_state:
+        # Build state for new session and mark session creation time
+        worker._cuml_comm_state[sessionId] = {"ts": time.time()}
+
+    if sessionId is not None:
+        return worker._cuml_comm_state[sessionId]
+    return worker._cuml_comm_state
+
+
+def _get_global_comms():
+    L = sorted(list(_global_comms), reverse=True)
+    for k in L:
+        c = _global_comms[k]
+        if c.nccl_initialized and (not c.comms_p2p or c.ucx_initialized):
+            return c
+        else:
+            del _global_comms[k]
+    del L
+    return None
+
+
+def _del_default_comms(ref):
+
+    print("Deleting default_comms")
+    global _default_comms
+    _default_comms = None
+
+
+def default_comms(c=None):
+    """ Return a comms instance if one has been initialized """
+    c = c or _get_global_comms()
+    if c:
+        return c
+    else:
+        raise ValueError(
+            "No comms instances found\n"
+            "Start a comms instance and initialize it\n"
+        )
+
 
 
 class CommsBase:
@@ -45,17 +124,18 @@ class CommsBase:
     are responsible for calling `self.init()` to initialize the comms.
     Classes that extend or use the CommsBase are also responsible for
     calling `destroy()` to clean up the underlying comms.
+
+    This class is not meant to be thread-safe and each instance
     """
 
-    def __init__(self, comms_p2p=False):
+    def __init__(self, comms_p2p=False, client = None):
         """
         Construct a new BaseComms instance
         :param comms_p2p: bool Should p2p comms be initialized?
         """
-        self.client = default_client()
+        self.client = client if client is not None else default_client()
         self.comms_p2p = comms_p2p
 
-        # Used to identify this distinct session on workers
         self.sessionId = uuid.uuid4().bytes
 
         self.worker_addresses = self.get_workers_()
@@ -80,13 +160,23 @@ class CommsBase:
         """
         Builds a dictionary of { (worker_address, worker_port) : worker_rank }
         """
-        return dict(list(map(lambda x: (x[1], x[0]), self.nccl_clique)))
+        return dict(list(zip(self.workers, range(len(self.workers)))))
+
+    @staticmethod
+    def func_ucp_listener_port(sessionId, r):
+        return worker_state(sessionId)["ucp_listener"].port
+
+    def ucp_ports(self):
+        return [(w, self.client.submit(CommsBase.func_ucp_listener_port,
+                                       self.sessionId,
+                                       random.random(),
+                                       workers=[w]).result()) for w in self.workers]
 
     def worker_ports(self):
         """
         Builds a dictionary of { (worker_address, worker_port) : worker_port }
         """
-        return dict(list(self.ucp_ports))
+        return dict(list(self.ucp_ports()))
 
     def worker_info(self):
         """
@@ -106,7 +196,7 @@ class CommsBase:
             return ranks
 
     @staticmethod
-    def func_init_nccl(workerId, nWorkers, uniqueId):
+    async def func_init_nccl(sessionId):
         """
         Initialize ncclComm_t on worker
         :param workerId: int ID of the current worker running the function
@@ -114,20 +204,13 @@ class CommsBase:
         :param uniqueId: array[byte] The NCCL unique Id generated from the
                          client.
         """
-        n = nccl()
-        n.init(nWorkers, uniqueId, workerId)
-        return n
+        wid = worker_state(sessionId)["wid"]
+        uniqueId = worker_state(sessionId)["nccl_uid"]
+        nWorkers = worker_state(sessionId)["nworkers"]
 
-    @staticmethod
-    def func_get_ucp_port(sessionId, r):
-        """
-        Return the port assigned to a UCP listener on worker
-        :param sessionId: uuid Unique session id for current instance
-        :param r: float a random number to stop the function from being cached
-        """
-        dask_worker = get_worker()
-        port = dask_worker.data[sessionId].port
-        return port
+        n = nccl()
+        n.init(nWorkers, uniqueId, wid)
+        worker_state(sessionId)["nccl"] = n
 
     @staticmethod
     async def func_ucp_create_listener(sessionId, r):
@@ -138,9 +221,7 @@ class CommsBase:
         :param sessionId: uuid Unique id for current instance
         :param r: float a random number to stop the function from being cached
         """
-
-        dask_worker = get_worker()
-        if sessionId in dask_worker.data:
+        if "ucp_listener" in worker_state(sessionId):
             print("Listener already started for sessionId=" +
                   str(sessionId))
         else:
@@ -148,7 +229,7 @@ class CommsBase:
             listener = ucp.start_listener(connection_func, 0,
                                           is_coroutine=True)
 
-            dask_worker.data[sessionId] = listener
+            worker_state(sessionId)["ucp_listener"] = listener
             task = asyncio.create_task(listener.coroutine)
 
             while not task.done():
@@ -156,19 +237,19 @@ class CommsBase:
                 await asyncio.sleep(1)
 
             ucp.fin()
-            del dask_worker.data[sessionId]
 
     @staticmethod
-    def func_ucp_stop_listener(sessionId, r):
+    async def func_ucp_stop_listener(sessionId):
         """
         Stops the listener running in the background on the current worker.
         :param sessionId: uuid Unique id for current instance
         :param r: float a random number to stop the function from being cached
         """
-        dask_worker = get_worker()
-        if sessionId in dask_worker.data:
-            listener = dask_worker.data[sessionId]
+        if "ucp_listener" in worker_state(sessionId):
+            listener = worker_state(sessionId)["ucp_listener"]
             ucp.stop_listener(listener)
+
+            del worker_state(sessionId)["ucp_listener"]
         else:
             print("Listener not found with sessionId=" + str(sessionId))
 
@@ -185,32 +266,21 @@ class CommsBase:
         Ref: https://github.com/rapidsai/cuml/issues/841
         """
         [self.client.run(CommsBase.func_ucp_create_listener, self.sessionId,
-                         random.random(), workers=[w], wait=False) for w
-         in
-         self.worker_addresses]
+                         random.random(), workers=[w], wait=False)
+         for w in self.worker_addresses]
 
-    def get_ucp_ports(self):
-        """
-        Return the UCP listener ports attached to this session
-        """
-        self.ucp_ports = [
-            (w, self.client.submit(CommsBase.func_get_ucp_port, self.sessionId,
-                                   random.random(), workers=[w]).result())
-            for w in self.workers]
+        self.block_for_init("ucp_listener")
 
     def stop_ucp_listeners(self):
         """
         Stops the UCP listeners attached to this session
         """
-        a = [self.client.submit(CommsBase.func_ucp_stop_listener,
-                                self.sessionId,
-                                random.random(),
-                                workers=[w])
-             for w in self.workers]
-        wait(a)
+        self.client.run(CommsBase.func_ucp_stop_listener,
+                        self.sessionId,
+                        wait=True)
 
     @staticmethod
-    def func_build_handle_p2p(nccl_comm, eps, nWorkers, workerId):
+    async def func_build_handle_p2p(sessionId):
         """
         Builds a cumlHandle on the current worker given the initialized comms
         :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -221,13 +291,21 @@ class CommsBase:
         """
         ucp_worker = ucp.get_ucp_worker()
 
+        session_state = worker_state(sessionId)
+
         handle = Handle()
+        nccl_comm = session_state["nccl"]
+        eps = session_state["ucp_eps"]
+        nWorkers = session_state["nworkers"]
+        workerId = session_state["wid"]
+
         inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
                                nWorkers, workerId)
-        return handle
+
+        worker_state(sessionId)["handle"] = handle
 
     @staticmethod
-    def func_build_handle(nccl_comm, nWorkers, workerId):
+    async def func_build_handle(sessionId):
         """
         Builds a cumlHandle on the current worker given the initialized comms
         :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -236,8 +314,39 @@ class CommsBase:
         :return:
         """
         handle = Handle()
+
+        session_state = worker_state(sessionId)
+
+        workerId = session_state["wid"]
+        nWorkers = session_state["nworkers"]
+
+        nccl_comm = session_state["nccl"]
         inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
-        return handle
+        session_state["handle"] = handle
+
+
+    @staticmethod
+    def func_wait_for_key(sessionId, key):
+
+        # TODO: Check for errors as well...
+        while key not in worker_state(sessionId):
+            time.sleep(0.01)
+
+    @staticmethod
+    def _func_store_initial_state(nworkers, sessionId, uniqueId, wid):
+        session_state = worker_state(sessionId)
+        session_state["nccl_uid"] = uniqueId
+        session_state["wid"] = wid
+        session_state["nworkers"] = nworkers
+
+    def block_for_init(self, key):
+
+        # TODO: Add appropriate error handling here to eliminate endless loops
+
+        [self.client.run(CommsBase.func_wait_for_key,
+                         self.sessionId,
+                         key,
+                         wait=True)]
 
     def init_nccl(self):
         """
@@ -246,15 +355,19 @@ class CommsBase:
         """
         self.uniqueId = nccl.get_unique_id()
 
-        workers_indices = list(zip(self.workers, range(len(self.workers))))
+        for worker, idx in zip(self.worker_addresses, range(len(self.workers))):
+            self.client.run(CommsBase._func_store_initial_state,
+                            len(self.workers),
+                            self.sessionId,
+                            self.uniqueId,
+                            idx,
+                            workers=[worker])
 
-        self.nccl_clique = [(idx, worker,
-                             self.client.submit(CommsBase.func_init_nccl,
-                                                idx,
-                                                len(self.workers),
-                                                self.uniqueId,
-                                                workers=[worker]))
-                            for worker, idx in workers_indices]
+        self.client.run(CommsBase.func_init_nccl,
+                        self.sessionId,
+                        wait=False)
+
+        self.block_for_init("nccl")
 
         self.nccl_initialized = True
 
@@ -264,7 +377,6 @@ class CommsBase:
         worker can communicate, point-to-point, with every other worker
         """
         self.create_ucp_listeners()
-        self.get_ucp_ports()
         self.ucp_create_endpoints()
 
         self.ucx_initialized = True
@@ -279,28 +391,21 @@ class CommsBase:
         if self.comms_p2p:
             self.init_ucp()
 
-            eps_futures = dict(self.ucp_endpoints)
+            self.client.run(CommsBase.func_build_handle_p2p,
+                             self.sessionId,
+                             wait=False)
 
-            self.handles = [(wid, w,
-                             self.client.submit(CommsBase
-                                                .func_build_handle_p2p,
-                                                f,
-                                                eps_futures[w],
-                                                len(self.workers),
-                                                wid,
-                                                workers=[w]))
-                            for wid, w, f in self.nccl_clique]
         else:
-            self.handles = [(wid, w,
-                             self.client.submit(CommsBase.func_build_handle,
-                                                f,
-                                                len(self.workers),
-                                                wid,
-                                                workers=[w]))
-                            for wid, w, f in self.nccl_clique]
+            self.client.run(CommsBase.func_build_handle,
+                              self.sessionId,
+                              wait=False)
+
+        self.block_for_init("handle")
+
+        _set_global_comms(self)
 
     @staticmethod
-    async def func_ucp_create_endpoints(sessionId, worker_info, r):
+    async def func_ucp_create_endpoints(sessionId, worker_info):
         """
         Runs on each worker to create ucp endpoints to all other workers
         :param sessionId: uuid unique id for this instance
@@ -321,77 +426,57 @@ class CommsBase:
                 ep = await ucp.get_endpoint(ip.encode(), ucp_port, timeout=1)
                 eps[rank] = ep
                 count += 1
-        dask_worker.data[str(sessionId) + "_eps"] = eps
 
-    @staticmethod
-    def func_get_endpoints(sessionId, r):
-        """
-        Fetches (and removes) the endpoints from the worker's data dict
-        :param sessionId: uuid unique id for this instance
-        :param r: float a random number to stop the function from being cached
-        """
-        dask_worker = get_worker()
-        eps = dask_worker.data[str(sessionId) + "_eps"]
-        del dask_worker.data[str(sessionId) + "_eps"]
-        return eps
+        worker_state(sessionId)["ucp_eps"] = eps
 
     def ucp_create_endpoints(self):
         """
         Creates UCX endpoints for each worker in the Dask cluster and
         connects them to every other worker.
         """
-
         worker_info = self.worker_info()
 
         [self.client.run(CommsBase.func_ucp_create_endpoints, self.sessionId,
-                         worker_info, random.random(), workers=[w],
-                         wait=True)
+                         worker_info, workers=[w],
+                         wait=False)
          for w in self.worker_addresses]
 
-        ret = [(w, self.client.submit(CommsBase.func_get_endpoints,
-                                      self.sessionId, random.random(),
-                                      workers=[w])) for w
-               in self.workers]
-        wait(ret)
-
-        self.ucp_endpoints = ret
+        self.block_for_init("ucp_eps")
 
     @staticmethod
-    def func_destroy_nccl(nccl_comm, r):
+    def func_destroy_nccl(sessionId):
         """
         Destroys NCCL communicator on worker
         :param nccl_comm: ncclComm_t Initialized NCCL comm
         :param r: float a random number to stop the function from being cached
         """
-        nccl_comm.destroy()
+        worker_state(sessionId)["nccl"].destroy()
+        del worker_state(sessionId)["nccl"]
 
     def destroy_nccl(self):
         """
         Destroys all NCCL communicators on workers
         """
-        a = [self.client.submit(CommsBase.func_destroy_nccl, f,
-                                random.random(), workers=[w])
-             for wid, w, f in self.nccl_clique]
-        wait(a)
+        self.client.run(CommsBase.func_destroy_nccl, self.sessionId, wait=True)
 
     @staticmethod
-    def func_destroy_ep(eps, r):
+    def func_destroy_ep(sessionId):
         """
         Destroys UCP endpoints on worker
         :param r: float a random number to stop the function from being cached
         """
-        for ep in eps:
+        for ep in worker_state(sessionId)["ucp_eps"]:
             if ep is not None:
                 ucp.destroy_ep(ep)
+        del worker_state(sessionId)["ucp_eps"]
 
     def destroy_eps(self):
         """
         Destroys all UCP endpoints on all workers
         """
-        a = [self.client.submit(CommsBase.func_destroy_ep, f,
-                                random.random(), workers=[w])
-             for w, f in self.ucp_endpoints]
-        wait(a)
+        self.client.run(CommsBase.func_destroy_ep,
+                         self.sessionId,
+                         wait=True)
 
     def destroy_ucp(self):
         """
@@ -404,14 +489,7 @@ class CommsBase:
         """
         Shuts down initialized comms and cleans up resources.
         """
-
-        # Free handles
-        self.handles = None
-
         if self.comms_p2p:
             self.destroy_ucp()
-            self.ucp_ports = None
-            self.ucp_endpoints = None
 
         self.destroy_nccl()
-        self.nccl_clique = None
