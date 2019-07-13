@@ -35,14 +35,13 @@ template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const ML::cumlHandle_impl& handle, T* data, int* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
-  const int nrows, const int ncols, const int n_unique_labels, const int nbins,
+  const int nrows, const int n_unique_labels, const int nbins,
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
   int& depth_cnt, int& leaf_cnt,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  const std::vector<unsigned int>& colselector = feature_selector;
-
-  MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(),
-                         colselector.size(), tempmem->stream);
+  const int ncols = feature_selector.size();
+  MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
+                         feature_selector.size(), tempmem->stream);
 
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -94,20 +93,21 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   int* d_split_colidx = tempmem->d_split_colidx->data();
   unsigned int* h_new_node_flags = tempmem->h_new_node_flags->data();
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
+  unsigned int* d_colids = tempmem->d_colids->data();
 
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     //End allocation and setups
     get_me_histogram(data, labels, flagsptr, sample_cnt, nrows, ncols,
-                     n_unique_labels, nbins, n_nodes, tempmem->max_nodes,
-                     tempmem, d_histogram);
+                     n_unique_labels, nbins, n_nodes, tempmem, d_histogram);
 
     std::vector<float> infogain;
     get_me_best_split<T, GiniFunctor, GiniDevFunctor>(
-      h_histogram, d_histogram, colselector, nbins, n_unique_labels, n_nodes,
-      depth, min_rows_per_node, infogain, histstate, flattree, nodelist,
-      h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+      h_histogram, d_histogram, feature_selector, d_colids, nbins,
+      n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
+      flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+      d_split_binidx, tempmem);
 
     leaf_eval(infogain, depth, maxdepth, h_new_node_flags, flattree, histstate,
               n_nodes_nextitr, nodelist, leaf_cnt);
@@ -132,8 +132,8 @@ template <typename T>
 ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const ML::cumlHandle_impl& handle, T* data, T* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
-  const int nrows, const int ncols, const int nbins, int maxdepth,
-  const int maxleaves, const int min_rows_per_node, int& depth_cnt,
-  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int nrows, const int nbins, int maxdepth, const int maxleaves,
+  const int min_rows_per_node, int& depth_cnt, int& leaf_cnt,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   return (new ML::DecisionTree::TreeNode<T, T>());
 }

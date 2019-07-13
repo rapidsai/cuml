@@ -510,7 +510,7 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   int depth_cnt = 0;
   TreeNode<T, int> *root = grow_deep_tree_classification(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
+    this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
     this->min_rows_per_node, depth_cnt, leaf_cnt, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
@@ -527,8 +527,8 @@ TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   int depth_cnt = 0;
   TreeNode<T, T> *root = grow_deep_tree_regression(
     handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    ncols, this->nbins, this->treedepth, this->maxleaves,
-    this->min_rows_per_node, depth_cnt, leaf_cnt, tempmem);
+    this->nbins, this->treedepth, this->maxleaves, this->min_rows_per_node,
+    depth_cnt, leaf_cnt, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
   return root;
