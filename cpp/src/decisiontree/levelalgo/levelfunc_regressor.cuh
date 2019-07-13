@@ -21,7 +21,7 @@
 #include "../kernels/metric.cuh"
 #include "../kernels/metric_def.h"
 #include "levelhelper_regressor.cuh"
-#include "levelkernel_regressor.cuh"
+#include "common_helper.cuh"
 
 template <typename T>
 ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(

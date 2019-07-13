@@ -15,22 +15,25 @@
  */
 #pragma once
 #include "levelkernel_classifier.cuh"
-void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
-                    const unsigned int *rowids, const int nrows,
-                    const int n_sampled_rows, cudaStream_t &stream) {
-  CUDA_CHECK(cudaMemsetAsync(sample_cnt, 0, nrows * sizeof(int), stream));
-  int threads = 256;
-  int blocks = MLCommon::ceildiv(n_sampled_rows, threads);
-  if (blocks > 65536) blocks = 65536;
-  setup_counts_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, rowids,
-                                                      n_sampled_rows);
+template <typename T, typename F>
+void initial_metric_classification(
+  int *labels, unsigned int *sample_cnt, const int nrows,
+  const int n_unique_labels, std::vector<int> &histvec, T &initial_metric,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  gini_kernel_level<<<MLCommon::ceildiv(nrows, 128), 128,
+                      sizeof(int) * n_unique_labels, tempmem->stream>>>(
+    labels, sample_cnt, nrows, n_unique_labels,
+    (int *)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
-  blocks = MLCommon::ceildiv(nrows, threads);
-  if (blocks > 65536) blocks = 65536;
-  setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
-                                                     nrows);
-  CUDA_CHECK(cudaGetLastError());
+  MLCommon::updateHost(tempmem->h_parent_hist->data(),
+                       tempmem->d_parent_hist->data(), n_unique_labels,
+                       tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  histvec.assign(tempmem->h_parent_hist->data(),
+                 tempmem->h_parent_hist->data() + n_unique_labels);
+  initial_metric = F::exec(histvec, nrows);
 }
+
 template <typename T>
 void get_histogram_classification(
   T *data, int *labels, unsigned int *flags, unsigned int *sample_cnt,
