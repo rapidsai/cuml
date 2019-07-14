@@ -20,10 +20,12 @@ void initial_metric_classification(
   int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<int> &histvec, T &initial_metric,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  gini_kernel_level<<<MLCommon::ceildiv(nrows, 128), 128,
-                      sizeof(int) * n_unique_labels, tempmem->stream>>>(
-    labels, sample_cnt, nrows, n_unique_labels,
-    (int *)tempmem->d_parent_hist->data());
+  int blocks = MLCommon::ceildiv(nrows, 128);
+  if (blocks > 65536) blocks = 65536;
+  gini_kernel_level<<<blocks, 128, sizeof(int) * n_unique_labels,
+                      tempmem->stream>>>(labels, sample_cnt, nrows,
+                                         n_unique_labels,
+                                         (int *)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
   MLCommon::updateHost(tempmem->h_parent_hist->data(),
                        tempmem->d_parent_hist->data(), n_unique_labels,

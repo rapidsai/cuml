@@ -15,3 +15,12 @@
  */
 #pragma once
 #include "levelkernel_regressor.cuh"
+template <typename T, typename F>
+void initial_metric_regression(
+  T *labels, unsigned int *sample_cnt, const int nrows,
+  const int n_unique_labels, std::vector<T> &meanvec, T &initial_metric,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  int blocks = MLCommon::ceildiv(nrows, 128);
+  if (blocks > 65536) blocks = 65536;
+  
+}
