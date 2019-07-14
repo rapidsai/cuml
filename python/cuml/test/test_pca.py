@@ -207,6 +207,3 @@ def test_pca_inverse_transform(datatype, input_type,
 
     assert array_equal(input_gdf, X,
                        1e-0, with_sign=True)
-
-
-
