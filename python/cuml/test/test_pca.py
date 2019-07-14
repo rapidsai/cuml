@@ -93,6 +93,47 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
+def test_pca_fit_then_transform(datatype, input_type,
+                                name, use_handle):
+    if name == 'blobs':
+        X, y = make_blobs(n_samples=500000,
+                          n_features=1000, random_state=0)
+
+    elif name == 'iris':
+        iris = datasets.load_iris()
+        X = iris.data
+
+    else:
+        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                     dtype=datatype)
+
+    if name != 'blobs':
+        skpca = skPCA(n_components=2)
+        Xskpca = skpca.fit_transform(X)
+
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
+
+    if input_type == 'dataframe':
+        X = pd.DataFrame(
+                        {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
+        cupca.fit(X)
+        X_cupca = cupca.transform(X_cudf)
+
+    else:
+        X_cupca = cupca.fit_transform(X)
+    cupca.handle.sync()
+
+    if name != 'blobs':
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+                         stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name, use_handle):
     if name == 'blobs':
@@ -166,3 +207,6 @@ def test_pca_inverse_transform(datatype, input_type,
 
     assert array_equal(input_gdf, X,
                        1e-0, with_sign=True)
+
+
+
