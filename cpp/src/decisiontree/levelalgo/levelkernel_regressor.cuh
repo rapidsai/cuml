@@ -20,22 +20,28 @@
 template <typename T>
 __global__ void pred_kernel_level(const T *__restrict__ labels,
                                   const unsigned int *__restrict__ sample_cnt,
-                                  const int nrows, T *predout) {
+                                  const int nrows, T *predout,
+                                  unsigned int *countout) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   __shared__ T shmempred;
-
-  if (threadIdx.x == 0) shmempred = 0;
+  __shared__ unsigned int shmemcnt;
+  if (threadIdx.x == 0) {
+    shmempred = 0;
+    shmemcnt = 0;
+  }
   __syncthreads();
 
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     T label = labels[tid];
     unsigned int count = sample_cnt[tid];
+    atomicAdd(&shmemcnt, count);
     atomicAdd(&shmempred, label * count);
   }
   __syncthreads();
 
   if (threadIdx.x == 0) {
     atomicAdd(predout, shmempred);
+    atomicAdd(countout, shmemcnt);
   }
   return;
 }
@@ -43,7 +49,8 @@ __global__ void pred_kernel_level(const T *__restrict__ labels,
 template <typename T, typename F>
 __global__ void mse_kernel_level(const T *__restrict__ labels,
                                  const unsigned int *__restrict__ sample_cnt,
-                                 const int nrows, const T *predout, T *mseout) {
+                                 const int nrows, const T *predout,
+                                 const unsigned int *count, T *mseout) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   __shared__ T shmemmse;
 
@@ -53,7 +60,7 @@ __global__ void mse_kernel_level(const T *__restrict__ labels,
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     T label = labels[tid];
     unsigned int count = sample_cnt[tid];
-    T value = F::exec(label - (predout[0] / nrows));
+    T value = F::exec(label - (predout[0] / count[0]));
     atomicAdd(&shmemmse, count * value);
   }
 
