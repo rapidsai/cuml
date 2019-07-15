@@ -244,30 +244,13 @@ void make_level_split(T *data, const int nrows, const int ncols,
 }
 
 template <typename T>
-ML::DecisionTree::TreeNode<T, int> *go_recursive(
-  std::vector<FlatTreeNode<T>> &flattree, int idx = 0) {
-  ML::DecisionTree::TreeNode<T, int> *node = NULL;
-  if (idx < flattree.size()) {
-    node = new ML::DecisionTree::TreeNode<T, int>();
-    node->split_metric_val = flattree[idx].best_metric_val;
-    node->question.column = flattree[idx].colid;
-    node->question.value = flattree[idx].quesval;
-    node->prediction = flattree[idx].prediction;
-    if (flattree[idx].type == true) {
-      return node;
-    }
-    node->left = go_recursive(flattree, 2 * idx + 1);
-    node->right = go_recursive(flattree, 2 * idx + 2);
-  }
-  return node;
-}
-
-template <typename T>
-void leaf_eval(std::vector<float> &gain, int curr_depth, const int max_depth,
-               const int max_leaves, unsigned int *new_node_flags,
-               std::vector<FlatTreeNode<T>> &flattree,
-               std::vector<std::vector<int>> hist, int &n_nodes_next,
-               std::vector<int> &nodelist, int &tree_leaf_cnt) {
+void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
+                              const int max_depth, const int max_leaves,
+                              unsigned int *new_node_flags,
+                              std::vector<FlatTreeNode<T>> &flattree,
+                              std::vector<std::vector<int>> hist,
+                              int &n_nodes_next, std::vector<int> &nodelist,
+                              int &tree_leaf_cnt) {
   std::vector<int> tmp_nodelist(nodelist);
   nodelist.clear();
   int n_nodes_before = 0;
@@ -298,4 +281,23 @@ void leaf_eval(std::vector<float> &gain, int curr_depth, const int max_depth,
   int nleafed = tmp_nodelist.size() - leaf_counter;
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * leaf_counter;
+}
+
+template <typename T>
+ML::DecisionTree::TreeNode<T, int> *go_recursive(
+  std::vector<FlatTreeNode<T>> &flattree, int idx = 0) {
+  ML::DecisionTree::TreeNode<T, int> *node = NULL;
+  if (idx < flattree.size()) {
+    node = new ML::DecisionTree::TreeNode<T, int>();
+    node->split_metric_val = flattree[idx].best_metric_val;
+    node->question.column = flattree[idx].colid;
+    node->question.value = flattree[idx].quesval;
+    node->prediction = flattree[idx].prediction;
+    if (flattree[idx].type == true) {
+      return node;
+    }
+    node->left = go_recursive(flattree, 2 * idx + 1);
+    node->right = go_recursive(flattree, 2 * idx + 2);
+  }
+  return node;
 }
