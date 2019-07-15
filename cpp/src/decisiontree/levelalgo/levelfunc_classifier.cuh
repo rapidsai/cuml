@@ -105,8 +105,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
         d_split_binidx, tempmem);
     }
 
-    leaf_eval(infogain, depth, maxdepth, maxleaves, h_new_node_flags, flattree,
-              histstate, n_nodes_nextitr, nodelist, leaf_cnt);
+    leaf_eval_classification(infogain, depth, maxdepth, maxleaves,
+                             h_new_node_flags, flattree, histstate,
+                             n_nodes_nextitr, nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);

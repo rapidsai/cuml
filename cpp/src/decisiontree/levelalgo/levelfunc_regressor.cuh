@@ -41,20 +41,24 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
 
   T mean;
   T initial_metric;
+  unsigned int count;
   if (split_cr == ML::CRITERION::MSE) {
     initial_metric_regression<T, SquareFunctor>(labels, sample_cnt, nrows, mean,
-                                                initial_metric, tempmem);
+                                                count, initial_metric, tempmem);
   } else {
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
-                                             initial_metric, tempmem);
+                                             count, initial_metric, tempmem);
   }
   size_t total_nodes = 0;
   for (int i = 0; i <= maxdepth; i++) {
     total_nodes += pow(2, i);
   }
   std::vector<T> meanstate;
+  std::vector<unsigned int> countstate;
   meanstate.resize(total_nodes, 0.0);
+  countstate.resize(total_nodes, 0);
   meanstate[0] = mean;
+  countstate[0] = count;
   std::vector<FlatTreeNode<T>> flattree;
   flattree.resize(total_nodes);
   FlatTreeNode<T> node;
@@ -71,6 +75,8 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   T* h_mseout = tempmem->h_mseout->data();
   T* d_predout = tempmem->d_predout->data();
   T* h_predout = tempmem->h_predout->data();
+  unsigned int* h_count = tempmem->h_count->data();
+  unsigned int* d_count = tempmem->d_count->data();
   int* h_split_binidx = tempmem->h_split_binidx->data();
   int* d_split_binidx = tempmem->d_split_binidx->data();
   int* h_split_colidx = tempmem->h_split_colidx->data();
@@ -82,9 +88,22 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    get_mse_regression<T, SquareFunctor>(data, labels, flagsptr, sample_cnt,
-                                         nrows, ncols, nbins, n_nodes, tempmem,
-                                         d_mseout, d_predout);
+    if (split_cr == ML::CRITERION::MSE) {
+      get_mse_regression<T, SquareFunctor>(
+        data, labels, flagsptr, sample_cnt, nrows, ncols, nbins, n_nodes,
+        tempmem, d_mseout, d_predout, d_count);
+    } else {
+      get_mse_regression<T, AbsFunctor>(data, labels, flagsptr, sample_cnt,
+                                        nrows, ncols, nbins, n_nodes, tempmem,
+                                        d_mseout, d_predout, d_count);
+    }
+    
+    std::vector<float> infogain;
+    get_best_split_regression(
+      h_mseout, d_mseout, h_predout, d_predout, h_count, d_count,
+      feature_selector, d_colids, nbins, n_nodes, depth, min_rows_per_node,
+      infogain, meanstate, countstate, flattree, nodelist, h_split_colidx,
+      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
     break;
   }
   return (new ML::DecisionTree::TreeNode<T, T>());
