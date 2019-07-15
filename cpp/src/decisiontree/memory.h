@@ -86,13 +86,15 @@ struct TemporaryMemory {
   MLCommon::device_buffer<T> *d_parent_metric = nullptr;
   MLCommon::device_buffer<T> *d_child_best_metric = nullptr;
   MLCommon::device_buffer<unsigned int> *d_sample_cnt = nullptr;
-  
+
   MLCommon::device_buffer<T> *d_parent_pred = nullptr;
-  MLCommon::device_buffer<T> *d_parent_mse = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_parent_count = nullptr;
   MLCommon::device_buffer<unsigned int> *d_count = nullptr;
   MLCommon::host_buffer<unsigned int> *h_count = nullptr;
-  int max_nodes = 0;
-  
+  int max_nodes_class = 0;
+  int max_nodes_pred = 0;
+  int max_nodes_mse = 0;
+
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   int maxstr, int n_unique, int n_bins, const int split_algo,
                   int depth);

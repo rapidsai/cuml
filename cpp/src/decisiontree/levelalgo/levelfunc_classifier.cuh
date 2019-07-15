@@ -86,7 +86,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    //End allocation and setups
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  ncols, n_unique_labels, nbins, n_nodes,
                                  tempmem, d_histogram);

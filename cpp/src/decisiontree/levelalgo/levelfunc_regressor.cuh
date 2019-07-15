@@ -79,5 +79,13 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
   unsigned int* d_colids = tempmem->d_colids->data();
 
+  for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
+    depth_cnt = depth + 1;
+    n_nodes = n_nodes_nextitr;
+    get_mse_regression<T, SquareFunctor>(data, labels, flagsptr, sample_cnt,
+                                         nrows, ncols, nbins, n_nodes, tempmem,
+                                         d_mseout, d_predout);
+    break;
+  }
   return (new ML::DecisionTree::TreeNode<T, T>());
 }
