@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "common_kernel.cuh"
+#include "flatnode.h"
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
                     const unsigned int *rowids, const int nrows,
                     const int n_sampled_rows, cudaStream_t &stream) {
@@ -30,4 +31,37 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
                                                      nrows);
   CUDA_CHECK(cudaGetLastError());
+}
+
+template <typename T, typename L>
+void make_level_split(T *data, const int nrows, const int ncols,
+                      const int nbins, const int n_nodes, int *split_colidx,
+                      int *split_binidx, const unsigned int *new_node_flags,
+                      unsigned int *flags,
+                      std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  int threads = 256;
+  int blocks = MLCommon::ceildiv(nrows, threads);
+  split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(
+    data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows, ncols,
+    nbins, n_nodes, new_node_flags, flags);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+template <typename T, typename L>
+ML::DecisionTree::TreeNode<T, L> *go_recursive(
+  std::vector<FlatTreeNode<T, L>> &flattree, int idx = 0) {
+  ML::DecisionTree::TreeNode<T, L> *node = NULL;
+  if (idx < flattree.size()) {
+    node = new ML::DecisionTree::TreeNode<T, L>();
+    node->split_metric_val = flattree[idx].best_metric_val;
+    node->question.column = flattree[idx].colid;
+    node->question.value = flattree[idx].quesval;
+    node->prediction = flattree[idx].prediction;
+    if (flattree[idx].type == true) {
+      return node;
+    }
+    node->left = go_recursive(flattree, 2 * idx + 1);
+    node->right = go_recursive(flattree, 2 * idx + 2);
+  }
+  return node;
 }

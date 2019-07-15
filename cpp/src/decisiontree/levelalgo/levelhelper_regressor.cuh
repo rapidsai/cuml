@@ -107,10 +107,10 @@ void get_best_split_regression(
   unsigned int *d_count, const std::vector<unsigned int> &colselector,
   unsigned int *d_colids, const int nbins, const int n_nodes, const int depth,
   const int min_rpn, std::vector<float> &gain, std::vector<T> &meanstate,
-  std::vector<unsigned int> &countstate, std::vector<FlatTreeNode<T>> &flattree,
-  std::vector<int> &nodelist, int *split_colidx, int *split_binidx,
-  int *d_split_colidx, int *d_split_binidx,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  std::vector<unsigned int> &countstate,
+  std::vector<FlatTreeNode<T, T>> &flattree, std::vector<int> &nodelist,
+  int *split_colidx, int *split_binidx, int *d_split_colidx,
+  int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
@@ -206,4 +206,44 @@ void get_best_split_regression(
     MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
                            tempmem->stream);
   }
+}
+
+template <typename T>
+void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
+                          const int max_depth, const int max_leaves,
+                          unsigned int *new_node_flags,
+                          std::vector<FlatTreeNode<T, T>> &flattree,
+                          std::vector<T> &mean,
+                          std::vector<unsigned int> &count, int &n_nodes_next,
+                          std::vector<int> &nodelist, int &tree_leaf_cnt) {
+  std::vector<int> tmp_nodelist(nodelist);
+  nodelist.clear();
+  int n_nodes_before = 0;
+  for (int i = 0; i <= (curr_depth - 1); i++) {
+    n_nodes_before += pow(2, i);
+  }
+  int leaf_counter = 0;
+  for (int i = 0; i < tmp_nodelist.size(); i++) {
+    unsigned int node_flag;
+    int nodeid = tmp_nodelist[i];
+    T nodemean = mean[n_nodes_before + nodeid];
+    bool condition = (gain[nodeid] == 0.0);
+    condition = condition || (curr_depth == max_depth);
+    if (max_leaves != -1)
+      condition = condition || (tree_leaf_cnt >= max_leaves);
+    if (condition) {
+      node_flag = 0xFFFFFFFF;
+      flattree[n_nodes_before + nodeid].type = true;
+      flattree[n_nodes_before + nodeid].prediction = nodemean;
+    } else {
+      nodelist.push_back(2 * nodeid);
+      nodelist.push_back(2 * nodeid + 1);
+      node_flag = leaf_counter;
+      leaf_counter++;
+    }
+    new_node_flags[i] = node_flag;
+  }
+  int nleafed = tmp_nodelist.size() - leaf_counter;
+  tree_leaf_cnt += nleafed;
+  n_nodes_next = 2 * leaf_counter;
 }

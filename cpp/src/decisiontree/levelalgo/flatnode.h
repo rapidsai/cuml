@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-template <class T>
+template <class T, class L>
 struct FlatTreeNode {
-  int prediction = -1;
+  L prediction;
   int colid = -1;
-  T quesval = -99999999999;
+  T quesval;
   T best_metric_val;
   bool type = false;  // true for leaf node
 };

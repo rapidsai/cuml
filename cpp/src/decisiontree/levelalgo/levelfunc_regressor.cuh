@@ -59,9 +59,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   countstate.resize(total_nodes, 0);
   meanstate[0] = mean;
   countstate[0] = count;
-  std::vector<FlatTreeNode<T>> flattree;
+  std::vector<FlatTreeNode<T, T>> flattree;
   flattree.resize(total_nodes);
-  FlatTreeNode<T> node;
+  FlatTreeNode<T, T> node;
   node.best_metric_val = initial_metric;
   flattree[0] = node;
   int n_nodes = 1;
@@ -97,14 +97,30 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
                                         nrows, ncols, nbins, n_nodes, tempmem,
                                         d_mseout, d_predout, d_count);
     }
-    
+
     std::vector<float> infogain;
     get_best_split_regression(
       h_mseout, d_mseout, h_predout, d_predout, h_count, d_count,
       feature_selector, d_colids, nbins, n_nodes, depth, min_rows_per_node,
       infogain, meanstate, countstate, flattree, nodelist, h_split_colidx,
       h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+
+    leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
+                         flattree, meanstate, countstate, n_nodes_nextitr,
+                         nodelist, leaf_cnt);
+
+    MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
+                           tempmem->stream);
+    make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
+                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     break;
   }
-  return (new ML::DecisionTree::TreeNode<T, T>());
+  int nleaves = pow(2, maxdepth);
+  int leaf_st = flattree.size() - nleaves;
+  for (int i = 0; i < nleaves; i++) {
+    flattree[leaf_st + i].prediction = meanstate[leaf_st + i];
+  }
+  return go_recursive<T, T>(flattree);
 }

@@ -61,9 +61,9 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
     histstate[i] = tmp;
   }
   histstate[0] = histvec;
-  std::vector<FlatTreeNode<T>> flattree;
+  std::vector<FlatTreeNode<T, int>> flattree;
   flattree.resize(total_nodes);
-  FlatTreeNode<T> node;
+  FlatTreeNode<T, int> node;
   node.best_metric_val = initial_metric;
   flattree[0] = node;
   int n_nodes = 1;
@@ -122,5 +122,5 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int i = 0; i < nleaves; i++) {
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
   }
-  return go_recursive(flattree);
+  return go_recursive<T,int>(flattree);
 }

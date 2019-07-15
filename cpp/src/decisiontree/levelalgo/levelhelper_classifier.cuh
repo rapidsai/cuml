@@ -67,7 +67,7 @@ void get_best_split_classification(
   const int nbins, const int n_unique_labels, const int n_nodes,
   const int depth, const int min_rpn, std::vector<float> &gain,
   std::vector<std::vector<int>> &histstate,
-  std::vector<FlatTreeNode<T>> &flattree, std::vector<int> &nodelist,
+  std::vector<FlatTreeNode<T, int>> &flattree, std::vector<int> &nodelist,
   int *split_colidx, int *split_binidx, int *d_split_colidx,
   int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
@@ -230,24 +230,10 @@ void get_best_split_classification(
 }
 
 template <typename T>
-void make_level_split(T *data, const int nrows, const int ncols,
-                      const int nbins, const int n_nodes, int *split_colidx,
-                      int *split_binidx, const unsigned int *new_node_flags,
-                      unsigned int *flags,
-                      std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
-  split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(
-    data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows, ncols,
-    nbins, n_nodes, new_node_flags, flags);
-  CUDA_CHECK(cudaGetLastError());
-}
-
-template <typename T>
 void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
                               const int max_depth, const int max_leaves,
                               unsigned int *new_node_flags,
-                              std::vector<FlatTreeNode<T>> &flattree,
+                              std::vector<FlatTreeNode<T, int>> &flattree,
                               std::vector<std::vector<int>> hist,
                               int &n_nodes_next, std::vector<int> &nodelist,
                               int &tree_leaf_cnt) {
@@ -281,23 +267,4 @@ void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
   int nleafed = tmp_nodelist.size() - leaf_counter;
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * leaf_counter;
-}
-
-template <typename T>
-ML::DecisionTree::TreeNode<T, int> *go_recursive(
-  std::vector<FlatTreeNode<T>> &flattree, int idx = 0) {
-  ML::DecisionTree::TreeNode<T, int> *node = NULL;
-  if (idx < flattree.size()) {
-    node = new ML::DecisionTree::TreeNode<T, int>();
-    node->split_metric_val = flattree[idx].best_metric_val;
-    node->question.column = flattree[idx].colid;
-    node->question.value = flattree[idx].quesval;
-    node->prediction = flattree[idx].prediction;
-    if (flattree[idx].type == true) {
-      return node;
-    }
-    node->left = go_recursive(flattree, 2 * idx + 1);
-    node->right = go_recursive(flattree, 2 * idx + 2);
-  }
-  return node;
 }
