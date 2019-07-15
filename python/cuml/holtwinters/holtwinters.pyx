@@ -40,12 +40,19 @@ cdef extern from "holtwinters/HoltWinters.hpp" namespace "ML":
 
 class HoltWinters(Base):
 
-    def __init__(self, batch_size, freq_season, season_type, start_periods=2):
+    def __init__(self, batch_size=1, freq_season=2,
+                 season_type="ADDITIVE", start_periods=2):
 
         # Total number of Time Series for forecasting
+        if type(batch_size) != int:
+            raise TypeError("Type of batch_size must be int. Given: " +
+                            type(batch_size))
         self.batch_size = batch_size
 
         # Season length in the time series
+        if type(freq_season) != int:
+            raise TypeError("Type of freq_season must be int. Given: " +
+                            type(freq_season))
         self.frequency = freq_season
 
         # whether to perform additive or multiplicative STL decomposition
@@ -66,46 +73,92 @@ class HoltWinters(Base):
         self.SSE_error = []          # SSE Error for all time series in batch
         self.h = 50      # Default number of points to forecast in future
         self.fit_executed_flag = False
+
+        if type(start_periods) != int:
+            raise TypeError("Type of start_periods must be int. Given: " +
+                            type(start_periods))
+
         if freq_season < start_periods:
-            raise Exception("Frequency cannot be less than 2 "
-                            "as number of seasons to be used for "
-                            "seasonal seed values is 2. \n ")
+            raise ValueError("Frequency (" + str(freq_season) +
+                             ") cannot be less than start_periods (" +
+                             str(start_periods) + ").")
         else:
             # number of seasons to be used for seasonal seed values
             self.start_periods = start_periods
 
     def fit(self, ts_input, pointsToForecast=50):
+        if type(pointsToForecast) != int:
+            raise TypeError("pointToForecast must be of type int. Given: "
+                            + str(type(pointsToForecast)))
+
         self.h = pointsToForecast
 
         cdef uintptr_t input_ptr
 
         if isinstance(ts_input, cudf.DataFrame):
-            self.n = len(ts_input.index)
-            ts_input = ts_input.as_gpu_matrix()\
-                .reshape((self.n*self.batch_size,))
+            if len(ts_input.shape) == 1:
+                self.n = ts_input.shape[0]
+                if self.batch_size != 1:
+                    raise ValueError("HoltWinters initialized with " +
+                                     str(self.batch_size) + " time series "
+                                     "but data input has size 1.")
+                ts_input = ts_input.as_gpu_matrix()
+            elif len(ts_input.shape) == 2:
+                self.n = ts_input.shape[0]
+                if self.batch_size != ts_input.shape[1]:
+                    raise ValueError("HoltWinters initialized with " +
+                                     str(self.batch_size) + " time series "
+                                     "but data input has " +
+                                     str(ts_input.shape[1]) + " series.")
+                ts_input = ts_input.as_gpu_matrix()\
+                    .reshape((self.n*self.batch_size,))
+            else:
+                raise ValueError("Data input must have 1 or 2 dimensions.")
         elif cuda.is_cuda_array(ts_input):
             try:
                 import cupy as cp
-                if len(ts_input.shape) > 1:
-                    self.n = len(ts_input[0])
+                if len(ts_input.shape) == 2:
+                    self.n = ts_input.shape[1]
+                    if ts_input.shape[0] != self.batch_size:
+                        raise ValueError("HoltWinters initialized with " +
+                                         str(self.batch_size) + " time "
+                                         "series, but data input has " +
+                                         str(ts_input.shape[0]) + " series.")
                     ts_input = ts_input.ravel()
                 elif len(ts_input.shape) == 1:
-                    self.n = len(ts_input)
+                    self.n = ts_input.shape[0]
+                    if self.batch_size != 1:
+                        raise ValueError("HoltWinters initialized with " +
+                                         str(self.batch_size) + " time "
+                                         "series but data has size 1.")
                 else:
-                    raise ValueError("Undetermined ndarray input size")
+                    raise ValueError("Data must have 1 or 2 dimensions.")
             except Exception:
                 ts_input = cuda.as_cuda_array(ts_input)
                 ts_input = ts_input.copy_to_host()
         if isinstance(ts_input, np.ndarray):
-            if len(ts_input.shape) > 1:
-                self.n = len(ts_input[0])
+            if len(ts_input.shape) == 2:
+                self.n = ts_input.shape[1]
+                if ts_input.shape[0] != self.batch_size:
+                    raise ValueError("HoltWinters initialized with " +
+                                     str(self.batch_size) + " time "
+                                     "series, but data input has " +
+                                     str(ts_input.shape[0]) + " series.")
                 ts_input = ts_input.ravel()
             elif len(ts_input.shape) == 1:
-                self.n = len(ts_input)
+                self.n = ts_input.shape[0]
+                if self.batch_size != 1:
+                    raise ValueError("HoltWinters initialized with " +
+                                     str(self.batch_size) + " time "
+                                     "series, but data has size 1.")
             else:
-                raise ValueError("Undetermined ndarray input size")
+                raise ValueError("Data must have 1 or 2 dimensions.")
 
-        X_m, input_ptr, n_rows, _, self.dtype = \
+        if self.n < 2*self.frequency:
+            raise ValueError("Length of time series (" + str(self.n) +
+                             ") must be at least double the frequency.")
+
+        X_m, input_ptr, _, _, self.dtype = \
             input_to_dev_array(ts_input, order='C')
 
         cdef double[::1] alpha_d, beta_d, gamma_d, SSE_error_d, forecast_d
@@ -178,50 +231,59 @@ class HoltWinters(Base):
         del(X_m)
 
     def score(self, index):
-
-        index = index - 1
+        if index < 0 or index >= self.batch_size:
+            raise IndexError("Index input: " + str(index) + " outside of "
+                             "range [0, " + str(self.batch_size) + "]")
         if self.fit_executed_flag:
             return self.SSE_error[index]
         else:
-            raise Exception("Fit() the model before score()")
+            raise ValueError("Fit() the model before score()")
 
-    def predict(self, n, h):
+    def predict(self, index, h):
         if h > self.h:
-            raise Exception("Number of points must be <= pointsToForecast"
-                            " (default = 50)."
-                            " To get more points, execute fit() function"
-                            " with pointsToForecast > 50. \nUsage : fit"
-                            "(inputList, pointsToForecast) \n ")
+            raise ValueError("Number of points must be <= pointsToForecast"
+                             " (default = 50)."
+                             " To get more points, execute fit() function"
+                             " with pointsToForecast > 50. \nUsage : fit"
+                             "(inputList, pointsToForecast) \n ")
 
         if self.fit_executed_flag:
             forecast = []
-            n = n-1
+            if index < 0 or index >= self.batch_size:
+                raise IndexError("Index input: " + str(index) + " outside of"
+                                 " range [0, " + str(self.batch_size) + "]")
 
             # Get h points for nth time series forecast
             # from output 1d row major list
             for x in range(0, h):
-                forecast.append(self.forecasted_points[self.h*n+x])
+                forecast.append(self.forecasted_points[self.h*index + x])
             return forecast
         else:
-            raise Exception("Fit() the model before predict()")
+            raise ValueError("Fit() the model before predict()")
 
     def get_alpha(self, index):
-        index = index - 1
+        if index < 0 or index >= self.batch_size:
+            raise IndexError("Index input: " + str(index) + " outside of "
+                             "range [0, " + str(self.batch_size) + "]")
         if self.fit_executed_flag:
             return self.alpha[index]
         else:
-            raise Exception("Fit() the model to get alpha value")
+            raise ValueError("Fit() the model to get alpha value")
 
     def get_beta(self, index):
-        index = index - 1
+        if index < 0 or index >= self.batch_size:
+            raise IndexError("Index input: " + str(index) + " outside of "
+                             "range [0, " + str(self.batch_size) + "]")
         if self.fit_executed_flag:
             return self.beta[index]
         else:
-            raise Exception("Fit() the model to get beta value")
+            raise ValueError("Fit() the model to get beta value")
 
     def get_gamma(self, index):
-        index = index - 1
+        if index < 0 or index >= self.batch_size:
+            raise IndexError("Index input: " + str(index) + " outside of "
+                             "range [0, " + str(self.batch_size) + "]")
         if self.fit_executed_flag:
             return self.gamma[index]
         else:
-            raise Exception("Fit() the model to get gamma value")
+            raise ValueError("Fit() the model to get gamma value")
