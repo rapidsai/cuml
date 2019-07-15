@@ -50,7 +50,7 @@ __all__ = [
 ]
 
 
-def check_fitted(self, attributes):    
+def check_fitted(self, attributes):
     if not isinstance(attributes, (list, tuple)):
         attributes = [attributes]
     if not all([hasattr(self, attr) for attr in attributes]):
@@ -96,7 +96,7 @@ def to_orig_type(X, input_info, dim=None, add_dummy_feature=False):
     '''
     if input_info['type'] == 'cupy':
         return X
-    elif input_info['type'] == 'cudf'
+    elif input_info['type'] == 'cudf':
         # check if output dim is explicitly set(to be different with input dim)
         if dim is None:
             dim = input_info['dim']
@@ -185,7 +185,7 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
     ''' Standardize a dataset along any axis
     Center to the mean and component wise scale to unit variance.
-    
+
     Parameters
     ----------
     X : array-like. The data to center and scale.
@@ -193,7 +193,7 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
     X, input_info = to_cupy(X)
     X = check_array(X, copy=copy, ensure_2d=False,
                     estimator='the scale function', dtype=FLOAT_DTYPES,
-                    force_all_finite=True)    
+                    force_all_finite=True)
 
     if with_mean:
         mean_ = cp.mean(X, axis)
@@ -749,7 +749,7 @@ def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
 
     if original_ndim == 1:
         X = X.ravel()
-    
+
     X = to_orig_type(X, input_info)
     return X
 
@@ -938,7 +938,7 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
-    
+
     # need to mod to_orig_type, since new column will be added
     X, input_info = to_cupy(X)
     X = check_array(X, dtype=FLOAT_DTYPES)
