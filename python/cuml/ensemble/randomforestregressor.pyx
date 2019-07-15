@@ -77,7 +77,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         float rows_sample
         pass
 
-    cdef cppclass RandomForestMetaData[T,L]:
+    cdef cppclass RandomForestMetaData[T, L]:
         void* trees
         RF_params rf_params
 
@@ -129,8 +129,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef void print_rf_detailed(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, double]*) except +
-
-    # cdef void print(RF_params) except +
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
@@ -247,6 +245,7 @@ class RandomForestRegressor(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
+
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=None, n_bins=8,
                  split_algo=1, split_criterion=2,
@@ -296,9 +295,11 @@ class RandomForestRegressor(Base):
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
 
-        cdef RandomForestMetaData[float, float] *rf_forest = new RandomForestMetaData[float, float]()
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, double] *rf_forest64 = new RandomForestMetaData[double, double]()
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            new RandomForestMetaData[double, double]()
         self.rf_forest64 = <size_t> rf_forest64
     """
     TODO:
@@ -310,13 +311,16 @@ class RandomForestRegressor(Base):
         del state['handle']
 
         cdef size_t params_t = <size_t> self.rf_forest
-        cdef  RandomForestMetaData[float, float] *rf_forest = <RandomForestMetaData[float, float]*>params_t
+        cdef  RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*>params_t
 
         cdef size_t params_t64 = <size_t> self.rf_forest64
-        cdef  RandomForestMetaData[double, double] *rf_forest64 = <RandomForestMetaData[double, double]*>params_t64
+        cdef  RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*>params_t64
 
         state['verbose'] = self.verbose
-        #state["trees"] = <void *> rf_forest.trees
+        # state["trees"] = <void *> rf_forest.trees
+
         if self.dtype == np.float32:
             print(" dtype is float32")
             state["rf_params"] = rf_forest.rf_params
@@ -326,21 +330,27 @@ class RandomForestRegressor(Base):
             state["rf_params64"] = rf_forest64.rf_params
             del state["rf_forest64"]
 
-
         return state
 
     def __del__(self):
-        cdef RandomForestMetaData[float, float]* rf_forest = <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-        cdef RandomForestMetaData[double, double]* rf_forest64 = <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+        cdef RandomForestMetaData[float, float]* rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[double, double]* rf_forest64 = \
+            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
         free(rf_forest)
         free(rf_forest64)
 
     def __setstate__(self, state):
-        super(RandomForestRegressor, self).__init__(handle=None, verbose=state['verbose'])
-        cdef  RandomForestMetaData[float, float] *rf_forest = new RandomForestMetaData[float, float]()
-        #rf_forest.trees = state["trees"]
-        cdef  RandomForestMetaData[double, double] *rf_forest64 = new RandomForestMetaData[double, double]()
-        #rf_forest.trees = state["trees"]
+        super(RandomForestRegressor, self).__init__(handle=None,
+                                                    verbose=state['verbose'])
+        cdef  RandomForestMetaData[float, float] *rf_forest = \
+            new RandomForestMetaData[float, float]()
+
+        # rf_forest.trees = state["trees"]
+        cdef  RandomForestMetaData[double, double] *rf_forest64 = \
+            new RandomForestMetaData[double, double]()
+
+        # rf_forest.trees = state["trees"]
         if self.dtype == np.float32:
             print(" dtype is float32 in set state")
             rf_forest.rf_params = state["rf_params"]
@@ -409,7 +419,7 @@ class RandomForestRegressor(Base):
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
-            self.min_rows_per_node = math.ceil(self.min_rows_per_node * n_rows)
+            self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
         self.split_criterion = self._get_type()
 
@@ -465,7 +475,7 @@ class RandomForestRegressor(Base):
             raise ValueError("The datatype of the training data is different"
                              " from the datatype of the testing data")
 
-        preds = np.zeros(n_rows, dtype=np.int32)
+        preds = np.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -522,7 +532,7 @@ class RandomForestRegressor(Base):
                              " from the datatype of the testing data")
 
         preds = np.zeros(n_rows,
-                         dtype=np.int32)
+                         dtype=self.dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -537,28 +547,37 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
         if self.dtype == np.float32:
-            self.stats = score(handle_[0],
-                               rf_forest,
-                               <float*> X_ptr,
-                               <float*> y_ptr,
-                               <int> n_rows,
-                               <int> n_cols,
-                               <float*> preds_ptr,
-                               <bool> self.verbose)
+            self.temp_stats = score(handle_[0],
+                                    rf_forest,
+                                    <float*> X_ptr,
+                                    <float*> y_ptr,
+                                    <int> n_rows,
+                                    <int> n_cols,
+                                    <float*> preds_ptr,
+                                    <bool> self.verbose)
+
         elif self.dtype == np.float64:
-            self.stats = score(handle_[0],
-                               rf_forest64,
-                               <double*> X_ptr,
-                               <double*> y_ptr,
-                               <int> n_rows,
-                               <int> n_cols,
-                               <double*> preds_ptr,
-                               <bool> self.verbose)
+            self.temp_stats = score(handle_[0],
+                                    rf_forest64,
+                                    <double*> X_ptr,
+                                    <double*> y_ptr,
+                                    <int> n_rows,
+                                    <int> n_cols,
+                                    <double*> preds_ptr,
+                                    <bool> self.verbose)
+
+        if self.accuracy_metric == 'median_ae':
+            stats = self.temp_stats['median_abs_error']
+        if self.accuracy_metric == 'mean_ae':
+            stats = self.temp_stats['mean_abs_error']
+        else:
+            stats = self.temp_stats['mean_squared_error']
+
         self.handle.sync()
         del(X_m)
         del(y_m)
         del(preds_m)
-        return self.stats['accuracy']
+        return stats
 
     def get_params(self, deep=True):
         """
@@ -609,7 +628,6 @@ class RandomForestRegressor(Base):
             print_rf_summary(rf_forest)
 
     def print_detailed(self):
-
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
