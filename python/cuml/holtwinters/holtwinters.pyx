@@ -86,6 +86,34 @@ class HoltWinters(Base):
             # number of seasons to be used for seasonal seed values
             self.start_periods = start_periods
 
+    def _check_dims(self, ts_input, is_cudf=False):
+        err_mess = ("HoltWinters initialized with " + str(self.batch_size) +
+                    " time series, but data has dimension ")
+        if len(ts_input.shape) == 1:
+            self.n = ts_input.shape[0]
+            if self.batch_size != 1:
+                raise ValueError(err_mess + "1.")
+            if(is_cudf):
+                mod_ts_input = ts_input.as_gpu_matrix()
+            else:
+                mod_ts_input = ts_input
+        elif len(ts_input.shape) == 2:
+            if(is_cudf):
+                d1 = ts_input.shape[0]
+                d2 = ts_input.shape[1]
+                mod_ts_input = ts_input.as_gpu_matrix()\
+                    .reshape((d1*self.batch_size,))
+            else:
+                d1 = ts_input.shape[1]
+                d2 = ts_input.shape[0]
+                mod_ts_input = ts_input.ravel()
+            self.n = d1
+            if self.batch_size != d2:
+                raise ValueError(err_mess + str(d2))
+        else:
+            raise ValueError("Data input must have 1 or 2 dimensions.")
+        return mod_ts_input
+
     def fit(self, ts_input, pointsToForecast=50):
         if type(pointsToForecast) != int:
             raise TypeError("pointToForecast must be of type int. Given: "
@@ -96,64 +124,16 @@ class HoltWinters(Base):
         cdef uintptr_t input_ptr
 
         if isinstance(ts_input, cudf.DataFrame):
-            if len(ts_input.shape) == 1:
-                self.n = ts_input.shape[0]
-                if self.batch_size != 1:
-                    raise ValueError("HoltWinters initialized with " +
-                                     str(self.batch_size) + " time series "
-                                     "but data input has size 1.")
-                ts_input = ts_input.as_gpu_matrix()
-            elif len(ts_input.shape) == 2:
-                self.n = ts_input.shape[0]
-                if self.batch_size != ts_input.shape[1]:
-                    raise ValueError("HoltWinters initialized with " +
-                                     str(self.batch_size) + " time series "
-                                     "but data input has " +
-                                     str(ts_input.shape[1]) + " series.")
-                ts_input = ts_input.as_gpu_matrix()\
-                    .reshape((self.n*self.batch_size,))
-            else:
-                raise ValueError("Data input must have 1 or 2 dimensions.")
+            ts_input = self._check_dims(ts_input, True)
         elif cuda.is_cuda_array(ts_input):
             try:
                 import cupy as cp
-                if len(ts_input.shape) == 2:
-                    self.n = ts_input.shape[1]
-                    if ts_input.shape[0] != self.batch_size:
-                        raise ValueError("HoltWinters initialized with " +
-                                         str(self.batch_size) + " time "
-                                         "series, but data input has " +
-                                         str(ts_input.shape[0]) + " series.")
-                    ts_input = ts_input.ravel()
-                elif len(ts_input.shape) == 1:
-                    self.n = ts_input.shape[0]
-                    if self.batch_size != 1:
-                        raise ValueError("HoltWinters initialized with " +
-                                         str(self.batch_size) + " time "
-                                         "series but data has size 1.")
-                else:
-                    raise ValueError("Data must have 1 or 2 dimensions.")
+                ts_input = self._check_dims(ts_input)
             except Exception:
                 ts_input = cuda.as_cuda_array(ts_input)
                 ts_input = ts_input.copy_to_host()
         if isinstance(ts_input, np.ndarray):
-            if len(ts_input.shape) == 2:
-                self.n = ts_input.shape[1]
-                if ts_input.shape[0] != self.batch_size:
-                    raise ValueError("HoltWinters initialized with " +
-                                     str(self.batch_size) + " time "
-                                     "series, but data input has " +
-                                     str(ts_input.shape[0]) + " series.")
-                ts_input = ts_input.ravel()
-            elif len(ts_input.shape) == 1:
-                self.n = ts_input.shape[0]
-                if self.batch_size != 1:
-                    raise ValueError("HoltWinters initialized with " +
-                                     str(self.batch_size) + " time "
-                                     "series, but data has size 1.")
-            else:
-                raise ValueError("Data must have 1 or 2 dimensions.")
-
+            ts_input = self._check_dims(ts_input)
         if self.n < 2*self.frequency:
             raise ValueError("Length of time series (" + str(self.n) +
                              ") must be at least double the frequency.")
