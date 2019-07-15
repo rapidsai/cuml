@@ -194,7 +194,7 @@ class RandomForestRegressor(Base):
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : int or float or string or None (default = 1.0)
+    max_features : int or float or string or None (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
                    If int then max_features/n_features.
@@ -213,7 +213,9 @@ class RandomForestRegressor(Base):
     accuracy_metric : string (default = 'mse')
                       Decides the metric used to evaluate the performance
                       of the model.
-                      'median'
+                      for median of abs error : 'median_ae'
+                      for mean of abs error : 'mean_ae'
+                      for mean square error' : 'mse'
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -225,7 +227,7 @@ class RandomForestRegressor(Base):
                  'accuracy_metric']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=None, n_bins=8,
+                 max_features='auto', n_bins=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
@@ -258,7 +260,6 @@ class RandomForestRegressor(Base):
 
         self.split_algo = split_algo
         self.criterion = split_criterion
-        self.split_criterion = split_criterion
         self.min_rows_per_node = min_rows_per_node
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
