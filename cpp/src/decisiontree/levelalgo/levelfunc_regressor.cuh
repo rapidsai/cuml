@@ -68,7 +68,6 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   int n_nodes_nextitr = 1;
   std::vector<int> nodelist;
   nodelist.push_back(0);
-  //this can be depth loop
 
   //Setup pointers
   T* d_mseout = tempmem->d_mseout->data();
@@ -86,9 +85,10 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   unsigned int* d_colids = tempmem->d_colids->data();
 
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
+    std::cout << "depth--> " << depth << std::endl;
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    init_parent_value(meanstate, countstate, nodelist, n_nodes, tempmem);
+    init_parent_value(meanstate, countstate, nodelist, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(
@@ -108,8 +108,8 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
       h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
-                         flattree, meanstate, n_nodes_nextitr,
-                         nodelist, leaf_cnt);
+                         flattree, meanstate, n_nodes_nextitr, nodelist,
+                         leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);

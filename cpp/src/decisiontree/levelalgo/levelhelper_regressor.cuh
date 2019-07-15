@@ -44,11 +44,10 @@ void initial_metric_regression(T *labels, unsigned int *sample_cnt,
   MLCommon::updateHost(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
                        tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  tempmem->h_predout->data()[0] =
-    tempmem->h_predout->data()[0] / tempmem->h_count->data()[0];
-  mean = tempmem->h_predout->data()[0];
+
   count = tempmem->h_count->data()[0];
-  initial_metric = tempmem->h_mseout->data()[0] / tempmem->h_count->data()[0];
+  mean = tempmem->h_predout->data()[0] / count;
+  initial_metric = tempmem->h_mseout->data()[0] / count;
 }
 
 template <typename T, typename F>
@@ -246,11 +245,12 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
 template <typename T>
 void init_parent_value(std::vector<T> &meanstate,
                        std::vector<unsigned int> &countstate,
-                       std::vector<int> nodelist, const int n_nodes,
+                       std::vector<int> &nodelist,
                        std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *h_predout = tempmem->h_predout->data();
   unsigned int *h_count = tempmem->h_count->data();
-  for (int i = 0; i < nodelist.size(); i++) {
+  int n_nodes = nodelist.size();
+  for (int i = 0; i < n_nodes; i++) {
     int nodeid = nodelist[i];
     h_predout[i] = meanstate[nodeid];
     h_count[i] = countstate[nodeid];
