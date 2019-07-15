@@ -210,3 +210,98 @@ __global__ void get_mse_kernel(
     __syncthreads();
   }
 }
+
+template <typename T>
+__global__ void get_pred_kernel_global(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ flags,
+  const unsigned int *__restrict__ sample_cnt,
+  const unsigned int *__restrict__ colids, const int nrows, const int ncols,
+  const int nbins, const int n_nodes, const T *__restrict__ quantile,
+  T *predout, unsigned int *countout) {
+  unsigned int local_flag = LEAF;
+  T local_label;
+  int local_cnt;
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
+    local_flag = flags[tid];
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
+
+    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+      unsigned int colid = colids[colcnt];
+      unsigned int coloffset = colcnt * nbins * n_nodes;
+      //Check if leaf
+      if (local_flag != LEAF) {
+        T local_data = data[tid + colid * nrows];
+
+#pragma unroll(8)
+        for (unsigned int binid = 0; binid < nbins; binid++) {
+          T quesval = quantile[colid * nbins + binid];
+          if (local_data <= quesval) {
+            unsigned int nodeoff = local_flag * nbins;
+            atomicAdd(&predout[coloffset + nodeoff + binid],
+                      local_label * local_cnt);
+            atomicAdd(&countout[coloffset + nodeoff + binid], local_cnt);
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename T, typename F>
+__global__ void get_mse_kernel_global(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ flags,
+  const unsigned int *__restrict__ sample_cnt,
+  const unsigned int *__restrict__ colids, const int nrows, const int ncols,
+  const int nbins, const int n_nodes, const T *__restrict__ quantile,
+  const T *__restrict__ parentpred,
+  const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
+  const unsigned int *__restrict__ countout, T *mseout) {
+  unsigned int local_flag = LEAF;
+  T local_label;
+  int local_cnt;
+  int threadid = threadIdx.x + blockIdx.x * blockDim.x;
+  T parent_pred;
+  unsigned int parent_count;
+
+  for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
+    local_flag = flags[tid];
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
+
+    if (local_flag != LEAF) {
+      parent_count = parentcount[local_flag];
+      parent_pred = parentpred[local_flag];
+    }
+
+    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+      unsigned int colid = colids[colcnt];
+      unsigned int coloffset = colcnt * nbins * 2 * n_nodes;
+      //Check if leaf
+      if (local_flag != LEAF) {
+        T local_data = data[tid + colid * nrows];
+#pragma unroll(8)
+        for (unsigned int binid = 0; binid < nbins; binid++) {
+          T quesval = quantile[colid * nbins + binid];
+          unsigned int nodeoff = local_flag * 2 * nbins;
+          T local_predout = predout[local_flag * nbins + binid];
+          unsigned int local_countout = countout[local_flag * nbins + binid];
+          if (local_data <= quesval) {
+            T leftmean = local_predout / local_countout;
+            atomicAdd(&mseout[coloffset + nodeoff + binid],
+                      local_cnt * F::exec(local_label - leftmean));
+          } else {
+            T rightmean = parent_pred * parent_count - local_predout;
+            rightmean = rightmean / (parent_count - local_countout);
+            atomicAdd(&mseout[coloffset + nodeoff + binid + 1],
+                      local_cnt * F::exec(local_label - rightmean));
+          }
+        }
+      }
+    }
+  }
+}
