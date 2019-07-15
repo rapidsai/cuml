@@ -239,14 +239,18 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                                stream, maxnodes);
     d_count = new MLCommon::device_buffer<unsigned int>(
       ml_handle.getDeviceAllocator(), stream, maxnodes);
+    d_parent_pred = new MLCommon::device_buffer<T>(
+      ml_handle.getDeviceAllocator(), stream, maxnodes);
+    d_parent_count = new MLCommon::device_buffer<unsigned int>(
+      ml_handle.getDeviceAllocator(), stream, maxnodes);
     h_mseout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
                                             stream, 2 * maxnodes);
     h_predout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
                                              stream, maxnodes);
     h_count = new MLCommon::host_buffer<unsigned int>(
       ml_handle.getHostAllocator(), stream, maxnodes);
-    totalmem += 3 * maxnodes * sizeof(T);
-    totalmem += maxnodes * sizeof(unsigned int);
+    totalmem += 4 * maxnodes * sizeof(T);
+    totalmem += 2 * maxnodes * sizeof(unsigned int);
   }
 
   //Classification
@@ -270,7 +274,14 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   cudaDeviceProp prop;
   CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
   size_t max_shared_mem = prop.sharedMemPerBlock;
-  max_nodes = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
+  if (typeid(L) == typeid(int)) {
+    max_nodes_class = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
+  }
+  if (typeid(L) == typeid(T)) {
+    size_t pernode_pred = nbins * (sizeof(T) + sizeof(unsigned int));
+    max_nodes_pred = max_shared_mem / pernode_pred;
+    max_nodes_mse = max_shared_mem / (pernode_pred + 2 * nbins * sizeof(T));
+  }
 }
 
 template <class T, class L>
@@ -309,6 +320,7 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   delete d_quantile;
   delete d_sample_cnt;
   delete d_colids;
+  //Classification
   if (typeid(L) == typeid(int)) {
     h_histogram->release(stream);
     d_histogram->release(stream);
@@ -323,13 +335,18 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
     delete d_parent_hist;
     delete d_child_hist;
   }
+  //Regression
   if (typeid(L) == typeid(T)) {
+    d_parent_pred->release(stream);
+    d_parent_count->release(stream);
     d_mseout->release(stream);
     d_predout->release(stream);
     d_count->release(stream);
     h_mseout->release(stream);
     h_predout->release(stream);
     h_count->release(stream);
+    delete d_parent_pred;
+    delete d_parent_count;
     delete d_mseout;
     delete d_predout;
     delete d_count;

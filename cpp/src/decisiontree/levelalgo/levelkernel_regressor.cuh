@@ -138,29 +138,32 @@ __global__ void get_mse_kernel(
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids, const int nrows, const int ncols,
   const int nbins, const int n_nodes, const T *__restrict__ quantile,
-  const T *__restrict__ parentpred, const T *__restrict__ predout,
+  const T *__restrict__ parentpred,
+  const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
-  extern __shared__ T shmem_mse_kernel[];
-  T *shmem_parentpred = (T *)shmem_mse_kernel;
-  T *shmem_predout = (T *)(shmem_mse_kernel + n_nodes * sizeof(T));
-  T *shmem_mse =
-    (T *)(shmem_mse_kernel + n_nodes * sizeof(T) + n_nodes * nbins * sizeof(T));
-  unsigned int *shmem_countout = (T *)(shmem_mse_kernel + n_nodes * sizeof(T) +
-                                       3 * n_nodes * nbins * sizeof(T));
+  extern __shared__ char shmem_mse_kernel[];
+  T *shmem_predout = (T *)(shmem_mse_kernel);
+  T *shmem_mse = (T *)(shmem_mse_kernel + n_nodes * nbins * sizeof(T));
+  unsigned int *shmem_countout =
+    (unsigned int *)(shmem_mse_kernel + 3 * n_nodes * nbins * sizeof(T));
 
   unsigned int local_flag = LEAF;
   T local_label;
   int local_cnt;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  T parent_pred;
+  unsigned int parent_count;
 
   if (tid < nrows) {
     local_flag = flags[tid];
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
   }
-  for (unsigned int i = threadIdx.x; i < n_nodes; i += blockDim.x) {
-    shmem_parentpred[i] = parentpred[i];
+  if (local_flag != LEAF) {
+    parent_count = parentcount[local_flag];
+    parent_pred = parentpred[local_flag];
   }
+
   for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
     shmem_predout[i] = predout[i];
     shmem_countout[i] = countout[i];
@@ -178,18 +181,20 @@ __global__ void get_mse_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         T quesval = quantile[colid * nbins + binid];
         unsigned int nodeoff = local_flag * 2 * nbins;
-        T leftmean = shmem_predout[local_flag * nbins + binid] /
-                     shmem_countout[local_flag * nbins + binid];
+        T local_predout = shmem_predout[local_flag * nbins + binid];
+        unsigned int local_countout =
+          shmem_countout[local_flag * nbins + binid];
         if (local_data <= quesval) {
+          T leftmean = local_predout / local_countout;
           atomicAdd(&shmem_mse[nodeoff + binid],
                     local_cnt * F::exec(local_label - leftmean));
         } else {
-          T rightmean = shmem_parentpred[local_flag] - leftmean;
+          T rightmean = parent_pred * parent_count - local_predout;
+          rightmean = rightmean / (parent_count - local_countout);
           atomicAdd(&shmem_mse[nodeoff + binid + 1],
                     local_cnt * F::exec(local_label - rightmean));
         }

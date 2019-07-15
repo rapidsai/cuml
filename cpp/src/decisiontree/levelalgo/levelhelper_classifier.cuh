@@ -45,7 +45,7 @@ void get_histogram_classification(
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
-  int node_batch = min(n_nodes, tempmem->max_nodes);
+  int node_batch = min(n_nodes, tempmem->max_nodes_class);
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
