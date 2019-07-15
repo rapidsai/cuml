@@ -17,11 +17,10 @@
 import cupy as cp
 import cudf
 import numpy as np
-from cupyx.scipy import sparse
 import warnings
 
 from cuml.thirdparty._sklearn._utils import (
-    check_array, _safe_accumulator_op, comb)
+    check_array, _safe_accumulator_op)
 
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
@@ -899,7 +898,7 @@ class KernelCenterer(TransformerMixin):
         K_new : numpy array of shape [n_samples1, n_samples2]
         """
         check_fitted(self, 'K_fit_all_')
-        K = to_cupy(K)
+        K, input_info = to_cupy(K)
         K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
 
         K_pred_cols = (cp.sum(K, axis=1) /
@@ -908,7 +907,7 @@ class KernelCenterer(TransformerMixin):
         K -= self.K_fit_rows_
         K -= K_pred_cols
         K += self.K_fit_all_
-        X = to_orig_type(X, input_info)
+        K = to_orig_type(K, input_info)
 
         return K
 
@@ -943,7 +942,6 @@ def add_dummy_feature(X, value=1.0):
     X, input_info = to_cupy(X)
     X = check_array(X, dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
-    shape = (n_samples, n_features + 1)
     new_X = cp.hstack((cp.full((n_samples, 1), value), X))
     new_X = to_orig_type(new_X, input_info, add_dummy_feature=True)
     return new_X
