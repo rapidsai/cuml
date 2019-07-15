@@ -94,15 +94,10 @@ def _get_global_comms():
     return None
 
 
-def _del_default_comms(ref):
-
-    print("Deleting default_comms")
-    global _default_comms
-    _default_comms = None
-
-
 def default_comms(c=None):
-    """ Return a comms instance if one has been initialized """
+    """ Return a comms instance if one has been initialized.
+        Otherwise, initialize a new comms instance.
+    """
     c = c or _get_global_comms()
     if c:
         return c
@@ -153,10 +148,8 @@ async def _func_ucp_create_listener(sessionId, r):
                                       is_coroutine=True)
 
         worker_state(sessionId)["ucp_listener"] = listener
-        task = asyncio.create_task(listener.coroutine)
-
-        while not task.done():
-            await task
+        while not listener.done():
+            await listener.coroutine
             await asyncio.sleep(1)
 
         ucp.fin()
@@ -223,8 +216,6 @@ async def _func_build_handle(sessionId):
 
 
 def _func_wait_for_key(sessionId, key):
-
-    # TODO: Check for errors as well...
     while key not in worker_state(sessionId):
         time.sleep(0.01)
 
@@ -291,7 +282,7 @@ class CommsContext:
     Classes that extend or use the CommsContext are also responsible for
     calling `destroy()` to clean up the underlying comms.
 
-    This class is not meant to be thread-safe and each instance
+    This class is not meant to be thread-safe.
     """
 
     def __init__(self, comms_p2p=False, client=None):
@@ -385,8 +376,6 @@ class CommsContext:
                         wait=True)
 
     def block_for_init(self, key):
-
-        # TODO: Add appropriate error handling here to eliminate endless loops
 
         [self.client.run(_func_wait_for_key,
                          self.sessionId,
