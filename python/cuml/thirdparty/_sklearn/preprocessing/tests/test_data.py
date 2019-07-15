@@ -75,42 +75,42 @@ X_list_1row = X_1row.tolist()
 X_list_1col = X_1col.tolist()
 
 
-def test_standard_scaler_1d():
-    # Test scaling of dataset along single axis
-    for X in [X_1row, X_1col, X_list_1row, X_list_1row]:
+# def test_standard_scaler_1d():
+#     # Test scaling of dataset along single axis
+#     for X in [X_1row, X_1col, X_list_1row, X_list_1row]:
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit(X).transform(X, copy=True)
+#         scaler = StandardScaler()
+#         X_scaled = scaler.fit(X).transform(X, copy=True)
 
-        if isinstance(X, list):
-            X = cp.array(X)  # cast only after scaling done
+#         if isinstance(X, list):
+#             X = cp.array(X)  # cast only after scaling done
 
-        if _check_dim_1axis(X) == 1:
-            assert_almost_equal(scaler.mean_, X.ravel())
-            assert_almost_equal(scaler.scale_, np.ones(n_features))
-            assert_array_almost_equal(X_scaled.mean(axis=0),
-                                      np.zeros_like(n_features))
-            assert_array_almost_equal(X_scaled.std(axis=0),
-                                      np.zeros_like(n_features))
-        else:
-            assert_almost_equal(scaler.mean_, X.mean())
-            assert_almost_equal(scaler.scale_, X.std())
-            assert_array_almost_equal(X_scaled.mean(axis=0),
-                                      cp.zeros_like(n_features))
-            assert_array_almost_equal(X_scaled.mean(axis=0), .0)
-            assert_array_almost_equal(X_scaled.std(axis=0), 1.)
-        assert_equal(scaler.n_samples_seen_, X.shape[0])
+#         if _check_dim_1axis(X) == 1:
+#             assert_almost_equal(scaler.mean_, X.ravel())
+#             assert_almost_equal(scaler.scale_, np.ones(n_features))
+#             assert_array_almost_equal(X_scaled.mean(axis=0),
+#                                       np.zeros_like(n_features))
+#             assert_array_almost_equal(X_scaled.std(axis=0),
+#                                       np.zeros_like(n_features))
+#         else:
+#             assert_almost_equal(scaler.mean_, X.mean())
+#             assert_almost_equal(scaler.scale_, X.std())
+#             assert_array_almost_equal(X_scaled.mean(axis=0),
+#                                       cp.zeros_like(n_features))
+#             assert_array_almost_equal(X_scaled.mean(axis=0), .0)
+#             assert_array_almost_equal(X_scaled.std(axis=0), 1.)
+#         assert_equal(scaler.n_samples_seen_, X.shape[0])
 
-        # check inverse transform
-        X_scaled_back = scaler.inverse_transform(X_scaled)
-        assert_array_almost_equal(X_scaled_back, X)
+#         # check inverse transform
+#         X_scaled_back = scaler.inverse_transform(X_scaled)
+#         assert_array_almost_equal(X_scaled_back, X)
 
-    # Constant feature
-    X = cp.ones((5, 1))
-    scaler = StandardScaler()
-    X_scaled = scaler.fit(X).transform(X, copy=True)
-    assert_almost_equal(scaler.mean_, 1.)
-    assert_almost_equal(scaler.scale_, 1.)
-    assert_array_almost_equal(X_scaled.mean(axis=0), .0)
-    assert_array_almost_equal(X_scaled.std(axis=0), .0)
-    assert_equal(scaler.n_samples_seen_, X.shape[0])
+#     # Constant feature
+#     X = cp.ones((5, 1))
+#     scaler = StandardScaler()
+#     X_scaled = scaler.fit(X).transform(X, copy=True)
+#     assert_almost_equal(scaler.mean_, 1.)
+#     assert_almost_equal(scaler.scale_, 1.)
+#     assert_array_almost_equal(X_scaled.mean(axis=0), .0)
+#     assert_array_almost_equal(X_scaled.std(axis=0), .0)
+#     assert_equal(scaler.n_samples_seen_, X.shape[0])

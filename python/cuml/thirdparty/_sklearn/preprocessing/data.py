@@ -18,6 +18,7 @@ import cupy as cp
 import cudf
 import numpy as np
 from cupyx.scipy import sparse
+import warnings
 
 from cuml.thirdparty._sklearn._utils import (
     check_array, _safe_accumulator_op, comb)
@@ -57,13 +58,68 @@ def check_fitted(self, attributes):
 
 
 def to_cupy(X):
-    ''' convert input to cupy and 
+    ''' convert input to cupy, and return info about input
+
+    Return
+    ------
+    X: converted input
+    input_type: type of input
+    input_dim: dim of input
     '''
-    # TODO: accept numba cuda array input 
-    if isinstance(X, cudf.DataFrame):
+    # TODO: accept numba cuda array input
+    input_info = {}
+    if isinstance(X, cp.ndarray):
+        input_dim = len(X.shape)
+        input_type = 'cupy'
+    elif isinstance(X, (cudf.Series, cudf.DataFrame)):
+        input_dim = 1
+        input_type = 'cudf'
+        series_name = X.name
+        input_info['name_or_columns'] = series_name
+        X = cp.array(X)
+    elif isinstance(X, cudf.DataFrame):
+        input_dim = 2
+        input_type = 'cudf'
+        columns = X.columns
+        input_info['name_or_columns'] = columns
         X = cp.array(X.as_gpu_matrix())
-    if not isinstance(X, cp.ndarray):
-        raise TypeError('Input should be either cupy array or cudf.DataFrame')
+    else:
+        raise TypeError('Input should be cupy array or cudf.DataFrame '
+                        + 'or cudf.Series')
+    input_info['type'] = input_type
+    input_info['dim'] = input_dim
+    return X, input_info
+
+
+def to_orig_type(X, input_info, dim=None, add_dummy_feature=False):
+    ''' convert X to original datatype
+    '''
+    if input_info['type'] == 'cupy':
+        return X
+    elif input_info['type'] == 'cudf'
+        # check if output dim is explicitly set(to be different with input dim)
+        if dim is None:
+            dim = input_info['dim']
+        if dim == 1:
+            X = cudf.from_dlpack(X.toDlpack())
+            if 'name_or_columns' in input_info:     # restore Series name
+                X.name = input_info['name_or_columns']
+        elif dim == 2:
+            X = cudf.DataFrame.from_gpu_matrix(X)
+            if 'name_or_columns' in input_info:
+                # new column will be added in add_dummy_feature()
+                if add_dummy_feature:
+                    X.columns = (input_info['name_or_columns']
+                                 .insert(0, 'dummy_feature'))
+                else:
+                    X.columns = input_info['name_or_columns']
+        else:
+            raise ValueError('dim is {}, while it should be 1 or 2'
+                             .format(dim))
+        # if index is not None:       # restore original index
+            # X = X.set_index(index)
+    else:
+        raise TypeError('Input should be either cupy array or cudf')
     return X
 
 
@@ -127,8 +183,14 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 
 
 def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
+    ''' Standardize a dataset along any axis
+    Center to the mean and component wise scale to unit variance.
     
-    X = to_cupy(X)
+    Parameters
+    ----------
+    X : array-like. The data to center and scale.
+    '''
+    X, input_info = to_cupy(X)
     X = check_array(X, copy=copy, ensure_2d=False,
                     estimator='the scale function', dtype=FLOAT_DTYPES,
                     force_all_finite=True)    
@@ -172,6 +234,7 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
                               "deviation of the data is probably "
                               "very close to 0. ")
                 Xr -= mean_2
+    X = to_orig_type(X, input_info)
     return X
 
 
@@ -254,7 +317,7 @@ class MinMaxScaler(TransformerMixin):
         if feature_range[0] >= feature_range[1]:
             raise ValueError("Minimum of desired feature range must be smaller"
                              " than maximum. Got %s." % str(feature_range))
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         data_min = cp.min(X, axis=0)
@@ -286,11 +349,12 @@ class MinMaxScaler(TransformerMixin):
             Input data that will be transformed.
         """
         check_fitted(self, 'scale_')
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
         X += self.min_
+        X = to_orig_type(X, input_info)
         return X
 
     def inverse_transform(self, X):
@@ -301,18 +365,19 @@ class MinMaxScaler(TransformerMixin):
             Input data that will be transformed. It cannot be sparse.
         """
         check_fitted(self, 'scale_')
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
 
         X -= self.min_
         X /= self.scale_
+        X = to_orig_type(X, input_info)
         return X
 
 
 def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
-    X = to_cupy(X)
+    X, input_info = to_cupy(X)
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
@@ -328,6 +393,7 @@ def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
     if original_ndim == 1:
         X = X.ravel()
 
+    X = to_orig_type(X, input_info)
     return X
 
 
@@ -382,7 +448,7 @@ class StandardScaler(TransformerMixin):
         y
             Ignored
         """
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         # Even in the case of `with_mean=False`, we update the mean anyway
@@ -428,13 +494,14 @@ class StandardScaler(TransformerMixin):
         check_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_mean:
             X -= self.mean_
         if self.with_std:
             X /= self.scale_
+        X = to_orig_type(X, input_info)
         return X
 
     def inverse_transform(self, X, copy=None):
@@ -454,13 +521,14 @@ class StandardScaler(TransformerMixin):
 
         copy = copy if copy is not None else self.copy
 
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         if copy:
             X = X.copy()
         if self.with_std:
             X *= self.scale_
         if self.with_mean:
             X += self.mean_
+        X = to_orig_type(X, input_info)
         return X
 
 
@@ -507,7 +575,7 @@ class MaxAbsScaler(TransformerMixin):
         y
             Ignored
         """
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         max_abs = cp.max(cp.abs(X), axis=0)
@@ -532,10 +600,11 @@ class MaxAbsScaler(TransformerMixin):
             The data that should be scaled.
         """
         check_fitted(self, 'scale_')
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X /= self.scale_
+        X = to_orig_type(X, input_info)
         return X
 
     def inverse_transform(self, X):
@@ -546,16 +615,17 @@ class MaxAbsScaler(TransformerMixin):
             The data that should be transformed back.
         """
         check_fitted(self, 'scale_')
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         X *= self.scale_
+        X = to_orig_type(X, input_info)
         return X
 
 
 def maxabs_scale(X, axis=0, copy=True):
 
-    X = to_cupy(X)
+    X, input_info = to_cupy(X)
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
@@ -573,6 +643,7 @@ def maxabs_scale(X, axis=0, copy=True):
     if original_ndim == 1:
         X = X.ravel()
 
+    X = to_orig_type(X, input_info)
     return X
 
 
@@ -592,7 +663,7 @@ class RobustScaler(TransformerMixin):
             The data used to compute the median and quantiles
             used for later scaling along the features axis.
         """
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         q_min, q_max = self.quantile_range
@@ -630,13 +701,14 @@ class RobustScaler(TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_centering:
             X -= self.center_
         if self.with_scaling:
             X /= self.scale_
+        X = to_orig_type(X, input_info)
         return X
 
     def inverse_transform(self, X):
@@ -647,20 +719,21 @@ class RobustScaler(TransformerMixin):
             The data used to scale along the specified axis.
         """
         check_fitted(self, ['center_', 'scale_'])
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
         if self.with_scaling:
             X *= self.scale_
         if self.with_centering:
             X += self.center_
+        X = to_orig_type(X, input_info)
         return X
 
 
 def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
 
-    X = to_cupy(X)
+    X, input_info = to_cupy(X)
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
 
@@ -676,18 +749,19 @@ def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
 
     if original_ndim == 1:
         X = X.ravel()
-
+    
+    X = to_orig_type(X, input_info)
     return X
 
 
 def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
-
     if norm not in ('l1', 'l2', 'max'):
         raise ValueError("'%s' is not a supported norm" % norm)
 
     if axis != 0 and axis != 1:
         raise ValueError("'%d' is not a supported axis" % axis)
 
+    X, input_info = to_cupy(X)
     X = check_array(X, copy=copy,
                     estimator='the normalize function', dtype=FLOAT_DTYPES)
     if axis == 0:
@@ -704,7 +778,8 @@ def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
 
     if axis == 0:
         X = X.T
-
+    X = to_orig_type(X, input_info)
+    norms = to_orig_type(X, input_info, dim=1)
     if return_norm:
         return X, norms
     else:
@@ -725,7 +800,7 @@ class Normalizer(TransformerMixin):
         ----------
         X : array-like
         """
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         check_array(X)
         return self
 
@@ -740,18 +815,19 @@ class Normalizer(TransformerMixin):
             Copy the input X or not.
         """
         copy = copy if copy is not None else self.copy
-        X = to_cupy(X)
+        X, input_info = to_cupy(X)
         X = check_array(X)
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
 def binarize(X, threshold=0.0, copy=True):
-    X = to_cupy(X)
+    X, input_info = to_cupy(X)
     X = check_array(X, copy=copy)
     cond = X > threshold
     not_cond = cp.logical_not(cond)
     X[cond] = 1
     X[not_cond] = 0
+    X = to_orig_type(X, input_info)
     return X
 
 
@@ -768,7 +844,7 @@ class Binarizer(TransformerMixin):
         ----------
         X : array-like
         """
-        X = to_cupy(X)
+        X, _ = to_cupy(X)
         check_array(X)
         return self
 
@@ -832,6 +908,7 @@ class KernelCenterer(TransformerMixin):
         K -= self.K_fit_rows_
         K -= K_pred_cols
         K += self.K_fit_all_
+        X = to_orig_type(X, input_info)
 
         return K
 
@@ -861,8 +938,12 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
-    X = to_cupy(X)
+    
+    # need to mod to_orig_type, since new column will be added
+    X, input_info = to_cupy(X)
     X = check_array(X, dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
     shape = (n_samples, n_features + 1)
-    return cp.hstack((cp.full((n_samples, 1), value), X))
+    new_X = cp.hstack((cp.full((n_samples, 1), value), X))
+    new_X = to_orig_type(new_X, input_info, add_dummy_feature=True)
+    return new_X
