@@ -117,7 +117,6 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    break;
   }
   int nleaves = pow(2, maxdepth);
   int leaf_st = flattree.size() - nleaves;
