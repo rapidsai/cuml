@@ -280,7 +280,6 @@ class RandomForestClassifier(Base):
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
-        self.handle = handle
         self.split_algo = split_algo
         self.criterion = split_criterion
         self.min_rows_per_node = min_rows_per_node
@@ -402,11 +401,6 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -440,6 +434,11 @@ class RandomForestClassifier(Base):
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
         self.split_criterion = self._get_type()
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
