@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
 project(cuml_test LANGUAGES CXX CUDA)
@@ -185,6 +185,8 @@ if(BUILD_PRIMS_TESTS)
       prims/rng.cu
       prims/rng_int.cu
       prims/rsvd.cu
+      prims/sample_without_replacement.cu
+      prims/scatter.cu
       prims/score.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu
