@@ -88,6 +88,8 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
+    init_parent_value(meanstate, countstate, nodelist, n_nodes, tempmem);
+
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(
         data, labels, flagsptr, sample_cnt, nrows, ncols, nbins, n_nodes,
@@ -106,7 +108,7 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
       h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
-                         flattree, meanstate, countstate, n_nodes_nextitr,
+                         flattree, meanstate, n_nodes_nextitr,
                          nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
