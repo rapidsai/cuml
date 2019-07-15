@@ -75,6 +75,10 @@ void get_mse_regression(T *data, T *labels, unsigned int *flags,
       nbins, n_nodes, tempmem->d_quantile->data(), d_predout,
       tempmem->d_count->data());
   } else {
+    get_pred_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
+      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
+      nbins, n_nodes, tempmem->d_quantile->data(), d_predout,
+      tempmem->d_count->data());
   }
   CUDA_CHECK(cudaGetLastError());
   if ((n_nodes == node_batch_mse) && (blocks < 65536)) {
@@ -84,6 +88,11 @@ void get_mse_regression(T *data, T *labels, unsigned int *flags,
       tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
       d_predout, tempmem->d_count->data(), d_mseout);
   } else {
+    get_mse_kernel_global<T, F><<<blocks, threads, 0, tempmem->stream>>>(
+      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
+      nbins, n_nodes, tempmem->d_quantile->data(),
+      tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+      d_predout, tempmem->d_count->data(), d_mseout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
