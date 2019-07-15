@@ -243,7 +243,7 @@ void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
   for (int i = 0; i <= (curr_depth - 1); i++) {
     n_nodes_before += pow(2, i);
   }
-  int leaf_counter = 0;
+  int non_leaf_counter = 0;
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
@@ -259,12 +259,12 @@ void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
     } else {
       nodelist.push_back(2 * nodeid);
       nodelist.push_back(2 * nodeid + 1);
-      node_flag = leaf_counter;
-      leaf_counter++;
+      node_flag = non_leaf_counter;
+      non_leaf_counter++;
     }
     new_node_flags[i] = node_flag;
   }
-  int nleafed = tmp_nodelist.size() - leaf_counter;
+  int nleafed = tmp_nodelist.size() - non_leaf_counter;
   tree_leaf_cnt += nleafed;
-  n_nodes_next = 2 * leaf_counter;
+  n_nodes_next = 2 * non_leaf_counter;
 }

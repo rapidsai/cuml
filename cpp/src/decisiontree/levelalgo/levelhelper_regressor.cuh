@@ -43,15 +43,11 @@ void initial_metric_regression(T *labels, unsigned int *sample_cnt,
                        1, tempmem->stream);
   MLCommon::updateHost(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
                        tempmem->stream);
-  MLCommon::updateDevice(tempmem->d_parent_count->data(),
-                         tempmem->h_count->data(), 1, tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   tempmem->h_predout->data()[0] =
     tempmem->h_predout->data()[0] / tempmem->h_count->data()[0];
   mean = tempmem->h_predout->data()[0];
   count = tempmem->h_count->data()[0];
-  MLCommon::updateDevice(tempmem->d_parent_pred->data(),
-                         tempmem->h_predout->data(), 1, tempmem->stream);
   initial_metric = tempmem->h_mseout->data()[0] / tempmem->h_count->data()[0];
 }
 
@@ -213,8 +209,7 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
                           const int max_depth, const int max_leaves,
                           unsigned int *new_node_flags,
                           std::vector<FlatTreeNode<T, T>> &flattree,
-                          std::vector<T> &mean,
-                          std::vector<unsigned int> &count, int &n_nodes_next,
+                          std::vector<T> &mean, int &n_nodes_next,
                           std::vector<int> &nodelist, int &tree_leaf_cnt) {
   std::vector<int> tmp_nodelist(nodelist);
   nodelist.clear();
@@ -222,7 +217,7 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
   for (int i = 0; i <= (curr_depth - 1); i++) {
     n_nodes_before += pow(2, i);
   }
-  int leaf_counter = 0;
+  int non_leaf_counter = 0;
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
@@ -238,12 +233,30 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
     } else {
       nodelist.push_back(2 * nodeid);
       nodelist.push_back(2 * nodeid + 1);
-      node_flag = leaf_counter;
-      leaf_counter++;
+      node_flag = non_leaf_counter;
+      non_leaf_counter++;
     }
     new_node_flags[i] = node_flag;
   }
-  int nleafed = tmp_nodelist.size() - leaf_counter;
+  int nleafed = tmp_nodelist.size() - non_leaf_counter;
   tree_leaf_cnt += nleafed;
-  n_nodes_next = 2 * leaf_counter;
+  n_nodes_next = 2 * non_leaf_counter;
+}
+
+template <typename T>
+void init_parent_value(std::vector<T> &meanstate,
+                       std::vector<unsigned int> &countstate,
+                       std::vector<int> nodelist, const int n_nodes,
+                       std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  T *h_predout = tempmem->h_predout->data();
+  unsigned int *h_count = tempmem->h_count->data();
+  for (int i = 0; i < nodelist.size(); i++) {
+    int nodeid = nodelist[i];
+    h_predout[i] = meanstate[nodeid];
+    h_count[i] = countstate[nodeid];
+  }
+  MLCommon::updateDevice(tempmem->d_parent_pred->data(), h_predout, n_nodes,
+                         tempmem->stream);
+  MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
+                         tempmem->stream);
 }
