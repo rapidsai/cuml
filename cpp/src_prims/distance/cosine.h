@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,19 +42,21 @@ namespace Distance {
  * @param worksize number of bytes of the workspace
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
                  InType const *pB, OutType *pD, AccType *workspace,
-                 size_t worksize, FinalLambda fin_op, cudaStream_t stream) {
+                 size_t worksize, FinalLambda fin_op, cudaStream_t stream,
+                 bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
   distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
                 FinalLambda, decltype(norm_op), Index_>(
-    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
+    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream,
+    isRowMajor);
 }
 
 };  // end namespace Distance
