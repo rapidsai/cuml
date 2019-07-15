@@ -31,10 +31,10 @@ constexpr bool UCX_ENABLED = false;
 #include "ucp_helper.h"
 #endif
 
+#include <algorithm>
 #include <cstdio>
 #include <exception>
 #include <memory>
-#include <algorithm>
 
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
@@ -71,15 +71,15 @@ size_t getDatatypeSize(const cumlStdCommunicator_impl::datatype_t datatype) {
     case MLCommon::cumlCommunicator::CHAR:
       return sizeof(char);
     case MLCommon::cumlCommunicator::UINT8:
-      return sizeof(unsigned char);
+      return sizeof(uint8_t);
     case MLCommon::cumlCommunicator::INT:
       return sizeof(int);
     case MLCommon::cumlCommunicator::UINT:
       return sizeof(unsigned int);
     case MLCommon::cumlCommunicator::INT64:
-      return sizeof(long long int);
+      return sizeof(int64_t);
     case MLCommon::cumlCommunicator::UINT64:
-      return sizeof(unsigned long long int);
+      return sizeof(uint64_t);
     case MLCommon::cumlCommunicator::FLOAT:
       return sizeof(float);
     case MLCommon::cumlCommunicator::DOUBLE:
@@ -231,7 +231,6 @@ void cumlStdCommunicator_impl::initialize() {
 }
 
 cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
-
   cudaStreamDestroy(stream);
 
   CUDA_CHECK_NO_THROW(cudaFree(sendbuff));
@@ -245,9 +244,9 @@ int cumlStdCommunicator_impl::getRank() const { return _rank; }
 std::unique_ptr<MLCommon::cumlCommunicator_iface>
 cumlStdCommunicator_impl::commSplit(int color, int key) const {
   // Not supported by NCCL
-  ASSERT(
-    false,
-    "ERROR: commSplit called but not yet supported in this comms implementation.");
+  ASSERT(false,
+         "ERROR: commSplit called but not yet supported in this comms "
+         "implementation.");
 }
 
 void cumlStdCommunicator_impl::barrier() const {
@@ -261,7 +260,6 @@ void cumlStdCommunicator_impl::barrier() const {
 }
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
-
 #ifdef WITH_UCX
 
   request_t req_id;
@@ -287,15 +285,14 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
-  struct ucx_context *ucp_request = ucp_isend(ep_ptr, buf, size, tag, getRank());
+  struct ucx_context *ucp_request =
+    ucp_isend(ep_ptr, buf, size, tag, getRank());
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
 
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
-
-
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
@@ -337,19 +334,17 @@ void cumlStdCommunicator_impl::waitall(int count,
   std::vector<struct ucx_context *> done_requests;
   done_requests.reserve(count);
 
-  while(done_requests.size() < count) {
-
+  while (done_requests.size() < count) {
     for (struct ucx_context *req : requests) {
-
       ucp_worker_progress(_ucp_worker);
 
       auto req_it = std::find(done_requests.begin(), done_requests.end(), req);
-      if(req->completed == 1 && req_it == done_requests.end())
+      if (req->completed == 1 && req_it == done_requests.end())
         done_requests.push_back(req);
     }
   }
 
-  for(struct ucx_context *req : done_requests) {
+  for (struct ucx_context *req : done_requests) {
     req->completed = 0;
     if (req->needs_release) ucp_request_free(req);
   }

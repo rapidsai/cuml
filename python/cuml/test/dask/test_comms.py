@@ -32,7 +32,7 @@ def test_comms_init_no_p2p():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)  # noqa
 
-    cb = CommsContext()
+    cb = CommsContext(comms_p2p=False)
     cb.init()
 
     assert cb.nccl_initialized is True
