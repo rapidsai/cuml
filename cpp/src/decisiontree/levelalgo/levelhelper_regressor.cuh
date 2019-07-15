@@ -44,7 +44,6 @@ void initial_metric_regression(T *labels, unsigned int *sample_cnt,
   MLCommon::updateHost(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
                        tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
   count = tempmem->h_count->data()[0];
   mean = tempmem->h_predout->data()[0] / count;
   initial_metric = tempmem->h_mseout->data()[0] / count;
@@ -111,7 +110,7 @@ void get_best_split_regression(
   size_t predcount = ncols * nbins * n_nodes;
   bool use_gpu_flag = false;
   if (n_nodes > 512) use_gpu_flag = false;
-  gain.resize(pow(2, depth), 0);
+  gain.resize(pow(2, depth), 0.0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
     n_nodes_before += pow(2, i);
@@ -125,8 +124,8 @@ void get_best_split_regression(
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       std::vector<T> bestmetric(2, 0);
-      int nodeoffset_mse = nodecnt * nbins * 2;
-      int nodeoffset_pred = nodecnt * nbins;
+      int nodeoff_mse = nodecnt * nbins * 2;
+      int nodeoff_pred = nodecnt * nbins;
       int nodeid = nodelist[nodecnt];
       int parentid = nodeid + n_nodes_before;
       int best_col_id = -1;
@@ -134,32 +133,30 @@ void get_best_split_regression(
       T bestmean_left, bestmean_right;
       unsigned int bestcount_left, bestcount_right;
       for (int colid = 0; colid < ncols; colid++) {
-        int coloffset_mse = colid * nbins * 2 * n_nodes;
-        int coloffset_pred = colid * nbins * n_nodes;
+        int coloff_mse = colid * nbins * 2 * n_nodes;
+        int coloff_pred = colid * nbins * n_nodes;
         for (int binid = 0; binid < nbins; binid++) {
-          int binoffset_mse = binid * 2;
-          int binoffset_pred = binid;
+          int binoff_mse = binid * 2;
+          int binoff_pred = binid;
           unsigned int tmp_lnrows = 0;
           unsigned int tmp_rnrows = 0;
 
           T parent_mean = meanstate[parentid];
           unsigned int parent_count = countstate[parentid];
-          tmp_lnrows = count[coloffset_pred + binoffset_pred + nodeoffset_pred];
+          tmp_lnrows = count[coloff_pred + binoff_pred + nodeoff_pred];
           tmp_rnrows = parent_count - tmp_lnrows;
           unsigned int totalrows = tmp_lnrows + tmp_rnrows;
           if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn)
             continue;
 
-          T tmp_meanleft =
-            predout[coloffset_pred + binoffset_pred + nodeoffset_pred];
+          T tmp_meanleft = predout[coloff_pred + binoff_pred + nodeoff_pred];
           T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
           tmp_meanleft /= tmp_lnrows;
           tmp_meanright /= tmp_rnrows;
           T tmp_mse_left =
-            mseout[coloffset_mse + binoffset_mse + nodeoffset_mse] / tmp_lnrows;
+            mseout[coloff_mse + binoff_mse + nodeoff_mse] / tmp_lnrows;
           T tmp_mse_right =
-            mseout[coloffset_mse + binoffset_mse + nodeoffset_mse + 1] /
-            tmp_lnrows;
+            mseout[coloff_mse + binoff_mse + nodeoff_mse + 1] / tmp_lnrows;
 
           T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
                        (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
