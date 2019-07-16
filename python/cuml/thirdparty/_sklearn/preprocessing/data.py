@@ -23,7 +23,7 @@ from cuml.thirdparty._sklearn._utils import (
     check_array, _safe_accumulator_op)
 
 
-FLOAT_DTYPES = (np.float64, np.float32, np.float16)
+FLOAT_DTYPES = (cp.float64, cp.float32, cp.float16)
 
 
 __all__ = [
@@ -70,17 +70,19 @@ def to_cupy(X):
     if isinstance(X, cp.ndarray):
         input_dim = len(X.shape)
         input_type = 'cupy'
-    elif isinstance(X, (cudf.Series, cudf.DataFrame)):
+    elif isinstance(X, cudf.Series):
         input_dim = 1
         input_type = 'cudf'
-        series_name = X.name
-        input_info['name_or_columns'] = series_name
+        if hasattr(X, 'name'):
+            series_name = X.name
+            input_info['name_or_columns'] = series_name
         X = cp.array(X)
     elif isinstance(X, cudf.DataFrame):
         input_dim = 2
         input_type = 'cudf'
-        columns = X.columns
-        input_info['name_or_columns'] = columns
+        if hasattr(X, 'columns'):
+            columns = X.columns
+            input_info['name_or_columns'] = columns
         X = cp.array(X.as_gpu_matrix())
     else:
         raise TypeError('Input should be cupy array or cudf.DataFrame '
