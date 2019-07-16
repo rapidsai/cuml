@@ -27,8 +27,6 @@ from dask.distributed import get_worker, default_client
 from cuml.utils.import_utils import has_ucp
 import warnings
 
-from threading import Lock
-
 import time
 
 import random
@@ -170,7 +168,6 @@ async def _func_ucp_stop_listener(sessionId):
     if "ucp_listener" in worker_state(sessionId):
         listener = worker_state(sessionId)["ucp_listener"]
         ucp.stop_listener(listener)
-
 
     else:
         print("Listener not found with sessionId=" + str(sessionId))
