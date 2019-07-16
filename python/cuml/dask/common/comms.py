@@ -151,6 +151,15 @@ async def _func_ucp_create_listener(sessionId, r):
 
         worker_state(sessionId)["ucp_listener"] = listener
 
+        while not listener.done():
+            await listener.coroutine
+            await asyncio.sleep(1)
+
+        del worker_state(sessionId)["ucp_listener"]
+        del listener
+
+        ucp.fin()
+
 
 async def _func_ucp_stop_listener(sessionId):
     """
@@ -162,10 +171,6 @@ async def _func_ucp_stop_listener(sessionId):
         listener = worker_state(sessionId)["ucp_listener"]
         ucp.stop_listener(listener)
 
-        del worker_state(sessionId)["ucp_listener"]
-        del listener
-
-        ucp.fin()
 
     else:
         print("Listener not found with sessionId=" + str(sessionId))
