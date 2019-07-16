@@ -85,10 +85,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   unsigned int* d_colids = tempmem->d_colids->data();
 
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
-    std::cout << "depth--> " << depth << std::endl;
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    init_parent_value(meanstate, countstate, nodelist, tempmem);
+    init_parent_value(meanstate, countstate, nodelist, depth, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(

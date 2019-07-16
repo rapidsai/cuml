@@ -121,17 +121,20 @@ void get_best_split_regression(
     MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
     MLCommon::updateHost(count, d_count, predcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
+    CUDA_CHECK(cudaDeviceSynchronize());
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-      std::vector<T> bestmetric(2, 0);
+      T bestmetric_left = 0;
+      T bestmetric_right = 0;
       int nodeoff_mse = nodecnt * nbins * 2;
       int nodeoff_pred = nodecnt * nbins;
       int nodeid = nodelist[nodecnt];
       int parentid = nodeid + n_nodes_before;
       int best_col_id = -1;
       int best_bin_id = -1;
-      T bestmean_left, bestmean_right;
-      unsigned int bestcount_left, bestcount_right;
+      T bestmean_left = 0;
+      T bestmean_right = 0;
+      unsigned int bestcount_left = 0;
+      unsigned int bestcount_right = 0;
       for (int colid = 0; colid < ncols; colid++) {
         int coloff_mse = colid * nbins * 2 * n_nodes;
         int coloff_pred = colid * nbins * n_nodes;
@@ -148,7 +151,6 @@ void get_best_split_regression(
           unsigned int totalrows = tmp_lnrows + tmp_rnrows;
           if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn)
             continue;
-
           T tmp_meanleft = predout[coloff_pred + binoff_pred + nodeoff_pred];
           T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
           tmp_meanleft /= tmp_lnrows;
@@ -156,7 +158,7 @@ void get_best_split_regression(
           T tmp_mse_left =
             mseout[coloff_mse + binoff_mse + nodeoff_mse] / tmp_lnrows;
           T tmp_mse_right =
-            mseout[coloff_mse + binoff_mse + nodeoff_mse + 1] / tmp_lnrows;
+            mseout[coloff_mse + binoff_mse + nodeoff_mse + 1] / tmp_rnrows;
 
           T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
                        (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
@@ -172,8 +174,8 @@ void get_best_split_regression(
             bestmean_right = tmp_meanright;
             bestcount_left = tmp_lnrows;
             bestcount_right = tmp_rnrows;
-            bestmetric[0] = tmp_mse_left;
-            bestmetric[1] = tmp_mse_right;
+            bestmetric_left = tmp_mse_left;
+            bestmetric_right = tmp_mse_right;
           }
         }
       }
@@ -189,9 +191,9 @@ void get_best_split_regression(
       flattree[nodeid + n_nodes_before].quesval =
         quantile[best_col_id * nbins + best_bin_id];
       flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-        bestmetric[0];
+        bestmetric_left;
       flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
-        .best_metric_val = bestmetric[1];
+        .best_metric_val = bestmetric_right;
     }
     MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
                            tempmem->stream);
@@ -242,18 +244,23 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
 template <typename T>
 void init_parent_value(std::vector<T> &meanstate,
                        std::vector<unsigned int> &countstate,
-                       std::vector<int> &nodelist,
+                       std::vector<int> &nodelist, const int depth,
                        std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *h_predout = tempmem->h_predout->data();
   unsigned int *h_count = tempmem->h_count->data();
   int n_nodes = nodelist.size();
+  size_t n_nodes_before = 0;
+  for (int i = 0; i <= (depth - 1); i++) {
+    n_nodes_before += pow(2, i);
+  }
   for (int i = 0; i < n_nodes; i++) {
     int nodeid = nodelist[i];
-    h_predout[i] = meanstate[nodeid];
-    h_count[i] = countstate[nodeid];
+    h_predout[i] = meanstate[n_nodes_before + nodeid];
+    h_count[i] = countstate[n_nodes_before + nodeid];
   }
   MLCommon::updateDevice(tempmem->d_parent_pred->data(), h_predout, n_nodes,
                          tempmem->stream);
   MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
                          tempmem->stream);
+  CUDA_CHECK(cudaDeviceSynchronize());
 }
