@@ -27,6 +27,8 @@ from dask.distributed import get_worker, default_client
 from cuml.utils.import_utils import has_ucp
 import warnings
 
+from threading import Lock
+
 import time
 
 import random
@@ -148,11 +150,6 @@ async def _func_ucp_create_listener(sessionId, r):
                                       is_coroutine=True)
 
         worker_state(sessionId)["ucp_listener"] = listener
-        while not listener.done():
-            await listener.coroutine
-            await asyncio.sleep(1)
-
-        ucp.fin()
 
 
 async def _func_ucp_stop_listener(sessionId):
@@ -166,6 +163,10 @@ async def _func_ucp_stop_listener(sessionId):
         ucp.stop_listener(listener)
 
         del worker_state(sessionId)["ucp_listener"]
+        del listener
+
+        ucp.fin()
+
     else:
         print("Listener not found with sessionId=" + str(sessionId))
 
@@ -270,7 +271,9 @@ def _func_destroy_ep(sessionId):
     for ep in worker_state(sessionId)["ucp_eps"]:
         if ep is not None:
             ucp.destroy_ep(ep)
+            del ep
     del worker_state(sessionId)["ucp_eps"]
+    del worker_state(sessionId)["handle"]
 
 
 class CommsContext:
