@@ -18,7 +18,8 @@ import cudf
 import os
 import time
 import pickle
-import sklearn.datasets
+from .bench_data import gen_data_regression, gen_data_blobs
+
 
 def numpy_convert(data):
     if isinstance(data, tuple):
@@ -39,6 +40,25 @@ def cudf_convert(data):
         return cudf.Series.from_pandas(data)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
+
+def pandas_convert(data):
+    if isinstance(data, tuple):
+        return tuple([pandas_convert(d) for d in data])
+    elif isinstance(data, pd.DataFrame):
+        return cudf.DataFrame.from_pandas(data)
+    elif isinstance(data, pd.Series):
+        return cudf.Series.from_pandas(data)
+    else:
+        raise Exception("Unsupported type %s" % str(type(data)))
+
+def no_convert(data):
+    if isinstance(data, tuple):
+        return tuple([d for d in data])
+    elif isinstance(data, np.ndarray):
+        return data
+    else:
+        raise Exception("Unsupported type %s" % str(type(data)))
+
 
 class SpeedupBenchmark(object):
     def __init__(self, converter=numpy_convert, name="speedup"):
@@ -64,6 +84,7 @@ class SpeedupBenchmark(object):
                     speedup=sk_elapsed / float(cu_elapsed))
 
 class CuMLOnlyBenchmark(object):
+    """Wrapper to benchmark a cuML algorithm without a scikit-learn equivalent"""
     def __init__(self, converter = numpy_convert):
         self.name = "speedup"
         self.converter = converter
@@ -106,6 +127,7 @@ class BenchmarkRunner(object):
         self.verbose = verbose
         self.all_results = {}
         self.persist_results = persist_results
+        self.continue_on_fail = continue_on_fail
         if persist_results:
             self.all_results = self.load_results()
 
@@ -145,7 +167,7 @@ class BenchmarkRunner(object):
             axis=1)
 
     def _run_single_algo(self, benchmark, algo, n_rows, n_dims):
-        data = algo.load_data(n_rows, n_dims)
+        data = algo.load_data(n_rows, n_dims) # May be a tuple
         runs_list = [benchmark.run(algo, n_rows, n_dims, data) for i in range(self.n_runs)]
         runs_df = pd.DataFrame.from_records(runs_list)
         cur_result = runs_df.mean(0) # XXX decide whether we really want mean or min, recalc speedup?
@@ -165,11 +187,19 @@ class BenchmarkRunner(object):
                 for n_dims in self.bench_dims:
                     if (n_rows, n_dims, benchmark.name) not in results or self.rerun:
                         self._log("Running %s. (nrows=%d, n_dims=%d)" % (str(algo), n_rows, n_dims))
-                        cur_result = self._run_single_algo(benchmark,
-                                                           algo,
-                                                           n_rows,
-                                                           n_dims)
-
+                        try:
+                            cur_result = self._run_single_algo(benchmark,
+                                                               algo,
+                                                               n_rows,
+                                                               n_dims)
+                        except Exception as e:
+                            self._log("Failed to run %s with %d, %d: %s" % (
+                                benchmark.name, n_rows, n_dims, str(e))
+                                )
+                            if self.continue_on_fail:
+                                continue
+                            else:
+                                raise e
                         results[(n_rows, n_dims, benchmark.name)] = cur_result
                         self._log("Benchmark for %30s = %8.3f cu, %8.3f sk, %8.3f speedup" % (
                             str((n_rows, n_dims, benchmark.name)),
@@ -215,17 +245,10 @@ class BenchmarkRunner(object):
 
             plt.show()
 
-
-def gen_data_Xy(n_samples, n_features, random_state=42):
-    X_arr, y_arr = sklearn.datasets.make_regression(n_samples, n_features, random_state=random_state)
-    return (pd.DataFrame(X_arr), pd.Series(y_arr))
-
-def gen_data_X(n_samples, n_features, random_state=42):
-    return gen_data_Xy(n_samples, n_features, random_state)[0]
-
 class BaseAlgorithm(object):
-    def __init__(self, load_data=gen_data_X):
+    def __init__(self, load_data, accepts_labels):
         self.load_data = load_data
+        self.accepts_labels = accepts_labels
 
 
 class AlgoComparisonWrapper(BaseAlgorithm):
@@ -239,7 +262,22 @@ class AlgoComparisonWrapper(BaseAlgorithm):
                  cuml_args={},
                  sklearn_args={},
                  name=None,
-                 load_data=gen_data_X):
+                 load_data=gen_data_regression,
+                 accepts_labels=True):
+        """
+        Parameters
+        ----------
+        sk_class : class
+           Class for scikit-learn algorithm
+        cuml_class : class
+           Class for cuML algorithm
+        shared_args : dict
+           Arguments passed to both implementations
+        ....
+        accepts_labels : boolean
+           If True, the fit methods expects both X and y
+           inputs. Otherwise, it expects only an X input.
+        """
         if name:
             self.name = name
         else:
@@ -249,7 +287,7 @@ class AlgoComparisonWrapper(BaseAlgorithm):
         self.shared_args = shared_args
         self.cuml_args = cuml_args
         self.sklearn_args = sklearn_args
-        BaseAlgorithm.__init__(self, load_data=load_data)
+        BaseAlgorithm.__init__(self, load_data=load_data, accepts_labels=accepts_labels)
 
     def __str__(self):
         return "AlgoComparison:%s" % (self.name)
@@ -257,17 +295,17 @@ class AlgoComparisonWrapper(BaseAlgorithm):
     def sk(self, data):
         all_args = {**self.shared_args, **self.sklearn_args}
         sk_obj = self.sk_class(**all_args)
-        if isinstance(data, tuple) and len(data) == 2:
+        if self.accepts_labels:
             sk_obj.fit(data[0], data[1])
         else:
-            sk_obj.fit(data)
+            sk_obj.fit(data[0])
 
     def cuml(self, data):
         all_args = {**self.shared_args, **self.cuml_args}
         cuml_obj = self.cuml_class(**all_args)
-        if isinstance(data, tuple) and len(data) == 2:
+        if self.accepts_labels:
             cuml_obj.fit(data[0], data[1])
         else:
-            cuml_obj.fit(data)
+            cuml_obj.fit(data[0])
 
 
