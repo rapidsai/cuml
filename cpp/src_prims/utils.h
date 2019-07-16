@@ -104,8 +104,20 @@ class Exception : public std::exception {
            cudaGetErrorString(status));                                  \
   } while (0)
 
-///@todo: add a similar CUDA_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+/** check for cuda runtime API errors but log error instead of raising
+ *  exception.
+ *  @todo: This will need to use our common logging infrastructure once
+ *  that is in place.
+ */
+#define CUDA_CHECK_NO_THROW(call)                                              \
+  do {                                                                         \
+    cudaError_t status = call;                                                 \
+    if (status != cudaSuccess) {                                               \
+      std::fprintf(stderr,                                                     \
+                   "ERROR: CUDA call='%s' at file=%s line=%d failed with %s ", \
+                   #call, __FILE__, __LINE__, cudaGetErrorString(status));     \
+    }                                                                          \
+  } while (0)
 
 /**
  * @brief Generic copy method for all kinds of transfers

@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +13,16 @@
 # limitations under the License.
 #
 
-from cuml.utils.pointer_utils import device_of_gpu_matrix
-from cuml.utils.numba_utils import row_matrix, zeros
-from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+from cuml.nccl import nccl
 
-from cuml.utils.import_utils import has_cupy, has_dask
+
+def test_nccl_init():
+    n = nccl()
+    uid = n.get_unique_id()
+
+    n.init(1, uid, 0)
+
+    assert 0 == n.user_rank()
+    assert 0 == n.cu_device()
+
+    n.destroy()
