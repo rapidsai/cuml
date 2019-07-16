@@ -79,7 +79,6 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
-        
     
     def __repr__(self):
         """
@@ -99,10 +98,9 @@ class Base:
                 else:
                     string += "{}={}, ".format(key, str(state[key]))
             except:
-                pass
+                string += ""
         string = string.rstrip(', ')
         return string + ')'
-    
 
     def get_param_names(self):
         """
