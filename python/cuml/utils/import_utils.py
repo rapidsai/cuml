@@ -14,9 +14,28 @@
 # limitations under the License.
 #
 
-from cuml.utils.pointer_utils import device_of_gpu_matrix
-from cuml.utils.numba_utils import row_matrix, zeros
-from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
 
-from cuml.utils.import_utils import has_cupy, has_dask
+def has_dask():
+    try:
+        import dask   # NOQA
+        import dask.distributed   # NOQA
+        import dask.dataframe   # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def has_cupy():
+    try:
+        import cupy   # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def has_ucp():
+    try:
+        import ucp  # NOQA
+        return True
+    except ImportError:
+        return False

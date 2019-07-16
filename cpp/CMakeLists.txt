@@ -159,6 +159,7 @@ endif(CMAKE_CUDA_HOST_COMPILER)
 
 if(OPENMP_FOUND)
   message(STATUS "Building with OpenMP support")
+  find_package(Threads REQUIRED)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
@@ -331,6 +332,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
+    src/common/cuml_api.cpp
+    src/common/cuML_comms_impl.cpp
+    src/comms/cuML_comms_test.cpp
     src/common/nvtx.cpp
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
@@ -362,7 +366,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     faisslib)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+  
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
   if(NVTX)

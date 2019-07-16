@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 
-from cuml.utils.pointer_utils import device_of_gpu_matrix
-from cuml.utils.numba_utils import row_matrix, zeros
-from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 
-from cuml.utils.import_utils import has_cupy, has_dask
+from cuml.dask.common.comms_utils import inject_comms_on_handle, \
+    perform_test_comms_allreduce, perform_test_comms_send_recv, \
+    inject_comms_on_handle_coll_only, is_ucx_enabled
+
+from cuml.dask.common.dask_df_utils import get_meta, to_dask_cudf, extract_ddf_partitions

@@ -1,4 +1,4 @@
-#
+
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 
-from cuml.utils.pointer_utils import device_of_gpu_matrix
-from cuml.utils.numba_utils import row_matrix, zeros
-from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+from cuml.utils.import_utils import has_dask
+import warnings
 
-from cuml.utils.import_utils import has_cupy, has_dask
+if has_dask():
+    from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors  # NOQA
+else:
+    warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")
