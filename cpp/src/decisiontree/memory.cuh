@@ -243,16 +243,25 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
       ml_handle.getDeviceAllocator(), stream, maxnodes);
     d_parent_count = new MLCommon::device_buffer<unsigned int>(
       ml_handle.getDeviceAllocator(), stream, maxnodes);
+    d_child_pred = new MLCommon::device_buffer<T>(
+      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
+    d_child_count = new MLCommon::device_buffer<unsigned int>(
+      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
     h_mseout = new MLCommon::host_buffer<T>(
       ml_handle.getHostAllocator(), stream, 2 * nbins * ncols * maxnodes);
     h_predout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
                                              stream, nbins * ncols * maxnodes);
     h_count = new MLCommon::host_buffer<unsigned int>(
       ml_handle.getHostAllocator(), stream, nbins * ncols * maxnodes);
+    h_child_pred = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
+                                                stream, 2 * maxnodes);
+    h_child_count = new MLCommon::host_buffer<unsigned int>(
+      ml_handle.getHostAllocator(), stream, 2 * maxnodes);
+
     totalmem += 3 * nbins * ncols * maxnodes * sizeof(T);
     totalmem += nbins * ncols * maxnodes * sizeof(unsigned int);
-    totalmem += maxnodes * sizeof(T);
-    totalmem += maxnodes * sizeof(unsigned int);
+    totalmem += 3 * maxnodes * sizeof(T);
+    totalmem += 3 * maxnodes * sizeof(unsigned int);
   }
 
   //Classification
