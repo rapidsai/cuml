@@ -188,7 +188,12 @@ template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               int n_unique_labels, int nbins,
                                               int depth) {
-  int maxnodes = pow(2, depth);
+  if (depth > 16) {
+    max_nodes_per_level = pow(2, 16);
+  } else {
+    max_nodes_per_level = pow(2, depth);
+  }
+  int maxnodes = max_nodes_per_level;
 
   d_flags = new MLCommon::device_buffer<unsigned int>(
     ml_handle.getDeviceAllocator(), stream, nrows);

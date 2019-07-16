@@ -87,6 +87,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
+    ASSERT(n_nodes <= tempmem->max_nodes_per_level,
+           "Max node limit reached. Requested nodes %d > %d max nodes \n",
+           n_nodes, tempmem->max_nodes_per_level);
     init_parent_value(meanstate, countstate, nodelist, depth, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
