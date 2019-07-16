@@ -83,14 +83,15 @@ struct forest {
   }
 
   void init_max_shm() {
-    max_shm_ = 48 * 1024;  // 48 KiB
+    int max_shm_std = 48 * 1024;  // 48 KiB
     int device = 0;
-    // TODO: use cumlHandle for this
+    // TODO(canonizer): use cumlHandle for this
     CUDA_CHECK(cudaGetDevice(&device));
     int max_shm_device;
     CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm_device, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-    max_shm_ = std::min(max_shm_, max_shm_device);
+      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    // TODO(canonizer): use >48KiB shared memory if available
+    max_shm_ = std::min(max_shm_, max_shm_std);
   }
 
   void init(const cumlHandle& h, const forest_params_t* params) {
@@ -143,12 +144,12 @@ struct forest {
         batch_tree_reorg(ps, stream);
         break;
       default:
-        ASSERT(false, "should not reach here");
+        ASSERT(false, "internal error: invalid algorithm");
     }
 
     // Transform the output if necessary (sigmoid + thresholding if necessary).
     if (output_ != output_t::RAW) {
-      transform_k<<<ceildiv(int(rows), TPB), TPB, 0, stream>>>(
+      transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
         preds, rows, output_ == output_t::CLASS, threshold_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -171,24 +172,44 @@ struct forest {
   thrust::host_vector<dense_node> h_nodes_;
 };
 
-int init_dense(const cumlHandle& h, forest_t* pf,
-               const forest_params_t* params) {
+void check_params(const forest_params_t* params) {
+  ASSERT(params->depth >= 0, "depth must be non-negative");
+  ASSERT(params->ntrees >= 0, "ntrees must be non-negative");
+  ASSERT(params->cols >= 0, "cols must be non-negative");
+  switch (params->algo) {
+    case algo_t::NAIVE:
+    case algo_t::TREE_REORG:
+    case algo_t::BATCH_TREE_REORG:
+      break;
+    default:
+      ASSERT(false, "aglo should be NAIVE, TREE_REORG or BATCH_TREE_REORG");
+  }
+  switch (params->output) {
+    case output_t::RAW:
+    case output_t::PROB:
+    case output_t::CLASS:
+      break;
+    default:
+      ASSERT(false, "output should be RAW, PROB or CLASS");
+  }
+}
+
+void init_dense(const cumlHandle& h, forest_t* pf,
+                const forest_params_t* params) {
+  check_params(params);
   forest* f = new forest;
   f->init(h, params);
   *pf = f;
-  return 0;
 }
 
-int free(const cumlHandle& h, forest_t f) {
+void free(const cumlHandle& h, forest_t f) {
   f->free(h);
   delete f;
-  return 0;
 }
 
-int predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-            size_t n) {
+void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
+             size_t n) {
   f->predict(h, preds, data, n);
-  return 0;
 }
 
 }  // namespace fil

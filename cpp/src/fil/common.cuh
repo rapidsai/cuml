@@ -38,8 +38,8 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int ntrees,
   return ntrees * tree_num_nodes(depth);
 }
 
-// TPB is the number of threads per block to use with FIL kernels
-const int TPB = 256;
+// FIL_TPB is the number of threads per block to use with FIL kernels
+const int FIL_TPB = 256;
 
 /** node is a single tree node. */
 struct __align__(8) dense_node {

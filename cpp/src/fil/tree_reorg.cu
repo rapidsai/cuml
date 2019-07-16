@@ -48,7 +48,7 @@ __global__ void tree_reorg_kernel(predict_params ps) {
   for (int j = threadIdx.x; j < ps.ntrees; j += blockDim.x) {
     out += infer_one_tree(ps.nodes, j, sdata, ps.depth, ps.ntrees);
   }
-  typedef cub::BlockReduce<float, TPB> BlockReduce;
+  typedef cub::BlockReduce<float, FIL_TPB> BlockReduce;
   __shared__ BlockReduce::TempStorage tmp_storage;
   out = BlockReduce(tmp_storage).Sum(out);
   if (threadIdx.x == 0) ps.preds[blockIdx.x] = out;
@@ -56,7 +56,7 @@ __global__ void tree_reorg_kernel(predict_params ps) {
 
 void tree_reorg(const predict_params& ps, cudaStream_t stream) {
   int nblks = ps.rows;
-  tree_reorg_kernel<<<nblks, TPB, sizeof(float) * ps.cols, stream>>>(ps);
+  tree_reorg_kernel<<<nblks, FIL_TPB, sizeof(float) * ps.cols, stream>>>(ps);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
