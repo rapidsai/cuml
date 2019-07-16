@@ -47,12 +47,18 @@ class HoltWinters(Base):
         if type(batch_size) != int:
             raise TypeError("Type of batch_size must be int. Given: " +
                             type(batch_size))
+        if batch_size <= 0:
+            raise ValueError("Batch size must be at least 1. Given: " +
+                             str(batch_size))
         self.batch_size = batch_size
 
         # Season length in the time series
         if type(freq_season) != int:
             raise TypeError("Type of freq_season must be int. Given: " +
                             type(freq_season))
+        if freq_season < 2:
+            raise ValueError("Frequency must be >= 2. Given: " +
+                             str(freq_season))
         self.frequency = freq_season
 
         # whether to perform additive or multiplicative STL decomposition
@@ -66,6 +72,19 @@ class HoltWinters(Base):
             raise ValueError("Season type must be either "
                              "\"ADDITIVE\" or \"MULTIPLICATIVE\"")
 
+        # number of seasons to be used for seasonal seed values
+        if type(start_periods) != int:
+            raise TypeError("Type of start_periods must be int. Given: " +
+                            type(start_periods))
+        if start_periods < 2:
+            raise ValueError("Start Periods must be >= 2. Given: " +
+                             str(start_periods))
+        if freq_season < start_periods:
+            raise ValueError("Frequency (" + str(freq_season) +
+                             ") cannot be less than start_periods (" +
+                             str(start_periods) + ").")
+        self.start_periods = start_periods
+
         self.forecasted_points = []  # list for final forecast output
         self.alpha = []  # list for alpha values for each time series in batch
         self.beta = []   # list for beta values for each time series in batch
@@ -73,18 +92,6 @@ class HoltWinters(Base):
         self.SSE_error = []          # SSE Error for all time series in batch
         self.h = 50      # Default number of points to forecast in future
         self.fit_executed_flag = False
-
-        if type(start_periods) != int:
-            raise TypeError("Type of start_periods must be int. Given: " +
-                            type(start_periods))
-
-        if freq_season < start_periods:
-            raise ValueError("Frequency (" + str(freq_season) +
-                             ") cannot be less than start_periods (" +
-                             str(start_periods) + ").")
-        else:
-            # number of seasons to be used for seasonal seed values
-            self.start_periods = start_periods
 
     def _check_dims(self, ts_input, is_cudf=False):
         err_mess = ("HoltWinters initialized with " + str(self.batch_size) +
@@ -134,9 +141,12 @@ class HoltWinters(Base):
                 ts_input = ts_input.copy_to_host()
         if isinstance(ts_input, np.ndarray):
             ts_input = self._check_dims(ts_input)
-        if self.n < 2*self.frequency:
+        if self.n < self.start_periods*self.frequency:
             raise ValueError("Length of time series (" + str(self.n) +
                              ") must be at least double the frequency.")
+        if self.n <= 0:
+            raise ValueError("Time series must contain at least 1 value."
+                             " Given: " + str(self.n))
 
         X_m, input_ptr, _, _, self.dtype = \
             input_to_dev_array(ts_input, order='C')
