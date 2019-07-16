@@ -25,8 +25,9 @@ namespace ML {
 bool ucx_enabled();
 
 /**
-   * @brief This function wraps the inject comms functions above to decouple
-   * the Python layer from the optional UCX dependency in the C++ build. This
+   * @brief This function wraps the inject comms functions in
+   * cpp/comms/std/include/cuML_comms.hpp to decouple the Python
+   * layer from the optional UCX dependency in the C++ build. This
    * allows the Cython to compile without having to propagate the `WITH_UCX`
    * directive to that layer.
    * @param handle the cuml handle to inject a new communicator instance into
@@ -36,12 +37,19 @@ bool ucx_enabled();
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
    */
-void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
-                     void *eps, int size, int rank);
+void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
+
+#ifdef WITH_UCX
+                     void *ucp_worker, void *eps,
+#else
+                     void *, void *,
+#endif
+                     int size, int rank);
 
 /**
-   * @brief This function follows the design of the wrapper function above
-   * to decouple the python layer injection functions from the C++ layer functions.
+   * @brief This function follows the design of the wrapper function in
+   * cpp/comms/std/include/cuML_comms.hpp to decouple the Python layer
+   * injection functions from the C++ layer functions.
    * @param handle the cuml handle to inject a new communicator instance into
    * @param comm initialized nccl communicator
    * @param size the size of the cluster (number of elements in eps)
