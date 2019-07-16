@@ -116,6 +116,7 @@ void get_best_split_regression(
     n_nodes_before += pow(2, i);
   }
   if (use_gpu_flag) {
+    
   } else {
     MLCommon::updateHost(mseout, d_mseout, 2 * predcount, tempmem->stream);
     MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
@@ -135,6 +136,8 @@ void get_best_split_regression(
       T bestmean_right = 0;
       unsigned int bestcount_left = 0;
       unsigned int bestcount_right = 0;
+      T parent_mean = meanstate[parentid];
+      unsigned int parent_count = countstate[parentid];
       for (int colid = 0; colid < ncols; colid++) {
         int coloff_mse = colid * nbins * 2 * n_nodes;
         int coloff_pred = colid * nbins * n_nodes;
@@ -143,9 +146,7 @@ void get_best_split_regression(
           int binoff_pred = binid;
           unsigned int tmp_lnrows = 0;
           unsigned int tmp_rnrows = 0;
-
-          T parent_mean = meanstate[parentid];
-          unsigned int parent_count = countstate[parentid];
+	  
           tmp_lnrows = count[coloff_pred + binoff_pred + nodeoff_pred];
           tmp_rnrows = parent_count - tmp_lnrows;
           unsigned int totalrows = tmp_lnrows + tmp_rnrows;
