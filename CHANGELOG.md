@@ -45,6 +45,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 
@@ -107,6 +108,7 @@
 - PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 - PR #806: Add a seed for sklearn model in RF test file
+- PR #843: Rf quantile fix
 
 # cuML 0.7.0 (10 May 2019)
 

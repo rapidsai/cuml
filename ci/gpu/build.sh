@@ -42,7 +42,18 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install cudf=${CUDF_VERSION} rmm=${RMM_VERSION} nvstrings=${NVSTRINGS_VERSION} lapack cmake==3.14.3 umap-learn libclang cupy
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      cudf=${CUDF_VERSION} \
+      rmm=${RMM_VERSION} \
+      nvstrings=${NVSTRINGS_VERSION} \
+      lapack cmake==3.14.3 \
+      umap-learn \
+      libclang \
+      nccl>=2.4 \
+      dask \
+      distributed \
+      dask-cudf \
+      dask-cuda
 
 logger "Check versions..."
 python --version
