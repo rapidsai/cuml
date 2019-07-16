@@ -8,18 +8,23 @@
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #789: prims: sampling without replacement
+- PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #829: C++: enable nvtx ranges
+- PR #837: treelite for decision forest exchange format
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
-
 - PR #807: Added development conda yml files
+- PR #840: Require cmake >= 3.14
+- PR #832: Stateless Decision Tree and Random Forest API
 
 ## Bug Fixes
 
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
+- PR #849: PCA no attribute trans_input_ transform bug fix
 
 # cuML 0.8.0 (27 June 2019)
 
@@ -72,6 +77,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests.
 - PR #741: Update API docs for 0.8
+- PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
 
