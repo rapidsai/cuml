@@ -303,3 +303,79 @@ __global__ void get_mse_kernel_global(
     }
   }
 }
+
+template <typename T>
+__global__ void get_best_split_regression_kernel(
+  const T *__restrict__ mseout, const T *__restrict__ predout,
+  const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
+  const unsigned int *__restrict__ parentcount,
+  const T *__restrict__ parentmetric, const unsigned int *__restrict__ colids,
+  const int nbins, const int ncols, const int n_nodes, const int min_rpn,
+  float *outgain, int *best_col_id, int *best_bin_id, T *child_mean,
+  unsigned int *child_count, T *child_best_metric) {
+  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  for (unsigned int nodeid = blockIdx.x; nodeid < n_nodes;
+       nodeid += gridDim.x) {
+    T parent_mean = parentmean[nodeid];
+    unsigned int parent_count = parentcount[nodeid];
+    T parent_metric = parentmetric[nodeid];
+    int nodeoffset = nodeid * nbins;
+    GainIdxPair tid_pair;
+    tid_pair.gain = 0.0;
+    tid_pair.idx = -1;
+    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+      int coloffset = ((int)(id / nbins)) * nbins * n_nodes;
+      int binoffset = id % nbins;
+      int threadoffset = coloffset + binoffset + nodeoffset;
+      unsigned int tmp_lnrows = count[threadoffset];
+      unsigned int tmp_rnrows = parent_count - tmp_lnrows;
+      unsigned int totalrows = tmp_lnrows + tmp_rnrows;
+      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn) continue;
+      T tmp_meanleft = predout[threadoffset];
+      T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
+      tmp_meanleft /= tmp_lnrows;
+      tmp_meanright /= tmp_rnrows;
+      T tmp_mse_left = mseout[2 * threadoffset] / tmp_lnrows;
+      T tmp_mse_right = mseout[2 * threadoffset + 1] / tmp_rnrows;
+
+      T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
+                   (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
+      float info_gain = (float)(parent_metric - impurity);
+
+      if (info_gain > tid_pair.gain) {
+        tid_pair.gain = info_gain;
+        tid_pair.idx = id;
+      }
+    }
+    __syncthreads();
+    GainIdxPair ans =
+      BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+      outgain[nodeid] = ans.gain;
+      best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
+      best_bin_id[nodeid] = ans.idx % nbins;
+    }
+    int coloffset = ((int)(ans.idx / nbins)) * nbins * n_nodes;
+    int binoffset = ans.idx % nbins;
+    int threadoffset = coloffset + binoffset + nodeoffset;
+    if (ans.idx != -1) {
+      if (threadIdx.x == 0) {
+        unsigned int tmp_lnrows = count[threadoffset];
+        child_count[2 * nodeid] = tmp_lnrows;
+        unsigned int tmp_rnrows = parent_count - tmp_lnrows;
+        child_count[2 * nodeid + 1] = tmp_rnrows;
+        T tmp_meanleft = predout[threadoffset];
+        child_mean[2 * nodeid] = tmp_meanleft / tmp_lnrows;
+        child_mean[2 * nodeid + 1] =
+          (parent_mean * parent_count - tmp_meanleft) / tmp_rnrows;
+        child_best_metric[2 * nodeid] = mseout[2 * threadoffset] / tmp_lnrows;
+        child_best_metric[2 * nodeid + 1] =
+          mseout[2 * threadoffset + 1] / tmp_rnrows;
+      }
+    }
+  }
+}

@@ -160,28 +160,6 @@ struct EntropyDevFunctor {
   }
 };
 
-struct GainIdxPair {
-  float gain;
-  int idx;
-};
-template <typename KeyReduceOp>
-struct ReducePair {
-  KeyReduceOp op;
-  __device__ __forceinline__ ReducePair() {}
-  __device__ __forceinline__ ReducePair(KeyReduceOp op) : op(op) {}
-  __device__ __forceinline__ GainIdxPair operator()(const GainIdxPair& a,
-                                                    const GainIdxPair& b) {
-    GainIdxPair retval;
-    retval.gain = op(a.gain, b.gain);
-    if (retval.gain == a.gain) {
-      retval.idx = a.idx;
-    } else {
-      retval.idx = b.idx;
-    }
-    return retval;
-  }
-};
-
 template <typename T, typename F>
 __global__ void get_best_split_classification_kernel(
   const unsigned int* __restrict__ hist,
