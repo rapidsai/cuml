@@ -89,8 +89,13 @@ struct TemporaryMemory {
 
   MLCommon::device_buffer<T> *d_parent_pred = nullptr;
   MLCommon::device_buffer<unsigned int> *d_parent_count = nullptr;
+  MLCommon::device_buffer<T> *d_child_pred = nullptr;
+  MLCommon::device_buffer<unsigned int> *d_child_count = nullptr;
   MLCommon::device_buffer<unsigned int> *d_count = nullptr;
   MLCommon::host_buffer<unsigned int> *h_count = nullptr;
+  MLCommon::host_buffer<T> *h_child_pred = nullptr;
+  MLCommon::host_buffer<unsigned int> *h_child_count = nullptr;
+  
   int max_nodes_class = 0;
   int max_nodes_pred = 0;
   int max_nodes_mse = 0;

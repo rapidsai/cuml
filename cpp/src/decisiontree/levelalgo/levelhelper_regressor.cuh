@@ -108,15 +108,79 @@ void get_best_split_regression(
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
-  bool use_gpu_flag = false;
-  if (n_nodes > 512) use_gpu_flag = false;
+  bool use_gpu_flag = true;
+  if (n_nodes > 512) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0.0);
   size_t n_nodes_before = 0;
   for (int i = 0; i <= (depth - 1); i++) {
     n_nodes_before += pow(2, i);
   }
   if (use_gpu_flag) {
-    
+    int threads = 64;
+
+    T *h_parentmetric = tempmem->h_parent_metric->data();
+    float *h_outgain = tempmem->h_outgain->data();
+    T *h_childmean = tempmem->h_child_pred->data();
+    unsigned int *h_childcount = tempmem->h_child_count->data();
+    T *h_childmetric = tempmem->h_child_best_metric->data();
+
+    T *d_parentmean = tempmem->d_parent_pred->data();
+    unsigned int *d_parentcount = tempmem->d_parent_count->data();
+    T *d_parentmetric = tempmem->d_parent_metric->data();
+    float *d_outgain = tempmem->d_outgain->data();
+    T *d_childmean = tempmem->d_child_pred->data();
+    unsigned int *d_childcount = tempmem->d_child_count->data();
+    T *d_childmetric = tempmem->d_child_best_metric->data();
+
+    for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+      int nodeid = nodelist[nodecnt];
+      h_parentmetric[nodecnt] =
+        flattree[nodeid + n_nodes_before].best_metric_val;
+    }
+
+    //Here parent mean and count are already updated
+    MLCommon::updateDevice(d_parentmetric, h_parentmetric, n_nodes,
+                           tempmem->stream);
+
+    get_best_split_regression_kernel<<<n_nodes, threads, 0, tempmem->stream>>>(
+      d_mseout, d_predout, d_count, d_parentmean, d_parentcount, d_parentmetric,
+      d_colids, nbins, ncols, n_nodes, min_rpn, d_outgain, d_split_colidx,
+      d_split_binidx, d_childmean, d_childcount, d_childmetric);
+    CUDA_CHECK(cudaGetLastError());
+
+    MLCommon::updateHost(h_childmetric, d_childmetric, 2 * n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
+    MLCommon::updateHost(h_childmean, d_childmean, 2 * n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(h_childcount, d_childcount, 2 * n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
+                         tempmem->stream);
+    MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
+                         tempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
+    for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
+      int nodeid = nodelist[nodecnt];
+      gain[nodeid] = h_outgain[nodecnt];
+      meanstate[2 * nodeid + n_nodes_before + pow(2, depth)] =
+        h_childmean[nodecnt * 2];
+      meanstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
+        h_childmean[nodecnt * 2 + 1];
+      countstate[2 * nodeid + n_nodes_before + pow(2, depth)] =
+        h_childcount[nodecnt * 2];
+      countstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
+        h_childcount[nodecnt * 2 + 1];
+      flattree[nodeid + n_nodes_before].colid = split_colidx[nodecnt];
+      flattree[nodeid + n_nodes_before].quesval =
+        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
+        h_childmetric[nodecnt * 2];
+      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
+        .best_metric_val = h_childmetric[nodecnt * 2 + 1];
+    }
+
   } else {
     MLCommon::updateHost(mseout, d_mseout, 2 * predcount, tempmem->stream);
     MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
@@ -146,7 +210,7 @@ void get_best_split_regression(
           int binoff_pred = binid;
           unsigned int tmp_lnrows = 0;
           unsigned int tmp_rnrows = 0;
-	  
+
           tmp_lnrows = count[coloff_pred + binoff_pred + nodeoff_pred];
           tmp_rnrows = parent_count - tmp_lnrows;
           unsigned int totalrows = tmp_lnrows + tmp_rnrows;
