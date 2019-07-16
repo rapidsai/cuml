@@ -85,7 +85,7 @@ __global__ void batch_tree_reorg_kernel(predict_params ps) {
     infer_one_tree<NITEMS>(ps.nodes, j, sdata, ps.depth, ps.ntrees, ps.cols,
                            out);
   }
-  typedef cub::BlockReduce<vec<NITEMS>, TPB> BlockReduce;
+  typedef cub::BlockReduce<vec<NITEMS>, FIL_TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage tmp_storage;
   out = BlockReduce(tmp_storage).Sum(out);
   if (threadIdx.x == 0) {
@@ -99,25 +99,29 @@ __global__ void batch_tree_reorg_kernel(predict_params ps) {
 const static int MAX_NITEMS = 4;
 void batch_tree_reorg(const predict_params& ps, cudaStream_t stream) {
   int nitems = ps.max_shm / (sizeof(float) * ps.cols);
-  ASSERT(nitems > 0, "p.cols == %d: too many columns", ps.cols);
+  if (nitems == 0) {
+    int max_cols = ps.max_shm / sizeof(float);
+    ASSERT(false, "p.cols == %d: too many features, only %d allowed", ps.cols,
+           max_cols);
+  }
   nitems = std::min(nitems, MAX_NITEMS);
   int nblks = ceildiv(int(ps.rows), nitems);
   int shm_sz = nitems * sizeof(float) * ps.cols;
   switch (nitems) {
     case 1:
-      batch_tree_reorg_kernel<1><<<nblks, TPB, shm_sz, stream>>>(ps);
+      batch_tree_reorg_kernel<1><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 2:
-      batch_tree_reorg_kernel<2><<<nblks, TPB, shm_sz, stream>>>(ps);
+      batch_tree_reorg_kernel<2><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 3:
-      batch_tree_reorg_kernel<3><<<nblks, TPB, shm_sz, stream>>>(ps);
+      batch_tree_reorg_kernel<3><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 4:
-      batch_tree_reorg_kernel<4><<<nblks, TPB, shm_sz, stream>>>(ps);
+      batch_tree_reorg_kernel<4><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     default:
-      ASSERT(false, "should not reach here");
+      ASSERT(false, "internal error: nitems > 4");
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

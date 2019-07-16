@@ -77,24 +77,22 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void TearDown() override {
-    fil::free(handle, forest);
-
-    delete[] def_lefts_h;
-    delete[] is_leafs_h;
-
     CUDA_CHECK(cudaFree(preds_d));
     CUDA_CHECK(cudaFree(want_preds_d));
-    CUDA_CHECK(cudaFree(mask_d));
     CUDA_CHECK(cudaFree(data_d));
-    CUDA_CHECK(cudaFree(is_leafs_d));
-    CUDA_CHECK(cudaFree(def_lefts_d));
-    CUDA_CHECK(cudaFree(fids_d));
-    CUDA_CHECK(cudaFree(thresholds_d));
-    CUDA_CHECK(cudaFree(weights_d));
   }
 
   void generate_forest() {
     size_t num_nodes = forest_num_nodes();
+
+    // helper data
+    float* weights_d = nullptr;
+    float* thresholds_d = nullptr;
+    int* fids_d = nullptr;
+    bool* def_lefts_d = nullptr;
+    bool* is_leafs_d = nullptr;
+    bool* def_lefts_h = nullptr;
+    bool* is_leafs_h = nullptr;
 
     // allocate GPU data
     allocate(weights_d, num_nodes);
@@ -122,6 +120,7 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
     updateHost(fids_h.data(), fids_d, num_nodes, stream);
     updateHost(def_lefts_h, def_lefts_d, num_nodes, stream);
     updateHost(is_leafs_h, is_leafs_d, num_nodes, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // mark leaves
     for (size_t i = 0; i < ps.num_trees; ++i) {
@@ -139,13 +138,25 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
       fil::dense_node_init(&nodes[i], weights_h[i], thresholds_h[i], fids_h[i],
                            def_lefts_h[i], is_leafs_h[i]);
     }
+
+    // clean up
+    delete[] def_lefts_h;
+    delete[] is_leafs_h;
+    CUDA_CHECK(cudaFree(is_leafs_d));
+    CUDA_CHECK(cudaFree(def_lefts_d));
+    CUDA_CHECK(cudaFree(fids_d));
+    CUDA_CHECK(cudaFree(thresholds_d));
+    CUDA_CHECK(cudaFree(weights_d));
   }
 
   void generate_data() {
+    // allocate arrays
     size_t num_data = ps.rows * ps.cols;
     allocate(data_d, num_data);
+    bool* mask_d = nullptr;
     allocate(mask_d, num_data);
 
+    // generate random data
     Random::Rng r(ps.seed);
     r.uniform(data_d, num_data, -1.0f, 1.0f, stream);
     r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
@@ -154,13 +165,18 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
       data_d, mask_d, num_data, std::numeric_limits<float>::quiet_NaN());
     CUDA_CHECK(cudaPeekAtLastError());
 
+    // copy to host
     data_h.resize(num_data);
     updateHost(data_h.data(), data_d, num_data, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    // clean up
+    CUDA_CHECK(cudaFree(mask_d));
   }
 
   void predict_on_cpu() {
     // predict on host
-    want_preds_h.resize(ps.rows);
+    std::vector<float> want_preds_h(ps.rows);
     int num_nodes = tree_num_nodes();
     for (int i = 0; i < ps.rows; ++i) {
       float pred = 0.0f;
@@ -177,6 +193,7 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
     // copy to GPU
     allocate(want_preds_d, ps.rows);
     updateDevice(want_preds_d, want_preds_h.data(), ps.rows, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void predict_on_gpu() {
@@ -189,11 +206,16 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
     fil_ps.algo = ps.algo;
     fil_ps.output = ps.output;
     fil_ps.threshold = ps.threshold;
+    fil::forest_t forest = nullptr;
     fil::init_dense(handle, &forest, &fil_ps);
 
     // predict
     allocate(preds_d, ps.rows);
     fil::predict(handle, forest, preds_d, data_d, ps.rows);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    // cleanup
+    fil::free(handle, forest);
   }
 
   void compare() {
@@ -221,13 +243,9 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
 
   int forest_num_nodes() { return tree_num_nodes() * ps.num_trees; }
 
-  // FIL
-  fil::forest_t forest = nullptr;
-
   // predictions
   float* preds_d = nullptr;
   float* want_preds_d = nullptr;
-  std::vector<float> want_preds_h;
 
   // input data
   float* data_d = nullptr;
@@ -235,16 +253,6 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
 
   // forest data
   std::vector<fil::dense_node_t> nodes;
-
-  // helper data
-  bool* mask_d = nullptr;
-  float* weights_d = nullptr;
-  float* thresholds_d = nullptr;
-  int* fids_d = nullptr;
-  bool* def_lefts_d = nullptr;
-  bool* is_leafs_d = nullptr;
-  bool* def_lefts_h = nullptr;
-  bool* is_leafs_h = nullptr;
 
   // parameters
   cudaStream_t stream;
