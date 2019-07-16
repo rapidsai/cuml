@@ -24,6 +24,7 @@ import cuml.common.handle
 import cuml.common.cuda
 import inspect
 
+
 class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
