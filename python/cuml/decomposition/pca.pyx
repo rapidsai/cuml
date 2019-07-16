@@ -564,8 +564,6 @@ class PCA(Base):
             get_cudf_column_ptr(self.singular_values_)
         cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
-
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
             pcaTransform(handle_[0],
