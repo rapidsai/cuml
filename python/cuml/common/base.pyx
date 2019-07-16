@@ -80,7 +80,7 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
-    
+        
     def __repr__(self):
         """
         Pretty prints the arguments of a class using Sklearn standard :)
@@ -88,7 +88,7 @@ class Base:
         cdef list signature = inspect.getargspec(self.__init__).args
         if signature[0] == 'self':
             del signature[0]
-            
+        
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
         cdef str key
