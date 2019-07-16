@@ -16,7 +16,7 @@
 
 import cupy as cp
 import cudf
-import numpy as np
+# import numpy as np
 import warnings
 
 from cuml.thirdparty._sklearn._utils import (

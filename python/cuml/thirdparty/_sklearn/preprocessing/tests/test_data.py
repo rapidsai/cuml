@@ -18,53 +18,62 @@ import pytest
 import cupy as cp
 import cudf
 import numpy as np
-from cupyx.scipy import sparse
 from numbers import Number
 
 from sklearn.utils import gen_batches
 
-# from cuml.test.utils import assert_raise_message
-# from cuml.test.utils import assert_almost_equal
-# from cuml.test.utils import clean_warning_registry
-# from cuml.test.utils import assert_array_almost_equal
-# from cuml.test.utils import assert_array_equal
-# from cuml.test.utils import assert_greater_equal
-# from cuml.test.utils import assert_less_equal
-# from cuml.test.utils import assert_raises
-# from cuml.test.utils import assert_raises_regex
-from sklearn.utils.testing import assert_warns_message
-from sklearn.utils.testing import assert_no_warnings
-# from cuml.test.utils import assert_allclose
-# from cuml.test.utils import assert_allclose_dense_sparse
-from sklearn.utils.testing import skip_if_32bit
+# from sklearn.utils.testing import assert_raise_message
+# from sklearn.utils.testing import assert_almost_equal
+# from sklearn.utils.testing import clean_warning_registry
+# from sklearn.utils.testing import assert_array_almost_equal
+# from sklearn.utils.testing import assert_array_equal
+from sklearn.utils.testing import assert_greater_equal
+from sklearn.utils.testing import assert_less_equal
+# from sklearn.utils.testing import assert_warns_message
+# from sklearn.utils.testing import assert_no_warnings
+from sklearn.utils.testing import assert_allclose
+# from sklearn.utils.testing import assert_allclose_dense_sparse
 from sklearn.utils.testing import assert_array_less
 
 
 # from sklearn.utils.sparsefuncs import mean_variance_axis
 from data import _handle_zeros_in_scale
 from data import to_cupy
-from data import Binarizer
-from data import KernelCenterer
-from data import Normalizer
-from data import normalize
+
 from data import StandardScaler
 from data import scale
 from data import MinMaxScaler
 from data import minmax_scale
+# from data import Binarizer
+# from data import KernelCenterer
+# from data import Normalizer
+# from data import normalize
+# from data import MaxAbsScaler
+# from data import maxabs_scale
+# from data import RobustScaler
+# from data import robust_scale
+# from data import add_dummy_feature
+
 # from data import QuantileTransformer
 # from data import quantile_transform
-from data import MaxAbsScaler
-from data import maxabs_scale
-from data import RobustScaler
-from data import robust_scale
-from data import add_dummy_feature
 # from data import PolynomialFeatures
 # from data import PowerTransformer
 # from data import power_transform
 
 from sklearn import datasets
-
 iris = datasets.load_iris()
+
+# Make some data to be used many times
+rng = cp.random.RandomState(0)
+n_features = 30
+n_samples = 1000
+offsets = rng.uniform(-1, 1, size=n_features)
+scales = rng.uniform(1, 10, size=n_features)
+X_2d = rng.randn(n_samples, n_features) * scales + offsets
+X_1row = X_2d[0, :].reshape(1, n_features)
+X_1col = X_2d[:, 0].reshape(n_samples, 1)
+X_1row_cudf = cudf.DataFrame.from_gpu_matrix(X_1row.copy())
+X_1col_cudf = cudf.DataFrame.from_gpu_matrix(X_1col.copy())
 
 
 def assert_array_equal(a, b, tol=1e-4, with_sign=True):
@@ -81,7 +90,7 @@ def to_cparray(x):
     elif isinstance(x, cp.ndarray):
         return x
     elif isinstance(x, cudf.DataFrame):
-        return cp.array(x.to_gpu_matrix())
+        return cp.array(x.as_gpu_matrix())
     elif isinstance(x, (cudf.Series, list)):
         return cp.array(x)
     else:
@@ -95,19 +104,6 @@ def assert_correct_incr(i, batch_start, batch_stop, n, chunk_size,
     else:
         assert_array_equal(i * chunk_size + (batch_stop - batch_start),
                      n_samples_seen)
-
-
-# Make some data to be used many times
-rng = cp.random.RandomState(0)
-n_features = 30
-n_samples = 1000
-offsets = rng.uniform(-1, 1, size=n_features)
-scales = rng.uniform(1, 10, size=n_features)
-X_2d = rng.randn(n_samples, n_features) * scales + offsets
-X_1row = X_2d[0, :].reshape(1, n_features)
-X_1col = X_2d[:, 0].reshape(n_samples, 1)
-X_1row_cudf = cudf.DataFrame.from_gpu_matrix(X_1row.copy())
-X_1col_cudf = cudf.DataFrame.from_gpu_matrix(X_1col.copy())
 
 
 def test_standard_scaler_1d():
@@ -346,14 +342,14 @@ def test_standard_scaler_partial_fit():
         scaler_incr = StandardScaler().partial_fit(X[batch0])
         if chunk_size == 1:
             assert_array_equal(cp.zeros(n_features, dtype=cp.float64),
-                                      scaler_incr.var_)
+                               scaler_incr.var_)
             assert_array_equal(cp.ones(n_features, dtype=cp.float64),
-                                      scaler_incr.scale_)
+                               scaler_incr.scale_)
         else:
             assert_array_equal(cp.var(X[batch0], axis=0),
-                                      scaler_incr.var_)
+                               scaler_incr.var_)
             assert_array_equal(cp.std(X[batch0], axis=0),
-                                      scaler_incr.scale_)  # no constants
+                               scaler_incr.scale_)  # no constants
 
         # Test std until the end of partial fits, and
         scaler_batch = StandardScaler().fit(X)
@@ -504,3 +500,46 @@ def test_min_max_scaler_zero_variance_features():
     assert_array_equal(X_trans, X_expected_0_1)
     X_trans = minmax_scale(X, feature_range=(1, 2))
     assert_array_equal(X_trans, X_expected_1_2)
+
+
+def test_minmax_scale_axis1():
+    X = cp.array(iris.data)
+    X_trans = minmax_scale(X, axis=1)
+    assert_array_equal(cp.min(X_trans, axis=1), 0)
+    assert_array_equal(cp.max(X_trans, axis=1), 1)
+
+
+def test_min_max_scaler_1d():
+    # Test scaling of dataset along single axis
+    for X in [X_1row, X_1col, X_1row_cudf, X_1col_cudf]:
+
+        scaler = MinMaxScaler(copy=True)
+        X_scaled = scaler.fit(X).transform(X)
+        X_scaled, _ = to_cupy(X_scaled)
+
+        if X.shape[0] == 1:
+            assert_array_equal(X_scaled.min(axis=0), cp.zeros(n_features))
+            assert_array_equal(X_scaled.max(axis=0), cp.zeros(n_features))
+        else:
+            assert_array_equal(X_scaled.min(axis=0), .0)
+            assert_array_equal(X_scaled.max(axis=0), 1.)
+        assert scaler.n_samples_seen_ == X.shape[0]
+
+        # check inverse transform
+        X_scaled_back = scaler.inverse_transform(X_scaled)
+        assert_array_equal(X_scaled_back, X)
+
+    # Constant feature
+    X = cp.ones((5, 1))
+    scaler = MinMaxScaler()
+    X_scaled = scaler.fit(X).transform(X)
+    assert_greater_equal(cp.asnumpy(X_scaled.min()), 0.)
+    assert_less_equal(cp.asnumpy(X_scaled.max()), 1.)
+    assert scaler.n_samples_seen_ == X.shape[0]
+
+    # Function interface
+    X_1d = X_1row.ravel()
+    min_ = X_1d.min()
+    max_ = X_1d.max()
+    assert_array_equal((X_1d - min_) / (max_ - min_),
+                       minmax_scale(X_1d, copy=True))
