@@ -273,9 +273,67 @@ void ml_algo(const ML::cumlHandle& handle, ...)
 }
 ```
 
-## Multi GPU
+## Multi-GPU
 
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any dependencies to any communication library. A multi GPU implementation can assume the following:
-* The user of cuML has initialized MPI and created a communicator that can be used by the ML algorithm.
-* All processes in the MPI communicator call into the ML algorithm cooperatively.
-* The used MPI is CUDA-aware, i.e. it is possible to directly pass device pointers to MPI
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](src_prims/src/common/cuml_comms_int.hpp) for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`.
+
+E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an initialized instance of `MLCommon:cumlCommunicator` into a `cumlHandle`:
+
+```cpp
+#include <mpi.h>
+#include <cuML.hpp>
+#include <cuML_comms.hpp>
+#include <mlalgo/mlalgo.hpp>
+...
+int main(int argc, char * argv[])
+{
+    MPI_Init(&argc, &argv);
+    int rank = -1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int local_rank = -1;
+    {
+        MPI_Comm local_comm;
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &local_comm);
+
+        MPI_Comm_rank(local_comm, &local_rank);
+
+        MPI_Comm_free(&local_comm);
+    }
+
+    cudaSetDevice(local_rank);
+
+    MPI_Comm cuml_mpi_comm;
+    MPI_Comm_dup(MPI_COMM_WORLD, &cuml_mpi_comm);
+
+    {
+        ML::cumlHandle cumlHandle;
+        inject_comms(cumlHandle, cuml_mpi_comm);
+        
+        ...
+        
+        ML::mlalgo(cumlHandle, ... );
+    }
+
+    MPI_Comm_free(&cuml_mpi_comm);
+
+    MPI_Finalize();
+    return 0;
+}
+```
+
+A cuML developer can assume the following:
+ * A instance of `MLCommon::cumlCommunicator` was correctly initialized.
+ * All processes that are part of `MLCommon::cumlCommunicator` call into the ML algorithm cooperatively.
+
+The initialized instance of `MLCommon::cumlCommunicator` can be accessed from the `ML::cumlHandle_impl` instance:
+
+```cpp
+void foo(const ML::cumlHandle_impl& h, ...)
+{
+    const MLCommon::cumlCommunicator& communicator = h.getCommunicator();
+    const int rank = communicator.getRank();
+    const int size = communicator.getSize();
+    ...
+}
+```
