@@ -224,14 +224,14 @@ __global__ void get_pred_kernel_global(
 
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
+    //Check if leaf
+    if (local_flag != LEAF) {
+      local_label = labels[tid];
+      local_cnt = sample_cnt[tid];
 
-    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-      unsigned int colid = colids[colcnt];
-      unsigned int coloffset = colcnt * nbins * n_nodes;
-      //Check if leaf
-      if (local_flag != LEAF) {
+      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+        unsigned int colid = colids[colcnt];
+        unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
 
 #pragma unroll(8)
@@ -274,13 +274,10 @@ __global__ void get_mse_kernel_global(
     if (local_flag != LEAF) {
       parent_count = parentcount[local_flag];
       parent_pred = parentpred[local_flag];
-    }
 
-    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-      unsigned int colid = colids[colcnt];
-      unsigned int coloff = colcnt * nbins * n_nodes;
-      //Check if leaf
-      if (local_flag != LEAF) {
+      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+        unsigned int colid = colids[colcnt];
+        unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
