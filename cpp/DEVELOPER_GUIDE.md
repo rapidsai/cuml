@@ -273,11 +273,11 @@ void ml_algo(const ML::cumlHandle& handle, ...)
 }
 ```
 
-## Multi GPU
+## Multi-GPU
 
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi GPU implementation can use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](src_prims/src/common/cuml_comms_int.hpp) for inter rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`.
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](src_prims/src/common/cuml_comms_int.hpp) for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`.
 
-E.g. with a CUDA-aware MPI a cuML algorithm could use code like this to inject an initialized instance of `MLCommon:cumlCommunicator` into a `cumlHandle`:
+E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an initialized instance of `MLCommon:cumlCommunicator` into a `cumlHandle`:
 
 ```cpp
 #include <mpi.h>
@@ -323,7 +323,7 @@ int main(int argc, char * argv[])
 ```
 
 A cuML developer can assume the following:
- * A instance of `MLCommon::cumlCommunicator` was correctly initialized  
+ * A instance of `MLCommon::cumlCommunicator` was correctly initialized.
  * All processes that are part of `MLCommon::cumlCommunicator` call into the ML algorithm cooperatively.
 
 The initialized instance of `MLCommon::cumlCommunicator` can be accessed from the `ML::cumlHandle_impl` instance:
