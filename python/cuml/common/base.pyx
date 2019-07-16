@@ -92,13 +92,11 @@ class Base:
         cdef str string = self.__class__.__name__ + '('
         cdef str key
         for key in signature:
-            try:
-                if type(state[key]) is str:
-                    string += "{}='{}', ".format(key, state[key])
-                else:
-                    string += "{}={}, ".format(key, str(state[key]))
-            except:
-                string += ""
+            if type(state[key]) is str:
+                string += "{}='{}', ".format(key, state[key])
+            else:
+                if hasattr(state[key], "__str__"):
+                    string += "{}={}, ".format(key, state[key])
         string = string.rstrip(', ')
         return string + ')'
 
