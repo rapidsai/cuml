@@ -224,17 +224,17 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
 }
 
 void cumlStdCommunicator_impl::initialize() {
-  cudaStreamCreate(&stream);
+  CUDA_CHECK(cudaStreamCreate(&_stream));
 
-  CUDA_CHECK(cudaMalloc((void **)&sendbuff, sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **)&recvbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&_sendbuff, sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&_recvbuff, sizeof(int)));
 }
 
 cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
-  cudaStreamDestroy(stream);
+  CUDA_CHECK_NO_THROW(cudaStreamDestroy(_stream));
 
-  CUDA_CHECK_NO_THROW(cudaFree(sendbuff));
-  CUDA_CHECK_NO_THROW(cudaFree(recvbuff));
+  CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
+  CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 }
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }
@@ -250,13 +250,13 @@ cumlStdCommunicator_impl::commSplit(int color, int key) const {
 }
 
 void cumlStdCommunicator_impl::barrier() const {
-  CUDA_CHECK(cudaMemsetAsync(sendbuff, 0, sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(recvbuff, 0, sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(_sendbuff, 1, sizeof(int), _stream));
+  CUDA_CHECK(cudaMemsetAsync(_recvbuff, 1, sizeof(int), _stream));
 
-  allreduce(sendbuff, recvbuff, 1, MLCommon::cumlCommunicator::INT,
-            MLCommon::cumlCommunicator::SUM, stream);
+  allreduce(_sendbuff, _recvbuff, 1, MLCommon::cumlCommunicator::INT,
+            MLCommon::cumlCommunicator::SUM, _stream);
 
-  cudaStreamSynchronize(stream);
+  cudaStreamSynchronize(_stream);
 }
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
@@ -277,6 +277,8 @@ void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
 
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
                                      int tag, request_t *request) const {
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
@@ -290,12 +292,12 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
-
-  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
@@ -309,12 +311,12 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
-
-  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::waitall(int count,
                                        request_t array_of_requests[]) const {
+  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
@@ -331,27 +333,22 @@ void cumlStdCommunicator_impl::waitall(int count,
     _requests_in_flight.erase(req_it);
   }
 
-  std::vector<struct ucx_context *> done_requests;
-  done_requests.reserve(count);
-
-  while (done_requests.size() < count) {
-    for (struct ucx_context *req : requests) {
+  while (requests.size() > 0) {
+    for (std::vector<struct ucx_context *>::iterator it = requests.begin();
+         it != requests.end();) {
       ucp_worker_progress(_ucp_worker);
 
-      auto req_it = std::find(done_requests.begin(), done_requests.end(), req);
-      if (req->completed == 1 && req_it == done_requests.end())
-        done_requests.push_back(req);
+      auto req = *it;
+      if (req->completed == 1) {
+        req->completed = 0;
+        if (req->needs_release) ucp_request_free(req);
+        it = requests.erase(it);
+      } else
+        ++it;
     }
   }
 
-  for (struct ucx_context *req : done_requests) {
-    req->completed = 0;
-    if (req->needs_release) ucp_request_free(req);
-  }
-
 #endif
-
-  ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
 }
 
 void cumlStdCommunicator_impl::allreduce(const void *sendbuff, void *recvbuff,

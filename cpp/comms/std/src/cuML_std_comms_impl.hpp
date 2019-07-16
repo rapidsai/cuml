@@ -115,15 +115,15 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
  private:
   ncclComm_t _nccl_comm;
-  cudaStream_t stream;
+  cudaStream_t _stream;
 
-  int *sendbuff, *recvbuff;
+  int *_sendbuff, *_recvbuff;
 
   int _size;
   int _rank;
 
   void initialize();
-  void get_request_id(request_t *req) const;
+  void get_request_id(request_t* req) const;
 
 #ifdef WITH_UCX
   ucp_worker_h _ucp_worker;
