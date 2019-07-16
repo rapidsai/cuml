@@ -155,12 +155,13 @@ __global__ void get_mse_kernel(
 
   if (tid < nrows) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
   }
+
   if (local_flag != LEAF) {
     parent_count = parentcount[local_flag];
     parent_pred = parentpred[local_flag];
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
   }
 
   for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
@@ -188,12 +189,12 @@ __global__ void get_mse_kernel(
         unsigned int local_count = shmem_countout[nodeoff + binid];
         if (local_data <= quesval) {
           T leftmean = local_pred / local_count;
-          atomicAdd(&shmem_mse[2 * nodeoff + binid],
+          atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
                     local_cnt * F::exec(local_label - leftmean));
         } else {
           T rightmean = parent_pred * parent_count - local_pred;
           rightmean = rightmean / (parent_count - local_count);
-          atomicAdd(&shmem_mse[2 * nodeoff + binid + 1],
+          atomicAdd(&shmem_mse[2 * (nodeoff + binid) + 1],
                     local_cnt * F::exec(local_label - rightmean));
         }
       }
@@ -289,12 +290,12 @@ __global__ void get_mse_kernel_global(
           unsigned int local_count = countout[coloff + nodeoff + binid];
           if (local_data <= quesval) {
             T leftmean = local_pred / local_count;
-            atomicAdd(&mseout[2 * coloff + 2 * nodeoff + binid],
+            atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
                       local_cnt * F::exec(local_label - leftmean));
           } else {
             T rightmean = parent_pred * parent_count - local_pred;
             rightmean = rightmean / (parent_count - local_count);
-            atomicAdd(&mseout[2 * coloff + 2 * nodeoff + binid + 1],
+            atomicAdd(&mseout[2 * (coloff + nodeoff + binid) + 1],
                       local_cnt * F::exec(local_label - rightmean));
           }
         }

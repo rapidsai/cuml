@@ -233,24 +233,26 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   totalmem += nbins * ncols * sizeof(T);
   //Regression
   if (typeid(L) == typeid(T)) {
-    d_mseout = new MLCommon::device_buffer<T>(ml_handle.getDeviceAllocator(),
-                                              stream, 2 * maxnodes);
-    d_predout = new MLCommon::device_buffer<T>(ml_handle.getDeviceAllocator(),
-                                               stream, maxnodes);
+    d_mseout = new MLCommon::device_buffer<T>(
+      ml_handle.getDeviceAllocator(), stream, 2 * nbins * ncols * maxnodes);
+    d_predout = new MLCommon::device_buffer<T>(
+      ml_handle.getDeviceAllocator(), stream, nbins * ncols * maxnodes);
     d_count = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, maxnodes);
+      ml_handle.getDeviceAllocator(), stream, nbins * ncols * maxnodes);
     d_parent_pred = new MLCommon::device_buffer<T>(
       ml_handle.getDeviceAllocator(), stream, maxnodes);
     d_parent_count = new MLCommon::device_buffer<unsigned int>(
       ml_handle.getDeviceAllocator(), stream, maxnodes);
-    h_mseout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                            stream, 2 * maxnodes);
+    h_mseout = new MLCommon::host_buffer<T>(
+      ml_handle.getHostAllocator(), stream, 2 * nbins * ncols * maxnodes);
     h_predout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                             stream, maxnodes);
+                                             stream, nbins * ncols * maxnodes);
     h_count = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, maxnodes);
-    totalmem += 4 * maxnodes * sizeof(T);
-    totalmem += 2 * maxnodes * sizeof(unsigned int);
+      ml_handle.getHostAllocator(), stream, nbins * ncols * maxnodes);
+    totalmem += 3 * nbins * ncols * maxnodes * sizeof(T);
+    totalmem += nbins * ncols * maxnodes * sizeof(unsigned int);
+    totalmem += maxnodes * sizeof(T);
+    totalmem += maxnodes * sizeof(unsigned int);
   }
 
   //Classification
