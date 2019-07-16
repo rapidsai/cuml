@@ -90,7 +90,7 @@ def test_singlets_holtwinters(seasonal, h, datatype):
                                  seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
-    cu_pred = cu_hw.predict(1, h)
+    cu_pred = cu_hw.predict(0, h)
     sm_pred = sm_hw.forecast(h)
 
     cu_r2 = r2_score(cu_pred, test)
@@ -101,13 +101,66 @@ def test_singlets_holtwinters(seasonal, h, datatype):
 
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('datatype', [np.float64])
 @pytest.mark.parametrize('input_type', ['cudf', 'np'])
 def test_multits_holtwinters(seasonal, h, datatype, input_type):
+    global airpassengers, co2
+    airpassengers = np.asarray(airpassengers, dtype=datatype)
+    co2 = np.asarray(co2, dtype=datatype)
+
+    air_train = airpassengers[:-h]
+    air_test = airpassengers[-h:]
+    co2_train = co2[:-h]
+    co2_test = co2[-h:]
+    data = np.asarray([air_train, co2_train], dtype=datatype)
+
+    if input_type == 'cudf':
+        data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
+    cu_hw = HoltWinters(2, 12, seasonal)
+
+    sm_air_hw = ExponentialSmoothing(air_train,
+                                     seasonal=seasonal.lower(),
+                                     seasonal_periods=12)
+    sm_co2_hw = ExponentialSmoothing(co2_train,
+                                     seasonal=seasonal.lower(),
+                                     seasonal_periods=12)
+    cu_hw.fit(data)
+    sm_air_hw = sm_air_hw.fit()
+    sm_co2_hw = sm_co2_hw.fit()
+
+    cu_air_pred = cu_hw.predict(0, h)
+    cu_co2_pred = cu_hw.predict(1, h)
+    sm_air_pred = sm_air_hw.forecast(h)
+    sm_co2_pred = sm_co2_hw.forecast(h)
+
+    cu_air_r2 = r2_score(cu_air_pred, air_test)
+    cu_co2_r2 = r2_score(cu_co2_pred, co2_test)
+    sm_air_r2 = r2_score(sm_air_pred, air_test)
+    sm_co2_r2 = r2_score(sm_co2_pred, co2_test)
+
+    assert (cu_air_r2 >= sm_air_r2) or (abs(cu_air_r2 - sm_air_r2) < 2e-1)
+    assert (cu_co2_r2 >= sm_co2_r2) or (abs(cu_co2_r2 - sm_co2_r2) < 2e-1)
+
+
+@pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
+@pytest.mark.parametrize('h', [12, 24])
+@pytest.mark.parametrize('predict', [0, 2])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['cudf', 'np', 'cupy'])
+@pytest.mark.parametrize('frequency', [7, 12])
+@pytest.mark.parametrize('start_periods', [2, 6])
+def test_inputs_holtwinters(seasonal, h, predict, datatype, input_type,
+                            frequency, start_periods):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
     if input_type == 'cudf':
         data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
-
-    cu_hw = HoltWinters(3, 12, seasonal)
+    elif input_type == 'cupy':
+        try:
+            import cupy as cp
+            data = cp.asarray(data)
+        except ImportError:
+            pytest.skip("CuPy import error -- skipping test.")
+    cu_hw = HoltWinters(3, frequency, seasonal, start_periods)
     cu_hw.fit(data)
+    cu_hw.predict(predict, h)
