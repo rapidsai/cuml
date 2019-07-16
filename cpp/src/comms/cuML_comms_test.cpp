@@ -94,6 +94,7 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
           std::cout << "Rank " << communicator.getRank() << " received: " << rec
                     << std::endl;
           if (rec == -1) ret = false;
+          communicator.barrier();
         }
       }
 

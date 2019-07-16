@@ -52,11 +52,9 @@ set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 # Note this option will be removed once UCX conda package is released
 if(WITH_UCX)
 	find_package(UCX)
-	find_package(Threads REQUIRED)
-	set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${UCX_LIBRARIES} Threads::Threads)
+	set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} ${UCX_LIBRARIES})
 	include_directories(${UCX_INCLUDE_DIRS})
 	add_compile_definitions(WITH_UCX=1)
-	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread")
 endif(WITH_UCX)
 
 add_definitions(-DHAVE_NCCL)

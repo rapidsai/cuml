@@ -25,7 +25,6 @@ constexpr bool UCX_ENABLED = false;
 #endif
 
 #ifdef WITH_UCX
-#include <pthread.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 #include "ucp_helper.h"
@@ -158,11 +157,11 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
 
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 #ifdef WITH_UCX
-                    void *ucp_worker, void *eps,
+                     void *ucp_worker, void *eps,
 #else
-                    void *, void*,
+                     void *, void *,
 #endif
-                    int size, int rank) {
+                     int size, int rank) {
 
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
