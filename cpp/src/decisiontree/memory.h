@@ -99,7 +99,8 @@ struct TemporaryMemory {
   int max_nodes_class = 0;
   int max_nodes_pred = 0;
   int max_nodes_mse = 0;
-
+  int max_nodes_per_level = 0;
+  
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   int maxstr, int n_unique, int n_bins, const int split_algo,
                   int depth);

@@ -86,6 +86,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
+    ASSERT(n_nodes <= tempmem->max_nodes_per_level,
+           "Max node limit reached. Requested nodes %d > %d max nodes \n",
+           n_nodes, tempmem->max_nodes_per_level);
+
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  ncols, n_unique_labels, nbins, n_nodes,
                                  tempmem, d_histogram);
@@ -122,5 +126,5 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int i = 0; i < nleaves; i++) {
     flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
   }
-  return go_recursive<T,int>(flattree);
+  return go_recursive<T, int>(flattree);
 }
