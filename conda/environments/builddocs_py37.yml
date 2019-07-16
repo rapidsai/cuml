@@ -6,7 +6,7 @@ channels:
 dependencies:
 - cudatoolkit=10.0
 - clangdev
-- cmake>=3.13
+- cmake>=3.14
 - python>=3.7,<3.8
 - numba>=0.40
 - pandas>=0.23.4
