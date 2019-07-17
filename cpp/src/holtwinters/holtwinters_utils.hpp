@@ -28,10 +28,10 @@
   (c) = (d);
 
 template <typename Dtype>
-ML::HWStatus stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
-                                   int frequency, int start_periods,
-                                   Dtype *level, Dtype *trend, Dtype *season,
-                                   ML::SeasonalType seasonal);
+void stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
+                           int frequency, int start_periods, Dtype *level,
+                           Dtype *trend, Dtype *season,
+                           ML::SeasonalType seasonal);
 
 template <typename Dtype>
 void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
@@ -76,3 +76,14 @@ __device__ void holtwinters_finite_gradient_device(
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *g_alpha, Dtype *g_beta,
   Dtype *g_gamma, Dtype eps = 2.2204e-6);
+
+template <typename Dtype>
+void conv1d(const Dtype *input, int batch_size, const Dtype *filter,
+            int filter_size, Dtype *output, int output_size);
+template <typename Dtype>
+void season_mean(const Dtype *season, int len, int batch_size,
+                 Dtype *start_season, int frequency, int half_filter_size,
+                 ML::SeasonalType seasonal);
+template <typename Dtype>
+void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
+                Dtype *trend);

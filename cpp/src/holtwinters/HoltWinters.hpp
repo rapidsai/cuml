@@ -16,35 +16,35 @@
 
 #pragma once
 
-#define HW_SAFE_CALL(call)                                            \
-  {                                                                   \
-    do {                                                              \
-      ML::HWStatus status = call;                                     \
-      if (status != ML::HWStatus::HW_SUCCESS) {                       \
-        std::cerr << "HW error in in line " << __LINE__ << std::endl; \
-        exit(EXIT_FAILURE);                                           \
-      }                                                               \
-    } while (0);                                                      \
-  }
+// #define HW_SAFE_CALL(call)                                            \
+//   {                                                                   \
+//     do {                                                              \
+//       ML::HWStatus status = call;                                     \
+//       if (status != ML::HWStatus ::HW_SUCCESS) {                      \
+//         std::cerr << "HW error in in line " << __LINE__ << std::endl; \
+//         exit(EXIT_FAILURE);                                           \
+//       }                                                               \
+//     } while (0);                                                      \
+//   }
 
-#define CUDA_SAFE_CALL(call)                                               \
-  {                                                                        \
-    do {                                                                   \
-      cudaError_t status = call;                                           \
-      ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call, \
-             cudaGetErrorString(status));                                  \
-    } while (0);                                                           \
-  }
+// #define CUDA_SAFE_CALL(call)                                               \
+//   {                                                                        \
+//     do {                                                                   \
+//       cudaError_t status = call;                                           \
+//       ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call, \
+//              cudaGetErrorString(status));                                  \
+//     } while (0);                                                           \
+//   }
 
 namespace ML {
 
-enum HWStatus {
-  HW_SUCCESS = 0,
-  HW_NOT_INITIALIZED = 1,
-  HW_INVALID_VALUE = 2,
-  HW_ALLOC_FAILED = 3,
-  HW_INTERNAL_ERROR = 4
-};
+// enum HWStatus {
+//   HW_SUCCESS = 0,
+//   HW_NOT_INITIALIZED = 1,
+//   HW_INVALID_VALUE = 2,
+//   HW_ALLOC_FAILED = 3,
+//   HW_INTERNAL_ERROR = 4
+// };
 
 enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
 
@@ -71,50 +71,48 @@ struct OptimParams {
 enum Norm { L0, L1, L2, LINF };
 
 // HW misc functions
-HWStatus HWInit();
-HWStatus HWDestroy();
+void HWInit();
+void HWDestroy();
 
 template <typename Dtype>
-HWStatus HWTranspose(const Dtype *data_in, int m, int n, Dtype *data_out);
+void HWTranspose(const Dtype *data_in, int m, int n, Dtype *data_out);
 
-HWStatus HoltWintersBufferSize(int n, int batch_size, int frequency,
-                               bool use_beta, bool use_gamma,
-                               int *start_leveltrend_len, int *start_season_len,
-                               int *components_len, int *error_len,
-                               int *leveltrend_coef_shift,
-                               int *season_coef_shift);
-
-template <typename Dtype>
-HWStatus HoltWintersDecompose(const Dtype *ts, int n, int batch_size,
-                              int frequency, Dtype *start_level,
-                              Dtype *start_trend, Dtype *start_season,
-                              int start_periods,
-                              SeasonalType seasonal = ADDITIVE);
+void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
+                           bool use_gamma, int *start_leveltrend_len,
+                           int *start_season_len, int *components_len,
+                           int *error_len, int *leveltrend_coef_shift,
+                           int *season_coef_shift);
 
 template <typename Dtype>
-HWStatus HoltWintersOptim(const Dtype *ts, int n, int batch_size, int frequency,
-                          const Dtype *start_level, const Dtype *start_trend,
-                          const Dtype *start_season, Dtype *alpha,
-                          bool optim_alpha, Dtype *beta, bool optim_beta,
-                          Dtype *gamma, bool optim_gamma, Dtype *level,
-                          Dtype *trend, Dtype *season, Dtype *xhat,
-                          Dtype *error, OptimCriterion *optim_result,
-                          OptimParams<Dtype> *optim_params = nullptr,
+void HoltWintersDecompose(const Dtype *ts, int n, int batch_size, int frequency,
+                          Dtype *start_level, Dtype *start_trend,
+                          Dtype *start_season, int start_periods,
                           SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
-HWStatus HoltWintersEval(const Dtype *ts, int n, int batch_size, int frequency,
-                         const Dtype *start_level, const Dtype *start_trend,
-                         const Dtype *start_season, const Dtype *alpha,
-                         const Dtype *beta, const Dtype *gamma, Dtype *level,
-                         Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error,
-                         SeasonalType seasonal = ADDITIVE);
+void HoltWintersOptim(const Dtype *ts, int n, int batch_size, int frequency,
+                      const Dtype *start_level, const Dtype *start_trend,
+                      const Dtype *start_season, Dtype *alpha, bool optim_alpha,
+                      Dtype *beta, bool optim_beta, Dtype *gamma,
+                      bool optim_gamma, Dtype *level, Dtype *trend,
+                      Dtype *season, Dtype *xhat, Dtype *error,
+                      OptimCriterion *optim_result,
+                      OptimParams<Dtype> *optim_params = nullptr,
+                      SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
-HWStatus HoltWintersForecast(Dtype *forecast, int h, int batch_size,
-                             int frequency, const Dtype *level_coef,
-                             const Dtype *trend_coef, const Dtype *season_coef,
-                             SeasonalType seasonal = ADDITIVE);
+void HoltWintersEval(const Dtype *ts, int n, int batch_size, int frequency,
+                     const Dtype *start_level, const Dtype *start_trend,
+                     const Dtype *start_season, const Dtype *alpha,
+                     const Dtype *beta, const Dtype *gamma, Dtype *level,
+                     Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error,
+                     SeasonalType seasonal = ADDITIVE);
+
+template <typename Dtype>
+void HoltWintersForecast(Dtype *forecast, int h, int batch_size, int frequency,
+                         const Dtype *level_coef, const Dtype *trend_coef,
+                         const Dtype *season_coef,
+                         SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
 void HoltWintersFitPredict(int n, int batch_size, int frequency, int h,

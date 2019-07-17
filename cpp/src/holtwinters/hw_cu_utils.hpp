@@ -98,7 +98,7 @@ inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
 #endif
 
 template <typename Dtype>
-ML::HWStatus transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
+void transpose_gpu(const Dtype *src, int m, int n, Dtype *dst);
 
 namespace ML {
 class cublas;
