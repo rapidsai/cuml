@@ -324,7 +324,8 @@ class CommsContext:
         """
         Builds a dictionary of { (worker_address, worker_port) : worker_rank }
         """
-        return dict(list(zip(self.worker_addresses, range(len(self.worker_addresses)))))
+        return dict(list(zip(self.worker_addresses,
+                             range(len(self.worker_addresses)))))
 
     def ucp_ports(self):
         return [(w, self.client.submit(_func_ucp_listener_port,
