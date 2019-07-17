@@ -87,7 +87,6 @@ struct forest {
     int device = 0;
     // TODO(canonizer): use cumlHandle for this
     CUDA_CHECK(cudaGetDevice(&device));
-    int max_shm_device;
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     // TODO(canonizer): use >48KiB shared memory if available
