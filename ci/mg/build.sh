@@ -69,7 +69,7 @@ logger "Build libcuml..."
 $WORKSPACE/build.sh clean libcuml cuml prims -v
 
 ################################################################################
-# TEST - Run GoogleTest and py.tests for libcuml and cuML
+# TEST - Run MG GoogleTest and py.tests for libcuml and cuML
 ################################################################################
 
 if hasArg --skip-tests; then
@@ -80,18 +80,11 @@ fi
 logger "Check GPU usage..."
 nvidia-smi
 
-logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+# Disabled while CI/the test become compatible
+# logger "MG GoogleTest for libcuml mg..."
+# cd $WORKSPACE/cpp/build
+# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
 
-logger "Python pytest for cuml..."
+logger "Python MG pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
-
-################################################################################
-# TEST - Run GoogleTest for ml-prims
-################################################################################
-
-logger "Run ml-prims test..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "mg"

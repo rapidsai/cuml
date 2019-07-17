@@ -71,7 +71,7 @@ c = Client("ucx://10.0.0.50:8786")
 cb = CommsContext(comms_p2p=True)
 cb.init()
 
-n_trials = 2
+n_trials = 10000
 
 def func_test_send_recv(sessionId, n_trials, r):
     handle = worker_state(sessionId)["handle"]
