@@ -16,7 +16,7 @@
 
 import cupy as cp
 import cudf
-# import numpy as np
+import numpy as np
 import warnings
 
 from cuml.thirdparty._sklearn._utils import (
@@ -554,7 +554,7 @@ class MaxAbsScaler(TransformerMixin):
         """Compute the maximum absolute value to be used for later scaling.
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : array-like, shape [n_samples, n_features]
             The data used to compute the per-feature minimum and maximum
             used for later scaling along the features axis.
         """
@@ -673,19 +673,24 @@ class RobustScaler(TransformerMixin):
                              str(self.quantile_range))
 
         if self.with_centering:
-            self.center_ = cp.median(X, axis=0)
+            self.center_ = cp.array(np.median(cp.asnumpy(X), axis=0))
         else:
             self.center_ = None
 
         if self.with_scaling:
-            quantiles = []
+            quantiles = None
             for feature_idx in range(X.shape[1]):
                 column_data = X[:, feature_idx]
 
-                quantiles.append(cp.percentile(column_data,
-                                               self.quantile_range))
-
-            quantiles = cp.transpose(quantiles)
+                if quantiles is None:
+                    quantiles = cp.percentile(
+                        column_data, self.quantile_range).reshape(-1, 1)
+                else:
+                    quantiles = cp.hstack([quantiles,
+                                           cp
+                                           .percentile(column_data,
+                                                       self.quantile_range)
+                                           .reshape(-1, 1)])
 
             self.scale_ = quantiles[1] - quantiles[0]
             self.scale_ = _handle_zeros_in_scale(self.scale_, copy=False)
@@ -780,7 +785,7 @@ def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
     if axis == 0:
         X = X.T
     X = to_orig_type(X, input_info)
-    norms = to_orig_type(X, input_info, dim=1)
+    norms = to_orig_type(norms, input_info, dim=1)
     if return_norm:
         return X, norms
     else:
@@ -880,7 +885,7 @@ class KernelCenterer(TransformerMixin):
         -------
         self : returns an instance of self.
         """
-        K = to_cupy(K)
+        K, _ = to_cupy(K)
         K = check_array(K, dtype=FLOAT_DTYPES)
         n_samples = K.shape[0]
         self.K_fit_rows_ = cp.sum(K, axis=0) / n_samples
