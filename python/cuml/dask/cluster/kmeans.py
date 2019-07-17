@@ -54,7 +54,7 @@ class KMeans(object):
                                                verbose,
                                                i,
                                                workers=[w]))
-                       for i, w in zip(range(len(comms.workers)),
+                       for i, w in zip(range(len(comms.worker_addresses)),
                                        comms.workers)]
         wait(self.kmeans)
 
