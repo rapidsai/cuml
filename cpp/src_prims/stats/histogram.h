@@ -38,6 +38,8 @@ struct IdentityBinner {
 enum HistType {
   /** use only global atomics */
   HistTypeGmem,
+  /** use only global atomics but with cache-line aware acceses */
+  HistTypeGmemSwizzle,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
   /** shared mem atomics but with bins to be 2B int's */
@@ -50,25 +52,60 @@ enum HistType {
   HistTypeAuto
 };
 
-template <typename DataT, typename BinnerOp, typename IdxT>
+DI int swizzleBinId(int id) {
+  // Swap bits 0:5 with 6:11 in bucket.  Moves adjacenct values farther apart.
+  // Requires at least 4096 buckets.
+  // Why 6?  That's 64 words or 256 bytes, which is the inter-slice stride in the L2, so adjacent buckets will now be on different slices
+  // Don't forget to undo the transform when you read the buckets out
+  int a = id & 0x3f;
+  int b = (id >> 6) & 0x3f;
+  id >>= 12;
+  id <<= 12;
+  id |= (a << 6) | b;
+  return id;
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, bool SwapBits>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT n,
                                BinnerOp binner) {
   auto i = threadIdx.x + IdxT(blockIdx.x) * blockDim.x;
   auto stride = IdxT(blockDim.x) * blockDim.x;
   for (; i < n; i += stride) {
     int binId = binner(data[i], i);
+    if (SwapBits) {
+      binId = swizzleBinId(binId);
+    }
     atomicAdd(bins + binId, 1);
   }
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
+///@todo: launch half the number of threads, but also consider odd number of
+/// bins case while doing so
+__global__ void unswapKernel(int* bins, int nbins) {
+  auto src = threadIdx.x + blockDim.x * blockIdx.x;
+  auto tgt = swizzleBinId(src);
+  if (src >= nbins || tgt >= nbins || src >= tgt) {
+    return;
+  }
+  auto a = bins[src];
+  auto b = bins[tgt];
+  bins[src] = b;
+  bins[tgt] = a;
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, bool SwapBits,
+          int TPB>
 void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
               cudaStream_t stream) {
   int nblks = ceildiv<int>(n, TPB);
   CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
-  gmemHistKernel<DataT, BinnerOp, IdxT>
+  gmemHistKernel<DataT, BinnerOp, IdxT, SwapBits>
     <<<nblks, TPB, 0, stream>>>(bins, data, n, op);
   CUDA_CHECK(cudaGetLastError());
+  if (SwapBits) {
+    unswapKernel<IdxT><<<ceildiv<int>(nbins, TPB), TPB>>>(bins, nbins);
+    CUDA_CHECK(cudaGetLastError());
+  }
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT>
@@ -108,7 +145,12 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
                    cudaStream_t stream, BinnerOp op) {
   switch (type) {
     case HistTypeGmem:
-      gmemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      gmemHist<DataT, BinnerOp, IdxT, false, TPB>(bins, nbins, data, n, op,
+                                                  stream);
+      break;
+    case HistTypeGmemSwizzle:
+      gmemHist<DataT, BinnerOp, IdxT, true, TPB>(bins, nbins, data, n, op,
+                                                 stream);
       break;
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
