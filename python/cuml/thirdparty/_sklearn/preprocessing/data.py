@@ -60,16 +60,16 @@ def check_fitted(self, attributes):
 
 def to_cupy(X):
     ''' convert input to cupy, and return info about input at the same time
-    
+
     Parameters
     ----------
     X : cudf.DataFrame, cudf.Series or cupy array
         The data to be converted
-    
+
     Return
     ------
     X: converted input
-    input_info: dictionary 
+    input_info: dictionary
         It contains key: 'type', 'dim' and 'name_or_columns'(optional)
     '''
     # TODO: accept numba cuda array input
