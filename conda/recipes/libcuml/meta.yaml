@@ -31,7 +31,9 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - lapack
     - libclang
+    - nccl>=2.4
   run:
+    - nccl>=2.4
     - cudf 0.9*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 

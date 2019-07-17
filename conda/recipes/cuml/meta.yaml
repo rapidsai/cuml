@@ -35,6 +35,7 @@ requirements:
     - python x.x
     - cudf 0.9*
     - libcuml={{ version }}
+    - nccl>=2.4
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
