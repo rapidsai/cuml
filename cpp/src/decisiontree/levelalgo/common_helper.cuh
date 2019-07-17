@@ -57,7 +57,7 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive(
     node->question.column = flattree[idx].colid;
     node->question.value = flattree[idx].quesval;
     node->prediction = flattree[idx].prediction;
-    if (flattree[idx].type == true) {
+    if (flattree[idx].colid == -1) {
       return node;
     }
     node->left = go_recursive(flattree, 2 * idx + 1);
