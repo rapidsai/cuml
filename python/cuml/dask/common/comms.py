@@ -303,8 +303,6 @@ class CommsContext:
         self.sessionId = uuid.uuid4().bytes
 
         self.worker_addresses = self.get_workers_()
-        self.workers = list(map(lambda x: parse_host_port(x),
-                                self.worker_addresses))
 
         self.nccl_initialized = False
         self.ucx_initialized = False
@@ -398,9 +396,9 @@ class CommsContext:
         self.uniqueId = nccl.get_unique_id()
 
         for worker, idx in zip(self.worker_addresses,
-                               range(len(self.workers))):
+                               range(len(self.worker_addresses))):
             self.client.run(_func_store_initial_state,
-                            len(self.workers),
+                            len(self.worker_addresses),
                             self.sessionId,
                             self.uniqueId,
                             idx,
