@@ -20,5 +20,4 @@ struct FlatTreeNode {
   int colid = -1;
   T quesval;
   T best_metric_val;
-  bool type = false;  // true for leaf node
 };

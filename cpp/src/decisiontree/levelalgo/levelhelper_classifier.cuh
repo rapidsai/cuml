@@ -254,7 +254,7 @@ void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
       condition = condition || (tree_leaf_cnt >= max_leaves);
     if (condition) {
       node_flag = 0xFFFFFFFF;
-      flattree[n_nodes_before + nodeid].type = true;
+      flattree[n_nodes_before + nodeid].colid = -1;
       flattree[n_nodes_before + nodeid].prediction = get_class_hist(nodehist);
     } else {
       nodelist.push_back(2 * nodeid);
