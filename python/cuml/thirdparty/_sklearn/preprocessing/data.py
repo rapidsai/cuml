@@ -60,11 +60,17 @@ def check_fitted(self, attributes):
 
 def to_cupy(X):
     ''' convert input to cupy, and return info about input at the same time
-
+    
+    Parameters
+    ----------
+    X : cudf.DataFrame, cudf.Series or cupy array
+        The data to be converted
+    
     Return
     ------
     X: converted input
-    input_info: dictionary containing 'type', 'dim' and 'name_or_columns'(optional)
+    input_info: dictionary 
+        It contains key: 'type', 'dim' and 'name_or_columns'(optional)
     '''
     # TODO: accept numba cuda array input
     input_info = {}
@@ -118,8 +124,7 @@ def to_orig_type(X, input_info, dim=None, add_dummy_feature=False):
         else:
             raise ValueError('dim is {}, while it should be 1 or 2'
                              .format(dim))
-        # if index is not None:       # restore original index
-            # X = X.set_index(index)
+
     else:
         raise TypeError('Input should be either cupy array or cudf')
     return X
@@ -143,6 +148,21 @@ def _handle_zeros_in_scale(scale, copy=True):
 
 
 def row_norms(X, squared=False):
+    ''' Row-wise (squared) Euclidean norm of X.
+    Equivalent to np.sqrt((X * X).sum(axis=1)), but also supports sparse
+    matrices and does not create an X.shape-sized temporary.
+    Performs no input validation.
+    Parameters
+    ----------
+    X : cupy array
+        The input array
+    squared : bool, optional (default = False)
+        If True, return squared norms.
+    Returns
+    -------
+    array_like
+        The row-wise (squared) Euclidean norm of X.
+    '''
     norms = cp.einsum('ij,ij->i', X, X)
     if not squared:
         cp.sqrt(norms, norms)
@@ -150,6 +170,36 @@ def row_norms(X, squared=False):
 
 
 def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
+    ''' Calculate mean update and a Youngs and Cramer variance update.
+    last_mean and last_variance are statistics computed at the last step by the
+    function. Both must be initialized to 0.0. In case no scaling is required
+    last_variance can be None. The mean is always required and returned because
+    necessary for the calculation of the variance. last_n_samples_seen is the
+    number of samples encountered until now.
+    From the paper "Algorithms for computing the sample variance: analysis and
+    recommendations", by Chan, Golub, and LeVeque.
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        Data to use for variance update
+    last_mean : cupy array, shape: (n_features,)
+    last_variance : array-like, shape: (n_features,)
+    last_sample_count : array-like, shape (n_features,)
+    Returns
+    -------
+    updated_mean : array, shape (n_features,)
+    updated_variance : array, shape (n_features,)
+        If None, only mean is computed
+    updated_sample_count : array, shape (n_features,)
+    Notes
+    -----
+    Input cannot contain NaN
+    References
+    ----------
+    T. Chan, G. Golub, R. LeVeque. Algorithms for computing the sample
+        variance: recommendations, The American Statistician, Vol. 37, No. 3,
+        pp. 242-247s
+    '''
     # old = stats until now
     # new = the current increment
     # updated = the aggregated stats
@@ -168,9 +218,6 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
             _safe_accumulator_op(cp.var, X, axis=0) * new_sample_count)
         last_unnormalized_variance = last_variance * last_sample_count
 
-        # with np.errstate(divide='ignore', invalid='ignore'):
-        # Unfortunately, cupy does not support errstate now, so input shouldn't
-        # contain nan
         last_over_new_count = last_sample_count / new_sample_count
         updated_unnormalized_variance = (
             last_unnormalized_variance + new_unnormalized_variance +
@@ -337,7 +384,7 @@ class MinMaxScaler(TransformerMixin):
      [1.   1.  ]]
     >>> print(scaler.transform([[2, 2]]))
     [[1.5 0. ]]
-    
+
     Notes
     -----
     Currently does not support sparse matrix or input containing NaNs
@@ -593,7 +640,7 @@ class StandardScaler(TransformerMixin):
 
     def fit(self, X, y=None):
         '''Compute the mean and std to be used for later scaling.
-        
+
         Parameters
         ----------
         X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
@@ -1278,7 +1325,7 @@ class Binarizer(TransformerMixin):
     See also
     --------
     binarize: Equivalent function without the estimator API.
-    ''' 
+    '''
     def __init__(self, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
