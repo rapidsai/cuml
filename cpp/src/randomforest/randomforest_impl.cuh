@@ -222,7 +222,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-      local_handle[i].getImpl(), n_sampled_rows, n_cols, 1, n_unique_labels,
+      local_handle[i].getImpl(), n_rows, n_cols, 1, n_unique_labels,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
       this->rf_params.tree_params.max_depth);
@@ -485,7 +485,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      local_handle[i].getImpl(), n_sampled_rows, n_cols, 1, 1,
+      local_handle[i].getImpl(), n_rows, n_cols, 1, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
       this->rf_params.tree_params.max_depth);
