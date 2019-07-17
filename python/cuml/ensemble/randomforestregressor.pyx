@@ -273,8 +273,8 @@ class RandomForestRegressor(Base):
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         self.split_algo = split_algo
-        criterion_dict = {'0' : GINI, '1' : ENTROPY, '2' : MSE,
-                          '3' : MAE, '4' : CRITERION_END}
+        criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
+                          '3': MAE, '4': CRITERION_END}
         if str(split_criterion) not in criterion_dict.keys():
             warnings.warn("The split criterion chosen was not present"
                           " in the list of options accepted by the model"
