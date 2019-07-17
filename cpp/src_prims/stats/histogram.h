@@ -23,6 +23,8 @@
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets
 
+///@todo: add cub's histogram as another option
+
 namespace MLCommon {
 namespace Stats {
 
