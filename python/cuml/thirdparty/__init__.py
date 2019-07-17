@@ -15,7 +15,6 @@
 #
 
 from cuml.thirdparty._sklearn import (
-  BaseCrossValidator, KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit,
-  LeaveOneGroupOut, LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
-  RepeatedStratifiedKFold, ShuffleSplit, GroupShuffleSplit,
-  StratifiedShuffleSplit, PredefinedSplit, train_test_split, check_cv)
+    Binarizer, KernelCenterer, MinMaxScaler, MaxAbsScaler, Normalizer,
+    RobustScaler, StandardScaler, add_dummy_feature, binarize, normalize,
+    scale, robust_scale, maxabs_scale, minmax_scale)

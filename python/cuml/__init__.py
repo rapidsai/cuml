@@ -51,6 +51,10 @@ from cuml.random_projection.random_projection import GaussianRandomProjection, S
 from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.thirdparty._sklearn.preprocessing import (
+    Binarizer, KernelCenterer, MinMaxScaler, MaxAbsScaler, Normalizer,
+    RobustScaler, StandardScaler, add_dummy_feature, binarize, normalize,
+    scale, robust_scale, maxabs_scale, minmax_scale)
 
 from cuml.ensemble.randomforest import RandomForestClassifier
 

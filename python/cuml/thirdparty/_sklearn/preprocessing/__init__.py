@@ -14,9 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.preprocessing.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.thirdparty import (
+from cuml.thirdparty._sklearn.preprocessing.data import (
     Binarizer, KernelCenterer, MinMaxScaler, MaxAbsScaler, Normalizer,
     RobustScaler, StandardScaler, add_dummy_feature, binarize, normalize,
     scale, robust_scale, maxabs_scale, minmax_scale)
