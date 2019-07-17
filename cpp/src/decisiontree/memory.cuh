@@ -292,11 +292,14 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   size_t max_shared_mem = prop.sharedMemPerBlock;
   if (typeid(L) == typeid(int)) {
     max_nodes_class = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
+    max_nodes_class /= 2; // For occupancy purposes.
   }
   if (typeid(L) == typeid(T)) {
     size_t pernode_pred = nbins * (sizeof(T) + sizeof(unsigned int));
     max_nodes_pred = max_shared_mem / pernode_pred;
     max_nodes_mse = max_shared_mem / (pernode_pred + 2 * nbins * sizeof(T));
+    max_nodes_pred /= 2; // For occupancy purposes.
+    max_nodes_mse /= 2; // For occupancy purposes.
   }
 }
 
