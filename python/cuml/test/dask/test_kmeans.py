@@ -14,13 +14,14 @@
 #
 
 import pytest
-pytestmark = pytest.mark.mg
 
 from dask_cuda import LocalCUDACluster
 
 from cuml.dask.common.comms import default_comms
 
 from dask.distributed import Client, wait
+
+pytestmark = pytest.mark.mg
 
 
 @pytest.mark.skip

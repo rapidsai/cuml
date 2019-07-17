@@ -14,12 +14,13 @@
 #
 
 import pytest
-pytestmark = pytest.mark.mg
 
 from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait
 from dask_cuda import LocalCUDACluster
+
+pytestmark = pytest.mark.mg
 
 
 def test_end_to_end():

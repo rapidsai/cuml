@@ -14,7 +14,6 @@
 #
 
 import pytest
-pytestmark = pytest.mark.mg
 
 from dask_cuda import LocalCUDACluster
 
@@ -27,6 +26,8 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+
+pytestmark = pytest.mark.mg
 
 
 def test_comms_init_no_p2p():
