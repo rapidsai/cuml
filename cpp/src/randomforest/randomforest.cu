@@ -143,10 +143,11 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_rows_sample: rows sample; default 1.0f
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_rows_sample) {
+                   float cfg_rows_sample, int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.rows_sample = cfg_rows_sample;
+  if (cfg_n_trees < cfg_n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
 }
 
