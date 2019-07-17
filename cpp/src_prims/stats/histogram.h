@@ -43,7 +43,9 @@ enum HistType {
   /** shared mem atomics but with bins to ba 1B int's */
   HistTypeSmemBits8,
   /** builds a hashmap of active bins in shared mem */
-  HistTypeHash
+  HistTypeHash,
+  /** decide at runtime the best algo for the given inputs */
+  HistTypeAuto
 };
 
 template <typename DataT, typename BinnerOp, typename IdxT>
@@ -98,6 +100,22 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB>
+void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
+                   IdxT n, std::shared_ptr<deviceAllocator> allocator,
+                   cudaStream_t stream, BinnerOp op) {
+  switch (type) {
+    case HistTypeGmem:
+      gmemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      break;
+    case HistTypeSmem:
+      smemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      break;
+    default:
+      ASSERT(false, "histogram: Invalid type passed '%d'!", type);
+  };
+}
+
 /**
  * @brief Naive global memory atomics based histogram kernel
  * @tparam DataT input data type
@@ -119,16 +137,12 @@ template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
 void histogram(HistType type, int* bins, IdxT nbins, const DataT* data, IdxT n,
                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
                BinnerOp op = IdentityBinner()) {
-  switch (type) {
-    case HistTypeGmem:
-      gmemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
-      break;
-    case HistTypeSmem:
-      smemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
-      break;
-    default:
-      ASSERT(false, "histogram: Invalid type passed '%d'!", type);
-  };
+  HistType computeType = type;
+  if (type == HistTypeAuto) {
+    ///@todo: implement!
+  }
+  histogramImpl<DataT, BinnerUp, IdxT, TPB>(computedType, bins, nbins, data, n,
+                                            allocator, stream, op);
 }
 
 };  // end namespace Stats
