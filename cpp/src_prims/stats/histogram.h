@@ -16,7 +16,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
@@ -39,8 +38,6 @@ enum HistType {
   HistTypeGmem,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
-  /** uses cub's histogram implementation */
-  HistTypeCub,
   /** shared mem atomics but with bins to be 2B int's */
   HistTypeSmemBits16,
   /** shared mem atomics but with bins to ba 1B int's */
