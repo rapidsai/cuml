@@ -25,13 +25,13 @@ import warnings
 from sklearn.utils import gen_batches
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_almost_equal
-from sklearn.utils.testing import clean_warning_registry
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_greater_equal
 from sklearn.utils.testing import assert_less_equal
 from sklearn.utils.testing import assert_allclose
 from sklearn.utils.testing import assert_array_less
 from sklearn.utils.testing import assert_raises_regex
+# from sklearn.utils.testing import clean_warning_registry
 # from sklearn.utils.testing import assert_raise_message
 # from sklearn.utils.testing import assert_warns_message
 # from sklearn.utils.testing import assert_array_equal
@@ -584,8 +584,6 @@ def test_scaler_int():
     rng = cp.random.RandomState(42)
     X = rng.randint(20, size=(4, 5))
     X[:, 0] = 0  # first feature is always of zero
-
-    null_transform = StandardScaler(with_mean=False, with_std=False, copy=True)
 
     with warnings.catch_warnings(record=True):
         scaler = StandardScaler(with_mean=False).fit(X)
