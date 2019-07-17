@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#pragma once
+// #pragma once
 
-#include "hw_cu_utils.hpp"
+#include "hw_cu_utils.cuh"
 #include <iostream>
 
 template <typename Dtype>
@@ -33,11 +33,16 @@ void transpose_gpu(const Dtype *src, int m, int n, Dtype *dst) {
     src,          // 07/ A - lda x m (batch_size x n)
     n,  // 08/ lda - leading dimension of two-dimensional array used to store the matrix A.
     &b,       // 09/ beta
-    nullptr,  // 10/ B - ldb x n ()
+    (Dtype *) nullptr,  // 10/ B - ldb x n ()
     m,  // 11/ ldb - leading dimension of two-dimensional array used to store matrix B.
     dst,  // 12/ C - ldc x n
     m);  // 13/ ldc - leading dimension of a two-dimensional array used to store the matrix C.
 }
+
+template void transpose_gpu<float>(const float *src, int m, int n,
+  float *dst);
+template void transpose_gpu<double>(const double *src, int m, int n,
+   double *dst);
 
 namespace ML {
 thread_local cublasHandle_t cublas::m_handle = nullptr;
@@ -119,6 +124,31 @@ void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb, int m,
   CHECK_CUBLAS(cublas_gemm(handle, transa, transb, m, n, k, alpha, A, lda, B,
                            ldb, beta, C, ldc));
 }
+
+template void cublas::axpy(int n, float alpha, const float *x, float *y);
+template void cublas::axpy(int n, double alpha, const double *x, double *y);
+template void cublas::axpy(int n, float alpha, const float *x, int incx,
+                           float *y, int incy);
+template void cublas::axpy(int n, double alpha, const double *x, int incx,
+                           double *y, int incy);
+
+template void cublas::geam(cublasOperation_t transa, cublasOperation_t transb,
+                           int m, int n, const float *alpha, const float *A,
+                           int lda, const float *beta, const float *B, int ldb,
+                           float *C, int ldc);
+template void cublas::geam(cublasOperation_t transa, cublasOperation_t transb,
+                           int m, int n, const double *alpha, const double *A,
+                           int lda, const double *beta, const double *B,
+                           int ldb, double *C, int ldc);
+
+template void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb,
+                           int m, int n, int k, const float *alpha,
+                           const float *A, int lda, const float *B, int ldb,
+                           const float *beta, float *C, int ldc);
+template void cublas::gemm(cublasOperation_t transa, cublasOperation_t transb,
+                           int m, int n, int k, const double *alpha,
+                           const double *A, int lda, const double *B, int ldb,
+                           const double *beta, double *C, int ldc);
 
 thread_local cusolverDnHandle_t cusolver::m_handle = nullptr;
 
@@ -205,4 +235,26 @@ void cusolver::orgqr(int m, int n, int k, Dtype *A, int lda, const Dtype *tau,
   CHECK_CUSOLVER(
     cusolver_orgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo));
 }
+
+template void cusolver::geqrf_bufferSize(int m, int n, float *A, int lda,
+  int *Lwork);
+template void cusolver::geqrf_bufferSize(int m, int n, double *A, int lda,
+  int *Lwork);
+template void cusolver::geqrf(int m, int n, float *A, int lda, float *TAU,
+float *Workspace, int Lwork, int *devInfo);
+template void cusolver::geqrf(int m, int n, double *A, int lda, double *TAU,
+double *Workspace, int Lwork, int *devInfo);
+
+template void cusolver::orgqr_bufferSize(int m, int n, int k, const float *A,
+  int lda, const float *tau, int *lwork);
+template void cusolver::orgqr_bufferSize(int m, int n, int k, const double *A,
+  int lda, const double *tau,
+  int *lwork);
+template void cusolver::orgqr(int m, int n, int k, float *A, int lda,
+const float *tau, float *work, int lwork,
+int *devInfo);
+template void cusolver::orgqr(int m, int n, int k, double *A, int lda,
+const double *tau, double *work, int lwork,
+int *devInfo);
+
 }  // namespace ML

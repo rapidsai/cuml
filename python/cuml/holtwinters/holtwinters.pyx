@@ -25,7 +25,7 @@ from libc.stdint cimport uintptr_t
 from cuml.utils import input_to_dev_array
 from cuml.common.base import Base
 
-cdef extern from "holtwinters/HoltWinters.hpp" namespace "ML":
+cdef extern from "holtwinters/HoltWinters.cuh" namespace "ML":
     enum SeasonalType:
         ADDITIVE
         MULTIPLICATIVE

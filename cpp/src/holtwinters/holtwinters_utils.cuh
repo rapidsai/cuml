@@ -17,7 +17,7 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <vector>
-#include "HoltWinters.hpp"
+#include "hw_ds.h"
 
 #define STMP_EPS (1e-6)
 #define GOLD \

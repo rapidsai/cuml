@@ -19,10 +19,9 @@
 #include <iostream>
 #include <vector>
 
-#include "HoltWinters.hpp"
-#include "holtwinters_utils.hpp"
-#include "hw_cu_utils.hpp"
-#include "hw_math.hpp"
+#include "holtwinters_utils.cuh"
+#include "hw_cu_utils.cuh"
+#include "hw_math.cuh"
 #include "utils.h"
 
 #define IDX(n, m, N) (n + (m) * (N))
@@ -210,7 +209,7 @@ void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
     A_h[i] = (Dtype)1.;
     A_h[trend_len + i] = (Dtype)(i + 1);
   }
-  MLCommon::updateDevice(A_d, A_h.data, 2 * trend_len, stream);
+  MLCommon::updateDevice(A_d, A_h.data(), 2 * trend_len, stream);
 
   ML::cusolver::geqrf_bufferSize<Dtype>(trend_len, 2, A_d, 2, &geqrf_buffer);
   ML::cusolver::orgqr_bufferSize<Dtype>(trend_len, 2, 2, A_d, 2, tau_d,
@@ -238,6 +237,17 @@ void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size)>>>(
       data, R1Qt_d, batch_size, trend_len, level, trend);
 }
+
+template void stl_decomposition_gpu<float>(const float *ts, int n,
+                                           int batch_size, int frequency,
+                                           int start_periods, float *level,
+                                           float *trend, float *season,
+                                           ML::SeasonalType seasonal);
+template void stl_decomposition_gpu<double>(const double *ts, int n,
+                                            int batch_size, int frequency,
+                                            int start_periods, double *level,
+                                            double *trend, double *season,
+                                            ML::SeasonalType seasonal);
 
 template <typename Dtype, bool additive_seasonal>
 __global__ void holtwinters_eval_gpu_global_kernel(
@@ -445,6 +455,44 @@ __global__ void holtwinters_eval_gpu_global_kernel(
   }
 }
 
+template void holtwinters_eval_gpu<float>(
+  const float *ts, int n, int batch_size, int frequency,
+  const float *start_level, const float *start_trend, const float *start_season,
+  const float *alpha, const float *beta, const float *gamma, float *level,
+  float *trend, float *season, float *xhat, float *error,
+  ML::SeasonalType seasonal);
+template void holtwinters_eval_gpu<double>(
+  const double *ts, int n, int batch_size, int frequency,
+  const double *start_level, const double *start_trend,
+  const double *start_season, const double *alpha, const double *beta,
+  const double *gamma, double *level, double *trend, double *season,
+  double *xhat, double *error, ML::SeasonalType seasonal);
+
+template __device__ float holtwinters_eval_device<float, false>(
+  int tid, const float *ts, int n, int batch_size, int frequency, int shift,
+  float plevel, float ptrend, float *pseason, int pseason_width,
+  const float *start_season, const float *beta, const float *gamma,
+  float alpha_, float beta_, float gamma_, float *level, float *trend,
+  float *season, float *xhat);
+template __device__ float holtwinters_eval_device<float, true>(
+  int tid, const float *ts, int n, int batch_size, int frequency, int shift,
+  float plevel, float ptrend, float *pseason, int pseason_width,
+  const float *start_season, const float *beta, const float *gamma,
+  float alpha_, float beta_, float gamma_, float *level, float *trend,
+  float *season, float *xhat);
+template __device__ double holtwinters_eval_device<double, false>(
+  int tid, const double *ts, int n, int batch_size, int frequency, int shift,
+  double plevel, double ptrend, double *pseason, int pseason_width,
+  const double *start_season, const double *beta, const double *gamma,
+  double alpha_, double beta_, double gamma_, double *level, double *trend,
+  double *season, double *xhat);
+template __device__ double holtwinters_eval_device<double, true>(
+  int tid, const double *ts, int n, int batch_size, int frequency, int shift,
+  double plevel, double ptrend, double *pseason, int pseason_width,
+  const double *start_season, const double *beta, const double *gamma,
+  double alpha_, double beta_, double gamma_, double *level, double *trend,
+  double *season, double *xhat);
+
 template <typename Dtype, bool additive>
 __global__ void holtwinters_seasonal_forecast_kernel(
   Dtype *forecast, int h, int batch_size, int frequency,
@@ -516,6 +564,19 @@ void holtwinters_forecast_gpu(Dtype *forecast, int h, int batch_size,
                                               season_coef);
   }
 }
+
+template void holtwinters_forecast_gpu<float>(float *forecast, int h,
+                                              int batch_size, int frequency,
+                                              const float *level_coef,
+                                              const float *trend_coef,
+                                              const float *season_coef,
+                                              ML::SeasonalType seasonal);
+template void holtwinters_forecast_gpu<double>(double *forecast, int h,
+                                               int batch_size, int frequency,
+                                               const double *level_coef,
+                                               const double *trend_coef,
+                                               const double *season_coef,
+                                               ML::SeasonalType seasonal);
 
 template <typename Dtype, bool ADDITIVE_KERNEL, bool single_param>
 __global__ void holtwinters_optim_gpu_shared_kernel(
@@ -1049,3 +1110,44 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
 
   return ML::OptimCriterion::OPTIM_BFGS_ITER_LIMIT;
 }
+
+template void holtwinters_optim_gpu<float>(
+  const float *ts, int n, int batch_size, int frequency,
+  const float *start_level, const float *start_trend, const float *start_season,
+  float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
+  bool optim_gamma, float *level, float *trend, float *season, float *xhat,
+  float *error, ML::OptimCriterion *optim_result, ML::SeasonalType seasonal,
+  const ML::OptimParams<float> optim_params);
+template void holtwinters_optim_gpu<double>(
+  const double *ts, int n, int batch_size, int frequency,
+  const double *start_level, const double *start_trend,
+  const double *start_season, double *alpha, bool optim_alpha, double *beta,
+  bool optim_beta, double *gamma, bool optim_gamma, double *level,
+  double *trend, double *season, double *xhat, double *error,
+  ML::OptimCriterion *optim_result, ML::SeasonalType seasonal,
+  const ML::OptimParams<double> optim_params);
+
+template __device__ void holtwinters_finite_gradient_device<float, true>(
+  int tid, const float *ts, int n, int batch_size, int frequency, int shift,
+  float plevel, float ptrend, float *pseason, int pseason_width,
+  const float *start_season, const float *beta, const float *gamma,
+  float alpha_, float beta_, float gamma_, float *g_alpha, float *g_beta,
+  float *g_gamma, float eps);
+template __device__ void holtwinters_finite_gradient_device<float, false>(
+  int tid, const float *ts, int n, int batch_size, int frequency, int shift,
+  float plevel, float ptrend, float *pseason, int pseason_width,
+  const float *start_season, const float *beta, const float *gamma,
+  float alpha_, float beta_, float gamma_, float *g_alpha, float *g_beta,
+  float *g_gamma, float eps);
+template __device__ void holtwinters_finite_gradient_device<double, true>(
+  int tid, const double *ts, int n, int batch_size, int frequency, int shift,
+  double plevel, double ptrend, double *pseason, int pseason_width,
+  const double *start_season, const double *beta, const double *gamma,
+  double alpha_, double beta_, double gamma_, double *g_alpha, double *g_beta,
+  double *g_gamma, double eps);
+template __device__ void holtwinters_finite_gradient_device<double, false>(
+  int tid, const double *ts, int n, int batch_size, int frequency, int shift,
+  double plevel, double ptrend, double *pseason, int pseason_width,
+  const double *start_season, const double *beta, const double *gamma,
+  double alpha_, double beta_, double gamma_, double *g_alpha, double *g_beta,
+  double *g_gamma, double eps);
