@@ -86,9 +86,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    ASSERT(n_nodes <= tempmem->max_nodes_per_level,
-           "Max node limit reached. Requested nodes %d > %d max nodes \n",
-           n_nodes, tempmem->max_nodes_per_level);
+    ASSERT(
+      n_nodes <= tempmem->max_nodes_per_level,
+      "Max node limit reached. Requested nodes %d > %d max nodes at depth %d\n",
+      n_nodes, tempmem->max_nodes_per_level, depth);
 
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  ncols, n_unique_labels, nbins, n_nodes,
