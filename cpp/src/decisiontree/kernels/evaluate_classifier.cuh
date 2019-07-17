@@ -192,9 +192,9 @@ void find_best_split_classifier(
 
       float max_value = F::max_val(n_unique_labels);
       ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= max_value),
-             "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
+             "gini left value %f not in [0.0, %f]", tmp_gini_left, max_value);
       ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= max_value),
-             "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
+             "gini right value %f not in [0.0, %f]", tmp_gini_right, max_value);
 
       float impurity = (tmp_lnrows * 1.0f / nrows) * tmp_gini_left +
                        (tmp_rnrows * 1.0f / nrows) * tmp_gini_right;
