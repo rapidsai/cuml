@@ -15,15 +15,14 @@
  */
 #pragma once
 
-#include <cub/cub.cuh>
 #include <stdint.h>
+#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets
-
 
 namespace MLCommon {
 namespace Stats {
@@ -50,9 +49,8 @@ enum HistType {
   HistTypeHash
 };
 
-
 template <typename DataT, typename BinnerOp, typename IdxT>
-__global__ void gemmHistKernel(int* bins, const DataT* data, IdxT n,
+__global__ void gmemHistKernel(int* bins, const DataT* data, IdxT n,
                                BinnerOp binner) {
   auto i = threadIdx.x + IdxT(blockIdx.x) * blockDim.x;
   auto stride = IdxT(blockDim.x) * blockDim.x;
@@ -67,8 +65,39 @@ void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
               cudaStream_t stream) {
   int nblks = ceildiv<int>(n, TPB);
   CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
-  gemmHistKernel<DataT, BinnerOp, IdxT><<<nblks, TPB, 0, stream>>>(bins, data,
-                                                                   n, op);
+  gmemHistKernel<DataT, BinnerOp, IdxT>
+    <<<nblks, TPB, 0, stream>>>(bins, data, n, op);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT>
+__global__ void smemHistKernel(int* bins, const DataT* data, IdxT n,
+                               BinnerOp binner) {
+  extern __shared__ int sbins[];
+  auto tid = threadIdx.x + IdxT(blockIdx.x) * blockDim.x;
+  for (auto i = tid; i < nbins; i += blockDim.x) {
+    sbins[i] = 0;
+  }
+  __syncthreads();
+  auto stride = IdxT(blockDim.x) * blockDim.x;
+  for (auto i = tid; i < n; i += stride) {
+    int binId = binner(data[i], i);
+    atomicAdd(sbins + binId, 1);
+  }
+  __syncthreads();
+  for (auto i = tid; i < nbins; i += blockDim.x) {
+    atomicAdd(bins + i, sbins[i]);
+  }
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
+void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
+              cudaStream_t stream) {
+  int nblks = ceildiv<int>(n, TPB);
+  CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
+  size_t smemSize = nbins * sizeof(int);
+  smemHistKernel<DataT, BinnerOp, IdxT>
+    <<<nblks, TPB, smemSize, stream>>>(bins, data, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -93,12 +122,15 @@ template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
 void histogram(HistType type, int* bins, IdxT nbins, const DataT* data, IdxT n,
                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
                BinnerOp op = IdentityBinner()) {
-  switch(type) {
-  case HistTypeGmem:
-    gmemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
-    break;
-  default:
-    ASSERT(false, "histogram: Invalid type passed '%d'!", type);
+  switch (type) {
+    case HistTypeGmem:
+      gmemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      break;
+    case HistTypeSmem:
+      smemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      break;
+    default:
+      ASSERT(false, "histogram: Invalid type passed '%d'!", type);
   };
 }
 
