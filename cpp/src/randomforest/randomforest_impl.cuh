@@ -385,46 +385,64 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
-
+  
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
-
+  int n_streams = this->rf_params.n_streams;
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
-  MLCommon::device_buffer<unsigned int>* selected_rows =
-    new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                              stream, n_sampled_rows);
-  MLCommon::device_buffer<unsigned int>* sorted_selected_rows =
-    new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                              stream, n_sampled_rows);
+  MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
+  MLCommon::device_buffer<unsigned int>* sorted_selected_rows[n_streams];
+  for (int i = 0; i < n_streams; i++) {
+    selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, n_sampled_rows);
+    sorted_selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
+      handle.getDeviceAllocator(), stream, n_sampled_rows);
+  }
 
   // Will sort selected_rows (row IDs), prior to fit, to improve access patterns
-  MLCommon::device_buffer<char>* rows_temp_storage = nullptr;
-  size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
-    rows_temp_storage, temp_storage_bytes, selected_rows->data(),
-    sorted_selected_rows->data(), n_sampled_rows, 0, 8 * sizeof(unsigned int),
-    stream));
-  // Allocate temporary storage
-  rows_temp_storage = new MLCommon::device_buffer<char>(
-    handle.getDeviceAllocator(), stream, temp_storage_bytes);
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem =
-    std::make_shared<TemporaryMemory<T, T>>(
+  MLCommon::device_buffer<char>* rows_temp_storage[n_streams];
+  size_t temp_storage_bytes[n_streams];
+  for (int i = 0; i < n_streams; i++) {
+    rows_temp_storage[i] = nullptr;
+    temp_storage_bytes[i] = 0;
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
+      rows_temp_storage[i], temp_storage_bytes[i], selected_rows[i]->data(),
+      sorted_selected_rows[i]->data(), n_sampled_rows, 0,
+      8 * sizeof(unsigned int), stream));
+    // Allocate temporary storage
+    rows_temp_storage[i] = new MLCommon::device_buffer<char>(
+      handle.getDeviceAllocator(), stream, temp_storage_bytes[i]);
+  }
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
+  for (int i = 0; i < n_streams; i++) {
+    tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
       user_handle.getImpl(), n_sampled_rows, n_cols, 1, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
       this->rf_params.tree_params.max_depth);
-
+  }
+  //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
     preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                        this->rf_params.tree_params.n_bins, tempmem);
+                        this->rf_params.tree_params.n_bins, tempmem[0]);
+    for (int i = 1; i < n_streams; i++) {
+      CUDA_CHECK(cudaMemcpy(
+        tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
+        this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
+        cudaMemcpyDeviceToDevice));
+      memcpy((void*)(tempmem[i]->h_quantile->data()),
+             (void*)(tempmem[0]->h_quantile->data()),
+             this->rf_params.tree_params.n_bins * n_cols * sizeof(T));
+    }
   }
   for (int i = 0; i < this->rf_params.n_trees; i++) {
-    this->prepare_fit_per_tree(handle, i, n_rows, n_sampled_rows,
-                               selected_rows->data(),
-                               sorted_selected_rows->data(),
-                               rows_temp_storage->data(), temp_storage_bytes);
+    int stream_id = i % n_streams;
+    this->prepare_fit_per_tree(
+      handle, i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(),
+      sorted_selected_rows[stream_id]->data(),
+      rows_temp_storage[stream_id]->data(), temp_storage_bytes[stream_id]);
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -436,17 +454,19 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
 
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     trees[i].fit(user_handle, input, n_cols, n_rows, labels,
-                 sorted_selected_rows->data(), n_sampled_rows, tree_ptr,
-                 this->rf_params.tree_params, tempmem);
+                 sorted_selected_rows[stream_id]->data(), n_sampled_rows,
+                 tree_ptr, this->rf_params.tree_params, tempmem[stream_id]);
   }
   //Cleanup
-  rows_temp_storage->release(stream);
-  selected_rows->release(stream);
-  sorted_selected_rows->release(stream);
-  tempmem.reset();
-  delete rows_temp_storage;
-  delete selected_rows;
-  delete sorted_selected_rows;
+  for (int i = 0; i < n_streams; i++) {
+    rows_temp_storage[i]->release(stream);
+    selected_rows[i]->release(stream);
+    sorted_selected_rows[i]->release(stream);
+    tempmem[i].reset();
+    delete rows_temp_storage[i];
+    delete selected_rows[i];
+    delete sorted_selected_rows[i];
+  }
 }
 
 /**
