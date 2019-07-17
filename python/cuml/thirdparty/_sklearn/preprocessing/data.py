@@ -50,6 +50,8 @@ __all__ = [
 
 
 def check_fitted(self, attributes):
+    ''' Check if the scaler already fitted
+    '''
     if not isinstance(attributes, (list, tuple)):
         attributes = [attributes]
     if not all([hasattr(self, attr) for attr in attributes]):
@@ -57,13 +59,12 @@ def check_fitted(self, attributes):
 
 
 def to_cupy(X):
-    ''' convert input to cupy, and return info about input
+    ''' convert input to cupy, and return info about input at the same time
 
     Return
     ------
     X: converted input
-    input_type: type of input
-    input_dim: dim of input
+    input_info: dictionary containing 'type', 'dim' and 'name_or_columns'(optional)
     '''
     # TODO: accept numba cuda array input
     input_info = {}
@@ -190,6 +191,18 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
     Parameters
     ----------
     X : array-like. The data to center and scale.
+    axis : int (0 by default)
+        axis used to compute the means and standard deviations along. If 0,
+        independently standardize each feature, otherwise (if 1) standardize
+        each sample.
+    with_mean : boolean, True by default
+        If True, center the data before scaling.
+    with_std : boolean, True by default
+        If True, scale the data to unit variance (or equivalently,
+        unit standard deviation).
+    copy : boolean, optional, default True
+        set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a cupy).
     '''
     X, input_info = to_cupy(X)
     X = check_array(X, copy=copy, ensure_2d=False,
@@ -240,23 +253,23 @@ def scale(X, axis=0, with_mean=True, with_std=True, copy=True):
 
 
 class TransformerMixin:
-    """Mixin class for all transformers in scikit-learn."""
+    '''Mixin class for transformers'''
 
     def fit_transform(self, X, y=None, **fit_params):
-        """Fit to data, then transform it.
+        '''Fit to data, then transform it.
         Fits transformer to X and y with optional parameters fit_params
         and returns a transformed version of X.
         Parameters
         ----------
-        X : numpy array of shape [n_samples, n_features]
+        X : cupy array of shape [n_samples, n_features]
             Training set.
-        y : numpy array of shape [n_samples]
+        y : cupy array of shape [n_samples]
             Target values.
         Returns
         -------
-        X_new : numpy array of shape [n_samples, n_features_new]
+        X_new : cupy array of shape [n_samples, n_features_new]
             Transformed array.
-        """
+        '''
         # non-optimized default implementation; override when a better
         # method is possible for a given clustering algorithm
         if y is None:
@@ -268,15 +281,75 @@ class TransformerMixin:
 
 
 class MinMaxScaler(TransformerMixin):
+    ''' Transforms features by scaling each feature to a given range.
+    This estimator scales and translates each feature individually such
+    that it is in the given range on the training set, e.g. between
+    zero and one.
+    The transformation is given by::
+        X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
+        X_scaled = X_std * (max - min) + min
+    where min, max = feature_range.
+    The transformation is calculated as::
+        X_scaled = scale * X + min - X.min(axis=0) * scale
+        where scale = (max - min) / (X.max(axis=0) - X.min(axis=0))
+    This transformation is often used as an alternative to zero mean,
+    unit variance scaling.
 
+    Parameters
+    ----------
+    feature_range : tuple (min, max), default=(0, 1)
+        Desired range of transformed data.
+    copy : boolean, optional, default True
+        Set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a cupy array).
+    Attributes
+    ----------
+    min_ : ndarray, shape (n_features,)
+        Per feature adjustment for minimum. Equivalent to
+        ``min - X.min(axis=0) * self.scale_``
+    scale_ : ndarray, shape (n_features,)
+        Per feature relative scaling of the data. Equivalent to
+        ``(max - min) / (X.max(axis=0) - X.min(axis=0))``
+           *scale_* attribute.
+    data_min_ : ndarray, shape (n_features,)
+        Per feature minimum seen in the data
+           *data_min_*
+    data_max_ : ndarray, shape (n_features,)
+        Per feature maximum seen in the data
+           *data_max_*
+    data_range_ : ndarray, shape (n_features,)
+        Per feature range ``(data_max_ - data_min_)`` seen in the data
+           *data_range_*
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import MinMaxScaler
+    >>> data = cp.array([[-1, 2], [-0.5, 6], [0, 10], [1, 18]])
+    >>> scaler = MinMaxScaler()
+    >>> print(scaler.fit(data))
+    MinMaxScaler()
+    >>> print(scaler.data_max_)
+    [ 1. 18.]
+    >>> print(scaler.transform(data))
+    [[0.   0.  ]
+     [0.25 0.25]
+     [0.5  0.5 ]
+     [1.   1.  ]]
+    >>> print(scaler.transform([[2, 2]]))
+    [[1.5 0. ]]
+    
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     def __init__(self, feature_range=(0, 1), copy=True):
         self.feature_range = feature_range
         self.copy = copy
 
     def _reset(self):
-        """Reset internal data-dependent state of the scaler, if necessary.
+        '''Reset internal data-dependent state of the scaler, if necessary.
         __init__ parameters are not touched.
-        """
+        '''
 
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
@@ -289,31 +362,31 @@ class MinMaxScaler(TransformerMixin):
             del self.data_range_
 
     def fit(self, X, y=None):
-        """Compute the minimum and maximum to be used for later scaling.
+        '''Compute the minimum and maximum to be used for later scaling.
         Parameters
         ----------
         X : array-like, shape [n_samples, n_features]
             The data used to compute the per-feature minimum and maximum
             used for later scaling along the features axis.
-        """
+        '''
 
         # Reset internal state before fitting
         self._reset()
         return self.partial_fit(X, y)
 
     def partial_fit(self, X, y=None):
-        """Online computation of min and max on X for later scaling.
+        '''Online computation of min and max on X for later scaling.
         All of X is processed as a single batch. This is intended for cases
         when `fit` is not feasible due to very large number of `n_samples`
         or because X is read from a continuous stream.
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
         y
             Ignored
-        """
+        '''
         feature_range = self.feature_range
         if feature_range[0] >= feature_range[1]:
             raise ValueError("Minimum of desired feature range must be smaller"
@@ -343,12 +416,12 @@ class MinMaxScaler(TransformerMixin):
         return self
 
     def transform(self, X):
-        """Scaling features of X according to feature_range.
+        '''Scaling features of X according to feature_range.
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             Input data that will be transformed.
-        """
+        '''
         check_fitted(self, 'scale_')
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
@@ -359,12 +432,12 @@ class MinMaxScaler(TransformerMixin):
         return X
 
     def inverse_transform(self, X):
-        """Undo the scaling of X according to feature_range.
+        '''Undo the scaling of X according to feature_range.
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             Input data that will be transformed. It cannot be sparse.
-        """
+        '''
         check_fitted(self, 'scale_')
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES)
@@ -376,6 +449,37 @@ class MinMaxScaler(TransformerMixin):
 
 
 def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
+    ''' Transforms features by scaling each feature to a given range.
+    This estimator scales and translates each feature individually such
+    that it is in the given range on the training set, i.e. between
+    zero and one.
+    The transformation is given by (when ``axis=0``)::
+        X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
+        X_scaled = X_std * (max - min) + min
+    where min, max = feature_range.
+    The transformation is calculated as (when ``axis=0``)::
+       X_scaled = scale * X + min - X.min(axis=0) * scale
+       where scale = (max - min) / (X.max(axis=0) - X.min(axis=0))
+    This transformation is often used as an alternative to zero mean,
+    unit variance scaling.
+
+    Parameters
+    ----------
+    X : cupy.ndarray or cudf.DataFrame, shape (n_samples, n_features)
+        The data.
+    feature_range : tuple (min, max), default=(0, 1)
+        Desired range of transformed data.
+    axis : int (0 by default)
+        axis used to scale along. If 0, independently scale each feature,
+        otherwise (if 1) scale each sample.
+    copy : boolean, optional, default is True
+        Set to False to perform inplace scaling and avoid a copy (if the input
+        is already a cupy array).
+
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
     X, input_info = to_cupy(X)
@@ -399,16 +503,86 @@ def minmax_scale(X, feature_range=(0, 1), axis=0, copy=True):
 
 
 class StandardScaler(TransformerMixin):
+    ''' Standardize features by removing the mean and scaling to unit variance
+    The standard score of a sample `x` is calculated as:
+        z = (x - u) / s
+    where `u` is the mean of the training samples or zero if `with_mean=False`,
+    and `s` is the standard deviation of the training samples or one if
+    `with_std=False`.
+    Centering and scaling happen independently on each feature by computing
+    the relevant statistics on the samples in the training set. Mean and
+    standard deviation are then stored to be used on later data using the
+    `transform` method.
+    Standardization of a dataset is a common requirement for many
+    machine learning estimators: they might behave badly if the
+    individual features do not more or less look like standard normally
+    distributed data (e.g. Gaussian with 0 mean and unit variance).
+    For instance many elements used in the objective function of
+    a learning algorithm (such as the RBF kernel of Support Vector
+    Machines or the L1 and L2 regularizers of linear models) assume that
+    all features are centered around 0 and have variance in the same
+    order. If a feature has a variance that is orders of magnitude larger
+    that others, it might dominate the objective function and make the
+    estimator unable to learn from other features correctly as expected.
+    This scaler can also be applied to sparse CSR or CSC matrices by passing
+    `with_mean=False` to avoid breaking the sparsity structure of the data.
+
+    Parameters
+    ----------
+    copy : boolean, optional, default True
+        If False, try to avoid a copy and do inplace scaling instead.
+        This is not guaranteed to always work inplace; e.g. if the data is
+        not a CuPy array, a copy may still be
+        returned.
+    with_mean : boolean, True by default
+        If True, center the data before scaling.
+    with_std : boolean, True by default
+        If True, scale the data to unit variance (or equivalently,
+        unit standard deviation).
+    Attributes
+    ----------
+    scale_ : ndarray or None, shape (n_features,)
+        Per feature relative scaling of the data. This is calculated using
+        `cp.sqrt(var_)`. Equal to ``None`` when ``with_std=False``.
+    mean_ : ndarray or None, shape (n_features,)
+        The mean value for each feature in the training set.
+        Equal to ``None`` when ``with_mean=False``.
+    var_ : ndarray or None, shape (n_features,)
+        The variance for each feature in the training set. Used to compute
+        `scale_`. Equal to ``None`` when ``with_std=False``.
+    n_samples_seen_ : int or array, shape (n_features,)
+        The number of samples processed by the estimator for each feature.
+        If there are not missing samples, the ``n_samples_seen`` will be an
+        integer, otherwise it will be an array.
+        Will be reset on new calls to fit, but increments across
+        ``partial_fit`` calls.
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import StandardScaler
+    >>> data = cp.array([[0, 0], [0, 0], [1, 1], [1, 1]])
+    >>> scaler = StandardScaler()
+    >>> print(scaler.fit(data))
+    StandardScaler()
+    >>> print(scaler.mean_)
+    array([0.5 0.5])
+    >>> print(scaler.transform(data))
+    array([[-1. -1.]
+           [-1. -1.]
+           [ 1.  1.]
+           [ 1.  1.]])
+    >>> print(scaler.transform([[2, 2]]))
+    array([[3. 3.]])
+    '''
     def __init__(self, copy=True, with_mean=True, with_std=True):
         self.with_mean = with_mean
         self.with_std = with_std
         self.copy = copy
 
     def _reset(self):
-        """Reset internal data-dependent state of the scaler, if necessary.
+        '''Reset internal data-dependent state of the scaler, if necessary.
         __init__ parameters are not touched.
-        """
-
+        '''
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
@@ -418,22 +592,22 @@ class StandardScaler(TransformerMixin):
             del self.var_
 
     def fit(self, X, y=None):
-        """Compute the mean and std to be used for later scaling.
+        '''Compute the mean and std to be used for later scaling.
+        
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
         y
             Ignored
-        """
-
+        '''
         # Reset internal state before fitting
         self._reset()
         return self.partial_fit(X, y)
 
     def partial_fit(self, X, y=None):
-        """Online computation of mean and std on X for later scaling.
+        '''Online computation of mean and std on X for later scaling.
         All of X is processed as a single batch. This is intended for cases
         when `fit` is not feasible due to very large number of `n_samples`
         or because X is read from a continuous stream.
@@ -443,12 +617,12 @@ class StandardScaler(TransformerMixin):
         The American Statistician 37.3 (1983): 242-247:
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
         y
             Ignored
-        """
+        '''
         X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
@@ -484,14 +658,14 @@ class StandardScaler(TransformerMixin):
         return self
 
     def transform(self, X, copy=None):
-        """Perform standardization by centering and scaling
+        '''Perform standardization by centering and scaling
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to scale along the features axis.
         copy : bool, optional (default: None)
             Copy the input X or not.
-        """
+        '''
         check_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
@@ -506,18 +680,18 @@ class StandardScaler(TransformerMixin):
         return X
 
     def inverse_transform(self, X, copy=None):
-        """Scale back the data to the original representation
+        '''Scale back the data to the original representation
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to scale along the features axis.
         copy : bool, optional (default: None)
             Copy the input X or not.
         Returns
         -------
-        X_tr : array-like, shape [n_samples, n_features]
+        X_tr : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             Transformed array.
-        """
+        '''
         check_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
@@ -534,14 +708,54 @@ class StandardScaler(TransformerMixin):
 
 
 class MaxAbsScaler(TransformerMixin):
+    ''' Scale each feature by its maximum absolute value.
+    This estimator scales and translates each feature individually such
+    that the maximal absolute value of each feature in the
+    training set will be 1.0.
+
+    Parameters
+    ----------
+    copy : boolean, optional, default is True
+        Set to False to perform inplace scaling and avoid a copy (if the input
+        is already a cupy array).
+    Attributes
+    ----------
+    scale_ : ndarray, shape (n_features,)
+        Per feature relative scaling of the data.
+    max_abs_ : ndarray, shape (n_features,)
+        Per feature maximum absolute value.
+    n_samples_seen_ : int
+        The number of samples processed by the estimator. Will be reset on
+        new calls to fit, but increments across ``partial_fit`` calls.
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import MaxAbsScaler
+    >>> X = cp.array([[ 1., -1.,  2.],
+    ...               [ 2.,  0.,  0.],
+    ...               [ 0.,  1., -1.]])
+    >>> transformer = MaxAbsScaler().fit(X)
+    >>> transformer
+    MaxAbsScaler()
+    >>> transformer.transform(X)
+    array([[ 0.5, -1. ,  1. ],
+           [ 1. ,  0. ,  0. ],
+           [ 0. ,  1. , -0.5]])
+    See also
+    --------
+    maxabs_scale: Equivalent function without the estimator API.
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
 
     def __init__(self, copy=True):
         self.copy = copy
 
     def _reset(self):
-        """Reset internal data-dependent state of the scaler, if necessary.
+        '''Reset internal data-dependent state of the scaler, if necessary.
         __init__ parameters are not touched.
-        """
+        '''
 
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
@@ -551,31 +765,31 @@ class MaxAbsScaler(TransformerMixin):
             del self.max_abs_
 
     def fit(self, X, y=None):
-        """Compute the maximum absolute value to be used for later scaling.
+        '''Compute the maximum absolute value to be used for later scaling.
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the per-feature minimum and maximum
             used for later scaling along the features axis.
-        """
+        '''
 
         # Reset internal state before fitting
         self._reset()
         return self.partial_fit(X, y)
 
     def partial_fit(self, X, y=None):
-        """Online computation of max absolute value of X for later scaling.
+        '''Online computation of max absolute value of X for later scaling.
         All of X is processed as a single batch. This is intended for cases
         when `fit` is not feasible due to very large number of `n_samples`
         or because X is read from a continuous stream.
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
         y
             Ignored
-        """
+        '''
         X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
@@ -594,12 +808,12 @@ class MaxAbsScaler(TransformerMixin):
         return self
 
     def transform(self, X):
-        """Scale the data
+        '''Scale the data
         Parameters
         ----------
-        X : {array-like, sparse matrix}
+        X : cupy.ndarray or cudf.DataFrame
             The data that should be scaled.
-        """
+        '''
         check_fitted(self, 'scale_')
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
@@ -609,12 +823,12 @@ class MaxAbsScaler(TransformerMixin):
         return X
 
     def inverse_transform(self, X):
-        """Scale back the data to the original representation
+        '''Scale back the data to the original representation
         Parameters
         ----------
-        X : {array-like, sparse matrix}
+        X : cupy.ndarray or cudf.DataFrame
             The data that should be transformed back.
-        """
+        '''
         check_fitted(self, 'scale_')
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
@@ -625,7 +839,26 @@ class MaxAbsScaler(TransformerMixin):
 
 
 def maxabs_scale(X, axis=0, copy=True):
+    ''' Scale each feature to the [-1, 1] range without breaking the sparsity.
+    This estimator scales each feature individually such
+    that the maximal absolute value of each feature in the
+    training set will be 1.0.
 
+    Parameters
+    ----------
+    X : cupy.ndarray or cudf.DataFrame, shape (n_samples, n_features)
+        The data.
+    axis : int (0 by default)
+        axis used to scale along. If 0, independently scale each feature,
+        otherwise (if 1) scale each sample.
+    copy : boolean, optional, default is True
+        Set to False to perform inplace scaling and avoid a copy (if the input
+        is already a cupy array).
+
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     X, input_info = to_cupy(X)
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
@@ -649,6 +882,67 @@ def maxabs_scale(X, axis=0, copy=True):
 
 
 class RobustScaler(TransformerMixin):
+    ''' Scale features using statistics that are robust to outliers.
+    This Scaler removes the median and scales the data according to
+    the quantile range (defaults to IQR: Interquartile Range).
+    The IQR is the range between the 1st quartile (25th quantile)
+    and the 3rd quartile (75th quantile).
+    Centering and scaling happen independently on each feature by
+    computing the relevant statistics on the samples in the training
+    set. Median and interquartile range are then stored to be used on
+    later data using the ``transform`` method.
+    Standardization of a dataset is a common requirement for many
+    machine learning estimators. Typically this is done by removing the mean
+    and scaling to unit variance. However, outliers can often influence the
+    sample mean / variance in a negative way. In such cases, the median and
+    the interquartile range often give better results.
+
+    Parameters
+    ----------
+    with_centering : boolean, True by default
+        If True, center the data before scaling.
+        This will cause ``transform`` to raise an exception when attempted on
+        sparse matrices, because centering them entails building a dense
+        matrix which in common use cases is likely to be too large to fit in
+        memory.
+    with_scaling : boolean, True by default
+        If True, scale the data to interquartile range.
+    quantile_range : tuple (q_min, q_max), 0.0 < q_min < q_max < 100.0
+        Default: (25.0, 75.0) = (1st quantile, 3rd quantile) = IQR
+        Quantile range used to calculate ``scale_``.
+    copy : boolean, optional, default is True
+        If False, try to avoid a copy and do inplace scaling instead.
+        This is not guaranteed to always work inplace; e.g. if the data is
+        not a CuPy array, a copy may still be
+        returned.
+    Attributes
+    ----------
+    center_ : array of floats
+        The median value for each feature in the training set.
+    scale_ : array of floats
+        The (scaled) interquartile range for each feature in the training set.
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import RobustScaler
+    >>> X = cp.array([[ 1., -2.,  2.],
+    ...               [ -2.,  1.,  3.],
+    ...               [ 4.,  1., -2.]])
+    >>> transformer = RobustScaler().fit(X)
+    >>> transformer
+    RobustScaler()
+    >>> transformer.transform(X)
+    array([[ 0. , -2. ,  0. ],
+           [-1. ,  0. ,  0.4],
+           [ 1. ,  0. , -1.6]])
+    See also
+    --------
+    robust_scale: Equivalent function without the estimator API.
+
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     def __init__(self, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
         self.with_centering = with_centering
@@ -657,13 +951,13 @@ class RobustScaler(TransformerMixin):
         self.copy = copy
 
     def fit(self, X, y=None):
-        """Compute the median and quantiles to be used for scaling.
+        '''Compute the median and quantiles to be used for scaling.
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data used to compute the median and quantiles
             used for later scaling along the features axis.
-        """
+        '''
         X, _ = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
 
@@ -700,12 +994,12 @@ class RobustScaler(TransformerMixin):
         return self
 
     def transform(self, X):
-        """Center and scale the data.
+        '''Center and scale the data.
         Parameters
         ----------
-        X : {array-like, sparse matrix}
+        X : cupy.ndarray or cudf.DataFrame
             The data used to scale along the specified axis.
-        """
+        '''
         check_fitted(self, ['center_', 'scale_'])
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
@@ -718,12 +1012,12 @@ class RobustScaler(TransformerMixin):
         return X
 
     def inverse_transform(self, X):
-        """Scale back the data to the original representation
+        '''Scale back the data to the original representation
         Parameters
         ----------
         X : array-like
             The data used to scale along the specified axis.
-        """
+        '''
         check_fitted(self, ['center_', 'scale_'])
         X, input_info = to_cupy(X)
         X = check_array(X, copy=self.copy, estimator=self, dtype=FLOAT_DTYPES)
@@ -738,7 +1032,34 @@ class RobustScaler(TransformerMixin):
 
 def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
+    ''' Standardize a dataset along any axis
+    Center to the median and component wise scale
+    according to the interquartile range.
 
+    Parameters
+    ----------
+    X : cupy.ndarray or cudf.DataFrame
+        The data to center and scale.
+    axis : int (0 by default)
+        axis used to compute the medians and IQR along. If 0,
+        independently scale each feature, otherwise (if 1) scale
+        each sample.
+    with_centering : boolean, True by default
+        If True, center the data before scaling.
+    with_scaling : boolean, True by default
+        If True, scale the data to unit variance (or equivalently,
+        unit standard deviation).
+    quantile_range : tuple (q_min, q_max), 0.0 < q_min < q_max < 100.0
+        Default: (25.0, 75.0) = (1st quantile, 3rd quantile) = IQR
+        Quantile range used to calculate ``scale_``.
+    copy : boolean, optional, default is True
+        set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a CuPy array).
+
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     X, input_info = to_cupy(X)
     X = check_array(X, copy=False, ensure_2d=False, dtype=FLOAT_DTYPES)
     original_ndim = X.ndim
@@ -761,6 +1082,36 @@ def robust_scale(X, axis=0, with_centering=True, with_scaling=True,
 
 
 def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
+    ''' Scale input vectors individually to unit norm (vector length).
+
+    Parameters
+    ----------
+    X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
+        The data to normalize, element by element.
+    norm : 'l1', 'l2', or 'max', optional ('l2' by default)
+        The norm to use to normalize each non zero sample (or each non-zero
+        feature if axis is 0).
+    axis : 0 or 1, optional (1 by default)
+        axis used to normalize the data along. If 1, independently normalize
+        each sample, otherwise (if 0) normalize each feature.
+    copy : boolean, optional, default True
+        set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a CuPy array).
+    return_norm : boolean, default False
+        whether to return the computed norms
+    Returns
+    -------
+    X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
+        Normalized input X.
+    norms : array, shape [n_samples] if axis=1 else [n_features]
+        An array of norms along given axis for X.
+        When X is sparse, a NotImplementedError will be raised
+        for norm 'l1' or 'l2'.
+
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     if norm not in ('l1', 'l2', 'max'):
         raise ValueError("'%s' is not a supported norm" % norm)
 
@@ -793,33 +1144,71 @@ def normalize(X, norm='l2', axis=1, copy=True, return_norm=False):
 
 
 class Normalizer(TransformerMixin):
+    ''' Normalize samples individually to unit norm.
+    Each sample (i.e. each row of the data matrix) with at least one
+    non zero component is rescaled independently of other samples so
+    that its norm (l1 or l2) equals one.
+    Scaling inputs to unit norms is a common operation for text
+    classification or clustering for instance. For instance the dot
+    product of two l2-normalized TF-IDF vectors is the cosine similarity
+    of the vectors and is the base similarity metric for the Vector
+    Space Model commonly used by the Information Retrieval community.
 
+    Parameters
+    ----------
+    norm : 'l1', 'l2', or 'max', optional ('l2' by default)
+        The norm to use to normalize each non zero sample.
+    copy : boolean, optional, default True
+        set to False to perform inplace row normalization and avoid a
+        copy (if the input is already a cupy array).
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import Normalizer
+    >>> X = cp.array([[4, 1, 2, 2],
+    ...               [1, 3, 9, 3],
+    ...               [5, 7, 5, 1]])
+    >>> transformer = Normalizer().fit(X)  # fit does nothing.
+    >>> transformer
+    Normalizer()
+    >>> transformer.transform(X)
+    array([[0.8, 0.2, 0.4, 0.4],
+           [0.1, 0.3, 0.9, 0.3],
+           [0.5, 0.7, 0.5, 0.1]])
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+
+    See also
+    --------
+    normalize: Equivalent function without the estimator API.
+    '''
     def __init__(self, norm='l2', copy=True):
         self.norm = norm
         self.copy = copy
 
     def fit(self, X, y=None):
-        """Do nothing and return the estimator unchanged
+        '''Do nothing and return the estimator unchanged
         This method is just there to implement the usual API and hence
         work in pipelines.
         Parameters
         ----------
         X : array-like
-        """
+        '''
         X, _ = to_cupy(X)
         check_array(X)
         return self
 
     def transform(self, X, copy=None):
-        """Scale each non zero row of X to unit norm
+        '''Scale each non zero row of X to unit norm
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data to normalize, row by row. scipy.sparse matrices should be
             in CSR format to avoid an un-necessary copy.
         copy : bool, optional (default: None)
             Copy the input X or not.
-        """
+        '''
         copy = copy if copy is not None else self.copy
         X, input_info = to_cupy(X)
         X = check_array(X)
@@ -827,6 +1216,18 @@ class Normalizer(TransformerMixin):
 
 
 def binarize(X, threshold=0.0, copy=True):
+    ''' Boolean thresholding of cupy.ndarray or cudf.DataFrame
+
+    Parameters
+    ----------
+    X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
+        The data to binarize, element by element.
+    threshold : float, optional (0.0 by default)
+        Feature values below or equal to this are replaced by 0, above it by 1.
+    copy : boolean, optional, default True
+        set to False to perform inplace binarization and avoid a copy
+        (if the input is already a CuPy array).
+    '''
     X, input_info = to_cupy(X)
     X = check_array(X, copy=copy)
     cond = X > threshold
@@ -838,53 +1239,103 @@ def binarize(X, threshold=0.0, copy=True):
 
 
 class Binarizer(TransformerMixin):
+    ''' Binarize data (set feature values to 0 or 1) according to a threshold
+    Values greater than the threshold map to 1, while values less than
+    or equal to the threshold map to 0. With the default threshold of 0,
+    only positive values map to 1.
+    Binarization is a common operation on text count data where the
+    analyst can decide to only consider the presence or absence of a
+    feature rather than a quantified number of occurrences for instance.
+    It can also be used as a pre-processing step for estimators that
+    consider boolean random variables (e.g. modelled using the Bernoulli
+    distribution in a Bayesian setting).
+
+    Parameters
+    ----------
+    threshold : float, optional (0.0 by default)
+        Feature values below or equal to this are replaced by 0, above it by 1.
+    copy : boolean, optional, default True
+        set to False to perform inplace binarization and avoid a copy (if
+        the input is already a cupy array).
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import Binarizer
+    >>> X = cp.array([[ 1., -1.,  2.],
+    ...               [ 2.,  0.,  0.],
+    ...               [ 0.,  1., -1.]])
+    >>> transformer = Binarizer().fit(X)  # fit does nothing.
+    >>> transformer
+    Binarizer()
+    >>> transformer.transform(X)
+    array([[1., 0., 1.],
+           [1., 0., 0.],
+           [0., 1., 0.]])
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+
+    See also
+    --------
+    binarize: Equivalent function without the estimator API.
+    ''' 
     def __init__(self, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
 
     def fit(self, X, y=None):
-        """Do nothing and return the estimator unchanged
+        '''Do nothing and return the estimator unchanged
         This method is just there to implement the usual API and hence
         work in pipelines.
         Parameters
         ----------
         X : array-like
-        """
+        '''
         X, _ = to_cupy(X)
         check_array(X)
         return self
 
     def transform(self, X, copy=None):
-        """Binarize each element of X
+        '''Binarize each element of X
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
+        X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
             The data to binarize, element by element.
             scipy.sparse matrices should be in CSR format to avoid an
             un-necessary copy.
         copy : bool
             Copy the input X or not.
-        """
+        '''
         copy = copy if copy is not None else self.copy
         return binarize(X, threshold=self.threshold, copy=copy)
 
 
 class KernelCenterer(TransformerMixin):
+    ''' Center a kernel matrix
+    Let K(x, z) be a kernel defined by phi(x)^T phi(z), where phi is a
+    function mapping x to a Hilbert space. KernelCenterer centers (i.e.,
+    normalize to have zero mean) the data without explicitly computing phi(x).
+    It is equivalent to centering phi(x) with
+    cuml.preprocessing.StandardScaler(with_std=False).
 
+    Notes
+    -----
+    Currently does not support sparse matrix or input containing NaNs
+    '''
     def __init__(self):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
     def fit(self, K, y=None):
-        """Fit KernelCenterer
+        '''Fit KernelCenterer
         Parameters
         ----------
-        K : numpy array of shape [n_samples, n_samples]
+        K : cupy.ndarray or cudf.DataFrame of shape [n_samples, n_samples]
             Kernel matrix.
         Returns
         -------
         self : returns an instance of self.
-        """
+        '''
         K, _ = to_cupy(K)
         K = check_array(K, dtype=FLOAT_DTYPES)
         n_samples = K.shape[0]
@@ -893,17 +1344,17 @@ class KernelCenterer(TransformerMixin):
         return self
 
     def transform(self, K, copy=True):
-        """Center kernel matrix.
+        '''Center kernel matrix.
         Parameters
         ----------
-        K : numpy array of shape [n_samples1, n_samples2]
+        K : cupy.ndarray or cudf.DataFrame of shape [n_samples1, n_samples2]
             Kernel matrix.
         copy : boolean, optional, default True
             Set to False to perform inplace computation.
         Returns
         -------
-        K_new : numpy array of shape [n_samples1, n_samples2]
-        """
+        K_new: cupy.ndarray or cudf.DataFrame of shape [n_samples1, n_samples2]
+        '''
         check_fitted(self, 'K_fit_all_')
         K, input_info = to_cupy(K)
         K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
@@ -924,26 +1375,27 @@ class KernelCenterer(TransformerMixin):
 
 
 def add_dummy_feature(X, value=1.0):
-    """Augment dataset with an additional dummy feature.
+    '''Augment dataset with an additional dummy feature.
     This is useful for fitting an intercept term with implementations which
     cannot otherwise fit it directly.
     Parameters
     ----------
-    X : {array-like, sparse matrix}, shape [n_samples, n_features]
+    X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features]
         Data.
     value : float
         Value to use for the dummy feature.
     Returns
     -------
-    X : {array, sparse matrix}, shape [n_samples, n_features + 1]
+    X : cupy.ndarray or cudf.DataFrame, shape [n_samples, n_features + 1]
         Same data with dummy feature added as first column.
     Examples
     --------
-    >>> from sklearn.preprocessing import add_dummy_feature
-    >>> add_dummy_feature([[0, 1], [1, 0]])
+    >>> import cupy as cp
+    >>> from cumlpreprocessing. import add_dummy_feature
+    >>> add_dummy_feature(cp.array([[0, 1], [1, 0]]))
     array([[1., 0., 1.],
            [1., 1., 0.]])
-    """
+    '''
 
     # need to mod to_orig_type, since new column will be added
     X, input_info = to_cupy(X)
