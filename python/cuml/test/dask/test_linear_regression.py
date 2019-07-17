@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import pytest
+pytestmark = pytest.mark.mg
+
 from dask.distributed import Client
 from dask_cuda import LocalCUDACluster
-import pytest
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import gzip

@@ -14,6 +14,8 @@
 #
 
 import pytest
+pytestmark = pytest.mark.mg
+
 from dask_cuda import LocalCUDACluster
 
 from cuml.dask.common.comms import default_comms

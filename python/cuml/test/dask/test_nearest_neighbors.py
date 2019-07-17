@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+import pytest
+pytestmark = pytest.mark.mg
+
 from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait

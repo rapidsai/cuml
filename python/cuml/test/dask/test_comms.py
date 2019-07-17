@@ -14,6 +14,8 @@
 #
 
 import pytest
+pytestmark = pytest.mark.mg
+
 from dask_cuda import LocalCUDACluster
 
 import random
