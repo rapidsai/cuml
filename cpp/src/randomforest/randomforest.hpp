@@ -76,7 +76,7 @@ void set_rf_params(RF_params& params, int cfg_n_trees = 1,
                    bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f,
                    int cfg_n_streams = 4);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample,
+                       float cfg_rows_sample, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
 void validity_check(const RF_params rf_params);
 void print(const RF_params rf_params);
@@ -139,7 +139,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, CRITERION split_criterion,
-                           bool quantile_per_tree);
+                           bool quantile_per_tree, int cfg_n_streams);
 
 // ----------------------------- Regression ----------------------------------- //
 
