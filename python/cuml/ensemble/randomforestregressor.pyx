@@ -323,11 +323,9 @@ class RandomForestRegressor(Base):
         state['verbose'] = self.verbose
 
         if self.dtype == np.float32:
-            print(" dtype is float32")
             state["rf_params"] = rf_forest.rf_params
             del state["rf_forest"]
         else:
-            print(" dtype is float64")
             state["rf_params64"] = rf_forest64.rf_params
             del state["rf_forest64"]
 
@@ -351,11 +349,9 @@ class RandomForestRegressor(Base):
             new RandomForestMetaData[double, double]()
 
         if self.dtype == np.float32:
-            print(" dtype is float32 in set state")
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
         else:
-            print(" dtype is float64 in set state")
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <size_t>rf_forest64
 
