@@ -17,7 +17,8 @@
 #pragma once
 
 namespace ML {
-namespace math {
+namespace HoltWinters {
+namespace Math {
 
 template <typename Dtype>
 void div_gpu(int n, const Dtype* a, const Dtype* b, Dtype* y);
@@ -53,5 +54,6 @@ __device__ __forceinline__ double abs_device(double x) { return fabs(x); }
 __device__ __forceinline__ float sqrt_device(float x) { return sqrtf(x); }
 __device__ __forceinline__ double sqrt_device(double x) { return sqrt(x); }
 
-}  // namespace math
+}  // namespace Math
+}  // namespace HoltWinters
 }  // namespace ML
