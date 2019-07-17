@@ -38,28 +38,13 @@ from sklearn.utils.testing import assert_raises_regex
 # from sklearn.utils.testing import assert_no_warnings
 # from sklearn.utils.testing import assert_allclose_dense_sparse
 
-from data import _handle_zeros_in_scale
-from data import to_cupy
+from cuml.thirdparty._sklearn.preprocessing.data import (
+    _handle_zeros_in_scale, to_cupy)
 
-from data import StandardScaler
-from data import scale
-from data import MinMaxScaler
-from data import minmax_scale
-from data import Binarizer
-from data import KernelCenterer
-from data import Normalizer
-from data import normalize
-from data import MaxAbsScaler
-from data import maxabs_scale
-from data import RobustScaler
-from data import robust_scale
-from data import add_dummy_feature
-
-# from data import QuantileTransformer
-# from data import quantile_transform
-# from data import PolynomialFeatures
-# from data import PowerTransformer
-# from data import power_transform
+from cuml.thirdparty import (
+    StandardScaler, scale, MinMaxScaler, minmax_scale, Binarizer,
+    KernelCenterer, Normalizer, normalize, MaxAbsScaler, maxabs_scale,
+    RobustScaler, robust_scale, add_dummy_feature)
 
 from sklearn import datasets
 iris = datasets.load_iris()
