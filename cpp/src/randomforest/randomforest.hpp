@@ -64,11 +64,17 @@ struct RF_params {
   /**
    * Decision tree training hyper parameter struct.
    */
+  /**
+   * Number of concurrent (cpu thread + gpu stream)  pair per GPU for parallel tree building. 
+   * N streams need N times RF workspace. 
+   */
+  int n_streams;
   DecisionTree::DecisionTreeParams tree_params;
 };
 
 void set_rf_params(RF_params& params, int cfg_n_trees = 1,
-                   bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f);
+                   bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f,
+                   int cfg_n_streams = 4);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
                        float cfg_rows_sample,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
