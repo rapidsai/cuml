@@ -15,60 +15,9 @@
  */
 
 #pragma once
-
-// #define HW_SAFE_CALL(call)                                            \
-//   {                                                                   \
-//     do {                                                              \
-//       ML::HWStatus status = call;                                     \
-//       if (status != ML::HWStatus ::HW_SUCCESS) {                      \
-//         std::cerr << "HW error in in line " << __LINE__ << std::endl; \
-//         exit(EXIT_FAILURE);                                           \
-//       }                                                               \
-//     } while (0);                                                      \
-//   }
-
-// #define CUDA_SAFE_CALL(call)                                               \
-//   {                                                                        \
-//     do {                                                                   \
-//       cudaError_t status = call;                                           \
-//       ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call, \
-//              cudaGetErrorString(status));                                  \
-//     } while (0);                                                           \
-//   }
+#include "hw_ds.h"
 
 namespace ML {
-
-// enum HWStatus {
-//   HW_SUCCESS = 0,
-//   HW_NOT_INITIALIZED = 1,
-//   HW_INVALID_VALUE = 2,
-//   HW_ALLOC_FAILED = 3,
-//   HW_INTERNAL_ERROR = 4
-// };
-
-enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
-
-enum OptimCriterion {
-  OPTIM_BFGS_ITER_LIMIT = 0,
-  OPTIM_MIN_PARAM_DIFF = 1,
-  OPTIM_MIN_ERROR_DIFF = 2,
-  OPTIM_MIN_GRAD_NORM = 3,
-};
-
-template <typename Dtype>
-struct OptimParams {
-  Dtype eps;
-  Dtype min_param_diff;
-  Dtype min_error_diff;
-  Dtype min_grad_norm;
-  int bfgs_iter_limit;
-  int linesearch_iter_limit;
-  Dtype linesearch_tau;
-  Dtype linesearch_c;
-  Dtype linesearch_step_size;
-};
-
-enum Norm { L0, L1, L2, LINF };
 
 // HW misc functions
 void HWInit();

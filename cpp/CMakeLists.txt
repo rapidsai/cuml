@@ -336,8 +336,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
-    src/holtwinters/HoltWinters.cpp
-    src/holtwinters/hw_cu_utils.cpp
+    src/holtwinters/HoltWinters.cu
+    src/holtwinters/hw_cu_utils.cu
     src/holtwinters/hw_math.cu
     src/holtwinters/holtwinters_utils.cu
     src/kalman_filter/lkf_py.cu

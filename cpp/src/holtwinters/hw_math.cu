@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "hw_cu_utils.hpp"
-#include "hw_math.hpp"
+#include "hw_cu_utils.cuh"
+#include "hw_math.cuh"
 
 template <typename Dtype>
 __global__ void div_kernel(int n, const Dtype* a, const Dtype* b, Dtype* y) {
@@ -41,3 +41,17 @@ void ML::HoltWinters::Math::subtract_gpu(int n, const Dtype* a, const Dtype* b,
   subtract_kernel<Dtype>
     <<<GET_NUM_BLOCKS(n), GET_THREADS_PER_BLOCK(n)>>>(n, a, b, y);
 }
+
+template void ML::HoltWinters::Math::div_gpu<float>(int n, const float* a,
+                                                    const float* b, float* y);
+template void ML::HoltWinters::Math::div_gpu<double>(int n, const double* a,
+                                                     const double* b,
+                                                     double* y);
+
+template void ML::HoltWinters::Math::subtract_gpu<float>(int n, const float* a,
+                                                         const float* b,
+                                                         float* y);
+template void ML::HoltWinters::Math::subtract_gpu<double>(int n,
+                                                          const double* a,
+                                                          const double* b,
+                                                          double* y);

@@ -17,9 +17,9 @@
 #include <cuda_runtime.h>
 
 #include <iostream>
-#include "HoltWinters.hpp"
-#include "holtwinters_utils.hpp"
-#include "hw_cu_utils.hpp"
+#include "HoltWinters.cuh"
+#include "holtwinters_utils.cuh"
+#include "hw_cu_utils.cuh"
 #include "utils.h"
 
 namespace ML {
@@ -306,72 +306,72 @@ void HoltWintersFitPredict(int n, int batch_size, int frequency, int h,
   CUDA_CHECK(cudaFree(error_d));
 }
 
-// template void HWTranspose<float>(const float *data_in, int m, int n,
-//                                  float *data_out);
-// template void HWTranspose<double>(const double *data_in, int m, int n,
-//                                   double *data_out);
+template void HWTranspose<float>(const float *data_in, int m, int n,
+                                 float *data_out);
+template void HWTranspose<double>(const double *data_in, int m, int n,
+                                  double *data_out);
 
-// template void HoltWintersDecompose<float>(
-//   const float *ts, int n, int batch_size, int frequency, float *start_level,
-//   float *start_trend, float *start_season, int start_periods,
-//   SeasonalType seasonal);
-// template void HoltWintersDecompose<double>(
-//   const double *ts, int n, int batch_size, int frequency, double *start_level,
-//   double *start_trend, double *start_season, int start_periods,
-//   SeasonalType seasonal);
+template void HoltWintersDecompose<float>(
+  const float *ts, int n, int batch_size, int frequency, float *start_level,
+  float *start_trend, float *start_season, int start_periods,
+  SeasonalType seasonal);
+template void HoltWintersDecompose<double>(
+  const double *ts, int n, int batch_size, int frequency, double *start_level,
+  double *start_trend, double *start_season, int start_periods,
+  SeasonalType seasonal);
 
-// template void HoltWintersEval<float>(const float *ts, int n, int batch_size,
-//                                      int frequency, const float *start_level,
-//                                      const float *start_trend,
-//                                      const float *start_season,
-//                                      const float *alpha, const float *beta,
-//                                      const float *gamma, float *level,
-//                                      float *trend, float *season, float *xhat,
-//                                      float *error, SeasonalType seasonal);
-// template void HoltWintersEval<double>(
-//   const double *ts, int n, int batch_size, int frequency,
-//   const double *start_level, const double *start_trend,
-//   const double *start_season, const double *alpha, const double *beta,
-//   const double *gamma, double *level, double *trend, double *season,
-//   double *xhat, double *error, SeasonalType seasonal);
+template void HoltWintersEval<float>(const float *ts, int n, int batch_size,
+                                     int frequency, const float *start_level,
+                                     const float *start_trend,
+                                     const float *start_season,
+                                     const float *alpha, const float *beta,
+                                     const float *gamma, float *level,
+                                     float *trend, float *season, float *xhat,
+                                     float *error, SeasonalType seasonal);
+template void HoltWintersEval<double>(
+  const double *ts, int n, int batch_size, int frequency,
+  const double *start_level, const double *start_trend,
+  const double *start_season, const double *alpha, const double *beta,
+  const double *gamma, double *level, double *trend, double *season,
+  double *xhat, double *error, SeasonalType seasonal);
 
-// template void HoltWintersOptim(
-//   const float *ts, int n, int batch_size, int frequency,
-//   const float *start_level, const float *start_trend, const float *start_season,
-//   float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
-//   bool optim_gamma, float *level, float *trend, float *season, float *xhat,
-//   float *error, OptimCriterion *optim_result, OptimParams<float> *optim_params,
-//   SeasonalType seasonal);
-// template void HoltWintersOptim(const double *ts, int n, int batch_size,
-//                                int frequency, const double *start_level,
-//                                const double *start_trend,
-//                                const double *start_season, double *alpha,
-//                                bool optim_alpha, double *beta, bool optim_beta,
-//                                double *gamma, bool optim_gamma, double *level,
-//                                double *trend, double *season, double *xhat,
-//                                double *error, OptimCriterion *optim_result,
-//                                OptimParams<double> *optim_params,
-//                                SeasonalType seasonal);
+template void HoltWintersOptim(
+  const float *ts, int n, int batch_size, int frequency,
+  const float *start_level, const float *start_trend, const float *start_season,
+  float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
+  bool optim_gamma, float *level, float *trend, float *season, float *xhat,
+  float *error, OptimCriterion *optim_result, OptimParams<float> *optim_params,
+  SeasonalType seasonal);
+template void HoltWintersOptim(const double *ts, int n, int batch_size,
+                               int frequency, const double *start_level,
+                               const double *start_trend,
+                               const double *start_season, double *alpha,
+                               bool optim_alpha, double *beta, bool optim_beta,
+                               double *gamma, bool optim_gamma, double *level,
+                               double *trend, double *season, double *xhat,
+                               double *error, OptimCriterion *optim_result,
+                               OptimParams<double> *optim_params,
+                               SeasonalType seasonal);
 
-// template void HoltWintersForecast<float>(float *forecast, int h, int batch_size,
-//                                          int frequency, const float *level_coef,
-//                                          const float *trend_coef,
-//                                          const float *season_coef,
-//                                          SeasonalType seasonal);
-// template void HoltWintersForecast<double>(double *forecast, int h,
-//                                           int batch_size, int frequency,
-//                                           const double *level_coef,
-//                                           const double *trend_coef,
-//                                           const double *season_coef,
-//                                           SeasonalType seasonal);
+template void HoltWintersForecast<float>(float *forecast, int h, int batch_size,
+                                         int frequency, const float *level_coef,
+                                         const float *trend_coef,
+                                         const float *season_coef,
+                                         SeasonalType seasonal);
+template void HoltWintersForecast<double>(double *forecast, int h,
+                                          int batch_size, int frequency,
+                                          const double *level_coef,
+                                          const double *trend_coef,
+                                          const double *season_coef,
+                                          SeasonalType seasonal);
 
-// template void HoltWintersFitPredict<float>(
-//   int n, int batch_size, int frequency, int h, int start_periods,
-//   SeasonalType seasonal, float *data, float *alpha_ptr, float *beta_ptr,
-//   float *gamma_ptr, float *SSE_error_ptr, float *forecast_ptr);
-// template void HoltWintersFitPredict<double>(
-//   int n, int batch_size, int frequency, int h, int start_periods,
-//   SeasonalType seasonal, double *data, double *alpha_ptr, double *beta_ptr,
-//   double *gamma_ptr, double *SSE_error_ptr, double *forecast_ptr);
+template void HoltWintersFitPredict<float>(
+  int n, int batch_size, int frequency, int h, int start_periods,
+  SeasonalType seasonal, float *data, float *alpha_ptr, float *beta_ptr,
+  float *gamma_ptr, float *SSE_error_ptr, float *forecast_ptr);
+template void HoltWintersFitPredict<double>(
+  int n, int batch_size, int frequency, int h, int start_periods,
+  SeasonalType seasonal, double *data, double *alpha_ptr, double *beta_ptr,
+  double *gamma_ptr, double *SSE_error_ptr, double *forecast_ptr);
 
 }  // namespace ML
