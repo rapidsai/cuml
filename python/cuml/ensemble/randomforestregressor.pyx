@@ -23,7 +23,6 @@ import ctypes
 import math
 import numpy as np
 import warnings
-import pdb
 
 from numba import cuda
 
@@ -81,48 +80,55 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
-    # Random Forest Classifier
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, float]*,
-                  float *,
+                  float*,
                   int,
                   int,
-                  float *,
+                  float*,
                   RF_params) except +
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[double, double]*,
-                  double *,
+                  double*,
                   int,
                   int,
-                  double *,
+                  double*,
                   RF_params) except +
 
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[float, float] *,
-                      float *,
+                      float*,
                       int,
                       int,
-                      float *,
+                      float*,
                       bool) except +
 
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[double, double]*,
-                      double *,
+                      double*,
                       int,
                       int,
-                      double *,
+                      double*,
                       bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
-                          float *, float *,
-                          int, int, float *, bool) except +
+                          float*,
+                          float*,
+                          int,
+                          int,
+                          float*,
+                          bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
-                          double *, double *,
-                          int, int, double *, bool) except +
+                          double*,
+                          double*,
+                          int,
+                          int,
+                          double*,
+                          bool) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -130,9 +136,17 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void print_rf_detailed(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, double]*) except +
 
-    cdef RF_params set_rf_class_obj(int, int, float,
-                                    int, int, int,
-                                    bool, bool, int, float, CRITERION,
+    cdef RF_params set_rf_class_obj(int,
+                                    int,
+                                    float,
+                                    int,
+                                    int,
+                                    int,
+                                    bool,
+                                    bool,
+                                    int,
+                                    float,
+                                    CRITERION,
                                     bool) except +
 
 
@@ -252,14 +266,23 @@ class RandomForestRegressor(Base):
 
         for key, vals in sklearn_params.items():
             if vals is not None:
-                raise TypeError(" The sklearn variable ", key,
+                raise TypeError(" The Scikit-learn variable ", key,
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         self.split_algo = split_algo
-        self.criterion = split_criterion
+        criterion_dict = {'0' : GINI, '1' : ENTROPY, '2' : MSE,
+                          '3' : MAE, '4' : CRITERION_END}
+        if str(split_criterion) not in criterion_dict.keys():
+            warnings.warn("The split criterion chosen was not present"
+                          " in the list of options accepted by the model"
+                          " and so the CRITERION_END option has been chosen.")
+            self.split_criterion = CRITERION_END
+        else:
+            self.split_criterion = criterion_dict[str(split_criterion)]
+
         self.min_rows_per_node = min_rows_per_node
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -298,7 +321,6 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*>params_t64
 
         state['verbose'] = self.verbose
-        # state["trees"] = <void *> rf_forest.trees
 
         if self.dtype == np.float32:
             print(" dtype is float32")
@@ -325,11 +347,9 @@ class RandomForestRegressor(Base):
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
 
-        # rf_forest.trees = state["trees"]
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
 
-        # rf_forest.trees = state["trees"]
         if self.dtype == np.float32:
             print(" dtype is float32 in set state")
             rf_forest.rf_params = state["rf_params"]
@@ -341,30 +361,17 @@ class RandomForestRegressor(Base):
 
         self.__dict__.update(state)
 
-    def _get_type(self):
-        if self.criterion == 0:
-            return GINI
-        elif self.criterion == 1:
-            return ENTROPY
-        elif self.criterion == 2:
-            return MSE
-        elif self.criterion == 3:
-            return MAE
-        else:
-            return CRITERION_END
-
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
-            max_feature_val = self.max_features/self.n_cols
+            return self.max_features/self.n_cols
         elif type(self.max_features) == float:
-            max_feature_val = self.max_features
+            return self.max_features
         elif self.max_features == 'sqrt':
-            max_feature_val = 1/np.sqrt(self.n_cols)
+            return 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
-            max_feature_val = math.log2(self.n_cols)/self.n_cols
+            return math.log2(self.n_cols)/self.n_cols
         else:
-            max_feature_val = 1.0
-        return max_feature_val
+            return 1.0
 
     def fit(self, X, y):
         """
@@ -388,7 +395,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
-        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
+        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
@@ -399,8 +406,6 @@ class RandomForestRegressor(Base):
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
-
-        self.split_criterion = self._get_type()
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
@@ -414,8 +419,6 @@ class RandomForestRegressor(Base):
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree)
-        if self.dtype == np.float64:
-            rf_params64 = rf_params
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -427,6 +430,7 @@ class RandomForestRegressor(Base):
                 rf_params)
 
         else:
+            rf_params64 = rf_params
             fit(handle_[0],
                 rf_forest64,
                 <double*> X_ptr,
@@ -442,17 +446,25 @@ class RandomForestRegressor(Base):
         return self
 
     def predict(self, X):
-
+        """
+        Predicts the labels for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        Returns
+        ----------
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        """
         cdef uintptr_t X_ptr
-        # row major format
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr
@@ -496,7 +508,22 @@ class RandomForestRegressor(Base):
         return preds
 
     def score(self, X, y):
-
+        """
+        Calculates the accuracy metric score of the model for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        Returns
+        ----------
+        mean_square_error : float or
+        median_abs_error : float or
+        mean_abs_error : float
+        """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -505,11 +532,6 @@ class RandomForestRegressor(Base):
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
-
         preds = np.zeros(n_rows,
                          dtype=self.dtype)
         cdef uintptr_t preds_ptr
@@ -582,6 +604,7 @@ class RandomForestRegressor(Base):
         -----------
         params : dict of new params
         """
+        self.__init__()
         if not params:
             return self
         for key, value in params.items():
@@ -589,32 +612,35 @@ class RandomForestRegressor(Base):
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-        self.__init__()
+
         return self
 
     def print_summary(self):
-
+        """
+        prints the summary of the forest used to train and test the model
+        """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
-        # Note: self.dtype is initialized in fit.
         if self.dtype == np.float64:
             print_rf_summary(rf_forest64)
         else:
             print_rf_summary(rf_forest)
 
     def print_detailed(self):
-
+        """
+        prints the detailed information about the forest used to
+        train and test the Random Forest model
+        """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
-        # Note: self.dtype is initialized in fit.
         if self.dtype == np.float64:
             print_rf_detailed(rf_forest64)
         else:

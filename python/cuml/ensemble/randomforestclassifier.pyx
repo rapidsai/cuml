@@ -23,7 +23,6 @@ import ctypes
 import math
 import numpy as np
 import warnings
-import pdb
 
 from numba import cuda
 
@@ -117,13 +116,21 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
-                          float*, int*,
-                          int, int, int*, bool) except +
+                          float*,
+                          int*,
+                          int,
+                          int,
+                          int*,
+                          bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, int]*,
-                          double*, int*,
-                          int, int, int*, bool) except +
+                          double*,
+                          int*,
+                          int,
+                          int,
+                          int*,
+                          bool) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, int]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, int]*) except +
@@ -131,11 +138,16 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void print_rf_detailed(RandomForestMetaData[float, int]*) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
 
-    # cdef void print(RF_params) except +
-
-    cdef RF_params set_rf_class_obj(int, int, float,
-                                    int, int, int,
-                                    bool, bool, int, float, CRITERION,
+    cdef RF_params set_rf_class_obj(int,
+                                    int,
+                                    float,
+                                    int,
+                                    int,
+                                    int,
+                                    bool,
+                                    bool,
+                                    int,
+                                    float, CRITERION,
                                     bool) except +
 
 
@@ -207,10 +219,6 @@ class RandomForestClassifier(Base):
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 0)
                  the algorithm to determine how nodes are split in the tree.
-    split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
@@ -232,9 +240,11 @@ class RandomForestClassifier(Base):
                    per node split.
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
+    min_rows_per_node : int or float (default = 2)
                         The minimum number of samples (rows) needed
                         to split a node.
+                        If int then number of sample rows
+                        If float the min_rows_per_sample*n_rows
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
@@ -273,7 +283,7 @@ class RandomForestClassifier(Base):
 
         for key, vals in sklearn_params.items():
             if vals is not None:
-                raise TypeError("The sklearn variable ", key,
+                raise TypeError("The Scikit-learn variable", key,
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
@@ -281,7 +291,16 @@ class RandomForestClassifier(Base):
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
         self.split_algo = split_algo
-        self.criterion = split_criterion
+        criterion_dict = {'0' : GINI, '1' : ENTROPY, '2' : MSE,
+                          '3' : MAE, '4' : CRITERION_END}
+        if str(split_criterion) not in criterion_dict.keys():
+            warnings.warn("The split criterion chosen was not present"
+                          " in the list of options accepted by the model"
+                          " and so the CRITERION_END option has been chosen.")
+            self.split_criterion = CRITERION_END
+        else:
+            self.split_criterion = criterion_dict[str(split_criterion)]
+
         self.min_rows_per_node = min_rows_per_node
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -305,6 +324,8 @@ class RandomForestClassifier(Base):
     TODO:
         Add the preprocess and postprocess functions
         in the cython code to normalize the labels
+        Link to the above issue on github :
+        https://github.com/rapidsai/cuml/issues/691
     """
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -321,11 +342,9 @@ class RandomForestClassifier(Base):
         state['verbose'] = self.verbose
 
         if self.dtype == np.float32:
-            print(" dtype is float32")
             state["rf_params"] = rf_forest.rf_params
             del state["rf_forest"]
         else:
-            print(" dtype is float64")
             state["rf_params64"] = rf_forest64.rf_params
             del state["rf_forest64"]
 
@@ -349,40 +368,25 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[double, int]()
 
         if self.dtype == np.float32:
-            print(" dtype is float32 in set state")
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
         else:
-            print(" dtype is float64 in set state")
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <size_t>rf_forest64
 
         self.__dict__.update(state)
 
-    def _get_type(self):
-        if self.criterion == 0:
-            return GINI
-        elif self.criterion == 1:
-            return ENTROPY
-        elif self.criterion == 2:
-            return MSE
-        elif self.criterion == 3:
-            return MAE
-        else:
-            return CRITERION_END
-
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
-            max_feature_val = self.max_features/self.n_cols
+            return self.max_features/self.n_cols
         elif type(self.max_features) == float:
-            max_feature_val = self.max_features
+            return self.max_features
         elif self.max_features == 'sqrt':
-            max_feature_val = 1/np.sqrt(self.n_cols)
+            return 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
-            max_feature_val = math.log2(self.n_cols)/self.n_cols
+            return math.log2(self.n_cols)/self.n_cols
         else:
-            max_feature_val = 1.0
-        return max_feature_val
+            return 1.0
 
     def fit(self, X, y):
         """
@@ -404,7 +408,7 @@ class RandomForestClassifier(Base):
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
-            raise TypeError("The labels need to have dtype = np.int32")
+            raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
@@ -423,17 +427,16 @@ class RandomForestClassifier(Base):
             else:
                 unique_labels = np.unique(y_m.copy_to_host())
 
-        num_unique_labels = (unique_labels).__len__()
+        num_unique_labels = len(unique_labels)
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
-                                 "to be from 0 to num_unique_label values")
+                                 "to be consecutive values from "
+                                 "0 to the number of unique label values")
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
-
-        self.split_criterion = self._get_type()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -452,8 +455,6 @@ class RandomForestClassifier(Base):
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree)
-        if self.dtype == np.float64:
-            rf_params64 = rf_params
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -465,7 +466,8 @@ class RandomForestClassifier(Base):
                 <int> num_unique_labels,
                 rf_params)
 
-        else:
+        elif self.dtype == np.float64:
+            rf_params64 = rf_params
             fit(handle_[0],
                 rf_forest64,
                 <double*> X_ptr,
@@ -474,6 +476,11 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params64)
+
+        else:
+            raise TypeError("supports only np.float32 and np.float64 input,"
+                            " but input of type '%s' passed."
+                            % (str(self.dtype)))
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -482,17 +489,25 @@ class RandomForestClassifier(Base):
         return self
 
     def predict(self, X):
-
+        """
+        Predicts the labels for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        Returns
+        ----------
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        """
         cdef uintptr_t X_ptr
-        # row major format
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr
@@ -524,7 +539,7 @@ class RandomForestClassifier(Base):
                     <int*> preds_ptr,
                     <bool> self.verbose)
         else:
-            raise TypeError("supports only float32 and float64 input,"
+            raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
                             % (str(self.dtype)))
 
@@ -536,7 +551,20 @@ class RandomForestClassifier(Base):
         return preds
 
     def score(self, X, y):
-
+        """
+        Calculates the accuracy metric score of the model for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        Returns
+        ----------
+        accuracy of the model
+        """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -546,11 +574,7 @@ class RandomForestClassifier(Base):
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
         if y.dtype != np.int32:
-            raise TypeError("The labels need to have dtype = np.int32")
-
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+            raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         preds = np.zeros(n_rows,
                          dtype=np.int32)
@@ -585,6 +609,11 @@ class RandomForestClassifier(Base):
                                <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
+        else:
+            raise TypeError("supports only np.float32 and np.float64 input,"
+                            " but input of type '%s' passed."
+                            % (str(self.dtype)))
+
         self.handle.sync()
         del(X_m)
         del(y_m)
@@ -626,28 +655,31 @@ class RandomForestClassifier(Base):
         return self
 
     def print_summary(self):
-
+        """
+        prints the summary of the forest used to train and test the model
+        """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
-        # Note: self.dtype is initialized in fit.
         if self.dtype == np.float64:
             print_rf_summary(rf_forest64)
         else:
             print_rf_summary(rf_forest)
 
     def print_detailed(self):
-
+        """
+        prints the detailed information about the forest used to
+        train and test the Random Forest model
+        """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
-        # Note: self.dtype is initialized in fit.
         if self.dtype == np.float64:
             print_rf_detailed(rf_forest64)
         else:

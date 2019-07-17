@@ -17,15 +17,14 @@ import pytest
 import numpy as np
 from cuml.test.utils import get_handle
 
-from sklearn.datasets import make_regression, fetch_california_housing
-from sklearn.datasets import make_classification
-
 from cuml.ensemble import RandomForestClassifier as curfc
-from sklearn.ensemble import RandomForestClassifier as skrfc
 from cuml.ensemble import RandomForestRegressor as curfr
+from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
 from sklearn.metrics import accuracy_score
+from sklearn.datasets import fetch_california_housing, \
+    make_classification, make_regression
 from sklearn.metrics import mean_squared_error
 
 
@@ -124,7 +123,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfr(max_features=None, rows_sample=1.0,
+    cuml_model = curfr(max_features=1.0, rows_sample=1.0,
                        n_bins=8, split_algo=0, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
