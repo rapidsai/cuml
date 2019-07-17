@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#ifndef _OPENMP
+#define omp_get_thread_num() 0
+#endif
 #include "../decisiontree/kernels/quantile.h"
 #include "../decisiontree/memory.h"
 #include "random/permute.h"
@@ -385,10 +387,16 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
-  
+  int n_streams = this->rf_params.n_streams;
+
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
-  int n_streams = this->rf_params.n_streams;
+  cumlHandle local_handle[n_streams];
+  cudaStream_t local_stream[n_streams];
+  for (int i = 0; i < n_streams; i++) {
+    CUDA_CHECK(cudaStreamCreate(&local_stream[i]));
+    local_handle[i].setStream(local_stream[i]);
+  }
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
@@ -417,7 +425,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      user_handle.getImpl(), n_sampled_rows, n_cols, 1, 1,
+      local_handle[i].getImpl(), n_sampled_rows, n_cols, 1, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
       this->rf_params.tree_params.max_depth);
@@ -428,20 +436,22 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
     preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
                         this->rf_params.tree_params.n_bins, tempmem[0]);
     for (int i = 1; i < n_streams; i++) {
-      CUDA_CHECK(cudaMemcpy(
+      CUDA_CHECK(cudaMemcpyAsync(
         tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
         this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
-        cudaMemcpyDeviceToDevice));
+        cudaMemcpyDeviceToDevice, tempmem[i]->stream));
       memcpy((void*)(tempmem[i]->h_quantile->data()),
              (void*)(tempmem[0]->h_quantile->data()),
              this->rf_params.tree_params.n_bins * n_cols * sizeof(T));
     }
   }
+
+#pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
-    int stream_id = i % n_streams;
+    int stream_id = omp_get_thread_num();
     this->prepare_fit_per_tree(
-      handle, i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(),
-      sorted_selected_rows[stream_id]->data(),
+      local_handle[stream_id].getImpl(), i, n_rows, n_sampled_rows,
+      selected_rows[stream_id]->data(), sorted_selected_rows[stream_id]->data(),
       rows_temp_storage[stream_id]->data(), temp_storage_bytes[stream_id]);
 
     /* Build individual tree in the forest.
@@ -453,7 +463,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
     */
 
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
-    trees[i].fit(user_handle, input, n_cols, n_rows, labels,
+    trees[i].fit(local_handle[stream_id], input, n_cols, n_rows, labels,
                  sorted_selected_rows[stream_id]->data(), n_sampled_rows,
                  tree_ptr, this->rf_params.tree_params, tempmem[stream_id]);
   }
@@ -467,6 +477,13 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
     delete selected_rows[i];
     delete sorted_selected_rows[i];
   }
+  for (int i = 0; i < n_streams; i++) {
+    CUDA_CHECK(cudaStreamSynchronize(local_handle[i].getStream()));
+  }
+  for (int i = 0; i < n_streams; i++) {
+    CUDA_CHECK(cudaStreamDestroy(local_stream[i]));
+  }
+  CUDA_CHECK(cudaStreamSynchronize(user_handle.getStream()));
 }
 
 /**
