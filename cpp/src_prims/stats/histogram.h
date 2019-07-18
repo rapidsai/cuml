@@ -55,6 +55,24 @@ enum HistType {
   HistTypeAuto
 };
 
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
+          typename CoreOp>
+DI void histCoreOp(const DataT* data, IdxT n, BinnerOp binOp, CoreOp op) {
+  IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
+  tid *= VecLen;
+  IdxT stride = IdxT(blockDim.x) * gridDim.x * VecLen;
+  typedef TxN_t<DataT, VecLen> VecType;
+  VecType a;
+  for (auto i = tid; i < n; i += stride) {
+    a.load(data, i);
+#pragma unroll
+    for (int j = 0; j < VecLen; ++j) {
+      int binId = binOp(a.val.data[i], i + j);
+      op(binId, i + j);
+    }
+  }
+}
+
 DI int swizzleBinId(int id) {
   // Swap bits 0:5 with 6:11 in bucket.  Moves adjacenct values farther apart.
   // Requires at least 4096 buckets.
@@ -74,22 +92,13 @@ template <typename DataT, typename BinnerOp, typename IdxT, bool SwapBits,
           int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT n,
                                BinnerOp binner) {
-  typedef TxN_t<DataT, VecLen> VecType;
-  auto i = threadIdx.x + IdxT(blockIdx.x) * blockDim.x;
-  i *= VecType::Ratio;
-  auto stride = IdxT(blockDim.x) * blockDim.x * VecType::Ratio;
-  VecType a;
-  for (; i < n; i += stride) {
-    a.load(data, i);
-#pragma unroll
-    for (int j = 0; j < VecType::Ratio; ++j) {
-      int binId = binner(a.val.data[i], i + j);
-      if (SwapBits) {
-        binId = swizzleBinId(binId);
-      }
-      atomicAdd(bins + binId, 1);
+  auto op = [=] __device__(int binId, IdxT idx) {
+    if (SwapBits) {
+      binId = swizzleBinId(binId);
     }
-  }
+    atomicAdd(bins + binId, 1);
+  };
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
 }
 
 ///@todo: launch half the number of threads, but also consider odd number of
@@ -129,11 +138,10 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT n,
     sbins[i] = 0;
   }
   __syncthreads();
-  auto stride = IdxT(blockDim.x) * blockDim.x;
-  for (auto i = tid; i < n; i += stride) {
-    int binId = binner(data[i], i);
+  auto op = [=] __device__ (int binId, IdxT idx) {
     atomicAdd(sbins + binId, 1);
-  }
+  };
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
   __syncthreads();
   for (auto i = tid; i < nbins; i += blockDim.x) {
     atomicAdd(bins + i, sbins[i]);
@@ -145,7 +153,7 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
               cudaStream_t stream) {
   int nblks = ceildiv<int>(n, TPB);
   size_t smemSize = nbins * sizeof(int);
-  smemHistKernel<DataT, BinnerOp, IdxT>
+  smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<nblks, TPB, smemSize, stream>>>(bins, data, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
@@ -190,12 +198,10 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
     sbins[j] = 0;
   }
   __syncthreads();
-  IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
-  IdxT stride = IdxT(blockDim.x) * gridDim.x;
-  for (IdxT i = tid; i < n; i += stride) {
-    int binId = binner(data[i], i);
+  auto op = [=] __device__ (int binId, IdxT idx) {
     incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId);
-  }
+  };
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
   __syncthreads();
   for (int j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     int count = sbins[j / WORD_BINS] >> (j % WORD_BINS * BIN_BITS) & BIN_MASK;
