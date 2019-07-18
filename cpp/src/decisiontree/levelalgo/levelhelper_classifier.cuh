@@ -20,6 +20,9 @@ void initial_metric_classification(
   int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<int> &histvec, T &initial_metric,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  CUDA_CHECK(cudaMemsetAsync(tempmem->d_parent_hist->data(), 0,
+                             n_unique_labels * sizeof(unsigned int),
+                             tempmem->stream));
   int blocks = MLCommon::ceildiv(nrows, 128);
   if (blocks > 65536) blocks = 65536;
   gini_kernel_level<<<blocks, 128, sizeof(int) * n_unique_labels,
@@ -167,8 +170,8 @@ void get_best_split_classification(
           int binoffset = binid * n_unique_labels;
           int tmp_lnrows = 0;
           int tmp_rnrows = 0;
-          std::vector<int> tmp_histleft(n_unique_labels);
-          std::vector<int> tmp_histright(n_unique_labels);
+          std::vector<int> tmp_histleft(n_unique_labels, 0);
+          std::vector<int> tmp_histright(n_unique_labels, 0);
 
           std::vector<int> &parent_hist = histstate[parentid];
           // Compute gini right and gini left value for each bin.
@@ -188,6 +191,7 @@ void get_best_split_classification(
           float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows);
 
           float max_value = F::max_val(n_unique_labels);
+
           ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= max_value),
                  "gini left value %f not in [0.0, %f]", tmp_gini_left,
                  max_value);

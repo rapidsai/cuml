@@ -39,7 +39,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
   setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
                  tempmem->stream);
-  std::vector<int> histvec;
+  std::vector<int> histvec(n_unique_labels, 0);
   T initial_metric;
   if (split_cr == ML::CRITERION::GINI) {
     initial_metric_classification<T, GiniFunctor>(labels, sample_cnt, nrows,
