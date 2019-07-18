@@ -26,7 +26,6 @@ import cudf
 import cuml
 import ctypes
 import numpy as np
-import pandas as pd
 import inspect
 
 from cuml.common.base import Base
@@ -43,18 +42,31 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "tsne/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-                        const int p, const int dim, int n_neighbors,
-                        const float theta, const float epssq,
-                        float perplexity, const int perplexity_max_iter,
+    cdef void TSNE_fit(const cumlHandle &handle,
+                        const float *X,
+                        float *Y,
+                        const int n,
+                        const int p,
+                        const int dim,
+                        int n_neighbors,
+                        const float theta,
+                        const float epssq,
+                        float perplexity,
+                        const int perplexity_max_iter,
                         const float perplexity_tol,
                         const float early_exaggeration,
-                        const int exaggeration_iter, const float min_gain,
-                        const float pre_learning_rate, const float post_learning_rate,
-                        const int max_iter, const float min_grad_norm,
-                        const float pre_momentum, const float post_momentum,
-                        const long long random_state, const bool verbose,
-                        const bool intialize_embeddings, bool barnes_hut) except +
+                        const int exaggeration_iter,
+                        const float min_gain,
+                        const float pre_learning_rate,
+                        const float post_learning_rate,
+                        const int max_iter,
+                        const float min_grad_norm,
+                        const float pre_momentum,
+                        const float post_momentum,
+                        const long long random_state,
+                        const bool verbose,
+                        const bool intialize_embeddings,
+                        bool barnes_hut) except +
 
 class TSNE(Base):
     """
@@ -77,45 +89,62 @@ class TSNE(Base):
 
     Parameters
     ----------
-    n_neighbors : float (optional, default 15)
+    n_components : int (default 2)
+        The output dimensionality size. Can be any number, but with
+        n_components = 2 TSNE can run faster.
+    perplexity : float (default 30.0)
+        Larger datasets require a larger value. Consider choosing different
+        perplexity values from 5 to 50 and see the output differences.
+    early_exaggeration : float (default 12.0)
+        Controls the space between clusters. Not critical to tune this.
+    learning_rate : float (default 200.0)
+        The learning rate usually between (10, 1000). If this is too high,
+        TSNE could look like a cloud / ball of points.
+    n_iter : int (default 1000)
+        The more epochs, the more stable/accruate the final embedding.
+    n_iter_without_progress : int (default 300)
+        When the KL Divergence becomes too small after some iterations,
+        terminate TSNE early.
+    min_grad_norm : float (default 1e-07)
+        The minimum gradient norm for when TSNE will terminate early.
+    metric : str (default 'euclidean')
+        Currently only supports euclidean distance. Will support cosine in
+        a future release.
+    init : str (default 'random')
+        Currently only supports random intialization. Will support PCA
+        intialization in a future release.
+    verbose : int (default 0)
+        Level of verbosity. If > 0, prints all help messages and warnings.
+    random_state : (int, default None)
+        Setting this can allow future runs of TSNE to look the same.
+    method : (str, default 'barnes_hut')
+        Options are either barnes_hut or exact. It is recommend that you use
+        the barnes hut approximation for superior O(nlogn) complexity.
+    angle : (float, default 0.5)
+        Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
+        closer to one indicates full accuracy but slower speeds.
+    learning_rate_method : (default 'adaptive')
+        Either adaptive or None. Uses a special adpative method that tunes
+        the learning rate, early exaggeration and perplexity automatically
+        based on input size.
+    n_neighbors : (int, default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
         local structure, whilst larger values can improve global structure
-        preservation.
-    n_components: int (optional, default 2)
-        The output dimensionality size. Can be any number, but with
-        n_components = 2 TSNE can run faster.
-    method : str (optional, default Fast)
-        Options are [Fast, Naive]. Fast uses a parallel-O(n) algorithm.
-        Naive is a pure O(n^2) algorithm where a n*n matrix is constructed
-        for the repulsive forces. Fast uses O(N + NNZ) memory whilst Naive
-        uses O(N^2 + NNZ) memory.
-    epochs : int (optional, default 300)
-        The more epochs, the more stable/accruate the final embedding.
-    perplexity : (float, default 30)
-        Larger datasets require a larger value. Consider choosing different
-        perplexity values from 5 to 50 and see the output differences.
-    perplexity_epochs : (int, default 100)
+        preservation. Default is 3 * 30 (perplexity)
+    perplexity_max_iter : (int, default 100)
         The number of epochs the best guassian bands are found for.
-    perplexity_tol : (float, default 1e-5)
-        The tolerance during the best guassian band search.
-    early_exaggeration : (int, default 12)
-        Controls the space between clusters. Not critical to tune this.
-    exaggeration_iter : (int, default 150)
+    exaggeration_iter : (int, default 250)
         To promote the growth of clusters, set this higher.
-    min_gain : (float, default 0.01)
-        If the gradient updates are below this number, it is thresholded.
-    learning_rate : (float, default 500)
-        The learning rate usually between (10, 1000). If this is too high,
-        TSNE could look like a cloud / ball of points.
-    pre_momentum : (float, default 0.8)
+    pre_momentum : (float, default 0.5)
         During the exaggeration iteration, more forcefully apply gradients.
-    post_momentum : (float, default 0.5)
+    post_momentum : (float, default 0.8)
         During the late phases, less forcefully apply gradients.
-    random_state : (int, default None)
-        Setting this can allow future runs of TSNE to look the same.
-    verbose : (bool, default False)
-        Whether to print help messages.
+    should_downcast : (bool, default True)
+        Whether to reduce to dataset to float32 or not.
+    handle : (cuML Handle, default None)
+        You can pass in a past handle that was intialized, or we will create
+        one for you anew!
 
     References
     ----------
@@ -130,7 +159,6 @@ class TSNE(Base):
     *   George C. Linderman, Manas Rachh, Jeremy G. Hoskins, Stefan Steinerberger, Yuval Kluger
         Efficient Algorithms for t-distributed Stochastic Neighborhood Embedding
     """
-
     def __init__(self,
                 int n_components = 2,
                 float perplexity = 30.0,
@@ -242,27 +270,24 @@ class TSNE(Base):
         self._should_downcast = should_downcast
         return
 
-
     def __repr__(self):
+        """
+        Pretty prints the arguments of a class using Sklearn standard :)
+        """
         cdef list signature = inspect.getargspec(self.__init__).args
         if signature[0] == 'self':
             del signature[0]
-            
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
         cdef str key
         for key in signature:
-            try:
-                if type(state[key]) is str:
-                    string += "{}='{}', ".format(key, state[key])
-                else:
-                    string += "{}={}, ".format(key, str(state[key]))
-            except:
-                pass
+            if type(state[key]) is str:
+                string += "{}='{}', ".format(key, state[key])
+            else:
+                if hasattr(state[key], "__str__"):
+                    string += "{}={}, ".format(key, state[key])
         string = string.rstrip(', ')
         return string + ')'
-
-
 
     def fit(self, X):
         """Fit X into an embedded space.
@@ -297,18 +322,14 @@ class TSNE(Base):
             print("[Warn] Perplexity = {} should be less than the # of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
-
+        # Prepare output embeddings
         self.arr_embed = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
-
         cdef uintptr_t X_ptr = X_ctype
         cdef uintptr_t embed_ptr = self.embeddings
         cdef uintptr_t y_raw
 
-        # Adaptive learning method changes n_neighbors and other params as n->inf
-        # if n <= 1000:
-        #     self.method = "exact"
-
+        # Find best params if learning rate method is adaptive
         if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
             if self.verbose:
                 print("Learning rate is adpative. In TSNE paper, it has been shown that as n->inf, "
@@ -325,7 +346,6 @@ class TSNE(Base):
             if self.verbose:
                 print("New n_neighbors = {}, learning_rate = {}, early_exaggeration = {}".format(
                     self.n_neighbors, self.pre_learning_rate, self.early_exaggeration))
-
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
 
@@ -346,7 +366,6 @@ class TSNE(Base):
         del X_m
         return self
 
-
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
         Parameters
@@ -361,7 +380,6 @@ class TSNE(Base):
                 Embedding of the training data in low-dimensional space.
         """
         self.fit(X)
-
         cdef int i
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
@@ -369,9 +387,7 @@ class TSNE(Base):
                 ret[str(i)] = self.arr_embed[:, i]
         elif isinstance(X, np.ndarray):
             ret = np.asarray(self.arr_embed)
-
         return ret
-
 
     def get_params(self, bool deep = True):
         """
@@ -381,7 +397,6 @@ class TSNE(Base):
         deep : boolean (default = True)
         """
         return vars(self)
-
 
     def set_params(self, **params):
         """

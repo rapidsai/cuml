@@ -22,6 +22,29 @@
 namespace ML {
 namespace TSNE {
 
+/**
+ * @brief Slower Dimensionality reduction via TSNE using the Exact method O(N^2).
+ * @input param VAL: The values in the attractive forces COO matrix.
+ * @input param COL: The column indices in the attractive forces COO matrix.
+ * @input param ROW: The row indices in the attractive forces COO matrix.
+ * @input param NNZ: The number of non zeros in the attractive forces COO matrix.
+ * @input param handle: The GPU handle.
+ * @output param Y: The final embedding. Will overwrite this internally.
+ * @input param n: Number of rows in data X.
+ * @input param dim: Number of output columns for the output embedding Y.
+ * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @input param min_gain: Rounds up small gradient updates.
+ * @input param pre_learning_rate: The learning rate during the exaggeration phase.
+ * @input param post_learning_rate: The learning rate after the exaggeration phase.
+ * @input param max_iter: The maximum number of iterations TSNE should run for.
+ * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @input param pre_momentum: The momentum used during the exaggeration phase.
+ * @input param post_momentum: The momentum used after the exaggeration phase.
+ * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @input param verbose: Whether to print error messages or not.
+ * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
                 const float early_exaggeration = 12.0f,
@@ -60,7 +83,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Calculate degrees of freedom
   //---------------------------------------------------
-  const float degrees_of_freedom = (float)MAX(dim - 1, 1);
+  const float degrees_of_freedom = fmaxf(dim - 1, 1);
   const float df_power = -(degrees_of_freedom + 1.0f) / 2.0f;
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;

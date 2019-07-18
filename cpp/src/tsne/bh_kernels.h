@@ -58,6 +58,9 @@ __constant__ float theta_squared;  // theta ** 2
 namespace ML {
 namespace TSNE {
 
+/**
+ * Intializes the states of objects. This speeds the overall kernel up.
+ */
 __global__ void InitializationKernel(int *restrict errd) {
   *errd = 0;
   stepd = -1;
@@ -69,15 +72,24 @@ __global__ void InitializationKernel(int *restrict errd) {
   bottomd = 0.0f;
 }
 
+/**
+ * Reset normalization back to 0.
+ */
 __global__ void Reset_Normalization(void) {
   Z_norm = 0.0f;
   radiusd_squared = radiusd * radiusd;
 }
 
+/**
+ * Find 1/Z
+ */
 __global__ void Find_Normalization(void) {
   Z_norm = __fdividef(1.0f, Z_norm - (float)N);
 }
 
+/**
+ * Figures the bounding boxes for every point in the embedding.
+ */
 __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
   int *restrict startd, int *restrict childd, float *restrict massd,
   float *restrict posxd, float *restrict posyd, float *restrict maxxd,
@@ -161,6 +173,9 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
   }
 }
 
+/**
+ * Clear some of the state vectors up.
+ */
 __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd) {
   const int inc = blockDim.x * gridDim.x;
   int k = (FOUR_N & -32) + threadIdx.x +
@@ -174,6 +189,9 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd) {
   }
 }
 
+/**
+ * Build the actual KD Tree.
+ */
 __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   volatile int *restrict errd, int *restrict childd,
   const float *restrict posxd, const float *restrict posyd) {
@@ -310,6 +328,9 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   atomicMax(&maxdepthd, localmaxdepth);
 }
 
+/**
+ * Clean more state vectors.
+ */
 __global__ __launch_bounds__(1024, 1) void ClearKernel2(int *restrict startd,
                                                         float *restrict massd) {
   const int bottom = bottomd;
@@ -326,6 +347,9 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel2(int *restrict startd,
   }
 }
 
+/**
+ * Summarize the KD Tree via cell gathering
+ */
 __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   int *restrict countd, const int *restrict childd,
   volatile float *restrict massd, float *restrict posxd,
@@ -449,6 +473,9 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   }
 }
 
+/**
+ * Sort the cells
+ */
 __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
   int *restrict sortd, const int *restrict countd,
   volatile int *restrict startd, int *restrict childd) {
@@ -487,6 +514,9 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
   }
 }
 
+/**
+ * Calculate the repulsive forces using the KD Tree
+ */
 __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
   int *restrict errd, const float theta,
   const float epssqd,  // correction for zero distance
@@ -615,6 +645,9 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
   }
 }
 
+/**
+ * Find the norm(Y)
+ */
 __global__ void get_norm(const float *restrict Y1, const float *restrict Y2,
                          float *restrict norm, float *restrict norm_add1) {
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -623,9 +656,9 @@ __global__ void get_norm(const float *restrict Y1, const float *restrict Y2,
   norm_add1[i] = norm[i] + 1.0f;
 }
 
-/****************************************/
-/* Special case when dim == 2. Can speed
-        up many calculations up             */
+/**
+ * Fast attractive kernel. Uses COO matrix.
+ */
 __global__ void attractive_kernel_bh(
   const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
   const float *restrict Y1, const float *restrict Y2,
@@ -647,24 +680,9 @@ __global__ void attractive_kernel_bh(
   atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
-/****************************************/
-void AttractiveKernel(const float *restrict VAL, const int *restrict COL,
-                      const int *restrict ROW, const float *restrict Y,
-                      const int nnodes, float *restrict norm,
-                      float *restrict norm_add1, float *restrict attract,
-                      const int NNZ, const int n, cudaStream_t stream) {
-  get_norm<<<ceil(n, 1024), 1024, 0, stream>>>(Y, Y + nnodes + 1, norm,
-                                               norm_add1);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  // TODO: Calculate Kullback-Leibler divergence
-  // For general embedding dimensions
-  attractive_kernel_bh<<<ceil(NNZ, 1024), 1024, 0, stream>>>(
-    VAL, COL, ROW, Y, Y + nnodes + 1, norm, norm_add1, attract, attract + n,
-    NNZ);
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
+/**
+ * Apply gradient updates.
+ */
 __global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
   const float eta, const float momentum, const float exaggeration,
   float *restrict Y1, float *restrict Y2, const float *restrict attract1,

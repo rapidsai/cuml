@@ -146,7 +146,7 @@ float perplexity_search(const float *restrict distances, float *restrict P,
   cudaStream_t stream = handle.getStream();
 
   float *P_sum = (float *)d_alloc->allocate(sizeof(float), stream);
-  CUDA_CHECK(cudaMemset(P_sum, 0, sizeof(float)));
+  CUDA_CHECK(cudaMemsetAsync(P_sum, 0, sizeof(float), stream));
 
   if (dim == 2)
     sigmas_kernel_2d<<<ceil(n, 1024), 1024, 0, stream>>>(
@@ -156,8 +156,9 @@ float perplexity_search(const float *restrict distances, float *restrict P,
       distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
 
+  cudaStreamSynchronize(stream);
   float sum;
-  CUDA_CHECK(cudaMemcpy(&sum, P_sum, sizeof(float), cudaMemcpyDeviceToHost));
+  MLCommon::updateHost(&sum, P_sum, 1, stream);
   d_alloc->deallocate(P_sum, sizeof(float), stream);
 
   return sum;
@@ -225,7 +226,7 @@ void attractive_forces(const float *restrict VAL, const int *restrict COL,
                        const float df_power,  // -(df + 1)/2)
                        const float recp_df,   // 1 / df
                        cudaStream_t stream) {
-  CUDA_CHECK(cudaMemset(attract, 0, sizeof(float) * n * dim));
+  CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(float) * n * dim, stream));
 
   // TODO: Calculate Kullback-Leibler divergence
   // For general embedding dimensions
@@ -324,8 +325,8 @@ float repulsive_forces(const float *restrict Y, float *restrict repel,
                        const int n, const int dim,
                        const float df_power,  // -(df + 1)/2)
                        const float recp_df, cudaStream_t stream) {
-  CUDA_CHECK(cudaMemset(Z_sum, 0, sizeof(float) * 2 * n));
-  CUDA_CHECK(cudaMemset(repel, 0, sizeof(float) * n * dim));
+  CUDA_CHECK(cudaMemsetAsync(Z_sum, 0, sizeof(float) * 2 * n, stream));
+  CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(float) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
@@ -399,7 +400,7 @@ float apply_forces(float *restrict Y, float *restrict velocity,
                    const bool check_convergence, cudaStream_t stream) {
   //cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)
-    CUDA_CHECK(cudaMemset(gradient, 0, sizeof(float) * n * dim));
+    CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(float) * n * dim, stream));
 
   apply_kernel<<<ceil(n * dim, 1024), 1024, 0, stream>>>(
     Y, velocity, attract, repel, means, gains, Z, learning_rate, C, momentum,

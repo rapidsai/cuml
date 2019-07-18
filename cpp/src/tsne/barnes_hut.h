@@ -21,6 +21,28 @@
 namespace ML {
 namespace TSNE {
 
+/**
+ * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
+ * @input param VAL: The values in the attractive forces COO matrix.
+ * @input param COL: The column indices in the attractive forces COO matrix.
+ * @input param ROW: The row indices in the attractive forces COO matrix.
+ * @input param NNZ: The number of non zeros in the attractive forces COO matrix.
+ * @input param handle: The GPU handle.
+ * @output param Y: The final embedding. Will overwrite this internally.
+ * @input param n: Number of rows in data X.
+ * @input param epssq: A tiny jitter to promote numerical stability.
+ * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @input param min_gain: Rounds up small gradient updates.
+ * @input param pre_learning_rate: The learning rate during the exaggeration phase.
+ * @input param post_learning_rate: The learning rate after the exaggeration phase.
+ * @input param max_iter: The maximum number of iterations TSNE should run for.
+ * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @input param pre_momentum: The momentum used during the exaggeration phase.
+ * @input param post_momentum: The momentum used after the exaggeration phase.
+ * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @input param verbose: Whether to print error messages or not.
+ */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n,
                 const float theta = 0.5f, const float epssq = 0.0025,
@@ -99,7 +121,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *attr_forces = (float *)d_alloc->allocate(
     sizeof(float) * n * 2, stream);  // n*2 double for reduction sum
 
-  //float *norml = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
   float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
 
@@ -111,7 +132,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                begin_gains_bh + (n * 2), 1.0f);
 
   float *old_forces = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);
-  CUDA_CHECK(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2));
+  CUDA_CHECK(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2, stream));
 
   float *YY =
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
@@ -126,17 +147,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
   cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
   cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
-#ifdef __KEPLER__
-  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferEqual);
-  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferEqual);
-#else
   cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
   cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
-#endif
   cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
-
-  //thrust::device_ptr<float> norml_begin = thrust::device_pointer_cast(norml);
-  //thrust::device_ptr<float> norml_end = norml_begin + nnodes + 1;
 
   // Do gradient updates
   //---------------------------------------------------
@@ -146,10 +159,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    //printf("%d, ", iter);
-
-    CUDA_CHECK(cudaMemset(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2));
-    CUDA_CHECK(cudaMemset(attr_forces, 0, sizeof(float) * n * 2));
+    CUDA_CHECK(
+      cudaMemsetAsync(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2, stream));
+    CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>();
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -210,17 +222,22 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(RepulsionTime);
 
     START_TIMER;
-    //const float Z = 1.0f / thrust::reduce(norml_begin, norml_end);
-    //CUDA_CHECK(cudaMemcpyToSymbolAsync(Z_norm, &Z, sizeof(float), 0, cudaMemcpyHostToDevice, stream));
     TSNE::Find_Normalization<<<1, 1, 0, stream>>>();
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(Reduction_time);
 
     START_TIMER;
-    // Compute attractive forces
-    TSNE::AttractiveKernel(VAL, COL, ROW, YY, nnodes, norm, norm_add1,
-                           attr_forces, NNZ, n, stream);
+    TSNE::get_norm<<<ceil(n, 1024), 1024, 0, stream>>>(YY, YY + nnodes + 1,
+                                                       norm, norm_add1);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    // TODO: Calculate Kullback-Leibler divergence
+    // For general embedding dimensions
+    TSNE::attractive_kernel_bh<<<ceil(NNZ, 1024), 1024, 0, stream>>>(
+      VAL, COL, ROW, YY, YY + nnodes + 1, norm, norm_add1, attr_forces,
+      attr_forces + n, NNZ);
+    CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     START_TIMER;
@@ -255,7 +272,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   d_alloc->deallocate(rep_forces, sizeof(float) * (nnodes + 1) * 2, stream);
   d_alloc->deallocate(attr_forces, sizeof(float) * n * 2, stream);
-  //d_alloc->deallocate(norml, sizeof(float) * (nnodes + 1), stream);
   d_alloc->deallocate(norm, sizeof(float) * n, stream);
   d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
 

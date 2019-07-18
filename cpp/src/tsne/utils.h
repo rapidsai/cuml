@@ -16,6 +16,7 @@
 
 #pragma once
 #include <assert.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -31,15 +32,6 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#ifdef MAX
-#undef MAX
-#endif
-#ifdef MIN
-#undef MIN
-#endif
-#define MAX(a, b) ((a > b) ? a : b)
-#define MIN(a, b) ((a > b) ? b : a)
-
 #ifdef ceil
 #undef ceil
 #endif
@@ -54,6 +46,15 @@
 #include <chrono>
 #include <iostream>
 
+/**
+ * @brief Performs P + P.T.
+ * @output param vector: The output vector you want to overwrite with randomness.
+ * @input param minimum: The minimum value in the output vector you want.
+ * @input param maximum: The maximum value in the output vector you want.
+ * @input param size: The size of the output vector.
+ * @input param stream: The GPU stream.
+ * @input param seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
+ */
 void random_vector(float *vector, const float minimum, const float maximum,
                    const int size, cudaStream_t stream, long long seed = -1) {
   if (seed <= 0) {
@@ -67,7 +68,6 @@ void random_vector(float *vector, const float minimum, const float maximum,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-//#define TIMER_ON false
 #define DEBUG false
 
 long start, end;

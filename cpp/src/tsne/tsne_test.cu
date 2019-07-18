@@ -47,29 +47,25 @@ class TSNETest : public ::testing::Test {
     MLCommon::allocate(X_d, n * p);
     MLCommon::allocate(Y_d, n * 2);
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
-    //MLCommon::updateDevice(Y_d, Y.data(), n * 2, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
     TSNE_fit(handle, X_d, Y_d, n, p, 2, 90);
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << "Updating host" << std::endl;
-    float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float)*n*2, cudaMemcpyDeviceToHost);
+    float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
+    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
+               cudaMemcpyDeviceToHost);
 
     int k = 0;
-    float C_contiguous_embedding[n*2];
+    float C_contiguous_embedding[n * 2];
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < 2; j++)
-            C_contiguous_embedding[k++] = embeddings_h[j*n + i];
+      for (int j = 0; j < 2; j++)
+        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
 
-    // for (int j = 0; j < 2; j++) {
-    //  for (int i = 0; i < n; i++)
-    //      printf("%.2f,", C_contiguous_embedding[i*2 + j]);
-    //  printf("\n-------------------------\n");
-    // }
-    float *YY; MLCommon::allocate(YY, n * 2);
+    float *YY;
+    MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
 
     std::cout << "DONE!" << std::endl;
