@@ -148,7 +148,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
   constexpr int WORD_BINS = WORD_BITS / BIN_BITS;
   constexpr int BIN_MASK = (1 << BIN_BITS) - 1;
   auto nwords = ceildiv<int>(nbins, WORD_BINS);
-  for (int j = threadIdx.x; j < nwords; j += blockDim.x) {
+  for (auto j = threadIdx.x; j < nwords; j += blockDim.x) {
     sbins[j] = 0;
   }
   __syncthreads();
@@ -157,7 +157,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
   __syncthreads();
-  for (int j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
+  for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     int count = sbins[j / WORD_BINS] >> (j % WORD_BINS * BIN_BITS) & BIN_MASK;
     if (count > 0) atomicAdd(bins + j, count);
   }
