@@ -236,6 +236,27 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
   };
 }
 
+template <typename IdxT>
+HistType evaluateBestHistAlgo(IdxT nbins) {
+  size_t smem = maxSmem();
+  size_t requiredSize = nbins * sizeof(int);
+  if (requiredSize <= smem) {
+    return HistTypeSmem;
+  }
+  requiredSize = ceildiv<size_t>(nbins, 2) * sizeof(int);
+  if (requiredSize <= smem) {
+    return HistTypeSmemBits16;
+  }
+  requiredSize = ceildiv<size_t>(nbins, 4) * sizeof(int);
+  if (requiredSize <= smem) {
+    return HistTypeSmemBits8;
+  }
+  if (nbins % 4096 == 0) {
+    return HistTypeGmemSwizzle;
+  }
+  return HistTypeGmem;
+}
+
 /**
  * @brief Perform histogram on the input data
  * @tparam DataT input data type
@@ -257,9 +278,9 @@ template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
 void histogram(HistType type, int* bins, IdxT nbins, const DataT* data, IdxT n,
                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
                BinnerOp op = IdentityBinner()) {
-  HistType computeType = type;
+  HistType computedType = type;
   if (type == HistTypeAuto) {
-    ///@todo: implement!
+    computedType = evaluateBestHistAlgo(nbins);
   }
   histogramImpl<DataT, BinnerUp, IdxT, TPB>(computedType, bins, nbins, data, n,
                                             allocator, stream, op);
