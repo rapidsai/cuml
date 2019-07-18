@@ -23,17 +23,22 @@
 namespace MLCommon {
 namespace Stats {
 
-__global__ void naiveHistKernel(int* bins, int nbins, const int* in, int n) {
+// Note: this kernel also updates the input vector to take care of OOB bins!
+__global__ void naiveHistKernel(int* bins, int nbins, int* in, int n) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int stride = blockDim.x * gridDim.x;
   for (; tid < n; tid += stride) {
     int id = in[tid];
+    if (id < 0)
+      id = 0;
+    else if (id >= nbins)
+      id = nbins - 1;
+    in[tid] = id;
     atomicAdd(bins + id, 1);
   }
 }
 
-void naiveHist(int* bins, int nbins, const int* in, int n,
-               cudaStream_t stream) {
+void naiveHist(int* bins, int nbins, int* in, int n, cudaStream_t stream) {
   const int TPB = 128;
   int nblks = ceildiv(n, TPB);
   naiveHistKernel<<<nblks, TPB, 0, stream>>>(bins, nbins, in, n);
@@ -62,6 +67,8 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     }
     allocate(bins, params.nbins);
     allocate(ref_bins, params.nbins);
+    CUDA_CHECK(
+      cudaMemsetAsync(ref_bins, 0, sizeof(int) * params.nbins, stream));
     naiveHist(ref_bins, params.nbins, in, params.n, stream);
     histogram<int>(params.type, bins, params.nbins, in, params.n, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -81,7 +88,8 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   int *bins, *ref_bins;
 };
 
-static const int oneM = 1024 * 1024;
+static const int oneK = 1024;
+static const int oneM = oneK * oneK;
 const std::vector<HistInputs> inputs = {
   {oneM, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
   {oneM, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
@@ -90,12 +98,12 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
   {oneM + 2, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneM, false, HistTypeSmem, 0, 2 * oneM, 1234ULL},
-  {oneM, 2 * oneM, true, HistTypeSmem, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneM, false, HistTypeSmem, 0, 2 * oneM, 1234ULL},
-  {oneM + 1, 2 * oneM, true, HistTypeSmem, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneM, false, HistTypeSmem, 0, 2 * oneM, 1234ULL},
-  {oneM + 2, 2 * oneM, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
 };
 TEST_P(HistTest, Result) {
   ASSERT_TRUE(devArrMatch(ref_bins, bins, params.nbins, Compare<int>()));
