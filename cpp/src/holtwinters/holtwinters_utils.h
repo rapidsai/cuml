@@ -14,16 +14,140 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <cuda_runtime.h>
-
 #include <iostream>
 #include <vector>
-
-#include "holtwinters_utils.cuh"
-// #include "hw_cu_utils.cuh"
+#include "common/cumlHandle.hpp"
+#include "linalg/cublas_wrappers.h"
+#include "linalg/cusolver_wrappers.h"
+#include "linalg/eltwise.h"
 #include "utils.h"
 
 #define IDX(n, m, N) (n + (m) * (N))
+
+#define STMP_EPS (1e-6)
+
+#define GOLD \
+  0.381966011250105151795413165634361882279690820194237137864551377294739537181097550292792795810608862515245
+#define PG_EPS 1e-10
+
+#define SUBSTITUTE(a, b, c, d) \
+  (a) = (b);                   \
+  (c) = (d);
+
+#define MAX_BLOCKS_PER_DIM 65535
+
+#define GET_TID (blockIdx.x * blockDim.x + threadIdx.x)
+
+inline int GET_THREADS_PER_BLOCK(const int n, const int max_threads = 512) {
+  int ret;
+  if (n <= 128)
+    ret = 32;
+  else if (n <= 1024)
+    ret = 128;
+  else
+    ret = 512;
+  return ret > max_threads ? max_threads : ret;
+}
+
+inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
+                          const int max_blocks = MAX_BLOCKS_PER_DIM) {
+  int ret = (n - 1) / GET_THREADS_PER_BLOCK(n, max_threads) + 1;
+  return ret > max_blocks ? max_blocks : ret;
+}
+
+namespace ML {
+
+enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
+
+enum OptimCriterion {
+  OPTIM_BFGS_ITER_LIMIT = 0,
+  OPTIM_MIN_PARAM_DIFF = 1,
+  OPTIM_MIN_ERROR_DIFF = 2,
+  OPTIM_MIN_GRAD_NORM = 3,
+};
+
+template <typename Dtype>
+struct OptimParams {
+  Dtype eps;
+  Dtype min_param_diff;
+  Dtype min_error_diff;
+  Dtype min_grad_norm;
+  int bfgs_iter_limit;
+  int linesearch_iter_limit;
+  Dtype linesearch_tau;
+  Dtype linesearch_c;
+  Dtype linesearch_step_size;
+};
+
+enum Norm { L0, L1, L2, LINF };
+
+}  // namespace ML
+
+template <typename Dtype>
+void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+                           int n, int batch_size, int frequency,
+                           int start_periods, Dtype *level, Dtype *trend,
+                           Dtype *season, ML::SeasonalType seasonal);
+
+template <typename Dtype>
+void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+                          int n, int batch_size, int frequency,
+                          const Dtype *start_level, const Dtype *start_trend,
+                          const Dtype *start_season, const Dtype *alpha,
+                          const Dtype *beta, const Dtype *gamma, Dtype *level,
+                          Dtype *trend, Dtype *season, Dtype *xhat,
+                          Dtype *error, ML::SeasonalType seasonal);
+
+template <typename Dtype, bool additive_seasonal>
+__device__ Dtype holtwinters_eval_device(
+  int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
+  Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
+  const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
+  Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *level, Dtype *trend,
+  Dtype *season, Dtype *xhat);
+
+template <typename Dtype>
+__device__ Dtype abs_device(Dtype val);
+template <typename Dtype>
+__device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.);
+
+template <typename Dtype>
+void holtwinters_forecast_gpu(const ML::cumlHandle_impl &handle,
+                              Dtype *forecast, int h, int batch_size,
+                              int frequency, const Dtype *level_coef,
+                              const Dtype *trend_coef, const Dtype *season_coef,
+                              ML::SeasonalType seasonal = ML::ADDITIVE);
+
+template <typename Dtype>
+void holtwinters_optim_gpu(
+  const ML::cumlHandle_impl &handle, const Dtype *ts, int n, int batch_size,
+  int frequency, const Dtype *start_level, const Dtype *start_trend,
+  const Dtype *start_season, Dtype *alpha, bool optim_alpha, Dtype *beta,
+  bool optim_beta, Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend,
+  Dtype *season, Dtype *xhat, Dtype *error, ML::OptimCriterion *optim_result,
+  ML::SeasonalType seasonal, const ML::OptimParams<Dtype> optim_params);
+
+template <typename Dtype, bool additive_seasonal>
+__device__ void holtwinters_finite_gradient_device(
+  int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
+  Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
+  const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
+  Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *g_alpha, Dtype *g_beta,
+  Dtype *g_gamma, Dtype eps = 2.2204e-6);
+
+template <typename Dtype>
+void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
+            int batch_size, const Dtype *filter, int filter_size, Dtype *output,
+            int output_size);
+template <typename Dtype>
+void season_mean(const ML::cumlHandle_impl &handle, const Dtype *season,
+                 int len, int batch_size, Dtype *start_season, int frequency,
+                 int half_filter_size, ML::SeasonalType seasonal);
+template <typename Dtype>
+void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
+                int trend_len, int batch_size, Dtype *level, Dtype *trend);
 
 // TODO(ahmad): n is unused
 template <typename Dtype>
