@@ -299,6 +299,39 @@ void gmemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
     <<<nblks, TPB, 0, stream>>>(bins, data, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
+
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
+__global__ void smemWarpHistKernel(int* bins, const DataT* data, IdxT n,
+                                   IdxT nbins, BinnerOp binner) {
+  extern __shared__ int sbins[];
+  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
+    sbins[i] = 0;
+  }
+  __syncthreads();
+  auto op = [=] __device__(int binId, IdxT idx) {
+    auto amask = __activemask();
+    auto mask = __match_any_sync(amask, binId);
+    auto leader = __ffs(mask) - 1;
+    if (laneId() == leader) {
+      atomicAdd(sbins + binId, __popc(mask));
+    }
+  };
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
+  __syncthreads();
+  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
+    atomicAdd(bins + i, sbins[i]);
+  }
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
+void smemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
+                  cudaStream_t stream) {
+  int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
+  size_t smemSize = nbins * sizeof(int);
+  smemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
+    <<<nblks, TPB, smemSize, stream>>>(bins, data, n, nbins, op);
+  CUDA_CHECK(cudaGetLastError());
+}
 #endif  // __CUDA_ARCH__ == 700
 
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
@@ -316,6 +349,12 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       gmemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);
       break;
+    case HistTypeSmemWarp:
+#if __CUDA_ARCH__ == 700
+      smemWarpHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
+                                                       stream);
+      break;
+#endif  // __CUDA_ARCH__ == 700
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);
