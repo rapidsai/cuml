@@ -182,8 +182,8 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
   CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmem:
-      gmemHist<DataT, BinnerOp, IdxT, false, TPB, VecLen>(bins, nbins, data, n,
-                                                          op, stream);
+      gmemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
+                                                   stream);
       break;
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
