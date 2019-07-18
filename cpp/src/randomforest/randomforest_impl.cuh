@@ -316,15 +316,9 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
                                     const T* input, int n_rows, int n_cols,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
-                                    bool verbose) const {
-  this->error_checking(input, predictions, n_rows, n_cols, true);
-
+                                    bool verbose) {
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
-
-  std::vector<T> h_input(n_rows * n_cols);
-  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
   int pred_id = 0;
@@ -334,14 +328,14 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       std::cout << "\n\n";
       std::cout << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
-        std::cout << h_input[row_id * row_size + i] << ", ";
+        std::cout << input[row_id * row_size + i] << ", ";
       std::cout << std::endl;
     }
 
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
-                       &h_input[row_id * row_size], 1, n_cols, &prediction,
+                       &input[row_id * row_size], 1, n_cols, &prediction,
                        verbose);
       predictions[pred_id] = prediction;
       pred_id++;
