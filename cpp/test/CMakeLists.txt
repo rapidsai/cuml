@@ -153,6 +153,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/histogram.cu
       prims/homogeneityScore.cu
       prims/host_buffer.cu
       prims/klDivergence.cu
