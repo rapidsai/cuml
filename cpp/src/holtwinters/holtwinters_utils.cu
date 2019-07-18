@@ -28,12 +28,12 @@
 
 // TODO(ahmad): n is unused
 template <typename Dtype>
-void stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
-                           int frequency, int start_periods, Dtype *start_level,
+void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+                           int n, int batch_size, int frequency,
+                           int start_periods, Dtype *start_level,
                            Dtype *start_trend, Dtype *start_season,
                            ML::SeasonalType seasonal) {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  cudaStream_t stream = handle.getStream();
 
   const int end = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;
@@ -52,7 +52,8 @@ void stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
   // Set Trend
   Dtype *trend_d;
   MLCommon::allocate(trend_d, batch_size * trend_len, stream);
-  conv1d<Dtype>(ts, batch_size, filter_d, filter_size, trend_d, trend_len);
+  conv1d<Dtype>(handle, ts, batch_size, filter_d, filter_size, trend_d,
+                trend_len);
 
   Dtype *season_d;
   MLCommon::allocate(season_d, batch_size * trend_len, stream);
@@ -69,10 +70,10 @@ void stl_decomposition_gpu(const Dtype *ts, int n, int batch_size,
                                           ts + ts_offset, trend_d, season_d);
   }
 
-  season_mean(season_d, trend_len, batch_size, start_season, frequency,
+  season_mean(handle, season_d, trend_len, batch_size, start_season, frequency,
               filter_size / 2, seasonal);  // TODO(ahmad): return
 
-  batched_ls(trend_d, trend_len, batch_size, start_level,
+  batched_ls(handle, trend_d, trend_len, batch_size, start_level,
              start_trend);  // TODO(ahmad): return
 
   CUDA_CHECK(cudaFree(filter_d));
@@ -97,12 +98,14 @@ __global__ void conv1d_kernel(const Dtype *input, int batch_size,
 }
 
 template <typename Dtype>
-void conv1d(const Dtype *input, int batch_size, const Dtype *filter,
-            int filter_size, Dtype *output, int output_size) {
+void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
+            int batch_size, const Dtype *filter, int filter_size, Dtype *output,
+            int output_size) {
   int total_threads = batch_size;
   conv1d_kernel<Dtype>
-    <<<GET_NUM_BLOCKS(total_threads), GET_THREADS_PER_BLOCK(total_threads)>>>(
-      input, batch_size, filter, filter_size, output, output_size);
+    <<<GET_NUM_BLOCKS(total_threads), GET_THREADS_PER_BLOCK(total_threads), 0,
+       handle.getStream()>>>(input, batch_size, filter, filter_size, output,
+                             output_size);
 }
 
 // TODO(ahmad): optimize
@@ -137,17 +140,20 @@ __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
 }
 
 template <typename Dtype>
-void season_mean(const Dtype *season, int len, int batch_size,
-                 Dtype *start_season, int frequency, int half_filter_size,
-                 ML::SeasonalType seasonal) {
+void season_mean(const ML::cumlHandle_impl &handle, const Dtype *season,
+                 int len, int batch_size, Dtype *start_season, int frequency,
+                 int half_filter_size, ML::SeasonalType seasonal) {
+  cudaStream_t stream = handle.getStream();
   if (seasonal == ML::SeasonalType::ADDITIVE)
     season_mean_kernel<Dtype, true>
-      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size)>>>(
-        season, len, batch_size, start_season, frequency, half_filter_size);
+      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
+         stream>>>(season, len, batch_size, start_season, frequency,
+                   half_filter_size);
   else
     season_mean_kernel<Dtype, false>
-      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size)>>>(
-        season, len, batch_size, start_season, frequency, half_filter_size);
+      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
+         stream>>>(season, len, batch_size, start_season, frequency,
+                   half_filter_size);
 }
 
 template <typename Dtype>
@@ -182,10 +188,10 @@ __global__ void batched_ls_solver_kernel(const Dtype *B, const Dtype *rq,
 }
 
 template <typename Dtype>
-void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
-                Dtype *trend) {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
+                int trend_len, int batch_size, Dtype *level, Dtype *trend) {
+  cudaStream_t stream = handle.getStream();
+
   const Dtype one = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
   int geqrf_buffer;
@@ -223,7 +229,7 @@ void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
                              lwork_size, dev_info_d);
 
   // Single thread kenrel to inverse R
-  RinvKernel<Dtype><<<1, 1>>>(A_d, Rinv_d, trend_len);
+  RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d, Rinv_d, trend_len);
 
   // R1QT = inv(R)*transpose(Q)
   // TODO(ahmad): return value
@@ -234,16 +240,18 @@ void batched_ls(const Dtype *data, int trend_len, int batch_size, Dtype *level,
                           2);  // TODO(ahmad): return value
 
   batched_ls_solver_kernel<Dtype>
-    <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size)>>>(
-      data, R1Qt_d, batch_size, trend_len, level, trend);
+    <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
+       stream>>>(data, R1Qt_d, batch_size, trend_len, level, trend);
 }
 
-template void stl_decomposition_gpu<float>(const float *ts, int n,
+template void stl_decomposition_gpu<float>(const ML::cumlHandle_impl &handle,
+                                           const float *ts, int n,
                                            int batch_size, int frequency,
                                            int start_periods, float *level,
                                            float *trend, float *season,
                                            ML::SeasonalType seasonal);
-template void stl_decomposition_gpu<double>(const double *ts, int n,
+template void stl_decomposition_gpu<double>(const ML::cumlHandle_impl &handle,
+                                            const double *ts, int n,
                                             int batch_size, int frequency,
                                             int start_periods, double *level,
                                             double *trend, double *season,
@@ -272,14 +280,14 @@ __device__ double bound_device<double>(double val, double min, double max) {
 }
 
 template <typename Dtype>
-void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
+void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
+                          int n, int batch_size, int frequency,
                           const Dtype *start_level, const Dtype *start_trend,
                           const Dtype *start_season, const Dtype *alpha,
                           const Dtype *beta, const Dtype *gamma, Dtype *level,
                           Dtype *trend, Dtype *season, Dtype *xhat,
                           Dtype *error, ML::SeasonalType seasonal) {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  cudaStream_t stream = handle.getStream();
 
   int total_blocks = GET_NUM_BLOCKS(batch_size);
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
@@ -300,24 +308,24 @@ void holtwinters_eval_gpu(const Dtype *ts, int n, int batch_size, int frequency,
     MLCommon::allocate(pseason, batch_size * frequency);
     if (seasonal == ML::SeasonalType::ADDITIVE)
       holtwinters_eval_gpu_global_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block>>>(
+        <<<total_blocks, threads_per_block, 0, stream>>>(
           ts, n, batch_size, frequency, start_level, start_trend, start_season,
           pseason, alpha, beta, gamma, level, trend, season, xhat, error);
     else
       holtwinters_eval_gpu_global_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block>>>(
+        <<<total_blocks, threads_per_block, 0, stream>>>(
           ts, n, batch_size, frequency, start_level, start_trend, start_season,
           pseason, alpha, beta, gamma, level, trend, season, xhat, error);
     CUDA_CHECK(cudaFree(pseason));
   } else {
     if (seasonal == ML::SeasonalType::ADDITIVE)
       holtwinters_eval_gpu_shared_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block, sm_needed>>>(
+        <<<total_blocks, threads_per_block, sm_needed, stream>>>(
           ts, n, batch_size, frequency, start_level, start_trend, start_season,
           alpha, beta, gamma, level, trend, season, xhat, error);
     else
       holtwinters_eval_gpu_shared_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block, sm_needed>>>(
+        <<<total_blocks, threads_per_block, sm_needed, stream>>>(
           ts, n, batch_size, frequency, start_level, start_trend, start_season,
           alpha, beta, gamma, level, trend, season, xhat, error);
   }
@@ -456,14 +464,14 @@ __global__ void holtwinters_eval_gpu_global_kernel(
 }
 
 template void holtwinters_eval_gpu<float>(
-  const float *ts, int n, int batch_size, int frequency,
-  const float *start_level, const float *start_trend, const float *start_season,
-  const float *alpha, const float *beta, const float *gamma, float *level,
-  float *trend, float *season, float *xhat, float *error,
-  ML::SeasonalType seasonal);
+  const ML::cumlHandle_impl &handle, const float *ts, int n, int batch_size,
+  int frequency, const float *start_level, const float *start_trend,
+  const float *start_season, const float *alpha, const float *beta,
+  const float *gamma, float *level, float *trend, float *season, float *xhat,
+  float *error, ML::SeasonalType seasonal);
 template void holtwinters_eval_gpu<double>(
-  const double *ts, int n, int batch_size, int frequency,
-  const double *start_level, const double *start_trend,
+  const ML::cumlHandle_impl &handle, const double *ts, int n, int batch_size,
+  int frequency, const double *start_level, const double *start_trend,
   const double *start_season, const double *alpha, const double *beta,
   const double *gamma, double *level, double *trend, double *season,
   double *xhat, double *error, ML::SeasonalType seasonal);
@@ -536,47 +544,46 @@ __global__ void holtwinters_level_forecast_kernel(Dtype *forecast, int h,
 }
 
 template <typename Dtype>
-void holtwinters_forecast_gpu(Dtype *forecast, int h, int batch_size,
+void holtwinters_forecast_gpu(const ML::cumlHandle_impl &handle,
+                              Dtype *forecast, int h, int batch_size,
                               int frequency, const Dtype *level_coef,
                               const Dtype *trend_coef, const Dtype *season_coef,
                               ML::SeasonalType seasonal) {
+  cudaStream_t stream = handle.getStream();
+
   int total_blocks = GET_NUM_BLOCKS(batch_size);
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
 
   if (trend_coef == nullptr && season_coef == nullptr) {
     holtwinters_level_forecast_kernel<Dtype>
-      <<<total_blocks, threads_per_block>>>(forecast, h, batch_size,
-                                            level_coef);
+      <<<total_blocks, threads_per_block, 0, stream>>>(forecast, h, batch_size,
+                                                       level_coef);
   } else if (season_coef == nullptr) {
     holtwinters_nonseasonal_forecast_kernel<Dtype>
-      <<<total_blocks, threads_per_block>>>(forecast, h, batch_size, level_coef,
-                                            trend_coef);
+      <<<total_blocks, threads_per_block, 0, stream>>>(forecast, h, batch_size,
+                                                       level_coef, trend_coef);
   } else {
     if (seasonal == ML::SeasonalType::ADDITIVE)
       holtwinters_seasonal_forecast_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block>>>(forecast, h, batch_size,
-                                              frequency, level_coef, trend_coef,
-                                              season_coef);
+        <<<total_blocks, threads_per_block, 0, stream>>>(
+          forecast, h, batch_size, frequency, level_coef, trend_coef,
+          season_coef);
     else
       holtwinters_seasonal_forecast_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block>>>(forecast, h, batch_size,
-                                              frequency, level_coef, trend_coef,
-                                              season_coef);
+        <<<total_blocks, threads_per_block, 0, stream>>>(
+          forecast, h, batch_size, frequency, level_coef, trend_coef,
+          season_coef);
   }
 }
 
-template void holtwinters_forecast_gpu<float>(float *forecast, int h,
-                                              int batch_size, int frequency,
-                                              const float *level_coef,
-                                              const float *trend_coef,
-                                              const float *season_coef,
-                                              ML::SeasonalType seasonal);
-template void holtwinters_forecast_gpu<double>(double *forecast, int h,
-                                               int batch_size, int frequency,
-                                               const double *level_coef,
-                                               const double *trend_coef,
-                                               const double *season_coef,
-                                               ML::SeasonalType seasonal);
+template void holtwinters_forecast_gpu<float>(
+  const ML::cumlHandle_impl &handle, float *forecast, int h, int batch_size,
+  int frequency, const float *level_coef, const float *trend_coef,
+  const float *season_coef, ML::SeasonalType seasonal);
+template void holtwinters_forecast_gpu<double>(
+  const ML::cumlHandle_impl &handle, double *forecast, int h, int batch_size,
+  int frequency, const double *level_coef, const double *trend_coef,
+  const double *season_coef, ML::SeasonalType seasonal);
 
 template <typename Dtype, bool ADDITIVE_KERNEL, bool single_param>
 __global__ void holtwinters_optim_gpu_shared_kernel(
@@ -619,14 +626,13 @@ __device__ Dtype max3(Dtype a, Dtype b, Dtype c) {
 
 template <typename Dtype>
 void holtwinters_optim_gpu(
-  const Dtype *ts, int n, int batch_size, int frequency,
-  const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
-  Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
-  bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-  Dtype *error, ML::OptimCriterion *optim_result, ML::SeasonalType seasonal,
-  const ML::OptimParams<Dtype> optim_params) {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  const ML::cumlHandle_impl &handle, const Dtype *ts, int n, int batch_size,
+  int frequency, const Dtype *start_level, const Dtype *start_trend,
+  const Dtype *start_season, Dtype *alpha, bool optim_alpha, Dtype *beta,
+  bool optim_beta, Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend,
+  Dtype *season, Dtype *xhat, Dtype *error, ML::OptimCriterion *optim_result,
+  ML::SeasonalType seasonal, const ML::OptimParams<Dtype> optim_params) {
+  cudaStream_t stream = handle.getStream();
   //int total_blocks = GET_NUM_BLOCKS(batch_size);
   //int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
   int total_blocks = (batch_size - 1) / 128 + 1;
@@ -651,14 +657,14 @@ void holtwinters_optim_gpu(
     if (seasonal == ML::SeasonalType::ADDITIVE) {
       if (optim_alpha + optim_beta + optim_gamma > 1)
         holtwinters_optim_gpu_global_kernel<Dtype, true, false>
-          <<<total_blocks, threads_per_block>>>(
+          <<<total_blocks, threads_per_block, 0, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
             optim_params);
       else
         holtwinters_optim_gpu_global_kernel<Dtype, true, true>
-          <<<total_blocks, threads_per_block>>>(
+          <<<total_blocks, threads_per_block, 0, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
@@ -666,14 +672,14 @@ void holtwinters_optim_gpu(
     } else {
       if (optim_alpha + optim_beta + optim_gamma > 1)
         holtwinters_optim_gpu_global_kernel<Dtype, false, false>
-          <<<total_blocks, threads_per_block>>>(
+          <<<total_blocks, threads_per_block, 0, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
             optim_params);
       else
         holtwinters_optim_gpu_global_kernel<Dtype, false, true>
-          <<<total_blocks, threads_per_block>>>(
+          <<<total_blocks, threads_per_block, 0, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
@@ -684,14 +690,14 @@ void holtwinters_optim_gpu(
     if (seasonal == ML::SeasonalType::ADDITIVE) {
       if (optim_alpha + optim_beta + optim_gamma > 1)
         holtwinters_optim_gpu_shared_kernel<Dtype, true, false>
-          <<<total_blocks, threads_per_block, sm_needed>>>(
+          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
             optim_params);
       else
         holtwinters_optim_gpu_shared_kernel<Dtype, true, true>
-          <<<total_blocks, threads_per_block, sm_needed>>>(
+          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
@@ -699,14 +705,14 @@ void holtwinters_optim_gpu(
     } else {
       if (optim_alpha + optim_beta + optim_gamma > 1)
         holtwinters_optim_gpu_shared_kernel<Dtype, false, false>
-          <<<total_blocks, threads_per_block, sm_needed>>>(
+          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
             optim_params);
       else
         holtwinters_optim_gpu_shared_kernel<Dtype, false, true>
-          <<<total_blocks, threads_per_block, sm_needed>>>(
+          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
             ts, n, batch_size, frequency, start_level, start_trend,
             start_season, alpha, optim_alpha, beta, optim_beta, gamma,
             optim_gamma, level, trend, season, xhat, error, optim_result,
@@ -1112,15 +1118,15 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
 }
 
 template void holtwinters_optim_gpu<float>(
-  const float *ts, int n, int batch_size, int frequency,
-  const float *start_level, const float *start_trend, const float *start_season,
-  float *alpha, bool optim_alpha, float *beta, bool optim_beta, float *gamma,
-  bool optim_gamma, float *level, float *trend, float *season, float *xhat,
-  float *error, ML::OptimCriterion *optim_result, ML::SeasonalType seasonal,
-  const ML::OptimParams<float> optim_params);
+  const ML::cumlHandle_impl &handle, const float *ts, int n, int batch_size,
+  int frequency, const float *start_level, const float *start_trend,
+  const float *start_season, float *alpha, bool optim_alpha, float *beta,
+  bool optim_beta, float *gamma, bool optim_gamma, float *level, float *trend,
+  float *season, float *xhat, float *error, ML::OptimCriterion *optim_result,
+  ML::SeasonalType seasonal, const ML::OptimParams<float> optim_params);
 template void holtwinters_optim_gpu<double>(
-  const double *ts, int n, int batch_size, int frequency,
-  const double *start_level, const double *start_trend,
+  const ML::cumlHandle_impl &handle, const double *ts, int n, int batch_size,
+  int frequency, const double *start_level, const double *start_trend,
   const double *start_season, double *alpha, bool optim_alpha, double *beta,
   bool optim_beta, double *gamma, bool optim_gamma, double *level,
   double *trend, double *season, double *xhat, double *error,
