@@ -175,6 +175,24 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
+__global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT n,
+                                   IdxT nbins, BinnerOp binner, int hashSize) {
+  //extern __shared__ int2 smem[];
+  ///@todo!
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
+void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
+                  cudaStream_t stream) {
+  int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
+  auto maxSmem = maxSharedMem();
+  auto maxHashEntries = int(maxSmem / sizeof(int2));
+  smemHashHistKernel<DataT, BinnerOp, IdxT, VecLen>
+    <<<nblks, TPB, maxSmem, stream>>>(bins, data, n, nbins, op, maxHashEntries);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                      IdxT n, cudaStream_t stream, BinnerOp op) {
@@ -197,7 +215,8 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                                                           op, stream);
       break;
     case HistTypeSmemHash:
-      ///@todo!!
+      smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
+                                                        op, stream);
       break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
