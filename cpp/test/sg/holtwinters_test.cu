@@ -117,11 +117,13 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
   std::vector<T> alpha_ptr, beta_ptr, gamma_ptr, SSE_error_ptr, forecast_ptr;
 };
 
-const std::vector<HoltWintersInputs> inputsf = {
+const std::vector<HoltWintersInputs> inputsf1 = {
   {3, 12, ML::SeasonalType::ADDITIVE, 2}};
+const std::vector<HoltWintersInputs> inputsf2 = {
+  {3, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
 
-typedef HoltWintersTest<float> HoltWintersTestF;
-TEST_P(HoltWintersTestF, Fit) {
+typedef HoltWintersTest<float> HoltWintersTestAF;
+TEST_P(HoltWintersTestAF, Fit) {
   myPrintHostVector("alpha", alpha_ptr.data(), batch_size);
   myPrintHostVector("beta", beta_ptr.data(), batch_size);
   myPrintHostVector("gamma", gamma_ptr.data(), batch_size);
@@ -130,7 +132,19 @@ TEST_P(HoltWintersTestF, Fit) {
   ASSERT_TRUE(true == true);
 }
 
-INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestF,
-                        ::testing::ValuesIn(inputsf));
+typedef HoltWintersTest<float> HoltWintersTestMF;
+TEST_P(HoltWintersTestMF, Fit) {
+  myPrintHostVector("alpha", alpha_ptr.data(), batch_size);
+  myPrintHostVector("beta", beta_ptr.data(), batch_size);
+  myPrintHostVector("gamma", gamma_ptr.data(), batch_size);
+  myPrintHostVector("forecast", forecast_ptr.data(), batch_size * h);
+  myPrintHostVector("error", SSE_error_ptr.data(), batch_size);
+  ASSERT_TRUE(true == true);
+}
+
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestAF,
+                        ::testing::ValuesIn(inputsf1));
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestMF,
+                        ::testing::ValuesIn(inputsf2));
 
 }  // namespace ML
