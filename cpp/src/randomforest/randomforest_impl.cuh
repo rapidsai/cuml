@@ -101,6 +101,10 @@ void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle,
         (void*)rows_temp_storage, temp_storage_bytes, outkeys->data(),
         sorted_selected_rows, n_sampled_rows, 0, 8 * sizeof(unsigned int),
         stream));
+    } else {
+      CUDA_CHECK(cudaMemcpyAsync(selected_rows, outkeys->data(),
+                                 n_sampled_rows * sizeof(unsigned int),
+                                 cudaMemcpyDeviceToDevice, stream));
     }
     inkeys->release(stream);
     outkeys->release(stream);
