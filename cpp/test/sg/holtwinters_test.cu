@@ -17,7 +17,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include "holtwinters/HoltWinters.cuh"
+#include "holtwinters/holtwinters.h"
 
 namespace ML {
 

@@ -15,10 +15,8 @@
  */
 
 #pragma once
-#include "common/cumlHandle.hpp"
-#include "hw_ds.h"
-#include "linalg/cublas_wrappers.h"
 #include "linalg/transpose.h"
+#include "holtwinters_utils.h"
 
 namespace ML {
 

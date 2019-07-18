@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_runtime.h>
-
-#include <iostream>
-#include "HoltWinters.cuh"
-#include "holtwinters_utils.cuh"
-// #include "hw_cu_utils.cuh"
-#include "utils.h"
+#include "holtwinters.h"
 
 namespace ML {
 
@@ -203,7 +197,6 @@ void HoltWintersFitPredict(const ML::cumlHandle &handle, int n, int batch_size,
                            SeasonalType seasonal, Dtype *data, Dtype *alpha_ptr,
                            Dtype *beta_ptr, Dtype *gamma_ptr,
                            Dtype *SSE_error_ptr, Dtype *forecast_ptr) {
-
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
