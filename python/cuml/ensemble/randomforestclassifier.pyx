@@ -566,7 +566,7 @@ class RandomForestClassifier(Base):
         del(preds_m)
         return preds
 
-    def predictGetAll(self, X):
+    def _predictGetAll(self, X):
         """
         Predicts the labels for X.
         Parameters
@@ -604,7 +604,7 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
         if self.dtype == np.float32:
-            predict(handle_[0],
+            predictGetAll(handle_[0],
                     rf_forest,
                     <float*> X_ptr,
                     <int> n_rows,
@@ -613,7 +613,7 @@ class RandomForestClassifier(Base):
                     <bool> self.verbose)
 
         elif self.dtype == np.float64:
-            predict(handle_[0],
+            predictGetAll(handle_[0],
                     rf_forest64,
                     <double*> X_ptr,
                     <int> n_rows,
