@@ -19,6 +19,7 @@
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
+#include "utils.h"
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets
@@ -47,7 +48,7 @@ enum HistType {
   /** shared mem atomics but with bins to ba 1B int's */
   HistTypeSmemBits8,
   /** builds a hashmap of active bins in shared mem */
-  HistTypeHash,
+  HistTypeSmemHash,
   /** decide at runtime the best algo for the given inputs */
   HistTypeAuto
 };
