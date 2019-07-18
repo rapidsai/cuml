@@ -118,6 +118,19 @@ const std::vector<HistInputs> inputs = {
   {oneM + 1, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
   {oneM + 2, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
   {oneM + 2, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+
+  {oneM, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
 TEST_P(HistTest, Result) {
   ASSERT_TRUE(devArrMatch(ref_bins, bins, params.nbins, Compare<int>()));
