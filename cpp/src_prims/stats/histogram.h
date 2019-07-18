@@ -196,6 +196,9 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       smemBitsHist<DataT, BinnerOp, IdxT, TPB, 8, VecLen>(bins, nbins, data, n,
                                                           op, stream);
       break;
+    case HistTypeSmemHash:
+      ///@todo!!
+      break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
   };
