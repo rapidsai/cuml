@@ -17,7 +17,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include "holtwinters/HoltWinters.hpp"
+#include "holtwinters/HoltWinters.cuh"
 
 namespace ML {
 
@@ -93,10 +93,13 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     allocate(data, batch_size * n);
     updateDevice(data, dataset_h.data(), batch_size * n, stream);
 
-    ML::HoltWintersFitPredict<T>(n, batch_size, frequency, h, start_periods,
-                                 seasonal, data, alpha_ptr.data(),
-                                 beta_ptr.data(), gamma_ptr.data(),
-                                 SSE_error_ptr.data(), forecast_ptr.data());
+    cumlHandle handle;
+    handle.setStream(stream);
+
+    ML::HoltWintersFitPredict(handle, n, batch_size, frequency, h,
+                              start_periods, seasonal, data, alpha_ptr.data(),
+                              beta_ptr.data(), gamma_ptr.data(),
+                              SSE_error_ptr.data(), forecast_ptr.data());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
