@@ -15,8 +15,10 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
+#include "common/cumlHandle.hpp"
 #include "hw_ds.h"
+#include "linalg/cublas_wrappers.h"
+#include "linalg/transpose.h"
 
 namespace ML {
 
@@ -25,8 +27,8 @@ void HWInit();
 void HWDestroy();
 
 template <typename Dtype>
-void HWTranspose(const ML::cumlHandle &handle, const Dtype *data_in, int m,
-                 int n, Dtype *data_out);
+void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
+                 Dtype *data_out);
 
 void HoltWintersBufferSize(const ML::cumlHandle &handle, int n, int batch_size,
                            int frequency, bool use_beta, bool use_gamma,
