@@ -21,7 +21,6 @@
 
 #include "holtwinters_utils.cuh"
 #include "hw_cu_utils.cuh"
-#include "hw_math.cuh"
 #include "utils.h"
 
 #define IDX(n, m, N) (n + (m) * (N))
@@ -66,8 +65,13 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                             &one, ts + ts_offset, trend_len, &minus_one,
                             trend_d, trend_len, season_d, trend_len);
   } else {
-    ML::HoltWinters::Math::div_gpu<Dtype>(trend_len * batch_size,
-                                          ts + ts_offset, trend_d, season_d);
+    Dtype *aligned_ts;
+    MLCommon::allocate(aligned_ts, batch_size * trend_len, stream);
+    MLCommon::updateDevice(aligned_ts, ts + ts_offset, batch_size * trend_len,
+                           stream);
+    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d, aligned_ts, trend_d,
+                                           trend_len * batch_size, stream);
+    CUDA_CHECK(cudaFree(aligned_ts));
   }
 
   season_mean(handle, season_d, trend_len, batch_size, start_season, frequency,
@@ -277,6 +281,15 @@ __device__ float bound_device<float>(float val, float min, float max) {
 template <>
 __device__ double bound_device<double>(double val, double min, double max) {
   return fmin(fmax(val, min), max);
+}
+
+template <>
+__device__ float abs_device(float x) {
+  return fabsf(x);
+}
+template <>
+__device__ double abs_device(double x) {
+  return fabs(x);
 }
 
 template <typename Dtype>
@@ -845,11 +858,9 @@ __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c) {
 
 template <typename Dtype>
 __device__ Dtype fix_step(Dtype a, Dtype b, Dtype c, Dtype step, Dtype e) {
-  Dtype min_step = ML::HoltWinters::Math::abs_device(e * b) + PG_EPS;
-  if (ML::HoltWinters::Math::abs_device(step) < min_step)
-    return step > 0 ? min_step : -min_step;
-  if (ML::HoltWinters::Math::abs_device(b + step - a) <= e ||
-      ML::HoltWinters::Math::abs_device(b + step - c) <= e)
+  Dtype min_step = abs_device(e * b) + PG_EPS;
+  if (abs_device(step) < min_step) return step > 0 ? min_step : -min_step;
+  if (abs_device(b + step - a) <= e || abs_device(b + step - c) <= e)
     return 0.0;  // steps are too close to each others
   return step;
 }
@@ -863,14 +874,10 @@ __device__ Dtype calculate_step(Dtype a, Dtype b, Dtype c, Dtype loss_a,
   Dtype q = (b - c) * (loss_b - loss_a);
   Dtype x = q * (b - c) - p * (b - a);
   Dtype y = (p - q) * 2.;
-  Dtype step = ML::HoltWinters::Math::abs_device(y) < PG_EPS
-                 ? golden_step(a, b, c)
-                 : x / y;
+  Dtype step = abs_device(y) < PG_EPS ? golden_step(a, b, c) : x / y;
   step = fix_step(a, b, c, step, e);  // ensure point is new
 
-  if (ML::HoltWinters::Math::abs_device(step) >
-        ML::HoltWinters::Math::abs_device(pstep / 2) ||
-      step == 0.0)
+  if (abs_device(step) > abs_device(pstep / 2) || step == 0.0)
     step = golden_step(a, b, c);
   return step;
 }
@@ -905,8 +912,7 @@ __device__ void parabolic_interpolation_golden_optim(
   Dtype pstep = (c - a) / 2;
   Dtype cstep = pstep;
 
-  while (ML::HoltWinters::Math::abs_device(c - a) >
-         ML::HoltWinters::Math::abs_device(b * eps) + PG_EPS) {
+  while (abs_device(c - a) > abs_device(b * eps) + PG_EPS) {
     Dtype step = calculate_step(a, b, c, loss_a, loss_b, loss_c, cstep, eps);
     Dtype optim_val = b + step;
     Dtype loss_val = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
@@ -1056,9 +1062,9 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
     // end of line search
 
     // see if new {prams} meet stop condition
-    const Dtype dx1 = ML::HoltWinters::Math::abs_device(*x1 - nx1);
-    const Dtype dx2 = ML::HoltWinters::Math::abs_device(*x2 - nx2);
-    const Dtype dx3 = ML::HoltWinters::Math::abs_device(*x3 - nx3);
+    const Dtype dx1 = abs_device(*x1 - nx1);
+    const Dtype dx2 = abs_device(*x2 - nx2);
+    const Dtype dx3 = abs_device(*x3 - nx3);
     Dtype max = max3(dx1, dx2, dx3);
     // update {params}
     *x1 = nx1;
@@ -1066,8 +1072,7 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
     *x3 = nx3;
     if (optim_params.min_param_diff > max)
       return ML::OptimCriterion::OPTIM_MIN_PARAM_DIFF;
-    if (optim_params.min_error_diff >
-        ML::HoltWinters::Math::abs_device(loss - loss_ref))
+    if (optim_params.min_error_diff > abs_device(loss - loss_ref))
       return ML::OptimCriterion::OPTIM_MIN_ERROR_DIFF;
 
     Dtype ng1 = .0, ng2 = .0, ng3 = .0;  // next gradient
@@ -1077,9 +1082,7 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
       optim_alpha ? &ng1 : nullptr, optim_beta ? &ng2 : nullptr,
       optim_gamma ? &ng3 : nullptr, optim_params.eps);
     // see if new gradients meet stop condition
-    max = max3(ML::HoltWinters::Math::abs_device(ng1),
-               ML::HoltWinters::Math::abs_device(ng2),
-               ML::HoltWinters::Math::abs_device(ng3));
+    max = max3(abs_device(ng1), abs_device(ng2), abs_device(ng3));
     if (optim_params.min_grad_norm > max)
       return ML::OptimCriterion::OPTIM_MIN_GRAD_NORM;
 

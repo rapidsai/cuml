@@ -19,6 +19,7 @@
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "hw_ds.h"
+#include "linalg/eltwise.h"
 
 #define STMP_EPS (1e-6)
 #define GOLD \
