@@ -187,7 +187,6 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    bool verbose) {
   std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<float>>();
-  dt_classifier->print(tree->root);
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
                          verbose);
 }

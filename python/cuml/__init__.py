@@ -56,7 +56,10 @@ from cuml.thirdparty._sklearn.preprocessing import (
     RobustScaler, StandardScaler, add_dummy_feature, binarize, normalize,
     scale, robust_scale, maxabs_scale, minmax_scale)
 
-from cuml.ensemble.randomforest import RandomForestClassifier
+
+from cuml.ensemble.randomforestclassifier import RandomForestClassifier
+from cuml.ensemble.randomforestregressor import RandomForestRegressor
+
 
 from ._version import get_versions
 __version__ = get_versions()['version']

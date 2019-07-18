@@ -12,6 +12,7 @@
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #850: preprocessing scalers
+- PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
 
@@ -20,11 +21,13 @@
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
+- PR #851: Random forest Stateless API wrappers
 
 ## Bug Fixes
 
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
+- PR #849: PCA no attribute trans_input_ transform bug fix
 
 # cuML 0.8.0 (27 June 2019)
 
@@ -45,6 +48,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 
@@ -107,6 +111,7 @@
 - PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 - PR #806: Add a seed for sklearn model in RF test file
+- PR #843: Rf quantile fix
 
 # cuML 0.7.0 (10 May 2019)
 
