@@ -39,8 +39,20 @@ struct IdentityBinner {
 enum HistType {
   /** use only global atomics */
   HistTypeGmem,
+  /**
+   * global mem atomics using warp-level operations sm70.
+   * should work well when the input data is very skewed
+   * will fall back to HistTypeGmem on unsupported arch's
+   */
+  HistTypeGmemWarp,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
+  /**
+   * shared mem atomics using warp-level operations sm70.
+   * should work well when the input data is very skewed
+   * will fall back to HistTypeSmem on unsupported arch's
+   */
+  HistTypeSmemWarp,
   /** shared mem atomics but with bins to be 2B int's */
   HistTypeSmemBits16,
   /** shared mem atomics but with bins to ba 1B int's */
@@ -264,11 +276,42 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+#if __CUDA_ARCH__ == 700
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
+__global__ void gmemWarpHistKernel(int* bins, const DataT* data, IdxT n,
+                                   BinnerOp binner) {
+  auto op = [=] __device__(int binId, IdxT idx) {
+    auto amask = __activemask();
+    auto mask = __match_any_sync(amask, binId);
+    auto leader = __ffs(mask) - 1;
+    if (laneId() == leader) {
+      atomicAdd(bins + binId, __popc(mask));
+    }
+  };
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
+void gmemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
+                  cudaStream_t stream) {
+  int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
+  gmemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
+    <<<nblks, TPB, 0, stream>>>(bins, data, n, op);
+  CUDA_CHECK(cudaGetLastError());
+}
+#endif  // __CUDA_ARCH__ == 700
+
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                      IdxT n, cudaStream_t stream, BinnerOp op) {
   CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
   switch (type) {
+    case HistTypeGmemWarp:
+#if __CUDA_ARCH__ == 700
+      gmemWarpHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
+                                                       stream);
+      break;
+#endif  // __CUDA_ARCH__ == 700
     case HistTypeGmem:
       gmemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);

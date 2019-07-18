@@ -98,6 +98,13 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
   {oneM + 2, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
 
+  {oneM, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+
   {oneM, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
   {oneM, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
   {oneM + 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
