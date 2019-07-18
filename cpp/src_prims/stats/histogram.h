@@ -56,7 +56,9 @@ enum HistType {
 DI int swizzleBinId(int id) {
   // Swap bits 0:5 with 6:11 in bucket.  Moves adjacenct values farther apart.
   // Requires at least 4096 buckets.
-  // Why 6?  That's 64 words or 256 bytes, which is the inter-slice stride in the L2, so adjacent buckets will now be on different slices
+  // Why 6?
+  //   That's 64 words or 256 bytes, which is the inter-slice stride in the
+  //   L2, so adjacent buckets will now be on different slices
   // Don't forget to undo the transform when you read the buckets out
   int a = id & 0x3f;
   int b = (id >> 6) & 0x3f;
@@ -140,6 +142,71 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+template <unsigned BIN_BITS>
+DI void incrementBin(int* sbins, int* bins, int nbins, int binId) {
+  constexpr unsigned WORD_BITS = sizeof(int) * 8;
+  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
+  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
+  auto iword = bin / WORD_BINS;
+  auto ibin = bin % WORD_BINS;
+  auto sh = ibin * BIN_BITS;
+  auto old_word = atomicAdd(sbins + iword, 1 << sh);
+  auto new_word = old_word + (1 << sh);
+  if ((new_word >> sh & BIN_MASK) != 0) return;
+  // overflow
+  atomicAdd(&bins[bin], BIN_MASK + 1);
+  for (unsigned dbin = 1; ibin + dbin < WORD_BINS && bin + dbin < nbins;
+       ++dbin) {
+    auto sh1 = (ibin + dbin) * BIN_BITS;
+    if ((new_word >> sh1 & BIN_MASK) == 0) {
+      // overflow
+      atomicAdd(&bins[bin + dbin], BIN_MASK);
+    } else {
+      // correction
+      atomicAdd(&bins[bin + dbin], -1);
+      break;
+    }
+  }
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, unsigned BIN_BITS>
+__global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
+                                   IdxT nbins, BinnerOp binner) {
+  extern __shared__ int sbins[];
+  constexpr unsigned WORD_BITS = sizeof(int) * 8;
+  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
+  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
+  auto nwords = ceildiv<int>(nbins, WORD_BINS);
+  for (int j = threadIdx.x; j < nwords; j += blockDim.x) {
+    sbins[j] = 0;
+  }
+  __syncthreads();
+  IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
+  IdxT stride = IdxT(blockDim.x) * gridDim.x;
+  for (IdxT i = tid; i < n; i += stride) {
+    int binId = binner(data[i], i);
+    incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId);
+  }
+  __syncthreads();
+  for (int j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
+    int count = sbins[j / WORD_BINS] >> (j % WORD_BINS * BIN_BITS) & BIN_MASK;
+    if (count > 0) atomicAdd(bins + j, count);
+  }
+}
+
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB,
+          unsigned BIN_BITS>
+void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
+                  cudaStream_t stream) {
+  int nblks = ceildiv<int>(n, TPB);
+  CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
+  constexpr unsigned WORD_BITS = sizeof(int) * 8;
+  size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
+  smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS>
+    <<<nblks, TPB, smemSize, stream>>>(bins, data, n, op);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB>
 void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
                    IdxT n, std::shared_ptr<deviceAllocator> allocator,
@@ -155,6 +222,14 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
       break;
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB>(bins, nbins, data, n, op, stream);
+      break;
+    case HistTypeSmemBits16:
+      smemBitsHist<DataT, BinnerOp, IdxT, TPB, 16>(bins, nbins, data, n, op,
+                                                   stream);
+      break;
+    case HistTypeSmemBits8:
+      smemBitsHist<DataT, BinnerOp, IdxT, TPB, 8>(bins, nbins, data, n, op,
+                                                  stream);
       break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
