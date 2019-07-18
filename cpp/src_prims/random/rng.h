@@ -231,10 +231,13 @@ class Rng {
    * @param mu mean of the distribution
    * @param sigma std-dev of the distribution
    * @param stream stream where to launch the kernel
+   * @{
    */
   template <typename Type, typename LenType = int>
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
               cudaStream_t stream) {
+    static_assert(std::is_floating_point<Type>::value,
+                  "Type for 'normal' can only be floating point type!");
     rand2Impl(
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
@@ -249,6 +252,26 @@ class Rng {
       },
       NumThreads, nBlocks, type, stream);
   }
+  template <typename IntType, typename LenType = int>
+  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
+                 cudaStream_t stream) {
+    static_assert(std::is_integral<IntType>::value,
+                  "Type for 'normalInt' can only be integer type!");
+    rand2Impl<IntType, double>(
+      offset, ptr, len,
+      [=] __device__(double &val1, double &val2, LenType idx1, LenType idx2) {
+        constexpr auto twoPi = 2.0 * 3.141592654;
+        constexpr auto minus2 = -2.0;
+        auto R = mySqrt(minus2 * myLog(val1));
+        auto theta = twoPi * val2;
+        double s, c;
+        mySinCos(theta, s, c);
+        val1 = R * c * sigma + mu;
+        val2 = R * s * sigma + mu;
+      },
+      NumThreads, nBlocks, type, stream);
+  }
+  /** @} */
 
   /**
    * @brief Generate normal distributed table according to the given set of
