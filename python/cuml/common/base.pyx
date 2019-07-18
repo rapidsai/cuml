@@ -92,6 +92,8 @@ class Base:
         cdef str string = self.__class__.__name__ + '('
         cdef str key
         for key in signature:
+            if key not in state:
+                continue
             if type(state[key]) is str:
                 string += "{}='{}', ".format(key, state[key])
             else:
