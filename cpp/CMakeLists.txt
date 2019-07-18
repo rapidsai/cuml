@@ -337,7 +337,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
     src/holtwinters/HoltWinters.cu
-    src/holtwinters/hw_cu_utils.cu
     src/holtwinters/holtwinters_utils.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
