@@ -89,8 +89,7 @@ template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHistKernel(int* bins, const DataT* data, IdxT n, IdxT nbins,
                                BinnerOp binner) {
   extern __shared__ int sbins[];
-  auto tid = threadIdx.x + IdxT(blockIdx.x) * blockDim.x;
-  for (auto i = tid; i < nbins; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     sbins[i] = 0;
   }
   __syncthreads();
@@ -99,7 +98,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT n, IdxT nbins,
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
   __syncthreads();
-  for (auto i = tid; i < nbins; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     atomicAdd(bins + i, sbins[i]);
   }
 }
