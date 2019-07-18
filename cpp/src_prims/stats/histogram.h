@@ -311,7 +311,6 @@ HistType selectBestHistAlgo(IdxT nbins) {
  * @param nbins number of bins
  * @param data input data (length = n)
  * @param n data array length
- * @param allocator device allocator
  * @param stream cuda stream
  * @param op the operation that computes the bin index of the input data
  *
@@ -319,8 +318,7 @@ HistType selectBestHistAlgo(IdxT nbins) {
  */
 template <typename DataT, typename BinnerOp, typename IdxT = int, int TPB = 256>
 void histogram(HistType type, int* bins, IdxT nbins, const DataT* data, IdxT n,
-               std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-               BinnerOp op = IdentityBinner()) {
+               cudaStream_t stream, BinnerOp op = IdentityBinner()) {
   HistType computedType = type;
   if (type == HistTypeAuto) {
     computedType = selectBestHistAlgo(nbins);
