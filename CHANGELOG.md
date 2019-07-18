@@ -11,6 +11,7 @@
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
 
@@ -19,6 +20,7 @@
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
+- PR #851: Random forest Stateless API wrappers
 
 ## Bug Fixes
 
