@@ -39,8 +39,6 @@ struct IdentityBinner {
 enum HistType {
   /** use only global atomics */
   HistTypeGmem,
-  /** use only global atomics but with cache-line aware acceses */
-  HistTypeGmemSwizzle,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
   /** shared mem atomics but with bins to be 2B int's */
@@ -71,61 +69,20 @@ DI void histCoreOp(const DataT* data, IdxT n, BinnerOp binOp, CoreOp op) {
   }
 }
 
-DI int swizzleBinId(int id) {
-  // Swap bits 0:5 with 6:11 in bucket.  Moves adjacenct values farther apart.
-  // Requires at least 4096 buckets.
-  // Why 6?
-  //   That's 64 words or 256 bytes, which is the inter-slice stride in the
-  //   L2, so adjacent buckets will now be on different slices
-  // Don't forget to undo the transform when you read the buckets out
-  int a = id & 0x3f;
-  int b = (id >> 6) & 0x3f;
-  id >>= 12;
-  id <<= 12;
-  id |= (a << 6) | b;
-  return id;
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, bool SwapBits,
-          int VecLen>
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT n,
                                BinnerOp binner) {
-  auto op = [=] __device__(int binId, IdxT idx) {
-    if (SwapBits) {
-      binId = swizzleBinId(binId);
-    }
-    atomicAdd(bins + binId, 1);
-  };
+  auto op = [=] __device__(int binId, IdxT idx) { atomicAdd(bins + binId, 1); };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
 }
 
-///@todo: launch half the number of threads, but also consider odd number of
-/// bins case while doing so
-__global__ void unswapKernel(int* bins, int nbins) {
-  auto src = threadIdx.x + blockDim.x * blockIdx.x;
-  auto tgt = swizzleBinId(src);
-  if (src >= nbins || tgt >= nbins || src >= tgt) {
-    return;
-  }
-  auto a = bins[src];
-  auto b = bins[tgt];
-  bins[src] = b;
-  bins[tgt] = a;
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, bool SwapBits,
-          int TPB, int VecLen>
+template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
               cudaStream_t stream) {
   int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
-  gmemHistKernel<DataT, BinnerOp, IdxT, SwapBits, VecLen>
+  gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<nblks, TPB, 0, stream>>>(bins, data, n, op);
   CUDA_CHECK(cudaGetLastError());
-  if (SwapBits) {
-    nblks = ceildiv<int>(nbins, TPB);
-    unswapKernel<<<nblks, TPB, 0, stream>>>(bins, nbins);
-    CUDA_CHECK(cudaGetLastError());
-  }
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -228,10 +185,6 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       gmemHist<DataT, BinnerOp, IdxT, false, TPB, VecLen>(bins, nbins, data, n,
                                                           op, stream);
       break;
-    case HistTypeGmemSwizzle:
-      gmemHist<DataT, BinnerOp, IdxT, true, TPB, VecLen>(bins, nbins, data, n,
-                                                         op, stream);
-      break;
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);
@@ -286,9 +239,6 @@ HistType selectBestHistAlgo(IdxT nbins) {
   requiredSize = ceildiv<size_t>(nbins, 4) * sizeof(int);
   if (requiredSize <= smem) {
     return HistTypeSmemBits8;
-  }
-  if (nbins % 4096 == 0) {
-    return HistTypeGmemSwizzle;
   }
   return HistTypeGmem;
 }
