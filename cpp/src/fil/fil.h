@@ -23,7 +23,10 @@
 namespace ML {
 namespace fil {
 
-/** @note FIL only supports inference with single precision. */
+/** @note FIL only supports inference with single precision.
+ *  TODO(canonizer): parameterize the functions and structures by the data type
+ *  and the threshold/weight type.
+ */
 
 /** Inference algorithm to use. */
 enum algo_t {
