@@ -16,8 +16,8 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <stats/histogram.h>
 #include <random/rng.h>
+#include <stats/histogram.h>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -36,7 +36,7 @@ void naiveHist(int* bins, int nbins, const int* in, int n,
                cudaStream_t stream) {
   const int TPB = 128;
   int nblks = ceildiv(n, TPB);
-  naiveHistKernel<<<nblks, TPB, 0, stream>>>(bins, nbins, in, i);
+  naiveHistKernel<<<nblks, TPB, 0, stream>>>(bins, nbins, in, n);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -48,7 +48,6 @@ struct HistInputs {
   unsigned long long int seed;
 };
 
-template <typename DataT>
 class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   void SetUp() override {
@@ -57,14 +56,14 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, params.n);
     if (params.isNormal) {
-      r.normalInt(in, n, params.start, params.end, stream);
+      r.normalInt(in, params.n, params.start, params.end, stream);
     } else {
-      r.uniformInt(in, n, params.start, params.end, stream);
+      r.uniformInt(in, params.n, params.start, params.end, stream);
     }
     allocate(bins, params.nbins);
     allocate(ref_bins, params.nbins);
     naiveHist(ref_bins, params.nbins, in, params.n, stream);
-    histogram(params.type, bins, params.nbins, in, params.n, stream);
+    histogram<int>(params.type, bins, params.nbins, in, params.n, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -78,7 +77,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   cudaStream_t stream;
   HistInputs params;
-  DataT *in;
+  int* in;
   int *bins, *ref_bins;
 };
 
@@ -86,19 +85,15 @@ static const int oneM = 1024 * 1024;
 const std::vector<HistInputs> inputs = {
   {oneM, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
   {oneM, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
 };
-
-typedef HistTest<float> HistTestF;
-TEST_P(HistTestF, Result) {
+TEST_P(HistTest, Result) {
   ASSERT_TRUE(devArrMatch(ref_bins, bins, params.nbins, Compare<int>()));
 }
-INSTANTIATE_TEST_CASE_P(HistTests, HistTestF, ::testing::ValuesIn(inputs));
-
-typedef HistTest<double> HistTestD;
-TEST_P(HistTestD, Result) {
-  ASSERT_TRUE(devArrMatch(ref_bins, bins, params.nbins, Compare<int>()));
-}
-INSTANTIATE_TEST_CASE_P(HistTests, HistTestD, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 
 }  // end namespace Stats
 }  // end namespace MLCommon
