@@ -175,21 +175,92 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+DI void clearHashTable(int2* ht, int hashSize) {
+  for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
+    ht[i] = {-1, 0};
+  }
+  __syncthreads();
+}
+
+DI int findEntry(int2* ht, int hashSize, int binId) {
+  int idx = binId % hashSize;
+  int t;
+  int count = 0;
+  while ((t = atomicCAS(&(ht[idx].x), -1, binId)) != -1 && t != binId) {
+    ++count;
+    if (count >= hashSize) {
+      idx = -1;
+      break;
+    }
+    ++idx;
+    if (idx >= hashSize) {
+      idx = 0;
+    }
+  }
+  return idx;
+}
+
+DI void flushHashTable(int2* ht, int hashSize, int* bins) {
+  __syncthreads();
+  for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
+    if (ht[i].x != -1 && ht[i].y > 0) {
+      atomicAdd(bins + ht[i].x, ht[i].y);
+    }
+    ht[i] = {-1, 0};
+  }
+  __syncthreads();
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT n,
                                    IdxT nbins, BinnerOp binner, int hashSize) {
-  //extern __shared__ int2 smem[];
-  ///@todo!
+  extern __shared__ int2 ht[];
+  int* needFlush = (int*)&(ht[hashSize]);
+  if (threadIdx.x == 0) {
+    needFlush[0] = 0;
+  }
+  clearHashTable(ht, hashSize);
+  IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
+  IdxT stride = IdxT(blockDim.x) * gridDim.x;
+  int nCeil = ceildiv<int>(n, stride);
+  for (auto i = tid; i < nCeil; i += stride) {
+    bool iNeedFlush = false;
+    int binId = 0;
+    if (i < n) {
+      binId = binner(data[i], i);
+      int hidx = findEntry(ht, hashSize, binId);
+      if (hidx >= 0) {
+        atomicAdd(&(ht[hidx].y), 1);
+      } else {
+        needFlush[0] = 1;
+        iNeedFlush = true;
+      }
+    }
+    __syncthreads();
+    if (needFlush[0]) {
+      flushHashTable(ht, hashSize, bins);
+      if (threadIdx.x == 0) {
+        needFlush[0] = 0;
+      }
+      __syncthreads();
+    }
+    if (iNeedFlush) {
+      int hidx = findEntry(ht, hashSize, binId);
+      atomicAdd(&(ht[hidx].y), 1);
+    }
+  }
+  flushHashTable(ht, hashSize, bins);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
                   cudaStream_t stream) {
   int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
-  auto maxSmem = maxSharedMem();
-  auto maxHashEntries = int(maxSmem / sizeof(int2));
+  // NOTE: assumes 48kB smem!
+  int hashSize = 6047;
+  size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   smemHashHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<nblks, TPB, maxSmem, stream>>>(bins, data, n, nbins, op, maxHashEntries);
+    <<<nblks, TPB, smemSize, stream>>>(bins, data, n, nbins, op, hashSize);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -215,8 +286,9 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                                                           op, stream);
       break;
     case HistTypeSmemHash:
-      smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
-                                                        op, stream);
+      ///@todo: enable after fixing the hang issue
+      // smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
+      //                                                   op, stream);
       break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
