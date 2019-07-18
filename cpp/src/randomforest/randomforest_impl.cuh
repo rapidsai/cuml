@@ -302,6 +302,56 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
 }
 
 /**
+ * @brief Predict target feature for input data; n-ary classification for single feature supported.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+template <typename T>
+void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
+                                    const T* input, int n_rows, int n_cols,
+                                    int* predictions,
+                                    const RandomForestMetaData<T, int>* forest,
+                                    bool verbose) const {
+  this->error_checking(input, predictions, n_rows, n_cols, true);
+
+  const cumlHandle_impl& handle = user_handle.getImpl();
+  cudaStream_t stream = user_handle.getStream();
+
+  std::vector<T> h_input(n_rows * n_cols);
+  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  int row_size = n_cols;
+  int pred_id = 0;
+
+  for (int row_id = 0; row_id < n_rows; row_id++) {
+    if (verbose) {
+      std::cout << "\n\n";
+      std::cout << "Predict for sample: ";
+      for (int i = 0; i < n_cols; i++)
+        std::cout << h_input[row_id * row_size + i] << ", ";
+      std::cout << std::endl;
+    }
+
+    for (int i = 0; i < this->rf_params.n_trees; i++) {
+      int prediction;
+      trees[i].predict(user_handle, &forest->trees[i],
+                       &h_input[row_id * row_size], 1, n_cols, &prediction,
+                       verbose);
+      predictions[pred_id] = prediction;
+      pred_id++;
+    }
+  }
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+/**
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle.
