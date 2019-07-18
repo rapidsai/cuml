@@ -237,7 +237,7 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
 }
 
 /**
- * @brief Naive global memory atomics based histogram kernel
+ * @brief Perform histogram on the input data
  * @tparam DataT input data type
  * @tparam BinnerOp takes the input data and computes its bin index
  * @tparam IdxT data type used to compute indices
