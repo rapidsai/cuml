@@ -302,9 +302,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
-    src/tsne/tsne.cu)
+    src/umap/umap.cu)
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}

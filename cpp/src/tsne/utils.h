@@ -68,8 +68,6 @@ void random_vector(float *vector, const float minimum, const float maximum,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-#define DEBUG false
-
 long start, end;
 struct timeval timecheck;
 double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,

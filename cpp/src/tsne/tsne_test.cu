@@ -19,14 +19,13 @@
 #endif
 
 #include <gtest/gtest.h>
-#include "tsne/digits.h"
-#include "tsne/tsne.cu"
-//#include "tsne/Ground_Truth_TSNE.h"
 #include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
+#include "tsne/digits.h"
+#include "tsne/tsne.cu"
 
 #include "cuda_utils.h"
 
