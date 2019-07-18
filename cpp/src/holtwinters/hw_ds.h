@@ -1,5 +1,28 @@
 #pragma once
 
+#pragma once
+
+#define MAX_BLOCKS_PER_DIM 65535
+
+#define GET_TID (blockIdx.x * blockDim.x + threadIdx.x)
+
+inline int GET_THREADS_PER_BLOCK(const int n, const int max_threads = 512) {
+  int ret;
+  if (n <= 128)
+    ret = 32;
+  else if (n <= 1024)
+    ret = 128;
+  else
+    ret = 512;
+  return ret > max_threads ? max_threads : ret;
+}
+
+inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
+                          const int max_blocks = MAX_BLOCKS_PER_DIM) {
+  int ret = (n - 1) / GET_THREADS_PER_BLOCK(n, max_threads) + 1;
+  return ret > max_blocks ? max_blocks : ret;
+}
+
 namespace ML {
 
 enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
@@ -26,4 +49,4 @@ struct OptimParams {
 
 enum Norm { L0, L1, L2, LINF };
 
-} // namespace ML
+}  // namespace ML

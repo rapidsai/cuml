@@ -19,6 +19,8 @@
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "hw_ds.h"
+#include "linalg/cublas_wrappers.h"
+#include "linalg/cusolver_wrappers.h"
 #include "linalg/eltwise.h"
 
 #define STMP_EPS (1e-6)

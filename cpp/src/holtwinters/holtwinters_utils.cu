@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "holtwinters_utils.cuh"
-#include "hw_cu_utils.cuh"
+// #include "hw_cu_utils.cuh"
 #include "utils.h"
 
 #define IDX(n, m, N) (n + (m) * (N))
@@ -33,6 +33,7 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                            Dtype *start_trend, Dtype *start_season,
                            ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
+  cublasHandle_t cublas_h = handle.getCublasHandle();
 
   const int end = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;
@@ -61,9 +62,10 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   if (seasonal == ML::SeasonalType::ADDITIVE) {
     const Dtype one = 1.;
     const Dtype minus_one = -1.;
-    ML::cublas::geam<Dtype>(CUBLAS_OP_N, CUBLAS_OP_N, trend_len, batch_size,
-                            &one, ts + ts_offset, trend_len, &minus_one,
-                            trend_d, trend_len, season_d, trend_len);
+    CUBLAS_CHECK(MLCommon::LinAlg::cublasgeam<Dtype>(
+      cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, trend_len, batch_size, &one,
+      ts + ts_offset, trend_len, &minus_one, trend_d, trend_len, season_d,
+      trend_len, stream));
   } else {
     Dtype *aligned_ts;
     MLCommon::allocate(aligned_ts, batch_size * trend_len, stream);
@@ -195,6 +197,8 @@ template <typename Dtype>
 void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
                 int trend_len, int batch_size, Dtype *level, Dtype *trend) {
   cudaStream_t stream = handle.getStream();
+  cublasHandle_t cublas_h = handle.getCublasHandle();
+  cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();
 
   const Dtype one = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
@@ -221,27 +225,31 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
   }
   MLCommon::updateDevice(A_d, A_h.data(), 2 * trend_len, stream);
 
-  ML::cusolver::geqrf_bufferSize<Dtype>(trend_len, 2, A_d, 2, &geqrf_buffer);
-  ML::cusolver::orgqr_bufferSize<Dtype>(trend_len, 2, 2, A_d, 2, tau_d,
-                                        &orgqr_buffer);
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize<Dtype>(
+    cusolver_h, trend_len, 2, A_d, 2, &geqrf_buffer));
+
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr_bufferSize<Dtype>(
+    cusolver_h, trend_len, 2, 2, A_d, 2, tau_d, &orgqr_buffer));
+
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
   MLCommon::allocate(lwork_d, lwork_size, stream);
 
   // QR decomposition of A
-  // TODO(ahmad): return value
-  ML::cusolver::geqrf<Dtype>(trend_len, 2, A_d, trend_len, tau_d, lwork_d,
-                             lwork_size, dev_info_d);
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf<Dtype>(
+    cusolver_h, trend_len, 2, A_d, trend_len, tau_d, lwork_d, lwork_size,
+    dev_info_d, stream));
 
   // Single thread kenrel to inverse R
   RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d, Rinv_d, trend_len);
 
   // R1QT = inv(R)*transpose(Q)
-  // TODO(ahmad): return value
-  ML::cusolver::orgqr<Dtype>(trend_len, 2, 2, A_d, trend_len, tau_d, lwork_d,
-                             lwork_size, dev_info_d);
-  ML::cublas::gemm<Dtype>(CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one,
-                          Rinv_d, 2, A_d, trend_len, &zero, R1Qt_d,
-                          2);  // TODO(ahmad): return value
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr<Dtype>(
+    cusolver_h, trend_len, 2, 2, A_d, trend_len, tau_d, lwork_d, lwork_size,
+    dev_info_d, stream));
+
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemm<Dtype>(
+    cublas_h, CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one, Rinv_d, 2, A_d,
+    trend_len, &zero, R1Qt_d, 2, stream));
 
   batched_ls_solver_kernel<Dtype>
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,

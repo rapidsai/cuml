@@ -19,33 +19,22 @@
 #include <iostream>
 #include "HoltWinters.cuh"
 #include "holtwinters_utils.cuh"
-#include "hw_cu_utils.cuh"
+// #include "hw_cu_utils.cuh"
 #include "utils.h"
 
 namespace ML {
 
-void HWInit() {
-  cublas::get_handle();
-  cusolver::get_handle();
-  // return void::HW_SUCCESS;  // TODO(ahmad): check cublas
-}
-
-void HWDestroy() {
-  cublas::destroy_handle();
-  cusolver::destroy_handle();
-  // return void::HW_SUCCESS;  // TODO(ahmad): check cublas
-}
-
 template <typename Dtype>
-void HWTranspose(const ML::cumlHandle &handle, const Dtype *data_in, int m,
-                 int n, Dtype *data_out) {
+void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
+                 Dtype *data_out) {
   ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d",
          __LINE__);
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
+  cublasHandle_t cublas_h = handle_impl.getCublasHandle();
 
-  transpose_gpu(data_in, m, n, data_out);
+  MLCommon::LinAlg::transpose<Dtype>(data_in, data_out, n, m, cublas_h, stream);
 }
 
 void HoltWintersBufferSize(const ML::cumlHandle &handle, int n, int batch_size,
@@ -76,15 +65,19 @@ void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
+  cublasHandle_t cublas_h = handle_impl.getCublasHandle();
 
   if (start_level != nullptr && start_trend == nullptr &&
       start_season == nullptr) {  // level decomposition
-    MLCommon::updateDevice(start_level, ts, batch_size, stream);
+    MLCommon::copy(start_level, ts, batch_size, stream);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season == nullptr) {  // trend decomposition
-    MLCommon::updateDevice(start_level, ts + batch_size, batch_size, stream);
-    MLCommon::updateDevice(start_trend, ts + batch_size, batch_size, stream);
-    cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
+    MLCommon::copy(start_level, ts + batch_size, batch_size, stream);
+    MLCommon::copy(start_trend, ts + batch_size, batch_size, stream);
+    const Dtype alpha = -1.;
+    CUBLAS_CHECK(MLCommon::LinAlg::cublasaxpy(cublas_h, batch_size, &alpha, ts,
+                                              1, start_trend, 1, stream));
+    // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season != nullptr) {
     stl_decomposition_gpu(handle_impl, ts, n, batch_size, frequency,
@@ -210,7 +203,6 @@ void HoltWintersFitPredict(const ML::cumlHandle &handle, int n, int batch_size,
                            SeasonalType seasonal, Dtype *data, Dtype *alpha_ptr,
                            Dtype *beta_ptr, Dtype *gamma_ptr,
                            Dtype *SSE_error_ptr, Dtype *forecast_ptr) {
-  HWInit();
 
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
@@ -309,10 +301,6 @@ void HoltWintersFitPredict(const ML::cumlHandle &handle, int n, int batch_size,
       forecast_ptr[index++] = forecast[i + j * batch_size];
   }
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  HWDestroy();
-
   // Free the allocated memory on GPU
   CUDA_CHECK(cudaFree(dataset_d));
   CUDA_CHECK(cudaFree(forecast_d));
@@ -328,12 +316,10 @@ void HoltWintersFitPredict(const ML::cumlHandle &handle, int n, int batch_size,
   CUDA_CHECK(cudaFree(error_d));
 }
 
-template void HWTranspose<float>(const ML::cumlHandle &handle,
-                                 const float *data_in, int m, int n,
-                                 float *data_out);
-template void HWTranspose<double>(const ML::cumlHandle &handle,
-                                  const double *data_in, int m, int n,
-                                  double *data_out);
+template void HWTranspose<float>(const ML::cumlHandle &handle, float *data_in,
+                                 int m, int n, float *data_out);
+template void HWTranspose<double>(const ML::cumlHandle &handle, double *data_in,
+                                  int m, int n, double *data_out);
 
 template void HoltWintersDecompose<float>(
   const ML::cumlHandle &handle, const float *ts, int n, int batch_size,
