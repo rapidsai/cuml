@@ -138,7 +138,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT n,
     sbins[i] = 0;
   }
   __syncthreads();
-  auto op = [=] __device__ (int binId, IdxT idx) {
+  auto op = [=] __device__(int binId, IdxT idx) {
     atomicAdd(sbins + binId, 1);
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
@@ -198,7 +198,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
     sbins[j] = 0;
   }
   __syncthreads();
-  auto op = [=] __device__ (int binId, IdxT idx) {
+  auto op = [=] __device__(int binId, IdxT idx) {
     incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId);
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, n, binner, op);
@@ -299,7 +299,9 @@ HistType selectBestHistAlgo(IdxT nbins) {
 }
 
 /**
- * @brief Perform histogram on the input data
+ * @brief Perform histogram on the input data. It chooses the right load size
+ * based on the input data vector length. It also supports large-bin cases
+ * using a specialized smem-based hashing technique.
  * @tparam DataT input data type
  * @tparam BinnerOp takes the input data and computes its bin index
  * @tparam IdxT data type used to compute indices
