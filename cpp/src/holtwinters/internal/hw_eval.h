@@ -160,6 +160,8 @@ void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                           Dtype *trend, Dtype *season, Dtype *xhat,
                           Dtype *error, ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
+  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
+    handle.getDeviceAllocator();
 
   int total_blocks = GET_NUM_BLOCKS(batch_size);
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
@@ -177,14 +179,13 @@ void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
 
   if (sm_needed >
       prop.sharedMemPerBlock) {  // TODO(ahmad): test shared/general kernels
-    Dtype *pseason;
-    MLCommon::allocate(pseason, batch_size * frequency);
+    MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
+                                           batch_size * frequency);
     holtwinters_eval_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(
         ts, n, batch_size, frequency, start_level, start_trend, start_season,
-        pseason, alpha, beta, gamma, level, trend, season, xhat, error,
+        pseason.data(), alpha, beta, gamma, level, trend, season, xhat, error,
         is_additive);
-    CUDA_CHECK(cudaFree(pseason));
   } else {
     holtwinters_eval_gpu_shared_kernel<Dtype>
       <<<total_blocks, threads_per_block, sm_needed, stream>>>(

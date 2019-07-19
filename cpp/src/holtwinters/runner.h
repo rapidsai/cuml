@@ -206,6 +206,8 @@ void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
+  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
+    handle_impl.getDeviceAllocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
@@ -226,51 +228,58 @@ void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
     &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
     &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
-  Dtype *dataset_d;
-  Dtype *level_seed_d, *trend_seed_d = nullptr, *start_season_d = nullptr;
-  Dtype *level_d, *trend_d = nullptr, *season_d = nullptr;
-  Dtype *alpha_d, *beta_d = nullptr, *gamma_d = nullptr;
-  Dtype *error_d;
+  Dtype *trend_seed_d = nullptr, *start_season_d = nullptr;
+  Dtype *trend_d = nullptr, *season_d = nullptr;
+  Dtype *beta_d = nullptr, *gamma_d = nullptr;
 
-  MLCommon::allocate(dataset_d, batch_size * n);
-  MLCommon::allocate(alpha_d, batch_size);
-  MLCommon::updateDevice(alpha_d, alpha_h.data(), batch_size, stream);
-  MLCommon::allocate(level_seed_d, leveltrend_seed_len);
-  MLCommon::allocate(level_d, components_len);
+  MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream,
+                                           batch_size * n);
+  MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
+  MLCommon::updateDevice(alpha_d.data(), alpha_h.data(), batch_size, stream);
+  MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream,
+                                              leveltrend_seed_len);
+  MLCommon::device_buffer<Dtype> level_d(dev_allocator, stream, components_len);
 
   if (optim_beta) {
-    MLCommon::allocate(beta_d, batch_size);
+    beta_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
     MLCommon::updateDevice(beta_d, beta_h.data(), batch_size, stream);
-    MLCommon::allocate(trend_seed_d, leveltrend_seed_len);
-    MLCommon::allocate(trend_d, components_len);
+    trend_seed_d = (Dtype *)dev_allocator->allocate(
+      sizeof(Dtype) * leveltrend_seed_len, stream);
+    trend_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * components_len, stream);
   }
 
   if (optim_gamma) {
-    MLCommon::allocate(gamma_d, batch_size);
+    gamma_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
     MLCommon::updateDevice(gamma_d, gamma_h.data(), batch_size, stream);
-    MLCommon::allocate(start_season_d, season_seed_len);
-    MLCommon::allocate(season_d, components_len);
+    start_season_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
+    season_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * components_len, stream);
   }
 
-  MLCommon::allocate(error_d, error_len);
+  MLCommon::device_buffer<Dtype> error_d(dev_allocator, stream, error_len);
 
   // Step 1: transpose the dataset (ML expects col major dataset)
-  HWTranspose(handle, data, batch_size, n, dataset_d);
+  HWTranspose(handle, data, batch_size, n, dataset_d.data());
 
   // Step 2: Decompose dataset to get seed for level, trend and seasonal values
-  HoltWintersDecompose(handle, dataset_d, n, batch_size, frequency,
-                       level_seed_d, trend_seed_d, start_season_d,
+  HoltWintersDecompose(handle, dataset_d.data(), n, batch_size, frequency,
+                       level_seed_d.data(), trend_seed_d, start_season_d,
                        start_periods, seasonal);
 
   // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
-  HoltWintersOptim(handle, dataset_d, n, batch_size, frequency, level_seed_d,
-                   trend_seed_d, start_season_d, alpha_d, optim_alpha, beta_d,
-                   optim_beta, gamma_d, optim_gamma, level_d, trend_d, season_d,
-                   (Dtype *)nullptr, error_d, (OptimCriterion *)nullptr,
+  HoltWintersOptim(handle, dataset_d.data(), n, batch_size, frequency,
+                   level_seed_d.data(), trend_seed_d, start_season_d,
+                   alpha_d.data(), optim_alpha, beta_d, optim_beta, gamma_d,
+                   optim_gamma, level_d.data(), trend_d, season_d,
+                   (Dtype *)nullptr, error_d.data(), (OptimCriterion *)nullptr,
                    (OptimParams<Dtype> *)nullptr, seasonal);
 
   //getting alpha values from Device to Host for output:
-  MLCommon::updateHost(level_ptr, level_d, components_len, stream);
+  MLCommon::updateHost(level_ptr, level_d.data(), components_len, stream);
 
   //getting beta values Device to Host for output:
   MLCommon::updateHost(trend_ptr, trend_d, components_len, stream);
@@ -279,20 +288,17 @@ void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
   MLCommon::updateHost(season_ptr, season_d, components_len, stream);
 
   //getting error values Device to Host for output:
-  MLCommon::updateHost(SSE_error_ptr, error_d, batch_size, stream);
+  MLCommon::updateHost(SSE_error_ptr, error_d.data(), batch_size, stream);
 
   // Free the allocated memory on GPU
-  CUDA_CHECK(cudaFree(dataset_d));
-  CUDA_CHECK(cudaFree(level_seed_d));
-  CUDA_CHECK(cudaFree(trend_seed_d));
-  CUDA_CHECK(cudaFree(start_season_d));
-  CUDA_CHECK(cudaFree(level_d));
-  CUDA_CHECK(cudaFree(trend_d));
-  CUDA_CHECK(cudaFree(season_d));
-  CUDA_CHECK(cudaFree(alpha_d));
-  CUDA_CHECK(cudaFree(beta_d));
-  CUDA_CHECK(cudaFree(gamma_d));
-  CUDA_CHECK(cudaFree(error_d));
+  dev_allocator->deallocate(trend_seed_d, sizeof(Dtype) * leveltrend_seed_len,
+                            stream);
+  dev_allocator->deallocate(start_season_d, sizeof(Dtype) * components_len,
+                            stream);
+  dev_allocator->deallocate(trend_d, sizeof(Dtype) * components_len, stream);
+  dev_allocator->deallocate(season_d, sizeof(Dtype) * components_len, stream);
+  dev_allocator->deallocate(beta_d, sizeof(Dtype) * batch_size, stream);
+  dev_allocator->deallocate(gamma_d, sizeof(Dtype) * batch_size, stream);
 }
 
 template <typename Dtype>
@@ -303,6 +309,8 @@ void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
+  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
+    handle_impl.getDeviceAllocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
 
@@ -319,27 +327,32 @@ void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
     &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
     &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
-  Dtype *forecast_d;
-  Dtype *level_d, *trend_d = nullptr, *season_d = nullptr;
+  Dtype *trend_d = nullptr, *season_d = nullptr;
 
-  MLCommon::allocate(forecast_d, batch_size * h, stream);
-  MLCommon::allocate(level_d, components_len, stream);
-  MLCommon::allocate(trend_d, components_len, stream);
-  MLCommon::allocate(season_d, components_len, stream);
+  MLCommon::device_buffer<Dtype> forecast_d(dev_allocator, stream,
+                                            batch_size * h);
+  MLCommon::device_buffer<Dtype> level_d(dev_allocator, stream, components_len);
+  if (optim_beta)
+    trend_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * components_len, stream);
+  if (optim_gamma)
+    season_d =
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * components_len, stream);
 
-  MLCommon::updateDevice(level_d, level_ptr, components_len, stream);
+  MLCommon::updateDevice(level_d.data(), level_ptr, components_len, stream);
   MLCommon::updateDevice(trend_d, trend_ptr, components_len, stream);
   MLCommon::updateDevice(season_d, season_ptr, components_len, stream);
 
   // Step 4: Do forecast
-  HoltWintersForecast(handle, forecast_d, h, batch_size, frequency,
-                      level_d + leveltrend_coef_offset,
+  HoltWintersForecast(handle, forecast_d.data(), h, batch_size, frequency,
+                      level_d.data() + leveltrend_coef_offset,
                       trend_d + leveltrend_coef_offset,
                       season_d + season_coef_offset, seasonal);
 
   std::vector<Dtype> forecast(batch_size * h);
   //getting forecasted values
-  MLCommon::updateHost(forecast.data(), forecast_d, batch_size * h, stream);
+  MLCommon::updateHost(forecast.data(), forecast_d.data(), batch_size * h,
+                       stream);
 
   // Get data from 1-D column major to 1-D row major for output
   long index = 0;
@@ -349,10 +362,8 @@ void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
   }
 
   // Free the allocated memory on GPU
-  CUDA_CHECK(cudaFree(forecast_d));
-  CUDA_CHECK(cudaFree(level_d));
-  CUDA_CHECK(cudaFree(trend_d));
-  CUDA_CHECK(cudaFree(season_d));
+  dev_allocator->deallocate(trend_d, sizeof(Dtype) * components_len, stream);
+  dev_allocator->deallocate(season_d, sizeof(Dtype) * components_len, stream);
 }
 
 }  // namespace ML
