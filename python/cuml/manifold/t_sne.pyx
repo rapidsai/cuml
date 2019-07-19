@@ -16,6 +16,7 @@
 
 # cython: profile = False
 # distutils: language = c++
+# distutils: extra_compile_args = -Ofast
 # cython: embedsignature = True, language_level = 3
 # cython: boundscheck = False, wraparound = False, initializedcheck = False
 
@@ -345,7 +346,7 @@ class TSNE(Base):
                     self.n_neighbors, self.pre_learning_rate, self.early_exaggeration))
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
-
+        
         TSNE_fit(handle_[0],
                 <float*> X_ptr, <float*> embed_ptr,
                 <int> n, <int> p, <int> self.n_components, <int> self.n_neighbors,

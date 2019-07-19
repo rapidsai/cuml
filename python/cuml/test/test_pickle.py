@@ -15,11 +15,12 @@
 
 import pytest
 import cuml
-from cuml.test.utils import array_equal, np_to_cudf
-import cudf
+from cuml.test.utils import array_equal
 import numpy as np
+from sklearn.datasets import load_iris
 from sklearn.datasets import make_regression
 import pickle
+from sklearn.manifold.t_sne import trustworthiness
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -40,11 +41,24 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
-    UMAP=cuml.UMAP()
+)
+
+
+decomposition_models_xfail = dict(
+    GaussianRandomProjection=cuml.GaussianRandomProjection(),
+    SparseRandomProjection=cuml.SparseRandomProjection()
 )
 
 neighbor_models = dict(
     NearestNeighbors=cuml.NearestNeighbors()
+)
+
+dbscan_model = dict(
+    DBSCAN=cuml.DBSCAN()
+)
+
+umap_model = dict(
+    UMAP=cuml.UMAP()
 )
 
 
@@ -76,7 +90,7 @@ def pickle_save_load(tmpdir, model):
     return cu_after_pickle_model
 
 
-def make_dataset(datatype, input_type, nrows, ncols):
+def make_dataset(datatype, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
@@ -84,21 +98,15 @@ def make_dataset(datatype, input_type, nrows, ncols):
     X_train = np.asarray(X[:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[:train_rows, ]).astype(datatype)
 
-    if input_type == 'dataframe':
-        X_train = np_to_cudf(X_train)
-        y_train = cudf.Series(y_train)
-        X_test = np_to_cudf(X_test)
-
     return X_train, y_train, X_test
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', regression_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_regressor_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -111,12 +119,11 @@ def test_regressor_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', solver_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_solver_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_solver_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -129,12 +136,11 @@ def test_solver_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('model', cluster_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_cluster_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
-    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -147,14 +153,13 @@ def test_cluster_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('model', decomposition_models.values())
+@pytest.mark.parametrize('model', decomposition_models_xfail.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.xfail
-def test_decomposition_pickle(tmpdir, datatype, input_type, model, nrows,
+def test_decomposition_pickle(tmpdir, datatype, model, nrows,
                               ncols):
-    X_train, _, _ = make_dataset(datatype, input_type, nrows, ncols)
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
@@ -165,16 +170,61 @@ def test_decomposition_pickle(tmpdir, datatype, input_type, model, nrows,
     assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', umap_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_umap_pickle(tmpdir, datatype, model, nrows, ncols):
+
+    iris = load_iris()
+    iris_selection = np.random.RandomState(42).choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
+    X_train = iris.data[iris_selection]
+
+    cu_before_pickle_transform = model.fit_transform(X_train)
+
+    cu_before_embed = model.arr_embed
+
+    cu_trust_before = trustworthiness(X_train,
+                                      cu_before_pickle_transform, 10)
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
+
+    cu_after_embed = model.arr_embed
+
+    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
+
+    assert array_equal(cu_before_embed, cu_after_embed)
+    assert cu_trust_after >= cu_trust_before - 0.2
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', decomposition_models.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.xfail
+def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+
+    cu_before_pickle_transform = model.fit_transform(X_train)
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
+
+    assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
-@pytest.mark.xfail
-def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
+def test_neighbors_pickle(tmpdir, datatype, model, nrows,
                           ncols, k):
-    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
 
     model.fit(X_train)
     D_before, I_before = model.kneighbors(X_test, k=k)
@@ -185,3 +235,94 @@ def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
 
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('k', [unit_param(3)])
+def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
+
+    """
+    Note: This test digs down a bit far into the
+    internals of the implementation, but it's
+    important that regressions do not occur
+    from changes to the class.
+    """
+
+    model = cuml.neighbors.NearestNeighbors()
+
+    unpickled = pickle_save_load(tmpdir, model)
+
+    state = unpickled.__dict__
+
+    print(str(state))
+
+    assert state["n_indices"] == 0
+    assert "X_m" not in state
+    assert state["sizes"] is None
+    assert state["input"] is None
+
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+
+    model.fit(X_train)
+
+    unpickled = pickle_save_load(tmpdir, model)
+
+    state = unpickled.__dict__
+
+    assert state["n_indices"] == 1
+    assert "X_m" in state
+    assert state["sizes"] is not None
+    assert state["input"] is not None
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('k', [unit_param(3)])
+@pytest.mark.xfail(strict=True)
+def test_neighbors_mg_fails(tmpdir, datatype, nrows, ncols, k):
+
+    model = cuml.neighbors.NearestNeighbors()
+    model.n_indices = 2
+
+    pickle_save_load(tmpdir, model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('model', dbscan_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+
+    cu_before_pickle_predict = model.fit_predict(X_train).to_array()
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_predict = cu_after_pickle_model.fit_predict(
+                              X_train
+                              ).to_array()
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
+    iris = load_iris()
+    iris_selection = np.random.RandomState(42).choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
+    X = iris.data[iris_selection]
+
+    model = cuml.manifold.TSNE()
+    
+    model = pickle_save_load(tmpdir, model)
+
+    Y = model.fit_transform(X)
+
+    cu_trust_after = trustworthiness(X, Y, 10)
+
+    assert cu_trust_after >= 0.9
