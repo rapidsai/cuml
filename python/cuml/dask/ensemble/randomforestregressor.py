@@ -22,7 +22,7 @@ import numba.cuda
 import random
 from tornado import gen
 from toolz import first
-from cuml.ensemble import RandomForestClassifier as cuRFC
+from cuml.ensemble import RandomForestRegressor as cuRFR
 import math
     
 
@@ -59,31 +59,28 @@ def _extract_ddf_partitions(ddf):
     raise gen.Return(gpu_data)
 
 
-class RandomForestClassifier:
+class RandomForestRegressor:
     """
-    Implements a multi-GPU Random Forest classifier model which fits multiple decision
+    Implements a multi-GPU Random Forest regressor model which fits multiple decision
     tree classifiers in an ensemble.
 
-    Please check the single-GPU implementation of Random Forest classifier for more information
+    Please check the single-GPU implementation of Random Forest regressor for more information
     about the algorithm.
 
-    Parameters
+     Parameters
     -----------
     n_estimators : int (default = 10)
                    number of trees in the forest.
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
-    split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
-    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-                 (default = 0)
-                 the algorithm to determine how nodes are split in the tree.
-    split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
+    split_algo : int (default = 1)
+                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+                 The type of algorithm to be used to create the trees.
+    split_criterion: int (default = 2)
+                     The criterion used to split nodes.
+                     0 for GINI, 1 for ENTROPY,
+                     2 for MSE, 3 for MAE and 4 for CRITERION_END.
+                     0 and 1 not valid for regression
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
@@ -100,31 +97,43 @@ class RandomForestClassifier:
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : int or float or string or None (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
+                   If int then max_features/n_features.
+                   If float then max_features is a fraction.
+                   If 'auto' then max_features=n_features which is 1.0.
+                   If 'sqrt' then max_features=1/sqrt(n_features).
+                   If 'log2' then max_features=log2(n_features)/n_features.
+                   If None, then max_features=n_features which is 1.0.
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
+    min_rows_per_node : int or float (default = 2)
                         The minimum number of samples (rows) needed
                         to split a node.
-    quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
-
+                        If int then number of sample rows
+                        If float the min_rows_per_sample*n_rows
+    accuracy_metric : string (default = 'mse')
+                      Decides the metric used to evaluate the performance
+                      of the model.
+                      for median of abs error : 'median_ae'
+                      for mean of abs error : 'mean_ae'
+                      for mean square error' : 'mse'
+    
     """
     
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8,
-                 split_algo=0, split_criterion=0, min_rows_per_node=2,
+                 max_features='auto', n_bins=8,
+                 split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False,
-                 rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 gdf_datatype=None, criterion=None,
-                 min_samples_leaf=None, min_weight_fraction_leaf=None,
+                 verbose=False, min_rows_per_node=2,
+                 rows_sample=1.0, max_leaves=-1,
+                 accuracy_metric='mse', min_samples_leaf=None,
+                 min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
-                 min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 min_impurity_split=None, oob_score=None,
+                 random_state=None, warm_start=None, class_weight=None,
+                 quantile_per_tree=False, criterion=None):
 
 
         sklearn_params = {"criterion": criterion,
@@ -137,11 +146,10 @@ class RandomForestClassifier:
                           "random_state": random_state,
                           "warm_start": warm_start,
                           "class_weight": class_weight}
-                
 
         for key, vals in sklearn_params.items():
             if vals is not None:
-                raise TypeError("The Scikit-learn variable", key,
+                raise TypeError(" The Scikit-learn variable ", key,
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
@@ -168,16 +176,16 @@ class RandomForestClassifier:
                     
         ws = list(zip(workers, list(range(len(workers)))))
                 
-        self.rfs = {parse_host_port(worker):c.submit(RandomForestClassifier._func_build_rf, 
+        self.rfs = {parse_host_port(worker):c.submit(RandomForestRegressor._func_build_rf, 
                              n, self.n_estimators_per_worker[n], 
-                             max_depth, handle,
-                             max_features, n_bins,
-                             split_algo, split_criterion, 
-                             min_rows_per_node,
+                             max_depth,
+                             handle, max_features, n_bins, 
+                             split_algo, split_criterion,
                              bootstrap, bootstrap_features,
-                             type_model, verbose,
-                             rows_sample, max_leaves, quantile_per_tree,
-                             gdf_datatype, random.random(),
+                             verbose, min_rows_per_node,
+                             rows_sample, max_leaves,
+                             accuracy_metric, quantile_per_tree,
+                             random.random(),
                              workers=[worker])
             for worker, n in ws}
         
@@ -189,21 +197,23 @@ class RandomForestClassifier:
         
         
     @staticmethod
-    def _func_build_rf(n, n_estimators, max_depth, handle,
-                             max_features, n_bins,
-                             split_algo, split_criterion, min_rows_per_node,
-                             bootstrap, bootstrap_features,
-                             type_model, verbose,
-                             rows_sample, max_leaves, quantile_per_tree,
-                             gdf_datatype, r):
+    def _func_build_rf(n, n_estimators, max_depth,
+                 handle, max_features, n_bins, 
+                 split_algo, split_criterion,
+                 bootstrap, bootstrap_features,
+                 verbose, min_rows_per_node,
+                 rows_sample, max_leaves,
+                 accuracy_metric, quantile_per_tree,
+                 r):
         
-        return cuRFC(n_estimators=n_estimators, max_depth=max_depth, handle=handle,
-                  max_features=max_features, n_bins=n_bins,
-                  split_algo=split_algo, split_criterion=split_criterion, min_rows_per_node=min_rows_per_node,
-                  bootstrap=bootstrap, bootstrap_features=bootstrap_features,
-                  type_model=type_model, verbose=verbose,
-                  rows_sample=rows_sample, max_leaves=max_leaves, quantile_per_tree=quantile_per_tree,
-                  gdf_datatype=gdf_datatype)
+        return cuRFR(n_estimators=n_estimators, max_depth=max_depth, handle=handle,
+                 max_features=max_features, n_bins=n_bins, 
+                 split_algo=split_algo, split_criterion=split_criterion,
+                 bootstrap=bootstrap, bootstrap_features=bootstrap_features,
+                 verbose=verbose, min_rows_per_node=min_rows_per_node,
+                 rows_sample=rows_sample, max_leaves=max_leaves,
+                 accuracy_metric=accuracy_metric, 
+                 quantile_per_tree=quantile_per_tree)
                 
     
     @staticmethod
@@ -212,7 +222,7 @@ class RandomForestClassifier:
     
     @staticmethod
     def _predict(model, X, r): 
-        return model._predictGetAll(X)
+        return model.predict(X)
     
     def fit(self, X, y):
         """
@@ -230,7 +240,7 @@ class RandomForestClassifier:
                                        
         f = list()
         for w, xc in X_futures.items():     
-            f.append(c.submit(RandomForestClassifier._fit, self.rfs[w], xc, y_futures[w], random.random(),
+            f.append(c.submit(RandomForestRegressor._fit, self.rfs[w], xc, y_futures[w], random.random(),
                              workers=[w]))            
                                
         wait(f)
@@ -260,7 +270,7 @@ class RandomForestClassifier:
                 
         f = list()
         for w, n in ws:
-            f.append(c.submit(RandomForestClassifier._predict, self.rfs[parse_host_port(w)], X_Scattered, random.random(),
+            f.append(c.submit(RandomForestRegressor._predict, self.rfs[parse_host_port(w)], X_Scattered, random.random(),
                              workers=[w]))
                     
         wait(f)
@@ -273,27 +283,12 @@ class RandomForestClassifier:
                     
         pred = list()
                 
-        for i in range(len(X)):
-            classes = dict()
-            max_class = -1
-            max_val = 0
-            
+        for i in range(len(X)): 
+            pred_per_worker = 0.0                      
             for d in range(len(rslts)):               
-                for j in range(self.n_estimators_per_worker[d]):
-                    sub_ind = indexes[d] + j
-                    cls = rslts[d][sub_ind]
-                    if cls not in classes.keys():
-                        classes[cls] = 1
-                    else:
-                        classes[cls] = classes[cls] + 1
-
-                    if classes[cls] > max_val:
-                        max_val = classes[cls]
-                        max_class = cls
-
-                indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
-
-            pred.append(max_class)
+                pred_per_worker = pred_per_worker + rslts[d][i]
+                    
+            pred.append(pred_per_worker / len(rslts))
             
         
         return pred
@@ -307,7 +302,7 @@ class RandomForestClassifier:
         deep : boolean (default = True)
         """
         params = dict()
-        for key in RandomForestClassifier.variables:
+        for key in RandomForestRegressor.variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
@@ -324,7 +319,7 @@ class RandomForestClassifier:
         if not params:
             return self
         for key, value in params.items():
-            if key not in RandomForestClassifier.variables:
+            if key not in RandomForestRegressor.variables:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
