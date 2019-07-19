@@ -17,6 +17,20 @@ Install autogen if it's not already installed:
 sudo apt-get install autogen autoconf libtool
 ```
 
+Optionaly install `gdrcopy` for faster GPU-Network card data transfer: 
+
+From the [ucx wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support), `gdrcopy` can be installed, and might be necessary, to enable faster GPU-Network card data transfer.
+
+Here are the install instructions, taken from [gdrcopy github](https://github.com/NVIDIA/gdrcopy)
+```bash
+git clone https://github.com/NVIDIA/gdrcopy.git
+cd gdrcopy
+make PREFIX=$CONDA_INSTALL_PREFIX CUDA=/usr/local/cuda
+sudo ./insmod.sh
+export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
+```
+
+
 ```bash
 git clone https://github.com/cjnolet/ucx-py.git
 cd ucx
@@ -26,6 +40,8 @@ mkdir build && cd build
 ../configure --prefix=$CONDA_PREFIX --with-cuda=/usr/local/cuda --enable-mt --disable-cma CPPFLAGS="-I//usr/local/cuda/include"
 make -j install
 ```
+
+Note: If you have installed `gdrcopy`, you can add `--with-gdrcopy=/path/to/gdrcopy` to the options in `configure`
 
 Verify with `ucx_info -d`. You should expect to see line(s) with the `rc` transport:
 
@@ -87,6 +103,8 @@ You should also expect to see lines with `cuda_copy` transport:
 #        iface address: 8 bytes
 #       error handling: none
 ```
+
+If you installed `gdrcopy`, you should also expect to see that in this list. 
 
 
 ## 2. Install ucx-py
@@ -198,6 +216,8 @@ Set transports for UCX to use:
 ```bash
 export UCX_TLS=rc,cuda_copy
 ```
+
+Note: if `gdrcopy` was installed, add `gdr_copy` to the end of `UCX_TLS`
 
 ## 6. Start Dask cluster on ib0 interface:
 
