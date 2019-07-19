@@ -47,8 +47,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     int leveltrend_coef_offset, season_coef_offset;
     int error_len;
 
-    HoltWintersBufferSize(
-      n, batch_size, frequency, optim_beta, optim_gamma,
+    ML::HoltWinters::buffer_size(
+      n, batch_size, frequency,
       &leveltrend_seed_len,     // = batch_size
       &season_seed_len,         // = frequency*batch_size
       &components_len,          // = (n-w_len)*batch_size
@@ -110,14 +110,14 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     cumlHandle handle;
     handle.setStream(stream);
 
-    ML::HoltWintersFit(handle, n, batch_size, frequency, start_periods,
-                       seasonal, data, level_ptr.data(), trend_ptr.data(),
-                       season_ptr.data(), SSE_error_ptr.data());
+    ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
+                         seasonal, data, level_ptr.data(), trend_ptr.data(),
+                         season_ptr.data(), SSE_error_ptr.data());
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ML::HoltWintersPredict(handle, n, batch_size, frequency, h, seasonal,
-                           level_ptr.data(), trend_ptr.data(),
-                           season_ptr.data(), forecast_ptr.data());
+    ML::HoltWinters::predict(handle, n, batch_size, frequency, h, seasonal,
+                             level_ptr.data(), trend_ptr.data(),
+                             season_ptr.data(), forecast_ptr.data());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -133,7 +133,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
   int n = 120, h = 50;
   int batch_size, frequency, start_periods;
   std::vector<T> level_ptr, trend_ptr, season_ptr, SSE_error_ptr, forecast_ptr;
-  bool optim_beta = true, optim_gamma = true;
+  // bool optim_beta = true, optim_gamma = true;
 };
 
 const std::vector<HoltWintersInputs> inputsf1 = {
