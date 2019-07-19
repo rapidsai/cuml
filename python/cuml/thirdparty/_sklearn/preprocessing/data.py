@@ -1015,7 +1015,7 @@ class RobustScaler(TransformerMixin):
 
         if self.with_centering:
             # As CuPy and cuDF doesn't support median() yet, we have to convert
-            # to numpy 
+            # to numpy
             self.center_ = cp.array(np.median(cp.asnumpy(X), axis=0))
         else:
             self.center_ = None
