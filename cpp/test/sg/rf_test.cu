@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include "ml_utils.h"
-#include "randomforest/randomforest.h"
+#include "randomforest/randomforest.hpp"
 
 namespace ML {
 
@@ -53,13 +53,15 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.split_algo, params.min_rows_per_node, params.bootstrap_features,
-      params.split_criterion, false);
-    RF_params rf_params(params.bootstrap, params.bootstrap_features,
-                        params.n_trees, params.rows_sample, tree_params);
-    //rf_params.print();
+    DecisionTree::DecisionTreeParams tree_params;
+    set_tree_params(tree_params, params.max_depth, params.max_leaves,
+                    params.max_features, params.n_bins, params.split_algo,
+                    params.min_rows_per_node, params.bootstrap_features,
+                    params.split_criterion, false);
+    RF_params rf_params;
+    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
+                      params.rows_sample, tree_params);
+    //print(rf_params);
 
     //--------------------------------------------------------
     // Random Forest
@@ -84,13 +86,14 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     preprocess_labels(params.n_rows, labels_h, labels_map);
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
 
-    rf_classifier = new typename rfClassifier<T>::rfClassifier(rf_params);
+    forest = new typename ML::RandomForestMetaData<T, int>;
+    null_trees_ptr(forest);
 
     cumlHandle handle;
     handle.setStream(stream);
 
-    fit(handle, rf_classifier, data, params.n_rows, params.n_cols, labels,
-        labels_map.size());
+    fit(handle, forest, data, params.n_rows, params.n_cols, labels,
+        labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -103,8 +106,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
 
     // Predict and compare against known labels
     RF_metrics tmp =
-      score(handle, rf_classifier, inference_data_d, labels,
-            params.n_inference_rows, params.n_cols, predicted_labels, false);
+      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
+            params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
@@ -124,7 +127,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(predicted_labels));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(inference_data_d));
-    delete rf_classifier;
+    delete[] forest->trees;
+    delete forest;
   }
 
  protected:
@@ -136,7 +140,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
   std::map<int, int>
     labels_map;  //unique map of labels to int vals starting from 0
 
-  rfClassifier<T>* rf_classifier;
+  RandomForestMetaData<T, int>* forest;
   float accuracy = -1.0f;  // overriden in each test SetUp and TearDown
 
   int* predicted_labels;
@@ -150,13 +154,15 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.split_algo, params.min_rows_per_node, params.bootstrap_features,
-      params.split_criterion, false);
-    RF_params rf_params(params.bootstrap, params.bootstrap_features,
-                        params.n_trees, params.rows_sample, tree_params);
-    //rf_params.print();
+    DecisionTree::DecisionTreeParams tree_params;
+    set_tree_params(tree_params, params.max_depth, params.max_leaves,
+                    params.max_features, params.n_bins, params.split_algo,
+                    params.min_rows_per_node, params.bootstrap_features,
+                    params.split_criterion, false);
+    RF_params rf_params;
+    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
+                      params.rows_sample, tree_params);
+    //print(rf_params);
 
     //--------------------------------------------------------
     // Random Forest
@@ -179,12 +185,13 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     labels_h.resize(params.n_rows);
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
 
-    rf_regressor = new typename rfRegressor<T>::rfRegressor(rf_params);
+    forest = new typename ML::RandomForestMetaData<T, T>;
+    null_trees_ptr(forest);
 
     cumlHandle handle;
     handle.setStream(stream);
 
-    fit(handle, rf_regressor, data, params.n_rows, params.n_cols, labels);
+    fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -197,8 +204,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 
     // Predict and compare against known labels
     RF_metrics tmp =
-      score(handle, rf_regressor, inference_data_d, labels,
-            params.n_inference_rows, params.n_cols, predicted_labels, false);
+      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
+            params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
@@ -216,7 +223,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaFree(predicted_labels));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(inference_data_d));
-    delete rf_regressor;
+    delete[] forest->trees;
+    delete forest;
   }
 
  protected:
@@ -226,7 +234,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
   std::vector<T> inference_data_h;
   std::vector<T> labels_h;
 
-  rfRegressor<T>* rf_regressor;
+  RandomForestMetaData<T, T>* forest;
   float mse = -1.0f;  // overriden in each test SetUp and TearDown
 
   T* predicted_labels;
@@ -284,8 +292,7 @@ const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
 
 typedef RfClassifierTest<float> RfClassifierTestF;
 TEST_P(RfClassifierTestF, Fit) {
-  //rf_classifier
-  //  ->print_rf_detailed();  // Prints all trees in the forest. Leaf nodes use the remapped values from labels_map.
+  //print_rf_detailed(forest);  // Prints all trees in the forest. Leaf nodes use the remapped values from labels_map.
   if (!params.bootstrap && (params.max_features == 1.0f)) {
     ASSERT_TRUE(accuracy == 1.0f);
   } else {
@@ -310,7 +317,7 @@ INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestD,
 
 typedef RfRegressorTest<float> RfRegressorTestF;
 TEST_P(RfRegressorTestF, Fit) {
-  //rf_regressor->print_rf_detailed(); // Prints all trees in the forest.
+  //print_rf_detailed(forest); // Prints all trees in the forest.
   if (!params.bootstrap && (params.max_features == 1.0f)) {
     ASSERT_TRUE(mse == 0.0f);
   } else {

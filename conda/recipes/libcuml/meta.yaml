@@ -26,7 +26,7 @@ build:
 
 requirements:
   build:
-    - cmake>=3.12.4
+    - cmake>=3.14
     - cudf 0.9*
     - cudatoolkit {{ cuda_version }}.*
     - lapack
