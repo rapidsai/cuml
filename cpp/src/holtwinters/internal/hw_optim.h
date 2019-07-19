@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "hw_utils.h"
 #include "hw_eval.h"
+#include "hw_utils.h"
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c) {
@@ -53,32 +53,32 @@ __device__ Dtype calculate_step(Dtype a, Dtype b, Dtype c, Dtype loss_a,
   return step;
 }
 
-template <typename Dtype, bool ADDITIVE_KERNEL>
+template <typename Dtype>
 __device__ void parabolic_interpolation_golden_optim(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
   Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   bool optim_alpha, Dtype *alpha_, bool optim_beta, Dtype *beta_,
-  bool optim_gamma, Dtype *gamma_, Dtype eps) {
+  bool optim_gamma, Dtype *gamma_, Dtype eps, bool ADDITIVE_KERNEL) {
   Dtype a = (Dtype).0;
   Dtype b = (Dtype)GOLD;
   Dtype c = (Dtype)1.;
 
-  Dtype loss_a = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+  Dtype loss_a = holtwinters_eval_device<Dtype>(
     tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
     pseason_width, start_season, beta, gamma, optim_alpha ? a : *alpha_,
     optim_beta ? a : *beta_, optim_gamma ? a : *gamma_, nullptr, nullptr,
-    nullptr, nullptr);
-  Dtype loss_b = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    nullptr, nullptr, ADDITIVE_KERNEL);
+  Dtype loss_b = holtwinters_eval_device<Dtype>(
     tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
     pseason_width, start_season, beta, gamma, optim_alpha ? b : *alpha_,
     optim_beta ? b : *beta_, optim_gamma ? b : *gamma_, nullptr, nullptr,
-    nullptr, nullptr);
-  Dtype loss_c = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    nullptr, nullptr, ADDITIVE_KERNEL);
+  Dtype loss_c = holtwinters_eval_device<Dtype>(
     tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
     pseason_width, start_season, beta, gamma, optim_alpha ? c : *alpha_,
     optim_beta ? c : *beta_, optim_gamma ? c : *gamma_, nullptr, nullptr,
-    nullptr, nullptr);
+    nullptr, nullptr, ADDITIVE_KERNEL);
 
   Dtype pstep = (c - a) / 2;
   Dtype cstep = pstep;
@@ -86,11 +86,12 @@ __device__ void parabolic_interpolation_golden_optim(
   while (abs_device(c - a) > abs_device(b * eps) + PG_EPS) {
     Dtype step = calculate_step(a, b, c, loss_a, loss_b, loss_c, cstep, eps);
     Dtype optim_val = b + step;
-    Dtype loss_val = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    Dtype loss_val = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma,
       optim_alpha ? optim_val : *alpha_, optim_beta ? optim_val : *beta_,
-      optim_gamma ? optim_val : *gamma_, nullptr, nullptr, nullptr, nullptr);
+      optim_gamma ? optim_val : *gamma_, nullptr, nullptr, nullptr, nullptr,
+      ADDITIVE_KERNEL);
     if (loss_val < loss_b) {
       if (optim_val > b) {
         SUBSTITUTE(a, b, loss_a, loss_b);
@@ -112,66 +113,66 @@ __device__ void parabolic_interpolation_golden_optim(
   if (optim_gamma) *gamma_ = b;
 }
 
-template <typename Dtype, bool ADDITIVE_KERNEL>
+template <typename Dtype>
 __device__ void holtwinters_finite_gradient_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
   Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *g_alpha, Dtype *g_beta,
-  Dtype *g_gamma, Dtype eps) {
+  Dtype *g_gamma, Dtype eps, bool ADDITIVE_KERNEL) {
   Dtype left_error, right_error;
   if (g_alpha) {  // alpha gradient
-    left_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    left_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_ - eps, beta_, gamma_,
-      nullptr, nullptr, nullptr, nullptr);
-    right_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
+    right_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_ + eps, beta_, gamma_,
-      nullptr, nullptr, nullptr, nullptr);
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
     *g_alpha = (right_error - left_error) / (eps * 2.);
   }
   if (g_beta) {  // beta gradient
-    left_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    left_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_, beta_ - eps, gamma_,
-      nullptr, nullptr, nullptr, nullptr);
-    right_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
+    right_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_, beta_ + eps, gamma_,
-      nullptr, nullptr, nullptr, nullptr);
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
     *g_beta = (right_error - left_error) / (eps * 2.);
   }
   if (g_gamma) {  // gamma gradient
-    left_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    left_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_, beta_, gamma_ - eps,
-      nullptr, nullptr, nullptr, nullptr);
-    right_error = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
+    right_error = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, alpha_, beta_, gamma_ + eps,
-      nullptr, nullptr, nullptr, nullptr);
+      nullptr, nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
     *g_gamma = (right_error - left_error) / (eps * 2.);
   }
 }
 
-template <typename Dtype, bool ADDITIVE_KERNEL>
+template <typename Dtype>
 __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
   Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   bool optim_alpha, Dtype *x1, bool optim_beta, Dtype *x2, bool optim_gamma,
-  Dtype *x3, const ML::OptimParams<Dtype> optim_params) {
+  Dtype *x3, const ML::OptimParams<Dtype> optim_params, bool ADDITIVE_KERNEL) {
   Dtype H11 = 1., H12 = .0, H13 = .0, H22 = 1., H23 = .0,
         H33 = 1.;  // Hessian approximiation (Hessian is symmetric)
   Dtype g1 = .0, g2 = .0, g3 = .0;  // gradients
 
   // initial gradient
-  holtwinters_finite_gradient_device<Dtype, ADDITIVE_KERNEL>(
+  holtwinters_finite_gradient_device<Dtype>(
     tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
     pseason_width, start_season, beta, gamma, *x1, *x2, *x3,
     optim_alpha ? &g1 : nullptr, optim_beta ? &g2 : nullptr,
-    optim_gamma ? &g3 : nullptr, optim_params.eps);
+    optim_gamma ? &g3 : nullptr, optim_params.eps, ADDITIVE_KERNEL);
 
   for (int iter = 0; iter < optim_params.bfgs_iter_limit; ++iter) {
     // Step direction
@@ -209,14 +210,14 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
     // line search params
     const Dtype cauchy =
       optim_params.linesearch_c * (g1 * p1 + g2 * p2 + g3 * p3);
-    const Dtype loss_ref = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+    const Dtype loss_ref = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, *x1, *x2, *x3, nullptr, nullptr,
-      nullptr, nullptr);
-    Dtype loss = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      nullptr, nullptr, ADDITIVE_KERNEL);
+    Dtype loss = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, nx1, nx2, nx3, nullptr, nullptr,
-      nullptr, nullptr);
+      nullptr, nullptr, ADDITIVE_KERNEL);
 
     for (int i = 0; i < optim_params.linesearch_iter_limit &&
                     (loss > loss_ref + step_size * cauchy);
@@ -225,10 +226,10 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
       nx1 = *x1 + step_size * p1;
       nx2 = *x2 + step_size * p2;
       nx3 = *x3 + step_size * p3;
-      loss = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      loss = holtwinters_eval_device<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
         pseason_width, start_season, beta, gamma, nx1, nx2, nx3, nullptr,
-        nullptr, nullptr, nullptr);
+        nullptr, nullptr, nullptr, ADDITIVE_KERNEL);
     }
     // end of line search
 
@@ -247,11 +248,11 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
       return ML::OptimCriterion::OPTIM_MIN_ERROR_DIFF;
 
     Dtype ng1 = .0, ng2 = .0, ng3 = .0;  // next gradient
-    holtwinters_finite_gradient_device<Dtype, ADDITIVE_KERNEL>(
+    holtwinters_finite_gradient_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason,
       pseason_width, start_season, beta, gamma, nx1, nx2, nx3,
       optim_alpha ? &ng1 : nullptr, optim_beta ? &ng2 : nullptr,
-      optim_gamma ? &ng3 : nullptr, optim_params.eps);
+      optim_gamma ? &ng3 : nullptr, optim_params.eps, ADDITIVE_KERNEL);
     // see if new gradients meet stop condition
     max = max3(abs_device(ng1), abs_device(ng2), abs_device(ng3));
     if (optim_params.min_grad_norm > max)
@@ -291,14 +292,15 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
   return ML::OptimCriterion::OPTIM_BFGS_ITER_LIMIT;
 }
 
-template <typename Dtype, bool ADDITIVE_KERNEL, bool single_param>
+template <typename Dtype>
 __global__ void holtwinters_optim_gpu_shared_kernel(
   const Dtype *ts, int n, int batch_size, int frequency,
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta, Dtype *gamma,
   bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
   Dtype *error, ML::OptimCriterion *optim_result,
-  const ML::OptimParams<Dtype> optim_params) {
+  const ML::OptimParams<Dtype> optim_params, bool ADDITIVE_KERNEL,
+  bool single_param) {
   int tid = GET_TID;
   extern __shared__ __align__(sizeof(Dtype)) unsigned char pseason_[];
   Dtype *pseason = reinterpret_cast<Dtype *>(pseason_);
@@ -322,17 +324,17 @@ __global__ void holtwinters_optim_gpu_shared_kernel(
 
     // Optimization
     if (single_param)
-      parabolic_interpolation_golden_optim<Dtype, ADDITIVE_KERNEL>(
+      parabolic_interpolation_golden_optim<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend,
         pseason + threadIdx.x, blockDim.x, start_season, beta, gamma,
         optim_alpha, &alpha_, optim_beta, &beta_, optim_gamma, &gamma_,
-        optim_params.eps);
+        optim_params.eps, ADDITIVE_KERNEL);
     else
-      optim = holtwinters_bfgs_optim_device<Dtype, ADDITIVE_KERNEL>(
+      optim = holtwinters_bfgs_optim_device<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend,
         pseason + threadIdx.x, blockDim.x, start_season, beta, gamma,
         optim_alpha, &alpha_, optim_beta, &beta_, optim_gamma, &gamma_,
-        optim_params);
+        optim_params, ADDITIVE_KERNEL);
 
     if (optim_alpha) alpha[tid] = bound_device(alpha_);
     if (optim_beta) beta[tid] = bound_device(beta_);
@@ -341,23 +343,24 @@ __global__ void holtwinters_optim_gpu_shared_kernel(
 
     if (error || level || trend || season || xhat) {
       // Final fit
-      Dtype error_ = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      Dtype error_ = holtwinters_eval_device<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend,
         pseason + threadIdx.x, blockDim.x, start_season, beta, gamma, alpha_,
-        beta_, gamma_, level, trend, season, xhat);
+        beta_, gamma_, level, trend, season, xhat, ADDITIVE_KERNEL);
       if (error) error[tid] = error_;
     }
   }
 }
 
-template <typename Dtype, bool ADDITIVE_KERNEL, bool single_param>
+template <typename Dtype>
 __global__ void holtwinters_optim_gpu_global_kernel(
   const Dtype *ts, int n, int batch_size, int frequency,
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   Dtype *pseason, Dtype *alpha, bool optim_alpha, Dtype *beta, bool optim_beta,
   Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend, Dtype *season,
   Dtype *xhat, Dtype *error, ML::OptimCriterion *optim_result,
-  const ML::OptimParams<Dtype> optim_params) {
+  const ML::OptimParams<Dtype> optim_params, bool ADDITIVE_KERNEL,
+  bool single_param) {
   int tid = GET_TID;
   if (tid < batch_size) {
     // TODO(ahmad): group init with fit
@@ -378,15 +381,15 @@ __global__ void holtwinters_optim_gpu_global_kernel(
 
     // Optimization
     if (single_param)
-      parabolic_interpolation_golden_optim<Dtype, ADDITIVE_KERNEL>(
+      parabolic_interpolation_golden_optim<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason + tid,
         batch_size, start_season, beta, gamma, optim_alpha, &alpha_, optim_beta,
-        &beta_, optim_gamma, &gamma_, optim_params.eps);
+        &beta_, optim_gamma, &gamma_, optim_params.eps, ADDITIVE_KERNEL);
     else
-      optim = holtwinters_bfgs_optim_device<Dtype, ADDITIVE_KERNEL>(
+      optim = holtwinters_bfgs_optim_device<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason + tid,
         batch_size, start_season, beta, gamma, optim_alpha, &alpha_, optim_beta,
-        &beta_, optim_gamma, &gamma_, optim_params);
+        &beta_, optim_gamma, &gamma_, optim_params, ADDITIVE_KERNEL);
 
     if (optim_alpha) alpha[tid] = bound_device(alpha_);
     if (optim_beta) beta[tid] = bound_device(beta_);
@@ -395,10 +398,10 @@ __global__ void holtwinters_optim_gpu_global_kernel(
 
     if (error || level || trend || season || xhat) {
       // Final fit
-      Dtype error_ = holtwinters_eval_device<Dtype, ADDITIVE_KERNEL>(
+      Dtype error_ = holtwinters_eval_device<Dtype>(
         tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason + tid,
         batch_size, start_season, beta, gamma, alpha_, beta_, gamma_, level,
-        trend, season, xhat);
+        trend, season, xhat, ADDITIVE_KERNEL);
       if (error) error[tid] = error_;
     }
   }
@@ -427,6 +430,9 @@ void holtwinters_optim_gpu(
 
   // How much sm needed for shared kernel
   size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
+  bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
+  bool single_param =
+    (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
   if (
     sm_needed >
@@ -434,69 +440,19 @@ void holtwinters_optim_gpu(
       .sharedMemPerBlock) {  // Global memory // TODO(ahmad): test shared/general kernels
     Dtype *pseason;
     MLCommon::allocate(pseason, batch_size * frequency, stream);
-    if (seasonal == ML::SeasonalType::ADDITIVE) {
-      if (optim_alpha + optim_beta + optim_gamma > 1)
-        holtwinters_optim_gpu_global_kernel<Dtype, true, false>
-          <<<total_blocks, threads_per_block, 0, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-      else
-        holtwinters_optim_gpu_global_kernel<Dtype, true, true>
-          <<<total_blocks, threads_per_block, 0, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-    } else {
-      if (optim_alpha + optim_beta + optim_gamma > 1)
-        holtwinters_optim_gpu_global_kernel<Dtype, false, false>
-          <<<total_blocks, threads_per_block, 0, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-      else
-        holtwinters_optim_gpu_global_kernel<Dtype, false, true>
-          <<<total_blocks, threads_per_block, 0, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, pseason, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-    }
+    holtwinters_optim_gpu_global_kernel<Dtype>
+      <<<total_blocks, threads_per_block, 0, stream>>>(
+        ts, n, batch_size, frequency, start_level, start_trend, start_season,
+        pseason, alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma,
+        level, trend, season, xhat, error, optim_result, optim_params,
+        is_additive, single_param);
     CUDA_CHECK(cudaFree(pseason));
   } else {  // Shared memory
-    if (seasonal == ML::SeasonalType::ADDITIVE) {
-      if (optim_alpha + optim_beta + optim_gamma > 1)
-        holtwinters_optim_gpu_shared_kernel<Dtype, true, false>
-          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-      else
-        holtwinters_optim_gpu_shared_kernel<Dtype, true, true>
-          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-    } else {
-      if (optim_alpha + optim_beta + optim_gamma > 1)
-        holtwinters_optim_gpu_shared_kernel<Dtype, false, false>
-          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-      else
-        holtwinters_optim_gpu_shared_kernel<Dtype, false, true>
-          <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-            ts, n, batch_size, frequency, start_level, start_trend,
-            start_season, alpha, optim_alpha, beta, optim_beta, gamma,
-            optim_gamma, level, trend, season, xhat, error, optim_result,
-            optim_params);
-    }
+    holtwinters_optim_gpu_shared_kernel<Dtype>
+      <<<total_blocks, threads_per_block, sm_needed, stream>>>(
+        ts, n, batch_size, frequency, start_level, start_trend, start_season,
+        alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma, level, trend,
+        season, xhat, error, optim_result, optim_params, is_additive,
+        single_param);
   }
 }

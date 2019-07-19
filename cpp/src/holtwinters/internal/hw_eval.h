@@ -17,13 +17,13 @@
 #pragma once
 #include "hw_utils.h"
 
-template <typename Dtype, bool additive_seasonal>
+template <typename Dtype>
 __device__ Dtype holtwinters_eval_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
   Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
   const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
   Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *level, Dtype *trend,
-  Dtype *season, Dtype *xhat) {
+  Dtype *season, Dtype *xhat, bool additive_seasonal) {
   alpha_ = bound_device(alpha_);
   beta_ = bound_device(beta_);
   gamma_ = bound_device(gamma_);
@@ -85,12 +85,13 @@ __device__ Dtype holtwinters_eval_device(
   return error_;
 }
 
-template <typename Dtype, bool additive_seasonal>
+template <typename Dtype>
 __global__ void holtwinters_eval_gpu_shared_kernel(
   const Dtype *ts, int n, int batch_size, int frequency,
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   const Dtype *alpha, const Dtype *beta, const Dtype *gamma, Dtype *level,
-  Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error) {
+  Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error,
+  bool additive_seasonal) {
   int tid = GET_TID;
   extern __shared__ __align__(sizeof(Dtype)) unsigned char pseason_[];
   Dtype *pseason = reinterpret_cast<Dtype *>(pseason_);
@@ -110,20 +111,21 @@ __global__ void holtwinters_eval_gpu_shared_kernel(
       ptrend = start_trend[tid];
     }
 
-    Dtype error_ = holtwinters_eval_device<Dtype, additive_seasonal>(
+    Dtype error_ = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend,
       pseason + threadIdx.x, blockDim.x, start_season, beta, gamma, alpha_,
-      beta_, gamma_, level, trend, season, xhat);
+      beta_, gamma_, level, trend, season, xhat, additive_seasonal);
     if (error) error[tid] = error_;
   }
 }
 
-template <typename Dtype, bool additive_seasonal>
+template <typename Dtype>
 __global__ void holtwinters_eval_gpu_global_kernel(
   const Dtype *ts, int n, int batch_size, int frequency,
   const Dtype *start_level, const Dtype *start_trend, const Dtype *start_season,
   Dtype *pseason, const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
-  Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error) {
+  Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat, Dtype *error,
+  bool additive_seasonal) {
   int tid = GET_TID;
 
   if (tid < batch_size) {
@@ -141,10 +143,10 @@ __global__ void holtwinters_eval_gpu_global_kernel(
       ptrend = start_trend[tid];
     }
 
-    Dtype error_ = holtwinters_eval_device<Dtype, additive_seasonal>(
+    Dtype error_ = holtwinters_eval_device<Dtype>(
       tid, ts, n, batch_size, frequency, shift, plevel, ptrend, pseason + tid,
       batch_size, start_season, beta, gamma, alpha_, beta_, gamma_, level,
-      trend, season, xhat);
+      trend, season, xhat, additive_seasonal);
     if (error) error[tid] = error_;
   }
 }
@@ -171,32 +173,22 @@ void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
 
   // How much sm needed for shared kernel
   size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
+  bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
   if (sm_needed >
       prop.sharedMemPerBlock) {  // TODO(ahmad): test shared/general kernels
     Dtype *pseason;
     MLCommon::allocate(pseason, batch_size * frequency);
-    if (seasonal == ML::SeasonalType::ADDITIVE)
-      holtwinters_eval_gpu_global_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block, 0, stream>>>(
-          ts, n, batch_size, frequency, start_level, start_trend, start_season,
-          pseason, alpha, beta, gamma, level, trend, season, xhat, error);
-    else
-      holtwinters_eval_gpu_global_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block, 0, stream>>>(
-          ts, n, batch_size, frequency, start_level, start_trend, start_season,
-          pseason, alpha, beta, gamma, level, trend, season, xhat, error);
+    holtwinters_eval_gpu_global_kernel<Dtype>
+      <<<total_blocks, threads_per_block, 0, stream>>>(
+        ts, n, batch_size, frequency, start_level, start_trend, start_season,
+        pseason, alpha, beta, gamma, level, trend, season, xhat, error,
+        is_additive);
     CUDA_CHECK(cudaFree(pseason));
   } else {
-    if (seasonal == ML::SeasonalType::ADDITIVE)
-      holtwinters_eval_gpu_shared_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-          ts, n, batch_size, frequency, start_level, start_trend, start_season,
-          alpha, beta, gamma, level, trend, season, xhat, error);
-    else
-      holtwinters_eval_gpu_shared_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block, sm_needed, stream>>>(
-          ts, n, batch_size, frequency, start_level, start_trend, start_season,
-          alpha, beta, gamma, level, trend, season, xhat, error);
+    holtwinters_eval_gpu_shared_kernel<Dtype>
+      <<<total_blocks, threads_per_block, sm_needed, stream>>>(
+        ts, n, batch_size, frequency, start_level, start_trend, start_season,
+        alpha, beta, gamma, level, trend, season, xhat, error, is_additive);
   }
 }

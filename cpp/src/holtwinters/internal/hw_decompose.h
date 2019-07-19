@@ -45,10 +45,10 @@ void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
 }
 
 // TODO(ahmad): optimize
-template <typename Dtype, bool ADDITIVE_KERNEL>
+template <typename Dtype>
 __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
                                    Dtype *start_season, int frequency,
-                                   int half_filter_size) {
+                                   int half_filter_size, bool ADDITIVE_KERNEL) {
   int tid = GET_TID;
   if (tid < batch_size) {
     Dtype mean = 0.0;
@@ -80,16 +80,11 @@ void season_mean(const ML::cumlHandle_impl &handle, const Dtype *season,
                  int len, int batch_size, Dtype *start_season, int frequency,
                  int half_filter_size, ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
-  if (seasonal == ML::SeasonalType::ADDITIVE)
-    season_mean_kernel<Dtype, true>
-      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
-         stream>>>(season, len, batch_size, start_season, frequency,
-                   half_filter_size);
-  else
-    season_mean_kernel<Dtype, false>
-      <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
-         stream>>>(season, len, batch_size, start_season, frequency,
-                   half_filter_size);
+  bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
+  season_mean_kernel<Dtype>
+    <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
+       stream>>>(season, len, batch_size, start_season, frequency,
+                 half_filter_size, is_additive);
 }
 
 template <typename Dtype>
@@ -230,7 +225,7 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   } else {
     Dtype *aligned_ts;
     MLCommon::allocate(aligned_ts, batch_size * trend_len, stream);
-    MLCommon::updateDevice(aligned_ts, ts + ts_offset, batch_size * trend_len,
+    MLCommon::copy(aligned_ts, ts + ts_offset, batch_size * trend_len,
                            stream);
     MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d, aligned_ts, trend_d,
                                            trend_len * batch_size, stream);
