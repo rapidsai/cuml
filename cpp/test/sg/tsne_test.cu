@@ -19,13 +19,13 @@
 #endif
 
 #include <gtest/gtest.h>
+#include "tsne/digits.h"
+#include "tsne/tsne.cu"
 #include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
-#include "tsne/digits.h"
-#include "tsne/tsne.cu"
 
 #include "cuda_utils.h"
 
@@ -52,19 +52,17 @@ class TSNETest : public ::testing::Test {
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << "Updating host" << std::endl;
-    float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
-               cudaMemcpyDeviceToHost);
+    float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
+    cudaMemcpy(embeddings_h, Y_d, sizeof(float)*n*2, cudaMemcpyDeviceToHost);
 
     int k = 0;
-    float C_contiguous_embedding[n * 2];
+    float C_contiguous_embedding[n*2];
     for (int i = 0; i < n; i++) {
-      for (int j = 0; j < 2; j++)
-        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
+        for (int j = 0; j < 2; j++)
+            C_contiguous_embedding[k++] = embeddings_h[j*n + i];
     }
 
-    float *YY;
-    MLCommon::allocate(YY, n * 2);
+    float *YY; MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
 
     std::cout << "DONE!" << std::endl;

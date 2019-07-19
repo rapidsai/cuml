@@ -16,11 +16,8 @@
 
 # cython: profile = False
 # distutils: language = c++
-# distutils: extra_compile_args = -Ofast
-# cython: embedsignature = True
-# cython: language_level = 3
-# cython: boundscheck = False
-# cython: wraparound = False
+# cython: embedsignature = True, language_level = 3
+# cython: boundscheck = False, wraparound = False, initializedcheck = False
 
 import cudf
 import cuml
@@ -325,11 +322,9 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        self.arr_embed = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
-        self.embeddings = self.arr_embed.device_ctypes_pointer.value
+        self.YY = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
         cdef uintptr_t X_ptr = X_ctype
-        cdef uintptr_t embed_ptr = self.embeddings
-        cdef uintptr_t y_raw
+        cdef uintptr_t embed_ptr = self.YY.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
@@ -385,10 +380,11 @@ class TSNE(Base):
         cdef int i
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
-            for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:, i]
+            for i in range(0, self.YY.shape[1]):
+                ret[str(i)] = self.YY[:, i]
         elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.arr_embed)
+            ret = np.asarray(self.YY, dtype = np.float32, order = 'F')
+        del self.YY
         return ret
 
     def get_params(self, bool deep = True):
