@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "linalg/transpose.h"
 #include "holtwinters_utils.h"
+#include "linalg/transpose.h"
 
 namespace ML {
 
@@ -28,11 +28,11 @@ template <typename Dtype>
 void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
                  Dtype *data_out);
 
-void HoltWintersBufferSize(const ML::cumlHandle &handle, int n, int batch_size,
-                           int frequency, bool use_beta, bool use_gamma,
-                           int *start_leveltrend_len, int *start_season_len,
-                           int *components_len, int *error_len,
-                           int *leveltrend_coef_shift, int *season_coef_shift);
+void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
+                           bool use_gamma, int *start_leveltrend_len,
+                           int *start_season_len, int *components_len,
+                           int *error_len, int *leveltrend_coef_shift,
+                           int *season_coef_shift);
 
 template <typename Dtype>
 void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
@@ -66,10 +66,15 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
                          SeasonalType seasonal = ADDITIVE);
 
 template <typename Dtype>
-void HoltWintersFitPredict(const ML::cumlHandle &handle, int n, int batch_size,
-                           int frequency, int h, int start_periods,
-                           SeasonalType seasonal, Dtype *data, Dtype *alpha_ptr,
-                           Dtype *beta_ptr, Dtype *gamma_ptr,
-                           Dtype *SSE_error_ptr, Dtype *forecast_ptr);
+void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
+                    int frequency, int start_periods, SeasonalType seasonal,
+                    Dtype *data, Dtype *level_ptr, Dtype *trend_ptr,
+                    Dtype *season_ptr, Dtype *SSE_error_ptr);
+
+template <typename Dtype>
+void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
+                        int frequency, int h, SeasonalType seasonal,
+                        Dtype *level_ptr, Dtype *trend_ptr, Dtype *season_ptr,
+                        Dtype *forecast_ptr);
 
 }  // namespace ML
