@@ -16,64 +16,14 @@
 
 #pragma once
 
-#include "holtwinters_utils.h"
-#include "holtwinters_utils.h"
+#include "holtwinters_params.h"
+#include "internal/hw_decompose.h"
+#include "internal/hw_eval.h"
+#include "internal/hw_forecast.h"
+#include "internal/hw_optim.h"
 #include "linalg/transpose.h"
 
 namespace ML {
-
-template <typename Dtype>
-void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
-                 Dtype *data_out);
-
-void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
-                           bool use_gamma, int *start_leveltrend_len,
-                           int *start_season_len, int *components_len,
-                           int *error_len, int *leveltrend_coef_shift,
-                           int *season_coef_shift);
-
-template <typename Dtype>
-void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
-                          int batch_size, int frequency, Dtype *start_level,
-                          Dtype *start_trend, Dtype *start_season,
-                          int start_periods, SeasonalType seasonal = ADDITIVE);
-
-template <typename Dtype>
-void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
-                      int batch_size, int frequency, const Dtype *start_level,
-                      const Dtype *start_trend, const Dtype *start_season,
-                      Dtype *alpha, bool optim_alpha, Dtype *beta,
-                      bool optim_beta, Dtype *gamma, bool optim_gamma,
-                      Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-                      Dtype *error, OptimCriterion *optim_result,
-                      OptimParams<Dtype> *optim_params = nullptr,
-                      SeasonalType seasonal = ADDITIVE);
-
-template <typename Dtype>
-void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
-                     int batch_size, int frequency, const Dtype *start_level,
-                     const Dtype *start_trend, const Dtype *start_season,
-                     const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
-                     Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-                     Dtype *error, SeasonalType seasonal = ADDITIVE);
-
-template <typename Dtype>
-void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
-                         int batch_size, int frequency, const Dtype *level_coef,
-                         const Dtype *trend_coef, const Dtype *season_coef,
-                         SeasonalType seasonal = ADDITIVE);
-
-template <typename Dtype>
-void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
-                    int frequency, int start_periods, SeasonalType seasonal,
-                    Dtype *data, Dtype *level_ptr, Dtype *trend_ptr,
-                    Dtype *season_ptr, Dtype *SSE_error_ptr);
-
-template <typename Dtype>
-void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
-                        int frequency, int h, SeasonalType seasonal,
-                        Dtype *level_ptr, Dtype *trend_ptr, Dtype *season_ptr,
-                        Dtype *forecast_ptr);
 
 template <typename Dtype>
 void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
@@ -404,86 +354,5 @@ void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
   CUDA_CHECK(cudaFree(trend_d));
   CUDA_CHECK(cudaFree(season_d));
 }
-
-template void HWTranspose<float>(const ML::cumlHandle &handle, float *data_in,
-                                 int m, int n, float *data_out);
-template void HWTranspose<double>(const ML::cumlHandle &handle, double *data_in,
-                                  int m, int n, double *data_out);
-
-template void HoltWintersDecompose<float>(
-  const ML::cumlHandle &handle, const float *ts, int n, int batch_size,
-  int frequency, float *start_level, float *start_trend, float *start_season,
-  int start_periods, SeasonalType seasonal);
-template void HoltWintersDecompose<double>(
-  const ML::cumlHandle &handle, const double *ts, int n, int batch_size,
-  int frequency, double *start_level, double *start_trend, double *start_season,
-  int start_periods, SeasonalType seasonal);
-
-template void HoltWintersEval<float>(
-  const ML::cumlHandle &handle, const float *ts, int n, int batch_size,
-  int frequency, const float *start_level, const float *start_trend,
-  const float *start_season, const float *alpha, const float *beta,
-  const float *gamma, float *level, float *trend, float *season, float *xhat,
-  float *error, SeasonalType seasonal);
-template void HoltWintersEval<double>(
-  const ML::cumlHandle &handle, const double *ts, int n, int batch_size,
-  int frequency, const double *start_level, const double *start_trend,
-  const double *start_season, const double *alpha, const double *beta,
-  const double *gamma, double *level, double *trend, double *season,
-  double *xhat, double *error, SeasonalType seasonal);
-
-template void HoltWintersOptim(
-  const ML::cumlHandle &handle, const float *ts, int n, int batch_size,
-  int frequency, const float *start_level, const float *start_trend,
-  const float *start_season, float *alpha, bool optim_alpha, float *beta,
-  bool optim_beta, float *gamma, bool optim_gamma, float *level, float *trend,
-  float *season, float *xhat, float *error, OptimCriterion *optim_result,
-  OptimParams<float> *optim_params, SeasonalType seasonal);
-template void HoltWintersOptim(
-  const ML::cumlHandle &handle, const double *ts, int n, int batch_size,
-  int frequency, const double *start_level, const double *start_trend,
-  const double *start_season, double *alpha, bool optim_alpha, double *beta,
-  bool optim_beta, double *gamma, bool optim_gamma, double *level,
-  double *trend, double *season, double *xhat, double *error,
-  OptimCriterion *optim_result, OptimParams<double> *optim_params,
-  SeasonalType seasonal);
-
-template void HoltWintersForecast<float>(const ML::cumlHandle &handle,
-                                         float *forecast, int h, int batch_size,
-                                         int frequency, const float *level_coef,
-                                         const float *trend_coef,
-                                         const float *season_coef,
-                                         SeasonalType seasonal);
-template void HoltWintersForecast<double>(
-  const ML::cumlHandle &handle, double *forecast, int h, int batch_size,
-  int frequency, const double *level_coef, const double *trend_coef,
-  const double *season_coef, SeasonalType seasonal);
-
-template void HoltWintersFit<float>(const ML::cumlHandle &handle, int n,
-                                    int batch_size, int frequency,
-                                    int start_periods, SeasonalType seasonal,
-                                    float *data, float *level_ptr,
-                                    float *trend_ptr, float *season_ptr,
-                                    float *SSE_error_ptr);
-
-template void HoltWintersFit<double>(const ML::cumlHandle &handle, int n,
-                                     int batch_size, int frequency,
-                                     int start_periods, SeasonalType seasonal,
-                                     double *data, double *level_ptr,
-                                     double *trend_ptr, double *season_ptr,
-                                     double *SSE_error_ptr);
-
-template void HoltWintersPredict<float>(const ML::cumlHandle &handle, int n,
-                                        int batch_size, int frequency, int h,
-                                        SeasonalType seasonal, float *level_ptr,
-                                        float *trend_ptr, float *season_ptr,
-                                        float *forecast_ptr);
-
-template void HoltWintersPredict<double>(const ML::cumlHandle &handle, int n,
-                                         int batch_size, int frequency, int h,
-                                         SeasonalType seasonal,
-                                         double *level_ptr, double *trend_ptr,
-                                         double *season_ptr,
-                                         double *forecast_ptr);
 
 }  // namespace ML
