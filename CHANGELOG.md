@@ -21,6 +21,7 @@
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
 - PR #851: Random forest Stateless API wrappers
+- PR #865: High Performance RF
 
 ## Bug Fixes
 
