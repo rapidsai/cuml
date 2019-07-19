@@ -124,6 +124,8 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
   cudaStream_t stream = handle.getStream();
   cublasHandle_t cublas_h = handle.getCublasHandle();
   cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();
+  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
+    handle.getDeviceAllocator();
 
   const Dtype one = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
@@ -133,52 +135,49 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
 
   // Allocate memory
   std::vector<Dtype> A_h(2 * trend_len);
-  Dtype *A_d = nullptr, *tau_d = nullptr, *Rinv_d = nullptr, *R1Qt_d = nullptr,
-        *lwork_d = nullptr;
-  int *dev_info_d = nullptr;
 
-  MLCommon::allocate(A_d, 2 * trend_len, stream);
-  MLCommon::allocate(tau_d, 2, stream);
-  MLCommon::allocate(Rinv_d, 4, stream);
-  MLCommon::allocate(R1Qt_d, 2 * trend_len, stream);
-  MLCommon::allocate(dev_info_d, 1, stream);
+  MLCommon::device_buffer<Dtype> A_d(dev_allocator, stream, 2 * trend_len);
+  MLCommon::device_buffer<Dtype> tau_d(dev_allocator, stream, 2);
+  MLCommon::device_buffer<Dtype> Rinv_d(dev_allocator, stream, 4);
+  MLCommon::device_buffer<Dtype> R1Qt_d(dev_allocator, stream, 2 * trend_len);
+  MLCommon::device_buffer<int> dev_info_d(dev_allocator, stream, 1);
 
   // Prepare A
   for (int i = 0; i < trend_len; ++i) {
     A_h[i] = (Dtype)1.;
     A_h[trend_len + i] = (Dtype)(i + 1);
   }
-  MLCommon::updateDevice(A_d, A_h.data(), 2 * trend_len, stream);
+  MLCommon::updateDevice(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize<Dtype>(
-    cusolver_h, trend_len, 2, A_d, 2, &geqrf_buffer));
+    cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
 
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr_bufferSize<Dtype>(
-    cusolver_h, trend_len, 2, 2, A_d, 2, tau_d, &orgqr_buffer));
+    cusolver_h, trend_len, 2, 2, A_d.data(), 2, tau_d.data(), &orgqr_buffer));
 
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
-  MLCommon::allocate(lwork_d, lwork_size, stream);
+  MLCommon::device_buffer<Dtype> lwork_d(dev_allocator, stream, lwork_size);
 
   // QR decomposition of A
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf<Dtype>(
-    cusolver_h, trend_len, 2, A_d, trend_len, tau_d, lwork_d, lwork_size,
-    dev_info_d, stream));
+    cusolver_h, trend_len, 2, A_d.data(), trend_len, tau_d.data(),
+    lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
   // Single thread kenrel to inverse R
-  RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d, Rinv_d, trend_len);
+  RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d.data(), Rinv_d.data(), trend_len);
 
   // R1QT = inv(R)*transpose(Q)
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr<Dtype>(
-    cusolver_h, trend_len, 2, 2, A_d, trend_len, tau_d, lwork_d, lwork_size,
-    dev_info_d, stream));
+    cusolver_h, trend_len, 2, 2, A_d.data(), trend_len, tau_d.data(),
+    lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
   CUBLAS_CHECK(MLCommon::LinAlg::cublasgemm<Dtype>(
-    cublas_h, CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one, Rinv_d, 2, A_d,
-    trend_len, &zero, R1Qt_d, 2, stream));
+    cublas_h, CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one, Rinv_d.data(), 2,
+    A_d.data(), trend_len, &zero, R1Qt_d.data(), 2, stream));
 
   batched_ls_solver_kernel<Dtype>
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
-       stream>>>(data, R1Qt_d, batch_size, trend_len, level, trend);
+       stream>>>(data, R1Qt_d.data(), batch_size, trend_len, level, trend);
 }
 
 // TODO(ahmad): n is unused
@@ -190,6 +189,8 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                            ML::SeasonalType seasonal) {
   cudaStream_t stream = handle.getStream();
   cublasHandle_t cublas_h = handle.getCublasHandle();
+  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
+    handle.getDeviceAllocator();
 
   const int end = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;
@@ -201,18 +202,18 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
     filter_h.front() /= 2;
     filter_h.back() /= 2;
   }
-  Dtype *filter_d;
-  MLCommon::allocate(filter_d, filter_size, stream);
-  MLCommon::updateDevice(filter_d, filter_h.data(), filter_size, stream);
+
+  MLCommon::device_buffer<Dtype> filter_d(dev_allocator, stream, filter_size);
+  MLCommon::updateDevice(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
-  Dtype *trend_d;
-  MLCommon::allocate(trend_d, batch_size * trend_len, stream);
-  conv1d<Dtype>(handle, ts, batch_size, filter_d, filter_size, trend_d,
-                trend_len);
+  MLCommon::device_buffer<Dtype> trend_d(dev_allocator, stream,
+                                         batch_size * trend_len);
+  conv1d<Dtype>(handle, ts, batch_size, filter_d.data(), filter_size,
+                trend_d.data(), trend_len);
 
-  Dtype *season_d;
-  MLCommon::allocate(season_d, batch_size * trend_len, stream);
+  MLCommon::device_buffer<Dtype> season_d(dev_allocator, stream,
+                                          batch_size * trend_len);
 
   const int ts_offset = (filter_size / 2) * batch_size;
   if (seasonal == ML::SeasonalType::ADDITIVE) {
@@ -220,25 +221,21 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
     const Dtype minus_one = -1.;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgeam<Dtype>(
       cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, trend_len, batch_size, &one,
-      ts + ts_offset, trend_len, &minus_one, trend_d, trend_len, season_d,
-      trend_len, stream));
+      ts + ts_offset, trend_len, &minus_one, trend_d.data(), trend_len,
+      season_d.data(), trend_len, stream));
   } else {
     Dtype *aligned_ts;
     MLCommon::allocate(aligned_ts, batch_size * trend_len, stream);
-    MLCommon::copy(aligned_ts, ts + ts_offset, batch_size * trend_len,
-                           stream);
-    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d, aligned_ts, trend_d,
+    MLCommon::copy(aligned_ts, ts + ts_offset, batch_size * trend_len, stream);
+    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts,
+                                           trend_d.data(),
                                            trend_len * batch_size, stream);
     CUDA_CHECK(cudaFree(aligned_ts));
   }
 
-  season_mean(handle, season_d, trend_len, batch_size, start_season, frequency,
-              filter_size / 2, seasonal);  // TODO(ahmad): return
+  season_mean(handle, season_d.data(), trend_len, batch_size, start_season,
+              frequency, filter_size / 2, seasonal);  // TODO(ahmad): return
 
-  batched_ls(handle, trend_d, trend_len, batch_size, start_level,
+  batched_ls(handle, trend_d.data(), trend_len, batch_size, start_level,
              start_trend);  // TODO(ahmad): return
-
-  CUDA_CHECK(cudaFree(filter_d));
-  CUDA_CHECK(cudaFree(trend_d));
-  CUDA_CHECK(cudaFree(season_d));
 }
