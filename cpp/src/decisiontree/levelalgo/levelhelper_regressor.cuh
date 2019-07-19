@@ -108,7 +108,7 @@ void get_best_split_regression(
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
-  bool use_gpu_flag = true;
+  bool use_gpu_flag = false;
   if (n_nodes > 512) use_gpu_flag = true;
   gain.resize(pow(2, depth), 0.0);
   size_t n_nodes_before = 0;
