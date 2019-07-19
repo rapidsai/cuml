@@ -221,12 +221,12 @@ Note: if `gdrcopy` was installed, add `gdr_copy` to the end of `UCX_TLS`
 
 ## 6. Start Dask cluster on ib0 interface:
 
-Run this on a node designated for the scheduler:
+Run this on the node designated for the scheduler:
 ```bash
 dask-scheduler --protocol ucx --interface ib0
 ```
 
-And run this on each worker (for example, if the IPoverIB device address running the scheduler is `10.0.0.50`):
+Then run this on each worker (for example, if the IP over IB device address running the scheduler is `10.0.0.50`):
 ```bash
 dask-cuda-worker ucx://10.0.0.50:8786
 ```
@@ -264,8 +264,10 @@ print(str(p2p_result))
 
 assert all(p2p_result)
 ```
-You should see output on your workers, that matches:
+
+You should see the following output on your workers:
 ```
+
 =========================
 Trial 0
 Rank 0 received: [1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 8, 9, 14, 15]
@@ -307,7 +309,7 @@ coll_result
 assert all(coll_result)
 ```
 
-You should see output that matches:
+You should see the following output on your workers:
 ```
 Clique size: 16
 Clique size: 16
