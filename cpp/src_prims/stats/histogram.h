@@ -187,9 +187,10 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
+#define INVALID_KEY -1
 DI void clearHashTable(int2* ht, int hashSize) {
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
-    ht[i] = {-1, 0};
+    ht[i] = {INVALID_KEY, 0};
   }
   __syncthreads();
 }
@@ -198,10 +199,11 @@ DI int findEntry(int2* ht, int hashSize, int binId) {
   int idx = binId % hashSize;
   int t;
   int count = 0;
-  while ((t = atomicCAS(&(ht[idx].x), -1, binId)) != -1 && t != binId) {
+  while ((t = atomicCAS(&(ht[idx].x), INVALID_KEY, binId)) != INVALID_KEY &&
+         t != binId) {
     ++count;
     if (count >= hashSize) {
-      idx = -1;
+      idx = INVALID_KEY;
       break;
     }
     ++idx;
@@ -215,13 +217,14 @@ DI int findEntry(int2* ht, int hashSize, int binId) {
 DI void flushHashTable(int2* ht, int hashSize, int* bins) {
   __syncthreads();
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
-    if (ht[i].x != -1 && ht[i].y > 0) {
+    if (ht[i].x != INVALID_KEY && ht[i].y > 0) {
       atomicAdd(bins + ht[i].x, ht[i].y);
     }
-    ht[i] = {-1, 0};
+    ht[i] = {INVALID_KEY, 0};
   }
   __syncthreads();
 }
+#undef INVALID_KEY
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT n,
@@ -234,7 +237,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT n,
   clearHashTable(ht, hashSize);
   IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
   IdxT stride = IdxT(blockDim.x) * gridDim.x;
-  int nCeil = ceildiv<int>(n, stride);
+  int nCeil = ceildiv<int>(n, stride) * stride;
   for (auto i = tid; i < nCeil; i += stride) {
     bool iNeedFlush = false;
     int binId = 0;
@@ -368,9 +371,8 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                                                           op, stream);
       break;
     case HistTypeSmemHash:
-      ///@todo: enable after fixing the hang issue
-      // smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
-      //                                                   op, stream);
+      smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
+                                                        op, stream);
       break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
