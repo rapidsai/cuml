@@ -17,10 +17,11 @@
 #pragma once
 #include "hw_utils.h"
 
-template <typename Dtype, bool additive>
+template <typename Dtype>
 __global__ void holtwinters_seasonal_forecast_kernel(
   Dtype *forecast, int h, int batch_size, int frequency,
-  const Dtype *level_coef, const Dtype *trend_coef, const Dtype *season_coef) {
+  const Dtype *level_coef, const Dtype *trend_coef, const Dtype *season_coef,
+  bool additive) {
   int tid = GET_TID;
   if (tid < batch_size) {
     const Dtype level = (level_coef) ? level_coef[tid] : 0.;
@@ -79,15 +80,10 @@ void holtwinters_forecast_gpu(const ML::cumlHandle_impl &handle,
       <<<total_blocks, threads_per_block, 0, stream>>>(forecast, h, batch_size,
                                                        level_coef, trend_coef);
   } else {
-    if (seasonal == ML::SeasonalType::ADDITIVE)
-      holtwinters_seasonal_forecast_kernel<Dtype, true>
-        <<<total_blocks, threads_per_block, 0, stream>>>(
-          forecast, h, batch_size, frequency, level_coef, trend_coef,
-          season_coef);
-    else
-      holtwinters_seasonal_forecast_kernel<Dtype, false>
-        <<<total_blocks, threads_per_block, 0, stream>>>(
-          forecast, h, batch_size, frequency, level_coef, trend_coef,
-          season_coef);
+    bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
+    holtwinters_seasonal_forecast_kernel<Dtype>
+      <<<total_blocks, threads_per_block, 0, stream>>>(
+        forecast, h, batch_size, frequency, level_coef, trend_coef, season_coef,
+        is_additive);
   }
 }
