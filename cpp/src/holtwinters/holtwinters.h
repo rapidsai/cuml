@@ -15,8 +15,8 @@
  */
 
 #pragma once
-
-#include "runner.h"
+#include "cuML.hpp"
+#include "holtwinters_params.h"
 
 namespace ML {
 namespace HoltWinters {
@@ -27,22 +27,22 @@ void buffer_size(int n, int batch_size, int frequency,
                  int *leveltrend_coef_shift, int *season_coef_shift);
 
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-         int start_periods, SeasonalType seasonal, float *data,
+         int start_periods, ML::SeasonalType seasonal, float *data,
          float *level_ptr, float *trend_ptr, float *season_ptr,
          float *SSE_error_ptr);
 
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-         int start_periods, SeasonalType seasonal, double *data,
+         int start_periods, ML::SeasonalType seasonal, double *data,
          double *level_ptr, double *trend_ptr, double *season_ptr,
          double *SSE_error_ptr);
 
 void predict(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-             int h, SeasonalType seasonal, float *level_ptr, float *trend_ptr,
-             float *season_ptr, float *forecast_ptr);
+             int h, ML::SeasonalType seasonal, float *level_ptr,
+             float *trend_ptr, float *season_ptr, float *forecast_ptr);
 
 void predict(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-             int h, SeasonalType seasonal, double *level_ptr, double *trend_ptr,
-             double *season_ptr, double *forecast_ptr);
+             int h, ML::SeasonalType seasonal, double *level_ptr,
+             double *trend_ptr, double *season_ptr, double *forecast_ptr);
 
 }  // namespace HoltWinters
 }  // namespace ML

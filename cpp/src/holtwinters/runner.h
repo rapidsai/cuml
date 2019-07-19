@@ -62,7 +62,7 @@ template <typename Dtype>
 void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
                           int batch_size, int frequency, Dtype *start_level,
                           Dtype *start_trend, Dtype *start_season,
-                          int start_periods, SeasonalType seasonal) {
+                          int start_periods, ML::SeasonalType seasonal) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
@@ -93,7 +93,7 @@ void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
                      const Dtype *start_trend, const Dtype *start_season,
                      const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
                      Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-                     Dtype *error, SeasonalType seasonal) {
+                     Dtype *error, ML::SeasonalType seasonal) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
@@ -126,7 +126,8 @@ void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
                       bool optim_beta, Dtype *gamma, bool optim_gamma,
                       Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
                       Dtype *error, OptimCriterion *optim_result,
-                      OptimParams<Dtype> *optim_params, SeasonalType seasonal) {
+                      OptimParams<Dtype> *optim_params,
+                      ML::SeasonalType seasonal) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
@@ -185,7 +186,7 @@ template <typename Dtype>
 void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
                          int batch_size, int frequency, const Dtype *level_coef,
                          const Dtype *trend_coef, const Dtype *season_coef,
-                         SeasonalType seasonal) {
+                         ML::SeasonalType seasonal) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
@@ -200,7 +201,7 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
 
 template <typename Dtype>
 void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
-                    int frequency, int start_periods, SeasonalType seasonal,
+                    int frequency, int start_periods, ML::SeasonalType seasonal,
                     Dtype *data, Dtype *level_ptr, Dtype *trend_ptr,
                     Dtype *season_ptr, Dtype *SSE_error_ptr) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
@@ -278,6 +279,8 @@ void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
                    (Dtype *)nullptr, error_d.data(), (OptimCriterion *)nullptr,
                    (OptimParams<Dtype> *)nullptr, seasonal);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   //getting alpha values from Device to Host for output:
   MLCommon::updateHost(level_ptr, level_d.data(), components_len, stream);
 
@@ -303,7 +306,7 @@ void HoltWintersFit(const ML::cumlHandle &handle, int n, int batch_size,
 
 template <typename Dtype>
 void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
-                        int frequency, int h, SeasonalType seasonal,
+                        int frequency, int h, ML::SeasonalType seasonal,
                         Dtype *level_ptr, Dtype *trend_ptr, Dtype *season_ptr,
                         Dtype *forecast_ptr) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
@@ -351,6 +354,8 @@ void HoltWintersPredict(const ML::cumlHandle &handle, int n, int batch_size,
 
   std::vector<Dtype> forecast(batch_size * h);
   //getting forecasted values
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   MLCommon::updateHost(forecast.data(), forecast_d.data(), batch_size * h,
                        stream);
 
