@@ -40,6 +40,7 @@ get_distances(const float *X, const int n, const int p, long *indices,
             float *distances, const int n_neighbors, cudaStream_t stream)
 {
     // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
+    // #861
     float **knn_input = new float *[1];
     int *sizes = new int[1];
     knn_input[0] = (float *)X;

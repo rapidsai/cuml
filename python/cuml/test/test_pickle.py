@@ -317,12 +317,18 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
         [True, False], 150, replace=True, p=[0.75, 0.25])
     X = iris.data[iris_selection]
 
-    model = cuml.manifold.TSNE()
-    
+    model = cuml.manifold.TSNE(n_components=2, random_state=0)
+
+    # Pickle the model
     model = pickle_save_load(tmpdir, model)
 
+    # Transform data
     Y = model.fit_transform(X)
+    trust_before = trustworthiness(X, Y, 10)
+    
+    # Save model + embeddings
+    model = pickle_save_load(tmpdir, model)
+    Y = model.fit_transform(X)
+    trust_after = trustworthiness(X, Y, 10)
 
-    cu_trust_after = trustworthiness(X, Y, 10)
-
-    assert cu_trust_after >= 0.9
+    assert trust_before > 0.9 and trust_after > 0.9

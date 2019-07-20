@@ -25,6 +25,7 @@ import cuml
 import ctypes
 import numpy as np
 import inspect
+import pandas as pd
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -272,7 +273,7 @@ class TSNE(Base):
         """
         Pretty prints the arguments of a class using Sklearn standard :)
         """
-        cdef list signature = inspect.getargspec(self.__init__).args
+        cdef list signature = inspect.getfullargspec(self.__init__).args
         if signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
@@ -323,9 +324,9 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        self.YY = cuda.to_device( zeros((n, self.n_components), order = "F", dtype = np.float32) )
+        Y = cuda.device_array( (n, self.n_components), order = "F", dtype = np.float32)
         cdef uintptr_t X_ptr = X_ctype
-        cdef uintptr_t embed_ptr = self.YY.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
@@ -362,6 +363,7 @@ class TSNE(Base):
                 <bool> self.verbose,
                 <bool> True, <bool> True)
         del X_m
+        self.Y = Y
         return self
 
     def fit_transform(self, X):
@@ -378,14 +380,14 @@ class TSNE(Base):
                 Embedding of the training data in low-dimensional space.
         """
         self.fit(X)
-        cdef int i
+
+        ret = self.Y.copy_to_host()
+        del self.Y
+        # Force numba to clear the memory used
+        cuda.current_context().deallocations.clear()
+
         if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, self.YY.shape[1]):
-                ret[str(i)] = self.YY[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.YY, dtype = np.float32, order = 'F')
-        del self.YY
+            ret = cudf.DataFrame.from_pandas(pd.DataFrame(ret))
         return ret
 
     def get_params(self, bool deep = True):

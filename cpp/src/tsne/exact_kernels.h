@@ -200,12 +200,14 @@ attractive_kernel(const float *restrict VAL,
 
     // Euclidean distances
     // TODO: can provide any distance ie cosine
+    // #862
     float d = 0;
     for (int k = 0; k < dim; k++)
         d += Y[k*n + i] * Y[k*n + j];
     const float euclidean_d = -2.0f*d + norm[i] + norm[j];
 
     // TODO: Calculate Kullback-Leibler divergence
+    // #863
     const float PQ = VAL[index] *  __powf((1.0f + euclidean_d*recp_df), df_power); // P*Q
 
     // Apply forces
@@ -234,9 +236,11 @@ attractive_kernel_2d(const float *restrict VAL,
 
     // Euclidean distances
     // TODO: can provide any distance ie cosine
+    // #862
     const float euclidean_d = norm[i] + norm[j] - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]);
 
     // TODO: Calculate Kullback-Leibler divergence
+    // #863
     const float PQ =  __fdividef(VAL[index] , (1.0f + euclidean_d)); // P*Q
     
     // Apply forces
@@ -261,6 +265,7 @@ attractive_forces(const float *restrict VAL,
     CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(float)*n*dim, stream));
 
     // TODO: Calculate Kullback-Leibler divergence
+    // #863
     // For general embedding dimensions
     if (dim != 2) {
         attractive_kernel<<<ceil(NNZ, 1024), 1024, 0, stream>>>(
@@ -338,6 +343,7 @@ repulsive_kernel_2d(const float *restrict Y1,
 
     // Euclidean distances
     // TODO: can provide any distance ie cosine
+    // #862
     const float euclidean_d = norm[i] + norm[j] - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]);
     const float Q = __fdividef(1.0f , (1.0f + euclidean_d));
     const float Q2 = Q*Q;
@@ -425,6 +431,7 @@ apply_kernel(float *restrict Y,
 
     // Find new gain
     // TODO: Incorporate AadaBound (2019) or Adam
+    // #864
     if (signbit(dy) != signbit(velocity[index]))
         gains[index] += 0.2f; // Original TSNE is 0.2
     else
