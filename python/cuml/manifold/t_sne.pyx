@@ -239,6 +239,9 @@ class TSNE(Base):
         if pre_momentum > post_momentum:
             print("[Error] post_momentum = {} should be more than pre_momentum = {}".format(post_momentum, pre_momentum))
             pre_momentum = post_momentum * 0.75
+        
+        # Force numba to clear the memory used
+        cuda.current_context().deallocations.clear()
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -379,12 +382,12 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
+        # Force numba to clear the memory used
+        cuda.current_context().deallocations.clear()
         self.fit(X)
 
         ret = self.Y.copy_to_host()
         del self.Y
-        # Force numba to clear the memory used
-        cuda.current_context().deallocations.clear()
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame.from_pandas(pd.DataFrame(ret))
