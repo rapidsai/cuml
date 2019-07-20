@@ -85,7 +85,7 @@ class Base:
         """
         Pretty prints the arguments of a class using Sklearn standard :)
         """
-        cdef list signature = inspect.getargspec(self.__init__).args
+        cdef list signature = inspect.getfullargspec(self.__init__).args
         if signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
