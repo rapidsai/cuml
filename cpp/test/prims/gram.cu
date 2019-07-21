@@ -55,18 +55,14 @@ class GramMatrixTest : public ::testing::Test {
     updateHost(x1_host.data(), x1_dev, n1 * n_cols, stream);
     host_buffer<float> x2_host(host_allocator, stream, n2 * n_cols);
     updateHost(x2_host.data(), x2_dev, n2 * n_cols, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     for (int i = 0; i < n1; i++) {
       for (int j = 0; j < n2; j++) {
         float d = 0;
         for (int k = 0; k < n_cols; k++) {
-          if (i == 0 && j == 0) {
-            std::cout << "k x1 x2 " << k << " " << x1_host[i + k * n1] << " "
-                      << x2_host[j + k * n2] << "\n";
-          }
           float diff = x1_host[i + k * n1] - x2_host[j + k * n2];
           d += diff * diff;
         }
-        //std::cout << "i, j, diff " << i << " " << j << " " << d << "\n";
         gram_host_expected[i + j * n2] = exp(-gamma * d);
       }
     }
@@ -125,8 +121,6 @@ TEST_F(GramMatrixTest, RBF) {
   naiveRBFKernel(x_dev, n1, n_cols, x_dev, n1, gamma);
   RBFKernel<float> kernel(gamma);
   kernel(x_dev, n1, n_cols, x_dev, n1, gram_dev, stream);
-  myPrintDevVector("K Actual", gram_dev, n1 * n1);
-  myPrintHostVector("K Expect", gram_host_expected, n1 * n1);
   ASSERT_TRUE(devArrMatchHost(gram_host_expected, gram_dev, n1 * n1,
                               CompareApprox<float>(3e-6f)));
 }
@@ -174,8 +168,6 @@ TEST_F(GramMatrixTest, RBF_Rectangular) {
   updateDevice(x2_dev.data(), x2, n2 * n_cols, stream);
 
   kernel(x1_dev.data(), n1, n_cols, x2_dev.data(), n2, gram_dev, stream);
-  //myPrintDevVector("K Actual", gram_dev, n1 * n2);
-  //myPrintHostVector("K Expect", K, n1 * n2);
   ASSERT_TRUE(
     devArrMatchHost(K, gram_dev, n1 * n2, CompareApprox<float>(1e-6f)));
 }
