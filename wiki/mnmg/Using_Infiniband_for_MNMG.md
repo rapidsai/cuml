@@ -160,6 +160,8 @@ If you configured UCX with the `gdrcopy` option, you should also expect to see t
 #       error handling: none
 ```
 
+To better understand the CUDA-based transports in UCX, refer to [this wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support) for more details. 
+
 
 ## 2. Install ucx-py
 
