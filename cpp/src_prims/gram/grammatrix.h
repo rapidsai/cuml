@@ -71,7 +71,6 @@ class GramMatrixBase {
     if (ld_out <= 0) {
       ld_out = n1;
     }
-    std::cout << "Evaluating linear op\n";
     evaluate(x1, n1, n_cols, x2, n2, out, stream, ld1, ld2, ld_out);
   }
 
