@@ -2,6 +2,8 @@
 
 These instructions outline how to run multi-node multi-GPU cuML on devices with Infiniband. These instructions assume the necessary Infiniband hardware has already been installed and the relevant software has already been configured to enable communication over the Infiniband devices.
 
+The steps in this wiki post have been largely adapted from the [Experiments in High Performance Networking with UCX and DGX](https://blog.dask.org/2019/06/09/ucx-dgx) blog by Matthew Rocklin and Rick Zamora.
+
 ## 1. Install UCX 
 
 ### From Conda
@@ -25,9 +27,8 @@ Here are the install instructions, taken from [gdrcopy github](https://github.co
 ```bash
 git clone https://github.com/NVIDIA/gdrcopy.git
 cd gdrcopy
-make PREFIX=$CONDA_INSTALL_PREFIX CUDA=/usr/local/cuda
+make -j PREFIX=$CONDA_INSTALL_PREFIX CUDA=/usr/local/cuda && make -j install
 sudo ./insmod.sh
-export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
 ```
 
 
@@ -78,7 +79,7 @@ Verify with `ucx_info -d`. You should expect to see line(s) with the `rc` transp
 
 ```
 
-You should also expect to see lines with `cuda_copy` transport:
+You should also expect to see lines with `cuda_copy` and `cuda_ipc` transports:
 
 ```
 #   Transport: cuda_copy
@@ -104,7 +105,60 @@ You should also expect to see lines with `cuda_copy` transport:
 #       error handling: none
 ```
 
-If you installed `gdrcopy`, you should also expect to see that in this list. 
+```
+# Memory domain: cuda_ipc
+#            component: cuda_ipc
+#             register: <= 1G, cost: 0 nsec
+#           remote key: 104 bytes
+#
+#   Transport: cuda_ipc
+#
+#   Device: cudaipc0
+#
+#      capabilities:
+#            bandwidth: 24000.00 MB/sec
+#              latency: 1 nsec
+#             overhead: 0 nsec
+#            put_zcopy: <= 1G, up to 1 iov
+#  put_opt_zcopy_align: <= 1
+#        put_align_mtu: <= 1
+#            get_zcopy: <= 1G, up to 1 iov
+#  get_opt_zcopy_align: <= 1
+#        get_align_mtu: <= 1
+#           connection: to iface
+#             priority: 0
+#       device address: 8 bytes
+#        iface address: 4 bytes
+#       error handling: none
+#
+
+```
+
+
+If you configured UCX with the `gdrcopy` option, you should also expect to see transports in this list:
+
+```bash
+# Memory domain: gdr_copy
+#            component: gdr_copy
+#             register: unlimited, cost: 0 nsec
+#           remote key: 32 bytes
+#
+#   Transport: gdr_copy
+#
+#   Device: gdrcopy0
+#
+#      capabilities:
+#            bandwidth: 6911.00 MB/sec
+#              latency: 1000 nsec
+#             overhead: 0 nsec
+#            put_short: <= 4294967295
+#            get_short: <= 4294967295
+#           connection: to iface
+#             priority: 0
+#       device address: 0 bytes
+#        iface address: 8 bytes
+#       error handling: none
+```
 
 
 ## 2. Install ucx-py
@@ -113,7 +167,7 @@ If you installed `gdrcopy`, you should also expect to see that in this list.
 
 Note: this package currently requires CUDA9.2. A CUDA10 package is in the works.
 
-`conda install -c conda-forge -c jakirkham/label/ucx cudatoolkit=9.2 ucx python=3.7`
+`conda install -c conda-forge -c jakirkham/label/ucx cudatoolkit=9.2 ucx-py python=3.7`
 
 
 ### From Source
@@ -141,7 +195,7 @@ NCCL_SOCKET_IFNAME=ib0
 
 Follow the instructions at [this link](https://docs.oracle.com/cd/E19436-01/820-3522-10/ch4-linux.html#50536461_82843) to create an IP interface for the IB devices.
 
-From the link, if the IP over IB kernel module has already been installed, mapping it to an IP interface should be very simple:
+From the link above, when the IP over IB kernel module has already been installed, mapping to an IP interface is simple:
 ```
 sudo ifconfig ib0 10.0.0.50/24
 ```
@@ -214,7 +268,7 @@ export UCX_NET_DEVICES=mlx5_0:1,mlx5_3:1,mlx5_2:1,mlx5_1:1
 
 Set transports for UCX to use:
 ```bash
-export UCX_TLS=rc,cuda_copy
+export UCX_TLS=rc,cuda_copy,cuda_ipc
 ```
 
 Note: if `gdrcopy` was installed, add `gdr_copy` to the end of `UCX_TLS`
