@@ -58,6 +58,14 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h, int numTrials)
+    bool test_p2p_send_recv(const cumlHandle &h,
+                            bool check_rx_data,
+                            bool src_is_device,
+                            bool dst_is_device,
+                            int num_p2p_peers,
+                            int *p2p_dst_rank_offsets,
+                            int msg_size,
+                            int num_trials)
 
 
 def is_ucx_enabled():
@@ -80,6 +88,36 @@ def perform_test_comms_send_recv(handle, n_trials):
     """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_p2p_send_recv(handle,
+                                     check_rx_data,
+                                     src_is_device,
+                                     dst_is_device,
+                                     num_p2p_peers,
+                                     p2p_dst_rank_offsets,
+                                     msg_size,
+                                     n_trials):
+    """
+    Performs a p2p send/recv on the current worker
+    :param handle: Handel handle containing cumlCommunicator to use
+    """
+    cdef const cumlHandle* h = <cumlHandle*><size_t>handle.getHandle()
+    cdef int *offsets = <int*> malloc(len(p2p_dst_rank_offsets)*sizeof(int))
+    for i in range(len(p2p_dst_rank_offsets)):
+      offsets[i] = <int>p2p_dst_rank_offsets[i]
+
+    ret = test_p2p_send_recv(deref(h),
+                              <bool>check_rx_data,
+                              <bool>src_is_device,
+                              <bool>dst_is_device,
+                              <int>num_p2p_peers,
+                              offsets,
+                              <int>msg_size,
+                              <int>n_trials)
+    free(offsets)
+
+    return ret
 
 
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
