@@ -18,7 +18,7 @@ from dask_cuda import LocalCUDACluster
 
 from cuml.dask.common.comms import default_comms
 
-from dask.distributed import Client, wait
+from dask.distributed import Client
 
 
 @pytest.mark.mg
@@ -35,7 +35,8 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     print("Building dask df")
 
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, cluster_std=0.1, verbose=True)
+    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters,
+                                   cluster_std=0.1, verbose=True)
 
     X_df = X_df.persist()
     X_cudf = X_cudf.persist()

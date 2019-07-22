@@ -31,7 +31,8 @@ import math
 
 
 def create_df(f, m, n, centers, cluster_std, random_state, r):
-    X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std, random_state=random_state)
+    X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
+                      random_state=random_state)
     ret = pd.DataFrame(X)
     return ret
 
@@ -60,7 +61,8 @@ def dask_make_blobs(nrows, ncols, n_centers=8, cluster_std=1.0,
               (math.ceil(nrows/len(workers)), len(workers), nrows))
 
     # Create dfs on each worker (gpu)
-    dfs = [client.submit(create_df, n, math.ceil(nrows/len(workers)), ncols, centers, cluster_std,
+    dfs = [client.submit(create_df, n, math.ceil(nrows/len(workers)), ncols,
+                         centers, cluster_std,
                          random_state, random.random(), workers=[worker])
            for worker, n in list(zip(workers, list(range(len(workers)))))]
     # Wait for completion
