@@ -15,6 +15,7 @@
 - PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
+- PR #867: Additional test suites for Dask + UCX tag matching send/receive
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
