@@ -184,7 +184,7 @@ make -j install
 
 ## 3. Install NCCL
 
-It's important that NCCL 2.4+ be installed and no previous versions of NCCL are conflicting on your library path. This will cause compile errors during the build. 
+It's important that NCCL 2.4+ be installed and no previous versions of NCCL are conflicting on your library path. This will cause compile errors during the build of cuML. 
 
 
 ```bash
