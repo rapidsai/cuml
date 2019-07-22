@@ -37,5 +37,25 @@ bool test_collective_allreduce(const ML::cumlHandle& handle);
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle,
                                         int n_trials);
 
+/**
+ * @brief Point-to-point tag matching send/receive test. Each rank send data to
+ * numP2pPeers and recieve data from numP2pPeers.
+ * @param[in] handle cumlHandle instance with initialized cumlCommunicator.
+ * @param[in] checkRxData if set to true, perform correctness test for received
+ * data. Set to false to measure send/receive performance.
+ * @param[in] srcIsDevice if true source (send) data are placed in device
+ * memory. If false, source data are placed in host memory.
+ * @param[in] dstIsDevice if true, destination (receive) data are placed in
+ * device memory. If false, destination data are placed in host memory.
+ * @param[in] numP2pPeers number of peer ranks to send/receive data.
+ * @param[in] p2pDstRankOffsets pointer to the array storing destination
+ * rank offsets (array size: numP2pPeers).
+ * @param[in] msgSize message size.
+ * @param[in] numTrials number of iterations to pass messages.
+ */
+bool test_p2p_send_recv(const ML::cumlHandle& handle, bool checkRxData,
+                        bool srcIsDevice, bool dstIsDevice, int numP2pPeers,
+                        int* p2pDstRankOffsets, int msgSize, int numTrials);
+
 };  // namespace Comms
 };  // end namespace ML
