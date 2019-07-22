@@ -25,6 +25,7 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+from cuml.dask.common import perform_test_comms_p2p_send_recv
 
 
 def test_comms_init_no_p2p():
@@ -47,6 +48,25 @@ def func_test_allreduce(sessionId, r):
 def func_test_send_recv(sessionId, n_trials, r):
     handle = worker_state(sessionId)["handle"]
     return perform_test_comms_send_recv(handle, n_trials)
+
+
+def func_test_p2p_send_recv(sessionId,
+                            check_rx_data,
+                            src_is_device,
+                            dst_is_device,
+                            num_p2p_peers,
+                            p2p_dst_rank_offsets,
+                            msg_size,
+                            n_trials,
+                            r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_p2p_send_recv(handle,
+                                            check_rx_data,
+                                            src_is_device,
+                                            dst_is_device,
+                                            num_p2p_peers,
+                                            p2p_dst_rank_offsets,
+                                            msg_size, n_trials)
 
 
 def test_default_comms_no_exist():
@@ -116,6 +136,52 @@ def test_send_recv(n_trials):
     start = time.time()
     dfs = [client.submit(func_test_send_recv,
                          cb.sessionId,
+                         n_trials,
+                         random.random(),
+                         workers=[w])
+           for wid, w in zip(range(len(cb.workers)), cb.workers)]
+
+    wait(dfs)
+    print("Time: " + str(time.time() - start))
+
+    result = list(map(lambda x: x.result(), dfs))
+
+    print(str(result))
+
+    assert(result)
+
+    cb.destroy()
+    client.close()
+    cluster.close()
+
+
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+@pytest.mark.parametrize('check_rx_data', [False, True])
+@pytest.mark.parametrize('src_is_device', [False, True])
+@pytest.mark.parametrize('dst_is_device', [False, True])
+@pytest.mark.parametrize('msg_size', [4, 1024 * 1024, 128 * 1024 * 1024])
+def test_p2p_send_recv(check_rx_data, src_is_device, dst_is_device, msg_size):
+
+    cluster = LocalCUDACluster(threads_per_worker=1)
+    client = Client(cluster)
+
+    cb = CommsContext(comms_p2p=True)
+    cb.init()
+
+    cb = default_comms()
+
+    start = time.time()
+    num_p2p_peers = 1
+    p2p_dst_rank_offsets = [1]
+    n_trials = 10
+    dfs = [client.submit(func_test_p2p_send_recv,
+                         cb.sessionId,
+                         check_rx_data,
+                         src_is_device,
+                         dst_is_device,
+                         num_p2p_peers,
+                         p2p_dst_rank_offsets,
+                         msg_size,
                          n_trials,
                          random.random(),
                          workers=[w])
