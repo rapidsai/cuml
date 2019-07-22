@@ -8,7 +8,7 @@ The steps in this wiki post have been largely adapted from the [Experiments in H
 
 ### From Conda
 
-Note: this package currently requires CUDA9.2. A CUDA10 package is in the works.
+Note: this package is experimental and will eventually be supported under the rapidsai channel. Currently, it requires CUDA9.2 but a CUDA10 package is also in the works.
 
 `conda install -c conda-forge -c jakirkham/label/ucx cudatoolkit=9.2 ucx-proc=*=gpu ucx python=3.7`
 
@@ -167,7 +167,7 @@ To better understand the CUDA-based transports in UCX, refer to [this wiki](http
 
 ### From Conda
 
-Note: this package currently requires CUDA9.2. A CUDA10 package is in the works.
+Note: this package is experimental and will eventually be supported under the rapidsai channel. Currently, it requires CUDA9.2 but a CUDA10 package is also in the works.
 
 `conda install -c conda-forge -c jakirkham/label/ucx cudatoolkit=9.2 ucx-py python=3.7`
 
@@ -183,6 +183,9 @@ make -j install
 ```
 
 ## 3. Install NCCL
+
+It's important that NCCL 2.4+ be installed and no previous versions of NCCL are conflicting on your library path. This will cause compile errors during the build. 
+
 
 ```bash
 conda install -c nvidia nccl 

@@ -62,14 +62,14 @@ $CXX --version
 conda list
 
 ################################################################################
-# BUILD - Build libcuml, cuML, and prims from source
+# BUILD - Build libcuml++, cuML, and prims from source
 ################################################################################
 
-logger "Build libcuml..."
+logger "Build libcuml++..."
 $WORKSPACE/build.sh clean libcuml cuml prims -v
 
 ################################################################################
-# TEST - Run MG GoogleTest and py.tests for libcuml and cuML
+# TEST - Run MG GoogleTest and py.tests for libcuml++ and cuML
 ################################################################################
 
 if hasArg --skip-tests; then
