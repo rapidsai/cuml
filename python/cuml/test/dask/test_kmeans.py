@@ -21,7 +21,7 @@ from cuml.dask.common.comms import default_comms
 from dask.distributed import Client, wait
 
 
-@pytest.mark.skip
+@pytest.mark.mg
 def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     if client is None:
