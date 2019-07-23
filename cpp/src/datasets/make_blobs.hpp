@@ -34,8 +34,6 @@ namespace Datasets {
  * @param n_rows number of rows in the generated data
  * @param n_cols number of columns in the generated data
  * @param n_cluster number of clusters (or classes) to generate
- * @param allocator device allocator to help allocate temporary buffers
- * @param stream cuda stream to schedule the work on
  * @param centers centers of each of the cluster, pass a nullptr if you need
  * this also to be generated randomly (dim = n_clusters x n_cols). This is
  * expected to be on device
