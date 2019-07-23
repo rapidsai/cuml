@@ -78,6 +78,65 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
           center_box=(-10.0, 10.0), shuffle=True, random_state=None,
           dtype='single', handle=None):
 
+    """
+    Generator of datasets composed of isotropic Gaussian distributed clusters
+    in GPU.
+
+
+    Examples
+    ---------
+
+    .. code-block:: python
+
+          from cuml import make_blobs
+
+          data, labels = (n_samples=10, centers=3, n_features=2)
+
+          print(data.copy_to_host())
+          print(labels.copy_to_host())
+
+    Output:
+
+    .. code-block:: python
+
+          [[-6.4611025   2.980582  ]
+           [-1.8473494   6.4483595 ]
+           [-0.48936838  5.255189  ]
+           [-6.0078964   0.59910655]
+           [-3.7753344   7.0041647 ]
+           [-0.6350849   5.1219263 ]
+           [-4.675709    3.0528255 ]
+           [-5.933864    2.0036478 ]
+           [-0.11404657  4.69242   ]
+           [ 0.23619342  4.699105  ]]
+
+          [0 2 1 0 2 1 0 0 1 1]
+
+    Parameters
+    -----------
+
+    n_samples : int (default = 100)
+        Total number of points equally divided among clusters. Alternatively,
+        it is the total number of rows of the dataset and labels.
+    n_features : int, optional (default=2)
+        The number of features for each sample. Alternatively, the number of
+        columns in the resulting dataset.
+    centers : int or array-like (device or host) shape = (n_samples, n_features)  # noqa
+        The number of centers to generate, or the fixed center locations.
+        If centers is None, 3 centers are generated.
+    cluster_std : float or array-like (device or host) (default = 1.0)
+        The standard deviation of the clusters.
+    center_box : tuple of floats (min, max), optional (default = (-10.0, 10.0))
+        The bounding box for cluster centers when generated at random.
+    shuffle : boolean, optional (default=True)
+        Whether to shuffle the samples.
+    random_state : int, RandomState instance or None (default)
+        Seed for the random number generator for dataset creation
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+
+    """
+
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
     else:
