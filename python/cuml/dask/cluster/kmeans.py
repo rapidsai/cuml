@@ -84,6 +84,18 @@ class KMeans(object):
         return model.fit(df)
 
     @staticmethod
+    def func_transform(model, df, r):
+        """
+        Runs on each worker to call fit on local KMeans instance
+        :param model: Local KMeans instance
+        :param df: cudf.Dataframe to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
+        """
+        return model.transform(df)
+
+
+    @staticmethod
     def func_predict(model, df, r):
         """
         Runs on each worker to call fit on local KMeans instance
@@ -132,6 +144,27 @@ class KMeans(object):
         """
         f = self.run_model_func_on_dask_cudf(KMeans.func_predict, X)
         return to_dask_cudf(f)
+
+    def transform(self, X):
+        """
+        Transform X to a cluster-distance space.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe shape = (n_samples, n_features)
+        """
+        f = self.run_model_func_on_dask_cudf(KMeans.func_transform, X)
+        return to_dask_cudf(f)
+
+    def fit_transform(self, X):
+        """
+        Compute clustering and transform X to cluster-distance space.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe shape = (n_samples, n_features)
+        """
+        return self.fit(X).transform(X)
 
     def fit_predict(self, X):
         """
