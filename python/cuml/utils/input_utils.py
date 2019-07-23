@@ -27,6 +27,8 @@ from numba import cuda
 
 from librmm_cffi import librmm as rmm
 
+import dask, dask_cudf
+from dask.distributed import default_client
 
 def get_dev_array_ptr(ary):
     """
@@ -241,3 +243,22 @@ def order_to_str(order):
         return 'column'
     elif order == 'C':
         return 'row'
+
+def input_to_multi_gpu(X, execution_type=None):
+    if isinstance(X, (dask_cudf, dask.dataframe, dask.Array)):
+        if execution_type == 'SG':
+        try:
+            client = default_client()
+        except ValueError:
+            raise ValueError("No clients found\n" +
+                             "Start a CUDA Cluster as: \n" +
+                             "  from dask_cuda import LocalCUDACluster\n" + 
+                             "  from distributed import Client\n" + 
+                             "  cluster = LocalCUDACluster()\n" + 
+                             "  client = Client(cluster)\n" + )
+        execution_type = 'MG'
+    else:
+        if execution_type == 'MG':
+            raise TypeError("X must be of type dask_cudf, dask.dataframe," +
+                            "or dask.Array. Given: " + str(type(X)))
+    return (X, execution_type)
