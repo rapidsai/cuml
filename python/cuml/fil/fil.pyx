@@ -116,7 +116,6 @@ cdef class FIL_impl():
     cdef object new_forest
     cdef object n_cols
     cdef object dtype
-    cdef object weights
     cdef object fid
     cdef object def_left
     cdef object is_leaf
@@ -145,28 +144,35 @@ cdef class FIL_impl():
     def dense_node_init(self, tree_node_info, weights,
                         fid, def_left, is_leaf):
 
-            self.node_info = tree_node_info
-            self.weights = <float*> weights
-            self.fid = fid
-            self.def_left = def_left
-            self.is_leaf = is_leaf
+        self.weights = weights
+        self.node_info = <dense_node_t*> tree_node_info
+        self.fid = fid
+        self.def_left = def_left
+        self.is_leaf = is_leaf
 
-            dense_node_init(<dense_node_t*> self.node_info,
-                            <float*> self.weights,
-                            <float> self.threshold,
-                            <int> self.fid,
-                            <bool> self.def_left,
-                            <bool> self.is_leaf)
-            return self
+        dense_node_init(<dense_node_t*> self.node_info,
+                        <float> self.weights,
+                        <float> self.threshold,
+                        <int> self.fid,
+                        <bool> self.def_left,
+                        <bool> self.is_leaf)
+        return self
 
     def dense_node_decode(self):
 
+        cdef uintptr_t weights_ptr, threshold_pointer, \
+            fid_pointer, def_left_pointer, is_leaf_pointer
+        weights_ptr = get_dev_array_ptr(self.weights)
+        threshold_pointer = get_dev_array_ptr(self.threshold)
+        fid_pointer = get_dev_array_ptr(self.fid)
+        def_left_pointer = get_dev_array_ptr(self.def_left)
+        is_leaf_pointer = get_dev_array_ptr(self.is_leaf)
         dense_node_decode(<dense_node_t*> self.node_info,
-                          <float*> self.weights,
-                          <float*> self.threshold,
-                          <int*> self.fid,
-                          <bool*> self.def_left,
-                          s<bool*> self.is_leaf)
+                          <float*> weights_ptr,
+                          <float*> threshold_pointer,
+                          <int*> fid_pointer,
+                          <bool*> def_left_pointer,
+                          <bool*> is_leaf_pointer)
         return self
 
     def init_dense(self, X):
@@ -174,7 +180,7 @@ cdef class FIL_impl():
         cdef uintptr_t X_ptr  # , y_ptr
         # y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
+        _, _, _, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
 
         cdef cumlHandle* handle_ =\
@@ -188,8 +194,8 @@ cdef class FIL_impl():
         self.params.threshold = self.threshold
 
         init_dense(handle_[0],
-                   self.forest_pointer,
-                   self.params)
+                   <forest_t*> self.forest_pointer,
+                   <forest_params_t*> self.params)
 
         return self
 
@@ -228,9 +234,9 @@ cdef class FIL_impl():
 
 
 class FIL(Base):
-        # n_estimators = num_trees
-        # output_type = output_t
-        # algo_type = algo_t
+    # n_estimators = num_trees
+    # output_type = output_t
+    # algo_type = algo_t
     def __init__(self, nan_prob=0.05, depth=8, n_estimators=50,
                  leaf_prob=0.05, output_type=0, algo_type=0,
                  threshold=0.0, seed=42, tolerance=2e-3,
