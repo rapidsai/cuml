@@ -24,6 +24,7 @@ from dask.distributed import Client
 @pytest.mark.mg
 def test_end_to_end(nrows, ncols, nclusters, client=None):
 
+    owns_cluster = client is None
     if client is None:
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
@@ -77,8 +78,7 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     score = adjusted_rand_score(cumlPred, daskmlPred1)
 
-    if client is None:
-        default_comms().destroy()
+    if owns_cluster:
         client.close()
         cluster.close()
 
