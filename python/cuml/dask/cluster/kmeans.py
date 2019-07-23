@@ -26,17 +26,17 @@ class KMeans(object):
     Multi-Node Multi-GPU implementation of KMeans
     """
 
-    def __init__(self, n_clusters=8, init_method="random", verbose=0):
+    def __init__(self, n_clusters=8, init="k-means||", verbose=0):
         """
         Constructor for distributed KMeans model
         :param n_clusters: Number of clusters to fit
         :param init_method: Method for finding initial centroids
         :param verbose: Print useful info while executing
         """
-        self.init(n_clusters=n_clusters, init_method=init_method,
+        self.init(n_clusters=n_clusters, init=init,
                   verbose=verbose)
 
-    def init(self, n_clusters, init_method, verbose=0):
+    def init(self, n_clusters, init, verbose=0):
         """
         Creates a local KMeans instance on each worker
         :param n_clusters: Number of clusters to fit
@@ -50,7 +50,7 @@ class KMeans(object):
         self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
                                                comms.sessionId,
                                                n_clusters,
-                                               init_method,
+                                               init,
                                                verbose,
                                                i,
                                                workers=[w]))
@@ -59,7 +59,7 @@ class KMeans(object):
         wait(self.kmeans)
 
     @staticmethod
-    def func_build_kmeans_(sessionId, n_clusters, init_method, verbose, r):
+    def func_build_kmeans_(sessionId, n_clusters, init, verbose, r):
         """
         Create local KMeans instance on worker
         :param handle: instance of cuml.handle.Handle
@@ -69,7 +69,7 @@ class KMeans(object):
         :param r: Stops memoization caching
         """
         handle = worker_state(sessionId)["handle"]
-        return cumlKMeans(handle=handle, init=init_method,
+        return cumlKMeans(handle=handle, init=init,
                           n_clusters=n_clusters, verbose=verbose)
 
     @staticmethod

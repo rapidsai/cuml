@@ -312,6 +312,10 @@ class CommsContext:
                           "be disabled.")
             self.comms_p2p = False
 
+    def __del__(self):
+        if self.nccl_initialized or self.ucx_initialized:
+            self.destroy()
+
     def get_workers_(self):
         """
         Return the list of workers parsed as [(address, port)]
@@ -427,6 +431,11 @@ class CommsContext:
         Initializes the underlying comms. NCCL is required but
         UCX is only initialized if `comms_p2p == True`
         """
+
+        if self.ucx_initialized or self.nccl_initialized:
+            warnings.warn("CommsContext has already been initialized.")
+            return
+
         self.init_nccl()
 
         if self.comms_p2p:
@@ -486,5 +495,8 @@ class CommsContext:
         """
         if self.comms_p2p:
             self.destroy_ucp()
+
+        self.nccl_initialized = False
+        self.ucx_initialized = False
 
         self.destroy_nccl()
