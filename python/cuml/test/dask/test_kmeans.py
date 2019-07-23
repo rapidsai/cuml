@@ -16,8 +16,6 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from cuml.dask.common.comms import default_comms
-
 from dask.distributed import Client
 
 
