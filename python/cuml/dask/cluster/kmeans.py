@@ -26,7 +26,7 @@ class KMeans(object):
     Multi-Node Multi-GPU implementation of KMeans
     """
 
-    def __init__(self, n_clusters=8, init_method="random", verbose=0):
+    def __init__(self, n_clusters=8, init_method="random", verbose=0, client=None):
         """
         Constructor for distributed KMeans model
         :param n_clusters: Number of clusters to fit
@@ -34,9 +34,9 @@ class KMeans(object):
         :param verbose: Print useful info while executing
         """
         self.init(n_clusters=n_clusters, init_method=init_method,
-                  verbose=verbose)
+                  verbose=verbose, client=client)
 
-    def init(self, n_clusters, init_method, verbose=0):
+    def init(self, n_clusters, init_method, verbose=0, client=None):
         """
         Creates a local KMeans instance on each worker
         :param n_clusters: Number of clusters to fit
@@ -44,8 +44,8 @@ class KMeans(object):
         :param verbose: Print useful info while executing
         :return:
         """
-
-        comms = default_comms()
+        self.client = client
+        comms = default_comms(client=self.client)
 
         self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
                                                comms.sessionId,
@@ -101,7 +101,7 @@ class KMeans(object):
         :param X: Input dask_cudf.Dataframe
         :return: Futures containing results of func
         """
-        comms = default_comms()
+        comms = default_comms(client=self.client)
 
         gpu_futures = comms.client.sync(extract_ddf_partitions, X)
 

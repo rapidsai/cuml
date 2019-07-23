@@ -244,9 +244,29 @@ def order_to_str(order):
     elif order == 'C':
         return 'row'
 
-def input_to_multi_gpu(X, execution_type=None):
-    if isinstance(X, (dask_cudf, dask.dataframe, dask.Array)):
+def input_to_multi_gpu(X, execution_type=None, client=None):
+    if isinstance(X, (dask_cudf, dask.dataframe, dask.array)):
         if execution_type == 'SG':
+            raise TypeError("X must be of type numpy.ndarray, cupy.ndarray," +
+                "or numba.cuda.cudadrv.devicearray. Given: " + str(type(X)))
+        else:
+            client = check_client()
+            execution_type = 'MG'
+    else:
+        if execution_type == 'MG':
+            client = check_client()
+            n_workers = len(client.has_what().keys())
+            X, _, _, _, _ = input_to_dev_array(X, order='F')
+            X = cudf.DataFrame.from_gpu_matrix(X)
+            X = dask_cudf.from_cudf(X, n_partitions=n_workers)
+            client.persist(X)
+        else:
+            execution_type = 'SG'
+            
+    return (X, client, execution_type)
+
+def check_client(client=None):
+    if client is None:
         try:
             client = default_client()
         except ValueError:
@@ -256,9 +276,4 @@ def input_to_multi_gpu(X, execution_type=None):
                              "  from distributed import Client\n" + 
                              "  cluster = LocalCUDACluster()\n" + 
                              "  client = Client(cluster)\n" + )
-        execution_type = 'MG'
-    else:
-        if execution_type == 'MG':
-            raise TypeError("X must be of type dask_cudf, dask.dataframe," +
-                            "or dask.Array. Given: " + str(type(X)))
-    return (X, execution_type)
+    return client

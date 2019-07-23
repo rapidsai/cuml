@@ -36,6 +36,7 @@ import uuid
 
 _global_comms = weakref.WeakValueDictionary()
 _global_comms_index = [0]
+_global_clients_comms = weakref.WeakValueDictionary()
 
 
 def _set_global_comms(c):
@@ -51,6 +52,14 @@ def _del_global_comms(c):
                 del _global_comms[k]
         except KeyError:
             pass
+
+def _set_global_client_comm(client):
+    scheduler_address = client.scheduler_info()['address']
+    if scheduler_address not in _global_clients_comms:
+        cb = CommsContext(client=client)
+        cb.init()
+        _set_global_client_comm(cb)
+        _global_clients_comms[scheduler_address] = cb
 
 
 if is_ucx_enabled() and has_ucp():
@@ -93,11 +102,17 @@ def _get_global_comms():
     del L
     return None
 
+def _get_global_client_comm(client):
+    scheduler_address = client.scheduler_info()['address']
+    return _global_clients_comms[scheduler_address]
 
-def default_comms(c=None):
+def default_comms(c=None, client=None):
     """ Return a comms instance if one has been initialized.
         Otherwise, initialize a new comms instance.
     """
+    if client is not None:
+        _set_global_client_comm(client)
+        return _get_global_client_comm(client)
     c = c or _get_global_comms()
     if c:
         return c
