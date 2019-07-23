@@ -84,16 +84,9 @@ cdef extern from "knn/knn.hpp" namespace "ML":
 
 class NearestNeighbors(Base):
     """
-    NearestNeighbors is a unsupervised algorithm where if one wants to find the
-    "closest" datapoint(s) to new unseen data, one can calculate a suitable
-    "distance" between each and every point, and return the top K datapoints
-    which have the smallest distance to it.
-
-    cuML's KNN an array-like object or cuDF DataFrame (where automatic
-    chunking will be done in to a Numpy Array in a future release), and fits a
-    special data structure first to approximate the distance calculations,
-    allowing our querying times to be O(plogn) and not the brute force O(np)
-    [where p = no(features)]:
+    NearestNeighbors is an unsupervised algorithm for querying neighborhoods
+    from a given set of datapoints. Currently, cuML supports k-NN queries, which
+    returns the neighborhood of closest k neighbors to each query point.
 
     Examples
     ---------
@@ -160,7 +153,7 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors: int (default = 5)
         The top K closest datapoints you want the algorithm to return.
-        If this number is large, then expect the algorithm to run slower.
+        Currently, this value must be < 1024.
     should_downcast : bool (default = False)
         Currently only single precision is supported in the underlying undex.
         Setting this to true will allow single-precision input arrays to be
@@ -168,15 +161,6 @@ class NearestNeighbors(Base):
 
     Notes
     ------
-    NearestNeighbors is a generative model. This means the data X has to be
-    stored in order for inference to occur.
-
-    **Applications of NearestNeighbors**
-
-        Applications of NearestNeighbors include recommendation systems where
-        content or colloborative filtering is used. Since NearestNeighbors is a
-        relatively simple generative model, it is also used in data
-        visualization and regression / classification tasks.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
