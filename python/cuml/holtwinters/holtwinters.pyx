@@ -58,6 +58,7 @@ cdef extern from "holtwinters/holtwinters.h" namespace "ML::HoltWinters":
         int h, SeasonalType seasonal, double *level_ptr,
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
+
 class HoltWinters(Base):
 
     def __init__(self, batch_size=1, freq_season=2,
@@ -110,8 +111,8 @@ class HoltWinters(Base):
 
         self.forecasted_points = []  # list for final forecast output
         self.level = []  # list for level values for each time series in batch
-        self.trend = []   # list for trend values for each time series in batch
-        self.season = []  # list for season values for each time series in batch
+        self.trend = []  # list for trend values for each time series in batch
+        self.season = []  # list for season values for each series in batch
         self.SSE_error = []          # SSE Error for all time series in batch
         self.fit_executed_flag = False
         self.h = 0
@@ -132,7 +133,7 @@ class HoltWinters(Base):
                 d1 = ts_input.shape[0]
                 d2 = ts_input.shape[1]
                 mod_ts_input = ts_input.as_gpu_matrix()\
-                    .reshape((d1*self.batch_size,))
+                    .reshape((d1*d2,))
             else:
                 d1 = ts_input.shape[1]
                 d2 = ts_input.shape[0]
@@ -143,7 +144,6 @@ class HoltWinters(Base):
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return mod_ts_input
-
 
     def fit(self, ts_input):
         cdef uintptr_t input_ptr
@@ -169,17 +169,38 @@ class HoltWinters(Base):
         X_m, input_ptr, _, _, self.dtype = \
             input_to_dev_array(ts_input, order='C')
 
+        cdef int[::1] leveltrend_seed_len, season_seed_len, components_len
+        cdef int[::1] leveltrend_coef_offset, season_coef_offset
+        cdef int[::1] error_len
+
+        leveltrend_seed_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
+        season_seed_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
+        components_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
+        leveltrend_coef_offset =\
+            np.ascontiguousarray(np.empty(1, dtype=np.intc))
+        season_coef_offset = np.ascontiguousarray(np.empty(1, dtype=np.intc))
+        error_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
+
+        buffer_size(<int> self.n, <int> self.batch_size,
+                    <int> self.frequency,
+                    <int*> &leveltrend_seed_len[0],
+                    <int*> &season_seed_len[0],
+                    <int*> &components_len[0],
+                    <int*> &leveltrend_coef_offset[0],
+                    <int*> &season_coef_offset[0],
+                    <int*> &error_len[0])
+
         cdef double[::1] level_d, trend_d, season_d, SSE_error_d
         cdef float[::1] level_f, trend_f, season_f, SSE_error_f
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            level_f = np.ascontiguousarray(np.empty(self.batch_size,
+            level_f = np.ascontiguousarray(np.empty(components_len,
                                                     dtype=self.dtype))
-            trend_f = np.ascontiguousarray(np.empty(self.batch_size,
-                                                   dtype=self.dtype))
-            season_f = np.ascontiguousarray(np.empty(self.batch_size,
+            trend_f = np.ascontiguousarray(np.empty(components_len,
                                                     dtype=self.dtype))
+            season_f = np.ascontiguousarray(np.empty(components_len,
+                                                     dtype=self.dtype))
             SSE_error_f = np.ascontiguousarray(np.empty(self.batch_size,
                                                         dtype=self.dtype))
 
@@ -190,19 +211,18 @@ class HoltWinters(Base):
                 <float*> &trend_f[0], <float*> &season_f[0],
                 <float*> &SSE_error_f[0])
 
-            self.handle.sync()
             self.level = level_f
             self.trend = trend_f
             self.season = season_f
             self.SSE_error = SSE_error_f
 
         elif self.dtype == np.float64:
-            level_d = np.ascontiguousarray(np.empty(self.batch_size,
+            level_d = np.ascontiguousarray(np.empty(components_len,
                                                     dtype=self.dtype))
-            trend_d = np.ascontiguousarray(np.empty(self.batch_size,
-                                                   dtype=self.dtype))
-            season_d = np.ascontiguousarray(np.empty(self.batch_size,
+            trend_d = np.ascontiguousarray(np.empty(components_len,
                                                     dtype=self.dtype))
+            season_d = np.ascontiguousarray(np.empty(components_len,
+                                                     dtype=self.dtype))
             SSE_error_d = np.ascontiguousarray(np.empty(self.batch_size,
                                                         dtype=self.dtype))
 
@@ -213,7 +233,6 @@ class HoltWinters(Base):
                 <double*> &trend_d[0], <double*> &season_d[0],
                 <double*> &SSE_error_d[0])
 
-            self.handle.sync()
             self.level = level_d
             self.trend = trend_d
             self.season = season_d
@@ -226,7 +245,6 @@ class HoltWinters(Base):
         self.handle.sync()
         self.fit_executed_flag = True
         del(X_m)
-        print("end")
         return self
 
     def score(self, index):
@@ -251,17 +269,20 @@ class HoltWinters(Base):
         if self.fit_executed_flag:
             if h <= 0:
                 raise ValueError("h must be > 0. Currently: " + str(h))
-            
+
             if h > self.h:
                 self.h = h
                 if self.dtype == np.float32:
                     level_f = np.ascontiguousarray(self.level)
                     trend_f = np.ascontiguousarray(self.trend)
                     season_f = np.ascontiguousarray(self.season)
-                    forecast_f = np.ascontiguousarray(np.empty(self.batch_size*h,
-                                                               dtype=self.dtype))
-                    predict(handle_[0], <int> self.n, <int> self.batch_size,
-                            <int> self.frequency, <int> h,
+                    forecast_f =\
+                        np.ascontiguousarray(np.empty(self.batch_size*h,
+                                                      dtype=self.dtype))
+                    predict(handle_[0], <int> self.n,
+                            <int> self.batch_size,
+                            <int> self.frequency,
+                            <int> h,
                             <SeasonalType> self._cpp_stype,
                             <float*> &level_f[0],
                             <float*> &trend_f[0],
@@ -274,9 +295,11 @@ class HoltWinters(Base):
                     level_d = np.ascontiguousarray(self.level)
                     trend_d = np.ascontiguousarray(self.trend)
                     season_d = np.ascontiguousarray(self.season)
-                    forecast_d = np.ascontiguousarray(np.empty(self.batch_size*h,
-                                                               dtype=self.dtype))
-                    predict(handle_[0], <int> self.n, <int> self.batch_size,
+                    forecast_d =\
+                        np.ascontiguousarray(np.empty(self.batch_size*h,
+                                                      dtype=self.dtype))
+                    predict(handle_[0], <int> self.n,
+                            <int> self.batch_size,
                             <int> self.frequency, <int> h,
                             <SeasonalType> self._cpp_stype,
                             <double*> &level_d[0],
@@ -290,8 +313,9 @@ class HoltWinters(Base):
                 return self.forecasted_points[:, :h]
             else:
                 if index < 0 or index >= self.batch_size:
-                    raise IndexError("Index input: " + str(index) + " outside of"
-                                     " range [0, " + str(self.batch_size) + "]")
+                    raise IndexError("Index input: " + str(index) +
+                                     " outside of range [0, " +
+                                     str(self.batch_size) + "]")
                 return self.forecasted_points[index, :h]
         else:
             raise ValueError("Fit() the model before predict()")
