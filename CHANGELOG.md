@@ -28,6 +28,7 @@
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
+- PR #869: Removing incorrect information from KNN Docs
 
 # cuML 0.8.0 (27 June 2019)
 
