@@ -17,6 +17,7 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 import dask.dataframe as dd
+from dask_cudf import from_delayed
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -71,4 +72,4 @@ def to_dask_cudf(futures):
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
     meta = c.submit(get_meta, dfs[0]).result()
-    return dd.from_delayed(dfs, meta=meta)
+    return from_delayed(dfs, meta=meta)
