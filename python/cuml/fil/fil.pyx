@@ -69,7 +69,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
         float threshold
         pass
 
-
     cdef void dense_node_init(dense_node_t*,
                               float,
                               float,
@@ -84,14 +83,14 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
                                 bool*,
                                 bool*)
 
-    cdef void init_dense(cumlHandle&,
+    cdef void init_dense(cumlHandle& handle,
                          forest_t*,
                          forest_params_t*)
 
-    cdef void free(cumlHandle&,
+    cdef void free(cumlHandle& handle,
                    forest_t)
 
-    cdef void predict(cumlHandle&,
+    cdef void predict(cumlHandle& handle,
                       forest_t,
                       float*,
                       float*,
@@ -102,8 +101,8 @@ cdef class FIL_impl():
 
     cpdef object handle
     cdef dense_node_t* node_info
-    cdef forest_t* forest_pointer 
-    cdef forest_t forest_data 
+    cdef forest_t* forest_pointer
+    cdef forest_t forest_data
     cdef forest_params_t* params
     cdef object nan_prob
     cdef object depth
@@ -123,14 +122,14 @@ cdef class FIL_impl():
     cdef object is_leaf
 
     def __cinit__(self, nan_prob=0.05, depth=8, n_estimators=50,
-                     leaf_prob=0.05, output=0, algo=0,
-                     threshold=0.0, seed=42, tolerance=2e-3,
-                     new_forest=None, handle=None, verbose=False):
+                  leaf_prob=0.05, output=0, algo=0,
+                  threshold=0.0, seed=42, tolerance=2e-3,
+                  new_forest=None, handle=None, verbose=False):
 
         self.nan_prob = nan_prob
         self.depth = depth
         self.num_trees = n_estimators
-        self.leaf_prob  = leaf_prob
+        self.leaf_prob = leaf_prob
         self.output = output
         self.algo = algo
         self.threshold = threshold
@@ -146,35 +145,33 @@ cdef class FIL_impl():
     def dense_node_init(self, tree_node_info, weights,
                         fid, def_left, is_leaf):
 
-           self.node_info = tree_node_info
-           self.weights = <float*> weights
-           self.fid = fid
-           self.def_left = def_left
-           self.is_leaf = is_leaf
+            self.node_info = tree_node_info
+            self.weights = <float*> weights
+            self.fid = fid
+            self.def_left = def_left
+            self.is_leaf = is_leaf
 
-           dense_node_init(<dense_node_t*> self.node_info,
-                              <float*> self.weights,
-                              <float> self.threshold,
-                              <int> self.fid,
-                              <bool> self.def_left,
-                              <bool> self.is_leaf)
-           return self
+            dense_node_init(<dense_node_t*> self.node_info,
+                            <float*> self.weights,
+                            <float> self.threshold,
+                            <int> self.fid,
+                            <bool> self.def_left,
+                            <bool> self.is_leaf)
+            return self
 
     def dense_node_decode(self):
 
         dense_node_decode(<dense_node_t*> self.node_info,
-                             <float*> self.weights,
-                             <float*> self.threshold,
-                             <int*> self.fid,
-                             <bool*> self.def_left,
-                             <bool*> self.is_leaf)
-
+                          <float*> self.weights,
+                          <float*> self.threshold,
+                          <int*> self.fid,
+                          <bool*> self.def_left,
+                          s<bool*> self.is_leaf)
         return self
 
-
     def init_dense(self, X):
-        
-        cdef uintptr_t X_ptr # , y_ptr
+
+        cdef uintptr_t X_ptr  # , y_ptr
         # y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
@@ -197,7 +194,7 @@ cdef class FIL_impl():
         return self
 
     def predict(self, X):
-        cdef uintptr_t X_ptr # , y_ptr
+        cdef uintptr_t X_ptr  # , y_ptr
         # y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         X_m, X_ptr, n_rows, _, _ = \
@@ -219,16 +216,13 @@ cdef class FIL_impl():
 
         return preds
 
-
     def free(self):
-
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
         free(handle_[0],
              self.forest_data)
-
 
         return self
 
@@ -246,7 +240,7 @@ class FIL(Base):
         self.nan_prob = nan_prob
         self.depth = depth
         self.num_trees = n_estimators
-        self.leaf_prob  = leaf_prob
+        self.leaf_prob = leaf_prob
         self.output_type = output_type
         self.algo_type = algo_type
         self.threshold = threshold
@@ -254,10 +248,10 @@ class FIL(Base):
         self.tolerance = tolerance
 
         self._impl = FIL_impl(nan_prob, depth, n_estimators,
-                leaf_prob, output_type, algo_type, 
-                threshold, seed, tolerance,
-                self.handle)
-        
+                              leaf_prob, output_type, algo_type,
+                              threshold, seed, tolerance,
+                              self.handle)
+
     def dense_node_init(self, tree_node_info, weights,
                         fid, def_left, is_leaf):
 
@@ -272,13 +266,10 @@ class FIL(Base):
 
         return self._impl.init_dense(X)
 
-
     def predict(self, X):
 
         return self._impl.predict(X)
 
-
     def free(self):
 
         return self._impl.free()
-
