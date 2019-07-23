@@ -22,6 +22,7 @@
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
+- PR #857: Small modifications to comms for utilizing IB w/ Dask
 - PR #851: Random forest Stateless API wrappers
 
 ## Bug Fixes
