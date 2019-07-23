@@ -86,7 +86,7 @@ class NearestNeighbors(Base):
     """
     NearestNeighbors is an unsupervised algorithm for querying neighborhoods
     from a given set of datapoints. Currently, cuML supports k-NN queries, which
-    returns the neighborhood of closest k neighbors to each query point.
+    define the neighborhood as the closest `k` neighbors to each query point.
 
     Examples
     ---------
