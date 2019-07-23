@@ -56,11 +56,11 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
       &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
       &season_coef_offset);  // = (n-wlen-frequency)*batch_size(last freq rows)
 
-    level_ptr = std::vector<T>(components_len);
-    trend_ptr = std::vector<T>(components_len);
-    season_ptr = std::vector<T>(components_len);
-    SSE_error_ptr = std::vector<T>(batch_size);
-    forecast_ptr = std::vector<T>(batch_size * h);
+    allocate(level_ptr, components_len, stream);
+    allocate(trend_ptr, components_len, stream);
+    allocate(season_ptr, components_len, stream);
+    allocate(SSE_error_ptr, batch_size, stream);
+    allocate(forecast_ptr, batch_size * h, stream);
 
     std::vector<T> dataset_h = {
       112,    118,    132,    129,    121,    135,    148,    148,    136,
@@ -111,13 +111,12 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     handle.setStream(stream);
 
     ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
-                         seasonal, data, level_ptr.data(), trend_ptr.data(),
-                         season_ptr.data(), SSE_error_ptr.data());
+                         seasonal, data, level_ptr, trend_ptr, season_ptr,
+                         SSE_error_ptr);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ML::HoltWinters::predict(handle, n, batch_size, frequency, h, seasonal,
-                             level_ptr.data(), trend_ptr.data(),
-                             season_ptr.data(), forecast_ptr.data());
+                             level_ptr, trend_ptr, season_ptr, forecast_ptr);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -125,15 +124,21 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(data));
+    CUDA_CHECK(cudaFree(level_ptr));
+    CUDA_CHECK(cudaFree(trend_ptr));
+    CUDA_CHECK(cudaFree(season_ptr));
+    CUDA_CHECK(cudaFree(SSE_error_ptr));
+    CUDA_CHECK(cudaFree(forecast_ptr));
+  }
 
  public:
   HoltWintersInputs params;
   T *data;
   int n = 120, h = 50;
   int batch_size, frequency, start_periods;
-  std::vector<T> level_ptr, trend_ptr, season_ptr, SSE_error_ptr, forecast_ptr;
-  // bool optim_beta = true, optim_gamma = true;
+  T *level_ptr, *trend_ptr, *season_ptr, *SSE_error_ptr, *forecast_ptr;
 };
 
 const std::vector<HoltWintersInputs> inputsf1 = {
@@ -143,15 +148,15 @@ const std::vector<HoltWintersInputs> inputsf2 = {
 
 typedef HoltWintersTest<float> HoltWintersTestAF;
 TEST_P(HoltWintersTestAF, Fit) {
-  myPrintHostVector("forecast", forecast_ptr.data(), batch_size * h);
-  myPrintHostVector("error", SSE_error_ptr.data(), batch_size);
+  myPrintDevVector("forecast", forecast_ptr, batch_size * h);
+  myPrintDevVector("error", SSE_error_ptr, batch_size);
   ASSERT_TRUE(true == true);
 }
 
 typedef HoltWintersTest<float> HoltWintersTestMF;
 TEST_P(HoltWintersTestMF, Fit) {
-  myPrintHostVector("forecast", forecast_ptr.data(), batch_size * h);
-  myPrintHostVector("error", SSE_error_ptr.data(), batch_size);
+  myPrintDevVector("forecast", forecast_ptr, batch_size * h);
+  myPrintDevVector("error", SSE_error_ptr, batch_size);
   ASSERT_TRUE(true == true);
 }
 

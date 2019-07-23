@@ -39,8 +39,8 @@ cumlError_t cuml_buffer_size(int n, int batch_size, int frequency,
 cumlError_t cumlSp_fit(cumlHandle_t handle, int n, int batch_size,
                        int frequency, int start_periods,
                        cumlHoltWintersSeasonal_t seasonal, float *data,
-                       float *level_ptr, float *trend_ptr, float *season_ptr,
-                       float *SSE_error_ptr) {
+                       float *level_d, float *trend_d, float *season_d,
+                       float *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -48,8 +48,8 @@ cumlError_t cumlSp_fit(cumlHandle_t handle, int n, int batch_size,
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::fit(*handle_ptr, n, batch_size, frequency, start_periods,
-                           seasonal_type, data, level_ptr, trend_ptr,
-                           season_ptr, SSE_error_ptr);
+                           seasonal_type, data, level_d, trend_d, season_d,
+                           error_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
@@ -60,8 +60,8 @@ cumlError_t cumlSp_fit(cumlHandle_t handle, int n, int batch_size,
 cumlError_t cumlDp_fit(cumlHandle_t handle, int n, int batch_size,
                        int frequency, int start_periods,
                        cumlHoltWintersSeasonal_t seasonal, double *data,
-                       double *level_ptr, double *trend_ptr, double *season_ptr,
-                       double *SSE_error_ptr) {
+                       double *level_d, double *trend_d, double *season_d,
+                       double *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -69,8 +69,8 @@ cumlError_t cumlDp_fit(cumlHandle_t handle, int n, int batch_size,
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::fit(*handle_ptr, n, batch_size, frequency, start_periods,
-                           seasonal_type, data, level_ptr, trend_ptr,
-                           season_ptr, SSE_error_ptr);
+                           seasonal_type, data, level_d, trend_d, season_d,
+                           error_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
@@ -80,9 +80,8 @@ cumlError_t cumlDp_fit(cumlHandle_t handle, int n, int batch_size,
 
 cumlError_t cumlSp_predict(cumlHandle_t handle, int n, int batch_size,
                            int frequency, int h,
-                           cumlHoltWintersSeasonal_t seasonal, float *level_ptr,
-                           float *trend_ptr, float *season_ptr,
-                           float *forecast_ptr) {
+                           cumlHoltWintersSeasonal_t seasonal, float *level_d,
+                           float *trend_d, float *season_d, float *forecast_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -90,8 +89,8 @@ cumlError_t cumlSp_predict(cumlHandle_t handle, int n, int batch_size,
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::predict(*handle_ptr, n, batch_size, frequency, h,
-                               seasonal_type, level_ptr, trend_ptr, season_ptr,
-                               forecast_ptr);
+                               seasonal_type, level_d, trend_d, season_d,
+                               forecast_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
@@ -101,9 +100,9 @@ cumlError_t cumlSp_predict(cumlHandle_t handle, int n, int batch_size,
 
 cumlError_t cumlDp_predict(cumlHandle_t handle, int n, int batch_size,
                            int frequency, int h,
-                           cumlHoltWintersSeasonal_t seasonal,
-                           double *level_ptr, double *trend_ptr,
-                           double *season_ptr, double *forecast_ptr) {
+                           cumlHoltWintersSeasonal_t seasonal, double *level_d,
+                           double *trend_d, double *season_d,
+                           double *forecast_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -111,8 +110,8 @@ cumlError_t cumlDp_predict(cumlHandle_t handle, int n, int batch_size,
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::predict(*handle_ptr, n, batch_size, frequency, h,
-                               seasonal_type, level_ptr, trend_ptr, season_ptr,
-                               forecast_ptr);
+                               seasonal_type, level_d, trend_d, season_d,
+                               forecast_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

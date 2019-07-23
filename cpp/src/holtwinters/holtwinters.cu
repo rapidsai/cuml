@@ -33,35 +33,32 @@ void buffer_size(int n, int batch_size, int frequency,
 
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, float *data,
-         float *level_ptr, float *trend_ptr, float *season_ptr,
-         float *SSE_error_ptr) {
+         float *level_d, float *trend_d, float *season_d, float *error_d) {
   ML::HoltWintersFit<float>(handle, n, batch_size, frequency, start_periods,
-                            seasonal, data, level_ptr, trend_ptr, season_ptr,
-                            SSE_error_ptr);
+                            seasonal, data, level_d, trend_d, season_d,
+                            error_d);
 }
 
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, double *data,
-         double *level_ptr, double *trend_ptr, double *season_ptr,
-         double *SSE_error_ptr) {
+         double *level_d, double *trend_d, double *season_d, double *error_d) {
   ML::HoltWintersFit<double>(handle, n, batch_size, frequency, start_periods,
-                             seasonal, data, level_ptr, trend_ptr, season_ptr,
-                             SSE_error_ptr);
+                             seasonal, data, level_d, trend_d, season_d,
+                             error_d);
 }
 
 void predict(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-             int h, ML::SeasonalType seasonal, float *level_ptr,
-             float *trend_ptr, float *season_ptr, float *forecast_ptr) {
+             int h, ML::SeasonalType seasonal, float *level_d, float *trend_d,
+             float *season_d, float *forecast_d) {
   ML::HoltWintersPredict<float>(handle, n, batch_size, frequency, h, seasonal,
-                                level_ptr, trend_ptr, season_ptr, forecast_ptr);
+                                level_d, trend_d, season_d, forecast_d);
 }
 
 void predict(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
-             int h, ML::SeasonalType seasonal, double *level_ptr,
-             double *trend_ptr, double *season_ptr, double *forecast_ptr) {
+             int h, ML::SeasonalType seasonal, double *level_d, double *trend_d,
+             double *season_d, double *forecast_d) {
   ML::HoltWintersPredict<double>(handle, n, batch_size, frequency, h, seasonal,
-                                 level_ptr, trend_ptr, season_ptr,
-                                 forecast_ptr);
+                                 level_d, trend_d, season_d, forecast_d);
 }
 
 }  // namespace HoltWinters
