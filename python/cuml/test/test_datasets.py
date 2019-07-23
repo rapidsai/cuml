@@ -37,15 +37,11 @@ centers = [
     None,
     2,
     1000,
-    # np.random.uniform((10, 2)).astype(np.float32),
-    # np.random.uniform((10, 10000)).astype(np.float32)
 ]
 
 cluster_std = [
     0.5,
     2.0,
-    # np.random.uniform((10, 1)).astype(np.float32),
-    # np.random.uniform((1000, 1)).astype(np.float32)
 ]
 
 center_box = [
