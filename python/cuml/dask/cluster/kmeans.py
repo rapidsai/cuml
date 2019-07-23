@@ -94,7 +94,6 @@ class KMeans(object):
         """
         return model.transform(df)
 
-
     @staticmethod
     def func_predict(model, df, r):
         """
