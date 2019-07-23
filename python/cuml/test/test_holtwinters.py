@@ -141,6 +141,12 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
     assert (cu_air_r2 >= sm_air_r2) or (abs(cu_air_r2 - sm_air_r2) < 2e-1)
     assert (cu_co2_r2 >= sm_co2_r2) or (abs(cu_co2_r2 - sm_co2_r2) < 2e-1)
 
+    full_cu_pred = cu_hw.predict(-1, h)
+    air_cu_r2 = r2_score(full_cu_pred[0], air_test)
+    co2_cu_r2 = r2_score(full_cu_pred[1], co2_test)
+    assert (air_cu_r2 >= sm_air_r2) or (abs(air_cu_r2 - sm_air_r2) < 2e-1)
+    assert (co2_cu_r2 >= sm_co2_r2) or (abs(co2_cu_r2 - sm_co2_r2) < 2e-1)
+
 
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
