@@ -566,7 +566,7 @@ class RandomForestClassifier(Base):
         del(preds_m)
         return preds
 
-    def _predictGetAll(self, X):
+    def _predict_get_all(self, X):
         """
         Predicts the labels for X.
         Parameters
