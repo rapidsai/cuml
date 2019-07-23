@@ -224,13 +224,13 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
       ts + ts_offset, trend_len, &minus_one, trend_d.data(), trend_len,
       season_d.data(), trend_len, stream));
   } else {
-    Dtype *aligned_ts;
-    MLCommon::allocate(aligned_ts, batch_size * trend_len, stream);
-    MLCommon::copy(aligned_ts, ts + ts_offset, batch_size * trend_len, stream);
-    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts,
+    MLCommon::device_buffer<Dtype> aligned_ts(dev_allocator, stream,
+                                              batch_size * trend_len);
+    MLCommon::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
+                   stream);
+    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
                                            trend_d.data(),
                                            trend_len * batch_size, stream);
-    CUDA_CHECK(cudaFree(aligned_ts));
   }
 
   season_mean(handle, season_d.data(), trend_len, batch_size, start_season,
