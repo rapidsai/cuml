@@ -14,24 +14,21 @@
 # limitations under the License.
 #
 
-from dask.distributed import Client, wait, default_client, get_worker
-from dask import delayed
 from cuml.common.handle import Handle
+from cuml.dask.common.utils import parse_host_port
+from cuml.ensemble import RandomForestRegressor as cuRFR
+
+from dask import delayed
+from dask.distributed import Client, default_client, get_worker, wait
 import dask.dataframe as dd
+
 import numba.cuda
+import math
 import random
+
 from tornado import gen
 from toolz import first
-from cuml.ensemble import RandomForestRegressor as cuRFR
-import math
-    
 
-def parse_host_port(address):
-    if '://' in address:
-        address = address.rsplit('://', 1)[1]
-    host, port = address.split(':')
-    port = int(port)
-    return host, port
 
 @gen.coroutine
 def _extract_ddf_partitions(ddf):
@@ -136,7 +133,7 @@ class RandomForestRegressor:
                  quantile_per_tree=False, criterion=None):
 
 
-        sklearn_params = {"criterion": criterion,
+        unsupported_sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
@@ -147,7 +144,7 @@ class RandomForestRegressor:
                           "warm_start": warm_start,
                           "class_weight": class_weight}
 
-        for key, vals in sklearn_params.items():
+        for key, vals in unsupported_sklearn_params.items():
             if vals is not None:
                 raise TypeError(" The Scikit-learn variable ", key,
                                 " is not supported in cuML,"
