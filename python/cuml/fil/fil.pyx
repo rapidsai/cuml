@@ -100,7 +100,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
 cdef class FIL_impl():
 
     cpdef object handle
-    cdef dense_node_t* node_info
     cdef forest_t* forest_pointer
     cdef forest_t forest_data
     cdef forest_params_t* params
@@ -139,35 +138,32 @@ cdef class FIL_impl():
         self.verbose = verbose
         self.forest_pointer = NULL
         self.params = NULL
-        self.node_info = NULL
 
     def dense_node_init(self, tree_node_info, weights,
                         fid, def_left, is_leaf):
 
-        self.weights = weights
-        self.node_info = <dense_node_t*> tree_node_info
-        self.fid = fid
-        self.def_left = def_left
-        self.is_leaf = is_leaf
-
-        dense_node_init(<dense_node_t*> self.node_info,
-                        <float> self.weights,
+        cdef dense_node_t* node_info = <dense_node_t*>tree_node_info
+        dense_node_init(<dense_node_t*> node_info,
+                        <float> weights,
                         <float> self.threshold,
-                        <int> self.fid,
-                        <bool> self.def_left,
-                        <bool> self.is_leaf)
+                        <int> fid,
+                        <bool> def_left,
+                        <bool> is_leaf)
         return self
 
-    def dense_node_decode(self):
+    def dense_node_decode(self, tree_node_info, weights,
+                        fid, def_left, is_leaf):
 
         cdef uintptr_t weights_ptr, threshold_pointer, \
             fid_pointer, def_left_pointer, is_leaf_pointer
-        weights_ptr = get_dev_array_ptr(self.weights)
+        weights_ptr = get_dev_array_ptr(weights)
         threshold_pointer = get_dev_array_ptr(self.threshold)
-        fid_pointer = get_dev_array_ptr(self.fid)
-        def_left_pointer = get_dev_array_ptr(self.def_left)
-        is_leaf_pointer = get_dev_array_ptr(self.is_leaf)
-        dense_node_decode(<dense_node_t*> self.node_info,
+        fid_pointer = get_dev_array_ptr(fid)
+        def_left_pointer = get_dev_array_ptr(def_left)
+        is_leaf_pointer = get_dev_array_ptr(is_leaf)
+        cdef dense_node_t* node_info = <dense_node_t*>tree_node_info
+
+        dense_node_decode(<dense_node_t*> node_info,
                           <float*> weights_ptr,
                           <float*> threshold_pointer,
                           <int*> fid_pointer,
