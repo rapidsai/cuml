@@ -239,9 +239,6 @@ class TSNE(Base):
         if pre_momentum > post_momentum:
             print("[Error] post_momentum = {} should be more than pre_momentum = {}".format(post_momentum, pre_momentum))
             pre_momentum = post_momentum * 0.75
-        
-        # Force numba to clear the memory used
-        cuda.current_context().deallocations.clear()
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -270,6 +267,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
+        self.Y = None
         return
 
     def __repr__(self):
@@ -365,8 +363,11 @@ class TSNE(Base):
                 <long long> (-1 if self.random_state is None else self.random_state),
                 <bool> self.verbose,
                 <bool> True, <bool> True)
+
+        # Clean up memory
         del X_m
-        self.Y = Y
+        self.Y = Y.copy_to_host()
+        del Y
         return self
 
     def fit_transform(self, X):
@@ -382,16 +383,11 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        # Force numba to clear the memory used
-        cuda.current_context().deallocations.clear()
         self.fit(X)
 
-        ret = self.Y.copy_to_host()
-        del self.Y
-
         if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame.from_pandas(pd.DataFrame(ret))
-        return ret
+            return cudf.DataFrame.from_pandas(pd.DataFrame(self.Y))
+        return self.Y
 
     def get_params(self, bool deep = True):
         """
@@ -400,7 +396,10 @@ class TSNE(Base):
         -----------
         deep : boolean (default = True)
         """
-        return vars(self)
+        cdef dict params = self.__dict__
+        if "handle" in params:
+            del params["handle"]
+        return params
 
     def set_params(self, **params):
         """

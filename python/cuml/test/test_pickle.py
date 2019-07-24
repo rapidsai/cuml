@@ -317,18 +317,29 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
         [True, False], 150, replace=True, p=[0.75, 0.25])
     X = iris.data[iris_selection]
 
-    model = cuml.manifold.TSNE(n_components=2, random_state=0)
+    model = cuml.manifold.TSNE(n_components=2, random_state=199)
 
     # Pickle the model
-    model = pickle_save_load(tmpdir, model)
+    model_pickle = pickle_save_load(tmpdir, model)
+    model_params = model_pickle.__dict__
+    if "handle" in model_params:
+        del model_params["handle"]
+
+    # Confirm params in model are identical
+    new_keys = set(model_params.keys())
+    for key, value in zip(model_params.keys(), model_params.values()):
+        assert (model_params[key] == value)
+        new_keys -= set([key])
+
+    # Check all keys have been checked
+    assert(len(new_keys) == 0)
 
     # Transform data
-    Y = model.fit_transform(X)
-    trust_before = trustworthiness(X, Y, 10)
+    model.fit(X)
+    trust_before = trustworthiness(X, model.Y, 10)
     
     # Save model + embeddings
     model = pickle_save_load(tmpdir, model)
-    Y = model.fit_transform(X)
-    trust_after = trustworthiness(X, Y, 10)
+    trust_after = trustworthiness(X, model.Y, 10)
 
-    assert trust_before > 0.9 and trust_after > 0.9
+    assert trust_before == trust_after
