@@ -50,19 +50,19 @@ cdef extern from "nccl.h":
     ncclResult_t ncclCommInitRank(ncclComm_t *comm,
                                   int nranks,
                                   ncclUniqueId commId,
-                                  int rank)
+                                  int rank) nogil
 
-    ncclResult_t ncclGetUniqueId(ncclUniqueId *uniqueId)
+    ncclResult_t ncclGetUniqueId(ncclUniqueId *uniqueId) nogil
 
-    ncclResult_t ncclCommUserRank(const ncclComm_t comm, int *rank)
+    ncclResult_t ncclCommUserRank(const ncclComm_t comm, int *rank) nogil
 
-    ncclResult_t ncclCommCuDevice(const ncclComm_t comm, int *count)
+    ncclResult_t ncclCommCuDevice(const ncclComm_t comm, int *count) nogil
 
-    const char *ncclGetErrorString(ncclResult_t result)
+    const char *ncclGetErrorString(ncclResult_t result) nogil
 
-    ncclResult_t ncclCommAbort(ncclComm_t comm)
+    ncclResult_t ncclCommAbort(ncclComm_t comm) nogil
 
-    ncclResult_t ncclCommDestroy(ncclComm_t comm)
+    ncclResult_t ncclCommDestroy(ncclComm_t comm) nogil
 
 NCCL_UNIQUE_ID_BYTES = 128
 
