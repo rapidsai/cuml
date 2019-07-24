@@ -234,9 +234,6 @@ cdef class FIL_impl():
 
 
 class FIL(Base):
-    # n_estimators = num_trees
-    # output_type = output_t
-    # algo_type = algo_t
     def __init__(self, nan_prob=0.05, depth=8, n_estimators=50,
                  leaf_prob=0.05, output_type=0, algo_type=0,
                  threshold=0.0, seed=42, tolerance=2e-3,
@@ -261,12 +258,14 @@ class FIL(Base):
     def dense_node_init(self, tree_node_info, weights,
                         fid, def_left, is_leaf):
 
-        return self._impl.dense_node_init(self, tree_node_info, weights,
+        return self._impl.dense_node_init(tree_node_info, weights,
                                           fid, def_left, is_leaf)
 
-    def dense_node_decode(self):
+    def dense_node_decode(self, tree_node_info, weights,
+                                          fid, def_left, is_leaf):
 
-        return self._impl.dense_node_decode()
+        return self._impl.dense_node_decode(tree_node_info, weights,
+                                          fid, def_left, is_leaf)
 
     def init_dense(self, X):
 
