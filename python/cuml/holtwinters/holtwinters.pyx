@@ -22,7 +22,7 @@ import cudf
 import numpy as np
 from numba import cuda
 from libc.stdint cimport uintptr_t
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_dev_array, get_dev_array_ptr, numba_utils
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
@@ -113,9 +113,17 @@ class HoltWinters(Base):
         self.level = []  # list for level values for each time series in batch
         self.trend = []  # list for trend values for each time series in batch
         self.season = []  # list for season values for each series in batch
-        self.SSE_error = []          # SSE Error for all time series in batch
+        self.SSE = []     # SSE for all time series in batch
         self.fit_executed_flag = False
         self.h = 0
+
+    def __del__(self):
+        del(self.handle)
+        del(self.level)
+        del(self.trend)
+        del(self.season)
+        del(self.SSE)
+        del(self.forecasted_points)
 
     def _check_dims(self, ts_input, is_cudf=False):
         err_mess = ("HoltWinters initialized with " + str(self.batch_size) +
@@ -146,8 +154,6 @@ class HoltWinters(Base):
         return mod_ts_input
 
     def fit(self, ts_input):
-        cdef uintptr_t input_ptr
-
         if isinstance(ts_input, cudf.DataFrame):
             ts_input = self._check_dims(ts_input, True)
         elif cuda.is_cuda_array(ts_input):
@@ -161,82 +167,56 @@ class HoltWinters(Base):
             ts_input = self._check_dims(ts_input)
         if self.n < self.start_periods*self.frequency:
             raise ValueError("Length of time series (" + str(self.n) +
-                             ") must be at least double the frequency.")
+                             ") must be at least freq*start_periods (" +
+                             str(self.start_periods*self.frequency) + ").")
         if self.n <= 0:
             raise ValueError("Time series must contain at least 1 value."
                              " Given: " + str(self.n))
 
+        cdef uintptr_t input_ptr
+        cdef int leveltrend_seed_len, season_seed_len, components_len
+        cdef int leveltrend_coef_offset, season_coef_offset
+        cdef int error_len
+
         X_m, input_ptr, _, _, self.dtype = \
             input_to_dev_array(ts_input, order='C')
 
-        cdef int[::1] leveltrend_seed_len, season_seed_len, components_len
-        cdef int[::1] leveltrend_coef_offset, season_coef_offset
-        cdef int[::1] error_len
-
-        leveltrend_seed_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
-        season_seed_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
-        components_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
-        leveltrend_coef_offset =\
-            np.ascontiguousarray(np.empty(1, dtype=np.intc))
-        season_coef_offset = np.ascontiguousarray(np.empty(1, dtype=np.intc))
-        error_len = np.ascontiguousarray(np.empty(1, dtype=np.intc))
-
         buffer_size(<int> self.n, <int> self.batch_size,
                     <int> self.frequency,
-                    <int*> &leveltrend_seed_len[0],
-                    <int*> &season_seed_len[0],
-                    <int*> &components_len[0],
-                    <int*> &leveltrend_coef_offset[0],
-                    <int*> &season_coef_offset[0],
-                    <int*> &error_len[0])
+                    <int*> &leveltrend_seed_len,
+                    <int*> &season_seed_len,
+                    <int*> &components_len,
+                    <int*> &leveltrend_coef_offset,
+                    <int*> &season_coef_offset,
+                    <int*> &error_len)
 
-        cdef double[::1] level_d, trend_d, season_d, SSE_error_d
-        cdef float[::1] level_f, trend_f, season_f, SSE_error_f
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
+
+        self.level = numba_utils.zeros(components_len, dtype=self.dtype)
+        self.trend = numba_utils.zeros(components_len, dtype=self.dtype)
+        self.season = numba_utils.zeros(components_len, dtype=self.dtype)
+        self.SSE = numba_utils.zeros(self.batch_size, dtype=self.dtype)
+        level_ptr = get_dev_array_ptr(self.level)
+        trend_ptr = get_dev_array_ptr(self.trend)
+        season_ptr = get_dev_array_ptr(self.season)
+        SSE_ptr = get_dev_array_ptr(self.SSE)
 
         if self.dtype == np.float32:
-            level_f = np.ascontiguousarray(np.empty(components_len,
-                                                    dtype=self.dtype))
-            trend_f = np.ascontiguousarray(np.empty(components_len,
-                                                    dtype=self.dtype))
-            season_f = np.ascontiguousarray(np.empty(components_len,
-                                                     dtype=self.dtype))
-            SSE_error_f = np.ascontiguousarray(np.empty(self.batch_size,
-                                                        dtype=self.dtype))
-
             fit(handle_[0], <int> self.n, <int> self.batch_size,
                 <int> self.frequency, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
-                <float*> input_ptr, <float*> &level_f[0],
-                <float*> &trend_f[0], <float*> &season_f[0],
-                <float*> &SSE_error_f[0])
-
-            self.level = level_f
-            self.trend = trend_f
-            self.season = season_f
-            self.SSE_error = SSE_error_f
+                <float*> input_ptr, <float*> level_ptr,
+                <float*> trend_ptr, <float*> season_ptr,
+                <float*> SSE_ptr)
 
         elif self.dtype == np.float64:
-            level_d = np.ascontiguousarray(np.empty(components_len,
-                                                    dtype=self.dtype))
-            trend_d = np.ascontiguousarray(np.empty(components_len,
-                                                    dtype=self.dtype))
-            season_d = np.ascontiguousarray(np.empty(components_len,
-                                                     dtype=self.dtype))
-            SSE_error_d = np.ascontiguousarray(np.empty(self.batch_size,
-                                                        dtype=self.dtype))
-
             fit(handle_[0], <int> self.n, <int> self.batch_size,
                 <int> self.frequency, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
-                <double*> input_ptr, <double*> &level_d[0],
-                <double*> &trend_d[0], <double*> &season_d[0],
-                <double*> &SSE_error_d[0])
-
-            self.level = level_d
-            self.trend = trend_d
-            self.season = season_d
-            self.SSE_error = SSE_error_d
+                <double*> input_ptr, <double*> level_ptr,
+                <double*> trend_ptr, <double*> season_ptr,
+                <double*> SSE_ptr)
 
         else:
             raise TypeError("HoltWinters supports only float32"
@@ -247,21 +227,11 @@ class HoltWinters(Base):
         del(X_m)
         return self
 
-    def score(self, index):
-        if index < 0 or index >= self.batch_size:
-            raise IndexError("Index input: " + str(index) + " outside of "
-                             "range [0, " + str(self.batch_size) + "]")
-        if self.fit_executed_flag:
-            return self.SSE_error[index]
-        else:
-            raise ValueError("Fit() the model before score()")
-
-    def predict(self, index, h):
-        cdef double[::1] level_d, trend_d, season_d, forecast_d
-        cdef float[::1] level_f, trend_f, season_f, forecast_f
+    def predict(self, h=1, index=None):
+        cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if type(h) != int or type(index) != int:
+        if type(h) != int or (type(index) != int and index is not None):
             raise TypeError("Input arguments must be of type int."
                             "Index has type: " + str(type(index))
                             + "\nh has type: " + str(type(h)))
@@ -272,77 +242,97 @@ class HoltWinters(Base):
 
             if h > self.h:
                 self.h = h
+                self.forecasted_points = numba_utils.zeros(self.batch_size*h,
+                                                           dtype=self.dtype)
+                forecast_ptr = get_dev_array_ptr(self.forecasted_points)
+                level_ptr = get_dev_array_ptr(self.level)
+                trend_ptr = get_dev_array_ptr(self.trend)
+                season_ptr = get_dev_array_ptr(self.season)
+
                 if self.dtype == np.float32:
-                    level_f = np.ascontiguousarray(self.level)
-                    trend_f = np.ascontiguousarray(self.trend)
-                    season_f = np.ascontiguousarray(self.season)
-                    forecast_f =\
-                        np.ascontiguousarray(np.empty(self.batch_size*h,
-                                                      dtype=self.dtype))
                     predict(handle_[0], <int> self.n,
                             <int> self.batch_size,
                             <int> self.frequency,
                             <int> h,
                             <SeasonalType> self._cpp_stype,
-                            <float*> &level_f[0],
-                            <float*> &trend_f[0],
-                            <float*> &season_f[0],
-                            <float*> &forecast_f[0])
-                    self.forecasted_points =\
-                        np.array(forecast_f).reshape((self.batch_size, h))
-
+                            <float*> level_ptr,
+                            <float*> trend_ptr,
+                            <float*> season_ptr,
+                            <float*> forecast_ptr)
                 elif self.dtype == np.float64:
-                    level_d = np.ascontiguousarray(self.level)
-                    trend_d = np.ascontiguousarray(self.trend)
-                    season_d = np.ascontiguousarray(self.season)
-                    forecast_d =\
-                        np.ascontiguousarray(np.empty(self.batch_size*h,
-                                                      dtype=self.dtype))
                     predict(handle_[0], <int> self.n,
                             <int> self.batch_size,
                             <int> self.frequency, <int> h,
                             <SeasonalType> self._cpp_stype,
-                            <double*> &level_d[0],
-                            <double*> &trend_d[0],
-                            <double*> &season_d[0],
-                            <double*> &forecast_d[0])
-                    self.forecasted_points =\
-                        np.array(forecast_d).reshape((self.batch_size, h))
-            self.handle.sync()
-            if index == -1:
-                return self.forecasted_points[:, :h]
+                            <double*> level_ptr,
+                            <double*> trend_ptr,
+                            <double*> season_ptr,
+                            <double*> forecast_ptr)
+                self.forecasted_points =\
+                    self.forecasted_points.reshape((self.batch_size, h),
+                                                   order='F')
+                self.handle.sync()
+
+            if index is None:
+                if self.batch_size == 1:
+                    return cudf.Series(
+                        self.forecasted_points.ravel(order='F')[:h])
+                else:
+                    return cudf.DataFrame.from_gpu_matrix(
+                        self.forecasted_points[:, :h].T)
             else:
                 if index < 0 or index >= self.batch_size:
                     raise IndexError("Index input: " + str(index) +
                                      " outside of range [0, " +
                                      str(self.batch_size) + "]")
-                return self.forecasted_points[index, :h]
+                return cudf.Series(self.forecasted_points[index, :h])
         else:
             raise ValueError("Fit() the model before predict()")
 
-    def get_alpha(self, index):
-        if index < 0 or index >= self.batch_size:
-            raise IndexError("Index input: " + str(index) + " outside of "
-                             "range [0, " + str(self.batch_size) + "]")
+    def score(self, index=None):
         if self.fit_executed_flag:
-            return self.alpha[index]
+            if index is None:
+                return cudf.Series(self.SSE)
+            elif index < 0 or index >= self.batch_size:
+                raise IndexError("Index input: " + str(index) + " outside of "
+                                 "range [0, " + str(self.batch_size) + "]")
+            else:
+                return self.SSE[index]
         else:
-            raise ValueError("Fit() the model to get alpha value")
+            raise ValueError("Fit() the model before score()")
 
-    def get_beta(self, index):
-        if index < 0 or index >= self.batch_size:
-            raise IndexError("Index input: " + str(index) + " outside of "
-                             "range [0, " + str(self.batch_size) + "]")
+    def get_level(self, index=None):
         if self.fit_executed_flag:
-            return self.beta[index]
+            if index is None:
+                return cudf.Series(self.level)
+            elif index < 0 or index >= self.batch_size:
+                raise IndexError("Index input: " + str(index) + " outside of "
+                                 "range [0, " + str(self.batch_size) + "]")
+            else:
+                return self.level[index]
         else:
-            raise ValueError("Fit() the model to get beta value")
+            raise ValueError("Fit() the model to get level values")
 
-    def get_gamma(self, index):
-        if index < 0 or index >= self.batch_size:
-            raise IndexError("Index input: " + str(index) + " outside of "
-                             "range [0, " + str(self.batch_size) + "]")
+    def get_trend(self, index=None):
         if self.fit_executed_flag:
-            return self.gamma[index]
+            if index is None:
+                return cudf.Series(self.trend)
+            elif index < 0 or index >= self.batch_size:
+                raise IndexError("Index input: " + str(index) + " outside of "
+                                 "range [0, " + str(self.batch_size) + "]")
+            else:
+                return self.trend[index]
         else:
-            raise ValueError("Fit() the model to get gamma value")
+            raise ValueError("Fit() the model to get trend values")
+
+    def get_season(self, index=None):
+        if self.fit_executed_flag:
+            if index is None:
+                return cudf.Series(self.season)
+            elif index < 0 or index >= self.batch_size:
+                raise IndexError("Index input: " + str(index) + " outside of "
+                                 "range [0, " + str(self.batch_size) + "]")
+            else:
+                return self.season[index]
+        else:
+            raise ValueError("Fit() the model to get season values")
