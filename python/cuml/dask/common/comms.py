@@ -147,6 +147,8 @@ async def _func_ucp_create_listener(sessionId, r):
         listener = ucp.start_listener(_connection_func, 0,
                                       is_coroutine=True)
 
+        print("Listener port: " + str(listener.port))
+
         worker_state(sessionId)["ucp_listener"] = listener
 
         while not listener.done():
@@ -238,7 +240,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     :param r: float a random number to stop the function from being cached
     """
     dask_worker = get_worker()
-    local_address = parse_host_port(dask_worker.address)
+    local_address = dask_worker.address
 
     eps = [None] * len(worker_info)
 
@@ -246,7 +248,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
     for k in worker_info:
         if k != local_address:
-            ip, port = k
+            ip, port = parse_host_port(k)
             rank, ucp_port = worker_info[k]
             ep = await ucp.get_endpoint(ip.encode(), ucp_port, timeout=1)
             eps[rank] = ep
@@ -301,8 +303,6 @@ class CommsContext:
         self.sessionId = uuid.uuid4().bytes
 
         self.worker_addresses = self.get_workers_()
-        self.workers = list(map(lambda x: parse_host_port(x),
-                                self.worker_addresses))
 
         self.nccl_initialized = False
         self.ucx_initialized = False
@@ -311,6 +311,10 @@ class CommsContext:
             warnings.warn("ucx-py not found. UCP Integration will "
                           "be disabled.")
             self.comms_p2p = False
+
+    def __del__(self):
+        if self.nccl_initialized or self.ucx_initialized:
+            self.destroy()
 
     def get_workers_(self):
         """
@@ -322,14 +326,15 @@ class CommsContext:
         """
         Builds a dictionary of { (worker_address, worker_port) : worker_rank }
         """
-        return dict(list(zip(self.workers, range(len(self.workers)))))
+        return dict(list(zip(self.worker_addresses,
+                             range(len(self.worker_addresses)))))
 
     def ucp_ports(self):
         return [(w, self.client.submit(_func_ucp_listener_port,
                                        self.sessionId,
                                        random.random(),
                                        workers=[w]).result())
-                for w in self.workers]
+                for w in self.worker_addresses]
 
     def worker_ports(self):
         """
@@ -395,9 +400,9 @@ class CommsContext:
         self.uniqueId = nccl.get_unique_id()
 
         for worker, idx in zip(self.worker_addresses,
-                               range(len(self.workers))):
+                               range(len(self.worker_addresses))):
             self.client.run(_func_store_initial_state,
-                            len(self.workers),
+                            len(self.worker_addresses),
                             self.sessionId,
                             self.uniqueId,
                             idx,
@@ -426,6 +431,11 @@ class CommsContext:
         Initializes the underlying comms. NCCL is required but
         UCX is only initialized if `comms_p2p == True`
         """
+
+        if self.ucx_initialized or self.nccl_initialized:
+            warnings.warn("CommsContext has already been initialized.")
+            return
+
         self.init_nccl()
 
         if self.comms_p2p:
@@ -485,5 +495,8 @@ class CommsContext:
         """
         if self.comms_p2p:
             self.destroy_ucp()
+
+        self.nccl_initialized = False
+        self.ucx_initialized = False
 
         self.destroy_nccl()
