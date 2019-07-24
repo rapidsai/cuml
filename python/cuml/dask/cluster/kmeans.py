@@ -131,6 +131,9 @@ class KMeans(object):
         :return: This KMeans instance
         """
         self.run_model_func_on_dask_cudf(KMeans.func_fit, X)
+
+        # TODO: After fitting model, pull the centroids, inertia, & n_iters to client.
+
         return self
 
     def predict(self, X):
@@ -139,6 +142,10 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
+
+        # TODO: Propagate centroids, inertia, and n_iters to workers and
+        # Run regular predict in parallel.
+
         f = self.run_model_func_on_dask_cudf(KMeans.func_predict, X)
         return to_dask_cudf(f)
 
@@ -150,6 +157,10 @@ class KMeans(object):
         ----------
         X : dask_cudf.Dataframe shape = (n_samples, n_features)
         """
+
+        # TODO: Propagate centroids, inertia, and n_iters to workers and
+        # run regular transform.
+
         f = self.run_model_func_on_dask_cudf(KMeans.func_transform, X)
         return to_dask_cudf(f)
 
