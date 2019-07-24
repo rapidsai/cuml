@@ -26,17 +26,17 @@ class KMeans(object):
     Multi-Node Multi-GPU implementation of KMeans
     """
 
-    def __init__(self, n_clusters=8, init_method="random", verbose=0):
+    def __init__(self, n_clusters=8, init="k-means||", verbose=0):
         """
         Constructor for distributed KMeans model
         :param n_clusters: Number of clusters to fit
         :param init_method: Method for finding initial centroids
         :param verbose: Print useful info while executing
         """
-        self.init(n_clusters=n_clusters, init_method=init_method,
+        self.init(n_clusters=n_clusters, init=init,
                   verbose=verbose)
 
-    def init(self, n_clusters, init_method, verbose=0):
+    def init(self, n_clusters, init, verbose=0):
         """
         Creates a local KMeans instance on each worker
         :param n_clusters: Number of clusters to fit
@@ -50,16 +50,16 @@ class KMeans(object):
         self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
                                                comms.sessionId,
                                                n_clusters,
-                                               init_method,
+                                               init,
                                                verbose,
                                                i,
                                                workers=[w]))
-                       for i, w in zip(range(len(comms.workers)),
+                       for i, w in zip(range(len(comms.worker_addresses)),
                                        comms.workers)]
         wait(self.kmeans)
 
     @staticmethod
-    def func_build_kmeans_(sessionId, n_clusters, init_method, verbose, r):
+    def func_build_kmeans_(sessionId, n_clusters, init, verbose, r):
         """
         Create local KMeans instance on worker
         :param handle: instance of cuml.handle.Handle
@@ -69,7 +69,7 @@ class KMeans(object):
         :param r: Stops memoization caching
         """
         handle = worker_state(sessionId)["handle"]
-        return cumlKMeans(handle=handle, init=init_method,
+        return cumlKMeans(handle=handle, init=init,
                           n_clusters=n_clusters, verbose=verbose)
 
     @staticmethod
@@ -82,6 +82,17 @@ class KMeans(object):
         :return: The fit model
         """
         return model.fit(df)
+
+    @staticmethod
+    def func_transform(model, df, r):
+        """
+        Runs on each worker to call fit on local KMeans instance
+        :param model: Local KMeans instance
+        :param df: cudf.Dataframe to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
+        """
+        return model.transform(df)
 
     @staticmethod
     def func_predict(model, df, r):
@@ -132,6 +143,27 @@ class KMeans(object):
         """
         f = self.run_model_func_on_dask_cudf(KMeans.func_predict, X)
         return to_dask_cudf(f)
+
+    def transform(self, X):
+        """
+        Transform X to a cluster-distance space.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe shape = (n_samples, n_features)
+        """
+        f = self.run_model_func_on_dask_cudf(KMeans.func_transform, X)
+        return to_dask_cudf(f)
+
+    def fit_transform(self, X):
+        """
+        Compute clustering and transform X to cluster-distance space.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe shape = (n_samples, n_features)
+        """
+        return self.fit(X).transform(X)
 
     def fit_predict(self, X):
         """
