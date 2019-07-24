@@ -63,9 +63,9 @@ class HoltWinters(Base):
 
     def __init__(self, batch_size=1, freq_season=2,
                  season_type="ADDITIVE", start_periods=2,
-                 verbose=False, handle=None):
+                 handle=None):
 
-        super(HoltWinters, self).__init__(handle, verbose)
+        super(HoltWinters, self).__init__(handle)
 
         # Total number of Time Series for forecasting
         if type(batch_size) != int:
@@ -116,14 +116,6 @@ class HoltWinters(Base):
         self.SSE = []     # SSE for all time series in batch
         self.fit_executed_flag = False
         self.h = 0
-
-    def __del__(self):
-        del(self.handle)
-        del(self.level)
-        del(self.trend)
-        del(self.season)
-        del(self.SSE)
-        del(self.forecasted_points)
 
     def _check_dims(self, ts_input, is_cudf=False):
         err_mess = ("HoltWinters initialized with " + str(self.batch_size) +
