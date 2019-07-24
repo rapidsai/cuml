@@ -90,7 +90,7 @@ def test_singlets_holtwinters(seasonal, h, datatype):
                                  seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
-    cu_pred = cu_hw.predict(h)
+    cu_pred = cu_hw.forecast(h)
     sm_pred = sm_hw.forecast(h)
     cu_r2 = r2_score(cu_pred, test)
     sm_r2 = r2_score(sm_pred, test)
@@ -127,8 +127,8 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
     sm_air_hw = sm_air_hw.fit()
     sm_co2_hw = sm_co2_hw.fit()
 
-    cu_air_pred = cu_hw.predict(h, 0)
-    cu_co2_pred = cu_hw.predict(h, 1)
+    cu_air_pred = cu_hw.forecast(h, 0)
+    cu_co2_pred = cu_hw.forecast(h, 1)
     sm_air_pred = sm_air_hw.forecast(h)
     sm_co2_pred = sm_co2_hw.forecast(h)
 
@@ -140,7 +140,7 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
     assert (cu_air_r2 >= sm_air_r2) or (abs(cu_air_r2 - sm_air_r2) < 2e-1)
     assert (cu_co2_r2 >= sm_co2_r2) or (abs(cu_co2_r2 - sm_co2_r2) < 2e-1)
 
-    full_cu_pred = cu_hw.predict(h)
+    full_cu_pred = cu_hw.forecast(h)
     air_cu_r2 = r2_score(full_cu_pred[0], air_test)
     co2_cu_r2 = r2_score(full_cu_pred[1], co2_test)
     assert (air_cu_r2 >= sm_air_r2) or (abs(air_cu_r2 - sm_air_r2) < 2e-1)
@@ -149,12 +149,12 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
 
 @pytest.mark.parametrize('seasonal', ['ADDITIVE', 'MULTIPLICATIVE'])
 @pytest.mark.parametrize('h', [12, 24])
-@pytest.mark.parametrize('predict', [0, 2, None])
+@pytest.mark.parametrize('series_idx', [0, 2, None])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['cudf', 'np', 'cupy'])
 @pytest.mark.parametrize('frequency', [7, 12])
 @pytest.mark.parametrize('start_periods', [2, 3])
-def test_inputs_holtwinters(seasonal, h, predict, datatype, input_type,
+def test_inputs_holtwinters(seasonal, h, series_idx, datatype, input_type,
                             frequency, start_periods):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
@@ -170,4 +170,4 @@ def test_inputs_holtwinters(seasonal, h, predict, datatype, input_type,
                         season_type=seasonal,
                         start_periods=start_periods)
     cu_hw.fit(data)
-    cu_hw.predict(h, predict)
+    cu_hw.forecast(h, series_idx)
