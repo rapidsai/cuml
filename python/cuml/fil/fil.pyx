@@ -152,7 +152,7 @@ cdef class FIL_impl():
         return self
 
     def dense_node_decode(self, tree_node_info, weights,
-                        fid, def_left, is_leaf):
+                          fid, def_left, is_leaf):
 
         cdef uintptr_t weights_ptr, threshold_pointer, \
             fid_pointer, def_left_pointer, is_leaf_pointer
@@ -258,10 +258,10 @@ class FIL(Base):
                                           fid, def_left, is_leaf)
 
     def dense_node_decode(self, tree_node_info, weights,
-                                          fid, def_left, is_leaf):
+                          fid, def_left, is_leaf):
 
         return self._impl.dense_node_decode(tree_node_info, weights,
-                                          fid, def_left, is_leaf)
+                                            fid, def_left, is_leaf)
 
     def init_dense(self, X):
 
