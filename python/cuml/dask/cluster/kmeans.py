@@ -15,7 +15,7 @@
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
 from cuml.cluster import KMeans as cumlKMeans
-from cuml.dask.common.comms import worker_state, default_comms
+from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 
 import random
@@ -44,18 +44,18 @@ class KMeans(object):
         :param verbose: Print useful info while executing
         :return:
         """
+        self.comms = CommsContext(comms_p2p=False)
+        self.comms.init(list(self.comms.client.has_what().keys()))
 
-        comms = default_comms()
-
-        self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
-                                               comms.sessionId,
-                                               n_clusters,
-                                               init,
-                                               verbose,
-                                               i,
-                                               workers=[w]))
-                       for i, w in zip(range(len(comms.worker_addresses)),
-                                       comms.workers)]
+        self.kmeans = [(w, self.comms.client.submit(KMeans.func_build_kmeans_,
+                                                    self.comms.sessionId,
+                                                    n_clusters,
+                                                    init,
+                                                    verbose,
+                                                    i,
+                                                    workers=[w]))
+                       for i, w in zip(range(len(self.comms.worker_addresses)),
+                                       self.comms.workers)]
         wait(self.kmeans)
 
     @staticmethod
@@ -112,16 +112,14 @@ class KMeans(object):
         :param X: Input dask_cudf.Dataframe
         :return: Futures containing results of func
         """
-        comms = default_comms()
-
-        gpu_futures = comms.client.sync(extract_ddf_partitions, X)
+        gpu_futures = self.comms.client.sync(extract_ddf_partitions, X)
 
         worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
 
-        f = [comms.client.submit(func,  # Function to run on worker
-                                 worker_model_map[w],  # Model instance
-                                 f,  # Input DataFrame partition
-                                 random.random())  # Worker ID
+        f = [self.comms.client.submit(func,  # Function to run on worker
+                                      worker_model_map[w],  # Model instance
+                                      f,  # Input DataFrame partition
+                                      random.random())  # Worker ID
              for w, f in gpu_futures]
         wait(f)
         return f
