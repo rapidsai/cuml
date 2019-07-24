@@ -94,15 +94,15 @@ def _get_global_comms():
     return None
 
 
-def default_comms(c=None):
+def default_comms(comms_p2p=False, client=None):
     """ Return a comms instance if one has been initialized.
         Otherwise, initialize a new comms instance.
     """
-    c = c or _get_global_comms()
+    c = _get_global_comms()
     if c:
         return c
     else:
-        cb = CommsContext()
+        cb = CommsContext(comms_p2p, client)
         cb.init()
 
         _set_global_comms(cb)
@@ -386,11 +386,14 @@ class CommsContext:
                          key,
                          wait=True)]
 
-    def init(self, workers, verbose=False):
+    def init(self, workers=None, verbose=False):
         """
         Initializes the underlying comms. NCCL is required but
         UCX is only initialized if `comms_p2p == True`
         """
+
+        if workers is None:
+            workers = list(self.client.has_what().keys())
 
         if self.ucx_initialized or self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
