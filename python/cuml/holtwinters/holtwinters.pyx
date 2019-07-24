@@ -219,7 +219,7 @@ class HoltWinters(Base):
         del(X_m)
         return self
 
-    def predict(self, h=1, index=None):
+    def forecast(self, h=1, index=None):
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -279,7 +279,7 @@ class HoltWinters(Base):
                                      str(self.batch_size) + "]")
                 return cudf.Series(self.forecasted_points[index, :h])
         else:
-            raise ValueError("Fit() the model before predict()")
+            raise ValueError("Fit() the model before forecast()")
 
     def score(self, index=None):
         if self.fit_executed_flag:
