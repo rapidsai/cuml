@@ -245,7 +245,7 @@ def order_to_str(order):
         return 'row'
 
 def input_to_multi_gpu(X, execution_type=None, client=None):
-    if isinstance(X, (dask_cudf, dask.dataframe, dask.array)):
+    if isinstance(X, (dask_cudf.DataFrame, dask_cudf.Series, dask.dataframe.DataFrame, dask.array.Array)):
         if execution_type == 'SG':
             raise TypeError("X must be of type numpy.ndarray, cupy.ndarray," +
                 "or numba.cuda.cudadrv.devicearray. Given: " + str(type(X)))
@@ -255,18 +255,29 @@ def input_to_multi_gpu(X, execution_type=None, client=None):
     else:
         if execution_type == 'MG':
             client = check_client()
-            n_workers = len(client.has_what().keys())
-            X, _, _, _, _ = input_to_dev_array(X, order='F')
-            X = cudf.DataFrame.from_gpu_matrix(X)
-            X = dask_cudf.from_cudf(X, n_partitions=n_workers)
-            client.persist(X)
+            X = sg_input_to_mg(X, client)
         else:
-            execution_type = 'SG'
-            
+            if execution_type is None and check_client:
+                X = sg_input_to_mg(X, client)
+                execution_type = 'MG'
+            else:
+                execution_type = 'SG'
+
     return (X, client, execution_type)
 
+def sg_input_to_mg(X, client):
+    n_workers = len(client.has_what().keys())
+    X, _, _, _, _ = input_to_dev_array(X, order='F')
+    if len(X.shape) == 2:
+        X = cudf.DataFrame.from_gpu_matrix(X)
+    else:
+        X = cudf.Series(X)
+    X = dask_cudf.from_cudf(X, npartitions=n_workers)
+    client.persist(X)
+    return X
+
 def check_client(client=None):
-    if client is None:
+    if client:
         try:
             client = default_client()
         except ValueError:
@@ -275,5 +286,5 @@ def check_client(client=None):
                              "  from dask_cuda import LocalCUDACluster\n" + 
                              "  from distributed import Client\n" + 
                              "  cluster = LocalCUDACluster()\n" + 
-                             "  client = Client(cluster)\n" + )
+                             "  client = Client(cluster)\n")
     return client

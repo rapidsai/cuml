@@ -14,7 +14,7 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
-from cuml.cluster import KMeans as cumlKMeans
+from cuml.cluster.sg.kmeans import KMeans as cumlKMeans
 from cuml.dask.common.comms import worker_state, default_comms
 from dask.distributed import wait
 
