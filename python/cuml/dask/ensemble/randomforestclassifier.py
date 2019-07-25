@@ -117,7 +117,7 @@ class RandomForestClassifier:
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 gdf_datatype=None, criterion=None,
+                 dtype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
@@ -174,7 +174,7 @@ class RandomForestClassifier:
                              bootstrap, bootstrap_features,
                              type_model, verbose,
                              rows_sample, max_leaves, quantile_per_tree,
-                             gdf_datatype, random.random(),
+                             dtype, random.random(),
                              workers=[worker])
             for worker, n in ws}
         
@@ -192,7 +192,7 @@ class RandomForestClassifier:
                              bootstrap, bootstrap_features,
                              type_model, verbose,
                              rows_sample, max_leaves, quantile_per_tree,
-                             gdf_datatype, r):
+                             dtype, r):
         
         return cuRFC(n_estimators=n_estimators, max_depth=max_depth, handle=handle,
                   max_features=max_features, n_bins=n_bins,
@@ -200,7 +200,7 @@ class RandomForestClassifier:
                   bootstrap=bootstrap, bootstrap_features=bootstrap_features,
                   type_model=type_model, verbose=verbose,
                   rows_sample=rows_sample, max_leaves=max_leaves, quantile_per_tree=quantile_per_tree,
-                  gdf_datatype=gdf_datatype)
+                  gdf_datatype=dtype)
                 
     
     @staticmethod
