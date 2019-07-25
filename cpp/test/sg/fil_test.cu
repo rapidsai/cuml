@@ -17,14 +17,23 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <treelite/frontend.h>
+#include <cmath>
+#include <limits>
+#include <memory>
+#include <utility>
 #include "fil/fil.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
+#define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
+
 namespace ML {
 
 using namespace MLCommon;
+namespace tl = treelite;
+namespace tlf = treelite::frontend;
 
 struct FilTestParams {
   // input data parameters
@@ -42,6 +51,8 @@ struct FilTestParams {
   fil::algo_t algo;
   int seed;
   float tolerance;
+  // treelite parameters, only used for treelite tests
+  tl::Operator op;
 };
 
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
@@ -50,7 +61,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << ps.output << ", threshold = " << ps.threshold
      << ", algo = " << ps.algo << ", seed = " << ps.seed
-     << ", tolerance = " << ps.tolerance;
+     << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op);
   return os;
 }
 
@@ -62,7 +73,7 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan) {
 
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-class FilTest : public testing::TestWithParam<FilTestParams> {
+class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
   void SetUp() override {
     // setup
@@ -196,18 +207,11 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
+  virtual void init_forest(fil::forest_t* pforest) = 0;
+
   void predict_on_gpu() {
-    // init FIL model
-    fil::forest_params_t fil_ps;
-    fil_ps.nodes = nodes.data();
-    fil_ps.depth = ps.depth;
-    fil_ps.ntrees = ps.num_trees;
-    fil_ps.cols = ps.cols;
-    fil_ps.algo = ps.algo;
-    fil_ps.output = ps.output;
-    fil_ps.threshold = ps.threshold;
     fil::forest_t forest = nullptr;
-    fil::init_dense(handle, &forest, &fil_ps);
+    init_forest(&forest);
 
     // predict
     allocate(preds_d, ps.rows);
@@ -260,9 +264,108 @@ class FilTest : public testing::TestWithParam<FilTestParams> {
   FilTestParams ps;
 };
 
+class PredictFilTest : public BaseFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    // init FIL model
+    fil::forest_params_t fil_ps;
+    fil_ps.nodes = nodes.data();
+    fil_ps.depth = ps.depth;
+    fil_ps.ntrees = ps.num_trees;
+    fil_ps.cols = ps.cols;
+    fil_ps.algo = ps.algo;
+    fil_ps.output = ps.output;
+    fil_ps.threshold = ps.threshold;
+    fil::init_dense(handle, pforest, &fil_ps);
+  }
+};
+
+class TreeliteFilTest : public BaseFilTest {
+ protected:
+  /** adds nodes[node] of tree starting at index root to builder 
+      at index at *pkey, increments *pkey, 
+      and returns the treelite key of the node */
+  int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
+                       int node) {
+    fil::dense_node_t n = nodes[node];
+    int key = (*pkey)++;
+    TL_CPP_CHECK(builder->CreateNode(key));
+    int fid;
+    float threshold, output;
+    bool is_leaf, def_left;
+    fil::dense_node_decode(&n, &output, &threshold, &fid, &def_left, &is_leaf);
+    if (is_leaf) {
+      TL_CPP_CHECK(builder->SetLeafNode(key, output));
+    } else {
+      int left = root + 2 * (node - root) + 1;
+      int right = root + 2 * (node - root) + 2;
+      switch (ps.op) {
+        case tl::Operator::kLT:
+          break;
+        case tl::Operator::kLE:
+          // adjust the threshold
+          threshold =
+            std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
+          break;
+        case tl::Operator::kGT:
+          // adjust the threshold; left and right still need to be swapped
+          threshold =
+            std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
+        case tl::Operator::kGE:
+          // swap left and right
+          std::swap(left, right);
+          def_left = !def_left;
+          break;
+        default:
+          ASSERT(false, "comparison operator must be <, >, <= or >=");
+      }
+      int left_key = node_to_treelite(builder, pkey, root, left);
+      int right_key = node_to_treelite(builder, pkey, root, right);
+      TL_CPP_CHECK(builder->SetNumericalTestNode(
+        key, fid, ps.op, threshold, def_left, left_key, right_key));
+    }
+    return key;
+  }
+
+  void init_forest(fil::forest_t* pforest) override {
+    std::unique_ptr<tlf::ModelBuilder> model_builder(
+      new tlf::ModelBuilder(ps.cols, 1, 0));
+
+    // model metadata
+    switch (ps.output) {
+      case fil::output_t::RAW:
+        break;
+      case fil::output_t::PROB:
+        model_builder->SetModelParam("pred_transform", "sigmoid");
+        break;
+      default:
+        ASSERT(false, "output must be RAW or PROB");
+    }
+
+    // build the trees
+    for (int itree = 0; itree < ps.num_trees; ++itree) {
+      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder();
+      int key_counter = 0;
+      int root = itree * tree_num_nodes();
+      int root_key = node_to_treelite(tree_builder, &key_counter, root, root);
+      TL_CPP_CHECK(tree_builder->SetRootNode(root_key));
+      // InsertTree() consumes tree_builder
+      TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
+    }
+
+    // commit the model
+    tl::Model model;
+    TL_CPP_CHECK(model_builder->CommitModel(&model));
+
+    // init FIL forest with the model
+    fil::from_treelite(handle, pforest, &model);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+};
+
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold, algo,
 // seed, tolerance
-std::vector<FilTestParams> inputs = {
+std::vector<FilTestParams> predict_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::NAIVE, 42,
    2e-3f},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::TREE_REORG,
@@ -281,10 +384,37 @@ std::vector<FilTestParams> inputs = {
    fil::algo_t::TREE_REORG, 42, 2e-3f},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
 };
 
-TEST_P(FilTest, Predict) { compare(); }
+TEST_P(PredictFilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, FilTest, testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(FilTests, PredictFilTest,
+                        testing::ValuesIn(predict_inputs));
+
+std::vector<FilTestParams> import_inputs = {
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
+};
+
+TEST_P(TreeliteFilTest, Import) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteFilTest,
+                        testing::ValuesIn(import_inputs));
 
 }  // namespace ML
