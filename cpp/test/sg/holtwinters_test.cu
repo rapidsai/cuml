@@ -24,6 +24,8 @@ namespace ML {
 using namespace MLCommon;
 
 struct HoltWintersInputs {
+  int n;
+  int h;
   int batch_size;
   int frequency;
   ML::SeasonalType seasonal;
@@ -35,17 +37,14 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
  public:
   void basicTest() {
     params = ::testing::TestWithParam<HoltWintersInputs>::GetParam();
+    n = params.n;
+    h = params.h;
     batch_size = params.batch_size;
     frequency = params.frequency;
     ML::SeasonalType seasonal = params.seasonal;
     start_periods = params.start_periods;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-
-    int leveltrend_seed_len, season_seed_len, components_len;
-    int leveltrend_coef_offset, season_coef_offset;
-    int error_len;
 
     ML::HoltWinters::buffer_size(
       n, batch_size, frequency,
@@ -62,47 +61,49 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     allocate(SSE_error_ptr, batch_size, stream);
     allocate(forecast_ptr, batch_size * h, stream);
 
-    std::vector<T> dataset_h = {
-      112,    118,    132,    129,    121,    135,    148,    148,    136,
-      119,    104,    118,    115,    126,    141,    135,    125,    149,
-      170,    170,    158,    133,    114,    140,    145,    150,    178,
-      163,    172,    178,    199,    199,    184,    162,    146,    166,
-      171,    180,    193,    181,    183,    218,    230,    242,    209,
-      191,    172,    194,    196,    196,    236,    235,    229,    243,
-      264,    272,    237,    211,    180,    201,    204,    188,    235,
-      227,    234,    264,    302,    293,    259,    229,    203,    229,
-      242,    233,    267,    269,    270,    315,    364,    347,    312,
-      274,    237,    278,    284,    277,    317,    313,    318,    374,
-      413,    405,    355,    306,    271,    306,    315,    301,    356,
-      348,    355,    422,    465,    467,    404,    347,    305,    336,
-      340,    318,    362,    348,    363,    435,    491,    505,    404,
-      359,    310,    337,    315.42, 316.31, 316.50, 317.56, 318.13, 318.00,
-      316.39, 314.65, 313.68, 313.18, 314.66, 315.43, 316.27, 316.81, 317.42,
-      318.87, 319.87, 319.43, 318.01, 315.74, 314.00, 313.68, 314.84, 316.03,
-      316.73, 317.54, 318.38, 319.31, 320.42, 319.61, 318.42, 316.63, 314.83,
-      315.16, 315.94, 316.85, 317.78, 318.40, 319.53, 320.42, 320.85, 320.45,
-      319.45, 317.25, 316.11, 315.27, 316.53, 317.53, 318.58, 318.92, 319.70,
-      321.22, 322.08, 321.31, 319.58, 317.61, 316.05, 315.83, 316.91, 318.20,
-      319.41, 320.07, 320.74, 321.40, 322.06, 321.73, 320.27, 318.54, 316.54,
-      316.71, 317.53, 318.55, 319.27, 320.28, 320.73, 321.97, 322.00, 321.71,
-      321.05, 318.71, 317.66, 317.14, 318.70, 319.25, 320.46, 321.43, 322.23,
-      323.54, 323.91, 323.59, 322.24, 320.20, 318.48, 317.94, 319.63, 320.87,
-      322.17, 322.34, 322.88, 324.25, 324.83, 323.93, 322.38, 320.76, 319.10,
-      319.24, 320.56, 321.80, 322.40, 322.99, 323.73, 324.86, 325.40, 325.20,
-      323.98, 321.95, 320.18, 320.09, 321.16, 322.74, 26.663, 23.598, 26.931,
-      24.740, 25.806, 24.364, 24.477, 23.901, 23.175, 23.227, 21.672, 21.870,
-      21.439, 21.089, 23.709, 21.669, 21.752, 20.761, 23.479, 23.824, 23.105,
-      23.110, 21.759, 22.073, 21.937, 20.035, 23.590, 21.672, 22.222, 22.123,
-      23.950, 23.504, 22.238, 23.142, 21.059, 21.573, 21.548, 20.000, 22.424,
-      20.615, 21.761, 22.874, 24.104, 23.748, 23.262, 22.907, 21.519, 22.025,
-      22.604, 20.894, 24.677, 23.673, 25.320, 23.583, 24.671, 24.454, 24.122,
-      24.252, 22.084, 22.991, 23.287, 23.049, 25.076, 24.037, 24.430, 24.667,
-      26.451, 25.618, 25.014, 25.110, 22.964, 23.981, 23.798, 22.270, 24.775,
-      22.646, 23.988, 24.737, 26.276, 25.816, 25.210, 25.199, 23.162, 24.707,
-      24.364, 22.644, 25.565, 24.062, 25.431, 24.635, 27.009, 26.606, 26.268,
-      26.462, 25.246, 25.180, 24.657, 23.304, 26.982, 26.199, 27.210, 26.122,
-      26.706, 26.878, 26.152, 26.379, 24.712, 25.688, 24.990, 24.239, 26.721,
-      23.475, 24.767, 26.219, 28.361, 28.599, 27.914, 27.784, 25.693, 26.881};
+    std::vector<T> dataset_h;
+    if (seasonal == ML::SeasonalType::ADDITIVE) {
+      dataset_h = {
+        0.5,        0.6245908,  0.74135309, 0.84295029, 0.92299865, 0.97646846,
+        1.,         0.9921147,  0.95330803, 0.88601834, 0.7944737,  0.6844262,
+        0.56279052, 0.43720948, 0.3155738,  0.2055263,  0.11398166, 0.04669197,
+        0.0078853,  0.,         0.02353154, 0.07700135, 0.15704971, 0.25864691,
+        0.3754092,  0.5,        0.6245908,  0.74135309, 0.84295029, 0.92299865,
+        0.97646846, 1.,         0.9921147,  0.95330803, 0.88601834, 0.7944737,
+        0.6844262,  0.56279052, 0.43720948, 0.3155738,  0.2055263,  0.11398166,
+        0.04669197, 0.0078853,  0.,         0.02353154, 0.07700135, 0.15704971,
+        0.25864691, 0.3754092,  0.5,        0.6245908,  0.74135309, 0.84295029,
+        0.92299865, 0.97646846, 1.,         0.9921147,  0.95330803, 0.88601834,
+        0.7944737,  0.6844262,  0.56279052, 0.43720948, 0.3155738,  0.2055263,
+        0.11398166, 0.04669197, 0.0078853,  0.,         0.02353154, 0.07700135,
+        0.15704971, 0.25864691, 0.3754092,  0.5,        0.6245908,  0.74135309,
+        0.84295029, 0.92299865, 0.97646846, 1.,         0.9921147,  0.95330803,
+        0.88601834, 0.7944737,  0.6844262,  0.56279052, 0.43720948, 0.3155738};
+    } else {
+      dataset_h = {
+        0.01644402, 0.02802703, 0.05505405, 0.04926255, 0.03381853, 0.06084556,
+        0.08594208, 0.08594208, 0.06277606, 0.02995753, 0.001,      0.02802703,
+        0.02223552, 0.04347104, 0.07242857, 0.06084556, 0.04154054, 0.08787259,
+        0.12841313, 0.12841313, 0.1052471,  0.05698456, 0.02030502, 0.07049807,
+        0.08015058, 0.08980309, 0.14385714, 0.11489961, 0.13227413, 0.14385714,
+        0.18439768, 0.18439768, 0.15544015, 0.11296911, 0.08208108, 0.12069112,
+        0.13034363, 0.14771815, 0.17281467, 0.14964865, 0.15350965, 0.22107722,
+        0.24424324, 0.26740927, 0.2037027,  0.16895367, 0.13227413, 0.17474517,
+        0.17860618, 0.17860618, 0.25582625, 0.25389575, 0.24231274, 0.26933977,
+        0.30988031, 0.32532432, 0.25775676, 0.20756371, 0.14771815, 0.18825869,
+        0.19405019, 0.16316216, 0.25389575, 0.23845174, 0.25196525, 0.30988031,
+        0.38323938, 0.36586486, 0.3002278,  0.24231274, 0.19211969, 0.24231274,
+        0.26740927, 0.25003475, 0.31567181, 0.31953282, 0.32146332, 0.40833591,
+        0.5029305,  0.47011197, 0.4025444,  0.32918533, 0.25775676, 0.33690734,
+        0.34849035, 0.33497683, 0.41219691, 0.4044749,  0.41412741, 0.52223552,
+        0.5975251,  0.58208108, 0.48555598, 0.39096139, 0.32339382, 0.39096139,
+        0.40833591, 0.38130888, 0.48748649, 0.47204247, 0.48555598, 0.61489961,
+        0.6979112,  0.7017722,  0.58015058, 0.47011197, 0.38903089, 0.44887645,
+        0.45659846, 0.41412741, 0.4990695,  0.47204247, 0.501,      0.63999614,
+        0.74810425, 0.77513127, 0.58015058, 0.49327799, 0.3986834,  0.45080695,
+        0.49520849, 0.46045946, 0.58401158, 0.56470656, 0.61103861, 0.71142471,
+        0.85814286, 0.87937838, 0.69405019, 0.58594208, 0.4990695,  0.58208108};
+    }
 
     allocate(data, batch_size * n);
     updateDevice(data, dataset_h.data(), batch_size * n, stream);
@@ -113,13 +114,11 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
                          seasonal, data, level_ptr, trend_ptr, season_ptr,
                          SSE_error_ptr);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ML::HoltWinters::predict(handle, n, batch_size, frequency, h, seasonal,
-                             level_ptr, trend_ptr, season_ptr, forecast_ptr);
+    ML::HoltWinters::forecast(handle, n, batch_size, frequency, h, seasonal,
+                              level_ptr, trend_ptr, season_ptr, forecast_ptr);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
@@ -131,38 +130,101 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     CUDA_CHECK(cudaFree(season_ptr));
     CUDA_CHECK(cudaFree(SSE_error_ptr));
     CUDA_CHECK(cudaFree(forecast_ptr));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  public:
+  cudaStream_t stream;
   HoltWintersInputs params;
   T *data;
-  int n = 120, h = 50;
+  int n, h;
+  int leveltrend_seed_len, season_seed_len, components_len;
+  int leveltrend_coef_offset, season_coef_offset;
+  int error_len;
   int batch_size, frequency, start_periods;
-  T *level_ptr, *trend_ptr, *season_ptr, *SSE_error_ptr, *forecast_ptr;
+  double *SSE_error_ptr;
+  double *level_ptr, *trend_ptr, *season_ptr;
+  Dtype *forecast_ptr;
 };
 
 const std::vector<HoltWintersInputs> inputsf1 = {
-  {3, 12, ML::SeasonalType::ADDITIVE, 2}};
+  {90, 10, 1, 25, ML::SeasonalType::ADDITIVE, 2}};
 const std::vector<HoltWintersInputs> inputsf2 = {
-  {3, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
+  {132, 12, 1, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
+const std::vector<HoltWintersInputs> inputsd2 = {
+  {132, 12, 1, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
 
 typedef HoltWintersTest<float> HoltWintersTestAF;
 TEST_P(HoltWintersTestAF, Fit) {
-  myPrintDevVector("forecast", forecast_ptr, batch_size * h);
-  myPrintDevVector("error", SSE_error_ptr, batch_size);
-  ASSERT_TRUE(true == true);
+  std::vector<float> test = {0.2055263,  0.11398166, 0.04669197, 0.0078853,
+                             0.,         0.02353154, 0.07700135, 0.15704971,
+                             0.25864691, 0.3754092};
+  std::vector<float> forecast_h(batch_size * h);
+  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+  std::vector<float> ae(batch_size * h);
+  for (int i = 0; i < batch_size * h; i++) {
+    ae[i] = abs(test[i] - forecast_h[i]);
+  }
+  std::sort(ae.begin(), ae.end());
+  float mae;
+  if (h % 2 == 0) {
+    mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
+  } else {
+    mae = ae[(int)h / 2];
+  }
+  std::cout << "MAE: " << mae << std::endl;
 }
 
 typedef HoltWintersTest<float> HoltWintersTestMF;
 TEST_P(HoltWintersTestMF, Fit) {
-  myPrintDevVector("forecast", forecast_ptr, batch_size * h);
-  myPrintDevVector("error", SSE_error_ptr, batch_size);
-  ASSERT_TRUE(true == true);
+  std::vector<float> test = {0.6052471,  0.55505405, 0.60910811, 0.69018919,
+                             0.71142471, 0.83304633, 1.001,      0.97011197,
+                             0.78092278, 0.69018919, 0.55312355, 0.63420463};
+  std::vector<float> forecast_h(batch_size * h);
+  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+  std::vector<float> ae(batch_size * h);
+  for (int i = 0; i < batch_size * h; i++) {
+    ae[i] = abs(test[i] - forecast_h[i]);
+  }
+  std::sort(ae.begin(), ae.end());
+  float mae;
+  if (h % 2 == 0) {
+    mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
+  } else {
+    mae = ae[(int)h / 2];
+  }
+  std::cout << "MAE: " << mae << std::endl;
+}
+
+typedef HoltWintersTest<double> HoltWintersTestMD;
+TEST_P(HoltWintersTestMD, Fit) {
+  std::vector<double> test = {0.6052471,  0.55505405, 0.60910811, 0.69018919,
+                              0.71142471, 0.83304633, 1.001,      0.97011197,
+                              0.78092278, 0.69018919, 0.55312355, 0.63420463};
+  std::vector<double> forecast_h(batch_size * h);
+  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+  std::vector<double> ae(batch_size * h);
+  for (int i = 0; i < batch_size * h; i++) {
+    ae[i] = abs(test[i] - forecast_h[i]);
+  }
+  std::sort(ae.begin(), ae.end());
+  double mae;
+  if (h % 2 == 0) {
+    mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
+  } else {
+    mae = ae[(int)h / 2];
+  }
+  std::cout << "MAE: " << mae << std::endl;
 }
 
 INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestAF,
                         ::testing::ValuesIn(inputsf1));
 INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestMF,
                         ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestMD,
+                        ::testing::ValuesIn(inputsd2));
 
 }  // namespace ML
