@@ -19,6 +19,11 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
+Dataset Generation
+------------------
+
+  .. automethod:: cuml.datasets.make_blobs
+
 Regression and Classification
 =============================
 
