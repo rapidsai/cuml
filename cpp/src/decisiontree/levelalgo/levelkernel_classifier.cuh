@@ -171,13 +171,14 @@ __global__ void get_best_split_classification_kernel(
   T* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
+  __shared__ GainIdxPair shared_pair;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  unsigned int* tmp_histleft =
-    &shmem_split_eval[threadIdx.x * 2 * n_unique_labels];
+  unsigned int* tmp_histleft = &shmem_split_eval[threadIdx.x * n_unique_labels];
   unsigned int* tmp_histright =
-    &shmem_split_eval[threadIdx.x * 2 * n_unique_labels + n_unique_labels];
+    &shmem_split_eval[threadIdx.x * n_unique_labels +
+                      blockDim.x * n_unique_labels];
   unsigned int* best_split_hist =
     &shmem_split_eval[2 * n_unique_labels * blockDim.x];
   unsigned int* parent_hist_local =
@@ -231,18 +232,24 @@ __global__ void get_best_split_classification_kernel(
     __syncthreads();
     GainIdxPair ans =
       BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
-    __syncthreads();
 
     if (threadIdx.x == 0) {
+      shared_pair = ans;
+    }
+    __syncthreads();
+    ans = shared_pair;
+
+    if (threadIdx.x == (blockDim.x - 1)) {
       outgain[nodeid] = ans.gain;
       best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
       best_bin_id[nodeid] = ans.idx % nbins;
     }
+    
     if (ans.idx != -1) {
       int coloffset =
         ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
       int binoffset = (ans.idx % nbins) * n_unique_labels;
-
+      
       for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
         unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
         unsigned int val_right = parent_hist_local[j] - val_left;
@@ -252,11 +259,11 @@ __global__ void get_best_split_classification_kernel(
         atomicAdd(&best_nrows[1], val_right);
       }
       __syncthreads();
-
+      
       for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
         child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
       }
-
+      
       if (threadIdx.x < 2) {
         child_best_metric[2 * nodeid + threadIdx.x] =
           F::exec(&best_split_hist[threadIdx.x * n_unique_labels],
