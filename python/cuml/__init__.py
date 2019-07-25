@@ -37,6 +37,7 @@ from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
 
 from cuml.metrics.regression import r2_score
+from cuml.metrics.accuracy import accuracy_score
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 

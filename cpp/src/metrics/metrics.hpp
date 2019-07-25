@@ -232,5 +232,7 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
                 const int n, const int lower_class_range,
                 const int upper_class_range);
 
+float accuracy_score_py(const cumlHandle &handle, const int *predictions,
+                        const int *ref_predictions, int n);
 }  // namespace Metrics
 }  // namespace ML
