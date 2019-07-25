@@ -217,8 +217,8 @@ class RandomForestClassifier:
 
         Parameters
         ----------
-        X : Acceptable format: dask-cudf. Dense matrix (floats or doubles) of shape (n_samples, n_features).
-        y : Acceptable format: dask-cudf. Dense matrix (floats or doubles) of shape (n_samples, 1)
+        X : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, n_features).
+        y : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, 1)
         """
         c = default_client()
 
@@ -240,7 +240,7 @@ class RandomForestClassifier:
 
         Parameters
         ----------
-        X : Acceptable format: dask-cudf. Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        X : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         Returns
         ----------
