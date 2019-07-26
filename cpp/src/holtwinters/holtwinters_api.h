@@ -68,6 +68,8 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
              *            number of seasons to be used for seasonal seed values
              * @param[in] seasonal
              *            type of seasonal component (ADDITIVE or MULTIPLICATIVE)
+             * @param[in] epsilon
+             *            the error tolerance value for optimization
              * @param[in] data
              *            device pointer to the data to fit on
              * @param[out] level_d
@@ -84,15 +86,15 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
 cumlError_t cumlHoltWintersSp_fit(cumlHandle_t handle, int n, int batch_size,
                                   int frequency, int start_periods,
                                   cumlHoltWintersSeasonal_t seasonal,
-                                  float *data, float *level_ptr,
+                                  float epsilon, float *data, float *level_ptr,
                                   float *trend_ptr, float *season_ptr,
                                   float *SSE_error_ptr);
 cumlError_t cumlHoltWintersDp_fit(cumlHandle_t handle, int n, int batch_size,
                                   int frequency, int start_periods,
                                   cumlHoltWintersSeasonal_t seasonal,
-                                  double *data, double *level_ptr,
-                                  double *trend_ptr, double *season_ptr,
-                                  double *SSE_error_ptr);
+                                  double epsilon, double *data,
+                                  double *level_ptr, double *trend_ptr,
+                                  double *season_ptr, double *SSE_error_ptr);
 /** @} */
 
 /**

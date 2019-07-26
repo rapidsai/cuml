@@ -35,6 +35,8 @@ struct HoltWintersInputs {
   int frequency;
   ML::SeasonalType seasonal;
   int start_periods;
+  T epsilon;
+  T mae_tolerance;
 };
 
 template <typename T>
@@ -50,6 +52,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     frequency = params.frequency;
     ML::SeasonalType seasonal = params.seasonal;
     start_periods = params.start_periods;
+    epsilon = params.epsilon;
+    mae_tolerance = params.mae_tolerance;
 
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -75,8 +79,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     handle.setStream(stream);
 
     ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
-                         seasonal, data, level_ptr, trend_ptr, season_ptr,
-                         SSE_error_ptr);
+                         seasonal, epsilon, data, level_ptr, trend_ptr,
+                         season_ptr, SSE_error_ptr);
 
     ML::HoltWinters::forecast(handle, n, batch_size, frequency, h, seasonal,
                               level_ptr, trend_ptr, season_ptr, forecast_ptr);
@@ -107,29 +111,30 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
   int error_len;
   int batch_size, frequency, start_periods;
   T *SSE_error_ptr, *level_ptr, *trend_ptr, *season_ptr, *forecast_ptr;
+  T epsilon, mae_tolerance;
 };
 
 const std::vector<HoltWintersInputs<float>> inputsf = {
   {additive_trainf.data(), additive_testf.data(), 90, 10, 1, 25,
-   ML::SeasonalType::ADDITIVE, 2},
+   ML::SeasonalType::ADDITIVE, 2, 2.24e-3, 1e-6},
   {multiplicative_trainf.data(), multiplicative_testf.data(), 132, 12, 1, 12,
-   ML::SeasonalType::MULTIPLICATIVE, 2},
+   ML::SeasonalType::MULTIPLICATIVE, 2, 2.24e-3, 3e-2},
   {additive_normalized_trainf.data(), additive_normalized_testf.data(), 90, 10,
-   1, 25, ML::SeasonalType::ADDITIVE, 2},
+   1, 25, ML::SeasonalType::ADDITIVE, 2, 2.24e-3, 1e-6},
   {multiplicative_normalized_trainf.data(),
    multiplicative_normalized_testf.data(), 132, 12, 1, 12,
-   ML::SeasonalType::MULTIPLICATIVE, 2}};
+   ML::SeasonalType::MULTIPLICATIVE, 2, 2.24e-3, 2.5e-1}};
 
 const std::vector<HoltWintersInputs<double>> inputsd = {
   {additive_traind.data(), additive_testd.data(), 90, 10, 1, 25,
-   ML::SeasonalType::ADDITIVE, 2},
+   ML::SeasonalType::ADDITIVE, 2, 2.24e-7, 1e-6},
   {multiplicative_traind.data(), multiplicative_testd.data(), 132, 12, 1, 12,
-   ML::SeasonalType::MULTIPLICATIVE, 2},
+   ML::SeasonalType::MULTIPLICATIVE, 2, 2.24e-7, 3e-2},
   {additive_normalized_traind.data(), additive_normalized_testd.data(), 90, 10,
-   1, 25, ML::SeasonalType::ADDITIVE, 2},
+   1, 25, ML::SeasonalType::ADDITIVE, 2, 2.24e-7, 1e-6},
   {multiplicative_normalized_traind.data(),
    multiplicative_normalized_testd.data(), 132, 12, 1, 12,
-   ML::SeasonalType::MULTIPLICATIVE, 2}};
+   ML::SeasonalType::MULTIPLICATIVE, 2, 2.24e-7, 5e-2}};
 
 template <typename T>
 void normalise(T *data, int len) {
@@ -165,6 +170,7 @@ TEST_P(HoltWintersTestF, Fit) {
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
   std::cout << "MAE: " << mae << std::endl;
+  ASSERT_TRUE(mae < mae_tolerance);
 }
 
 typedef HoltWintersTest<double> HoltWintersTestD;
@@ -174,6 +180,7 @@ TEST_P(HoltWintersTestD, Fit) {
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
   std::cout << "MAE: " << mae << std::endl;
+  ASSERT_TRUE(mae < mae_tolerance);
 }
 
 INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestF,
