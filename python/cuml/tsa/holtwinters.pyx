@@ -88,7 +88,7 @@ class HoltWinters(Base):
 
     Additionally, be warned that there may exist floating point instability
     issues in this model. Small values in endog may lead to faulty results.
-    See ____ for more information.
+    See https://github.com/rapidsai/cuml/issues/888 for more information.
 
     **Known Differences**:
     This version of HoltWinters differs from statsmodels in some other minor
