@@ -807,10 +807,7 @@ void coo_symmetrize(COO<T> *const in, COO<T> *out,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-// To suppress some warnings --> allow unsigned ints
-#define ceil_uint(a, b) ((a + b - 1) / b)
 #define restrict __restrict__
-
 /**
  * @brief Find how much space needed in each row.
  * We look through all datapoints and increment the count for each row.
@@ -921,8 +918,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(ceil_uint(k, threadsPerBlock.x),
-                       ceil_uint(n, threadsPerBlock.y));
+  const dim3 numBlocks(MLCommon::ceildiv(k, TPB_X),
+                       MLCommon::ceildiv(n, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   int *row_sizes;
@@ -934,8 +931,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
     knn_dists, knn_indices, n, k, row_sizes, row_sizes2);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  reduce_find_size<<<ceil_uint(n, 1024), 1024, 0, stream>>>(n, k, row_sizes,
-                                                            row_sizes2);
+  reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
+    n, k, row_sizes, row_sizes2);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k

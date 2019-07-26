@@ -30,8 +30,8 @@ import pandas as pd
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, input_to_dev_array, zeros
-from numba import cuda
+from cuml.utils import input_to_dev_array as to_cuda, zeros
+from numba import 
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -41,31 +41,33 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "tsne/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit(const cumlHandle &handle,
-                        const float *X,
-                        float *Y,
-                        const int n,
-                        const int p,
-                        const int dim,
-                        int n_neighbors,
-                        const float theta,
-                        const float epssq,
-                        float perplexity,
-                        const int perplexity_max_iter,
-                        const float perplexity_tol,
-                        const float early_exaggeration,
-                        const int exaggeration_iter,
-                        const float min_gain,
-                        const float pre_learning_rate,
-                        const float post_learning_rate,
-                        const int max_iter,
-                        const float min_grad_norm,
-                        const float pre_momentum,
-                        const float post_momentum,
-                        const long long random_state,
-                        const bool verbose,
-                        const bool intialize_embeddings,
-                        bool barnes_hut) except +
+    cdef void TSNE_fit(
+        const cumlHandle &handle,
+        const float *X,
+        float *Y,
+        const int n,
+        const int p,
+        const int dim,
+        int n_neighbors,
+        const float theta,
+        const float epssq,
+        float perplexity,
+        const int perplexity_max_iter,
+        const float perplexity_tol,
+        const float early_exaggeration,
+        const int exaggeration_iter,
+        const float min_gain,
+        const float pre_learning_rate,
+        const float post_learning_rate,
+        const int max_iter,
+        const float min_grad_norm,
+        const float pre_momentum,
+        const float post_momentum,
+        const long long random_state,
+        const bool verbose,
+        const bool intialize_embeddings,
+        bool barnes_hut) except +
+
 
 class TSNE(Base):
     """
@@ -150,7 +152,7 @@ class TSNE(Base):
     *   van der Maaten, L.J.P.
         t-Distributed Stochastic Neighbor Embedding
         https://lvdmaaten.github.io/tsne/
-
+    
     *   van der Maaten, L.J.P.; Hinton, G.E. 
         Visualizing High-Dimensional Data
         Using t-SNE. Journal of Machine Learning Research 9:2579-2605, 2008.
@@ -159,85 +161,102 @@ class TSNE(Base):
         Efficient Algorithms for t-distributed Stochastic Neighborhood Embedding
     """
     def __init__(self,
-                int n_components = 2,
-                float perplexity = 30.0,
-                float early_exaggeration = 12.0,
-                float learning_rate = 200.0,
-                int n_iter = 1000,
-                int n_iter_without_progress = 300,
-                float min_grad_norm = 1e-07,
-                str metric = 'euclidean',
-                str init = 'random',
-                int verbose = 0,
-                random_state = None,
-                str method = 'barnes_hut',
-                float angle = 0.5,
+                int n_components=2,
+                float perplexity=30.0,
+                float early_exaggeration=12.0,
+                float learning_rate=200.0,
+                int n_iter=1000,
+                int n_iter_without_progress=300,
+                float min_grad_norm=1e-07,
+                str metric='euclidean',
+                str init='random',
+                int verbose=0,
+                random_state=None,
+                str method='barnes_hut',
+                float angle=0.5,
 
-                str learning_rate_method = 'adaptive',
-                int n_neighbors = 90,
-                int perplexity_max_iter = 100,
-                int exaggeration_iter = 250,
-                float pre_momentum = 0.5,
-                float post_momentum = 0.8,
-                bool should_downcast = True,
-                handle = None):
+                str learning_rate_method='adaptive',
+                int n_neighbors=90,
+                int perplexity_max_iter=100,
+                int exaggeration_iter=250,
+                float pre_momentum=0.5,
+                float post_momentum=0.8,
+                bool should_downcast=True,
+                handle=None):
 
         super(TSNE, self).__init__(handle = handle, verbose = False)
 
         if n_components < 0:
-            print("[Error] n_components = {} should be more than 0.".format(n_components))
+            print("[Error] n_components = {} should be more than 0.".\
+                format(n_components))
             n_components = 2
         if n_components != 2 and method == 'barnes_hut':
-            print("[Warn] Barnes Hut only works when n_components == 2. Switching to exact.")
+            print("[Warn] Barnes Hut only works when n_components == 2. "
+                "Switching to exact.")
             method = 'exact'
         if perplexity < 0:
-            print("[Error] perplexity = {} should be more than 0.".format(perplexity))
+            print("[Error] perplexity = {} should be more than 0.".\
+                format(perplexity))
             perplexity = 30
         if early_exaggeration < 0:
-            print("[Error] early_exaggeration = {} should be more than 0.".format(early_exaggeration))
+            print("[Error] early_exaggeration = {} should be more than 0.".\
+                format(early_exaggeration))
             early_exaggeration = 12
         if learning_rate < 0:
-            print("[Error] learning_rate = {} should be more than 0.".format(learning_rate))
+            print("[Error] learning_rate = {} should be more than 0.".\
+                format(learning_rate))
             learning_rate = 200
         if n_iter < 0:
             print("[Error] n_iter = {} should be more than 0.".format(n_iter))
             n_iter = 1000
         if n_iter <= 100:
-            print("[Warn] n_iter = {} might cause TSNE to output wrong results. Set it higher.".format(n_iter))
+            print("[Warn] n_iter = {} might cause TSNE to output wrong "
+                "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
-            print("[Warn] TSNE does not support {} but only Euclidean. Will do in the near future.".format(metric))
+            print("[Warn] TSNE does not support {} but only Euclidean. "
+                "Will do in the near future.".format(metric))
             metric = 'euclidean'
         if init.lower() != 'random':
-            print("[Warn] TSNE does not support {} but only random intialization. Will do in the near future.".format(init))
+            print("[Warn] TSNE does not support {} but only random "
+                "intialization. Will do in the near future.".format(init))
             init = 'random'
         if verbose != 0:
             verbose = 1
         if angle < 0 or angle > 1:
-            print("[Error] angle = {} should be more than 0 and less than 1.".format(angle))
+            print("[Error] angle = {} should be > 0 and less than 1.".\
+                format(angle))
             angle = 0.5
         if n_neighbors < 0:
-            print("[Error] n_neighbors = {} should be more than 0.".format(n_neighbors))
+            print("[Error] n_neighbors = {} should be more than 0.".\
+                format(n_neighbors))
             n_neighbors = <int> (perplexity * 3)
         if n_neighbors > 1023:
-            print("[Error] n_neighbors = {} should be less than 1023, as FAISS doesn't support more".format(n_neighbors))
+            print("[Error] n_neighbors = {} should be less than 1023, as "
+                "FAISS doesn't support more".format(n_neighbors))
             n_neighbors = 1023
         if perplexity_max_iter < 0:
-            print("[Error] perplexity_max_iter = {} should be more than 0.".format(perplexity_max_iter))
+            print("[Error] perplexity_max_iter = {} should be more than 0.".\
+                format(perplexity_max_iter))
             perplexity_max_iter = 100
         if exaggeration_iter < 0:
-            print("[Error] exaggeration_iter = {} should be more than 0.".format(exaggeration_iter))
+            print("[Error] exaggeration_iter = {} should be more than 0.".\
+                format(exaggeration_iter))
             exaggeration_iter = 250
         if exaggeration_iter > n_iter:
-            print("[Error] exaggeration_iter = {} should be more less than n_iter = {}.".format(exaggeration_iter, n_iter))
+            print("[Error] exaggeration_iter = {} should be more less than "
+                "n_iter = {}.".format(exaggeration_iter, n_iter))
             exaggeration_iter = <int> max(<float>n_iter * 0.25 , 1)
         if pre_momentum < 0 or pre_momentum > 1:
-            print("[Error] pre_momentum = {} should be more than 0 and less than 1.".format(pre_momentum))
+            print("[Error] pre_momentum = {} should be more than 0 and less "
+                "than 1.".format(pre_momentum))
             pre_momentum = 0.5
         if post_momentum < 0 or post_momentum > 1:
-            print("[Error] post_momentum = {} should be more than 0 and less than 1.".format(post_momentum))
+            print("[Error] post_momentum = {} should be more than 0 and less "
+                "than 1.".format(post_momentum))
             post_momentum = 0.8
         if pre_momentum > post_momentum:
-            print("[Error] post_momentum = {} should be more than pre_momentum = {}".format(post_momentum, pre_momentum))
+            print("[Error] post_momentum = {} should be more than "
+                "pre_momentum = {}".format(post_momentum, pre_momentum))
             pre_momentum = post_momentum * 0.75
 
         self.n_components = n_components
@@ -311,61 +330,89 @@ class TSNE(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
+        cdef uintptr_t X_ptr
         if self._should_downcast:
-            X_m, X_ctype, n, p, dtype = input_to_dev_array(X, order = 'C', convert_to_dtype = np.float32)
+            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+                                            convert_to_dtype=np.float32)
         else:
-            X_m, X_ctype, n, p, dtype = input_to_dev_array(X, order = 'C', check_dtype = np.float32)
+            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+                                            check_dtype=np.float32)
 
         if n <= 1:
-            raise ValueError("There needs to be more than 1 sample to build nearest the neighbors graph")
+            raise ValueError("There needs to be more than 1 sample to build "
+                            "nearest the neighbors graph")
 
         self.n_neighbors = min(n, self.n_neighbors)
         if self.perplexity > n:
-            print("[Warn] Perplexity = {} should be less than the # of datapoints = {}.".format(self.perplexity, n))
+            print(  "[Warn] Perplexity = {} should be less than the "
+                    "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = cuda.device_array( (n, self.n_components), order = "F", dtype = np.float32)
-        cdef uintptr_t X_ptr = X_ctype
+        Y = cuda.device_array((n, self.n_components), 
+                                order="F", dtype=np.float32)
         cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
-        if self.learning_rate_method == 'adaptive' and self.method == "barnes_hut":
+        if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
             if self.verbose:
-                print("Learning rate is adpative. In TSNE paper, it has been shown that as n->inf, "
-                    "Barnes Hut works well if n_neighbors->30, learning_rate->20000, early_exaggeration->24.")
-                print("cuML uses an adpative method. n_neighbors decreases to 30 as n->inf. Likewise for the other params.")
+                print(  "Learning rate is adpative. In TSNE paper, "
+                        "it has been shown that as n->inf, "
+                        "Barnes Hut works well if n_neighbors->30, "
+                        "learning_rate->20000, early_exaggeration->24.")
+                print(  "cuML uses an adpative method."
+                        "n_neighbors decreases to 30 as n->inf. "
+                        "Likewise for the other params.")
             if n <= 2000:
                 self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
-                # A linear trend from (n=2000, neigh=100) to (n=60000, neigh=30)
+                # A linear trend from (n=2000, neigh=100) to (n=60000,neigh=30)
                 self.n_neighbors = max(int(102 - 0.0012 * n), 30)
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
             if self.verbose:
-                print("New n_neighbors = {}, learning_rate = {}, early_exaggeration = {}".format(
-                    self.n_neighbors, self.pre_learning_rate, self.early_exaggeration))
+                print(  "New n_neighbors = {}, "
+                        "learning_rate = {}, "
+                        "early_exaggeration = {}".format(
+                        self.n_neighbors,
+                        self.pre_learning_rate,
+                        self.early_exaggeration))
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
-        
-        TSNE_fit(handle_[0],
-                <float*> X_ptr, <float*> embed_ptr,
-                <int> n, <int> p, <int> self.n_components, <int> self.n_neighbors,
-                <float> self.angle, <float> self.epssq,
-                <float> self.perplexity, <int> self.perplexity_max_iter,
-                <float> self.perplexity_tol,
-                <float> self.early_exaggeration,
-                <int> self.exaggeration_iter, <float> self.min_gain,
-                <float> self.pre_learning_rate, <float> self.post_learning_rate,
-                <int> self.n_iter, <float> self.min_grad_norm,
-                <float> self.pre_momentum, <float> self.post_momentum,
-                <long long> (-1 if self.random_state is None else self.random_state),
-                <bool> self.verbose,
-                <bool> True, <bool> True)
+
+        cdef long long seed = -1
+        if self.random_state is not None:
+            seed = self.random_state
+
+        TSNE_fit(   handle_[0],
+                    <float*> X_ptr,
+                    <float*> embed_ptr,
+                    <int> n,
+                    <int> p,
+                    <int> self.n_components,
+                    <int> self.n_neighbors,
+                    <float> self.angle,
+                    <float> self.epssq,
+                    <float> self.perplexity,
+                    <int> self.perplexity_max_iter,
+                    <float> self.perplexity_tol,
+                    <float> self.early_exaggeration,
+                    <int> self.exaggeration_iter,
+                    <float> self.min_gain,
+                    <float> self.pre_learning_rate,
+                    <float> self.post_learning_rate,
+                    <int> self.n_iter,
+                    <float> self.min_grad_norm,
+                    <float> self.pre_momentum,
+                    <float> self.post_momentum,
+                    <long long> seed,
+                    <bool> self.verbose,
+                    <bool> True,
+                    <bool> True)
 
         # Clean up memory
-        del X_m
+        del _X
         self.Y = Y.copy_to_host()
         del Y
         return self
@@ -389,7 +436,7 @@ class TSNE(Base):
             return cudf.DataFrame.from_pandas(pd.DataFrame(self.Y))
         return self.Y
 
-    def get_params(self, bool deep = True):
+    def get_params(self, bool deep=True):
         """
         Sklearn style return parameter state
         Parameters
@@ -411,8 +458,8 @@ class TSNE(Base):
         if not params:
             return self
         for key, value in params.items():
-            try:
+            if key in self.__dict__.keys():
                 setattr(self, key, value)
-            except:
-                raise ValueError('Invalid parameter {} for estimator'.format(key))
+            else:
+                raise ValueError('Invalid parameter {} for TSNE'.format(key))
         return self
