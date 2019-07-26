@@ -28,7 +28,9 @@ class KMeans(object):
     Multi-Node Multi-GPU implementation of KMeans
     """
 
-    def __init__(self, n_clusters=8, init="k-means||", verbose=0,
+    def __init__(self, n_clusters=8, max_iter=300, tol=1e-4,
+                 verbose=0, random_state=1, precompute_distances='auto',
+                 init='scalable-k-means++', n_init=1, algorithm='auto',
                  client=None):
         """
         Constructor for distributed KMeans model
@@ -37,12 +39,19 @@ class KMeans(object):
         :param verbose: Print useful info while executing
         """
         self.client = default_client() if client is None else client
+        self.max_iter = max_iter
+        self.tol = tol
+        self.random_state = random_state
+        self.precompute_distances = precompute_distances
+        self.n_init = n_init
+        self.algorithm = algorithm
         self.n_clusters = n_clusters
         self.init = init
         self.verbose = verbose
 
     @staticmethod
-    def func_fit(sessionId, n_clusters, init, verbose, df, r):
+    def func_fit(sessionId, n_clusters, max_iter, tol, verbose, random_state,
+                 precompute_distances, init, n_init, algorithm, df, r):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -52,8 +61,16 @@ class KMeans(object):
         :return: The fit model
         """
         handle = worker_state(sessionId)["handle"]
-        return cumlKMeans(handle=handle, init=init,
-                          n_clusters=n_clusters, verbose=verbose).fit(df)
+        return cumlKMeans(handle=handle,
+                          init=init,
+                          max_iter=max_iter,
+                          tol=tol,
+                          random_state=random_state,
+                          n_init=n_init,
+                          algorithm=algorithm,
+                          precompute_distances=precompute_distances,
+                          n_clusters=n_clusters,
+                          verbose=verbose).fit(df)
 
     @staticmethod
     def func_transform(model, df, r):
@@ -105,8 +122,14 @@ class KMeans(object):
             KMeans.func_fit,
             comms.sessionId,
             self.n_clusters,
-            self.init,
+            self.max_iter,
+            self.tol,
             self.verbose,
+            self.random_state,
+            self.precompute_distances,
+            self.init,
+            self.n_init,
+            self.algorithm,
             f,
             random.random(),
             workers=[w]) for w, f in gpu_futures]
