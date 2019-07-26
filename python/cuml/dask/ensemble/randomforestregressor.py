@@ -15,8 +15,9 @@
 #
 
 from cuml.common.handle import Handle
-from cuml.dask.common.utils import parse_host_port
 from cuml.ensemble import RandomForestRegressor as cuRFR
+
+from cuml.dask.common import extract_ddf_partitions
 
 from dask import delayed
 from dask.distributed import Client, default_client, get_worker, wait
@@ -28,32 +29,6 @@ import random
 
 from tornado import gen
 from toolz import first
-
-
-@gen.coroutine
-def _extract_ddf_partitions(ddf):
-    """
-    Given a Dask cuDF, return a tuple with (worker, future) for each partition
-    """
-    client = default_client()
-    
-    delayed_ddf = ddf.to_delayed()
-    parts = client.compute(delayed_ddf)
-    yield wait(parts)
-    
-    key_to_part_dict = dict([(str(part.key), part) for part in parts])
-    who_has = yield client.who_has(parts)
-
-    worker_map = []
-    for key, workers in who_has.items():
-        worker = parse_host_port(first(workers))
-        worker_map.append((worker, key_to_part_dict[key]))
-
-    gpu_data = {worker:part for worker, part in worker_map}
-
-    yield wait(gpu_data)
-
-    raise gen.Return(gpu_data)
 
 
 class RandomForestRegressor:
@@ -173,7 +148,7 @@ class RandomForestRegressor:
                     
         ws = list(zip(workers, list(range(len(workers)))))
                 
-        self.rfs = {parse_host_port(worker):c.submit(RandomForestRegressor._func_build_rf, 
+        self.rfs = {worker: c.submit(RandomForestRegressor._func_build_rf,
                              n, self.n_estimators_per_worker[n], 
                              max_depth,
                              handle, max_features, n_bins, 
@@ -232,13 +207,13 @@ class RandomForestRegressor:
         """
         c = default_client()
 
-        X_futures = c.sync(_extract_ddf_partitions, X)
-        y_futures = c.sync(_extract_ddf_partitions, y)
-                                       
+        X_futures = c.sync(extract_ddf_partitions, X)
+        y_futures = dict(c.sync(extract_ddf_partitions, y))
+
         f = list()
-        for w, xc in X_futures.items():     
+        for w, xc in X_futures:
             f.append(c.submit(RandomForestRegressor._fit, self.rfs[w], xc, y_futures[w], random.random(),
-                             workers=[w]))            
+                             workers=[w]))
                                
         wait(f)
         
@@ -267,7 +242,7 @@ class RandomForestRegressor:
                 
         f = list()
         for w, n in ws:
-            f.append(c.submit(RandomForestRegressor._predict, self.rfs[parse_host_port(w)], X_Scattered, random.random(),
+            f.append(c.submit(RandomForestRegressor._predict, self.rfs[w], X_Scattered, random.random(),
                              workers=[w]))
                     
         wait(f)

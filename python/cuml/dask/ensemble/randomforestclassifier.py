@@ -16,7 +16,6 @@
 
 from cuml.common.handle import Handle
 from cuml.dask.common import extract_ddf_partitions
-from cuml.dask.common.utils import parse_host_port
 from cuml.ensemble import RandomForestClassifier as cuRFC
 
 from dask import delayed
@@ -29,31 +28,6 @@ import random
 
 from tornado import gen
 from toolz import first
-
-@gen.coroutine
-def _extract_ddf_partitions(ddf):
-    """
-    Given a Dask cuDF, return a tuple with (worker, future) for each partition
-    """
-    client = default_client()
-    
-    delayed_ddf = ddf.to_delayed()
-    parts = client.compute(delayed_ddf)
-    yield wait(parts)
-    
-    key_to_part_dict = dict([(str(part.key), part) for part in parts])
-    who_has = yield client.who_has(parts)
-
-    worker_map = []
-    for key, workers in who_has.items():
-        worker = parse_host_port(first(workers))
-        worker_map.append((worker, key_to_part_dict[key]))
-
-    gpu_data = {worker:part for worker, part in worker_map}
-
-    yield wait(gpu_data)
-
-    raise gen.Return(gpu_data)
 
 
 class RandomForestClassifier:
@@ -165,7 +139,7 @@ class RandomForestClassifier:
                     
         ws = list(zip(workers, list(range(len(workers)))))
                 
-        self.rfs = {parse_host_port(worker):c.submit(RandomForestClassifier._func_build_rf, 
+        self.rfs = {worker: c.submit(RandomForestClassifier._func_build_rf,
                              n, self.n_estimators_per_worker[n], 
                              max_depth, handle,
                              max_features, n_bins,
@@ -177,6 +151,8 @@ class RandomForestClassifier:
                              dtype, random.random(),
                              workers=[worker])
             for worker, n in ws}
+
+        print(str(self.rfs))
         
         rfs_wait = list()
         for r in self.rfs.values():
@@ -222,11 +198,11 @@ class RandomForestClassifier:
         """
         c = default_client()
 
-        X_futures = c.sync(_extract_ddf_partitions, X)
-        y_futures = c.sync(_extract_ddf_partitions, y)
+        X_futures = c.sync(extract_ddf_partitions, X)
+        y_futures = dict(c.sync(extract_ddf_partitions, y))
                                        
         f = list()
-        for w, xc in X_futures.items():     
+        for w, xc in X_futures:
             f.append(c.submit(RandomForestClassifier._fit, self.rfs[w], xc, y_futures[w], random.random(),
                              workers=[w]))            
                                
@@ -257,7 +233,7 @@ class RandomForestClassifier:
                 
         f = list()
         for w, n in ws:
-            f.append(c.submit(RandomForestClassifier._predict, self.rfs[parse_host_port(w)], X_Scattered, random.random(),
+            f.append(c.submit(RandomForestClassifier._predict, self.rfs[w], X_Scattered, random.random(),
                              workers=[w]))
                     
         wait(f)
