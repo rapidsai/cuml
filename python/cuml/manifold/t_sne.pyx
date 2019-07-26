@@ -211,7 +211,7 @@ class TSNE(Base):
             n_iter = 1000
         if n_iter <= 100:
             print("[Warn] n_iter = {} might cause TSNE to output wrong "
-                "results. Set it higher.".format(n_iter))
+                  "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
             print("[Warn] TSNE does not support {} but only Euclidean. "
                   "Will do in the near future.".format(metric))
@@ -240,7 +240,7 @@ class TSNE(Base):
             perplexity_max_iter = 100
         if exaggeration_iter < 0:
             print("[Error] exaggeration_iter = {} should be more "
-                "than 0.".format(exaggeration_iter))
+                  "than 0.".format(exaggeration_iter))
             exaggeration_iter = 250
         if exaggeration_iter > n_iter:
             print("[Error] exaggeration_iter = {} should be more less than "
@@ -378,9 +378,9 @@ class TSNE(Base):
                 print("New n_neighbors = {}, "
                       "learning_rate = {}, "
                       "early_exaggeration = {}".format(
-                       self.n_neighbors,
-                       self.pre_learning_rate,
-                       self.early_exaggeration))
+                        self.n_neighbors,
+                        self.pre_learning_rate,
+                        self.early_exaggeration))
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
 
