@@ -19,6 +19,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -31,6 +32,7 @@ namespace ML {
 namespace fil {
 
 using namespace MLCommon;
+namespace tl = treelite;
 
 void naive(const predict_params& ps, cudaStream_t stream);
 void tree_reorg(const predict_params& ps, cudaStream_t stream);
@@ -312,11 +314,15 @@ void init_dense(const cumlHandle& h, forest_t* pf,
   *pf = f;
 }
 
-void from_treelite(const cumlHandle& h, forest_t* pf, const tl::Model* model) {
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model) {
   forest_params_t ps;
   std::vector<dense_node_t> nodes;
-  tl2fil(&ps, &nodes, *model);
-  init_dense(h, pf, &ps);
+  tl2fil(&ps, &nodes, *(tl::Model*)model);
+  init_dense(handle, pforest, &ps);
+  // sync is necessary as nodes is used in init_dense(),
+  // but destructed at the end of this function
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void free(const cumlHandle& h, forest_t f) {
