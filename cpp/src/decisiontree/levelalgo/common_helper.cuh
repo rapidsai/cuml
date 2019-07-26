@@ -22,12 +22,10 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   CUDA_CHECK(cudaMemsetAsync(sample_cnt, 0, nrows * sizeof(int), stream));
   int threads = 256;
   int blocks = MLCommon::ceildiv(n_sampled_rows, threads);
-  if (blocks > 65536) blocks = 65536;
   setup_counts_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, rowids,
                                                       n_sampled_rows);
   CUDA_CHECK(cudaGetLastError());
   blocks = MLCommon::ceildiv(nrows, threads);
-  if (blocks > 65536) blocks = 65536;
   setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
                                                      nrows);
   CUDA_CHECK(cudaGetLastError());

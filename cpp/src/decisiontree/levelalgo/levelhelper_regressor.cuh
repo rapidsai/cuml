@@ -28,7 +28,7 @@ void initial_metric_regression(T *labels, unsigned int *sample_cnt,
                              tempmem->stream));
   int threads = 128;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  if (blocks > 65536) blocks = 65536;
+
   pred_kernel_level<<<blocks, threads, 0, tempmem->stream>>>(
     labels, sample_cnt, nrows, tempmem->d_predout->data(),
     tempmem->d_count->data());
@@ -70,7 +70,8 @@ void get_mse_regression(T *data, T *labels, unsigned int *flags,
 
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  if ((n_nodes == node_batch_pred) && (blocks < 65536)) {
+
+  if ((n_nodes == node_batch_pred)) {
     get_pred_kernel<<<blocks, threads, shmempred, tempmem->stream>>>(
       data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
       nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
@@ -80,7 +81,7 @@ void get_mse_regression(T *data, T *labels, unsigned int *flags,
       nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
   }
   CUDA_CHECK(cudaGetLastError());
-  if ((n_nodes == node_batch_mse) && (blocks < 65536)) {
+  if ((n_nodes == node_batch_mse)) {
     get_mse_kernel<T, F><<<blocks, threads, shmemmse, tempmem->stream>>>(
       data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
       nbins, n_nodes, tempmem->d_quantile->data(),
