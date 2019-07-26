@@ -74,9 +74,10 @@ class KMeansMG(KMeans):
     """
     A Multi-Node Multi-GPU implementation of KMeans
 
-    NOTE: This implementation of KMeans is meant to be used with an initialized
-    cumlCommunicator instance inside an existing distributed system. Refer to the
-    Dask KMeans implementation in `cuml.dask.cluster.kmeans`.
+    NOTE: This implementation of KMeans is meant to be used with an
+    initialized cumlCommunicator instance inside an existing distributed
+    system. Refer to the Dask KMeans implementation in
+    `cuml.dask.cluster.kmeans`.
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
