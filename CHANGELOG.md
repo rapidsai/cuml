@@ -16,6 +16,7 @@
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
