@@ -17,7 +17,8 @@
 #pragma once
 #include "hw_utils.h"
 
-// TODO(ahmad): optimize, maybe im2col ?
+// optimize, maybe im2col ?
+// https://github.com/rapidsai/cuml/issues/891
 template <typename Dtype>
 __global__ void conv1d_kernel(const Dtype *input, int batch_size,
                               const Dtype *filter, int filter_size,
@@ -44,7 +45,7 @@ void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
                              output_size);
 }
 
-// TODO(ahmad): optimize
+//https://github.com/rapidsai/cuml/issues/891
 template <typename Dtype>
 __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
                                    Dtype *start_season, int frequency,
@@ -180,7 +181,6 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
        stream>>>(data, R1Qt_d.data(), batch_size, trend_len, level, trend);
 }
 
-// TODO(ahmad): n is unused
 template <typename Dtype>
 void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                            int n, int batch_size, int frequency,
@@ -234,8 +234,8 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   }
 
   season_mean(handle, season_d.data(), trend_len, batch_size, start_season,
-              frequency, filter_size / 2, seasonal);  // TODO(ahmad): return
+              frequency, filter_size / 2, seasonal);
 
   batched_ls(handle, trend_d.data(), trend_len, batch_size, start_level,
-             start_trend);  // TODO(ahmad): return
+             start_trend);
 }

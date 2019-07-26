@@ -156,6 +156,10 @@ __device__ void holtwinters_finite_gradient_device(
   }
 }
 
+// There's a bug here, where the wrong values are updated if line search
+// iter limit is reached. Last values are of nx are put in x, whereas it
+// should be the nx values which minimised loss. For summary, check
+// https://github.com/rapidsai/cuml/issues/888
 template <typename Dtype>
 __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
@@ -233,7 +237,7 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
     }
     // end of line search
 
-    // see if new {prams} meet stop condition
+    // see if new {params} meet stop condition
     const Dtype dx1 = abs_device(*x1 - nx1);
     const Dtype dx2 = abs_device(*x2 - nx2);
     const Dtype dx3 = abs_device(*x3 - nx3);
@@ -306,7 +310,6 @@ __global__ void holtwinters_optim_gpu_shared_kernel(
   Dtype *pseason = reinterpret_cast<Dtype *>(pseason_);
 
   if (tid < batch_size) {
-    // TODO(ahmad): group init with fit
     int shift = 1;
     ML::OptimCriterion optim;
     Dtype plevel = start_level[tid], ptrend = .0;
@@ -363,7 +366,6 @@ __global__ void holtwinters_optim_gpu_global_kernel(
   bool single_param) {
   int tid = GET_TID;
   if (tid < batch_size) {
-    // TODO(ahmad): group init with fit
     int shift = 1;
     ML::OptimCriterion optim;
     Dtype plevel = start_level[tid], ptrend = .0;
@@ -407,6 +409,8 @@ __global__ void holtwinters_optim_gpu_global_kernel(
   }
 }
 
+// Test Global and Shared kernels
+// https://github.com/rapidsai/cuml/issues/890
 template <typename Dtype>
 void holtwinters_optim_gpu(
   const ML::cumlHandle_impl &handle, const Dtype *ts, int n, int batch_size,
@@ -424,7 +428,7 @@ void holtwinters_optim_gpu(
   int total_blocks = (batch_size - 1) / 128 + 1;
   int threads_per_block = 128;
 
-  // Get shared memory size // TODO(ahmad) put into a function
+  // Get shared memory size //
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
   struct cudaDeviceProp prop;
@@ -440,7 +444,7 @@ void holtwinters_optim_gpu(
   if (
     sm_needed >
     prop
-      .sharedMemPerBlock) {  // Global memory // TODO(ahmad): test shared/general kernels
+      .sharedMemPerBlock) {  // Global memory // 
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_optim_gpu_global_kernel<Dtype>
