@@ -61,40 +61,40 @@ cdef extern from "holtwinters/holtwinters.h" namespace "ML::HoltWinters":
 
 class HoltWinters(Base):
 
-    def __init__(self, batch_size=1, freq_season=2,
-                 season_type="ADDITIVE", start_periods=2,
-                 handle=None):
+    def __init__(self, endog, seasonal="additive",
+                 seasonal_periods=2, start_periods=2,
+                 ts_num=1, handle=None):
 
         super(HoltWinters, self).__init__(handle)
 
         # Total number of Time Series for forecasting
-        if type(batch_size) != int:
-            raise TypeError("Type of batch_size must be int. Given: " +
-                            type(batch_size))
-        if batch_size <= 0:
-            raise ValueError("Batch size must be at least 1. Given: " +
-                             str(batch_size))
-        self.batch_size = batch_size
+        if type(ts_num) != int:
+            raise TypeError("Type of ts_num must be int. Given: " +
+                            type(ts_num))
+        if ts_num <= 0:
+            raise ValueError("Must state at least 1 series. Given: " +
+                             str(ts_num))
+        self.ts_num = ts_num
 
         # Season length in the time series
-        if type(freq_season) != int:
-            raise TypeError("Type of freq_season must be int. Given: " +
-                            type(freq_season))
-        if freq_season < 2:
+        if type(seasonal_periods) != int:
+            raise TypeError("Type of seasonal_periods must be int."
+                            " Given: " + type(seasonal_periods))
+        if seasonal_periods < 2:
             raise ValueError("Frequency must be >= 2. Given: " +
-                             str(freq_season))
-        self.frequency = freq_season
+                             str(seasonal_periods))
+        self.seasonal_periods = seasonal_periods
 
         # whether to perform additive or multiplicative STL decomposition
-        if season_type == "ADDITIVE":
-            self.season_type = season_type
+        if seasonal in ["additive", "add"]:
+            self.seasonal = "add"
             self._cpp_stype = ADDITIVE
-        elif season_type == "MULTIPLICATIVE":
-            self.season_type = season_type
+        elif seasonal in ["multiplicative", "mul"]:
+            self.seasonal = "mul"
             self._cpp_stype = MULTIPLICATIVE
         else:
-            raise ValueError("Season type must be either "
-                             "\"ADDITIVE\" or \"MULTIPLICATIVE\"")
+            raise ValueError("Seasonal must be either "
+                             "\"additive\" or \"multiplicative\".")
 
         # number of seasons to be used for seasonal seed values
         if type(start_periods) != int:
@@ -103,12 +103,14 @@ class HoltWinters(Base):
         if start_periods < 2:
             raise ValueError("Start Periods must be >= 2. Given: " +
                              str(start_periods))
-        if freq_season < start_periods:
-            raise ValueError("Frequency (" + str(freq_season) +
+        if seasonal_periods < start_periods:
+            raise ValueError("Seasonal_Periods (" + str(seasonal_periods) +
                              ") cannot be less than start_periods (" +
                              str(start_periods) + ").")
         self.start_periods = start_periods
 
+        # Set up attributes:
+        self.endog = endog
         self.forecasted_points = []  # list for final forecast output
         self.level = []  # list for level values for each time series in batch
         self.trend = []  # list for trend values for each time series in batch
@@ -118,11 +120,11 @@ class HoltWinters(Base):
         self.h = 0
 
     def _check_dims(self, ts_input, is_cudf=False):
-        err_mess = ("HoltWinters initialized with " + str(self.batch_size) +
+        err_mess = ("HoltWinters initialized with " + str(self.ts_num) +
                     " time series, but data has dimension ")
         if len(ts_input.shape) == 1:
             self.n = ts_input.shape[0]
-            if self.batch_size != 1:
+            if self.ts_num != 1:
                 raise ValueError(err_mess + "1.")
             if(is_cudf):
                 mod_ts_input = ts_input.as_gpu_matrix()
@@ -139,28 +141,28 @@ class HoltWinters(Base):
                 d2 = ts_input.shape[0]
                 mod_ts_input = ts_input.ravel()
             self.n = d1
-            if self.batch_size != d2:
+            if self.ts_num != d2:
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return mod_ts_input
 
-    def fit(self, ts_input):
-        if isinstance(ts_input, cudf.DataFrame):
-            ts_input = self._check_dims(ts_input, True)
-        elif cuda.is_cuda_array(ts_input):
+    def fit(self):
+        if isinstance(self.endog, cudf.DataFrame):
+            arr = self._check_dims(self.endog, True)
+        elif cuda.is_cuda_array(self.endog):
             try:
                 import cupy as cp
-                ts_input = self._check_dims(ts_input)
+                arr = self._check_dims(self.endog)
             except Exception:
-                ts_input = cuda.as_cuda_array(ts_input)
-                ts_input = ts_input.copy_to_host()
-        if isinstance(ts_input, np.ndarray):
-            ts_input = self._check_dims(ts_input)
-        if self.n < self.start_periods*self.frequency:
+                arr = cuda.as_cuda_array(self.endog).copy_to_host()
+        if isinstance(self.endog, np.ndarray):
+            arr = self._check_dims(self.endog)
+        if self.n < self.start_periods*self.seasonal_periods:
             raise ValueError("Length of time series (" + str(self.n) +
                              ") must be at least freq*start_periods (" +
-                             str(self.start_periods*self.frequency) + ").")
+                             str(self.start_periods*self.seasonal_periods) +
+                             ").")
         if self.n <= 0:
             raise ValueError("Time series must contain at least 1 value."
                              " Given: " + str(self.n))
@@ -171,10 +173,10 @@ class HoltWinters(Base):
         cdef int error_len
 
         X_m, input_ptr, _, _, self.dtype = \
-            input_to_dev_array(ts_input, order='C')
+            input_to_dev_array(arr, order='C')
 
-        buffer_size(<int> self.n, <int> self.batch_size,
-                    <int> self.frequency,
+        buffer_size(<int> self.n, <int> self.ts_num,
+                    <int> self.seasonal_periods,
                     <int*> &leveltrend_seed_len,
                     <int*> &season_seed_len,
                     <int*> &components_len,
@@ -188,23 +190,23 @@ class HoltWinters(Base):
         self.level = numba_utils.zeros(components_len, dtype=self.dtype)
         self.trend = numba_utils.zeros(components_len, dtype=self.dtype)
         self.season = numba_utils.zeros(components_len, dtype=self.dtype)
-        self.SSE = numba_utils.zeros(self.batch_size, dtype=self.dtype)
+        self.SSE = numba_utils.zeros(self.ts_num, dtype=self.dtype)
         level_ptr = get_dev_array_ptr(self.level)
         trend_ptr = get_dev_array_ptr(self.trend)
         season_ptr = get_dev_array_ptr(self.season)
         SSE_ptr = get_dev_array_ptr(self.SSE)
 
         if self.dtype == np.float32:
-            fit(handle_[0], <int> self.n, <int> self.batch_size,
-                <int> self.frequency, <int> self.start_periods,
+            fit(handle_[0], <int> self.n, <int> self.ts_num,
+                <int> self.seasonal_periods, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
                 <float*> input_ptr, <float*> level_ptr,
                 <float*> trend_ptr, <float*> season_ptr,
                 <float*> SSE_ptr)
 
         elif self.dtype == np.float64:
-            fit(handle_[0], <int> self.n, <int> self.batch_size,
-                <int> self.frequency, <int> self.start_periods,
+            fit(handle_[0], <int> self.n, <int> self.ts_num,
+                <int> self.seasonal_periods, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
                 <double*> input_ptr, <double*> level_ptr,
                 <double*> trend_ptr, <double*> season_ptr,
@@ -234,7 +236,7 @@ class HoltWinters(Base):
 
             if h > self.h:
                 self.h = h
-                self.forecasted_points = numba_utils.zeros(self.batch_size*h,
+                self.forecasted_points = numba_utils.zeros(self.ts_num*h,
                                                            dtype=self.dtype)
                 forecast_ptr = get_dev_array_ptr(self.forecasted_points)
                 level_ptr = get_dev_array_ptr(self.level)
@@ -243,8 +245,8 @@ class HoltWinters(Base):
 
                 if self.dtype == np.float32:
                     predict(handle_[0], <int> self.n,
-                            <int> self.batch_size,
-                            <int> self.frequency,
+                            <int> self.ts_num,
+                            <int> self.seasonal_periods,
                             <int> h,
                             <SeasonalType> self._cpp_stype,
                             <float*> level_ptr,
@@ -253,30 +255,30 @@ class HoltWinters(Base):
                             <float*> forecast_ptr)
                 elif self.dtype == np.float64:
                     predict(handle_[0], <int> self.n,
-                            <int> self.batch_size,
-                            <int> self.frequency, <int> h,
+                            <int> self.ts_num,
+                            <int> self.seasonal_periods, <int> h,
                             <SeasonalType> self._cpp_stype,
                             <double*> level_ptr,
                             <double*> trend_ptr,
                             <double*> season_ptr,
                             <double*> forecast_ptr)
                 self.forecasted_points =\
-                    self.forecasted_points.reshape((self.batch_size, h),
+                    self.forecasted_points.reshape((self.ts_num, h),
                                                    order='F')
                 self.handle.sync()
 
             if index is None:
-                if self.batch_size == 1:
+                if self.ts_num == 1:
                     return cudf.Series(
                         self.forecasted_points.ravel(order='F')[:h])
                 else:
                     return cudf.DataFrame.from_gpu_matrix(
                         self.forecasted_points[:, :h].T)
             else:
-                if index < 0 or index >= self.batch_size:
+                if index < 0 or index >= self.ts_num:
                     raise IndexError("Index input: " + str(index) +
                                      " outside of range [0, " +
-                                     str(self.batch_size) + "]")
+                                     str(self.ts_num) + "]")
                 return cudf.Series(self.forecasted_points[index, :h])
         else:
             raise ValueError("Fit() the model before forecast()")
@@ -285,9 +287,9 @@ class HoltWinters(Base):
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.SSE)
-            elif index < 0 or index >= self.batch_size:
+            elif index < 0 or index >= self.ts_num:
                 raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.batch_size) + "]")
+                                 "range [0, " + str(self.ts_num) + "]")
             else:
                 return self.SSE[index]
         else:
@@ -297,9 +299,9 @@ class HoltWinters(Base):
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.level)
-            elif index < 0 or index >= self.batch_size:
+            elif index < 0 or index >= self.ts_num:
                 raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.batch_size) + "]")
+                                 "range [0, " + str(self.ts_num) + "]")
             else:
                 return self.level[index]
         else:
@@ -309,9 +311,9 @@ class HoltWinters(Base):
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.trend)
-            elif index < 0 or index >= self.batch_size:
+            elif index < 0 or index >= self.ts_num:
                 raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.batch_size) + "]")
+                                 "range [0, " + str(self.ts_num) + "]")
             else:
                 return self.trend[index]
         else:
@@ -321,9 +323,9 @@ class HoltWinters(Base):
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.season)
-            elif index < 0 or index >= self.batch_size:
+            elif index < 0 or index >= self.ts_num:
                 raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.batch_size) + "]")
+                                 "range [0, " + str(self.ts_num) + "]")
             else:
                 return self.season[index]
         else:

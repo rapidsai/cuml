@@ -26,8 +26,6 @@ from cuml.decomposition.tsvd import TruncatedSVD
 
 from cuml.filter.kalman_filter import KalmanFilter
 
-from cuml.holtwinters.holtwinters import HoltWinters
-
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
@@ -45,6 +43,8 @@ from cuml.utils.pointer_utils import device_of_gpu_matrix
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN
+
+from cuml.tsa.holtwinters import HoltWinters
 
 from cuml.manifold.umap import UMAP
 
