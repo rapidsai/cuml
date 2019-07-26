@@ -41,29 +41,133 @@ cdef extern from "holtwinters/holtwinters.h" namespace "ML::HoltWinters":
     cdef void fit(
         cumlHandle &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
+        float epsilon,
         float *data, float *level_ptr, float *trend_ptr,
         float *season_ptr, float *SSE_error_ptr) except +
     cdef void fit(
         cumlHandle &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
+        double epsilon,
         double *data, double *level_ptr, double *trend_ptr,
         double *season_ptr, double *SSE_error_ptr) except +
 
-    cdef void predict(
+    cdef void forecast(
         cumlHandle &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, float *level_ptr,
         float *trend_ptr, float *season_ptr, float *forecast_ptr) except +
-    cdef void predict(
+    cdef void forecast(
         cumlHandle &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, double *level_ptr,
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
 
 class HoltWinters(Base):
+    """
+    Implements a HoltWinters time series analysis model which is used in
+    both forecasting future entries in a time series as well as in providing
+    exponential smoothing, where weights are assigned against historical
+    data with exponentially decreasing impact. This is done by analyzing
+    three components of the data: level, trend, and seasonality.
 
+    **Known Limitations**:
+    This version of HoltWinters currently provides only a limited number of
+    features when compared to the statsmodels.holtwinters.ExponentialSmoothing
+    model. Noticeably, it lacks:
+
+        * .predict() : no support for in-sample prediction.
+                       https://github.com/rapidsai/cuml/issues/875
+
+        * .hessian() : no support for returning Hessian matrix.
+                       https://github.com/rapidsai/cuml/issues/880
+
+        * .information() : no support for returning Fisher matrix.
+                           https://github.com/rapidsai/cuml/issues/880
+
+        * .loglike() : no support for returning Log-likelihood.
+                       https://github.com/rapidsai/cuml/issues/880
+
+    Additionally, be warned that there may exist floating point instability
+    issues in this model. Small values in endog may lead to faulty results.
+    See ____ for more information.
+
+    **Known Differences**:
+    This version of HoltWinters differs from statsmodels in some other minor
+    ways:
+
+        * .__init__() : Cannot pass trend component or damped trend component
+
+        * .__init__() : this version can take additional parameter eps,
+                        start_periods, ts_num, and handle
+
+        * .score() : returns SSE rather than gradient logL
+                     https://github.com/rapidsai/cuml/issues/876
+
+        * this version provides get_level(), get_trend(), get_season()
+
+    Examples
+    ---------
+    .. code-block:: python
+
+
+            from cuml import HoltWinters
+            import cudf
+            import numpy as np
+
+            data = cudf.Series([1, 2, 3, 4, 5, 6,
+                                7, 8, 9, 10, 11, 12,
+                                2, 3, 4, 5, 6, 7,
+                                8, 9, 10, 11, 12, 13,
+                                3, 4, 5, 6, 7, 8, 9,
+                                10, 11, 12, 13, 14],
+                                dtype=np.float64)
+            cu_hw = HoltWinters(data, seasonal_periods=12)
+            cu_hw.fit()
+            cu_pred = cu_hw.forecast(4)
+            print("Forecasted points:\n", cu_pred)
+
+    Output:
+
+    .. code-block:: none
+
+            Forecasted points :
+            0    4.000143766093652
+            1    5.000000163513641
+            2    6.000000000174092
+            3    7.000000000000178
+
+    Parameters
+    -----------
+    endog : array-like (device or host)
+            Acceptable formats: cuDF DataFrame, cuDF Series,
+            NumPy ndarray, Numba device ndarray, cuda array interface
+            compliant array like CuPy.
+            Note: cuDF.DataFrame types assumes data is in columns,
+            while all other datatypes assume data is in rows.
+            The endogenous dataset to be operated on.
+    seasonal : 'additive', 'add', 'multiplicative', 'mul'
+               (default = 'additive')
+               whether the seasonal trend should be calculated
+               additively or multiplicatively.
+    seasonal_periods : int (default=2)
+                       the seasonality of the data (how often it
+                       repeats). For monthly data this should be 12,
+                       for weekly data, this should be 7.
+    start_periods : int (default=2)
+                    number of seasons to be used for seasonal
+                    seed values
+    ts_num : int (default=1)
+             the number of different time series that were passed
+             in the endog param.
+    eps : np.number > 0 (default=2.24e-3)
+          the accuracy to which gradient descent should achieve.
+          Note that changing this value may affect the forecasted results.
+    handle : cuml.Handle (default=None)
+             If it is None, a new one is created just for this class.
+
+    """
     def __init__(self, endog, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
-                 ts_num=1, handle=None):
+                 ts_num=1, eps=2.24e-3, handle=None):
 
         super(HoltWinters, self).__init__(handle)
 
@@ -109,7 +213,14 @@ class HoltWinters(Base):
                              str(start_periods) + ").")
         self.start_periods = start_periods
 
+        if not np.issubdtype(type(eps), np.number):
+            raise TypeError("Epsilon provided is of type " + type(eps) +
+                            " and thus cannot be cast to float() or double()")
+        if eps <= 0:
+            raise ValueError("Epsilon must be positive. Given: " + eps)
+
         # Set up attributes:
+        self.eps = eps
         self.endog = endog
         self.forecasted_points = []  # list for final forecast output
         self.level = []  # list for level values for each time series in batch
@@ -128,6 +239,8 @@ class HoltWinters(Base):
                 raise ValueError(err_mess + "1.")
             if(is_cudf):
                 mod_ts_input = ts_input.as_gpu_matrix()
+            elif(isinstance(ts_input, cudf.Series)):
+                mod_ts_input = ts_input.to_gpu_array()
             else:
                 mod_ts_input = ts_input
         elif len(ts_input.shape) == 2:
@@ -148,7 +261,13 @@ class HoltWinters(Base):
         return mod_ts_input
 
     def fit(self):
-        if isinstance(self.endog, cudf.DataFrame):
+        """
+        Performing fitting on the given `endog` dataset.
+        Calculates the level, trend, season, and SSE components.
+        """
+        if isinstance(self.endog, cudf.Series):
+            arr = self._check_dims(self.endog)
+        elif isinstance(self.endog, cudf.DataFrame):
             arr = self._check_dims(self.endog, True)
         elif cuda.is_cuda_array(self.endog):
             try:
@@ -196,10 +315,14 @@ class HoltWinters(Base):
         season_ptr = get_dev_array_ptr(self.season)
         SSE_ptr = get_dev_array_ptr(self.SSE)
 
+        cdef float eps_f = np.float32(self.eps)
+        cdef double eps_d = np.float64(self.eps)
+
         if self.dtype == np.float32:
             fit(handle_[0], <int> self.n, <int> self.ts_num,
                 <int> self.seasonal_periods, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
+                <float> eps_f,
                 <float*> input_ptr, <float*> level_ptr,
                 <float*> trend_ptr, <float*> season_ptr,
                 <float*> SSE_ptr)
@@ -208,6 +331,7 @@ class HoltWinters(Base):
             fit(handle_[0], <int> self.n, <int> self.ts_num,
                 <int> self.seasonal_periods, <int> self.start_periods,
                 <SeasonalType> self._cpp_stype,
+                <double> eps_d,
                 <double*> input_ptr, <double*> level_ptr,
                 <double*> trend_ptr, <double*> season_ptr,
                 <double*> SSE_ptr)
@@ -222,6 +346,25 @@ class HoltWinters(Base):
         return self
 
     def forecast(self, h=1, index=None):
+        """
+        Forecasts future points based on the fitted model.
+
+        Parameters
+        -----------
+        h : int (default=1)
+            the number of points for each series to be forecasted
+        index : int (default=None)
+                the index of the time series from which you want
+                forecasted points. if None, then a cudf.DataFrame of
+                the forecasted points from all time series is returned.
+
+        Returns
+        ----------
+        preds : cudf.DataFrame or cudf.Series
+                Series of forecasted points if index is provided.
+                DataFrame of all forecasted points if index=None.
+
+        """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -244,24 +387,24 @@ class HoltWinters(Base):
                 season_ptr = get_dev_array_ptr(self.season)
 
                 if self.dtype == np.float32:
-                    predict(handle_[0], <int> self.n,
-                            <int> self.ts_num,
-                            <int> self.seasonal_periods,
-                            <int> h,
-                            <SeasonalType> self._cpp_stype,
-                            <float*> level_ptr,
-                            <float*> trend_ptr,
-                            <float*> season_ptr,
-                            <float*> forecast_ptr)
+                    forecast(handle_[0], <int> self.n,
+                             <int> self.ts_num,
+                             <int> self.seasonal_periods,
+                             <int> h,
+                             <SeasonalType> self._cpp_stype,
+                             <float*> level_ptr,
+                             <float*> trend_ptr,
+                             <float*> season_ptr,
+                             <float*> forecast_ptr)
                 elif self.dtype == np.float64:
-                    predict(handle_[0], <int> self.n,
-                            <int> self.ts_num,
-                            <int> self.seasonal_periods, <int> h,
-                            <SeasonalType> self._cpp_stype,
-                            <double*> level_ptr,
-                            <double*> trend_ptr,
-                            <double*> season_ptr,
-                            <double*> forecast_ptr)
+                    forecast(handle_[0], <int> self.n,
+                             <int> self.ts_num,
+                             <int> self.seasonal_periods, <int> h,
+                             <SeasonalType> self._cpp_stype,
+                             <double*> level_ptr,
+                             <double*> trend_ptr,
+                             <double*> season_ptr,
+                             <double*> forecast_ptr)
                 self.forecasted_points =\
                     self.forecasted_points.reshape((self.ts_num, h),
                                                    order='F')
@@ -284,6 +427,25 @@ class HoltWinters(Base):
             raise ValueError("Fit() the model before forecast()")
 
     def score(self, index=None):
+        """
+        Returns the score of the model.
+
+        **Note: Currently returns the SSE, rather than the gradient of the
+                LogLikelihood. https://github.com/rapidsai/cuml/issues/876
+
+        Parameters:
+        ------------
+        index : int (default=None)
+                the index of the time series from which the SSE will be
+                returned. if None, then all SSEs are returned in a cudf
+                Series.
+
+        Returns:
+        -----------
+        score : np.float32, np.float64, or cudf.Series
+                the SSE of the fitted model
+
+        """
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.SSE)
@@ -296,6 +458,21 @@ class HoltWinters(Base):
             raise ValueError("Fit() the model before score()")
 
     def get_level(self, index=None):
+        """
+        Returns the level component of the model.
+
+        Parameters:
+        ------------
+        index : int (default=None)
+                the index of the time series from which the level will be
+                returned. if None, then all level components are returned
+                in a cudf.Series.
+
+        Returns:
+        ----------
+        level : np.float32, np.float64, or cudf.Series
+                the level component of the fitted model
+        """
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.level)
@@ -308,6 +485,21 @@ class HoltWinters(Base):
             raise ValueError("Fit() the model to get level values")
 
     def get_trend(self, index=None):
+        """
+        Returns the trend component of the model.
+
+        Parameters:
+        -----------
+        index : int (default=None)
+                the index of the time series from which the trend will be
+                returned. if None, then all trend components are returned
+                in a cudf.Series.
+
+        Returns:
+        ---------
+        trend : np.float32, np.float64, or cudf.Series
+                the trend component of the fitted model
+        """
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.trend)
@@ -320,6 +512,21 @@ class HoltWinters(Base):
             raise ValueError("Fit() the model to get trend values")
 
     def get_season(self, index=None):
+        """
+        Returns the season component of the model.
+
+        Parameters:
+        -----------
+        index : int (default=None)
+                the index of the time series from which the season will be
+                returned. if None, then all season components are returned
+                in a cudf.Series.
+
+        Returns:
+        ---------
+        season: np.float32, np.float64, or cudf.Series
+                the season component of the fitted model
+        """
         if self.fit_executed_flag:
             if index is None:
                 return cudf.Series(self.season)
