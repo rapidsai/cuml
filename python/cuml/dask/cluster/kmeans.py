@@ -116,8 +116,6 @@ class KMeans(object):
 
         self.local_model = kmeans_fit[0].result()
 
-        print(str(self.local_model.cluster_centers_))
-
         return self
 
     def predict(self, X):
