@@ -337,7 +337,7 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
     # Transform data
     model.fit(X)
     trust_before = trustworthiness(X, model.Y, 10)
-    
+
     # Save model + embeddings
     model = pickle_save_load(tmpdir, model)
     trust_after = trustworthiness(X, model.Y, 10)
