@@ -121,7 +121,6 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
     session_state["wid"] = worker_info[get_worker().address]["r"]
     session_state["nworkers"] = len(worker_info)
 
-
     start = time.time()
     _func_init_nccl(sessionId, uniqueId)
     end = time.time() - start
@@ -267,7 +266,8 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     for k in worker_info:
         if k != local_address:
             ip, port = parse_host_port(k)
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"], timeout=1)
+            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
+                                        timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
 
@@ -289,9 +289,9 @@ def _func_destroy_all(sessionId, comms_p2p):
 
 def _func_ucp_ports(sessionId, client, workers):
     return client.run(_func_ucp_listener_port,
-                                   sessionId,
-                                   random.random(),
-                                   workers=[workers])
+                      sessionId,
+                      random.random(),
+                      workers=[workers])
 
 
 def _func_worker_ranks(workers):
@@ -433,4 +433,3 @@ class CommsContext:
 
         self.nccl_initialized = False
         self.ucx_initialized = False
-

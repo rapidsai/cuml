@@ -16,8 +16,6 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from cuml.dask.common.comms import default_comms
-
 from dask.distributed import Client
 
 
@@ -26,7 +24,7 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     owns_cluster = False
     if client is None:
-        owns_cluster=True
+        owns_cluster = True
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
 
@@ -68,7 +66,7 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
     cumlLabels = cumlModel.predict(X_cudf)
     daskmlLabels1 = daskmlModel1.predict(X_df)
 
-    print("SCORE: "+ str(cumlModel.score(X_cudf)))
+    print("SCORE: " + str(cumlModel.score(X_cudf)))
 
     from sklearn.metrics import adjusted_rand_score
 
@@ -86,4 +84,3 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
         cluster.close()
 
     assert 1.0 == score
-

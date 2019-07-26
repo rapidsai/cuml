@@ -28,7 +28,8 @@ class KMeans(object):
     Multi-Node Multi-GPU implementation of KMeans
     """
 
-    def __init__(self, n_clusters=8, init="k-means||", verbose=0, client = None):
+    def __init__(self, n_clusters=8, init="k-means||", verbose=0,
+                 client=None):
         """
         Constructor for distributed KMeans model
         :param n_clusters: Number of clusters to fit
@@ -171,5 +172,3 @@ class KMeans(object):
             workers=[w]).result() for w, f in gpu_futures]
 
         return np.sum(scores)
-
-
