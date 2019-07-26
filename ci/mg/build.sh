@@ -46,19 +46,14 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       cudf=${CUDF_VERSION} \
       rmm=${RMM_VERSION} \
       nvstrings=${NVSTRINGS_VERSION} \
-      lapack \
-      cmake==3.14.3 \
+      lapack cmake==3.14.3 \
       umap-learn \
+      libclang \
       nccl>=2.4 \
       dask \
       distributed \
       dask-cudf \
-      dask-cuda \
-      statsmodels
-
-# installing libclang separately so it doesn't get installed from conda-forge
-conda install -c rapidsai \
-      libclang
+      dask-cuda
 
 logger "Check versions..."
 python --version
@@ -67,14 +62,14 @@ $CXX --version
 conda list
 
 ################################################################################
-# BUILD - Build libcuml, cuML, and prims from source
+# BUILD - Build libcuml++, cuML, and prims from source
 ################################################################################
 
-logger "Build libcuml..."
+logger "Build libcuml++..."
 $WORKSPACE/build.sh clean libcuml cuml prims -v
 
 ################################################################################
-# TEST - Run GoogleTest and py.tests for libcuml and cuML
+# TEST - Run MG GoogleTest and py.tests for libcuml++ and cuML
 ################################################################################
 
 if hasArg --skip-tests; then
@@ -85,18 +80,11 @@ fi
 logger "Check GPU usage..."
 nvidia-smi
 
-logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+# Disabled while CI/the test become compatible
+# logger "MG GoogleTest for libcuml mg..."
+# cd $WORKSPACE/cpp/build
+# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
 
-logger "Python pytest for cuml..."
+logger "Python MG pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
-
-################################################################################
-# TEST - Run GoogleTest for ml-prims
-################################################################################
-
-logger "Run ml-prims test..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "mg"
