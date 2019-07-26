@@ -330,7 +330,7 @@ class TreeliteFilTest : public BaseFilTest {
 
   void init_forest(fil::forest_t* pforest) override {
     std::unique_ptr<tlf::ModelBuilder> model_builder(
-      new tlf::ModelBuilder(ps.cols, 1, 0));
+      new tlf::ModelBuilder(ps.cols, 1, false));
 
     // model metadata
     switch (ps.output) {

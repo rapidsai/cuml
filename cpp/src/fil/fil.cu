@@ -282,6 +282,8 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   ASSERT(param.global_bias == 0.0f, "bias not supported");
+  // in treelite, "random forest" means averaging the tree output
+  ASSERT(!model.random_forest_flag, "output averaging not supported");
   if (param.pred_transform == "identity") {
     ASSERT(!tl_params->output_class,
            "class output only supported for the sigmoid transform");
