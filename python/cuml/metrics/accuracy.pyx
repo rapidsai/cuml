@@ -36,23 +36,35 @@ cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
                             int n)
 
 
-def accuracy_score(predictions, labels, handle=None):
+def accuracy_score(predictions, ground_truth, handle=None):
+    """
+    Calcuates the accuracy score of a classification model.
 
+        Parameters
+        ----------
+            handle : cuml.Handle
+            prediction : The lables predicted by the model
+                         for the test dataset
+            ground_truth : The ground truth labels of the test dataset
+        Returns
+        -------
+            The accuracy of the model used for prediction
+    """
     handle = cuml.common.handle.Handle() \
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
 
-    cdef uintptr_t preds_ptr, labels_ptr
+    cdef uintptr_t preds_ptr, ground_truth_ptr
     preds_m, preds_ptr, n_rows, _, _ = \
         input_to_dev_array(predictions)
 
-    labels_m, labels_ptr, _, _, labels_dtype = \
-        input_to_dev_array(labels)
+    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype = \
+        input_to_dev_array(ground_truth)
 
     acc = accuracy_score_py(handle_[0],
                             <int*> preds_ptr,
-                            <int*> labels_ptr,
+                            <int*> ground_truth_ptr,
                             <int> n_rows)
 
     return acc

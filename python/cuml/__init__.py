@@ -38,7 +38,7 @@ from cuml.linear_model.ridge import Ridge
 
 from cuml.metrics.regression import r2_score
 from cuml.metrics.accuracy import accuracy_score
-form cuml.metrics.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.adjustedrandindex import adjusted_rand_score
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
