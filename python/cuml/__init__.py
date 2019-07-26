@@ -21,6 +21,8 @@ import cuml.common.cuda as cuda
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 
+from cuml.datasets.blobs import blobs as make_blobs
+
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
