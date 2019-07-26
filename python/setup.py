@@ -52,7 +52,6 @@ include_dirs = ['../cpp/src',
                 '../cpp/src_prims',
                 '../thirdparty/cutlass',
                 '../thirdparty/cub',
-                # Ideally we enable this to be swapped out.
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
@@ -63,7 +62,6 @@ if "--multigpu" not in sys.argv:
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append("cuml/cluster/kmeans_mg.pyx")
 else:
-    include_dirs.append('cumlprims/')
     libs.append('cumlprims')
     sys.argv.remove("--multigpu")
 
