@@ -188,8 +188,8 @@ template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               int n_unique_labels, int nbins,
                                               int depth) {
-  if (depth > 15) {
-    max_nodes_per_level = pow(2, 15);
+  if (depth > 20) {
+    max_nodes_per_level = pow(2, 20);
   } else {
     max_nodes_per_level = pow(2, depth);
   }
