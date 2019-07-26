@@ -61,26 +61,21 @@ inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
 }
 
 template <typename Dtype>
-__device__ Dtype abs_device(Dtype val);
+__device__ Dtype abs_device(Dtype val) {
+  int nbytes = sizeof(val);
+  if (nbytes == sizeof(float))
+    return fabsf(val);
+  else
+    return fabs(val);
+}
+
 template <typename Dtype>
-__device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.);
-
-template <>
-__device__ float bound_device<float>(float val, float min, float max) {
-  return fminf(fmaxf(val, min), max);
-}
-template <>
-__device__ double bound_device<double>(double val, double min, double max) {
-  return fmin(fmax(val, min), max);
-}
-
-template <>
-__device__ float abs_device(float x) {
-  return fabsf(x);
-}
-template <>
-__device__ double abs_device(double x) {
-  return fabs(x);
+__device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.) {
+  int nbytes = sizeof(val);
+  if (nbytes == sizeof(float))
+    return fminf(fmaxf(val, min), max);
+  else
+    return fmin(fmax(val, min), max);
 }
 
 template <typename Dtype>
