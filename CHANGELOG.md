@@ -33,6 +33,7 @@
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
 - PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
 
 # cuML 0.8.0 (27 June 2019)
 
