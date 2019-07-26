@@ -77,19 +77,23 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('seasonal', ['additive', 'multiplicative'])
 @pytest.mark.parametrize('h', [12, 24])
 @pytest.mark.parametrize('datatype', [np.float64])
-def test_singlets_holtwinters(seasonal, h, datatype):
+@pytest.mark.parametrize('input_type', ['cudf', 'np'])
+def test_singlets_holtwinters(seasonal, h, datatype, input_type):
     global airpassengers
     airpassengers = np.asarray(airpassengers, dtype=datatype)
     train = airpassengers[:-h]
     test = airpassengers[-h:]
 
-    cu_hw = HoltWinters(train, seasonal=seasonal,
-                        seasonal_periods=12)
-    cu_hw.fit()
-
     sm_hw = ExponentialSmoothing(train, seasonal=seasonal,
                                  seasonal_periods=12)
     sm_hw = sm_hw.fit()
+
+    if input_type == 'cudf':
+        train = cudf.Series(train)
+
+    cu_hw = HoltWinters(train, seasonal=seasonal,
+                        seasonal_periods=12)
+    cu_hw.fit()
 
     cu_pred = cu_hw.forecast(h)
     sm_pred = sm_hw.forecast(h)
@@ -116,6 +120,7 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
 
     if input_type == 'cudf':
         data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
+
     cu_hw = HoltWinters(data, seasonal=seasonal,
                         seasonal_periods=12, ts_num=2)
 
@@ -150,14 +155,47 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
 
 
 @pytest.mark.parametrize('seasonal', ['additive', 'mul'])
+def test_seasonal_holtwinters(seasonal):
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
+    cu_hw = HoltWinters(data, seasonal=seasonal, ts_num=3)
+    cu_hw.fit()
+    cu_hw.forecast(5)
+
+
+@pytest.mark.parametrize('idx', [0, 1, 2, None])
 @pytest.mark.parametrize('h', [12, 24])
-@pytest.mark.parametrize('series_idx', [0, 2, None])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['cudf', 'np', 'cupy'])
+def test_series_holtwinters(idx, h):
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
+    cu_hw = HoltWinters(data, ts_num=3)
+    cu_hw.fit()
+    cu_hw.forecast(h, idx)
+
+
 @pytest.mark.parametrize('frequency', [7, 12])
 @pytest.mark.parametrize('start_periods', [2, 3])
-def test_inputs_holtwinters(seasonal, h, series_idx, datatype, input_type,
-                            frequency, start_periods):
+def test_start_freq_holtwinters(frequency, start_periods):
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
+    cu_hw = HoltWinters(data, ts_num=3, seasonal_periods=frequency,
+                        start_periods=start_periods)
+    cu_hw.fit()
+    cu_hw.forecast(5)
+
+
+@pytest.mark.parametrize('eps', [1, 2.24e-5, 2.24e-7])
+def test_eps_holtwinters(eps):
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
+    cu_hw = HoltWinters(data, eps=eps, ts_num=3)
+    cu_hw.fit()
+    cu_hw.forecast(5)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['cudf', 'np', 'cupy'])
+def test_inputs_holtwinters(datatype, input_type):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
     if input_type == 'cudf':
@@ -168,7 +206,6 @@ def test_inputs_holtwinters(seasonal, h, series_idx, datatype, input_type,
             data = cp.asarray(data)
         except ImportError:
             pytest.skip("CuPy import error -- skipping test.")
-    cu_hw = HoltWinters(data, seasonal=seasonal, seasonal_periods=frequency,
-                        start_periods=start_periods, ts_num=3)
+    cu_hw = HoltWinters(data, ts_num=3)
     cu_hw.fit()
-    cu_hw.forecast(h, series_idx)
+    cu_hw.forecast(5)
