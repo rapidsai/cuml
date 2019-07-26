@@ -68,6 +68,7 @@ cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
                        double *centroids,
                        int verbose)
 
+
 class KMeansMG(KMeans):
 
     """
@@ -213,7 +214,8 @@ class KMeansMG(KMeans):
                  verbose=0, random_state=1, precompute_distances='auto',
                  init='scalable-k-means++', n_init=1, algorithm='auto'):
         super(KMeansMG, self).__init__(handle, n_clusters, max_iter, tol,
-                                       verbose, random_state, precompute_distances,
+                                       verbose, random_state,
+                                       precompute_distances,
                                        init, n_init, algorithm)
 
     def fit(self, X):
@@ -271,7 +273,8 @@ class KMeansMG(KMeans):
         else:
             raise TypeError('initialization method not supported')
 
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(self.cluster_centers_)
+        cdef uintptr_t cluster_centers_ptr = \
+            get_dev_array_ptr(self.cluster_centers_)
         cdef int verbose = self.verbose
         cdef size_t n_rows = self.n_rows
         cdef size_t n_cols = self.n_cols
