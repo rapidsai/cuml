@@ -44,7 +44,7 @@ def test_tsne():
         print("-------------------------------------")
         print("iteration = ", i)
 
-        tsne = TSNE(n_components = 2, random_state = i, verbose = 0, learning_rate = 200 + i)
+        tsne = TSNE(n_components=2, random_state=i, verbose=0, learning_rate=2+i)
 
         Y = tsne.fit_transform(X1_cudf).to_pandas().values
         nans = np.sum(np.isnan(Y))
@@ -66,7 +66,7 @@ def test_tsne():
         del Y
 
         # Again
-        tsne = TSNE(n_components = 2, random_state = i + 2, verbose = 1, learning_rate = 200 + i + 2)
+        tsne = TSNE(n_components=2, random_state=i+2, verbose=1, learning_rate=2+i+2)
 
         Y = tsne.fit_transform(X3_cudf).to_pandas().values
         nans = np.sum(np.isnan(Y))
@@ -88,7 +88,7 @@ def test_tsne():
         del Y
 
         # Again
-        tsne = TSNE(n_components = 2, random_state = i + 4, verbose = 0, learning_rate = 200 + i + 4)
+        tsne = TSNE(n_components=2, random_state=i+4, verbose=0, learning_rate=2+i+4)
 
         Y = tsne.fit_transform(X5_cudf).to_pandas().values
         nans = np.sum(np.isnan(Y))
