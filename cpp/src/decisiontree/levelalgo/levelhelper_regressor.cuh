@@ -282,14 +282,14 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
     n_nodes_before += pow(2, i);
   }
   int non_leaf_counter = 0;
+  bool condition = (curr_depth == max_depth);
+  if (max_leaves != -1) condition = condition || (tree_leaf_cnt >= max_leaves);
+
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
     T nodemean = mean[n_nodes_before + nodeid];
-    bool condition = (gain[nodeid] == 0.0);
-    condition = condition || (curr_depth == max_depth);
-    if (max_leaves != -1)
-      condition = condition || (tree_leaf_cnt >= max_leaves);
+    condition = condition || (gain[nodeid] == 0.0);
     if (condition) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].colid = -1;
