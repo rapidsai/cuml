@@ -72,142 +72,11 @@ cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
 class KMeansMG(KMeans):
 
     """
-    KMeans is a basic but powerful clustering method which is optimized via
-    Expectation Maximization. It randomnly selects K data points in X, and
-    computes which samples are close to these points.
-    For every cluster of points, a mean is computed (hence the name), and this
-    becomes the new centroid.
+    A Multi-Node Multi-GPU implementation of KMeans
 
-    cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
-    the scalable KMeans++ intialization method. This method is more stable
-    than randomnly selecting K points.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        # Both import methods supported
-        from cuml import KMeansMG
-        from cuml.cluster import KMeansMG
-
-        import cudf
-        import numpy as np
-        import pandas as pd
-
-        def np2cudf(df):
-            # convert numpy array to cuDF dataframe
-            df = pd.DataFrame({'fea%d'%i:df[:,i] for i in range(df.shape[1])})
-            pdf = cudf.DataFrame()
-            for c,column in enumerate(df):
-              pdf[str(c)] = df[column]
-            return pdf
-
-
-        a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
-                       dtype=np.float32)
-        b = np2cudf(a)
-        print("input:")
-        print(b)
-
-        print("Calling fit")
-        kmeans_float = KMeansMG(n_clusters=2, n_gpu=-1)
-        kmeans_float.fit(b)
-
-        print("labels:")
-        print(kmeans_float.labels_)
-        print("cluster_centers:")
-        print(kmeans_float.cluster_centers_)
-
-
-    Output:
-
-    .. code-block:: python
-
-          input:
-
-               0    1
-           0  1.0  1.0
-           1  1.0  2.0
-           2  3.0  2.0
-           3  4.0  3.0
-
-          Calling fit
-
-          labels:
-
-             0    0
-             1    0
-             2    1
-             3    1
-
-          cluster_centers:
-
-             0    1
-          0  1.0  1.5
-          1  3.5  2.5
-
-    Parameters
-    ----------
-    handle : cuml.Handle
-        If it is None, a new one is created just for this class.
-    n_clusters : int (default = 8)
-        The number of centroids or clusters you want.
-    max_iter : int (default = 300)
-        The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
-        Stopping criterion when centroid means do not change much.
-    verbose : boolean (default = 0)
-        If True, prints diagnositc information.
-    random_state : int (default = 1)
-        If you want results to be the same when you restart Python, select a
-        state.
-    precompute_distances : boolean (default = 'auto')
-        Not supported yet.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
-           (default = 'scalable-k-means++')
-        'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
-        'random': Choose 'n_cluster' observations (rows) at random from data
-        for the initial centroids. If an ndarray is passed, it should be of
-        shape (n_clusters, n_features) and gives the initial centers.
-    n_init : int (default = 1)
-        Number of times intialization is run. More is slower,
-        but can be better.
-    algorithm : "auto"
-        Currently uses full EM, but will support others later.
-    n_gpu : int (default = 1)
-        Number of GPUs to use. Currently uses single GPU, but will support
-        multiple GPUs later.
-
-
-    Attributes
-    ----------
-    cluster_centers_ : array
-        The coordinates of the final clusters. This represents of "mean" of
-        each data cluster.
-    labels_ : array
-        Which cluster each datapoint belongs to.
-
-    Notes
-    ------
-    KMeans requires n_clusters to be specified. This means one needs to
-    approximately guess or know how many clusters a dataset has. If one is not
-    sure, one can start with a small number of clusters, and visualize the
-    resulting clusters with PCA, UMAP or T-SNE, and verify that they look
-    appropriate.
-
-    **Applications of KMeans**
-
-        The biggest advantage of KMeans is its speed and simplicity. That is
-        why KMeans is many practitioner's first choice of a clustering
-        algorithm. KMeans has been extensively used when the number of clusters
-        is approximately known, such as in big data clustering tasks,
-        image segmentation and medical clustering.
-
-
-    For additional docs, see `scikitlearn's Kmeans
-    <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
+    NOTE: This implementation of KMeans is meant to be used with an initialized
+    cumlCommunicator instance inside an existing distributed system. Refer to the
+    Dask KMeans implementation in `cuml.dask.cluster.kmeans`.
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
@@ -220,7 +89,7 @@ class KMeansMG(KMeans):
 
     def fit(self, X):
         """
-        Compute k-means clustering with X.
+        Compute k-means clustering with X in a multi-node multi-GPU setting.
 
         Parameters
         ----------
