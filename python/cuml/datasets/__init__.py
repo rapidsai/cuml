@@ -14,7 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.kmeans import KMeans
-
-from cuml.cluster.kmeans_mg import KMeansMG
+from cuml.datasets.blobs import blobs as make_blobs
