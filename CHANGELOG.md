@@ -19,6 +19,7 @@
 - PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #883: Adding MNMG Kmeans
+- PR #860: Dask RF
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
