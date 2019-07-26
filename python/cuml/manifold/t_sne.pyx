@@ -377,10 +377,9 @@ class TSNE(Base):
             if self.verbose:
                 print("New n_neighbors = {}, "
                       "learning_rate = {}, "
-                      "early_exaggeration = {}".format(
-                        self.n_neighbors,
-                        self.pre_learning_rate,
-                        self.early_exaggeration))
+                      "exaggeration = {}".format(self.n_neighbors,
+                                                 self.pre_learning_rate,
+                                                 self.early_exaggeration))
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
 
