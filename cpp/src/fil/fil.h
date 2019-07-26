@@ -18,13 +18,11 @@
 
 #pragma once
 
-#include <treelite/tree.h>
+#include <treelite/c_api.h>
 #include "cuML.hpp"
 
 namespace ML {
 namespace fil {
-
-namespace tl = treelite;
 
 /** @note FIL only supports inference with single precision.
  *  TODO(canonizer): parameterize the functions and structures by the data type
@@ -101,12 +99,13 @@ struct forest_params_t {
 void init_dense(const cumlHandle& h, forest_t* pf,
                 const forest_params_t* params);
 
-/** from_treelite uses a treelite model to initialize the forest stored in pf
- * @param h cuML handle used by this function
- * @param pf pointer to where to store the newly created forest
+/** from_treelite uses a treelite model to initialize the forest
+ * @param handle cuML handle used by this function
+ * @param pforest pointer to where to store the newly created forest
  * @param model treelite model used to initialize the forest
  */
-void from_treelite(const cumlHandle& h, forest_t* pf, const tl::Model* model);
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable 
  *  @param h cuML handle used by this function

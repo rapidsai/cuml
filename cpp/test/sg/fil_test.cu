@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <treelite/frontend.h>
+#include <treelite/tree.h>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -354,11 +355,11 @@ class TreeliteFilTest : public BaseFilTest {
     }
 
     // commit the model
-    tl::Model model;
-    TL_CPP_CHECK(model_builder->CommitModel(&model));
+    std::unique_ptr<tl::Model> model(new tl::Model);
+    TL_CPP_CHECK(model_builder->CommitModel(model.get()));
 
     // init FIL forest with the model
-    fil::from_treelite(handle, pforest, &model);
+    fil::from_treelite(handle, pforest, (ModelHandle)model.get());
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };
