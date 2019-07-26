@@ -119,7 +119,7 @@ class KMeans(object):
 
         return self
 
-    def predict(self, X):
+    def parallel_func(self, X, func):
         """
         Predicts the labels using a distributed KMeans model
         :param X: dask_cudf.Dataframe to predict
@@ -127,13 +127,21 @@ class KMeans(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         kmeans_predict = [self.client.submit(
-            KMeans.func_predict,
+            func,
             self.local_model,
             f,
             random.random(),
             workers=[w]) for w, f in gpu_futures]
 
         return to_dask_cudf(kmeans_predict)
+
+    def predict(self, X):
+        """
+        Predicts the labels using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to predict
+        :return: A dask_cudf.Dataframe containing label predictions
+        """
+        return self.parallel_func(X, KMeans.func_predict)
 
     def fit_predict(self, X):
         return self.fit(X).predict(X)
@@ -144,15 +152,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-        kmeans_xform = [self.client.submit(
-            KMeans.func_xform,
-            self.local_model,
-            f,
-            random.random(),
-            workers=[w]) for w, f in gpu_futures]
-
-        return to_dask_cudf(kmeans_xform)
+        return self.parallel_func(X, KMeans.func_xform)
 
     def fit_transform(self, X):
         """
