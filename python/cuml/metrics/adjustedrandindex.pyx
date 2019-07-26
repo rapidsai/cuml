@@ -42,7 +42,24 @@ def adjusted_rand_score(y_first_cluster,
                         y_second_cluster,
                         lower_class_range,
                         upper_class_range,
-                        handle):
+                        handle=None):
+    """
+    Adjusted_rand_score function is a modified rand index
+    function modified to handle chance.
+
+        Parameters
+        ----------
+            y_first_cluster : Array of response variables of
+                              the first clustering classifications
+            y_second_cluster : Array of response variables of
+                              the first clustering classifications
+            lower_class_range : the lowest value in the range of classes
+            upper_class_range : the highest value in the range of classes
+            handle : cuml.Handle
+        Returns
+        -------
+            The adjusted rand index value
+    """
 
     handle = cuml.common.handle.Handle() \
         if handle is None else handle
