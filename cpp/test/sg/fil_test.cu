@@ -337,10 +337,11 @@ class TreeliteFilTest : public BaseFilTest {
       case fil::output_t::RAW:
         break;
       case fil::output_t::PROB:
+      case fil::output_t::CLASS:
         model_builder->SetModelParam("pred_transform", "sigmoid");
         break;
       default:
-        ASSERT(false, "output must be RAW or PROB");
+        ASSERT(false, "invalid output type");
     }
 
     // build the trees
@@ -359,7 +360,11 @@ class TreeliteFilTest : public BaseFilTest {
     TL_CPP_CHECK(model_builder->CommitModel(model.get()));
 
     // init FIL forest with the model
-    fil::from_treelite(handle, pforest, (ModelHandle)model.get());
+    fil::treelite_params_t params;
+    params.algo = ps.algo;
+    params.threshold = ps.threshold;
+    params.output_class = ps.output == fil::output_t::CLASS;
+    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };
@@ -395,6 +400,18 @@ INSTANTIATE_TEST_CASE_P(FilTests, PredictFilTest,
                         testing::ValuesIn(predict_inputs));
 
 std::vector<FilTestParams> import_inputs = {
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::NAIVE, 42,
+   2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0, fil::algo_t::NAIVE, 42,
+   2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::TREE_REORG,
+   42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
@@ -411,6 +428,10 @@ std::vector<FilTestParams> import_inputs = {
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
 };
 
 TEST_P(TreeliteFilTest, Import) { compare(); }
