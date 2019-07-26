@@ -269,41 +269,43 @@ void tree2fil(std::vector<dense_node_t>* pnodes, int root, const tl::Tree& t) {
   node2fil(pnodes, root, 0, t, t[tree_root(t)]);
 }
 
-void tl2fil(forest_params_t* ps, std::vector<dense_node_t>* pnodes,
-            const tl::Model& tl_model) {
+void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
+            const tl::Model& model, const treelite_params_t* tl_params) {
   // fill in forest-indendent params
-  ps->algo = algo_t::BATCH_TREE_REORG;
-  ps->threshold = 0.5;
+  params->algo = tl_params->algo;
+  params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
-  ps->cols = tl_model.num_feature;
-  ASSERT(tl_model.num_output_group == 1,
+  params->cols = model.num_feature;
+  ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
-  const tl::ModelParam& param = tl_model.param;
+  const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   ASSERT(param.global_bias == 0.0f, "bias not supported");
   if (param.pred_transform == "identity") {
-    ps->output = output_t::RAW;
+    ASSERT(!tl_params->output_class,
+           "class output only supported for the sigmoid transform");
+    params->output = output_t::RAW;
   } else if (param.pred_transform == "sigmoid") {
-    ps->output = output_t::PROB;
+    params->output = tl_params->output_class ? output_t::CLASS : output_t::PROB;
   } else {
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
   }
-  ps->ntrees = tl_model.trees.size();
+  params->ntrees = model.trees.size();
 
   int depth = 0;
-  for (const auto& t : tl_model.trees) depth = std::max(depth, max_depth(t));
-  ps->depth = depth;
+  for (const auto& t : model.trees) depth = std::max(depth, max_depth(t));
+  params->depth = depth;
 
   // convert the nodes
   std::vector<dense_node_t>& nodes = *pnodes;
-  int nnodes = forest_num_nodes(ps->ntrees, ps->depth);
-  nodes.resize(nnodes, dense_node_t{0, 0});
-  for (int i = 0; i < tl_model.trees.size(); ++i) {
-    tree2fil(pnodes, i * tree_num_nodes(ps->depth), tl_model.trees[i]);
+  int num_nodes = forest_num_nodes(params->ntrees, params->depth);
+  nodes.resize(num_nodes, dense_node_t{0, 0});
+  for (int i = 0; i < model.trees.size(); ++i) {
+    tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
   }
-  ps->nodes = nodes.data();
+  params->nodes = nodes.data();
 }
 
 void init_dense(const cumlHandle& h, forest_t* pf,
@@ -315,11 +317,11 @@ void init_dense(const cumlHandle& h, forest_t* pf,
 }
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
-                   ModelHandle model) {
-  forest_params_t ps;
+                   ModelHandle model, const treelite_params_t* tl_params) {
+  forest_params_t params;
   std::vector<dense_node_t> nodes;
-  tl2fil(&ps, &nodes, *(tl::Model*)model);
-  init_dense(handle, pforest, &ps);
+  tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
+  init_dense(handle, pforest, &params);
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
