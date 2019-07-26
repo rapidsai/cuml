@@ -414,9 +414,7 @@ class CommsContext:
                         worker_info,
                         verbose,
                         workers=workers,
-                        wait=False)
-
-        self.block_for_init("handle")
+                        wait=True)
 
         self.nccl_initialized = True
         self.ucx_initialized = True
