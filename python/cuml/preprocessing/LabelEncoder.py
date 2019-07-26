@@ -16,17 +16,21 @@
 
 import cudf
 import nvcategory
-
 from librmm_cffi import librmm
 import numpy as np
 
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
-    """
-    Ensure that nvcategory is being given strings
-    """
+    ''' Ensure that nvcategory is being given strings
+    '''
     if y.dtype != "object":
         return y.astype("str")
+    return y
+
+
+def _enforce_npint32(y: cudf.Series) -> cudf.Series:
+    if y.dtype != np.int32:
+        return y.astype(np.int32)
     return y
 
 
@@ -65,6 +69,13 @@ class LabelEncoder(object):
         encoded = le.transform(test_data)
         print(encoded)
 
+        # After train, ordinal label can be inverse_transform() back to
+        # string labels
+        ord_label = cudf.Series([0, 0, 1, 2, 1])
+        ord_label = dask_cudf.from_cudf(data, npartitions=2)
+        str_label = le.inverse_transform(ord_label)
+        print(str_label)
+
     Output:
 
     .. code-block:: python
@@ -89,6 +100,14 @@ class LabelEncoder(object):
         0    2
         1    0
         dtype: int64
+
+        0    a
+        1    a
+        2    b
+        3    c
+        4    b
+        dtype: object
+
     """
 
     def __init__(self, *args, **kwargs):
@@ -98,7 +117,7 @@ class LabelEncoder(object):
 
     def _check_is_fitted(self):
         if not self._fitted:
-            raise TypeError("Model must first be .fit()")
+            raise RuntimeError("Model must first be .fit()")
 
     def fit(self, y: cudf.Series) -> "LabelEncoder":
         """
@@ -181,4 +200,37 @@ class LabelEncoder(object):
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        raise NotImplementedError
+        ''' Revert ordinal label to original label
+
+        Parameters
+        ----------
+        y : cudf.Series, dtype=int32
+            Ordinal labels to be reverted
+
+        Returns
+        -------
+        reverted : cudf.Series
+            Reverted labels
+        '''
+        # check LabelEncoder is fitted
+        self._check_is_fitted()
+        # check input type is cudf.Series
+        if not isinstance(y, cudf.Series):
+            raise TypeError(
+                'Input of type {} is not cudf.Series'.format(type(y)))
+
+        # check if y's dtype is np.int32, otherwise convert it
+        y = _enforce_npint32(y)
+
+        # check if ord_label out of bound
+        ord_label = y.unique()
+        category_num = len(self._cats.keys())
+        for ordi in ord_label:
+            if ordi < 0 or ordi >= category_num:
+                raise ValueError(
+                    'y contains previously unseen label {}'.format(ordi))
+        # convert ordinal label to string label
+        reverted = cudf.Series(self._cats.gather_strings(
+            y.data.mem.device_ctypes_pointer.value, len(y)))
+
+        return reverted
