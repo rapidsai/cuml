@@ -18,8 +18,6 @@ from dask.distributed import default_client
 from toolz import first
 import dask.dataframe as dd
 
-from cuml.dask.common.utils import parse_host_port
-
 from dask.distributed import wait
 
 
