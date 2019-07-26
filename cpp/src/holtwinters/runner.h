@@ -107,17 +107,14 @@ void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
     holtwinters_eval_gpu(handle_impl, ts, n, batch_size, frequency, start_level,
                          start_trend, start_season, alpha, beta, gamma, level,
                          trend, season, xhat, error,
-                         seasonal);  // TODO(ahmad): return value
+                         seasonal);
   }
 }
 
-// TODO(ahmad): expose line search step size
-// TODO(ahmad): add the dynamic step size to CPU version
-// TODO(ahmad): min_error_diff is actually min_param_diff
-// TODO(ahmad): add a min_error_diff criterion
-// TODO(ahmad): update default optim params in the doc
-// TODO(ahmad): if linesearch_iter_limit is reached, we update wrong nx values (nx values that don't minimze loss).
-// change this to at least keep the old xs
+// expose line search step size - https://github.com/rapidsai/cuml/issues/886
+// Also, precision errors arise in optimization. There's floating point instability, 
+// and epsilon majorly influences the fitting based on precision. For a summary,
+// https://github.com/rapidsai/cuml/issues/888
 template <typename Dtype>
 void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
                       int batch_size, int frequency, const Dtype *start_level,
@@ -178,7 +175,7 @@ void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
       handle_impl, ts, n, batch_size, frequency, start_level, start_trend,
       start_season, alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma,
       level, trend, season, xhat, error, optim_result, seasonal,
-      optim_params_);  // TODO(ahmad): return
+      optim_params_);
   }
 }
 
@@ -196,9 +193,11 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
   ASSERT(!(season_coef && frequency < 2), "HW error in in line %d", __LINE__);
   holtwinters_forecast_gpu(handle_impl, forecast, h, batch_size, frequency,
                            level_coef, trend_coef, season_coef,
-                           seasonal);  // TODO(ahmad): return value
+                           seasonal);
 }
 
+// change optim_gamma to false here to test bug in Double Exponential Smoothing
+// https://github.com/rapidsai/cuml/issues/889
 template <typename Dtype>
 void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
                           int frequency, int start_periods,

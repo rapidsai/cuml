@@ -151,6 +151,8 @@ __global__ void holtwinters_eval_gpu_global_kernel(
   }
 }
 
+// Test global and shared kernels
+// https://github.com/rapidsai/cuml/issues/890
 template <typename Dtype>
 void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
                           int n, int batch_size, int frequency,
@@ -178,7 +180,7 @@ void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
   if (sm_needed >
-      prop.sharedMemPerBlock) {  // TODO(ahmad): test shared/general kernels
+      prop.sharedMemPerBlock) {
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_eval_gpu_global_kernel<Dtype>
