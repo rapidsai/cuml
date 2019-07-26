@@ -13,14 +13,17 @@
 # limitations under the License.
 #
 
+import pytest
+
 from dask.distributed import Client
 from dask_cuda import LocalCUDACluster
-import pytest
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import gzip
 import numpy as np
 import os
+
+pytestmark = pytest.mark.mg
 
 
 def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
