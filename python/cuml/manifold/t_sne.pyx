@@ -162,27 +162,27 @@ class TSNE(Base):
         t-distributed Stochastic Neighborhood Embedding
     """
     def __init__(self,
-                    int n_components=2,
-                    float perplexity=30.0,
-                    float early_exaggeration=12.0,
-                    float learning_rate=200.0,
-                    int n_iter=1000,
-                    int n_iter_without_progress=300,
-                    float min_grad_norm=1e-07,
-                    str metric='euclidean',
-                    str init='random',
-                    int verbose=0,
-                    random_state=None,
-                    str method='barnes_hut',
-                    float angle=0.5,
-                    str learning_rate_method='adaptive',
-                    int n_neighbors=90,
-                    int perplexity_max_iter=100,
-                    int exaggeration_iter=250,
-                    float pre_momentum=0.5,
-                    float post_momentum=0.8,
-                    bool should_downcast=True,
-                    handle=None):
+                int n_components=2,
+                float perplexity=30.0,
+                float early_exaggeration=12.0,
+                float learning_rate=200.0,
+                int n_iter=1000,
+                int n_iter_without_progress=300,
+                float min_grad_norm=1e-07,
+                str metric='euclidean',
+                str init='random',
+                int verbose=0,
+                random_state=None,
+                str method='barnes_hut',
+                float angle=0.5,
+                str learning_rate_method='adaptive',
+                int n_neighbors=90,
+                int perplexity_max_iter=100,
+                int exaggeration_iter=250,
+                float pre_momentum=0.5,
+                float post_momentum=0.8,
+                bool should_downcast=True,
+                handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=False)
 
@@ -192,7 +192,7 @@ class TSNE(Base):
             n_components = 2
         if n_components != 2 and method == 'barnes_hut':
             print("[Warn] Barnes Hut only works when n_components == 2. "
-                "Switching to exact.")
+                    "Switching to exact.")
             method = 'exact'
         if perplexity < 0:
             print("[Error] perplexity = {} should be more than 0.".format(
@@ -200,63 +200,63 @@ class TSNE(Base):
             perplexity = 30
         if early_exaggeration < 0:
             print("[Error] early_exaggeration = {} should be more "
-                "than 0.".format(early_exaggeration))
+                    "than 0.".format(early_exaggeration))
             early_exaggeration = 12
         if learning_rate < 0:
             print("[Error] learning_rate = {} should be more "
-                "than 0.".format(learning_rate))
+                    "than 0.".format(learning_rate))
             learning_rate = 200
         if n_iter < 0:
             print("[Error] n_iter = {} should be more than 0.".format(n_iter))
             n_iter = 1000
         if n_iter <= 100:
             print("[Warn] n_iter = {} might cause TSNE to output wrong "
-                "results. Set it higher.".format(n_iter))
+                    "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
             print("[Warn] TSNE does not support {} but only Euclidean. "
-                "Will do in the near future.".format(metric))
+                    "Will do in the near future.".format(metric))
             metric = 'euclidean'
         if init.lower() != 'random':
             print("[Warn] TSNE does not support {} but only random "
-                "intialization. Will do in the near future.".format(init))
+                    "intialization. Will do in the near future.".format(init))
             init = 'random'
         if verbose != 0:
             verbose = 1
         if angle < 0 or angle > 1:
             print("[Error] angle = {} should be > 0 and less "
-                "than 1.".format(angle))
+                    "than 1.".format(angle))
             angle = 0.5
         if n_neighbors < 0:
             print("[Error] n_neighbors = {} should be more "
-                "than 0.".format(n_neighbors))
+                    "than 0.".format(n_neighbors))
             n_neighbors = <int> (perplexity * 3)
         if n_neighbors > 1023:
             print("[Error] n_neighbors = {} should be less than 1023, as "
-                "FAISS doesn't support more".format(n_neighbors))
+                    "FAISS doesn't support more".format(n_neighbors))
             n_neighbors = 1023
         if perplexity_max_iter < 0:
             print("[Error] perplexity_max_iter = {} should be more "
-                "than 0.".format(perplexity_max_iter))
+                    "than 0.".format(perplexity_max_iter))
             perplexity_max_iter = 100
         if exaggeration_iter < 0:
             print("[Error] exaggeration_iter = {} should be more "
-                "than 0.".format(exaggeration_iter))
+                    "than 0.".format(exaggeration_iter))
             exaggeration_iter = 250
         if exaggeration_iter > n_iter:
             print("[Error] exaggeration_iter = {} should be more less than "
-                "n_iter = {}.".format(exaggeration_iter, n_iter))
+                    "n_iter = {}.".format(exaggeration_iter, n_iter))
             exaggeration_iter = <int> max(<float>n_iter * 0.25, 1)
         if pre_momentum < 0 or pre_momentum > 1:
             print("[Error] pre_momentum = {} should be more than 0 and less "
-                "than 1.".format(pre_momentum))
+                    "than 1.".format(pre_momentum))
             pre_momentum = 0.5
         if post_momentum < 0 or post_momentum > 1:
             print("[Error] post_momentum = {} should be more than 0 and less "
-                "than 1.".format(post_momentum))
+                    "than 1.".format(post_momentum))
             post_momentum = 0.8
         if pre_momentum > post_momentum:
             print("[Error] post_momentum = {} should be more than "
-                "pre_momentum = {}".format(post_momentum, pre_momentum))
+                    "pre_momentum = {}".format(post_momentum, pre_momentum))
             pre_momentum = post_momentum * 0.75
 
         self.n_components = n_components
@@ -333,19 +333,19 @@ class TSNE(Base):
         cdef uintptr_t X_ptr
         if self._should_downcast:
             _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                            convert_to_dtype=np.float32)
+                                                convert_to_dtype=np.float32)
         else:
             _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                            check_dtype=np.float32)
+                                                check_dtype=np.float32)
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
-                            "nearest the neighbors graph")
+                                "nearest the neighbors graph")
 
         self.n_neighbors = min(n, self.n_neighbors)
         if self.perplexity > n:
             print("[Warn] Perplexity = {} should be less than the "
-                    "# of datapoints = {}.".format(self.perplexity, n))
+                "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
         # Prepare output embeddings
@@ -360,12 +360,12 @@ class TSNE(Base):
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
             if self.verbose:
                 print("Learning rate is adpative. In TSNE paper, "
-                        "it has been shown that as n->inf, "
-                        "Barnes Hut works well if n_neighbors->30, "
-                        "learning_rate->20000, early_exaggeration->24.")
+                    "it has been shown that as n->inf, "
+                    "Barnes Hut works well if n_neighbors->30, "
+                    "learning_rate->20000, early_exaggeration->24.")
                 print("cuML uses an adpative method."
-                        "n_neighbors decreases to 30 as n->inf. "
-                        "Likewise for the other params.")
+                    "n_neighbors decreases to 30 as n->inf. "
+                    "Likewise for the other params.")
             if n <= 2000:
                 self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
@@ -378,9 +378,9 @@ class TSNE(Base):
                 print("New n_neighbors = {}, "
                     "learning_rate = {}, "
                     "early_exaggeration = {}".format(
-                    self.n_neighbors,
-                    self.pre_learning_rate,
-                    self.early_exaggeration))
+                        self.n_neighbors,
+                        self.pre_learning_rate,
+                        self.early_exaggeration))
 
         assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
 
@@ -389,30 +389,30 @@ class TSNE(Base):
             seed = self.random_state
 
         TSNE_fit(handle_[0],
-            <float*> X_ptr,
-            <float*> embed_ptr,
-            <int> n,
-            <int> p,
-            <int> self.n_components,
-            <int> self.n_neighbors,
-            <float> self.angle,
-            <float> self.epssq,
-            <float> self.perplexity,
-            <int> self.perplexity_max_iter,
-            <float> self.perplexity_tol,
-            <float> self.early_exaggeration,
-            <int> self.exaggeration_iter,
-            <float> self.min_gain,
-            <float> self.pre_learning_rate,
-            <float> self.post_learning_rate,
-            <int> self.n_iter,
-            <float> self.min_grad_norm,
-            <float> self.pre_momentum,
-            <float> self.post_momentum,
-            <long long> seed,
-            <bool> self.verbose,
-            <bool> True,
-            <bool> True)
+                <float*> X_ptr,
+                <float*> embed_ptr,
+                <int> n,
+                <int> p,
+                <int> self.n_components,
+                <int> self.n_neighbors,
+                <float> self.angle,
+                <float> self.epssq,
+                <float> self.perplexity,
+                <int> self.perplexity_max_iter,
+                <float> self.perplexity_tol,
+                <float> self.early_exaggeration,
+                <int> self.exaggeration_iter,
+                <float> self.min_gain,
+                <float> self.pre_learning_rate,
+                <float> self.post_learning_rate,
+                <int> self.n_iter,
+                <float> self.min_grad_norm,
+                <float> self.pre_momentum,
+                <float> self.post_momentum,
+                <long long> seed,
+                <bool> self.verbose,
+                <bool> True,
+                <bool> True)
 
         # Clean up memory
         del _X
