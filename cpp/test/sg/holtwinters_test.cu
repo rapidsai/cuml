@@ -17,13 +17,18 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <algorithm>
 #include "holtwinters/holtwinters.h"
+#include "time_series_datasets.h"
 
 namespace ML {
 
 using namespace MLCommon;
 
+template <typename T>
 struct HoltWintersInputs {
+  T *dataset_h;
+  T *test;
   int n;
   int h;
   int batch_size;
@@ -33,10 +38,12 @@ struct HoltWintersInputs {
 };
 
 template <typename T>
-class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
+class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
  public:
   void basicTest() {
-    params = ::testing::TestWithParam<HoltWintersInputs>::GetParam();
+    params = ::testing::TestWithParam<HoltWintersInputs<T>>::GetParam();
+    dataset_h = params.dataset_h;
+    test = params.test;
     n = params.n;
     h = params.h;
     batch_size = params.batch_size;
@@ -61,52 +68,8 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
     allocate(SSE_error_ptr, batch_size, stream);
     allocate(forecast_ptr, batch_size * h, stream);
 
-    std::vector<T> dataset_h;
-    if (seasonal == ML::SeasonalType::ADDITIVE) {
-      dataset_h = {
-        0.5,        0.6245908,  0.74135309, 0.84295029, 0.92299865, 0.97646846,
-        1.,         0.9921147,  0.95330803, 0.88601834, 0.7944737,  0.6844262,
-        0.56279052, 0.43720948, 0.3155738,  0.2055263,  0.11398166, 0.04669197,
-        0.0078853,  0.,         0.02353154, 0.07700135, 0.15704971, 0.25864691,
-        0.3754092,  0.5,        0.6245908,  0.74135309, 0.84295029, 0.92299865,
-        0.97646846, 1.,         0.9921147,  0.95330803, 0.88601834, 0.7944737,
-        0.6844262,  0.56279052, 0.43720948, 0.3155738,  0.2055263,  0.11398166,
-        0.04669197, 0.0078853,  0.,         0.02353154, 0.07700135, 0.15704971,
-        0.25864691, 0.3754092,  0.5,        0.6245908,  0.74135309, 0.84295029,
-        0.92299865, 0.97646846, 1.,         0.9921147,  0.95330803, 0.88601834,
-        0.7944737,  0.6844262,  0.56279052, 0.43720948, 0.3155738,  0.2055263,
-        0.11398166, 0.04669197, 0.0078853,  0.,         0.02353154, 0.07700135,
-        0.15704971, 0.25864691, 0.3754092,  0.5,        0.6245908,  0.74135309,
-        0.84295029, 0.92299865, 0.97646846, 1.,         0.9921147,  0.95330803,
-        0.88601834, 0.7944737,  0.6844262,  0.56279052, 0.43720948, 0.3155738};
-    } else {
-      dataset_h = {
-        0.01644402, 0.02802703, 0.05505405, 0.04926255, 0.03381853, 0.06084556,
-        0.08594208, 0.08594208, 0.06277606, 0.02995753, 0.001,      0.02802703,
-        0.02223552, 0.04347104, 0.07242857, 0.06084556, 0.04154054, 0.08787259,
-        0.12841313, 0.12841313, 0.1052471,  0.05698456, 0.02030502, 0.07049807,
-        0.08015058, 0.08980309, 0.14385714, 0.11489961, 0.13227413, 0.14385714,
-        0.18439768, 0.18439768, 0.15544015, 0.11296911, 0.08208108, 0.12069112,
-        0.13034363, 0.14771815, 0.17281467, 0.14964865, 0.15350965, 0.22107722,
-        0.24424324, 0.26740927, 0.2037027,  0.16895367, 0.13227413, 0.17474517,
-        0.17860618, 0.17860618, 0.25582625, 0.25389575, 0.24231274, 0.26933977,
-        0.30988031, 0.32532432, 0.25775676, 0.20756371, 0.14771815, 0.18825869,
-        0.19405019, 0.16316216, 0.25389575, 0.23845174, 0.25196525, 0.30988031,
-        0.38323938, 0.36586486, 0.3002278,  0.24231274, 0.19211969, 0.24231274,
-        0.26740927, 0.25003475, 0.31567181, 0.31953282, 0.32146332, 0.40833591,
-        0.5029305,  0.47011197, 0.4025444,  0.32918533, 0.25775676, 0.33690734,
-        0.34849035, 0.33497683, 0.41219691, 0.4044749,  0.41412741, 0.52223552,
-        0.5975251,  0.58208108, 0.48555598, 0.39096139, 0.32339382, 0.39096139,
-        0.40833591, 0.38130888, 0.48748649, 0.47204247, 0.48555598, 0.61489961,
-        0.6979112,  0.7017722,  0.58015058, 0.47011197, 0.38903089, 0.44887645,
-        0.45659846, 0.41412741, 0.4990695,  0.47204247, 0.501,      0.63999614,
-        0.74810425, 0.77513127, 0.58015058, 0.49327799, 0.3986834,  0.45080695,
-        0.49520849, 0.46045946, 0.58401158, 0.56470656, 0.61103861, 0.71142471,
-        0.85814286, 0.87937838, 0.69405019, 0.58594208, 0.4990695,  0.58208108};
-    }
-
     allocate(data, batch_size * n);
-    updateDevice(data, dataset_h.data(), batch_size * n, stream);
+    updateDevice(data, dataset_h, batch_size * n, stream);
 
     cumlHandle handle;
     handle.setStream(stream);
@@ -135,96 +98,87 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs> {
 
  public:
   cudaStream_t stream;
-  HoltWintersInputs params;
+  HoltWintersInputs<T> params;
+  T *dataset_h, *test;
   T *data;
   int n, h;
   int leveltrend_seed_len, season_seed_len, components_len;
   int leveltrend_coef_offset, season_coef_offset;
   int error_len;
   int batch_size, frequency, start_periods;
-  double *SSE_error_ptr;
-  double *level_ptr, *trend_ptr, *season_ptr;
-  Dtype *forecast_ptr;
+  T *SSE_error_ptr, *level_ptr, *trend_ptr, *season_ptr, *forecast_ptr;
 };
 
-const std::vector<HoltWintersInputs> inputsf1 = {
-  {90, 10, 1, 25, ML::SeasonalType::ADDITIVE, 2}};
-const std::vector<HoltWintersInputs> inputsf2 = {
-  {132, 12, 1, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
-const std::vector<HoltWintersInputs> inputsd2 = {
-  {132, 12, 1, 12, ML::SeasonalType::MULTIPLICATIVE, 2}};
+const std::vector<HoltWintersInputs<float>> inputsf = {
+  {additive_trainf.data(), additive_testf.data(), 90, 10, 1, 25,
+   ML::SeasonalType::ADDITIVE, 2},
+  {multiplicative_trainf.data(), multiplicative_testf.data(), 132, 12, 1, 12,
+   ML::SeasonalType::MULTIPLICATIVE, 2},
+  {additive_normalized_trainf.data(), additive_normalized_testf.data(), 90, 10,
+   1, 25, ML::SeasonalType::ADDITIVE, 2},
+  {multiplicative_normalized_trainf.data(),
+   multiplicative_normalized_testf.data(), 132, 12, 1, 12,
+   ML::SeasonalType::MULTIPLICATIVE, 2}};
 
-typedef HoltWintersTest<float> HoltWintersTestAF;
-TEST_P(HoltWintersTestAF, Fit) {
-  std::vector<float> test = {0.2055263,  0.11398166, 0.04669197, 0.0078853,
-                             0.,         0.02353154, 0.07700135, 0.15704971,
-                             0.25864691, 0.3754092};
-  std::vector<float> forecast_h(batch_size * h);
-  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
-  std::vector<float> ae(batch_size * h);
+const std::vector<HoltWintersInputs<double>> inputsd = {
+  {additive_traind.data(), additive_testd.data(), 90, 10, 1, 25,
+   ML::SeasonalType::ADDITIVE, 2},
+  {multiplicative_traind.data(), multiplicative_testd.data(), 132, 12, 1, 12,
+   ML::SeasonalType::MULTIPLICATIVE, 2},
+  {additive_normalized_traind.data(), additive_normalized_testd.data(), 90, 10,
+   1, 25, ML::SeasonalType::ADDITIVE, 2},
+  {multiplicative_normalized_traind.data(),
+   multiplicative_normalized_testd.data(), 132, 12, 1, 12,
+   ML::SeasonalType::MULTIPLICATIVE, 2}};
+
+template <typename T>
+void normalise(T *data, int len) {
+  T min = *std::min_element(data, data + len);
+  T max = *std::max_element(data, data + len);
+  for (int i = 0; i < len; i++) {
+    data[i] = (data[i] - min) / (max - min);
+  }
+}
+
+template <typename T>
+T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
+  normalise(test, batch_size * h);
+  normalise(forecast, batch_size * h);
+  std::vector<T> ae(batch_size * h);
   for (int i = 0; i < batch_size * h; i++) {
-    ae[i] = abs(test[i] - forecast_h[i]);
+    ae[i] = abs(test[i] - forecast[i]);
   }
   std::sort(ae.begin(), ae.end());
-  float mae;
+  T mae;
   if (h % 2 == 0) {
     mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
   } else {
     mae = ae[(int)h / 2];
   }
-  std::cout << "MAE: " << mae << std::endl;
+  return mae;
 }
 
-typedef HoltWintersTest<float> HoltWintersTestMF;
-TEST_P(HoltWintersTestMF, Fit) {
-  std::vector<float> test = {0.6052471,  0.55505405, 0.60910811, 0.69018919,
-                             0.71142471, 0.83304633, 1.001,      0.97011197,
-                             0.78092278, 0.69018919, 0.55312355, 0.63420463};
+typedef HoltWintersTest<float> HoltWintersTestF;
+TEST_P(HoltWintersTestF, Fit) {
   std::vector<float> forecast_h(batch_size * h);
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
-  std::vector<float> ae(batch_size * h);
-  for (int i = 0; i < batch_size * h; i++) {
-    ae[i] = abs(test[i] - forecast_h[i]);
-  }
-  std::sort(ae.begin(), ae.end());
-  float mae;
-  if (h % 2 == 0) {
-    mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
-  } else {
-    mae = ae[(int)h / 2];
-  }
+  float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
   std::cout << "MAE: " << mae << std::endl;
 }
 
-typedef HoltWintersTest<double> HoltWintersTestMD;
-TEST_P(HoltWintersTestMD, Fit) {
-  std::vector<double> test = {0.6052471,  0.55505405, 0.60910811, 0.69018919,
-                              0.71142471, 0.83304633, 1.001,      0.97011197,
-                              0.78092278, 0.69018919, 0.55312355, 0.63420463};
+typedef HoltWintersTest<double> HoltWintersTestD;
+TEST_P(HoltWintersTestD, Fit) {
   std::vector<double> forecast_h(batch_size * h);
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
-  std::vector<double> ae(batch_size * h);
-  for (int i = 0; i < batch_size * h; i++) {
-    ae[i] = abs(test[i] - forecast_h[i]);
-  }
-  std::sort(ae.begin(), ae.end());
-  double mae;
-  if (h % 2 == 0) {
-    mae = (ae[h / 2 - 1] + ae[h / 2]) / 2;
-  } else {
-    mae = ae[(int)h / 2];
-  }
+  double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
   std::cout << "MAE: " << mae << std::endl;
 }
 
-INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestAF,
-                        ::testing::ValuesIn(inputsf1));
-INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestMF,
-                        ::testing::ValuesIn(inputsf2));
-INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestMD,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestF,
+                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(HoltWintersTests, HoltWintersTestD,
+                        ::testing::ValuesIn(inputsd));
 
 }  // namespace ML

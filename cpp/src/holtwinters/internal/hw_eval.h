@@ -18,25 +18,25 @@
 #include "hw_utils.h"
 
 template <typename Dtype>
-__device__ double holtwinters_eval_device(
+__device__ Dtype holtwinters_eval_device(
   int tid, const Dtype *ts, int n, int batch_size, int frequency, int shift,
   Dtype plevel, Dtype ptrend, Dtype *pseason, int pseason_width,
-  const Dtype *start_season, const double *beta, const double *gamma,
-  double alpha_, double beta_, double gamma_, Dtype *level, Dtype *trend,
+  const Dtype *start_season, const Dtype *beta, const Dtype *gamma,
+  Dtype alpha_, Dtype beta_, Dtype gamma_, Dtype *level, Dtype *trend,
   Dtype *season, Dtype *xhat, bool additive_seasonal) {
   alpha_ = bound_device(alpha_);
   beta_ = bound_device(beta_);
   gamma_ = bound_device(gamma_);
 
-  double error_ = .0;
-  double clevel = .0, ctrend = .0, cseason = .0;
+  Dtype error_ = .0;
+  Dtype clevel = .0, ctrend = .0, cseason = .0;
   for (int i = 0; i < n - shift; i++) {
     int s = i % frequency;
-    double pts = ts[IDX(tid, i + shift, batch_size)];
-    double leveltrend = plevel + ptrend;
+    Dtype pts = ts[IDX(tid, i + shift, batch_size)];
+    Dtype leveltrend = plevel + ptrend;
 
     // xhat
-    double stmp;
+    Dtype stmp;
     if (gamma)
       stmp = i < frequency ? start_season[IDX(tid, i, batch_size)]
                            : pseason[s * pseason_width];
@@ -49,7 +49,7 @@ __device__ double holtwinters_eval_device(
       xhat_ *= stmp;
 
     // Error
-    double diff = pts - xhat_;
+    Dtype diff = pts - xhat_;
     error_ += diff * diff;
 
     // Level

@@ -74,7 +74,7 @@ void buffer_size(int n, int batch_size, int frequency,
              */
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, float *data,
-         float *level_d, float *trend_d, float *season_d, double *error_d);
+         float *level_d, float *trend_d, float *season_d, float *error_d);
 void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, double *data,
          double *level_d, double *trend_d, double *season_d, double *error_d);
@@ -102,12 +102,12 @@ void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
              * @param[out] forecast_d
              *             device pointer to array which will hold the forecast points
              */
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
-              int frequency, int h, ML::SeasonalType seasonal, float *level_d,
-              float *trend_d, float *season_d, float *forecast_d);
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
-              int frequency, int h, ML::SeasonalType seasonal, double *level_d,
-              double *trend_d, double *season_d, double *forecast_d);
+void forecast(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+             int h, ML::SeasonalType seasonal, float *level_d, float *trend_d,
+             float *season_d, float *forecast_d);
+void forecast(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+             int h, ML::SeasonalType seasonal, double *level_d, double *trend_d,
+             double *season_d, double *forecast_d);
 
 }  // namespace HoltWinters
 }  // namespace ML

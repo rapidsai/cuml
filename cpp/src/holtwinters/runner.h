@@ -87,29 +87,29 @@ void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
   }
 }
 
-// template <typename Dtype>
-// void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
-//                      int batch_size, int frequency, const Dtype *start_level,
-//                      const Dtype *start_trend, const Dtype *start_season,
-//                      const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
-//                      Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-//                      Dtype *error, ML::SeasonalType seasonal) {
-//   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-//   ML::detail::streamSyncer _(handle_impl);
-//   cudaStream_t stream = handle_impl.getStream();
+template <typename Dtype>
+void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
+                     int batch_size, int frequency, const Dtype *start_level,
+                     const Dtype *start_trend, const Dtype *start_season,
+                     const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
+                     Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
+                     Dtype *error, ML::SeasonalType seasonal) {
+  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
+  ML::detail::streamSyncer _(handle_impl);
+  cudaStream_t stream = handle_impl.getStream();
 
-//   ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
-//          "HW error in in line %d", __LINE__);
-//   ASSERT(!(!alpha || !start_level), "HW error in in line %d", __LINE__);
-//   ASSERT(!(start_season != nullptr && frequency < 2), "HW error in in line %d",
-//          __LINE__);
-//   if (!(!level && !trend && !season && !xhat && !error)) {
-//     holtwinters_eval_gpu(handle_impl, ts, n, batch_size, frequency, start_level,
-//                          start_trend, start_season, alpha, beta, gamma, level,
-//                          trend, season, xhat, error,
-//                          seasonal);  // TODO(ahmad): return value
-//   }
-// }
+  ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
+         "HW error in in line %d", __LINE__);
+  ASSERT(!(!alpha || !start_level), "HW error in in line %d", __LINE__);
+  ASSERT(!(start_season != nullptr && frequency < 2), "HW error in in line %d",
+         __LINE__);
+  if (!(!level && !trend && !season && !xhat && !error)) {
+    holtwinters_eval_gpu(handle_impl, ts, n, batch_size, frequency, start_level,
+                         start_trend, start_season, alpha, beta, gamma, level,
+                         trend, season, xhat, error,
+                         seasonal);  // TODO(ahmad): return value
+  }
+}
 
 // TODO(ahmad): expose line search step size
 // TODO(ahmad): add the dynamic step size to CPU version
@@ -122,18 +122,18 @@ template <typename Dtype>
 void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
                       int batch_size, int frequency, const Dtype *start_level,
                       const Dtype *start_trend, const Dtype *start_season,
-                      double *alpha, bool optim_alpha, double *beta,
-                      bool optim_beta, double *gamma, bool optim_gamma,
+                      Dtype *alpha, bool optim_alpha, Dtype *beta,
+                      bool optim_beta, Dtype *gamma, bool optim_gamma,
                       Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-                      double *error, OptimCriterion *optim_result,
-                      OptimParams<double> *optim_params,
+                      Dtype *error, OptimCriterion *optim_result,
+                      OptimParams<Dtype> *optim_params,
                       ML::SeasonalType seasonal) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
 
   // default values
-  OptimParams<double> optim_params_;
+  OptimParams<Dtype> optim_params_;
   optim_params_.eps = (Dtype)2.2204e-7;
   optim_params_.min_param_diff = (Dtype)1e-8;
   optim_params_.min_error_diff = (Dtype)1e-8;
@@ -201,10 +201,9 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
 
 template <typename Dtype>
 void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
-                          int frequency, int start_periods,
-                          ML::SeasonalType seasonal, Dtype *data,
-                          Dtype *level_d, Dtype *trend_d, Dtype *season_d,
-                          double *error_d) {
+                    int frequency, int start_periods, ML::SeasonalType seasonal,
+                    Dtype *data, Dtype *level_d, Dtype *trend_d,
+                    Dtype *season_d, Dtype *error_d) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
@@ -213,9 +212,9 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
-  std::vector<double> alpha_h(batch_size, 0.4);
-  std::vector<double> beta_h(batch_size, 0.3);
-  std::vector<double> gamma_h(batch_size, 0.3);
+  std::vector<Dtype> alpha_h(batch_size, 0.4);
+  std::vector<Dtype> beta_h(batch_size, 0.3);
+  std::vector<Dtype> gamma_h(batch_size, 0.3);
 
   int leveltrend_seed_len, season_seed_len, components_len;
   int leveltrend_coef_offset, season_coef_offset;
@@ -231,18 +230,18 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
     &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
   Dtype *trend_seed_d = nullptr, *start_season_d = nullptr;
-  double *beta_d = nullptr, *gamma_d = nullptr;
+  Dtype *beta_d = nullptr, *gamma_d = nullptr;
 
   MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream,
                                            batch_size * n);
-  MLCommon::device_buffer<double> alpha_d(dev_allocator, stream, batch_size);
+  MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
   MLCommon::updateDevice(alpha_d.data(), alpha_h.data(), batch_size, stream);
   MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream,
                                               leveltrend_seed_len);
 
   if (optim_beta) {
     beta_d =
-      (double *)dev_allocator->allocate(sizeof(double) * batch_size, stream);
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
     MLCommon::updateDevice(beta_d, beta_h.data(), batch_size, stream);
     trend_seed_d = (Dtype *)dev_allocator->allocate(
       sizeof(Dtype) * leveltrend_seed_len, stream);
@@ -250,7 +249,7 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
 
   if (optim_gamma) {
     gamma_d =
-      (double *)dev_allocator->allocate(sizeof(double) * batch_size, stream);
+      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
     MLCommon::updateDevice(gamma_d, gamma_h.data(), batch_size, stream);
     start_season_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
@@ -270,11 +269,7 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
                    alpha_d.data(), optim_alpha, beta_d, optim_beta, gamma_d,
                    optim_gamma, level_d, trend_d, season_d, (Dtype *)nullptr,
                    error_d, (OptimCriterion *)nullptr,
-                   (OptimParams<double> *)nullptr, seasonal);
-
-  MLCommon::myPrintDevVector("alpha", alpha_d.data(), batch_size);
-  MLCommon::myPrintDevVector("beta", beta_d, batch_size);
-  MLCommon::myPrintDevVector("gamma", gamma_d, batch_size);
+                   (OptimParams<Dtype> *)nullptr, seasonal);
 
   // Free the allocated memory on GPU
   dev_allocator->deallocate(trend_seed_d, sizeof(Dtype) * leveltrend_seed_len,
@@ -286,11 +281,10 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
 }
 
 template <typename Dtype>
-void HoltWintersForecastHelper(const ML::cumlHandle &handle, int n,
-                               int batch_size, int frequency, int h,
-                               ML::SeasonalType seasonal, double *level_d,
-                               double *trend_d, double *season_d,
-                               Dtype *forecast_d) {
+void HoltWintersForecastHelper(const ML::cumlHandle &handle, int n, int batch_size,
+                        int frequency, int h, ML::SeasonalType seasonal,
+                        Dtype *level_d, Dtype *trend_d, Dtype *season_d,
+                        Dtype *forecast_d) {
   const ML::cumlHandle_impl &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
   cudaStream_t stream = handle_impl.getStream();
