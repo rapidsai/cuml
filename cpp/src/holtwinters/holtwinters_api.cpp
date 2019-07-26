@@ -39,8 +39,8 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
 
 cumlError_t cumlcumlHoltWintersSp_fit(
   cumlHandle_t handle, int n, int batch_size, int frequency, int start_periods,
-  cumlHoltWintersSeasonal_t seasonal, float *data, float *level_d,
-  float *trend_d, float *season_d, float *error_d) {
+  cumlHoltWintersSeasonal_t seasonal, float epsilon, float *data,
+  float *level_d, float *trend_d, float *season_d, float *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -48,8 +48,8 @@ cumlError_t cumlcumlHoltWintersSp_fit(
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::fit(*handle_ptr, n, batch_size, frequency, start_periods,
-                           seasonal_type, data, level_d, trend_d, season_d,
-                           error_d);
+                           seasonal_type, epsilon, data, level_d, trend_d,
+                           season_d, error_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
@@ -59,8 +59,8 @@ cumlError_t cumlcumlHoltWintersSp_fit(
 
 cumlError_t cumlcumlHoltWintersDp_fit(
   cumlHandle_t handle, int n, int batch_size, int frequency, int start_periods,
-  cumlHoltWintersSeasonal_t seasonal, double *data, double *level_d,
-  double *trend_d, double *season_d, double *error_d) {
+  cumlHoltWintersSeasonal_t seasonal, double epsilon, double *data,
+  double *level_d, double *trend_d, double *season_d, double *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -68,8 +68,8 @@ cumlError_t cumlcumlHoltWintersDp_fit(
     try {
       ML::SeasonalType seasonal_type = (ML::SeasonalType)seasonal;
       ML::HoltWinters::fit(*handle_ptr, n, batch_size, frequency, start_periods,
-                           seasonal_type, data, level_d, trend_d, season_d,
-                           error_d);
+                           seasonal_type, epsilon, data, level_d, trend_d,
+                           season_d, error_d);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
