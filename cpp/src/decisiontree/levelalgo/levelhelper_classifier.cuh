@@ -24,7 +24,6 @@ void initial_metric_classification(
                              n_unique_labels * sizeof(unsigned int),
                              tempmem->stream));
   int blocks = MLCommon::ceildiv(nrows, 128);
-  if (blocks > 65536) blocks = 65536;
   gini_kernel_level<<<blocks, 128, sizeof(int) * n_unique_labels,
                       tempmem->stream>>>(labels, sample_cnt, nrows,
                                          n_unique_labels,
@@ -52,7 +51,8 @@ void get_histogram_classification(
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  if ((n_nodes == node_batch) && (blocks < 65536)) {
+
+  if ((n_nodes == node_batch)) {
     get_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
       data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
       n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);

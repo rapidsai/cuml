@@ -259,7 +259,7 @@ void best_split_all_cols_classifier(
     cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
   const int threads = 512;
-  int blocks = min(MLCommon::ceildiv(nrows * ncols, threads), 65536);
+  int blocks = MLCommon::ceildiv(nrows * ncols, threads);
 
   /* Kernel allcolsampler_*_kernel:
 		- populates tempmem->tempdata with the sampled column data,
