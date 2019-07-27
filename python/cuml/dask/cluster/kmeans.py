@@ -14,7 +14,6 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
-from cuml.cluster import KMeansMG as cumlKMeans
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -60,6 +59,7 @@ class KMeans(object):
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
+        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         handle = worker_state(sessionId)["handle"]
         return cumlKMeans(handle=handle,
                           init=init,
