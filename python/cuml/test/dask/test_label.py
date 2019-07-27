@@ -119,7 +119,7 @@ def test_bad_input_type(values):
         [(dc.from_cudf(Series(['a', 'b', 'c']), npartitions=2),
           dc.from_cudf(Series([2, 1, 2, 0]), npartitions=2),
           dc.from_cudf(Series(['c', 'b', 'c', 'a']), npartitions=2),
-          dc.from_cudf(Series([-1, 1, 2, 0]), npartitions=2)), #])#,
+          dc.from_cudf(Series([-1, 1, 2, 0]), npartitions=2)),
          (dc.from_cudf(Series(['Tokyo', 'Paris', 'Austin']), npartitions=2),
           dc.from_cudf(Series([0, 2, 0]), npartitions=2),
           dc.from_cudf(Series(['Austin', 'Tokyo', 'Austin']), npartitions=2),
