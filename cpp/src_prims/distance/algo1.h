@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
 #include "distance/distance_fragment_multiply_add.h"
 #include "linalg/gemm.h"
 #include "linalg/norm.h"
-#include "linalg/row_gemm.h"
 
 #include <cutlass/gemm/gemm_epilogue_traits.h>
 #include <cutlass/gemm/thread_multiply_add.h>
@@ -57,7 +56,7 @@ namespace Distance {
  * @param fin_op the final element-wise epilogue lambda
  * @param norm_op the final L2 norm lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,
@@ -65,7 +64,7 @@ template <typename InType, typename AccType, typename OutType,
 void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
                    InType const *pB, OutType *pD, bool enable_sqrt,
                    AccType *workspace, size_t worksize, FinalLambda fin_op,
-                   NormLambda norm_op, cudaStream_t stream) {
+                   NormLambda norm_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -84,10 +83,13 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, true, stream, norm_op);
-    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, true, stream, norm_op);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
+                    norm_op);
+    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, isRowMajor, stream,
+                    norm_op);
   } else {
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, true, stream, norm_op);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
+                    norm_op);
   }
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
@@ -114,14 +116,42 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
   typedef ExpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
-  LinAlg::row_gemm<InType, AccType, EffOutType, OutputTile_,
-                   AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                   GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                   GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
-    (EffOutType)0, nullptr, n, pDCast,
-    [col_vec, row_vec, enable_sqrt] HD(EpiParams & p) {
-      int err = p.initializeExtra(col_vec, row_vec, enable_sqrt);
+  cublasOperation_t transa, transb;
+  const InType *aPtr, *bPtr;
+  Index_ lda, ldb, ldd;
+  Index_ gemm_m, gemm_n;
+  InType *rvec, *cvec;
+  if (isRowMajor) {
+    transa = CUBLAS_OP_T;
+    transb = CUBLAS_OP_N;
+    aPtr = pB;
+    bPtr = pA;
+    lda = ldb = k;
+    ldd = n;
+    gemm_m = n;
+    gemm_n = m;
+    cvec = col_vec;
+    rvec = row_vec;
+  } else {
+    transa = CUBLAS_OP_N;
+    transb = CUBLAS_OP_T;
+    aPtr = pA;
+    bPtr = pB;
+    lda = m;
+    ldb = n;
+    ldd = m;
+    gemm_m = m;
+    gemm_n = n;
+    cvec = row_vec;
+    rvec = col_vec;
+  }
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [cvec, rvec, enable_sqrt] HD(EpiParams & p) {
+      int err = p.initializeExtra(cvec, rvec, enable_sqrt);
       return err;
     },
     fin_op, stream);
