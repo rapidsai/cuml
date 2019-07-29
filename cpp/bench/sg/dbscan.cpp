@@ -13,28 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda_runtime.h>
-#include <algorithm>
-#include <cmath>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <sstream>
-#include <vector>
-
-#ifdef HAVE_CUB
-#include <cub/util_allocator.cuh>
-#endif  //HAVE_CUB
-
-#ifdef HAVE_RMM
-#include <rmm/rmm.h>
-#include <common/rmmAllocatorAdapter.hpp>
-#endif  //HAVE_RMM
 
 #include <cuML.hpp>
 #include <dbscan/dbscan.hpp>
 
+namespace ML {
+namespace Bench {
 
 void printUsage() {
   std::cout
@@ -50,72 +34,6 @@ void printUsage() {
     << std::endl;
   return;
 }
-
-void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
-                        size_t& nCols, int& minPts, float& eps,
-                        size_t& max_bytes_per_batch) {
-  constexpr size_t NUM_ROWS = 25;
-  constexpr size_t NUM_COLS = 3;
-  constexpr int MIN_PTS = 2;
-  constexpr float EPS = 1.0f;
-
-  constexpr float data[NUM_ROWS * NUM_COLS] = {
-    -7.497668f, 9.218568f,  -4.924911f, 8.001691f,  -2.377415f, -3.496702f,
-    -7.402899f, 9.162857f,  -4.894407f, -7.590056f, 9.375731f,  -4.762814f,
-    7.822048f,  -2.388025f, -3.403690f, -7.376115f, 9.441934f,  -4.801385f,
-    -7.531280f, 9.230399f,  -4.763294f, 8.042177f,  -2.665680f, -3.316565f,
-    7.944115f,  -2.557312f, -3.185993f, 7.922114f,  -2.423922f, -3.194180f,
-    7.897527f,  -2.466402f, -3.311819f, -7.569343f, 9.266988f,  -4.779115f,
-    -7.528063f, 9.156666f,  -4.887371f, -7.296247f, 9.187418f,  -4.754778f,
-    7.825963f,  -2.351993f, -3.419239f, -7.608446f, 9.386856f,  -4.750009f,
-    8.087856f,  -2.330975f, -3.392595f, -7.503101f, 9.391059f,  -4.762857f,
-    7.936867f,  -2.410410f, -3.397487f, -7.565027f, 9.248172f,  -5.000937f,
-    -7.339392f, 9.317035f,  -4.778559f, 7.803362f,  -2.304214f, -3.173147f,
-    -7.510096f, 9.441537f,  -4.718324f, 8.025255f,  -2.585647f, -3.019001f,
-    7.957931f,  -2.547737f, -3.283212f};
-  nRows = NUM_ROWS;
-  nCols = NUM_COLS;
-  minPts = MIN_PTS;
-  eps = EPS;
-  max_bytes_per_batch = 0;  // allow algorithm to set this
-
-  inputData.insert(inputData.begin(), data, data + nRows * nCols);
-}
-
-class cachingDeviceAllocator : public ML::deviceAllocator {
- public:
-  cachingDeviceAllocator()
-#ifdef HAVE_CUB
-    ,
-    _allocator(8, 3, cub::CachingDeviceAllocator::INVALID_BIN,
-               cub::CachingDeviceAllocator::INVALID_SIZE)
-#endif  //HAVE_CUB
-  {
-  }
-
-  virtual void* allocate(std::size_t n, cudaStream_t stream) {
-    void* ptr = 0;
-#ifdef HAVE_CUB
-    _allocator.DeviceAllocate(&ptr, n, stream);
-#else   //!HAVE_CUB
-    CUDA_RT_CALL(cudaMalloc(&ptr, n));
-#endif  //HAVE_CUB
-    return ptr;
-  }
-
-  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
-#ifdef HAVE_CUB
-    _allocator.DeviceFree(p);
-#else   //!HAVE_CUB
-    CUDA_RT_CALL(cudaFree(p));
-#endif  //HAVE_CUB
-  }
-
-#ifdef HAVE_CUB
- private:
-  cub::CachingDeviceAllocator _allocator;
-#endif  //HAVE_CUB
-};
 
 int main(int argc, char* argv[]) {
   int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
@@ -263,3 +181,6 @@ int main(int argc, char* argv[]) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return 0;
 }
+
+}  // end namespace Bench
+}  // end namespace ML
