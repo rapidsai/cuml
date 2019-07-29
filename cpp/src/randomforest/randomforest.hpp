@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <treelite/c_api.h>
 #include <map>
 #include "decisiontree/decisiontree.hpp"
 
@@ -100,6 +101,11 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
+
+template <class T, class L>
+void build_treelite_forest(ModelHandle* model,
+                           const RandomForestMetaData<T, L>* forest,
+                           int num_features, int task_category);
 
 // ----------------------------- Classification ----------------------------------- //
 
