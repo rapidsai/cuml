@@ -61,6 +61,8 @@ def adjusted_rand_score(labels_true,
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
+    labels_true = labels_true.astype(np.int32)
+    labels_pred = labels_pred.astype(np.int32)
 
     min_val_y = np.nanmin(labels_true)
     lower_class_range = np.nanmin(labels_pred) if min_val_y \

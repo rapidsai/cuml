@@ -54,7 +54,8 @@ def accuracy_score(ground_truth, predictions, handle=None):
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
-
+    predictions = predictions.astype(np.int32)
+    ground_truth = ground_truth.astype(np.int32)
     cdef uintptr_t preds_ptr, ground_truth_ptr
     preds_m, preds_ptr, n_rows, _, _ = \
         input_to_dev_array(predictions)
