@@ -34,10 +34,12 @@ int main_no_catch(int argc, char** argv) {
     auto algos = allAlgoNames();
     printf(
       "USAGE:\n"
-      "bench [-h] [<genType> [<genOptions>]] [<algoType> [<algoOptions>]]\n"
+      "bench [-h, -i <devid>]\n"
+      "      [<genType> [<genOptions>]] [<algoType> [<algoOptions>]]\n"
       "  cuML c++ benchmark suite\n"
       "OPTIONS:\n"
       "  -h              Print this help and exit.\n"
+      "  -i <devid>      GPU to choose for the computation. [0]\n"
       "  <genType>       Dataset generator. [blobs]. Available types:\n"
       "                    (%s)\n"
       "  <genOptions>    Options for each generator. Use '-h' option to a\n"
@@ -49,6 +51,9 @@ int main_no_catch(int argc, char** argv) {
       gens.c_str(), algos.c_str());
     return 0;
   }
+  int devid = get_argval(argv, argv + allMainOptions, "-i", 0);
+  printf("Choosing to run on device-id=%d\n", devid);
+  CUDA_CHECK(cudaSetDevice(devid));
   ML::cumlHandle handle;
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
