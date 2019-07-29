@@ -247,7 +247,7 @@ class TSNE(Base):
         if exaggeration_iter > n_iter:
             raise ValueError("exaggeration_iter = {} should be more less "
                              "than n_iter = {}.".format(exaggeration_iter,
-                             n_iter))
+                                                        n_iter))
         if pre_momentum < 0 or pre_momentum > 1:
             raise ValueError("pre_momentum = {} should be more than 0 "
                              "and less than 1.".format(pre_momentum))
@@ -256,8 +256,8 @@ class TSNE(Base):
                              "and less than 1.".format(post_momentum))
         if pre_momentum > post_momentum:
             raise ValueError("post_momentum = {} should be more than "
-                             "pre_momentum = {}".format(post_momentum, 
-                             pre_momentum))
+                             "pre_momentum = {}".format(post_momentum,
+                                                        pre_momentum))
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -325,7 +325,7 @@ class TSNE(Base):
         self.n_neighbors = min(n, self.n_neighbors)
         if self.perplexity > n:
             warnings.warn("Perplexity = {} should be less than the "
-                          "# of datapoints = {}.".format(self.perplexity,n))
+                          "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
         # Prepare output embeddings
@@ -400,6 +400,7 @@ class TSNE(Base):
         self.Y = Y
         return self
 
+
     def __del__(self):
         if "Y" in self.__dict__:
             del self.Y
@@ -408,6 +409,7 @@ class TSNE(Base):
         # Use Numba's garbabge collector to clean up already removed
         # GPU memory.
         cuda.current_context().deallocations.clear()
+
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -437,7 +439,8 @@ class TSNE(Base):
             # GPU memory.
             cuda.current_context().deallocations.clear()
             return data
-        return None # is this even possible?
+        return None  # is this even possible?
+
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -449,7 +452,9 @@ class TSNE(Base):
             del state["handle"]
         return state
 
+
     def __setstate__(self, state):
-        super(TSNE, self).__init__(handle=None, verbose=(state['verbose'] != 0))
+        super(TSNE, self).__init__(handle=None,
+                                   verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
         return state
