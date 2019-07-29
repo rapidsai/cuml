@@ -14,6 +14,56 @@
  * limitations under the License.
  */
 
+#include <cuda_runtime.h>
+#include <cuML.hpp>
+#include "argparse.hpp"
 #include "dataset.h"
+#include "utils.h"
 
-int main(int argc, char** argv) { return 0; }
+namespace ML {
+namespace Bench {
+
+int main_no_catch(int argc, char** argv) {
+  int genStart = findGeneratorStart(argc, argv);
+  bool help = get_argval(argv, argv + genStart, "-h");
+  if (help) {
+    auto gens = allGeneratorNames();
+    printf(
+      "USAGE:\n"
+      "bench [-h] [<genType> [<genTypeOptions>]] ...\n"
+      "  cuML c++ benchmark suite\n"
+      "OPTIONS:\n"
+      "  -h                Print this help and exit\n"
+      "  <genType>         Dataset generator. [blobs]. Available types:\n"
+      "                      %s\n"
+      "  <genTypeOptions>  Options for each generator. Use '-h' option to a\n"
+      "                    particular generator to know its options\n",
+      gens.c_str());
+    return 0;
+  }
+  ML::cumlHandle handle;
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  handle.setStream(stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaStreamDestroy(stream));
+  return 0;
+}
+
+}  // end namespace Bench
+}  // end namespace ML
+
+int main(int argc, char** argv) {
+  try {
+    return ML::Bench::main_no_catch(argc, argv);
+  } catch (const MLCommon::Exception& ml_e) {
+    printf("bench failed! Reason:\n%s\n", ml_e.what());
+    return -1;
+  } catch (const std::exception& e) {
+    printf("bench failed! Reason:\n%s\n", e.what());
+    return -2;
+  } catch (...) {
+    printf("bench failed! Unknown exception\n");
+    return -3;
+  }
+}

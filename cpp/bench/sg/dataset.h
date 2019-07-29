@@ -19,6 +19,7 @@
 #include <cuda_runtime.h>
 #include <common/device_buffer.hpp>
 #include <cuML.hpp>
+#include <string>
 
 namespace ML {
 namespace Bench {
@@ -32,10 +33,10 @@ struct Dataset {
   void deallocate(const cumlHandle& handle);
 };
 
-bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int start,
-           int end);
-bool load(Dataset& ret, const cumlHandle& handle, char** argv, int start,
-          int end);
+typedef bool (*dataGenerator)(Dataset&, const cumlHandle&, int, char**);
+std::string allGeneratorNames();
+int findGeneratorStart(int argc, char** argv);
+bool loadDataset(Dataset& ret, const cumlHandle& handle, int argc, char** argv);
 
 }  // end namespace Bench
 }  // end namespace ML
