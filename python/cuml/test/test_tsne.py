@@ -23,6 +23,7 @@ def test_tsne(name):
     (6) Tests NAN in TSNE output for learning rate explosions
     (7) Tests verbosity
     """
+    datasets
     X = eval("datasets.load_{}".format(name))().data
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
@@ -38,6 +39,7 @@ def test_tsne(name):
         if trust < 0.97:
             if trust < 0.95:
                 assert trust > 0.9
+        assert nans == 0
         del Y
 
         # Reuse
@@ -48,6 +50,7 @@ def test_tsne(name):
         if trust < 0.97:
             if trust < 0.95:
                 assert trust > 0.9
+        assert nans == 0
         del Y
 
         # Again
@@ -60,6 +63,7 @@ def test_tsne(name):
         if trust < 0.97:
             if trust < 0.95:
                 assert trust > 0.9
+        assert nans == 0
         del Y
 
         # Reuse
@@ -70,4 +74,5 @@ def test_tsne(name):
         if trust < 0.97:
             if trust < 0.95:
                 assert trust > 0.9
+        assert nans == 0
         del Y

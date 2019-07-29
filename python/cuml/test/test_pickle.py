@@ -343,4 +343,3 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
     trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
-
