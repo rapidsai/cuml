@@ -34,7 +34,7 @@ class IPCThread(Thread):
         """
         Initializes the thread with the given IPC handles for the
         given device
-        :param ipcs: list[ipc] list of ipc handles with memory on the
+        :param ipcs: list[ipc] list of ipc handles with memory on theen fa
                      given device
         :param device: device id to use.
         """
