@@ -29,7 +29,7 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, row_matrix
 
 from numba import cuda
 
@@ -277,10 +277,72 @@ class UMAP(Base):
 
         self.umap_params = <size_t> umap_params
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        cdef size_t params_t = <size_t>self.umap_params
+        cdef UMAPParams* umap_params = <UMAPParams*>params_t
+
+        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+        state["n_neighbors"] = umap_params.n_neighbors
+        state["n_components"] = umap_params.n_components
+        state["n_epochs"] = umap_params.n_epochs
+        state["learning_rate"] = umap_params.learning_rate
+        state["min_dist"] = umap_params.min_dist
+        state["spread"] = umap_params.spread
+        state["set_op_mix_ratio"] = umap_params.set_op_mix_ratio
+        state["local_connectivity"] = umap_params.local_connectivity
+        state["repulsion_strength"] = umap_params.repulsion_strength
+        state["negative_sample_rate"] = umap_params.negative_sample_rate
+        state["transform_queue_size"] = umap_params.transform_queue_size
+        state["init"] = umap_params.init
+        state["a"] = umap_params.a
+        state["b"] = umap_params.b
+        state["target_n_neighbors"] = umap_params.target_n_neighbors
+        state["target_weights"] = umap_params.target_weights
+        state["target_metric"] = umap_params.target_metric
+
+        del state["umap_params"]
+
+        return state
+
     def __del__(self):
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*><size_t> self.umap_params
-        del umap_params
+        cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
+        free(umap_params)
+
+    def __setstate__(self, state):
+        super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['X_m'] = row_matrix(state['X_m'])
+        state["arr_embed"] = row_matrix(state["arr_embed"])
+
+        cdef UMAPParams *umap_params = new UMAPParams()
+
+        self.X_m = None
+        umap_params.n_neighbors = state["n_neighbors"]
+        umap_params.n_components = state["n_components"]
+        umap_params.n_epochs = state["n_epochs"]
+        umap_params.learning_rate = state["learning_rate"]
+        umap_params.min_dist = state["min_dist"]
+        umap_params.spread = state["spread"]
+        umap_params.set_op_mix_ratio = state["set_op_mix_ratio"]
+        umap_params.local_connectivity = state["local_connectivity"]
+        umap_params.repulsion_strength = state["repulsion_strength"]
+        umap_params.negative_sample_rate = state["negative_sample_rate"]
+        umap_params.transform_queue_size = state["transform_queue_size"]
+        umap_params.init = state["init"]
+        umap_params.a = state["a"]
+        umap_params.b = state["b"]
+        umap_params.target_n_neighbors = state["target_n_neighbors"]
+        umap_params.target_weights = state["target_weights"]
+        umap_params.target_metric = state["target_metric"]
+
+        state["umap_params"] = <size_t>umap_params
+
+        self.__dict__.update(state)
 
     def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
@@ -375,7 +437,6 @@ class UMAP(Base):
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y, convert_dtype=convert_dtype)
-
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, self.arr_embed.shape[1]):
