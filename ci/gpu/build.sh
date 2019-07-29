@@ -42,7 +42,22 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install cudf=${CUDF_VERSION} rmm=${RMM_VERSION} nvstrings=${NVSTRINGS_VERSION} lapack cmake==3.14.3 umap-learn libclang cupy
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      cudf=${CUDF_VERSION} \
+      rmm=${RMM_VERSION} \
+      nvstrings=${NVSTRINGS_VERSION} \
+      lapack \
+      cmake==3.14.3 \
+      umap-learn \
+      nccl>=2.4 \
+      dask \
+      distributed \
+      dask-cudf \
+      dask-cuda
+
+# installing libclang separately so it doesn't get installed from conda-forge
+conda install -c rapidsai \
+      libclang
 
 logger "Check versions..."
 python --version
@@ -73,14 +88,9 @@ logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-# Disabled while CI/the test become compatible
-# logger "GoogleTest for libcuml mg..."
-# cd $WORKSPACE/cpp/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
-
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
