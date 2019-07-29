@@ -169,36 +169,5 @@ namespace Bench {
 //   return 0;
 // }
 
-bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
-            char** argv) {
-  bool help = get_argval(argv, argv + argc, "-h");
-  if (help) {
-    printf(
-      "USAGE:\n"
-      "bench dbscan [options]\n"
-      "  Run dbscan algo on the input dataset.\n"
-      "OPTIONS:\n"
-      "  -min-pts <pts>   Min number of points in a cluster. [3]\n"
-      "  -eps <eps>       Max distance between any 2 points of a cluster.\n"
-      "                   [1.f]\n"
-      "  -max-bytes-per-batch <mem>  Max memory to use for the batch size\n"
-      "                              calculation. [0] 0 means use up all the\n"
-      "                              available free memory.\n");
-    return false;
-  }
-  printf("Running dbscan...\n");
-  // int main(int argc, char* argv[]) {
-  //   int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
-  //   size_t nRows = get_argval<size_t>(argv, argv + argc, "-num_samples", 0);
-  //   size_t nCols = get_argval<size_t>(argv, argv + argc, "-num_features", 0);
-  //   std::string input =
-  //     get_argval<std::string>(argv, argv + argc, "-input", std::string(""));
-  //   int minPts = get_argval<int>(argv, argv + argc, "-min_pts", 3);
-  //   float eps = get_argval<float>(argv, argv + argc, "-eps", 1.0f);
-  //   size_t max_bytes_per_batch =
-  //     get_argval<size_t>(argv, argv + argc, "-max_bytes_per_batch", (size_t)2e7);
-  return true;
-}
-
 }  // end namespace Bench
 }  // end namespace ML
