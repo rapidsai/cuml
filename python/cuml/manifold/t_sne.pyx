@@ -26,6 +26,7 @@ import ctypes
 import numpy as np
 import inspect
 import pandas as pd
+import warnings
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -101,40 +102,40 @@ class TSNE(Base):
         terminate TSNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when TSNE will terminate early.
-    metric : str (default 'euclidean')
+    metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
-    init : str (default 'random')
+    init : str 'random' only (default 'random')
         Currently only supports random intialization. Will support PCA
         intialization in a future release.
     verbose : int (default 0)
         Level of verbosity. If > 0, prints all help messages and warnings.
-    random_state : (int, default None)
+    random_state : int (default None)
         Setting this can allow future runs of TSNE to look the same.
-    method : (str, default 'barnes_hut')
+    method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
         Options are either barnes_hut or exact. It is recommend that you use
         the barnes hut approximation for superior O(nlogn) complexity.
-    angle : (float, default 0.5)
+    angle : float (default 0.5)
         Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
         closer to one indicates full accuracy but slower speeds.
-    learning_rate_method : (default 'adaptive')
+    learning_rate_method : str 'adaptive' or 'none' (default 'adaptive')
         Either adaptive or None. Uses a special adpative method that tunes
         the learning rate, early exaggeration and perplexity automatically
         based on input size.
-    n_neighbors : (int, default 90)
+    n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
         local structure, whilst larger values can improve global structure
         preservation. Default is 3 * 30 (perplexity)
-    perplexity_max_iter : (int, default 100)
+    perplexity_max_iter : int (default 100)
         The number of epochs the best guassian bands are found for.
-    exaggeration_iter : (int, default 250)
+    exaggeration_iter : int (default 250)
         To promote the growth of clusters, set this higher.
-    pre_momentum : (float, default 0.5)
+    pre_momentum : float (default 0.5)
         During the exaggeration iteration, more forcefully apply gradients.
-    post_momentum : (float, default 0.8)
+    post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    should_downcast : (bool, default True)
+    should_downcast : bool (default True)
         Whether to reduce to dataset to float32 or not.
     handle : (cuML Handle, default None)
         You can pass in a past handle that was intialized, or we will create
@@ -186,83 +187,77 @@ class TSNE(Base):
                  bool should_downcast=True,
                  handle=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=False)
+        super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
+        # TSNE is sensitive to what is currently in memory.
+        # Use Numba's garbabge collector to clean up already removed
+        # GPU memory.
+        cuda.current_context().deallocations.clear()
 
         if n_components < 0:
-            print("[Error] n_components = {} should be more than 0.".format(
-                  n_components))
-            n_components = 2
+            raise ValueError("n_components = {} should be more "
+                             "than 0.".format(n_components))
         if n_components != 2 and method == 'barnes_hut':
-            print("[Warn] Barnes Hut only works when n_components == 2. "
-                  "Switching to exact.")
+            warnings.warn("Barnes Hut only works when n_components == 2. "
+                          "Switching to exact.")
             method = 'exact'
         if n_components != 2:
-            print("[Warn] Currently TSNE supports n_components = 2.")
+            warnings.warn("Currently TSNE supports n_components = 2.")
             n_components = 2
         if perplexity < 0:
-            print("[Error] perplexity = {} should be more than 0.".format(
-                  perplexity))
-            perplexity = 30
+            raise ValueError("perplexity = {} should be more than 0.".format(
+                             perplexity))
         if early_exaggeration < 0:
-            print("[Error] early_exaggeration = {} should be more "
-                  "than 0.".format(early_exaggeration))
-            early_exaggeration = 12
+            raise ValueError("early_exaggeration = {} should be more "
+                             "than 0.".format(early_exaggeration))
         if learning_rate < 0:
-            print("[Error] learning_rate = {} should be more "
-                  "than 0.".format(learning_rate))
-            learning_rate = 200
+            raise ValueError("learning_rate = {} should be more "
+                             "than 0.".format(learning_rate))
         if n_iter < 0:
-            print("[Error] n_iter = {} should be more than 0.".format(n_iter))
-            n_iter = 1000
+            raise ValueError("n_iter = {} should be more than 0.".format(
+                             n_iter))
         if n_iter <= 100:
-            print("[Warn] n_iter = {} might cause TSNE to output wrong "
-                  "results. Set it higher.".format(n_iter))
+            warnings.warn("n_iter = {} might cause TSNE to output wrong "
+                          "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
-            print("[Warn] TSNE does not support {} but only Euclidean. "
-                  "Will do in the near future.".format(metric))
+            warnings.warn("TSNE does not support {} but only Euclidean. "
+                          "Will do in the near future.".format(metric))
             metric = 'euclidean'
         if init.lower() != 'random':
-            print("[Warn] TSNE does not support {} but only random "
-                  "intialization. Will do in the near future.".format(init))
+            warnings.warn("TSNE does not support {} but only random "
+                          "intialization. Will do in the near "
+                          "future.".format(init))
             init = 'random'
         if verbose != 0:
             verbose = 1
         if angle < 0 or angle > 1:
-            print("[Error] angle = {} should be > 0 and less "
-                  "than 1.".format(angle))
-            angle = 0.5
+            raise ValueError("angle = {} should be > 0 and less "
+                             "than 1.".format(angle))
         if n_neighbors < 0:
-            print("[Error] n_neighbors = {} should be more "
-                  "than 0.".format(n_neighbors))
-            n_neighbors = <int> (perplexity * 3)
+            raise ValueError("n_neighbors = {} should be more "
+                             "than 0.".format(n_neighbors))
         if n_neighbors > 1023:
-            print("[Error] n_neighbors = {} should be less than 1023, as "
-                  "FAISS doesn't support more".format(n_neighbors))
+            warnings.warn("n_neighbors = {} should be less than 1024")
             n_neighbors = 1023
         if perplexity_max_iter < 0:
-            print("[Error] perplexity_max_iter = {} should be more "
-                  "than 0.".format(perplexity_max_iter))
-            perplexity_max_iter = 100
+            raise ValueError("perplexity_max_iter = {} should be more "
+                             "than 0.".format(perplexity_max_iter))
         if exaggeration_iter < 0:
-            print("[Error] exaggeration_iter = {} should be more "
-                  "than 0.".format(exaggeration_iter))
-            exaggeration_iter = 250
+            raise ValueError("exaggeration_iter = {} should be more "
+                             "than 0.".format(exaggeration_iter))
         if exaggeration_iter > n_iter:
-            print("[Error] exaggeration_iter = {} should be more less than "
-                  "n_iter = {}.".format(exaggeration_iter, n_iter))
-            exaggeration_iter = <int> max(<float>n_iter * 0.25, 1)
+            raise ValueError("exaggeration_iter = {} should be more less "
+                             "than n_iter = {}.".format(exaggeration_iter,
+                             n_iter))
         if pre_momentum < 0 or pre_momentum > 1:
-            print("[Error] pre_momentum = {} should be more than 0 and less "
-                  "than 1.".format(pre_momentum))
-            pre_momentum = 0.5
+            raise ValueError("pre_momentum = {} should be more than 0 "
+                             "and less than 1.".format(pre_momentum))
         if post_momentum < 0 or post_momentum > 1:
-            print("[Error] post_momentum = {} should be more than 0 and less "
-                  "than 1.".format(post_momentum))
-            post_momentum = 0.8
+            raise ValueError("post_momentum = {} should be more than 0 "
+                             "and less than 1.".format(post_momentum))
         if pre_momentum > post_momentum:
-            print("[Error] post_momentum = {} should be more than "
-                  "pre_momentum = {}".format(post_momentum, pre_momentum))
-            pre_momentum = post_momentum * 0.75
+            raise ValueError("post_momentum = {} should be more than "
+                             "pre_momentum = {}".format(post_momentum, 
+                             pre_momentum))
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -320,17 +315,18 @@ class TSNE(Base):
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
-                X contains a sample per row.
-                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-                ndarray, cuda array interface compliant array like CuPy
+            X contains a sample per row.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         y : array-like (device or host) shape = (n_samples, 1)
-                y contains a label per row.
-                Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-                ndarray, cuda array interface compliant array like CuPy
+            y contains a label per row.
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         """
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        assert(handle_ != NULL)
+        if handle_ == NULL:
+            raise ValueError("cuML Handle is Null! Terminating TSNE.")
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -349,8 +345,8 @@ class TSNE(Base):
 
         self.n_neighbors = min(n, self.n_neighbors)
         if self.perplexity > n:
-            print("[Warn] Perplexity = {} should be less than the "
-                  "# of datapoints = {}.".format(self.perplexity, n))
+            warnings.warn("Perplexity = {} should be less than the "
+                          "# of datapoints = {}.".format(self.perplexity,n))
             self.perplexity = n
 
         # Prepare output embeddings
@@ -386,8 +382,6 @@ class TSNE(Base):
                                                  self.pre_learning_rate,
                                                  self.early_exaggeration))
 
-        assert(<void*> X_ptr != NULL and <void*> embed_ptr != NULL)
-
         cdef long long seed = -1
         if self.random_state is not None:
             seed = self.random_state
@@ -420,18 +414,30 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        self.Y = Y.copy_to_host()
-        del Y
+        # TSNE is sensitive to what is currently in memory.
+        # Use Numba's garbabge collector to clean up already removed
+        # GPU memory.
+        cuda.current_context().deallocations.clear()
+        self.Y = Y
         return self
+
+    def __del__(self):
+        if "Y" in self.__dict__:
+            del self.Y
+            self.Y = None
+        # TSNE is sensitive to what is currently in memory.
+        # Use Numba's garbabge collector to clean up already removed
+        # GPU memory.
+        cuda.current_context().deallocations.clear()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
-                X contains a sample per row.
-                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-                ndarray, cuda array interface compliant array like CuPy
+            X contains a sample per row.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
@@ -440,33 +446,31 @@ class TSNE(Base):
         self.fit(X)
 
         if isinstance(X, cudf.DataFrame):
-            return cudf.DataFrame.from_pandas(pd.DataFrame(self.Y))
-        return self.Y
-
-    def get_params(self, bool deep=True):
-        """
-        Sklearn style return parameter state
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        cdef dict params = self.__dict__
-        if "handle" in params:
-            del params["handle"]
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        for key, value in params.items():
-            if key in self.__dict__.keys():
-                setattr(self, key, value)
+            if isinstance(self.Y, cudf.DataFrame):
+                return self.Y
             else:
-                raise ValueError('Invalid parameter {} for TSNE'.format(key))
-        return self
+                return cudf.DataFrame.from_gpu_matrix(self.Y)
+        elif isinstance(X, np.ndarray):
+            data = self.Y.copy_to_host()
+            del self.Y
+            # TSNE is sensitive to what is currently in memory.
+            # Use Numba's garbabge collector to clean up already removed
+            # GPU memory.
+            cuda.current_context().deallocations.clear()
+            return data
+        return None # is this even possible?
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        if state["Y"] is not None:
+            state["Y"] = cudf.DataFrame.from_gpu_matrix(self.Y)
+
+        if "handle" in state:
+            del state["handle"]
+        return state
+
+    def __setstate__(self, state):
+        super(TSNE, self).__init__(handle=None, verbose=(state['verbose'] != 0))
+        self.__dict__.update(state)
+        return state
