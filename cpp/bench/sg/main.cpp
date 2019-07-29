@@ -56,7 +56,7 @@ int main_no_catch(int argc, char** argv) {
   ///@todo: set custom allocator
   Dataset data = {0, 0, nullptr, nullptr};
   if (loadDataset(data, handle, algoStart - genStart, argv + genStart)) {
-    ///@todo: call the algo
+    runAlgo(data, handle, argc - algoStart, argv + algoStart);
   }
   data.deallocate(handle);
   CUDA_CHECK(cudaStreamSynchronize(stream));

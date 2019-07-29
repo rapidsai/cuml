@@ -59,7 +59,8 @@ int findAlgoStart(int argc, char** argv) {
   return argc;
 }
 
-bool runAlgo(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
+bool runAlgo(const Dataset& ret, const cumlHandle& handle, int argc,
+             char** argv) {
   std::string type = argc > 0 ? argv[0] : "dbscan";
   auto& run = runner();
   const auto& itr = run.find(type);
