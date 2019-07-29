@@ -72,7 +72,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *repel = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
 
   float *velocity = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
-  CUDA_CHECK(cudaMemsetAsync(velocity, 0, sizeof(float) * n * dim));
+  CUDA_CHECK(cudaMemsetAsync(velocity, 0, sizeof(float) * n * dim, stream));
 
   float *gains = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
   thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains);

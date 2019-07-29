@@ -94,9 +94,8 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  // struct COO_Matrix_t COO_Matrix = symmetrize_matrix(P, indices, n, k, handle);
-  MLCommon::Sparse::from_knn_symmetrize_matrix(indices, P, n, k, COO_Matrix,
-                                               stream);
+  MLCommon::Sparse::from_knn_symmetrize_matrix(
+    indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
 
   handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
   handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
