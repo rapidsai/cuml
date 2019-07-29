@@ -15,17 +15,20 @@
  */
 
 #include "algos.h"
+#include <cstring>
+#include <map>
 #include "dataset.h"
 
 namespace ML {
 namespace Bench {
 
-typedef bool (*algoRunner)(Dataset&, const cumlHandle&, int, char**);
+bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
+            char** argv);
+
+typedef bool (*algoRunner)(const Dataset&, const cumlHandle&, int, char**);
 class Runner : public std::map<std::string, algoRunner> {
  public:
-  Runner() : std::map<std::string, algoRunner>() {
-    (*this)["dbscan"] = dbscan;
-  }
+  Runner() : std::map<std::string, algoRunner>() { (*this)["dbscan"] = dbscan; }
 };
 
 /// Do NOT touch anything below this line! ///
