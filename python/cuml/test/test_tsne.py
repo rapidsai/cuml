@@ -11,6 +11,7 @@ import pytest
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes', 'wine']
 
+
 @pytest.mark.parametrize('name', dataset_names)
 def test_tsne(name):
     """
