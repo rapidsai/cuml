@@ -67,8 +67,8 @@ void validity_check(const DecisionTreeParams params) {
            (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
          "split_algo value %d outside permitted [0, %d) range",
          params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-  ASSERT((params.min_rows_per_node >= 1),
-         "Invalid min # rows per node value %d. Should be >= 1.",
+  ASSERT((params.min_rows_per_node >= 2),
+         "Invalid min # rows per node value %d. Should be >= 2.",
          params.min_rows_per_node);
 }
 

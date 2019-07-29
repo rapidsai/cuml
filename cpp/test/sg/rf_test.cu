@@ -346,7 +346,7 @@ const std::vector<RfInputs<float>> inputsf2_reg = {
   {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2,
    CRITERION::MAE},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   1, 2, CRITERION::MAE},
+   2, 2, CRITERION::MAE},
   {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 2,
    CRITERION::CRITERION_END}};
 
@@ -360,7 +360,7 @@ const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
   {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2,
    CRITERION::MAE},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   1, 2, CRITERION::MAE},
+   2, 2, CRITERION::MAE},
   {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 2,
    CRITERION::CRITERION_END}};
 

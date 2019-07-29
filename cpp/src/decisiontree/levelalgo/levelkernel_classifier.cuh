@@ -215,7 +215,7 @@ __global__ void get_best_split_classification_kernel(
       }
 
       int totalrows = tmp_lnrows + tmp_rnrows;
-      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn) continue;
+      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows < min_rpn) continue;
 
       float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows, n_unique_labels);
       float tmp_gini_right =
@@ -244,12 +244,12 @@ __global__ void get_best_split_classification_kernel(
       best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
       best_bin_id[nodeid] = ans.idx % nbins;
     }
-    
+
     if (ans.idx != -1) {
       int coloffset =
         ((int)(ans.idx / nbins)) * nbins * n_unique_labels * n_nodes;
       int binoffset = (ans.idx % nbins) * n_unique_labels;
-      
+
       for (int j = threadIdx.x; j < n_unique_labels; j += blockDim.x) {
         unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
         unsigned int val_right = parent_hist_local[j] - val_left;
@@ -259,11 +259,11 @@ __global__ void get_best_split_classification_kernel(
         atomicAdd(&best_nrows[1], val_right);
       }
       __syncthreads();
-      
+
       for (int j = threadIdx.x; j < 2 * n_unique_labels; j += blockDim.x) {
         child_hist[2 * n_unique_labels * nodeid + j] = best_split_hist[j];
       }
-      
+
       if (threadIdx.x < 2) {
         child_best_metric[2 * nodeid + threadIdx.x] =
           F::exec(&best_split_hist[threadIdx.x * n_unique_labels],

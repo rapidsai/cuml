@@ -184,7 +184,7 @@ void get_best_split_classification(
             tmp_rnrows += tmp_histright[j];
           }
           int totalrows = tmp_lnrows + tmp_rnrows;
-          if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn)
+          if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows < min_rpn)
             continue;
 
           float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows);
@@ -251,14 +251,15 @@ void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
     n_nodes_before += pow(2, i);
   }
   int non_leaf_counter = 0;
-  bool condition = (curr_depth == max_depth);
-  if (max_leaves != -1) condition = condition || (tree_leaf_cnt >= max_leaves);
+  bool condition_global = (curr_depth == max_depth);
+  if (max_leaves != -1)
+    condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
     std::vector<int> &nodehist = hist[n_nodes_before + nodeid];
-    condition = condition || (gain[nodeid] == 0.0);
+    bool condition = condition_global || (gain[nodeid] == 0.0);
     if (condition) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].colid = -1;

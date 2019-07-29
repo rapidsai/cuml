@@ -329,7 +329,7 @@ __global__ void get_best_split_regression_kernel(
       unsigned int tmp_lnrows = count[threadoffset];
       unsigned int tmp_rnrows = parent_count - tmp_lnrows;
       unsigned int totalrows = tmp_lnrows + tmp_rnrows;
-      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn) continue;
+      if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows < min_rpn) continue;
       T tmp_meanleft = predout[threadoffset];
       T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
       tmp_meanleft /= tmp_lnrows;
