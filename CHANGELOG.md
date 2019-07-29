@@ -17,6 +17,7 @@
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
+- PR #892: General Gram matrices prim
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
