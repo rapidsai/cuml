@@ -52,6 +52,8 @@ option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -414,6 +416,13 @@ endif(BUILD_CUML_EXAMPLES)
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+
+###################################################################################################
+# - build benchmark executable --------------------------------------------------------------------
+
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+endif(BUILD_CUML_BENCH)
 
 ###################################################################################################
 # - doxygen targets -------------------------------------------------------------------------------
