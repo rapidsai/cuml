@@ -32,7 +32,7 @@ T get_argval(char** begin, char** end, const std::string& arg,
   return argval;
 }
 
-bool get_argval(char** begin, char** end, const std::string& arg) {
+inline bool get_argval(char** begin, char** end, const std::string& arg) {
   char** itr = std::find(begin, end, arg);
   if (itr != end) {
     return true;
