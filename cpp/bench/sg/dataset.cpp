@@ -140,9 +140,6 @@ bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   return true;
 }
 
-/// Do NOT touch anything below this line! ///
-/// Only add new loaders above this line ///
-
 class Generator : public std::map<std::string, dataGenerator> {
  public:
   Generator() : std::map<std::string, dataGenerator>() {
@@ -150,6 +147,9 @@ class Generator : public std::map<std::string, dataGenerator> {
     (*this)["load"] = load;
   }
 };
+
+/// Do NOT touch anything below this line! ///
+/// Only add new loaders above this line ///
 
 Generator& generator() {
   static Generator map;

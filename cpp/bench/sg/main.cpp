@@ -35,7 +35,7 @@ int main_no_catch(int argc, char** argv) {
       "OPTIONS:\n"
       "  -h                Print this help and exit\n"
       "  <genType>         Dataset generator. [blobs]. Available types:\n"
-      "                      %s\n"
+      "                      (%s)\n"
       "  <genTypeOptions>  Options for each generator. Use '-h' option to a\n"
       "                    particular generator to know its options\n",
       gens.c_str());
@@ -45,6 +45,13 @@ int main_no_catch(int argc, char** argv) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   handle.setStream(stream);
+  ///@todo: set custom allocator
+  Dataset data = {0, 0, nullptr, nullptr};
+  ///@todo: findAlgoStart and offset the below call
+  if (loadDataset(data, handle, argc - genStart, argv + genStart)) {
+    ///@todo: call the algo
+  }
+  data.deallocate(handle);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaStreamDestroy(stream));
   return 0;
