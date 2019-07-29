@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "argparse.hpp"
+#include "dataset.h"
 #include <cstdio>
 #include <cuML.hpp>
+#include <datasets/make_blobs.hpp>
 #include <string>
-#include "utils.h"
 #include <vector>
+#include "argparse.hpp"
+#include "utils.h"
 
 namespace ML {
 namespace Bench {
@@ -34,8 +36,8 @@ void Dataset::allocate(int nr, int nc, const cumlHandle& handle) {
 void Dataset::deallocate(const cumlHandle& handle) {
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  allocator->deallocate(X, nr * nc, stream);
-  allocator->deallocate(y, nr, stream);
+  allocator->deallocate(X, nrows * ncols, stream);
+  allocator->deallocate(y, nrows, stream);
 }
 
 void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
@@ -50,10 +52,9 @@ void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
   MLCommon::copy(&(X[0]), dataset.X, dataset.nrows * dataset.ncols, stream);
   MLCommon::copy(&(y[0]), dataset.y, dataset.nrows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  fprintf("%d %d\n", dataset.nrows, dataset.ncols);
-  for (int i = 0, k = 0; i< dataset.nrows; ++i) {
-    for (int j = 0; j < dataset.ncols; ++j, ++k)
-      fprintf(fp, "%f ", X[k]);
+  fprintf(fp, "%d %d\n", dataset.nrows, dataset.ncols);
+  for (int i = 0, k = 0; i < dataset.nrows; ++i) {
+    for (int j = 0; j < dataset.ncols; ++j, ++k) fprintf(fp, "%f ", X[k]);
     fprintf(fp, "%d\n", y[i]);
   }
   fclose(fp);
@@ -85,18 +86,17 @@ bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
   float centerBoxMax = get_argval(argv, argv + argc, "-center-box-max", 10.f);
   float centerBoxMin = get_argval(argv, argv + argc, "-center-box-min", -10.f);
   float clusterStd = get_argval(argv, argv + argc, "-cluster-std", 1.f);
-  std::string dump = get_argval(argv, argv + argc, "-dump", "");
+  std::string dump = get_argval(argv, argv + argc, "-dump", std::string());
   int nclusters = get_argval(argv, argv + argc, "-nclusters", 2);
   ret.ncols = get_argval(argv, argv + argc, "-ncols", 81);
   ret.nrows = get_argval(argv, argv + argc, "-nrows", 10001);
   ret.allocate(ret.ncols, ret.nrows, handle);
   uint64_t seed = get_argval(argv, argv + argc, "-seed", 1234ULL);
   bool shuffle = get_argval(argv, argv + argc, "-shuffle");
-  make_blobs(handle, ret.X, ret.y, nrows, ncols, nclusters,
-             nullptr, nullptr, clusterStd, shuffle, centerBoxMin, centerBoxMax,
-             seed);
-  if (dump != "")
-    dumpDataset(handle, dataset, dump);
+  Datasets::make_blobs(handle, ret.X, ret.y, ret.nrows, ret.ncols, nclusters,
+                       nullptr, nullptr, clusterStd, shuffle, centerBoxMin,
+                       centerBoxMax, seed);
+  if (dump != "") dumpDataset(handle, ret, dump);
   return true;
 }
 
@@ -113,17 +113,21 @@ bool load(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
       "  -h             print this help and exit.\n");
     return false;
   }
-  std::string file = get_argval(argv, argv + argc, "-file", "");
+  std::string file = get_argval(argv, argv + argc, "-file", std::string());
   ASSERT(!file.empty(), "'-file' is a mandatory option");
   printf("Loading dataset from file '%s'...\n", file.c_str());
   FILE* fp = fopen(file.c_str(), "r");
-  fscanf(fp, "%d%d", &(ret.nrows), &(ret.ncols));
+  ASSERT(fscanf(fp, "%d%d", &(ret.nrows), &(ret.ncols)) == 2,
+         "Input dataset file is not correct! No 'rows cols' info found");
   std::vector<float> X(ret.nrows * ret.ncols);
   std::vector<int> y(ret.nrows);
   for (int i = 0, k = 0; i < ret.nrows; ++i) {
-    for (int j = 0; j < ret.ncols; ++j, ++k)
-      fscanf(fp, "%f ", &(X[k]));
-    fscanf(fp, "%d\n", &(y[i]));
+    for (int j = 0; j < ret.ncols; ++j, ++k) {
+      ASSERT(fscanf(fp, "%f ", &(X[k])) == 1,
+             "Failed to read input at row,col=%d,%d", i, j);
+    }
+    ASSERT(fscanf(fp, "%d\n", &(y[i])) == 1,
+           "Failed to read the label at row=%d", i);
   }
   fclose(fp);
   ret.allocate(ret.nrows, ret.ncols, handle);
@@ -134,5 +138,5 @@ bool load(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
   return true;
 }
 
-} // end namespace Bench
-} // end namespace ML
+}  // end namespace Bench
+}  // end namespace ML

@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <common/device_buffer.hpp>
 #include <cuML.hpp>
-#include <cuda_runtime.h>
 
 namespace ML {
 namespace Bench {
@@ -29,6 +29,7 @@ struct Dataset {
   int* y;
 
   void allocate(int nr, int nc, const cumlHandle& handle);
+  void deallocate(const cumlHandle& handle);
 };
 
 bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int start,
@@ -36,5 +37,5 @@ bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int start,
 bool load(Dataset& ret, const cumlHandle& handle, char** argv, int start,
           int end);
 
-} // end namespace Bench
-} // end namespace ML
+}  // end namespace Bench
+}  // end namespace ML
