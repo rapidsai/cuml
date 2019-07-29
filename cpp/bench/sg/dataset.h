@@ -29,11 +29,10 @@ struct Dataset {
   float* X;
   int* y;
 
-  void allocate(int nr, int nc, const cumlHandle& handle);
+  void allocate(const cumlHandle& handle);
   void deallocate(const cumlHandle& handle);
 };
 
-typedef bool (*dataGenerator)(Dataset&, const cumlHandle&, int, char**);
 std::string allGeneratorNames();
 int findGeneratorStart(int argc, char** argv);
 bool loadDataset(Dataset& ret, const cumlHandle& handle, int argc, char** argv);
