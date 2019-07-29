@@ -16,8 +16,10 @@
 
 #include "dataset.h"
 #include <cstdio>
+#include <cstring>
 #include <cuML.hpp>
 #include <datasets/make_blobs.hpp>
+#include <map>
 #include <string>
 #include <vector>
 #include "argparse.hpp"
@@ -60,7 +62,7 @@ void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
   fclose(fp);
 }
 
-bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
+bool blobs(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   bool help = get_argval(argv, argv + argc, "-h");
   if (help) {
     printf(
@@ -100,7 +102,7 @@ bool blobs(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
   return true;
 }
 
-bool load(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
+bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   bool help = get_argval(argv, argv + argc, "-h");
   if (help) {
     printf(
@@ -136,6 +138,52 @@ bool load(Dataset& ret, const cumlHandle& handle, char** argv, int argc) {
   MLCommon::copy(ret.y, &(y[0]), ret.nrows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return true;
+}
+
+/// Do NOT touch anything below this line! ///
+/// Only add new loaders above this line ///
+
+class Generator : public std::map<std::string, dataGenerator> {
+ public:
+  Generator() : std::map<std::string, dataGenerator>() {
+    (*this)["blobs"] = blobs;
+    (*this)["load"] = load;
+  }
+};
+
+Generator& generator() {
+  static Generator map;
+  return map;
+}
+
+std::string allGeneratorNames() {
+  const auto& gen = generator();
+  std::string ret;
+  for (const auto& itr : gen) {
+    ret += itr.first + "|";
+  }
+  ret.pop_back();
+  return ret;
+}
+
+int findGeneratorStart(int argc, char** argv) {
+  const auto& gen = generator();
+  for (int i = 0; i < argc; ++i) {
+    for (const auto& itr : gen) {
+      if (!std::strcmp(itr.first.c_str(), argv[i])) return i;
+    }
+  }
+  return argc;
+}
+
+bool loadDataset(Dataset& ret, const cumlHandle& handle, int argc,
+                 char** argv) {
+  std::string type = argc > 0 ? argv[0] : "blobs";
+  auto& gen = generator();
+  const auto& itr = gen.find(type);
+  ASSERT(itr != gen.end(), "loadDataset: invalid generator name '%s'",
+         type.c_str());
+  return itr->second(ret, handle, argc, argv);
 }
 
 }  // end namespace Bench
