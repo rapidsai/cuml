@@ -139,6 +139,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # compare the accuracy of the two models
     assert cu_acc >= (sk_acc - 0.07)
 
+
 dataset_names = ['noisy_circles', 'noisy_moons', 'aniso'] + \
                 [pytest.param(ds, marks=pytest.mark.xfail)
                  for ds in ['blobs', 'varied']]

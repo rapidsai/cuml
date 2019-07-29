@@ -56,11 +56,8 @@ from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
-
-from cuml.fil.fil import FIL
 
 from ._version import get_versions
 __version__ = get_versions()['version']
