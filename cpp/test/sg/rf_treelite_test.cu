@@ -155,8 +155,6 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
           treelite_predicted_labels[i] >= 0.5 ? 1 : 0;
       }
 
-      std::cout << ref_predicted_labels[i] << " | "
-                << treelite_predicted_labels[i] << std::endl;
       if (ref_predicted_labels[i] - treelite_predicted_labels[i] > epsilon) {
         diff_elements++;
       }
