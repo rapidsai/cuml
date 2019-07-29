@@ -55,8 +55,7 @@ int main_no_catch(int argc, char** argv) {
   handle.setStream(stream);
   ///@todo: set custom allocator
   Dataset data = {0, 0, nullptr, nullptr};
-  ///@todo: findAlgoStart and offset the below call
-  if (loadDataset(data, handle, argc - genStart, argv + genStart)) {
+  if (loadDataset(data, handle, algoStart - genStart, argv + genStart)) {
     ///@todo: call the algo
   }
   data.deallocate(handle);

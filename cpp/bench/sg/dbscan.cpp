@@ -22,21 +22,6 @@
 namespace ML {
 namespace Bench {
 
-// void printUsage() {
-//   std::cout
-//     << "To run default example use:" << std::endl
-//     << "    dbscan_example [-dev_id <GPU id>]" << std::endl
-//     << "For other cases:" << std::endl
-//     << "    dbscan_example [-dev_id <GPU id>] -input <samples-file> "
-//     << "-num_samples <number of samples> -num_features <number of features> "
-//     << "[-min_pts <minimum number of samples in a cluster>] "
-//     << "[-eps <maximum distance between any two samples of a cluster>] "
-//     << "[-max_bytes_per_batch <maximum memory to use (in bytes) for batch size "
-//        "calculation>] "
-//     << std::endl;
-//   return;
-// }
-
 // int main(int argc, char* argv[]) {
 //   int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
 //   size_t nRows = get_argval<size_t>(argv, argv + argc, "-num_samples", 0);
