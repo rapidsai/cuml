@@ -289,27 +289,6 @@ class TSNE(Base):
         self.Y = None
         return
 
-    def __repr__(self):
-        """
-        Pretty prints the arguments of a class using Sklearn standard :)
-        """
-        cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
-            del signature[0]
-        cdef dict state = self.__dict__
-        cdef str string = self.__class__.__name__ + '('
-        cdef str key
-        for key in signature:
-            if key not in state:
-                continue
-            if type(state[key]) is str:
-                string += "{}='{}', ".format(key, state[key])
-            else:
-                if hasattr(state[key], "__str__"):
-                    string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(', ')
-        return string + ')'
-
     def fit(self, X):
         """Fit X into an embedded space.
         Parameters
