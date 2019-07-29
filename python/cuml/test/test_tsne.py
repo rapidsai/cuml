@@ -4,9 +4,6 @@ from cuml.manifold import TSNE
 
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
-from sklearn.datasets.samples_generator import make_blobs
-from sklearn.metrics import adjusted_rand_score
-from sklearn.cluster import KMeans
 import pandas as pd
 import numpy as np
 import cudf
@@ -25,7 +22,6 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-
 @pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
@@ -41,7 +37,6 @@ def test_blobs_cluster(nrows, n_feats):
         if trust < 0.95:
             assert trust > 0.9
     del X, Y
-
 
 
 def test_tsne():
