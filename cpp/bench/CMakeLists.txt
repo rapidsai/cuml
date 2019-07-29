@@ -27,8 +27,9 @@ if(BUILD_CUML_BENCH)
 
   # (please keep the filenames in alphabetical order)
   add_executable(bench
+    sg/algos.cpp
     sg/dataset.cpp
-#    sg/dbscan.cpp
+    sg/dbscan.cpp
     sg/main.cpp
   )
 

@@ -16,6 +16,7 @@
 
 #include <cuda_runtime.h>
 #include <cuML.hpp>
+#include "algos.h"
 #include "argparse.hpp"
 #include "dataset.h"
 #include "utils.h"
@@ -25,20 +26,27 @@ namespace Bench {
 
 int main_no_catch(int argc, char** argv) {
   int genStart = findGeneratorStart(argc, argv);
-  bool help = get_argval(argv, argv + genStart, "-h");
+  int algoStart = findAlgoStart(argc, argv);
+  int allMainOptions = std::min(genStart, algoStart);
+  bool help = get_argval(argv, argv + allMainOptions, "-h");
   if (help) {
     auto gens = allGeneratorNames();
+    auto algos = allAlgoNames();
     printf(
       "USAGE:\n"
-      "bench [-h] [<genType> [<genTypeOptions>]] ...\n"
+      "bench [-h] [<genType> [<genOptions>]] [<algoType> [<algoOptions>]]\n"
       "  cuML c++ benchmark suite\n"
       "OPTIONS:\n"
-      "  -h                Print this help and exit\n"
-      "  <genType>         Dataset generator. [blobs]. Available types:\n"
-      "                      (%s)\n"
-      "  <genTypeOptions>  Options for each generator. Use '-h' option to a\n"
-      "                    particular generator to know its options\n",
-      gens.c_str());
+      "  -h              Print this help and exit.\n"
+      "  <genType>       Dataset generator. [blobs]. Available types:\n"
+      "                    (%s)\n"
+      "  <genOptions>    Options for each generator. Use '-h' option to a\n"
+      "                  particular generator to know its options.\n"
+      "  <algoType>      ML algo to benchmark. [dbscan]. Available algos:\n"
+      "                    (%s)\n"
+      "  <algoOptions>   Options for each algo. Use '-h' option to a\n"
+      "                  particular algo to know its options.\n",
+      gens.c_str(), algos.c_str());
     return 0;
   }
   ML::cumlHandle handle;

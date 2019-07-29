@@ -16,12 +16,10 @@
 
 #pragma once
 #include <cuML.hpp>
+#include "dataset.h"
 
 namespace ML {
 namespace Bench {
-
-bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
-            char** argv);
 
 std::string allAlgoNames();
 int findAlgoStart(int argc, char** argv);
