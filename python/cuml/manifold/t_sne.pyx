@@ -400,7 +400,6 @@ class TSNE(Base):
         self.Y = Y
         return self
 
-
     def __del__(self):
         if "Y" in self.__dict__:
             del self.Y
@@ -409,7 +408,6 @@ class TSNE(Base):
         # Use Numba's garbabge collector to clean up already removed
         # GPU memory.
         cuda.current_context().deallocations.clear()
-
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -441,7 +439,6 @@ class TSNE(Base):
             return data
         return None  # is this even possible?
 
-
     def __getstate__(self):
         state = self.__dict__.copy()
 
@@ -451,7 +448,6 @@ class TSNE(Base):
         if "handle" in state:
             del state["handle"]
         return state
-
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
