@@ -37,10 +37,12 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
   return status;
 }
 
-cumlError_t cumlcumlHoltWintersSp_fit(
-  cumlHandle_t handle, int n, int batch_size, int frequency, int start_periods,
-  cumlHoltWintersSeasonal_t seasonal, float epsilon, float *data,
-  float *level_d, float *trend_d, float *season_d, float *error_d) {
+cumlError_t cumlHoltWintersSp_fit(cumlHandle_t handle, int n, int batch_size,
+                                  int frequency, int start_periods,
+                                  cumlHoltWintersSeasonal_t seasonal,
+                                  float epsilon, float *data, float *level_d,
+                                  float *trend_d, float *season_d,
+                                  float *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -57,10 +59,12 @@ cumlError_t cumlcumlHoltWintersSp_fit(
   return status;
 }
 
-cumlError_t cumlcumlHoltWintersDp_fit(
-  cumlHandle_t handle, int n, int batch_size, int frequency, int start_periods,
-  cumlHoltWintersSeasonal_t seasonal, double epsilon, double *data,
-  double *level_d, double *trend_d, double *season_d, double *error_d) {
+cumlError_t cumlHoltWintersDp_fit(cumlHandle_t handle, int n, int batch_size,
+                                  int frequency, int start_periods,
+                                  cumlHoltWintersSeasonal_t seasonal,
+                                  double epsilon, double *data, double *level_d,
+                                  double *trend_d, double *season_d,
+                                  double *error_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -77,11 +81,11 @@ cumlError_t cumlcumlHoltWintersDp_fit(
   return status;
 }
 
-cumlError_t cumlcumlHoltWintersSp_forecast(cumlHandle_t handle, int n,
-                                           int batch_size, int frequency, int h,
-                                           cumlHoltWintersSeasonal_t seasonal,
-                                           float *level_d, float *trend_d,
-                                           float *season_d, float *forecast_d) {
+cumlError_t cumlHoltWintersSp_forecast(cumlHandle_t handle, int n,
+                                       int batch_size, int frequency, int h,
+                                       cumlHoltWintersSeasonal_t seasonal,
+                                       float *level_d, float *trend_d,
+                                       float *season_d, float *forecast_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
@@ -98,12 +102,11 @@ cumlError_t cumlcumlHoltWintersSp_forecast(cumlHandle_t handle, int n,
   return status;
 }
 
-cumlError_t cumlcumlHoltWintersDp_forecast(cumlHandle_t handle, int n,
-                                           int batch_size, int frequency, int h,
-                                           cumlHoltWintersSeasonal_t seasonal,
-                                           double *level_d, double *trend_d,
-                                           double *season_d,
-                                           double *forecast_d) {
+cumlError_t cumlHoltWintersDp_forecast(cumlHandle_t handle, int n,
+                                       int batch_size, int frequency, int h,
+                                       cumlHoltWintersSeasonal_t seasonal,
+                                       double *level_d, double *trend_d,
+                                       double *season_d, double *forecast_d) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
