@@ -198,11 +198,11 @@ void check_params(const forest_params_t* params) {
   }
 }
 
-int tree_root(const tl::Tree& t) {
+int tree_root(const tl::Tree& tree) {
   // find the root
   int root = -1;
-  for (int i = 0; i < t.num_nodes; ++i) {
-    if (t[i].is_root()) {
+  for (int i = 0; i < tree.num_nodes; ++i) {
+    if (tree[i].is_root()) {
       ASSERT(root == -1, "multi-root trees not supported");
       root = i;
     }
@@ -211,34 +211,37 @@ int tree_root(const tl::Tree& t) {
   return root;
 }
 
-int max_depth(const tl::Tree& t, const tl::Tree::Node& n) {
+int max_depth(const tl::Tree& tree, const tl::Tree::Node& node) {
   // TODO: add detection of infinite loops
-  if (n.is_leaf()) return 0;
+  if (node.is_leaf()) return 0;
   // TODO: check for out-of-range
-  return std::max(max_depth(t, t[n.cleft()]), max_depth(t, t[n.cright()])) + 1;
+  return 1 + std::max(max_depth(tree, tree[node.cleft()]),
+                      max_depth(tree, tree[node.cright()]));
 }
 
-int max_depth(const tl::Tree& t) { return max_depth(t, t[tree_root(t)]); }
+int max_depth(const tl::Tree& tree) {
+  return max_depth(tree, tree[tree_root(tree)]);
+}
 
 void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
-              const tl::Tree& t, const tl::Tree::Node& n) {
+              const tl::Tree& tree, const tl::Tree::Node& node) {
   std::vector<dense_node_t>& nodes = *pnodes;
-  if (n.is_leaf()) {
-    dense_node_init(&nodes[root + cur], n.leaf_value(), 0, 0, false, true);
+  if (node.is_leaf()) {
+    dense_node_init(&nodes[root + cur], node.leaf_value(), 0, 0, false, true);
     return;
   }
 
   // inner node
-  ASSERT(n.split_type() == tl::SplitFeatureType::kNumerical,
+  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
          "only numerical split nodes are supported");
-  int left = n.cleft(), right = n.cright();
-  bool def_left = n.default_left();
-  float threshold = n.threshold();
+  int left = node.cleft(), right = node.cright();
+  bool default_left = node.default_left();
+  float threshold = node.threshold();
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
-  switch (n.comparison_op()) {
+  switch (node.comparison_op()) {
     case tl::Operator::kLT:
       break;
     case tl::Operator::kLE:
@@ -254,19 +257,20 @@ void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
     case tl::Operator::kGE:
       // swap left and right
       std::swap(left, right);
-      def_left = !def_left;
+      default_left = !default_left;
       break;
     default:
       ASSERT(false, "only <, >, <= and >= comparisons are supported");
   }
-  dense_node_init(&nodes[root + cur], 0, n.threshold(), n.split_index(),
-                  def_left, false);
-  node2fil(pnodes, root, 2 * cur + 1, t, t[left]);
-  node2fil(pnodes, root, 2 * cur + 2, t, t[right]);
+  dense_node_init(&nodes[root + cur], 0, threshold, node.split_index(),
+                  default_left, false);
+  node2fil(pnodes, root, 2 * cur + 1, tree, tree[left]);
+  node2fil(pnodes, root, 2 * cur + 2, tree, tree[right]);
 }
 
-void tree2fil(std::vector<dense_node_t>* pnodes, int root, const tl::Tree& t) {
-  node2fil(pnodes, root, 0, t, t[tree_root(t)]);
+void tree2fil(std::vector<dense_node_t>* pnodes, int root,
+              const tl::Tree& tree) {
+  node2fil(pnodes, root, 0, tree, tree[tree_root(tree)]);
 }
 
 void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
@@ -282,7 +286,7 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   ASSERT(param.global_bias == 0.0f, "bias not supported");
-  // in treelite, "random forest" means averaging the tree output
+  // in treelite, "random forest" means averaging the output of all trees
   ASSERT(!model.random_forest_flag, "output averaging not supported");
   if (param.pred_transform == "identity") {
     ASSERT(!tl_params->output_class,
@@ -297,7 +301,7 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   params->ntrees = model.trees.size();
 
   int depth = 0;
-  for (const auto& t : model.trees) depth = std::max(depth, max_depth(t));
+  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
   params->depth = depth;
 
   // convert the nodes

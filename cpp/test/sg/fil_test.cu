@@ -288,13 +288,13 @@ class TreeliteFilTest : public BaseFilTest {
       and returns the treelite key of the node */
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
                        int node) {
-    fil::dense_node_t n = nodes[node];
     int key = (*pkey)++;
     TL_CPP_CHECK(builder->CreateNode(key));
-    int fid;
+    int feature;
     float threshold, output;
-    bool is_leaf, def_left;
-    fil::dense_node_decode(&n, &output, &threshold, &fid, &def_left, &is_leaf);
+    bool is_leaf, default_left;
+    fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
+                           &default_left, &is_leaf);
     if (is_leaf) {
       TL_CPP_CHECK(builder->SetLeafNode(key, output));
     } else {
@@ -315,7 +315,7 @@ class TreeliteFilTest : public BaseFilTest {
         case tl::Operator::kGE:
           // swap left and right
           std::swap(left, right);
-          def_left = !def_left;
+          default_left = !default_left;
           break;
         default:
           ASSERT(false, "comparison operator must be <, >, <= or >=");
@@ -323,7 +323,7 @@ class TreeliteFilTest : public BaseFilTest {
       int left_key = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
       TL_CPP_CHECK(builder->SetNumericalTestNode(
-        key, fid, ps.op, threshold, def_left, left_key, right_key));
+        key, feature, ps.op, threshold, default_left, left_key, right_key));
     }
     return key;
   }
@@ -345,10 +345,10 @@ class TreeliteFilTest : public BaseFilTest {
     }
 
     // build the trees
-    for (int itree = 0; itree < ps.num_trees; ++itree) {
+    for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
       tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder();
       int key_counter = 0;
-      int root = itree * tree_num_nodes();
+      int root = i_tree * tree_num_nodes();
       int root_key = node_to_treelite(tree_builder, &key_counter, root, root);
       TL_CPP_CHECK(tree_builder->SetRootNode(root_key));
       // InsertTree() consumes tree_builder
