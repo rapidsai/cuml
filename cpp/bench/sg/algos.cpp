@@ -43,16 +43,16 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
     return false;
   }
   printf("Running dbscan...\n");
-  // int main(int argc, char* argv[]) {
-  //   int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
-  //   size_t nRows = get_argval<size_t>(argv, argv + argc, "-num_samples", 0);
-  //   size_t nCols = get_argval<size_t>(argv, argv + argc, "-num_features", 0);
-  //   std::string input =
-  //     get_argval<std::string>(argv, argv + argc, "-input", std::string(""));
-  //   int minPts = get_argval<int>(argv, argv + argc, "-min_pts", 3);
-  //   float eps = get_argval<float>(argv, argv + argc, "-eps", 1.0f);
-  //   size_t max_bytes_per_batch =
-  //     get_argval<size_t>(argv, argv + argc, "-max_bytes_per_batch", (size_t)2e7);
+  int minPts = get_argval(argv, argv + argc, "-min-pts", 3);
+  float eps = get_argval(argv, argv + argc, "-eps", 1.f);
+  size_t maxBytesPerBatch =
+    get_argval(argv, argv + argc, "-max-bytes-per-batch", 0);
+  printf(
+    "With params:\n"
+    "  min-pts              = %d\n"
+    "  eps                  = %f\n"
+    "  max-bytes-per-launch = %u\n",
+    minPts, eps, maxBytesPerBatch);
   return true;
 }
 
