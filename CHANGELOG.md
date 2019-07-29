@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #894: Convert RF to treelite format
 - PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
