@@ -340,6 +340,7 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
 
     # Save model + embeddings
     model = pickle_save_load(tmpdir, model)
-    trust_after = trustworthiness(X, model.Y, 10)
+    trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
+
