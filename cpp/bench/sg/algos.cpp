@@ -51,7 +51,7 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
     "With params:\n"
     "  min-pts              = %d\n"
     "  eps                  = %f\n"
-    "  max-bytes-per-launch = %u\n",
+    "  max-bytes-per-launch = %lu\n",
     minPts, eps, maxBytesPerBatch);
   return true;
 }
@@ -96,7 +96,13 @@ bool runAlgo(const Dataset& ret, const cumlHandle& handle, int argc,
   auto& run = runner();
   const auto& itr = run.find(type);
   ASSERT(itr != run.end(), "runAlgo: invalid algo name '%s'", type.c_str());
-  return itr->second(ret, handle, argc, argv);
+  struct timeval start;
+  TIC(start);
+  bool status = itr->second(ret, handle, argc, argv);
+  if (status) {
+    TOC(start, "algo time");
+  }
+  return status;
 }
 
 }  // end namespace Bench
