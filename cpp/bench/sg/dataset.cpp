@@ -195,9 +195,12 @@ bool loadDataset(Dataset& ret, const cumlHandle& handle, int argc,
   const auto& itr = gen.find(type);
   ASSERT(itr != gen.end(), "loadDataset: invalid generator name '%s'",
          type.c_str());
+  struct timeval start;
+  TIC(start);
   auto status = itr->second(ret, handle, argc, argv);
   if (status) {
     printf("dataset dimension: %d x %d\n", ret.nrows, ret.ncols);
+    TOC(start, "dataset generation time");
   }
   return status;
 }

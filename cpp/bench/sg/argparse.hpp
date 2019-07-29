@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <sys/time.h>
 #include <algorithm>
+#include <cstdio>
 #include <string>
 
 namespace ML {
@@ -40,5 +42,19 @@ inline bool get_argval(char** begin, char** end, const std::string& arg) {
   return false;
 }
 
-} // end namespace Bench
-} // end namespace ML
+#define TIC(start)              \
+  do {                          \
+    gettimeofday(&start, NULL); \
+  } while (0)
+
+#define TOC(start, msg)                                     \
+  do {                                                      \
+    struct timeval stop;                                    \
+    gettimeofday(&stop, NULL);                              \
+    double elapsed = (stop.tv_sec - start.tv_sec) * 1000.0; \
+    elapsed += (stop.tv_usec - start.tv_usec) / 1000.0;     \
+    std::printf("%s -> %lfms\n", msg, elapsed);             \
+  } while (0)
+
+}  // end namespace Bench
+}  // end namespace ML
