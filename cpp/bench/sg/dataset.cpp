@@ -96,6 +96,16 @@ bool blobs(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   ret.allocate(handle);
   uint64_t seed = get_argval(argv, argv + argc, "-seed", 1234ULL);
   bool shuffle = get_argval(argv, argv + argc, "-shuffle");
+  printf(
+    "With params:\n"
+    "  dimension    = %d,%d\n"
+    "  center-box   = %f,%f\n"
+    "  cluster-std  = %f\n"
+    "  num-clusters = %d\n"
+    "  seed         = %lu\n"
+    "  shuffle      = %d\n",
+    ret.nrows, ret.ncols, centerBoxMin, centerBoxMax, clusterStd, nclusters,
+    seed, shuffle);
   Datasets::make_blobs(handle, ret.X, ret.y, ret.nrows, ret.ncols, nclusters,
                        nullptr, nullptr, clusterStd, shuffle, centerBoxMin,
                        centerBoxMax, seed);
@@ -185,7 +195,11 @@ bool loadDataset(Dataset& ret, const cumlHandle& handle, int argc,
   const auto& itr = gen.find(type);
   ASSERT(itr != gen.end(), "loadDataset: invalid generator name '%s'",
          type.c_str());
-  return itr->second(ret, handle, argc, argv);
+  auto status = itr->second(ret, handle, argc, argv);
+  if (status) {
+    printf("dataset dimension: %d x %d\n", ret.nrows, ret.ncols);
+  }
+  return status;
 }
 
 }  // end namespace Bench

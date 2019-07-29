@@ -64,13 +64,13 @@ int main(int argc, char** argv) {
   try {
     return ML::Bench::main_no_catch(argc, argv);
   } catch (const MLCommon::Exception& ml_e) {
-    printf("bench failed! Reason:\n%s\n", ml_e.what());
+    printf("%s failed! Reason:\n%s\n", argv[0], ml_e.what());
     return -1;
   } catch (const std::exception& e) {
-    printf("bench failed! Reason:\n%s\n", e.what());
+    printf("%s failed! Reason:\n%s\n", argv[0], e.what());
     return -2;
   } catch (...) {
-    printf("bench failed! Unknown exception\n");
+    printf("%s failed! Unknown exception\n", argv[0]);
     return -3;
   }
 }
