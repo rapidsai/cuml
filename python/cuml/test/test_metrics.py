@@ -18,8 +18,8 @@ import numpy as np
 import pytest
 
 from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.metrics import adjusted_rand_score as cu_ars
-from cuml.metrics.cluster import accuracy_score as cu_acc_score
+from cuml.metrics.cluster import adjusted_rand_score as cu_ars
+from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, \
     fit_predict, get_pattern
 
