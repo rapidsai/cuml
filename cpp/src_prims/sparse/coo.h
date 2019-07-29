@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "common/cuml_allocator.hpp"
 #include "csr.h"
 
 #include "cusparse_wrappers.h"
@@ -28,6 +29,7 @@
 #include "cuda_utils.h"
 
 #include <iostream>
+#define restrict __restrict__
 
 #pragma once
 
@@ -807,7 +809,6 @@ void coo_symmetrize(COO<T> *const in, COO<T> *out,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-#define restrict __restrict__
 /**
  * @brief Find how much space needed in each row.
  * We look through all datapoints and increment the count for each row.
@@ -914,7 +915,8 @@ template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists, const int n,
                                 const int k, COO<math_t> *out,
-                                cudaStream_t stream) {
+                                cudaStream_t stream,
+                                std::shared_ptr<deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -922,10 +924,11 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                        MLCommon::ceildiv(n, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  int *row_sizes;
-  MLCommon::allocate(row_sizes, n, true);
-  int *row_sizes2;
-  MLCommon::allocate(row_sizes2, n, true);
+  int *row_sizes = (int *)d_alloc->allocate(sizeof(int) * n, stream);
+  CUDA_CHECK(cudaMemsetAsync(row_sizes, 0, sizeof(int) * n, stream));
+
+  int *row_sizes2 = (int *)d_alloc->allocate(sizeof(int) * n, stream);
+  CUDA_CHECK(cudaMemsetAsync(row_sizes2, 0, sizeof(int) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
     knn_dists, knn_indices, n, k, row_sizes, row_sizes2);
@@ -961,8 +964,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
     edges, knn_dists, knn_indices, out->vals, out->cols, out->rows, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  CUDA_CHECK(cudaFree(row_sizes));
-  CUDA_CHECK(cudaFree(row_sizes2));
+  d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);
+  d_alloc->deallocate(row_sizes2, sizeof(int) * n, stream);
 }
 
 };  // namespace Sparse

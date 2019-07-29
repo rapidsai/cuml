@@ -47,6 +47,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::allocate(Y_d, n * 2);
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
+    // Test Barnes Hut
     std::cout << "[>>>>]    Starting TSNE....\n";
     TSNE_fit(handle, X_d, Y_d, n, p, 2, 90);
     std::cout << "[>>>>]    Got embeddings!....\n";
@@ -73,11 +74,39 @@ class TSNETest : public ::testing::Test {
 
     // Test trustworthiness
     // euclidean test
-    score = trustworthiness_score<float, EucUnexpandedL2>(
+    score_bh = trustworthiness_score<float, EucUnexpandedL2>(
       X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
 
-    std::cout << "SCORE: " << score << std::endl;
+    std::cout << "SCORE: " << score_bh << std::endl;
 
+    // Test Exact TSNE
+    std::cout << "[>>>>]    Starting Exact TSNE....\n";
+    TSNE_fit(handle, X_d, Y_d, n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
+             0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true, true, false);
+    std::cout << "[>>>>]    Got embeddings!....\n";
+
+    std::cout << "Updating host" << std::endl;
+    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
+               cudaMemcpyDeviceToHost);
+
+    k = 0;
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < 2; j++)
+        C_contiguous_embedding[k++] = embeddings_h[j * n + i];
+    }
+
+    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
+    std::cout << "DONE!" << std::endl;
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    // Test trustworthiness
+    // euclidean test
+    score_exact = trustworthiness_score<float, EucUnexpandedL2>(
+      X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
+
+    std::cout << "SCORE: " << score_exact << std::endl;
+
+    // Free space
     free(embeddings_h);
     CUDA_CHECK(cudaFree(Y_d));
     CUDA_CHECK(cudaFree(YY));
@@ -93,8 +122,11 @@ class TSNETest : public ::testing::Test {
  protected:
   int n = 1797;
   int p = 64;
-  double score;
+  double score_bh;
+  double score_exact;
 };
 
 typedef TSNETest TSNETestF;
-TEST_F(TSNETestF, Result) { ASSERT_TRUE(0.98 < score); }
+TEST_F(TSNETestF, Result) {
+  ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
+}

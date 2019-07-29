@@ -78,15 +78,8 @@ class TSNE(Base):
     music analysis and neural network weight visualizations.
 
     cuML's TSNE implementation handles any # of n_components although
-    specifying n_components = 2 will yield a somewhat extra speedup as it
-    uses the O(nlogn) Barnes Hut algorithm.
-
-    Currently, TSNE only has a fit_transform method. For embedding new data,
-    we are currently working on using weighted nearest neighborhood methods.
-
-    A FFT based approach (pseudo-O(n)) is also in the works! We are also
-    working on a (pseudo-O(p * log(n))) version using the Nystroem method to
-    approximate the repulsion forces.
+    specifying n_components = 2 will use the Barnes Hut algorithm which scales
+    much better for large data since it is a O(NlogN) algorithm.
 
     Parameters
     ----------
@@ -160,6 +153,15 @@ class TSNE(Base):
     *   George C. Linderman, Manas Rachh, Jeremy G. Hoskins,
         Stefan Steinerberger, Yuval Kluger Efficient Algorithms for
         t-distributed Stochastic Neighborhood Embedding
+
+    Tips
+    -----
+    Maaten and Linderman showcased how TSNE can be very sensitive to both the
+    starting conditions (ie random intialization), and how parallel versions
+    of TSNE can generate vastly different results. It has been suggested that
+    you run TSNE a few times to settle on the best configuration. Notice
+    specifying random_state and fixing it across runs can help, but TSNE does
+    not guarantee similar results each time.
     """
     def __init__(self,
                  int n_components=2,
@@ -194,6 +196,9 @@ class TSNE(Base):
             print("[Warn] Barnes Hut only works when n_components == 2. "
                   "Switching to exact.")
             method = 'exact'
+        if n_components != 2:
+            print("[Warn] Currently TSNE supports n_components = 2.")
+            n_components = 2
         if perplexity < 0:
             print("[Error] perplexity = {} should be more than 0.".format(
                   perplexity))

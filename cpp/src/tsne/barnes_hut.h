@@ -137,7 +137,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *YY =
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
   random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
-  assert(YY != NULL && rep_forces != NULL);
+  ASSERT(YY != NULL && rep_forces != NULL, "[ERROR] Possibly no more memory");
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -259,8 +259,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Copy final YY into true output Y
   thrust::device_ptr<float> Y_begin = thrust::device_pointer_cast(Y);
-  thrust::copy(YY, YY + n, Y_begin);
-  thrust::copy(YY + nnodes + 1, YY + nnodes + 1 + n, Y_begin + n);
+  thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
+  thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
+               YY + nnodes + 1 + n, Y_begin + n);
 
   // Deallocate everything
   d_alloc->deallocate(errl, sizeof(int), stream);
