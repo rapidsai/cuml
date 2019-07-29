@@ -36,7 +36,7 @@ cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
                             int n)
 
 
-def accuracy_score(predictions, ground_truth, handle=None):
+def accuracy_score(ground_truth, predictions, handle=None):
     """
     Calcuates the accuracy score of a classification model.
 
