@@ -215,7 +215,7 @@ void get_best_split_regression(
           tmp_lnrows = count[coloff_pred + binoff_pred + nodeoff_pred];
           tmp_rnrows = parent_count - tmp_lnrows;
           unsigned int totalrows = tmp_lnrows + tmp_rnrows;
-          if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows <= min_rpn)
+          if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows < min_rpn)
             continue;
           T tmp_meanleft = predout[coloff_pred + binoff_pred + nodeoff_pred];
           T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
@@ -282,14 +282,15 @@ void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
     n_nodes_before += pow(2, i);
   }
   int non_leaf_counter = 0;
-  bool condition = (curr_depth == max_depth);
-  if (max_leaves != -1) condition = condition || (tree_leaf_cnt >= max_leaves);
+  bool condition_global = (curr_depth == max_depth);
+  if (max_leaves != -1)
+    condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
   for (int i = 0; i < tmp_nodelist.size(); i++) {
     unsigned int node_flag;
     int nodeid = tmp_nodelist[i];
     T nodemean = mean[n_nodes_before + nodeid];
-    condition = condition || (gain[nodeid] == 0.0);
+    bool condition = condition_global || (gain[nodeid] == 0.0);
     if (condition) {
       node_flag = 0xFFFFFFFF;
       flattree[n_nodes_before + nodeid].colid = -1;
