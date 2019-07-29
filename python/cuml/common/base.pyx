@@ -24,6 +24,7 @@ import cuml.common.handle
 import cuml.common.cuda
 import inspect
 
+
 class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
@@ -79,7 +80,7 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
-        
+
     def __repr__(self):
         """
         Pretty prints the arguments of a class using Sklearn standard :)
