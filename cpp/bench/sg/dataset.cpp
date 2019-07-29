@@ -28,18 +28,18 @@
 namespace ML {
 namespace Bench {
 
-void Dataset::allocate(int nr, int nc, const cumlHandle& handle) {
+void Dataset::allocate(const cumlHandle& handle) {
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  X = (float*)allocator->allocate(nr * nc, stream);
-  y = (int*)allocator->allocate(nr, stream);
+  X = (float*)allocator->allocate(nrows * ncols * sizeof(float), stream);
+  y = (int*)allocator->allocate(nrows * sizeof(int), stream);
 }
 
 void Dataset::deallocate(const cumlHandle& handle) {
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  allocator->deallocate(X, nrows * ncols, stream);
-  allocator->deallocate(y, nrows, stream);
+  allocator->deallocate(X, nrows * ncols * sizeof(float), stream);
+  allocator->deallocate(y, nrows * sizeof(int), stream);
 }
 
 void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
@@ -51,8 +51,9 @@ void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::vector<float> X(dataset.nrows * dataset.ncols);
   std::vector<int> y(dataset.nrows);
-  MLCommon::copy(&(X[0]), dataset.X, dataset.nrows * dataset.ncols, stream);
-  MLCommon::copy(&(y[0]), dataset.y, dataset.nrows, stream);
+  MLCommon::updateHost(X.data(), dataset.X, dataset.nrows * dataset.ncols,
+                       stream);
+  MLCommon::updateHost(y.data(), dataset.y, dataset.nrows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   fprintf(fp, "%d %d\n", dataset.nrows, dataset.ncols);
   for (int i = 0, k = 0; i < dataset.nrows; ++i) {
@@ -92,7 +93,7 @@ bool blobs(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   int nclusters = get_argval(argv, argv + argc, "-nclusters", 2);
   ret.ncols = get_argval(argv, argv + argc, "-ncols", 81);
   ret.nrows = get_argval(argv, argv + argc, "-nrows", 10001);
-  ret.allocate(ret.ncols, ret.nrows, handle);
+  ret.allocate(handle);
   uint64_t seed = get_argval(argv, argv + argc, "-seed", 1234ULL);
   bool shuffle = get_argval(argv, argv + argc, "-shuffle");
   Datasets::make_blobs(handle, ret.X, ret.y, ret.nrows, ret.ncols, nclusters,
@@ -125,14 +126,14 @@ bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   std::vector<int> y(ret.nrows);
   for (int i = 0, k = 0; i < ret.nrows; ++i) {
     for (int j = 0; j < ret.ncols; ++j, ++k) {
-      ASSERT(fscanf(fp, "%f ", &(X[k])) == 1,
+      ASSERT(fscanf(fp, "%f", &(X[k])) == 1,
              "Failed to read input at row,col=%d,%d", i, j);
     }
-    ASSERT(fscanf(fp, "%d\n", &(y[i])) == 1,
-           "Failed to read the label at row=%d", i);
+    ASSERT(fscanf(fp, "%d", &(y[i])) == 1, "Failed to read the label at row=%d",
+           i);
   }
   fclose(fp);
-  ret.allocate(ret.nrows, ret.ncols, handle);
+  ret.allocate(handle);
   auto stream = handle.getStream();
   MLCommon::copy(ret.X, &(X[0]), ret.nrows * ret.ncols, stream);
   MLCommon::copy(ret.y, &(y[0]), ret.nrows, stream);
@@ -140,6 +141,7 @@ bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   return true;
 }
 
+typedef bool (*dataGenerator)(Dataset&, const cumlHandle&, int, char**);
 class Generator : public std::map<std::string, dataGenerator> {
  public:
   Generator() : std::map<std::string, dataGenerator>() {
