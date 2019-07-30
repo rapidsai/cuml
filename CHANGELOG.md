@@ -15,6 +15,7 @@
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
 - PR #883: Adding MNMG Kmeans
