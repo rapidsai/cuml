@@ -98,7 +98,7 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
                                  ncols, n_unique_labels, nbins, n_nodes,
                                  tempmem, d_histogram);
 
-    std::vector<float> infogain;
+    float* infogain = tempmem->h_outgain->data();
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,

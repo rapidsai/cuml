@@ -68,7 +68,7 @@ void get_best_split_classification(
   unsigned int *hist, unsigned int *d_hist,
   const std::vector<unsigned int> &colselector, unsigned int *d_colids,
   const int nbins, const int n_unique_labels, const int n_nodes,
-  const int depth, const int min_rpn, std::vector<float> &gain,
+  const int depth, const int min_rpn, float *gain,
   std::vector<std::vector<int>> &sparse_histstate,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -78,8 +78,8 @@ void get_best_split_classification(
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  if (n_nodes > 512) use_gpu_flag = false;
-  gain.resize(n_nodes, 0);
+  if (n_nodes > 512) use_gpu_flag = true;
+  memset(gain, 0, n_nodes * sizeof(float));
 
   int sparsetree_sz = sparsetree.size();
   if (use_gpu_flag) {
@@ -134,7 +134,6 @@ void get_best_split_classification(
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       int sparse_nodeid = sparse_nodelist[nodecnt];
-      gain[nodecnt] = h_outgain[nodecnt];
       std::vector<int> tmp_histleft(n_unique_labels);
       std::vector<int> tmp_histright(n_unique_labels);
       for (int j = 0; j < n_unique_labels; j++) {
@@ -148,8 +147,8 @@ void get_best_split_classification(
       curr_node.colid = split_colidx[nodecnt];
       curr_node.quesval =
         quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
-      curr_node.left_child_id = sparsetree_sz + 2 * sparse_nodeid;
-      curr_node.right_child_id = sparsetree_sz + 2 * sparse_nodeid + 1;
+      curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
+      curr_node.right_child_id = sparsetree_sz + 2 * nodecnt + 1;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = h_child_best_metric[2 * nodecnt];
       rightnode.best_metric_val = h_child_best_metric[2 * nodecnt + 1];
@@ -250,11 +249,10 @@ void get_best_split_classification(
 
 template <typename T>
 void leaf_eval_classification(
-  std::vector<float> &gain, int curr_depth, const int max_depth,
-  const int max_leaves, unsigned int *new_node_flags,
-  std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
-  std::vector<std::vector<int>> &sparse_hist, int &n_nodes_next,
-  std::vector<int> &sparse_nodelist, int &tree_leaf_cnt) {
+  float *gain, int curr_depth, const int max_depth, const int max_leaves,
+  unsigned int *new_node_flags, std::vector<SparseTreeNode<T, int>> &sparsetree,
+  const int sparsesize, std::vector<std::vector<int>> &sparse_hist,
+  int &n_nodes_next, std::vector<int> &sparse_nodelist, int &tree_leaf_cnt) {
   std::vector<int> tmp_sparse_nodelist(sparse_nodelist);
   sparse_nodelist.clear();
 
