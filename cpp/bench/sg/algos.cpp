@@ -53,6 +53,19 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
     "  eps                  = %f\n"
     "  max-bytes-per-launch = %lu\n",
     minPts, eps, maxBytesPerBatch);
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  int* labels = (int*)allocator->allocate(ret.nrows * sizeof(int), stream);
+  {
+    struct timeval start;
+    TIC(start);
+    dbscanFit(handle, ret.X, ret.nrows, ret.ncols, eps, minPts, labels,
+              maxBytesPerBatch);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    TOC(start, "dbscanFit");
+  }
+  ///@todo: add some clustering metrics for verification
+  allocator->deallocate(labels, ret.nrows * sizeof(int), stream);
   return true;
 }
 
@@ -100,7 +113,7 @@ bool runAlgo(const Dataset& ret, const cumlHandle& handle, int argc,
   TIC(start);
   bool status = itr->second(ret, handle, argc, argv);
   if (status) {
-    TOC(start, "algo time");
+    TOC(start, "total algo time");
   }
   return status;
 }
