@@ -16,21 +16,23 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
+#include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include "decisiontree/decisiontree_impl.h"
 #include "ml_utils.h"
 #include "randomforest/randomforest.hpp"
 
-/** check for system errors and assert accordingly */
-#define SYSTEMCALL_CHECK(call)                                    \
-  do {                                                            \
-    int status = call;                                            \
-    ASSERT(status == 0, "SYSTEM CALL FAIL: call='%s'.\n", #call); \
+/** check for libc call errors and assert accordingly */
+#define LIBCCALL_CHECK(call)                                    \
+  do {                                                          \
+    int status = call;                                          \
+    ASSERT(status == 0, "LIBC CALL FAIL: call='%s'.\n", #call); \
   } while (0)
 
 namespace ML {
@@ -60,10 +62,121 @@ template <typename T>
   return os;
 }
 
-template <typename T>
+template <typename T, typename L>
 class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
  protected:
-  void commonSetUp() {
+  void convertToTreelite() {
+    // Test the implementation for converting fitted forest into treelite format.
+    ModelHandle model;
+    build_treelite_forest(&model, forest, params.n_cols, task_category);
+
+    std::string test_name =
+      ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    // Get the test index from Google current_test_info.
+    // The test index is the string after '/' in test_name.
+    std::string index_str =
+      test_name.substr(test_name.find("/") + 1, test_name.length());
+
+    // Create a directory if the test is the first one in the test case.
+    // https://stackoverflow.com/questions/12510874/how-can-i-check-if-a-directory-exists.
+    std::string create_dir = "mkdir " + test_dir;
+    struct stat info;
+    if (!(stat(test_dir.c_str(), &info) == 0 && S_ISDIR(info.st_mode))) {
+      LIBCCALL_CHECK(system(create_dir.c_str()));
+    }
+
+    // Create a sub-directory for the test case.
+    dir_name = test_dir + index_str;
+
+    CompilerHandle compiler;
+    // "ast_navive" is the default compiler treelite used in their Python code.
+    TREELITE_CHECK(TreeliteCompilerCreate("ast_native", &compiler));
+
+    int verbose = 0;
+    // Generate C code in the directory specified below.
+    TREELITE_CHECK(
+      TreeliteCompilerGenerateCode(compiler, model, verbose, dir_name.c_str()));
+    TREELITE_CHECK(TreeliteCompilerFree(compiler));
+
+    // Options copied from
+    // https://github.com/dmlc/treelite/blob/528d883f8f39eb5dd633e929b95915b63e210b39/python/treelite/contrib/__init__.py.
+    std::string obj_cmd = "gcc -c -O3 -o " + dir_name + "/main.o " + dir_name +
+                          "/main.c -fPIC "
+                          "-std=c99 -lm";
+
+    std::string lib_cmd = "gcc -shared -O3 -o " + dir_name +
+                          "/treelite_model.so " + dir_name +
+                          "/main.o -std=c99 -lm";
+
+    LIBCCALL_CHECK(system(obj_cmd.c_str()));
+    LIBCCALL_CHECK(system(lib_cmd.c_str()));
+
+    PredictorHandle predictor;
+    std::string lib_path = dir_name + "/treelite_model.so";
+
+    // -1 means use maximum possible worker threads.
+    int worker_thread = -1;
+    TREELITE_CHECK(
+      TreelitePredictorLoad(lib_path.c_str(), worker_thread, &predictor));
+
+    DenseBatchHandle dense_batch;
+    // Current RF dosen't seem to support missing value, put FLT_MAX to be safe.
+    float missing_value = FLT_MAX;
+    TREELITE_CHECK(TreeliteAssembleDenseBatch(
+      inference_data_h.data(), missing_value, params.n_inference_rows,
+      params.n_cols, &dense_batch));
+
+    // Use dense batch so batch_sparse is 0.
+    // pred_margin = true means to produce raw margins rather than transformed probability.
+    int batch_sparse = 0;
+    bool pred_margin = false;
+    // Allocate larger array for treelite predicted label with using multi-class classification to avoid seg faults.
+    // Altough later we only use first params.n_inference_rows elements.
+    size_t treelite_predicted_labels_size;
+
+    TREELITE_CHECK(TreelitePredictorPredictBatch(
+      predictor, dense_batch, batch_sparse, verbose, pred_margin,
+      treelite_predicted_labels.data(), &treelite_predicted_labels_size));
+
+    TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
+    TREELITE_CHECK(TreelitePredictorFree(predictor));
+    TREELITE_CHECK(TreeliteFreeModel(model));
+  }
+
+  void getResultAndCheck() {
+    // Predict and compare against known labels
+    RF_metrics tmp =
+      score(handle, forest, inference_data_d, labels_d, params.n_inference_rows,
+            params.n_cols, predicted_labels_d, false);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    if (is_classification) {
+      predicted_labels_h.resize(params.n_inference_rows);
+      CUDA_CHECK(cudaMemcpy(predicted_labels_h.data(), predicted_labels_d,
+                            sizeof(L) * params.n_inference_rows,
+                            cudaMemcpyDeviceToHost));
+    } else {
+      // In case of regression, predicted_labels_h alreay has the final result.
+      ref_predicted_labels.resize(params.n_inference_rows);
+      CUDA_CHECK(cudaMemcpy(ref_predicted_labels.data(), predicted_labels_d,
+                            sizeof(L) * params.n_inference_rows,
+                            cudaMemcpyDeviceToHost));
+    }
+
+    if (is_classification) {
+      for (int i = 0; i < params.n_inference_rows; i++) {
+        ref_predicted_labels[i] = static_cast<float>(predicted_labels_h[i]);
+        treelite_predicted_labels[i] =
+          treelite_predicted_labels[i] >= 0.5 ? 1 : 0;
+      }
+    }
+
+    EXPECT_TRUE(devArrMatchHost(
+      ref_predicted_labels.data(), treelite_predicted_labels.data(),
+      params.n_inference_rows, Compare<float>(), stream));
+  }
+
+  void SetUp() override {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
     DecisionTree::DecisionTreeParams tree_params;
@@ -81,98 +194,35 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     allocate(data_d, data_len);
     allocate(inference_data_d, inference_data_len);
 
+    allocate(labels_d, params.n_rows);
+    allocate(predicted_labels_d, params.n_inference_rows);
+
     treelite_predicted_labels.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.setStream(stream);
+
+    forest = new typename ML::RandomForestMetaData<T, L>;
+    null_trees_ptr(forest);
   }
-
-  void convertToTreelite(ModelHandle model) {
-    CompilerHandle compiler;
-    // "ast_navive" is the default compiler treelite used in their Python code.
-    TREELITE_CHECK(TreeliteCompilerCreate("ast_native", &compiler));
-    int verbose = 0;
-    // Generate C code in the directory specified below.
-    TREELITE_CHECK(TreeliteCompilerGenerateCode(compiler, model, verbose,
-                                                "./test_treelite"));
-    TREELITE_CHECK(TreeliteCompilerFree(compiler));
-
-    // Options copied from https://github.com/dmlc/treelite/blob/528d883f8f39eb5dd633e929b95915b63e210b39/python/treelite/contrib/__init__.py.
-    const char* obj_cmd =
-      "gcc -c -O3 -o ./test_treelite/main.o ./test_treelite/main.c -fPIC "
-      "-std=c99 -lm";
-    const char* lib_cmd =
-      "gcc -shared -O3 -o ./test_treelite/treelite_model.so "
-      "./test_treelite/main.o -std=c99 -lm";
-
-    SYSTEMCALL_CHECK(system(obj_cmd));
-    SYSTEMCALL_CHECK(system(lib_cmd));
-
-    PredictorHandle predictor;
-    const char* lib_path = "./test_treelite/treelite_model.so";
-
-    // -1 means use maximum possible worker threads.
-    int worker_thread = -1;
-    TREELITE_CHECK(TreelitePredictorLoad(lib_path, worker_thread, &predictor));
-
-    DenseBatchHandle dense_batch;
-    // Current RF dosen't seem to support missing value, put FLT_MAX to be safe.
-    float missing_value = FLT_MAX;
-    TREELITE_CHECK(TreeliteAssembleDenseBatch(
-      inference_data_h.data(), missing_value, params.n_inference_rows,
-      params.n_cols, &dense_batch));
-
-    // Use dense batch so batch_sparse is 0.
-    // pred_margin = true means to produce raw margins rather than transformed probability.
-    int batch_sparse = 0;
-    bool pred_margin = false;
-    // Allocate larger array for treelite predicted label with using multi-class classification to aviod seg faults.
-    // Altough later we only use first params.n_inference_rows elements.
-    size_t treelite_predicted_labels_size;
-
-    TREELITE_CHECK(TreelitePredictorPredictBatch(
-      predictor, dense_batch, batch_sparse, verbose, pred_margin,
-      treelite_predicted_labels.data(), &treelite_predicted_labels_size));
-
-    TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
-    TREELITE_CHECK(TreelitePredictorFree(predictor));
-  }
-
-  void epsilonCheck() {
-    float epsilon = std::numeric_limits<float>::epsilon();
-
-    diff_elements = 0;
-    // To convert the probablily of binary classification to class index
-    // The number in treelite_label is the probability of selecting class 1 instead of class 0
-    // So we could say if the treelite_label is larger than 0.5, then it predicts class 1
-    // There is a problem when probability equals to 0.5 (there is a tie between two classes)
-    // Here return class 1 in this case but in Rapids RF, we use the class which first reachs the half votes as the final class:
-    // https://gitlab-master.nvidia.com/RAPIDS/cuml/blob/branch-0.9/cpp/src/randomforest/randomforest_impl.cuh#L291
-    for (int i = 0; i < params.n_inference_rows; i++) {
-      if (is_classification) {
-        treelite_predicted_labels[i] =
-          treelite_predicted_labels[i] >= 0.5 ? 1 : 0;
-      }
-
-      if (ref_predicted_labels[i] - treelite_predicted_labels[i] > epsilon) {
-        diff_elements++;
-      }
-    }
-  }
-
-  void SetUp() override { commonSetUp(); }
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamDestroy(stream));
 
+    CUDA_CHECK(cudaFree(data_d));
+    CUDA_CHECK(cudaFree(inference_data_d));
+    CUDA_CHECK(cudaFree(labels_d));
+    CUDA_CHECK(cudaFree(predicted_labels_d));
+
+    delete[] forest->trees;
+    delete forest;
+    labels_h.clear();
+    predicted_labels_h.clear();
     data_h.clear();
     inference_data_h.clear();
     treelite_predicted_labels.clear();
     ref_predicted_labels.clear();
-
-    CUDA_CHECK(cudaFree(data_d));
-    CUDA_CHECK(cudaFree(inference_data_d));
   }
 
  protected:
@@ -197,14 +247,26 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
+
+  std::string test_dir;
+  std::string dir_name;
+
+  L *labels_d, *predicted_labels_d;
+  std::vector<L> labels_h;
+  std::vector<L> predicted_labels_h;
+
+  RandomForestMetaData<T, L>* forest;
 };
 
-template <typename T>
-class RfTreeliteTestClf : public RfTreeliteTestCommon<T> {
+template <typename T, typename L>
+class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
  protected:
   void testClassifier() {
-    allocate(labels_d, this->params.n_rows);
-    allocate(predicted_labels_d, this->params.n_inference_rows);
+    this->test_dir = "./treelite_test_clf/";
+    this->is_classification = 1;
+    // task_category - 1 for regression, 2 for binary classification
+    // #class for multi-class classification
+    this->task_category = 2;
 
     // Populate data (assume Col major)
     this->data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
@@ -213,16 +275,15 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T> {
                  this->stream);
 
     // Populate labels
-    labels_h = {0, 1, 1, 0};
-    labels_h.resize(this->params.n_rows);
-    preprocess_labels(this->params.n_rows, labels_h, labels_map);
-    updateDevice(labels_d, labels_h.data(), this->params.n_rows, this->stream);
+    this->labels_h = {0, 1, 1, 0};
+    this->labels_h.resize(this->params.n_rows);
+    preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
+    updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
+                 this->stream);
 
-    forest = new typename ML::RandomForestMetaData<T, int>;
-    null_trees_ptr(forest);
-
-    fit(this->handle, forest, this->data_d, this->params.n_rows,
-        this->params.n_cols, labels_d, labels_map.size(), this->rf_params);
+    fit(this->handle, this->forest, this->data_d, this->params.n_rows,
+        this->params.n_cols, this->labels_d, labels_map.size(),
+        this->rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
@@ -232,59 +293,28 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T> {
     updateDevice(this->inference_data_d, this->inference_data_h.data(),
                  this->data_len, this->stream);
 
-    // Predict and compare against known labels
-    RF_metrics tmp = score(this->handle, forest, this->inference_data_d,
-                           labels_d, this->params.n_inference_rows,
-                           this->params.n_cols, predicted_labels_d, false);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    this->convertToTreelite();
+    this->getResultAndCheck();
 
-    predicted_labels_h.resize(this->params.n_inference_rows);
-    CUDA_CHECK(cudaMemcpy(predicted_labels_h.data(), predicted_labels_d,
-                          sizeof(int) * this->params.n_inference_rows,
-                          cudaMemcpyDeviceToHost));
-
-    for (int i = 0; i < this->params.n_inference_rows; i++) {
-      this->ref_predicted_labels[i] = static_cast<float>(predicted_labels_h[i]);
-    }
-
-    // Test the implementation for converting fitted forest into treelite format.
-    ModelHandle model;
-    this->task_category = 2;
-    build_treelite_forest(&model, forest, this->params.n_cols,
-                          this->task_category);
-    this->convertToTreelite(model);
-    TREELITE_CHECK(TreeliteFreeModel(model));
-
-    this->is_classification = 1;
-    this->epsilonCheck();
-
-    postprocess_labels(this->params.n_rows, labels_h, labels_map);
-    delete[] forest->trees;
-    delete forest;
-    CUDA_CHECK(cudaFree(labels_d));
-    CUDA_CHECK(cudaFree(predicted_labels_d));
-    labels_h.clear();
-    predicted_labels_h.clear();
+    postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
     labels_map.clear();
   }
 
  protected:
-  int *labels_d, *predicted_labels_d;
-  std::vector<int> labels_h;
-  std::vector<int> predicted_labels_h;
-
   std::map<int, int>
     labels_map;  //unique map of labels to int vals starting from 0
-  RandomForestMetaData<T, int>* forest;
 };
 
-// //-------------------------------------------------------------------------------------------------------------------------------------
-template <typename T>
-class RfTreeliteTestReg : public RfTreeliteTestCommon<T> {
+//-------------------------------------------------------------------------------------------------------------------------------------
+template <typename T, typename L>
+class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
  protected:
   void testRegressor() {
-    allocate(labels_d, this->params.n_rows);
-    allocate(predicted_labels_d, this->params.n_inference_rows);
+    this->test_dir = "./treelite_test_reg/";
+    this->is_classification = 0;
+    // task_category - 1 for regression, 2 for binary classification
+    // #class for multi-class classification
+    this->task_category = 1;
 
     // Populate data (assume Col major)
     this->data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
@@ -293,15 +323,13 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T> {
                  this->stream);
 
     // Populate labels
-    labels_h = {1.0, 2.0, 3.0, 4.0};
-    labels_h.resize(this->params.n_rows);
-    updateDevice(labels_d, labels_h.data(), this->params.n_rows, this->stream);
+    this->labels_h = {1.0, 2.0, 3.0, 4.0};
+    this->labels_h.resize(this->params.n_rows);
+    updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
+                 this->stream);
 
-    forest = new typename ML::RandomForestMetaData<T, T>;
-    null_trees_ptr(forest);
-
-    fit(this->handle, forest, this->data_d, this->params.n_rows,
-        this->params.n_cols, labels_d, this->rf_params);
+    fit(this->handle, this->forest, this->data_d, this->params.n_rows,
+        this->params.n_cols, this->labels_d, this->rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
@@ -311,44 +339,9 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T> {
     updateDevice(this->inference_data_d, this->inference_data_h.data(),
                  this->data_len, this->stream);
 
-    // Predict and compare against known labels
-    RF_metrics tmp = score(this->handle, forest, this->inference_data_d,
-                           labels_d, this->params.n_inference_rows,
-                           this->params.n_cols, predicted_labels_d, false);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-
-    predicted_labels_h.resize(this->params.n_inference_rows);
-    CUDA_CHECK(cudaMemcpy(predicted_labels_h.data(), predicted_labels_d,
-                          sizeof(T) * this->params.n_inference_rows,
-                          cudaMemcpyDeviceToHost));
-
-    this->ref_predicted_labels = predicted_labels_h;
-
-    // Test the implementation for converting fitted forest into treelite format.
-    ModelHandle model;
-    this->task_category = 1;
-    build_treelite_forest(&model, forest, this->params.n_cols,
-                          this->task_category);
-    this->convertToTreelite(model);
-    TREELITE_CHECK(TreeliteFreeModel(model));
-
-    this->is_classification = 0;
-    this->epsilonCheck();
-
-    delete[] forest->trees;
-    delete forest;
-    CUDA_CHECK(cudaFree(labels_d));
-    CUDA_CHECK(cudaFree(predicted_labels_d));
-    labels_h.clear();
-    predicted_labels_h.clear();
+    this->convertToTreelite();
+    this->getResultAndCheck();
   }
-
- protected:
-  T *labels_d, *predicted_labels_d;
-  std::vector<T> labels_h;
-  std::vector<T> predicted_labels_h;
-
-  RandomForestMetaData<T, T>* forest;
 };
 
 // //-------------------------------------------------------------------------------------------------------------------------------------
@@ -380,11 +373,8 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, CRITERION::ENTROPY}};
 
-typedef RfTreeliteTestClf<float> RfBinaryClassifierTreeliteTestF;
-TEST_P(RfBinaryClassifierTreeliteTestF, Convert) {
-  testClassifier();
-  ASSERT_TRUE(diff_elements == 0);
-}
+typedef RfTreeliteTestClf<float, int> RfBinaryClassifierTreeliteTestF;
+TEST_P(RfBinaryClassifierTreeliteTestF, Convert_Clf) { testClassifier(); }
 
 INSTANTIATE_TEST_CASE_P(RfBinaryClassifierTreeliteTests,
                         RfBinaryClassifierTreeliteTestF,
@@ -405,11 +395,8 @@ const std::vector<RfInputs<float>> inputsf2_reg = {
   {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::CRITERION_END}};
 
-typedef RfTreeliteTestReg<float> RfRegressorTreeliteTestF;
-TEST_P(RfRegressorTreeliteTestF, Convert) {
-  testRegressor();
-  ASSERT_TRUE(diff_elements == 0);
-}
+typedef RfTreeliteTestReg<float, float> RfRegressorTreeliteTestF;
+TEST_P(RfRegressorTreeliteTestF, Convert_Reg) { testRegressor(); }
 
 INSTANTIATE_TEST_CASE_P(RfRegressorTreeliteTests, RfRegressorTreeliteTestF,
                         ::testing::ValuesIn(inputsf2_reg));
