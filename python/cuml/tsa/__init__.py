@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.tsa.holtwinters import HoltWinters
+from cuml.tsa.holtwinters import ExponentialSmoothing

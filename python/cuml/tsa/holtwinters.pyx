@@ -61,7 +61,7 @@ cdef extern from "holtwinters/holtwinters.h" namespace "ML::HoltWinters":
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
 
-class HoltWinters(Base):
+class ExponentialSmoothing(Base):
     """
     Implements a HoltWinters time series analysis model which is used in
     both forecasting future entries in a time series as well as in providing
@@ -70,9 +70,9 @@ class HoltWinters(Base):
     three components of the data: level, trend, and seasonality.
 
     **Known Limitations**:
-    This version of HoltWinters currently provides only a limited number of
-    features when compared to the statsmodels.holtwinters.ExponentialSmoothing
-    model. Noticeably, it lacks:
+    This version of ExponentialSmoothing currently provides only a limited
+    number of features when compared to the
+    statsmodels.holtwinters.ExponentialSmoothing model. Noticeably, it lacks:
 
         * .predict() : no support for in-sample prediction.
                        https://github.com/rapidsai/cuml/issues/875
@@ -91,8 +91,8 @@ class HoltWinters(Base):
     See https://github.com/rapidsai/cuml/issues/888 for more information.
 
     **Known Differences**:
-    This version of HoltWinters differs from statsmodels in some other minor
-    ways:
+    This version of ExponentialSmoothing differs from statsmodels in some
+    other minor ways:
 
         * .__init__() : Cannot pass trend component or damped trend component
 
@@ -109,7 +109,7 @@ class HoltWinters(Base):
     .. code-block:: python
 
 
-            from cuml import HoltWinters
+            from cuml import ExponentialSmoothing
             import cudf
             import numpy as np
 
@@ -120,7 +120,7 @@ class HoltWinters(Base):
                                 3, 4, 5, 6, 7, 8, 9,
                                 10, 11, 12, 13, 14],
                                 dtype=np.float64)
-            cu_hw = HoltWinters(data, seasonal_periods=12)
+            cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
             cu_hw.fit()
             cu_pred = cu_hw.forecast(4)
             print("Forecasted points:\n", cu_pred)
@@ -169,7 +169,7 @@ class HoltWinters(Base):
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None):
 
-        super(HoltWinters, self).__init__(handle)
+        super(ExponentialSmoothing, self).__init__(handle)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:
@@ -231,7 +231,8 @@ class HoltWinters(Base):
         self.h = 0
 
     def _check_dims(self, ts_input, is_cudf=False):
-        err_mess = ("HoltWinters initialized with " + str(self.ts_num) +
+        err_mess = ("ExponentialSmoothing initialized with "
+                    + str(self.ts_num) +
                     " time series, but data has dimension ")
         if len(ts_input.shape) == 1:
             self.n = ts_input.shape[0]
@@ -337,7 +338,7 @@ class HoltWinters(Base):
                 <double*> SSE_ptr)
 
         else:
-            raise TypeError("HoltWinters supports only float32"
+            raise TypeError("ExponentialSmoothing supports only float32"
                             " and float64 input, but input type "
                             + str(self.dtype) + " passed.")
         self.handle.sync()

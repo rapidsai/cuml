@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import numpy as np
-from cuml.tsa.holtwinters import HoltWinters
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
+from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
 import pytest
 from sklearn.metrics import r2_score
 import cudf
@@ -84,15 +84,15 @@ def test_singlets_holtwinters(seasonal, h, datatype, input_type):
     train = airpassengers[:-h]
     test = airpassengers[-h:]
 
-    sm_hw = ExponentialSmoothing(train, seasonal=seasonal,
-                                 seasonal_periods=12)
+    sm_hw = sm_ES(train, seasonal=seasonal,
+                  seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
     if input_type == 'cudf':
         train = cudf.Series(train)
 
-    cu_hw = HoltWinters(train, seasonal=seasonal,
-                        seasonal_periods=12)
+    cu_hw = cuml_ES(train, seasonal=seasonal,
+                    seasonal_periods=12)
     cu_hw.fit()
 
     cu_pred = cu_hw.forecast(h)
@@ -121,15 +121,15 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
     if input_type == 'cudf':
         data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
 
-    cu_hw = HoltWinters(data, seasonal=seasonal,
-                        seasonal_periods=12, ts_num=2)
+    cu_hw = cuml_ES(data, seasonal=seasonal,
+                    seasonal_periods=12, ts_num=2)
 
-    sm_air_hw = ExponentialSmoothing(air_train,
-                                     seasonal=seasonal,
-                                     seasonal_periods=12)
-    sm_co2_hw = ExponentialSmoothing(co2_train,
-                                     seasonal=seasonal,
-                                     seasonal_periods=12)
+    sm_air_hw = sm_ES(air_train,
+                      seasonal=seasonal,
+                      seasonal_periods=12)
+    sm_co2_hw = sm_ES(co2_train,
+                      seasonal=seasonal,
+                      seasonal_periods=12)
     cu_hw.fit()
     sm_air_hw = sm_air_hw.fit()
     sm_co2_hw = sm_co2_hw.fit()
@@ -158,7 +158,7 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
 def test_seasonal_holtwinters(seasonal):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
-    cu_hw = HoltWinters(data, seasonal=seasonal, ts_num=3)
+    cu_hw = cuml_ES(data, seasonal=seasonal, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)
 
@@ -168,7 +168,7 @@ def test_seasonal_holtwinters(seasonal):
 def test_series_holtwinters(idx, h):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
-    cu_hw = HoltWinters(data, ts_num=3)
+    cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(h, idx)
 
@@ -178,8 +178,8 @@ def test_series_holtwinters(idx, h):
 def test_start_freq_holtwinters(frequency, start_periods):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
-    cu_hw = HoltWinters(data, ts_num=3, seasonal_periods=frequency,
-                        start_periods=start_periods)
+    cu_hw = cuml_ES(data, ts_num=3, seasonal_periods=frequency,
+                    start_periods=start_periods)
     cu_hw.fit()
     cu_hw.forecast(5)
 
@@ -188,7 +188,7 @@ def test_start_freq_holtwinters(frequency, start_periods):
 def test_eps_holtwinters(eps):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
-    cu_hw = HoltWinters(data, eps=eps, ts_num=3)
+    cu_hw = cuml_ES(data, eps=eps, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)
 
@@ -206,6 +206,6 @@ def test_inputs_holtwinters(datatype, input_type):
             data = cp.asarray(data)
         except ImportError:
             pytest.skip("CuPy import error -- skipping test.")
-    cu_hw = HoltWinters(data, ts_num=3)
+    cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)
