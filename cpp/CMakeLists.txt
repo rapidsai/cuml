@@ -239,15 +239,15 @@ ExternalProject_Add(treelite
 
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
-add_library(libtreelite_runtime SHARED IMPORTED)
+add_library(treelite_runtimelib SHARED IMPORTED)
 
 add_dependencies(dmlclib treelite)
 add_dependencies(treelitelib treelite)
-add_dependencies(libtreelite_runtime treelite)
+add_dependencies(treelite_runtimelib treelite)
 
 set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-set_property(TARGET libtreelite_runtime PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -369,7 +369,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${ZLIB_LIBRARIES}
     dmlclib
     treelitelib
-    libtreelite_runtime
     gpufaisslib
     faisslib)
 

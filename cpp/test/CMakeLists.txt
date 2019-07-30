@@ -37,6 +37,7 @@ if(BUILD_CUML_TESTS)
         ${CUDA_nvgraph_LIBRARY}
         gpufaisslib
         faisslib
+        treelite_runtimelib
         ${CUML_CPP_TARGET}
         ${CUML_C_TARGET}
         pthread
