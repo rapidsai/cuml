@@ -17,6 +17,7 @@
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
+- PR #883: Adding MNMG Kmeans
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
