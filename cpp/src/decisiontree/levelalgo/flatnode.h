@@ -21,3 +21,13 @@ struct FlatTreeNode {
   T quesval;
   T best_metric_val;
 };
+
+template <class T, class L>
+struct SparseTreeNode {
+  L prediction;
+  int colid = -1;
+  T quesval;
+  T best_metric_val;
+  int left_child_id = -1;
+  int right_child_id = -1;
+};

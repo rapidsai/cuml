@@ -69,20 +69,19 @@ void get_best_split_classification(
   const std::vector<unsigned int> &colselector, unsigned int *d_colids,
   const int nbins, const int n_unique_labels, const int n_nodes,
   const int depth, const int min_rpn, std::vector<float> &gain,
-  std::vector<std::vector<int>> &histstate,
-  std::vector<FlatTreeNode<T, int>> &flattree, std::vector<int> &nodelist,
-  int *split_colidx, int *split_binidx, int *d_split_colidx,
-  int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  std::vector<std::vector<int>> &sparse_histstate,
+  std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
+  std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
+  int *d_split_colidx, int *d_split_binidx,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  if (n_nodes > 512) use_gpu_flag = true;
-  gain.resize(pow(2, depth), 0);
-  size_t n_nodes_before = 0;
-  for (int i = 0; i <= (depth - 1); i++) {
-    n_nodes_before += pow(2, i);
-  }
+  if (n_nodes > 512) use_gpu_flag = false;
+  gain.resize(n_nodes, 0);
+
+  int sparsetree_sz = sparsetree.size();
   if (use_gpu_flag) {
     //GPU based best split
     unsigned int *h_parent_hist, *d_parent_hist, *d_child_hist, *h_child_hist;
@@ -101,10 +100,10 @@ void get_best_split_classification(
     d_child_best_metric = tempmem->d_child_best_metric->data();
     d_outgain = tempmem->d_outgain->data();
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-      int nodeid = nodelist[nodecnt];
-      int parentid = nodeid + n_nodes_before;
-      std::vector<int> &parent_hist = histstate[parentid];
-      h_parent_metric[nodecnt] = flattree[parentid].best_metric_val;
+      int sparse_nodeid = sparse_nodelist[nodecnt];
+      int parentid = sparsesize + sparse_nodeid;
+      std::vector<int> &parent_hist = sparse_histstate[parentid];
+      h_parent_metric[nodecnt] = sparsetree[parentid].best_metric_val;
       for (int j = 0; j < n_unique_labels; j++) {
         h_parent_hist[nodecnt * n_unique_labels + j] = parent_hist[j];
       }
@@ -134,21 +133,30 @@ void get_best_split_classification(
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-      int nodeid = nodelist[nodecnt];
-      gain[nodeid] = h_outgain[nodecnt];
+      int sparse_nodeid = sparse_nodelist[nodecnt];
+      gain[nodecnt] = h_outgain[nodecnt];
+      std::vector<int> tmp_histleft(n_unique_labels);
+      std::vector<int> tmp_histright(n_unique_labels);
       for (int j = 0; j < n_unique_labels; j++) {
-        histstate[2 * nodeid + n_nodes_before + pow(2, depth)][j] =
-          h_child_hist[n_unique_labels * nodecnt * 2 + j];
-        histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)][j] =
+        tmp_histleft[j] = h_child_hist[n_unique_labels * nodecnt * 2 + j];
+        tmp_histright[j] =
           h_child_hist[n_unique_labels * nodecnt * 2 + j + n_unique_labels];
       }
-      flattree[nodeid + n_nodes_before].colid = split_colidx[nodecnt];
-      flattree[nodeid + n_nodes_before].quesval =
+      //Sparse tree
+      SparseTreeNode<T, int> &curr_node =
+        sparsetree[sparsesize + sparse_nodeid];
+      curr_node.colid = split_colidx[nodecnt];
+      curr_node.quesval =
         quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
-      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-        h_child_best_metric[2 * nodecnt];
-      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
-        .best_metric_val = h_child_best_metric[2 * nodecnt + 1];
+      curr_node.left_child_id = sparsetree_sz + 2 * sparse_nodeid;
+      curr_node.right_child_id = sparsetree_sz + 2 * sparse_nodeid + 1;
+      SparseTreeNode<T, int> leftnode, rightnode;
+      leftnode.best_metric_val = h_child_best_metric[2 * nodecnt];
+      rightnode.best_metric_val = h_child_best_metric[2 * nodecnt + 1];
+      sparsetree.push_back(leftnode);
+      sparsetree.push_back(rightnode);
+      sparse_histstate.push_back(tmp_histleft);
+      sparse_histstate.push_back(tmp_histright);
     }
   } else {
     MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
@@ -157,8 +165,8 @@ void get_best_split_classification(
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       std::vector<T> bestmetric(2, 0);
       int nodeoffset = nodecnt * nbins * n_unique_labels;
-      int nodeid = nodelist[nodecnt];
-      int parentid = nodeid + n_nodes_before;
+      int sparse_nodeid = sparse_nodelist[nodecnt];
+      int parentid = sparsesize + sparse_nodeid;
       int best_col_id = -1;
       int best_bin_id = -1;
       std::vector<int> besthist_left(n_unique_labels);
@@ -173,7 +181,7 @@ void get_best_split_classification(
           std::vector<int> tmp_histleft(n_unique_labels, 0);
           std::vector<int> tmp_histright(n_unique_labels, 0);
 
-          std::vector<int> &parent_hist = histstate[parentid];
+          std::vector<int> &parent_hist = sparse_histstate[parentid];
           // Compute gini right and gini left value for each bin.
           for (int j = 0; j < n_unique_labels; j++) {
             tmp_histleft[j] = hist[coloffset + binoffset + nodeoffset + j];
@@ -201,11 +209,11 @@ void get_best_split_classification(
 
           float impurity = (tmp_lnrows * 1.0f / totalrows) * tmp_gini_left +
                            (tmp_rnrows * 1.0f / totalrows) * tmp_gini_right;
-          float info_gain = flattree[parentid].best_metric_val - impurity;
+          float info_gain = sparsetree[parentid].best_metric_val - impurity;
 
           // Compute best information col_gain so far
-          if (info_gain > gain[nodeid]) {
-            gain[nodeid] = info_gain;
+          if (info_gain > gain[nodecnt]) {
+            gain[nodecnt] = info_gain;
             best_bin_id = binid;
             best_col_id = colselector[colid];
             besthist_left = tmp_histleft;
@@ -217,17 +225,21 @@ void get_best_split_classification(
       }
       split_colidx[nodecnt] = best_col_id;
       split_binidx[nodecnt] = best_bin_id;
-      histstate[2 * nodeid + n_nodes_before + pow(2, depth)] = besthist_left;
-      histstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
-        besthist_right;
-      flattree[nodeid + n_nodes_before].colid = best_col_id;
-      flattree[nodeid + n_nodes_before].quesval =
-        quantile[best_col_id * nbins + best_bin_id];
-
-      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-        bestmetric[0];
-      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
-        .best_metric_val = bestmetric[1];
+      //Sparse tree
+      SparseTreeNode<T, int> &curr_node =
+        sparsetree[sparsesize + sparse_nodeid];
+      curr_node.colid = split_colidx[nodecnt];
+      curr_node.quesval =
+        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+      curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
+      curr_node.right_child_id = sparsetree_sz + 2 * nodecnt + 1;
+      SparseTreeNode<T, int> leftnode, rightnode;
+      leftnode.best_metric_val = bestmetric[0];
+      rightnode.best_metric_val = bestmetric[1];
+      sparsetree.push_back(leftnode);
+      sparsetree.push_back(rightnode);
+      sparse_histstate.push_back(besthist_left);
+      sparse_histstate.push_back(besthist_right);
     }
     MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
                            tempmem->stream);
@@ -237,42 +249,39 @@ void get_best_split_classification(
 }
 
 template <typename T>
-void leaf_eval_classification(std::vector<float> &gain, int curr_depth,
-                              const int max_depth, const int max_leaves,
-                              unsigned int *new_node_flags,
-                              std::vector<FlatTreeNode<T, int>> &flattree,
-                              std::vector<std::vector<int>> hist,
-                              int &n_nodes_next, std::vector<int> &nodelist,
-                              int &tree_leaf_cnt) {
-  std::vector<int> tmp_nodelist(nodelist);
-  nodelist.clear();
-  int n_nodes_before = 0;
-  for (int i = 0; i <= (curr_depth - 1); i++) {
-    n_nodes_before += pow(2, i);
-  }
+void leaf_eval_classification(
+  std::vector<float> &gain, int curr_depth, const int max_depth,
+  const int max_leaves, unsigned int *new_node_flags,
+  std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
+  std::vector<std::vector<int>> &sparse_hist, int &n_nodes_next,
+  std::vector<int> &sparse_nodelist, int &tree_leaf_cnt) {
+  std::vector<int> tmp_sparse_nodelist(sparse_nodelist);
+  sparse_nodelist.clear();
+
   int non_leaf_counter = 0;
   bool condition_global = (curr_depth == max_depth);
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
-  for (int i = 0; i < tmp_nodelist.size(); i++) {
+  for (int i = 0; i < tmp_sparse_nodelist.size(); i++) {
     unsigned int node_flag;
-    int nodeid = tmp_nodelist[i];
-    std::vector<int> &nodehist = hist[n_nodes_before + nodeid];
-    bool condition = condition_global || (gain[nodeid] == 0.0);
+    int sparse_nodeid = tmp_sparse_nodelist[i];
+    std::vector<int> &nodehist = sparse_hist[sparsesize + sparse_nodeid];
+    bool condition = condition_global || (gain[i] == 0.0);
     if (condition) {
       node_flag = 0xFFFFFFFF;
-      flattree[n_nodes_before + nodeid].colid = -1;
-      flattree[n_nodes_before + nodeid].prediction = get_class_hist(nodehist);
+      sparsetree[sparsesize + sparse_nodeid].colid = -1;
+      sparsetree[sparsesize + sparse_nodeid].prediction =
+        get_class_hist(nodehist);
     } else {
-      nodelist.push_back(2 * nodeid);
-      nodelist.push_back(2 * nodeid + 1);
+      sparse_nodelist.push_back(2 * i);
+      sparse_nodelist.push_back(2 * i + 1);
       node_flag = non_leaf_counter;
       non_leaf_counter++;
     }
     new_node_flags[i] = node_flag;
   }
-  int nleafed = tmp_nodelist.size() - non_leaf_counter;
+  int nleafed = tmp_sparse_nodelist.size() - non_leaf_counter;
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * non_leaf_counter;
 }

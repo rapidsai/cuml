@@ -63,3 +63,20 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive(
   }
   return node;
 }
+
+template <typename T, typename L>
+ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
+  std::vector<SparseTreeNode<T, L>> &sparsetree, int idx = 0) {
+  ML::DecisionTree::TreeNode<T, L> *node = NULL;
+  node = new ML::DecisionTree::TreeNode<T, L>();
+  node->split_metric_val = sparsetree[idx].best_metric_val;
+  node->question.column = sparsetree[idx].colid;
+  node->question.value = sparsetree[idx].quesval;
+  node->prediction = sparsetree[idx].prediction;
+  if (sparsetree[idx].colid == -1) {
+    return node;
+  }
+  node->left = go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id);
+  node->right = go_recursive_sparse(sparsetree, sparsetree[idx].right_child_id);
+  return node;
+}

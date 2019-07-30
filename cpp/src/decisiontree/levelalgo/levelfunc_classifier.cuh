@@ -54,22 +54,23 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int i = 0; i <= maxdepth; i++) {
     total_nodes += pow(2, i);
   }
-  std::vector<std::vector<int>> histstate;
-  histstate.resize(total_nodes);
-  for (int i = 0; i < total_nodes; i++) {
-    std::vector<int> tmp(n_unique_labels, 0);
-    histstate[i] = tmp;
-  }
-  histstate[0] = histvec;
-  std::vector<FlatTreeNode<T, int>> flattree;
-  flattree.resize(total_nodes);
-  FlatTreeNode<T, int> node;
-  node.best_metric_val = initial_metric;
-  flattree[0] = node;
+
+  std::vector<std::vector<int>> sparse_histstate;
+  sparse_histstate.push_back(histvec);
+
+  std::vector<SparseTreeNode<T, int>> sparsetree;
+  SparseTreeNode<T, int> sparsenode;
+  sparsenode.best_metric_val = initial_metric;
+  sparsetree.push_back(sparsenode);
+  int sparsesize = 0;
+  int sparsesize_nextitr = 0;
+
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
   std::vector<int> nodelist;
+  std::vector<int> sparse_nodelist;
   nodelist.push_back(0);
+  sparse_nodelist.push_back(0);
   //this can be depth loop
 
   //Setup pointers
@@ -86,6 +87,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
+    sparsesize = sparsesize_nextitr;
+    sparsesize_nextitr = sparsetree.size();
     ASSERT(
       n_nodes <= tempmem->max_nodes_per_level,
       "Max node limit reached. Requested nodes %d > %d max nodes at depth %d\n",
@@ -99,33 +102,34 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
-        flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
-        d_split_binidx, tempmem);
+        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
+        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain, histstate,
-        flattree, nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
-        d_split_binidx, tempmem);
+        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
+        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
     }
 
-    leaf_eval_classification(infogain, depth, maxdepth, maxleaves,
-                             h_new_node_flags, flattree, histstate,
-                             n_nodes_nextitr, nodelist, leaf_cnt);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
+    leaf_eval_classification(
+      infogain, depth, maxdepth, maxleaves, h_new_node_flags, sparsetree,
+      sparsesize, sparse_histstate, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
 
     make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+  }
 
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
+    sparsetree[i].prediction = get_class_hist(sparse_histstate[i]);
   }
-  int nleaves = pow(2, maxdepth);
-  int leaf_st = flattree.size() - nleaves;
-  for (int i = 0; i < nleaves; i++) {
-    flattree[leaf_st + i].prediction = get_class_hist(histstate[leaf_st + i]);
-  }
-  return go_recursive<T, int>(flattree);
+  return go_recursive_sparse(sparsetree);
 }
