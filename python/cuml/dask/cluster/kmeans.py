@@ -44,17 +44,18 @@ class KMeans(object):
         verbose : boolean (default = 0)
             If True, prints diagnositc information.
         random_state : int (default = 1)
-            If you want results to be the same when you restart Python, select a
-            state.
+            If you want results to be the same when you restart Python,
+            select a state.
         precompute_distances : boolean (default = 'auto')
             Not supported yet.
         init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
                (default = 'scalable-k-means++')
             'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
             kmeans++ intialization.
-            'random': Choose 'n_cluster' observations (rows) at random from data
-            for the initial centroids. If an ndarray is passed, it should be of
-            shape (n_clusters, n_features) and gives the initial centers.
+            'random': Choose 'n_cluster' observations (rows) at random
+            from data for the initial centroids. If an ndarray is passed,
+            it should be of shape (n_clusters, n_features) and gives the
+            initial centers.
         n_init : int (default = 1)
             Number of times intialization is run. More is slower,
             but can be better.
