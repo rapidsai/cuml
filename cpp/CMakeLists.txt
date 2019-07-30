@@ -354,6 +354,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/svm/svc.cu
+    src/svm/ws_util.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
@@ -372,7 +374,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     faisslib)
 
   if(OPENMP_FOUND)
-  
+
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
