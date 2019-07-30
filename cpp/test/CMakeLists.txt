@@ -60,6 +60,7 @@ if(BUILD_CUML_TESTS)
       sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
+      sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu
       )

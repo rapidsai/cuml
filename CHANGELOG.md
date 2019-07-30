@@ -18,6 +18,7 @@
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
 - PR #883: Adding MNMG Kmeans
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -26,6 +27,7 @@
 - PR #832: Stateless Decision Tree and Random Forest API
 - PR #857: Small modifications to comms for utilizing IB w/ Dask
 - PR #851: Random forest Stateless API wrappers
+- PR #895: Pretty prints arguments!
 
 ## Bug Fixes
 
@@ -34,6 +36,7 @@
 - PR #849: PCA no attribute trans_input_ transform bug fix
 - PR #869: Removing incorrect information from KNN Docs
 - PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
 
 # cuML 0.8.0 (27 June 2019)
 
