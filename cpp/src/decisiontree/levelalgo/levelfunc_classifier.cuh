@@ -50,10 +50,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
                                                      n_unique_labels, histvec,
                                                      initial_metric, tempmem);
   }
-  size_t total_nodes = 0;
-  for (int i = 0; i <= maxdepth; i++) {
-    total_nodes += pow(2, i);
-  }
 
   std::vector<std::vector<int>> sparse_histstate;
   sparse_histstate.push_back(histvec);
