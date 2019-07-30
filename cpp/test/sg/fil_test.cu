@@ -390,8 +390,6 @@ std::vector<FilTestParams> predict_inputs = {
    fil::algo_t::TREE_REORG, 42, 2e-3f},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
 };
 
 TEST_P(PredictFilTest, Predict) { compare(); }
