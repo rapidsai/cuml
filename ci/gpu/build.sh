@@ -78,24 +78,23 @@ $WORKSPACE/build.sh clean libcuml cuml prims -v
 
 if hasArg --skip-tests; then
     logger "Skipping Tests..."
-    exit 0
+else
+    logger "Check GPU usage..."
+    nvidia-smi
+
+    logger "GoogleTest for libcuml..."
+    cd $WORKSPACE/cpp/build
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+
+    logger "Python pytest for cuml..."
+    cd $WORKSPACE/python
+    py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/cuml-coverage.xml --cov-report term
+
+    ################################################################################
+    # TEST - Run GoogleTest for ml-prims
+    ################################################################################
+
+    logger "Run ml-prims test..."
+    cd $WORKSPACE/cpp/build
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 fi
-
-logger "Check GPU usage..."
-nvidia-smi
-
-logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
-
-logger "Python pytest for cuml..."
-cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
-
-################################################################################
-# TEST - Run GoogleTest for ml-prims
-################################################################################
-
-logger "Run ml-prims test..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
