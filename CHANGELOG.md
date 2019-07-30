@@ -18,6 +18,7 @@
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #909: CodeCov integration and Skip Test argument fix
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
