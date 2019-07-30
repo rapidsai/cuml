@@ -148,7 +148,6 @@ void get_best_split_classification(
       curr_node.quesval =
         quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
-      curr_node.right_child_id = sparsetree_sz + 2 * nodecnt + 1;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = h_child_best_metric[2 * nodecnt];
       rightnode.best_metric_val = h_child_best_metric[2 * nodecnt + 1];
@@ -231,7 +230,6 @@ void get_best_split_classification(
       curr_node.quesval =
         quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
-      curr_node.right_child_id = sparsetree_sz + 2 * nodecnt + 1;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];
       rightnode.best_metric_val = bestmetric[1];

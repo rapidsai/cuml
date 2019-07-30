@@ -77,6 +77,7 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
     return node;
   }
   node->left = go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id);
-  node->right = go_recursive_sparse(sparsetree, sparsetree[idx].right_child_id);
+  node->right =
+    go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id + 1);
   return node;
 }
