@@ -53,7 +53,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       dask \
       distributed \
       dask-cudf \
-      dask-cuda
+      dask-cuda \
+      statsmodels
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
