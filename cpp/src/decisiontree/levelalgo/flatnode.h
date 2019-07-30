@@ -29,5 +29,4 @@ struct SparseTreeNode {
   T quesval;
   T best_metric_val;
   int left_child_id = -1;
-  int right_child_id = -1;
 };
