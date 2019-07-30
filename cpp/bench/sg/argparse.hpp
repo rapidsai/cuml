@@ -53,7 +53,7 @@ inline bool get_argval(char** begin, char** end, const std::string& arg) {
     gettimeofday(&stop, NULL);                              \
     double elapsed = (stop.tv_sec - start.tv_sec) * 1000.0; \
     elapsed += (stop.tv_usec - start.tv_usec) / 1000.0;     \
-    std::printf("%s -> %lfms\n", msg, elapsed);             \
+    std::printf("TIMING: %s -> %lfms\n", msg, elapsed);     \
   } while (0)
 
 }  // end namespace Bench
