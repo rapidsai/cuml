@@ -306,3 +306,40 @@ def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols):
                               ).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
+    iris = load_iris()
+    iris_selection = np.random.RandomState(42).choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
+    X = iris.data[iris_selection]
+
+    model = cuml.manifold.TSNE(n_components=2, random_state=199)
+
+    # Pickle the model
+    model_pickle = pickle_save_load(tmpdir, model)
+    model_params = model_pickle.__dict__
+    if "handle" in model_params:
+        del model_params["handle"]
+
+    # Confirm params in model are identical
+    new_keys = set(model_params.keys())
+    for key, value in zip(model_params.keys(), model_params.values()):
+        assert (model_params[key] == value)
+        new_keys -= set([key])
+
+    # Check all keys have been checked
+    assert(len(new_keys) == 0)
+
+    # Transform data
+    model.fit(X)
+    trust_before = trustworthiness(X, model.Y, 10)
+
+    # Save model + embeddings
+    model = pickle_save_load(tmpdir, model)
+    trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
+
+    assert trust_before == trust_after
