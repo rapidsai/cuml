@@ -120,21 +120,16 @@ cdef class FIL_impl():
     cdef object is_leaf
     cdef object num_nodes
 
-    def __cinit__(self, nan_prob=0.05, depth=8, n_estimators=50,
-                  leaf_prob=0.05, output=0, algo=0,
-                  threshold=0.0, seed=42, tolerance=2e-3,
-                  new_forest=None, handle=None, verbose=False):
+    def __cinit__(self, depth=8, n_estimators=50,
+                  output=0, algo=0,
+                  threshold=0.0,
+                  handle=None, verbose=False):
 
-        self.nan_prob = nan_prob
         self.depth = depth
         self.num_trees = n_estimators
-        self.leaf_prob = leaf_prob
         self.output = output
         self.algo = algo
         self.threshold = threshold
-        self.seed = seed
-        self.tolerance = tolerance
-        self.new_forest = new_forest
         self.handle = handle
         self.verbose = verbose
         self.forest_pointer = NULL
@@ -145,7 +140,7 @@ cdef class FIL_impl():
         return num_nodes_per_tree * self.num_trees
 
     def dense_node_init(self, tree_node_info, weights,
-                        fid, def_left, is_leaf):
+                        fid, def_left, is_leaf, threshold_vals):
 
         cdef dense_node_t* node_info
         self.num_nodes = self.calc_num_nodes()
@@ -153,33 +148,10 @@ cdef class FIL_impl():
             node_info = <dense_node_t*>tree_node_info[i]
             dense_node_init(<dense_node_t*> node_info,
                             <float> weights[i],
-                            <float> self.threshold,
+                            <float> threshold_vals[i],
                             <int> fid[i],
                             <bool> def_left[i],
                             <bool> is_leaf[i])
-        return self
-
-    def dense_node_decode(self, tree_node_info, weights,
-                          fid, def_left, is_leaf):
-
-        cdef uintptr_t weights_ptr, threshold_pointer, \
-            fid_pointer, def_left_pointer, is_leaf_pointer
-        cdef dense_node_t* node_info
-
-        for i in range(self.num_nodes):
-            weights_ptr = get_dev_array_ptr(weights[i])
-            threshold_pointer = get_dev_array_ptr(self.threshold)
-            fid_pointer = get_dev_array_ptr(fid[i])
-            def_left_pointer = get_dev_array_ptr(def_left[i])
-            is_leaf_pointer = get_dev_array_ptr(is_leaf[i])
-            node_info = <dense_node_t*>tree_node_info
-
-            dense_node_decode(<dense_node_t*> node_info,
-                              <float*> weights_ptr,
-                              <float*> threshold_pointer,
-                              <int*> fid_pointer,
-                              <bool*> def_left_pointer,
-                              <bool*> is_leaf_pointer)
         return self
 
     def init_dense(self, X):
@@ -238,25 +210,21 @@ cdef class FIL_impl():
 
 
 class FIL(Base):
-    def __init__(self, nan_prob=0.05, depth=8, n_estimators=50,
-                 leaf_prob=0.05, output_type=0, algo_type=0,
-                 threshold=0.0, seed=42, tolerance=2e-3,
+    def __init__(self, depth=8, n_estimators=50,
+                 output=0, algo=0,
+                 threshold=0.0,
                  handle=None, verbose=False):
 
         super(FIL, self).__init__(handle, verbose)
-        self.nan_prob = nan_prob
         self.depth = depth
         self.num_trees = n_estimators
-        self.leaf_prob = leaf_prob
-        self.output_type = output_type
-        self.algo_type = algo_type
+        self.output_type = output
+        self.algo_type = algo
         self.threshold = threshold
-        self.seed = seed
-        self.tolerance = tolerance
 
-        self._impl = FIL_impl(nan_prob, depth, n_estimators,
-                              leaf_prob, output_type, algo_type,
-                              threshold, seed, tolerance,
+        self._impl = FIL_impl(depth, n_estimators,
+                              output, algo,
+                              threshold,
                               self.handle)
 
     # the function will accept the entire tree information
@@ -265,13 +233,6 @@ class FIL(Base):
 
         return self._impl.dense_node_init(tree_node_info, weights,
                                           fid, def_left, is_leaf)
-
-    # the function will accept the entire tree information
-    def dense_node_decode(self, tree_node_info, weights,
-                          fid, def_left, is_leaf):
-
-        return self._impl.dense_node_decode(tree_node_info, weights,
-                                            fid, def_left, is_leaf)
 
     def init_dense(self, X):
 
