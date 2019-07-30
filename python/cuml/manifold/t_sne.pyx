@@ -191,7 +191,9 @@ class TSNE(Base):
         # TSNE is sensitive to what is currently in memory.
         # Use Numba's garbabge collector to clean up already removed
         # GPU memory.
-        cuda.current_context().deallocations.clear()
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -396,7 +398,9 @@ class TSNE(Base):
         # TSNE is sensitive to what is currently in memory.
         # Use Numba's garbabge collector to clean up already removed
         # GPU memory.
-        cuda.current_context().deallocations.clear()
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
         self.Y = Y
         return self
 
@@ -407,7 +411,9 @@ class TSNE(Base):
         # TSNE is sensitive to what is currently in memory.
         # Use Numba's garbabge collector to clean up already removed
         # GPU memory.
-        cuda.current_context().deallocations.clear()
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -435,7 +441,9 @@ class TSNE(Base):
             # TSNE is sensitive to what is currently in memory.
             # Use Numba's garbabge collector to clean up already removed
             # GPU memory.
-            cuda.current_context().deallocations.clear()
+            context = cuda.current_context().deallocations
+            if context is not None:
+                context.clear()
             return data
         return None  # is this even possible?
 
