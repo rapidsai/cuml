@@ -33,9 +33,36 @@ class KMeans(object):
                  client=None):
         """
         Constructor for distributed KMeans model
-        :param n_clusters: Number of clusters to fit
-        :param init_method: Method for finding initial centroids
-        :param verbose: Print useful info while executing
+        handle : cuml.Handle
+            If it is None, a new one is created just for this class.
+        n_clusters : int (default = 8)
+            The number of centroids or clusters you want.
+        max_iter : int (default = 300)
+            The more iterations of EM, the more accurate, but slower.
+        tol : float (default = 1e-4)
+            Stopping criterion when centroid means do not change much.
+        verbose : boolean (default = 0)
+            If True, prints diagnositc information.
+        random_state : int (default = 1)
+            If you want results to be the same when you restart Python, select a
+            state.
+        precompute_distances : boolean (default = 'auto')
+            Not supported yet.
+        init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+               (default = 'scalable-k-means++')
+            'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
+            kmeans++ intialization.
+            'random': Choose 'n_cluster' observations (rows) at random from data
+            for the initial centroids. If an ndarray is passed, it should be of
+            shape (n_clusters, n_features) and gives the initial centers.
+        n_init : int (default = 1)
+            Number of times intialization is run. More is slower,
+            but can be better.
+        algorithm : "auto"
+            Currently uses full EM, but will support others later.
+        n_gpu : int (default = 1)
+            Number of GPUs to use. Currently uses single GPU, but will support
+            multiple GPUs later.
         """
         self.client = default_client() if client is None else client
         self.max_iter = max_iter
@@ -139,6 +166,7 @@ class KMeans(object):
         comms.destroy()
 
         self.local_model = kmeans_fit[0].result()
+        self.cluster_centers_ = self.local_model.cluster_centers_
 
         return self
 
