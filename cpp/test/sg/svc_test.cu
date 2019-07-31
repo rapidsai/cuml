@@ -648,7 +648,6 @@ TEST(SmoSolverTest, SmoUpdateFTest) {
   cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
 
   int n_rows = 6;
-  int n_cols = 2;
   int n_ws = 2;
 
   float *kernel_dev;
@@ -766,6 +765,7 @@ TEST_F(SmoSolverTestF, SvcTestPoly) {
   float x_support_exp[] = {1, 1, 2, 2, 1, 2, 2, 3};
   int idx_exp[] = {0, 2, 3, 5};
   SCOPED_TRACE("SvcTestPoly");
+  //TODO add checkResults
 }
 
 __global__ void init_training_vectors(float *x, int n_rows, int n_cols,
@@ -789,7 +789,6 @@ TEST(SvcSolverTest, SvcTestLargeNonlin) {
 
   int n_rows = 1000;
   int n_cols = 780;
-  int n_ws = n_rows;
   float *x_dev;
   allocate(x_dev, n_rows * n_cols);
   float *y_dev;
@@ -833,7 +832,6 @@ TEST(SvcSolverTest, SvcTestLarge) {
 
   int n_rows = 1000;
   int n_cols = 780;
-  int n_ws = n_rows;
   float *x_dev;
   allocate(x_dev, n_rows * n_cols);
   float *y_dev;

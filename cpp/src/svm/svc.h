@@ -24,7 +24,9 @@ namespace ML {
 namespace SVM {
 
 /**
- * C-Support Vector Classification
+ * @brief C-Support Vector Classification
+ *
+ * This is an Scikit-Learn like wrapper around the stateless C++ functions.
  *
  * The classifier will be fitted using the SMO algorithm in dual space.
  *
@@ -49,23 +51,23 @@ class SVC {
   math_t tol;  //!< Tolerance used to stop fitting.
 
   GramMatrix::KernelParams kernel_params;
-  float cache_size;  //!< kernel cache size in MiB
-  math_t
-    max_iter;  //!< maximum number of outer iterations (default 100 * n_rows)
+  math_t cache_size;  //!< kernel cache size in MiB
+  int max_iter;  //!< maximum number of outer iterations (default 100 * n_rows)
 
   int n_support = 0;  //!< Number of non-zero dual coefficients
   math_t b;           //!< Constant used in the decision function
 
   // Three device pointers to store the parameters for the classifier
-  math_t *dual_coefs =
-    nullptr;  //!< Non-zero dual coefficients ( dual_coef[i] = \f$ y_i \alpha_i \f$). Size [n_support].
-  math_t *x_support =
-    nullptr;  //!< Support vectors in column major format. Size [n_support x n_cols].
-  int *support_idx =
-    nullptr;  //!< Indices (from the traning set) of the non-zero support vectors. Size [n_support].
+  //! Non-zero dual coefficients ( dual_coef[i] = \f$ y_i \alpha_i \f$).
+  //! Size [n_support].
+  math_t *dual_coefs = nullptr;
+  //! Support vectors in column major format. Size [n_support x n_cols].
+  math_t *x_support = nullptr;
+  //! Indices (from the traning set) of the non-zero support vectors. Size [n_support].
+  int *support_idx = nullptr;
 
   /**
-   * Constructs a support vector classifier
+   * @brief Constructs a support vector classifier
    * @param C penalty term
    * @param tol tolerance to step fitting.
    */
@@ -76,7 +78,7 @@ class SVC {
   ~SVC();
 
   /**
-   * Fit a support vector classifier to the training data.
+   * @brief Fit a support vector classifier to the training data.
    *
    * Each row of the input data stores a feature vector.
    * We use the SMO method to fit the SVM.
@@ -89,22 +91,23 @@ class SVC {
   void fit(math_t *input, int n_rows, int n_cols, math_t *labels);
 
   /**
-   * Predict classes for samples in input.
+   * @brief Predict classes for samples in input.
    * @param input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
-   * @param preds device pointer to store the predicted class labels. Size [n_rows]. Should be allocated on entry.
+   * @param preds device pointer to store the predicted class labels.
+   *    Size [n_rows]. Should be allocated on entry.
    */
   void predict(math_t *input, int n_rows, int n_cols, math_t *preds);
 
  private:
-  int n_cols =
-    0;  //!< Number of columns that was used for fitting the classifier
+  //! Number of columns that was used for fitting the classifier
+  int n_cols = 0;
   int n_classes;  //!< Number of classes found in the input labels
-  math_t *unique_labels =
-    nullptr;  //!< Device pointer for the unique classes. Size [n_classes]
+  //! Device pointer for the unique classes. Size [n_classes]
+  math_t *unique_labels = nullptr;
   bool need_kernel_dealloc = false;
 
-  const cumlHandle_impl &handle_impl;
+  const cumlHandle &handle;
 };
 
 };  // end namespace SVM
