@@ -196,8 +196,8 @@ void get_best_split_regression(T *mseout, T *d_mseout, T *predout, T *d_predout,
       int nodeoff_pred = nodecnt * nbins;
       int sparse_nodeid = sparse_nodelist[nodecnt];
       int parentid = sparse_nodeid + sparsesize;
-      int best_col_id = -1;
-      int best_bin_id = -1;
+      int best_col_id = 0;
+      int best_bin_id = 0;
       T bestmean_left = 0;
       T bestmean_right = 0;
       unsigned int bestcount_left = 0;
