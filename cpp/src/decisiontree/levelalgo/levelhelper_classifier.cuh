@@ -153,8 +153,8 @@ void get_best_split_classification(
       rightnode.best_metric_val = h_child_best_metric[2 * nodecnt + 1];
       sparsetree.push_back(leftnode);
       sparsetree.push_back(rightnode);
-      sparse_histstate.push_back(tmp_histleft);
-      sparse_histstate.push_back(tmp_histright);
+      sparse_histstate[curr_node.left_child_id] = tmp_histleft;
+      sparse_histstate[curr_node.left_child_id + 1] = tmp_histright;
     }
   } else {
     MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
@@ -235,8 +235,8 @@ void get_best_split_classification(
       rightnode.best_metric_val = bestmetric[1];
       sparsetree.push_back(leftnode);
       sparsetree.push_back(rightnode);
-      sparse_histstate.push_back(besthist_left);
-      sparse_histstate.push_back(besthist_right);
+      sparse_histstate[curr_node.left_child_id] = besthist_left;
+      sparse_histstate[curr_node.left_child_id + 1] = besthist_right;
     }
     MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
                            tempmem->stream);

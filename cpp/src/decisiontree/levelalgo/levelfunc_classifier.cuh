@@ -56,8 +56,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   }
 
   std::vector<std::vector<int>> sparse_histstate;
-  sparse_histstate.reserve(total_nodes);
-  sparse_histstate.push_back(histvec);
+  sparse_histstate.resize(total_nodes, std::vector<int>(n_unique_labels));
+  sparse_histstate[0] = histvec;
 
   std::vector<SparseTreeNode<T, int>> sparsetree;
   sparsetree.reserve(total_nodes);
@@ -69,9 +69,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
-  std::vector<int> nodelist;
   std::vector<int> sparse_nodelist;
-  nodelist.push_back(0);
+  sparse_nodelist.reserve(pow(2, maxdepth));
   sparse_nodelist.push_back(0);
   //this can be depth loop
 
