@@ -132,6 +132,7 @@ if(BUILD_PRIMS_TESTS)
       prims/adjustedRandIndex.cu
       prims/binary_op.cu
       prims/ternary_op.cu
+      prims/cache.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu
