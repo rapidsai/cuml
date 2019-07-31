@@ -23,17 +23,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include "decisiontree/decisiontree_impl.h"
 #include "ml_utils.h"
 #include "randomforest/randomforest.hpp"
-
-/** check for libc call errors and assert accordingly */
-#define LIBCCALL_CHECK(call)                                    \
-  do {                                                          \
-    int status = call;                                          \
-    ASSERT(status == 0, "LIBC CALL FAIL: call='%s'.\n", #call); \
-  } while (0)
 
 namespace ML {
 
@@ -82,7 +76,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     std::string create_dir = "mkdir " + test_dir;
     struct stat info;
     if (!(stat(test_dir.c_str(), &info) == 0 && S_ISDIR(info.st_mode))) {
-      LIBCCALL_CHECK(system(create_dir.c_str()));
+      ASSERT(system(create_dir.c_str()) == 0, "Call %s fails.",
+             create_dir.c_str());
     }
 
     // Create a sub-directory for the test case.
@@ -94,6 +89,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     int verbose = 0;
     // Generate C code in the directory specified below.
+    // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of CompilerHandle.
     TREELITE_CHECK(
       TreeliteCompilerGenerateCode(compiler, model, verbose, dir_name.c_str()));
     TREELITE_CHECK(TreeliteCompilerFree(compiler));
@@ -108,8 +104,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                           "/treelite_model.so " + dir_name +
                           "/main.o -std=c99 -lm";
 
-    LIBCCALL_CHECK(system(obj_cmd.c_str()));
-    LIBCCALL_CHECK(system(lib_cmd.c_str()));
+    ASSERT(system(obj_cmd.c_str()) == 0, "Call %s fails.", obj_cmd.c_str());
+    ASSERT(system(lib_cmd.c_str()) == 0, "Call %s fails.", lib_cmd.c_str());
 
     PredictorHandle predictor;
     std::string lib_path = dir_name + "/treelite_model.so";
@@ -120,8 +116,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
       TreelitePredictorLoad(lib_path.c_str(), worker_thread, &predictor));
 
     DenseBatchHandle dense_batch;
-    // Current RF dosen't seem to support missing value, put FLT_MAX to be safe.
-    float missing_value = FLT_MAX;
+    // Current RF dosen't seem to support missing value, put NaN to be safe.
+    float missing_value = std::numeric_limits<double>::quiet_NaN();
     TREELITE_CHECK(TreeliteAssembleDenseBatch(
       inference_data_h.data(), missing_value, params.n_inference_rows,
       params.n_cols, &dense_batch));
@@ -156,7 +152,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                             sizeof(L) * params.n_inference_rows,
                             cudaMemcpyDeviceToHost));
     } else {
-      // In case of regression, predicted_labels_h alreay has the final result.
+      // In case of regression, predicted_labels_d alreay has the final result.
       ref_predicted_labels.resize(params.n_inference_rows);
       CUDA_CHECK(cudaMemcpy(ref_predicted_labels.data(), predicted_labels_d,
                             sizeof(L) * params.n_inference_rows,
@@ -205,6 +201,14 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);
+
+    // Populate data (assume Col major)
+    this->data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
+    updateDevice(data_d, data_h.data(), data_len, stream);
+
+    // Populate inference data (The same as data but in Row major)
+    this->inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
+    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
   }
 
   void TearDown() override {
@@ -233,7 +237,6 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   std::vector<T> data_h;
   std::vector<T> inference_data_h;
 
-  int diff_elements = 0;
   // Set to 1 for regression and 2 for binary classification
   // #class for multi-classification
   int task_category;
@@ -268,30 +271,18 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 2;
 
-    // Populate data (assume Col major)
-    this->data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
-    this->data_h.resize(this->data_len);
-    updateDevice(this->data_d, this->data_h.data(), this->data_len,
-                 this->stream);
-
     // Populate labels
     this->labels_h = {0, 1, 1, 0};
-    this->labels_h.resize(this->params.n_rows);
-    preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
     updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
                  this->stream);
+
+    preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
     fit(this->handle, this->forest, this->data_d, this->params.n_rows,
         this->params.n_cols, this->labels_d, labels_map.size(),
         this->rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
-
-    // Inference data: same as train, but row major
-    this->inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
-    this->inference_data_h.resize(this->inference_data_len);
-    updateDevice(this->inference_data_d, this->inference_data_h.data(),
-                 this->data_len, this->stream);
 
     this->convertToTreelite();
     this->getResultAndCheck();
@@ -316,15 +307,8 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    // Populate data (assume Col major)
-    this->data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
-    this->data_h.resize(this->data_len);
-    updateDevice(this->data_d, this->data_h.data(), this->data_len,
-                 this->stream);
-
     // Populate labels
     this->labels_h = {1.0, 2.0, 3.0, 4.0};
-    this->labels_h.resize(this->params.n_rows);
     updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
                  this->stream);
 
@@ -332,12 +316,6 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
         this->params.n_cols, this->labels_d, this->rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
-
-    // Inference data: same as train, but row major
-    this->inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
-    this->inference_data_h.resize(this->inference_data_len);
-    updateDevice(this->inference_data_d, this->inference_data_h.data(),
-                 this->data_len, this->stream);
 
     this->convertToTreelite();
     this->getResultAndCheck();
