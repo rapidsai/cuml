@@ -198,11 +198,17 @@ void check_params(const forest_params_t* params) {
   }
 }
 
+// tl_node_at is a checked version of tree[i]
+const tl::Tree::Node& tl_node_at(const tl::Tree& tree, size_t i) {
+  ASSERT(i < tree.num_nodes, "node index out of range");
+  return tree[i];
+}
+
 int tree_root(const tl::Tree& tree) {
   // find the root
   int root = -1;
   for (int i = 0; i < tree.num_nodes; ++i) {
-    if (tree[i].is_root()) {
+    if (tl_node_at(tree, i).is_root()) {
       ASSERT(root == -1, "multi-root trees not supported");
       root = i;
     }
@@ -211,16 +217,23 @@ int tree_root(const tl::Tree& tree) {
   return root;
 }
 
-int max_depth(const tl::Tree& tree, const tl::Tree::Node& node) {
-  // TODO: add detection of infinite loops
+int max_depth_helper(const tl::Tree& tree, const tl::Tree::Node& node,
+                     int limit) {
   if (node.is_leaf()) return 0;
-  // TODO: check for out-of-range
-  return 1 + std::max(max_depth(tree, tree[node.cleft()]),
-                      max_depth(tree, tree[node.cright()]));
+  ASSERT(limit > 0,
+         "recursion depth limit reached, might be a cycle in the tree");
+  return 1 +
+         std::max(
+           max_depth_helper(tree, tl_node_at(tree, node.cleft()), limit - 1),
+           max_depth_helper(tree, tl_node_at(tree, node.cright()), limit - 1));
 }
 
 int max_depth(const tl::Tree& tree) {
-  return max_depth(tree, tree[tree_root(tree)]);
+  // trees of this depth aren't used, so it most likely means bad input data,
+  // e.g. cycles in the forest
+  const int RECURSION_LIMIT = 500;
+  return max_depth_helper(tree, tl_node_at(tree, tree_root(tree)),
+                          RECURSION_LIMIT);
 }
 
 void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
@@ -264,15 +277,17 @@ void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
   }
   dense_node_init(&nodes[root + cur], 0, threshold, node.split_index(),
                   default_left, false);
-  node2fil(pnodes, root, 2 * cur + 1, tree, tree[left]);
-  node2fil(pnodes, root, 2 * cur + 2, tree, tree[right]);
+  node2fil(pnodes, root, 2 * cur + 1, tree, tl_node_at(tree, left));
+  node2fil(pnodes, root, 2 * cur + 2, tree, tl_node_at(tree, right));
 }
 
 void tree2fil(std::vector<dense_node_t>* pnodes, int root,
               const tl::Tree& tree) {
-  node2fil(pnodes, root, 0, tree, tree[tree_root(tree)]);
+  node2fil(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
 }
 
+// uses treelite model with additional tl_params to initialize FIL params
+// and nodes (stored in *pnodes)
 void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
             const tl::Model& model, const treelite_params_t* tl_params) {
   // fill in forest-indendent params
@@ -305,13 +320,12 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   params->depth = depth;
 
   // convert the nodes
-  std::vector<dense_node_t>& nodes = *pnodes;
   int num_nodes = forest_num_nodes(params->ntrees, params->depth);
-  nodes.resize(num_nodes, dense_node_t{0, 0});
+  pnodes->resize(num_nodes, dense_node_t{0, 0});
   for (int i = 0; i < model.trees.size(); ++i) {
     tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
   }
-  params->nodes = nodes.data();
+  params->nodes = pnodes->data();
 }
 
 void init_dense(const cumlHandle& h, forest_t* pf,
