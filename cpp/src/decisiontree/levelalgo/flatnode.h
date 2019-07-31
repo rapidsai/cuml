@@ -15,14 +15,6 @@
  */
 #pragma once
 template <class T, class L>
-struct FlatTreeNode {
-  L prediction;
-  int colid = -1;
-  T quesval;
-  T best_metric_val;
-};
-
-template <class T, class L>
 struct SparseTreeNode {
   L prediction;
   int colid = -1;

@@ -97,25 +97,27 @@ void get_mse_regression(T *data, T *labels, unsigned int *flags,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
-void get_best_split_regression(
-  T *mseout, T *d_mseout, T *predout, T *d_predout, unsigned int *count,
-  unsigned int *d_count, const std::vector<unsigned int> &colselector,
-  unsigned int *d_colids, const int nbins, const int n_nodes, const int depth,
-  const int min_rpn, std::vector<float> &gain, std::vector<T> &meanstate,
-  std::vector<unsigned int> &countstate,
-  std::vector<FlatTreeNode<T, T>> &flattree, std::vector<int> &nodelist,
-  int *split_colidx, int *split_binidx, int *d_split_colidx,
-  int *d_split_binidx, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+void get_best_split_regression(T *mseout, T *d_mseout, T *predout, T *d_predout,
+                               unsigned int *count, unsigned int *d_count,
+                               const std::vector<unsigned int> &colselector,
+                               unsigned int *d_colids, const int nbins,
+                               const int n_nodes, const int depth,
+                               const int min_rpn, const int sparsesize,
+                               float *gain, std::vector<T> &sparse_meanstate,
+                               std::vector<unsigned int> &sparse_countstate,
+                               std::vector<SparseTreeNode<T, T>> &sparsetree,
+                               std::vector<int> &sparse_nodelist,
+                               int *split_colidx, int *split_binidx,
+                               int *d_split_colidx, int *d_split_binidx,
+                               std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
   bool use_gpu_flag = false;
   if (n_nodes > 512) use_gpu_flag = true;
-  gain.resize(pow(2, depth), 0.0);
-  size_t n_nodes_before = 0;
-  for (int i = 0; i <= (depth - 1); i++) {
-    n_nodes_before += pow(2, i);
-  }
+
+  memset(gain, 0, n_nodes * sizeof(float));
+  int sparsetree_sz = sparsetree.size();
   if (use_gpu_flag) {
     int threads = 64;
 
@@ -134,9 +136,9 @@ void get_best_split_regression(
     T *d_childmetric = tempmem->d_child_best_metric->data();
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-      int nodeid = nodelist[nodecnt];
+      int sparse_nodeid = sparse_nodelist[nodecnt];
       h_parentmetric[nodecnt] =
-        flattree[nodeid + n_nodes_before].best_metric_val;
+        sparsetree[sparsesize + sparse_nodeid].best_metric_val;
     }
 
     //Here parent mean and count are already updated
@@ -163,23 +165,23 @@ void get_best_split_regression(
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
-      int nodeid = nodelist[nodecnt];
-      gain[nodeid] = h_outgain[nodecnt];
-      meanstate[2 * nodeid + n_nodes_before + pow(2, depth)] =
-        h_childmean[nodecnt * 2];
-      meanstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
-        h_childmean[nodecnt * 2 + 1];
-      countstate[2 * nodeid + n_nodes_before + pow(2, depth)] =
-        h_childcount[nodecnt * 2];
-      countstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
-        h_childcount[nodecnt * 2 + 1];
-      flattree[nodeid + n_nodes_before].colid = split_colidx[nodecnt];
-      flattree[nodeid + n_nodes_before].quesval =
+      int sparse_nodeid = sparse_nodelist[nodecnt];
+      SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
+      curr_node.colid = split_colidx[nodecnt];
+      curr_node.quesval =
         quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
-      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-        h_childmetric[nodecnt * 2];
-      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
-        .best_metric_val = h_childmetric[nodecnt * 2 + 1];
+      curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
+      sparse_meanstate[curr_node.left_child_id] = h_childmean[nodecnt * 2];
+      sparse_meanstate[curr_node.left_child_id + 1] =
+        h_childmean[nodecnt * 2 + 1];
+      sparse_countstate[curr_node.left_child_id] = h_childcount[nodecnt * 2];
+      sparse_countstate[curr_node.left_child_id + 1] =
+        h_childcount[nodecnt * 2 + 1];
+      SparseTreeNode<T, T> leftnode, rightnode;
+      leftnode.best_metric_val = h_childmetric[nodecnt * 2];
+      rightnode.best_metric_val = h_childmetric[nodecnt * 2 + 1];
+      sparsetree.push_back(leftnode);
+      sparsetree.push_back(rightnode);
     }
 
   } else {
@@ -187,22 +189,21 @@ void get_best_split_regression(
     MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
     MLCommon::updateHost(count, d_count, predcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       T bestmetric_left = 0;
       T bestmetric_right = 0;
       int nodeoff_mse = nodecnt * nbins * 2;
       int nodeoff_pred = nodecnt * nbins;
-      int nodeid = nodelist[nodecnt];
-      int parentid = nodeid + n_nodes_before;
+      int sparse_nodeid = sparse_nodelist[nodecnt];
+      int parentid = sparse_nodeid + sparsesize;
       int best_col_id = -1;
       int best_bin_id = -1;
       T bestmean_left = 0;
       T bestmean_right = 0;
       unsigned int bestcount_left = 0;
       unsigned int bestcount_right = 0;
-      T parent_mean = meanstate[parentid];
-      unsigned int parent_count = countstate[parentid];
+      T parent_mean = sparse_meanstate[parentid];
+      unsigned int parent_count = sparse_countstate[parentid];
       for (int colid = 0; colid < ncols; colid++) {
         int coloff_mse = colid * nbins * 2 * n_nodes;
         int coloff_pred = colid * nbins * n_nodes;
@@ -229,11 +230,11 @@ void get_best_split_regression(
           T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
                        (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
           float info_gain =
-            (float)(flattree[parentid].best_metric_val - impurity);
+            (float)(sparsetree[parentid].best_metric_val - impurity);
 
           // Compute best information col_gain so far
-          if (info_gain > gain[nodeid]) {
-            gain[nodeid] = info_gain;
+          if (info_gain > gain[nodecnt]) {
+            gain[nodecnt] = info_gain;
             best_bin_id = binid;
             best_col_id = colselector[colid];
             bestmean_left = tmp_meanleft;
@@ -247,19 +248,21 @@ void get_best_split_regression(
       }
       split_colidx[nodecnt] = best_col_id;
       split_binidx[nodecnt] = best_bin_id;
-      meanstate[2 * nodeid + n_nodes_before + pow(2, depth)] = bestmean_left;
-      meanstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
-        bestmean_right;
-      countstate[2 * nodeid + n_nodes_before + pow(2, depth)] = bestcount_left;
-      countstate[2 * nodeid + 1 + n_nodes_before + pow(2, depth)] =
-        bestcount_right;
-      flattree[nodeid + n_nodes_before].colid = best_col_id;
-      flattree[nodeid + n_nodes_before].quesval =
-        quantile[best_col_id * nbins + best_bin_id];
-      flattree[2 * nodeid + n_nodes_before + pow(2, depth)].best_metric_val =
-        bestmetric_left;
-      flattree[2 * nodeid + 1 + n_nodes_before + pow(2, depth)]
-        .best_metric_val = bestmetric_right;
+      //Sparse Tree
+      SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
+      curr_node.colid = split_colidx[nodecnt];
+      curr_node.quesval =
+        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+      curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
+      sparse_meanstate[curr_node.left_child_id] = bestmean_left;
+      sparse_meanstate[curr_node.left_child_id + 1] = bestmean_right;
+      sparse_countstate[curr_node.left_child_id] = bestcount_left;
+      sparse_countstate[curr_node.left_child_id + 1] = bestcount_right;
+      SparseTreeNode<T, T> leftnode, rightnode;
+      leftnode.best_metric_val = bestmetric_left;
+      rightnode.best_metric_val = bestmetric_right;
+      sparsetree.push_back(leftnode);
+      sparsetree.push_back(rightnode);
     }
     MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
                            tempmem->stream);
@@ -269,65 +272,58 @@ void get_best_split_regression(
 }
 
 template <typename T>
-void leaf_eval_regression(std::vector<float> &gain, int curr_depth,
-                          const int max_depth, const int max_leaves,
-                          unsigned int *new_node_flags,
-                          std::vector<FlatTreeNode<T, T>> &flattree,
-                          std::vector<T> &mean, int &n_nodes_next,
-                          std::vector<int> &nodelist, int &tree_leaf_cnt) {
-  std::vector<int> tmp_nodelist(nodelist);
-  nodelist.clear();
-  int n_nodes_before = 0;
-  for (int i = 0; i <= (curr_depth - 1); i++) {
-    n_nodes_before += pow(2, i);
-  }
+void leaf_eval_regression(float *gain, int curr_depth, const int max_depth,
+                          const int max_leaves, unsigned int *new_node_flags,
+                          std::vector<SparseTreeNode<T, T>> &sparsetree,
+                          const int sparsesize, std::vector<T> &sparse_mean,
+                          int &n_nodes_next, std::vector<int> &sparse_nodelist,
+                          int &tree_leaf_cnt) {
+  std::vector<int> tmp_sparse_nodelist(sparse_nodelist);
+  sparse_nodelist.clear();
+
   int non_leaf_counter = 0;
   bool condition_global = (curr_depth == max_depth);
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
-  for (int i = 0; i < tmp_nodelist.size(); i++) {
+  for (int i = 0; i < tmp_sparse_nodelist.size(); i++) {
     unsigned int node_flag;
-    int nodeid = tmp_nodelist[i];
-    T nodemean = mean[n_nodes_before + nodeid];
-    bool condition = condition_global || (gain[nodeid] == 0.0);
+    int sparse_nodeid = tmp_sparse_nodelist[i];
+    T nodemean = sparse_mean[sparsesize + sparse_nodeid];
+    bool condition = condition_global || (gain[i] == 0.0);
     if (condition) {
       node_flag = 0xFFFFFFFF;
-      flattree[n_nodes_before + nodeid].colid = -1;
-      flattree[n_nodes_before + nodeid].prediction = nodemean;
+      sparsetree[sparsesize + sparse_nodeid].colid = -1;
+      sparsetree[sparsesize + sparse_nodeid].prediction = nodemean;
     } else {
-      nodelist.push_back(2 * nodeid);
-      nodelist.push_back(2 * nodeid + 1);
+      sparse_nodelist.push_back(2 * i);
+      sparse_nodelist.push_back(2 * i + 1);
       node_flag = non_leaf_counter;
       non_leaf_counter++;
     }
     new_node_flags[i] = node_flag;
   }
-  int nleafed = tmp_nodelist.size() - non_leaf_counter;
+  int nleafed = tmp_sparse_nodelist.size() - non_leaf_counter;
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * non_leaf_counter;
 }
 
 template <typename T>
-void init_parent_value(std::vector<T> &meanstate,
-                       std::vector<unsigned int> &countstate,
-                       std::vector<int> &nodelist, const int depth,
+void init_parent_value(std::vector<T> &sparse_meanstate,
+                       std::vector<unsigned int> &sparse_countstate,
+                       std::vector<int> &sparse_nodelist, const int sparsesize,
+                       const int depth,
                        std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *h_predout = tempmem->h_predout->data();
   unsigned int *h_count = tempmem->h_count->data();
-  int n_nodes = nodelist.size();
-  size_t n_nodes_before = 0;
-  for (int i = 0; i <= (depth - 1); i++) {
-    n_nodes_before += pow(2, i);
-  }
+  int n_nodes = sparse_nodelist.size();
   for (int i = 0; i < n_nodes; i++) {
-    int nodeid = nodelist[i];
-    h_predout[i] = meanstate[n_nodes_before + nodeid];
-    h_count[i] = countstate[n_nodes_before + nodeid];
+    int sparse_nodeid = sparse_nodelist[i];
+    h_predout[i] = sparse_meanstate[sparsesize + sparse_nodeid];
+    h_count[i] = sparse_countstate[sparsesize + sparse_nodeid];
   }
   MLCommon::updateDevice(tempmem->d_parent_pred->data(), h_predout, n_nodes,
                          tempmem->stream);
   MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
                          tempmem->stream);
-  CUDA_CHECK(cudaDeviceSynchronize());
 }
