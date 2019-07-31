@@ -18,22 +18,21 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import numpy as np
-cimport numpy as np
-from numba import cuda
-
 import cudf
-from libcpp cimport bool
 import ctypes
-from libc.stdint cimport uintptr_t
-from sklearn.exceptions import NotFittedError
-from cython.operator cimport dereference as deref
+import numpy as np
 
-from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-#from cuml.decomposition.utils cimport *
+from cuml.common.base import Base
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from numba import cuda
+from sklearn.exceptions import NotFittedError
 
-cdef extern from "svm/kernelparams.h" namespace "ML::SVM":
+cimport numpy as np
+
+
+cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
@@ -59,10 +58,11 @@ cdef extern from "svm/svc.h" namespace "ML::SVM":
         math_t tol
 
         CppSVC(cumlHandle& handle, math_t C, math_t tol,
-            KernelParams kernel_params, float cache_size, int max_iter) except+
+               KernelParams kernel_params, float cache_size,
+               int max_iter) except+
         void fit(math_t *input, int n_rows, int n_cols, math_t *labels) except+
-        void predict(math_t *input, int n_rows, int n_cols, math_t *preds) \
-            except+
+        void predict(math_t *input, int n_rows, int n_cols,
+                     math_t *preds) except+
 
 
 class SVC(Base):
@@ -108,8 +108,8 @@ class SVC(Base):
     The solver uses the SMO method similarily to ThunderSVM and OHD-SVM.
     """
     def __init__(self, handle=None, C=1, kernel='linear', degree=3,
-        gamma='auto', coef0=0.0, tol=1e-3, cache_size = 200.0, max_iter = -1,
-        verbose=False):
+                 gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
+                 max_iter=-1, verbose=False):
         super(SVC, self).__init__(handle=handle, verbose=verbose)
         self.tol = tol
         self.C = C
@@ -119,7 +119,7 @@ class SVC(Base):
         self.coef0 = coef0
         self.cache_size = cache_size
         self.max_iter = max_iter
-        self.dual_coefs_ = None # TODO populate this after fitting
+        self.dual_coefs_ = None  # TODO populate this after fitting
         self.intercept_ = None
         self.n_support_ = None
         self.gdf_datatype = None
@@ -128,8 +128,7 @@ class SVC(Base):
         self.verbose = verbose
         # The current implementation stores the pointer to CppSVC in svcHandle.
         # The pointer is stored with type size_t (see fit()), because we
-        # cannot have cdef CppSVC[float, float] *svc here. This leads to ugly
-        # two step conversion when we want to use the actual pointer.
+        # cannot have cdef CppSVC[float, float] *svc here.
         #
         # Alternatively we could have a thin cdef class PyCppSVC wrapper around
         # CppSVC, or we could make SVC itself a cdef class.
@@ -143,7 +142,6 @@ class SVC(Base):
         cdef CppSVC[float]* svc_f
         cdef CppSVC[double]* svc_d
         cdef KernelParams *kernel_params
-        #cdef size_t p = self.svcHandle
         if self.svcHandle is not None:
             if self.gdf_datatype.type == np.float32:
                 svc_f = <CppSVC[float]*><size_t> self.svcHandle
@@ -154,10 +152,8 @@ class SVC(Base):
             else:
                 raise TypeError("Unknown type for SVC class")
         if self.kernel_params is not None:
-            #p = self.kernel_params
             kernel_params = <KernelParams*><size_t> self.kernel_params
             del kernel_params
-
 
     def _get_c_kernel(self, kernel):
         return {
@@ -165,7 +161,7 @@ class SVC(Base):
             'poly': POLYNOMIAL,
             'rbf': RBF,
             'sigmoid': TANH
-        } [kernel];
+        }[kernel]
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -187,7 +183,7 @@ class SVC(Base):
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
         else:
-          return self.gamma
+            return self.gamma
 
     def fit(self, X, y):
         """
@@ -236,8 +232,9 @@ class SVC(Base):
 
         cdef KernelParams *kernel_params
         if self.kernel_params is None:
-            kernel_params = new KernelParams(<KernelType>self.kernel, <int>self.degree,
-            <double> self._gamma_val(X), <double>self.coef0)
+            kernel_params = new KernelParams(
+                <KernelType>self.kernel, <int>self.degree,
+                <double> self._gamma_val(X), <double>self.coef0)
             self.kernel_params = <size_t> kernel_params
         else:
             kernel_params = <KernelParams*><size_t> self.kernel_params
@@ -246,28 +243,27 @@ class SVC(Base):
 
         if self.gdf_datatype.type == np.float32:
             if self.svcHandle is None:
-                svc_f = new CppSVC[float](handle_[0], self.C, self.tol,
-                    deref(kernel_params),
+                svc_f = new CppSVC[float](
+                    handle_[0], self.C, self.tol, deref(kernel_params),
                     self.cache_size, self.max_iter)
                 self.svcHandle = <size_t> svc_f
             else:
-                svc_f =  <CppSVC[float]*><size_t> self.svcHandle
+                svc_f = <CppSVC[float]*><size_t> self.svcHandle
             svc_f.fit(<float*>X_ptr, <int>self.n_rows,
                       <int>self.n_cols, <float*>y_ptr)
             self.intercept_ = svc_f.b
             self.n_support_ = svc_f.n_support
 
-
         else:
             if self.svcHandle is None:
-                svc_d = new CppSVC[double](handle_[0], self.C, self.tol,
-                    deref(kernel_params),
+                svc_d = new CppSVC[double](
+                    handle_[0], self.C, self.tol, deref(kernel_params),
                     self.cache_size, self.max_iter)
                 self.svcHandle = <size_t> svc_d
             else:
-                svc_d =  <CppSVC[double]*><size_t> self.svcHandle
-            svc_d.fit(<double*>X_ptr, <int>self.n_rows,
-                      <int>self.n_cols, <double*>y_ptr)
+                svc_d = <CppSVC[double]*><size_t> self.svcHandle
+            svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
+                      <double*>y_ptr)
             self.intercept_ = svc_d.b
             self.n_support_ = svc_d.n_support
 
@@ -309,7 +305,8 @@ class SVC(Base):
             X_m = cuda.to_device(np.array(X, order='F'))
             n_rows = X.shape[0]
             n_cols = X.shape[1]
-            preds = cuda.device_array((X.shape[0],), dtype=pred_datatype, order='F')
+            preds = cuda.device_array((X.shape[0],), dtype=pred_datatype,
+                                      order='F')
             preds_ptr = self._get_ctype_ptr(preds)
 
         else:
