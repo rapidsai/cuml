@@ -53,7 +53,6 @@ include_dirs = ['../cpp/src',
                 '../thirdparty/cutlass',
                 '../thirdparty/cub',
                 '../thirdparty/treelite/include',
-                # Ideally we enable this to be swapped out.
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
