@@ -1,3 +1,4 @@
+
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,17 +14,15 @@
 # limitations under the License.
 #
 
-from cuml import RandomForestClassifier as cuRF
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from sklearn.datasets import make_regression, make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score
-from dask.distributed import Client, wait
+from dask.distributed import Client
 from dask_cuda import LocalCUDACluster
 
 import dask_cudf
-import pytest
 import cudf
 import numpy as np
 import pandas as pd
@@ -41,22 +40,24 @@ def test_rf_classification():
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1_000)
-    
+
     cu_rf_params = {
         'n_estimators': 25,
         'max_depth': 13,
         'n_bins': 15,
     }
-    
+
     workers = c.has_what().keys()
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
+    X_train_df = \
+        dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
 
     y_cudf = np.array(pd.DataFrame(y_train).values)
     y_cudf = y_cudf[:, 0]
     y_cudf = cudf.Series(y_cudf)
-    y_train_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
+    y_train_df = \
+        dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
 
     cu_rf_mg = cuRFC_mg(**cu_rf_params)
     cu_rf_mg.fit(X_train_df, y_train_df)
