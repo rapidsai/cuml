@@ -165,8 +165,8 @@ void get_best_split_classification(
       int nodeoffset = nodecnt * nbins * n_unique_labels;
       int sparse_nodeid = sparse_nodelist[nodecnt];
       int parentid = sparsesize + sparse_nodeid;
-      int best_col_id = -1;
-      int best_bin_id = -1;
+      int best_col_id = 0;
+      int best_bin_id = 0;
       std::vector<int> besthist_left(n_unique_labels);
       std::vector<int> besthist_right(n_unique_labels);
 
