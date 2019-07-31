@@ -321,7 +321,7 @@ __global__ void get_best_split_regression_kernel(
     int nodeoffset = nodeid * nbins;
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
-    tid_pair.idx = -1;
+    tid_pair.idx = 0;
     for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_nodes;
       int binoffset = id % nbins;
