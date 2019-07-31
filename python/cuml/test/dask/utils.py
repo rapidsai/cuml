@@ -74,5 +74,8 @@ def dask_make_blobs(nrows, ncols, n_centers=8, cluster_std=1.0,
 
     meta_ddf = client.submit(get_meta, dfs[0]).result()
     meta_cudf = client.submit(get_meta, ddfs[0]).result()
-    return dd.from_delayed(dfs, meta=meta_ddf), \
-        dask_cudf.from_delayed(ddfs, meta=meta_cudf)
+
+    d_df = dd.from_delayed(dfs, meta=meta_ddf)
+    d_cudf = dask_cudf.from_delayed(ddfs, meta=meta_cudf)
+
+    return d_df, d_cudf
