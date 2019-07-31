@@ -62,6 +62,7 @@ extensions = [
                             '../cpp/src_prims',
                             '../thirdparty/cutlass',
                             '../thirdparty/cub',
+                            '../thirdparty/treelite/include',
                             # Ideally we enable this to be swapped out.
                             '../cpp/comms/std/src',
                             '../cpp/comms/std/include',
