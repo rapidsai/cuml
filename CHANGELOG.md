@@ -21,6 +21,8 @@
 - PR #883: Adding MNMG Kmeans
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #853: LRU cache ml-prim
+- PR #892: General Gram matrices prim
+- PR #912: Suppert Vector Machine
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
