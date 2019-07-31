@@ -88,12 +88,14 @@ def test_rf_regression():
     workers = c.has_what().keys()
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
+    X_train_df = \
+        dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
 
     y_cudf = np.array(pd.DataFrame(y_train).values)
     y_cudf = y_cudf[:, 0]
     y_cudf = cudf.Series(y_cudf)
-    y_train_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
+    y_train_df = \
+        dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
 
     cu_rf_mg = cuRFR_mg(**cu_rf_params)
     cu_rf_mg.fit(X_train_df, y_train_df)
@@ -107,5 +109,3 @@ def test_rf_regression():
 
     c.close()
     cluster.close()
-
-
