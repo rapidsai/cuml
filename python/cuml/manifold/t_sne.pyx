@@ -163,6 +163,12 @@ class TSNE(Base):
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
+    
+    Reference Implementation
+    -------------------------
+    The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
+    https://github.com/CannyLab/tsne-cuda/. The CannyLabs code is licensed according to the conditions in
+    cuml/cpp/src/tsne/cannylabs_tsne_license.txt. We extend our big thanks to CannyLabs!
     """
     def __init__(self,
                  int n_components=2,
