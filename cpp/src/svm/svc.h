@@ -23,6 +23,8 @@
 namespace ML {
 namespace SVM {
 
+using namespace MLCommon;
+
 /**
  * @brief C-Support Vector Classification
  *
