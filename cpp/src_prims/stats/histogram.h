@@ -57,6 +57,10 @@ enum HistType {
   HistTypeSmemBits16,
   /** shared mem atomics but with bins to ba 1B int's */
   HistTypeSmemBits8,
+  /** shared mem atomics but with bins to be 4b int's */
+  HistTypeSmemBits4,
+  /** shared mem atomics but with bins to ba 2b int's */
+  HistTypeSmemBits2,
   /** builds a hashmap of active bins in shared mem */
   HistTypeSmemHash,
   /** decide at runtime the best algo for the given inputs */
@@ -279,7 +283,6 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
   CUDA_CHECK(cudaGetLastError());
 }
 
-#if __CUDA_ARCH__ == 700
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemWarpHistKernel(int* bins, const DataT* data, IdxT n,
                                    BinnerOp binner) {
@@ -335,7 +338,6 @@ void smemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
     <<<nblks, TPB, smemSize, stream>>>(bins, data, n, nbins, op);
   CUDA_CHECK(cudaGetLastError());
 }
-#endif  // __CUDA_ARCH__ == 700
 
 template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
@@ -343,21 +345,17 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
   CUDA_CHECK(cudaMemsetAsync(bins, 0, nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmemWarp:
-#if __CUDA_ARCH__ == 700
       gmemWarpHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                        stream);
       break;
-#endif  // __CUDA_ARCH__ == 700
     case HistTypeGmem:
       gmemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);
       break;
     case HistTypeSmemWarp:
-#if __CUDA_ARCH__ == 700
       smemWarpHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                        stream);
       break;
-#endif  // __CUDA_ARCH__ == 700
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, TPB, VecLen>(bins, nbins, data, n, op,
                                                    stream);
@@ -368,6 +366,14 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       break;
     case HistTypeSmemBits8:
       smemBitsHist<DataT, BinnerOp, IdxT, TPB, 8, VecLen>(bins, nbins, data, n,
+                                                          op, stream);
+      break;
+    case HistTypeSmemBits4:
+      smemBitsHist<DataT, BinnerOp, IdxT, TPB, 4, VecLen>(bins, nbins, data, n,
+                                                          op, stream);
+      break;
+    case HistTypeSmemBits2:
+      smemBitsHist<DataT, BinnerOp, IdxT, TPB, 2, VecLen>(bins, nbins, data, n,
                                                           op, stream);
       break;
     case HistTypeSmemHash:

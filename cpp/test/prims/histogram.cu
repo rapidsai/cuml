@@ -133,6 +133,20 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
   {oneM + 2, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
 
+  {oneM, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+
+  {oneM, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 1, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 2, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+
   {oneM, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
   {oneM, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
   {oneM + 1, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
