@@ -22,6 +22,9 @@ namespace ML {
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or brute force O(N^2).
+          The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
+          https://github.com/CannyLab/tsne-cuda/. The CannyLabs code is licensed according to the conditions in
+          cuml/cpp/src/tsne/cannylabs_tsne_license.txt.
  * @input param handle: The GPU handle.
  * @input param X: The dataset you want to apply TSNE on.
  * @output param Y: The final embedding. Will overwrite this internally.
