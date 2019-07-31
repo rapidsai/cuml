@@ -59,8 +59,10 @@ enum HistType {
   HistTypeSmemBits8,
   /** shared mem atomics but with bins to be 4b int's */
   HistTypeSmemBits4,
-  /** shared mem atomics but with bins to ba 2b int's */
+  /** shared mem atomics but with bins to be 2b int's */
   HistTypeSmemBits2,
+  /** shared mem atomics but with bins to be 1b int's */
+  HistTypeSmemBits1,
   /** builds a hashmap of active bins in shared mem */
   HistTypeSmemHash,
   /** decide at runtime the best algo for the given inputs */
@@ -104,7 +106,7 @@ void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHistKernel(int* bins, const DataT* data, IdxT n, IdxT nbins,
                                BinnerOp binner) {
-  extern __shared__ int sbins[];
+  extern __shared__ unsigned sbins[];
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     sbins[i] = 0;
   }
@@ -123,22 +125,22 @@ template <typename DataT, typename BinnerOp, typename IdxT, int TPB, int VecLen>
 void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
               cudaStream_t stream) {
   int nblks = ceildiv<int>(VecLen ? n / VecLen : n, TPB);
-  size_t smemSize = nbins * sizeof(int);
+  size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<nblks, TPB, smemSize, stream>>>(bins, data, n, nbins, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <int BIN_BITS>
-DI void incrementBin(int* sbins, int* bins, int nbins, int binId) {
-  constexpr int WORD_BITS = sizeof(int) * 8;
-  constexpr int WORD_BINS = WORD_BITS / BIN_BITS;
-  constexpr int BIN_MASK = (1 << BIN_BITS) - 1;
+template <unsigned BIN_BITS>
+DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
+  constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
+  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
+  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
   auto iword = binId / WORD_BINS;
   auto ibin = binId % WORD_BINS;
   auto sh = ibin * BIN_BITS;
-  auto old_word = atomicAdd(sbins + iword, 1 << sh);
-  auto new_word = old_word + (1 << sh);
+  auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
+  auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & BIN_MASK) != 0) return;
   // overflow
   atomicAdd(bins + binId, BIN_MASK + 1);
@@ -155,14 +157,23 @@ DI void incrementBin(int* sbins, int* bins, int nbins, int binId) {
   }
 }
 
+template <>
+DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
+  constexpr unsigned WORD_BITS = 32;
+  auto iword = binId / WORD_BITS;
+  auto sh = binId % WORD_BITS;
+  auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
+  if (old_word >> sh & 1) atomicAdd(&bins[binId], 2);
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
           int VecLen>
 __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT n,
                                    IdxT nbins, BinnerOp binner) {
-  extern __shared__ int sbins[];
-  constexpr int WORD_BITS = sizeof(int) * 8;
-  constexpr int WORD_BINS = WORD_BITS / BIN_BITS;
-  constexpr int BIN_MASK = (1 << BIN_BITS) - 1;
+  extern __shared__ unsigned sbins[];
+  constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
+  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
+  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
   auto nwords = ceildiv<int>(nbins, WORD_BINS);
   for (auto j = threadIdx.x; j < nwords; j += blockDim.x) {
     sbins[j] = 0;
@@ -309,7 +320,7 @@ void gmemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT n, BinnerOp op,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemWarpHistKernel(int* bins, const DataT* data, IdxT n,
                                    IdxT nbins, BinnerOp binner) {
-  extern __shared__ int sbins[];
+  extern __shared__ unsigned sbins[];
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     sbins[i] = 0;
   }
@@ -376,6 +387,10 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       smemBitsHist<DataT, BinnerOp, IdxT, TPB, 2, VecLen>(bins, nbins, data, n,
                                                           op, stream);
       break;
+    case HistTypeSmemBits1:
+      smemBitsHist<DataT, BinnerOp, IdxT, TPB, 1, VecLen>(bins, nbins, data, n,
+                                                          op, stream);
+      break;
     case HistTypeSmemHash:
       smemHashHist<DataT, BinnerOp, IdxT, 1024, VecLen>(bins, nbins, data, n,
                                                         op, stream);
@@ -411,17 +426,29 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
 template <typename IdxT>
 HistType selectBestHistAlgo(IdxT nbins) {
   size_t smem = maxSharedMem();
-  size_t requiredSize = nbins * sizeof(int);
+  size_t requiredSize = nbins * sizeof(unsigned);
   if (requiredSize <= smem) {
     return HistTypeSmem;
   }
-  requiredSize = ceildiv<size_t>(nbins, 2) * sizeof(int);
+  requiredSize = ceildiv<size_t>(nbins, 2) * sizeof(unsigned);
   if (requiredSize <= smem) {
     return HistTypeSmemBits16;
   }
-  requiredSize = ceildiv<size_t>(nbins, 4) * sizeof(int);
+  requiredSize = ceildiv<size_t>(nbins, 4) * sizeof(unsigned);
   if (requiredSize <= smem) {
     return HistTypeSmemBits8;
+  }
+  requiredSize = ceildiv<size_t>(nbins, 8) * sizeof(unsigned);
+  if (requiredSize <= smem) {
+    return HistTypeSmemBits4;
+  }
+  requiredSize = ceildiv<size_t>(nbins, 16) * sizeof(unsigned);
+  if (requiredSize <= smem) {
+    return HistTypeSmemBits2;
+  }
+  requiredSize = ceildiv<size_t>(nbins, 32) * sizeof(unsigned);
+  if (requiredSize <= smem) {
+    return HistTypeSmemBits1;
   }
   return HistTypeGmem;
 }
