@@ -14,30 +14,22 @@
 # limitations under the License.
 #
 
-from cuml.common.handle import Handle
 from cuml.ensemble import RandomForestRegressor as cuRFR
-
 from cuml.dask.common import extract_ddf_partitions
 
-from dask import delayed
-from dask.distributed import Client, default_client, get_worker, wait
-import dask.dataframe as dd
+from dask.distributed import default_client, wait
 
-import numba.cuda
 import math
 import random
-
-from tornado import gen
-from toolz import first
 
 
 class RandomForestRegressor:
     """
-    Implements a multi-GPU Random Forest regressor model which fits multiple decision
-    tree classifiers in an ensemble.
+    Implements a multi-GPU Random Forest regressor model which
+    fits multiple decision tree classifiers in an ensemble.
 
-    Please check the single-GPU implementation of Random Forest regressor for more information
-    about the algorithm.
+    Please check the single-GPU implementation of Random Forest
+    regressor for more information about the algorithm.
 
      Parameters
     -----------
@@ -91,9 +83,8 @@ class RandomForestRegressor:
                       for median of abs error : 'median_ae'
                       for mean of abs error : 'mean_ae'
                       for mean square error' : 'mse'
-    
     """
-    
+
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features='auto', n_bins=8,
                  split_algo=1, split_criterion=2,
@@ -109,15 +100,15 @@ class RandomForestRegressor:
 
 
         unsupported_sklearn_params = {"criterion": criterion,
-                          "min_samples_leaf": min_samples_leaf,
-                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
-                          "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_decrease": min_impurity_decrease,
-                          "min_impurity_split": min_impurity_split,
-                          "oob_score": oob_score, "n_jobs": n_jobs,
-                          "random_state": random_state,
-                          "warm_start": warm_start,
-                          "class_weight": class_weight}
+                                      "min_samples_leaf": min_samples_leaf,
+                                      "min_weight_fraction_leaf": min_weight_fraction_leaf,
+                                      "max_leaf_nodes": max_leaf_nodes,
+                                      "min_impurity_decrease": min_impurity_decrease,
+                                      "min_impurity_split": min_impurity_split,
+                                      "oob_score": oob_score, "n_jobs": n_jobs,
+                                      "random_state": random_state,
+                                      "warm_start": warm_start,
+                                      "class_weight": class_weight}
 
         for key, vals in unsupported_sklearn_params.items():
             if vals is not None:
@@ -125,33 +116,33 @@ class RandomForestRegressor:
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
-      
+
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
-        
+
         c = default_client()
         workers = c.has_what().keys()
-        
+
         n_workers = len(workers)
         if n_estimators < n_workers:
             raise ValueError('n_estimators cannot be lower than number of dask workers.')
-        
+
         n_est_per_worker = math.floor(n_estimators / n_workers)
-                    
+
         for i in range(n_workers):
             self.n_estimators_per_worker.append(n_est_per_worker)
-            
+
         remaining_est = n_estimators - (n_est_per_worker * n_workers)
-                
+
         for i in range(remaining_est):
             self.n_estimators_per_worker[i] = self.n_estimators_per_worker[i] + 1
-                    
+
         ws = list(zip(workers, list(range(len(workers)))))
-                
+
         self.rfs = {worker: c.submit(RandomForestRegressor._func_build_rf,
-                             n, self.n_estimators_per_worker[n], 
+                             n, self.n_estimators_per_worker[n],
                              max_depth,
-                             handle, max_features, n_bins, 
+                             handle, max_features, n_bins,
                              split_algo, split_criterion,
                              bootstrap, bootstrap_features,
                              verbose, min_rows_per_node,
@@ -160,42 +151,40 @@ class RandomForestRegressor:
                              random.random(),
                              workers=[worker])
             for worker, n in ws}
-        
+
         rfs_wait = list()
         for r in self.rfs.values():
             rfs_wait.append(r)
-                
+
         wait(rfs_wait)
-        
-        
+
     @staticmethod
     def _func_build_rf(n, n_estimators, max_depth,
-                 handle, max_features, n_bins, 
-                 split_algo, split_criterion,
-                 bootstrap, bootstrap_features,
-                 verbose, min_rows_per_node,
-                 rows_sample, max_leaves,
-                 accuracy_metric, quantile_per_tree,
-                 r):
-        
+                       handle, max_features, n_bins,
+                       split_algo, split_criterion,
+                       bootstrap, bootstrap_features,
+                       verbose, min_rows_per_node,
+                       rows_sample, max_leaves,
+                       accuracy_metric, quantile_per_tree,
+                       r):
+
         return cuRFR(n_estimators=n_estimators, max_depth=max_depth, handle=handle,
-                 max_features=max_features, n_bins=n_bins, 
-                 split_algo=split_algo, split_criterion=split_criterion,
-                 bootstrap=bootstrap, bootstrap_features=bootstrap_features,
-                 verbose=verbose, min_rows_per_node=min_rows_per_node,
-                 rows_sample=rows_sample, max_leaves=max_leaves,
-                 accuracy_metric=accuracy_metric, 
-                 quantile_per_tree=quantile_per_tree)
-                
-    
+                     max_features=max_features, n_bins=n_bins,
+                     split_algo=split_algo, split_criterion=split_criterion,
+                     bootstrap=bootstrap, bootstrap_features=bootstrap_features,
+                     verbose=verbose, min_rows_per_node=min_rows_per_node,
+                     rows_sample=rows_sample, max_leaves=max_leaves,
+                     accuracy_metric=accuracy_metric,
+                     quantile_per_tree=quantile_per_tree)
+
     @staticmethod
-    def _fit(model, X_df, y_df, r): 
+    def _fit(model, X_df, y_df, r):
         return model.fit(X_df, y_df)
-    
+
     @staticmethod
-    def _predict(model, X, r): 
+    def _predict(model, X, r):
         return model.predict(X)
-    
+
     def fit(self, X, y):
         """
         Fit the input data to Random Forest classifier
@@ -214,12 +203,12 @@ class RandomForestRegressor:
         for w, xc in X_futures:
             f.append(c.submit(RandomForestRegressor._fit, self.rfs[w], xc, y_futures[w], random.random(),
                              workers=[w]))
-                               
+
         wait(f)
-        
+
         return self
-    
-    def predict(self, X):              
+
+    def predict(self, X):
         """
         Predicts the labels for X.
 
@@ -232,39 +221,37 @@ class RandomForestRegressor:
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
 
-        """  
+        """
         c = default_client()
         workers = c.has_what().keys()
-        
         ws = list(zip(workers, list(range(len(workers)))))
 
-        X_Scattered = c.scatter(X)   
-                
+        X_Scattered = c.scatter(X)
+
         f = list()
         for w, n in ws:
             f.append(c.submit(RandomForestRegressor._predict, self.rfs[w], X_Scattered, random.random(),
                              workers=[w]))
-                    
+
         wait(f)
 
         indexes = list()
         rslts = list()
-        for d in range(len(f)):   
+        for d in range(len(f)):
             rslts.append(f[d].result())
             indexes.append(0)
-                    
+
         pred = list()
-                
-        for i in range(len(X)): 
-            pred_per_worker = 0.0                      
-            for d in range(len(rslts)):               
+
+        for i in range(len(X)):
+            pred_per_worker = 0.0
+            for d in range(len(rslts)):
                 pred_per_worker = pred_per_worker + rslts[d][i]
-                    
+
             pred.append(pred_per_worker / len(rslts))
-            
-        
+
         return pred
-                            
+
     def get_params(self, deep=True):
         """
         Returns the value of all parameters
