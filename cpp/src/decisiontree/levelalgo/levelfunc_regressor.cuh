@@ -53,21 +53,25 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   for (int i = 0; i <= maxdepth; i++) {
     total_nodes += pow(2, i);
   }
-  std::vector<T> meanstate;
-  std::vector<unsigned int> countstate;
-  meanstate.resize(total_nodes, 0.0);
-  countstate.resize(total_nodes, 0);
-  meanstate[0] = mean;
-  countstate[0] = count;
-  std::vector<FlatTreeNode<T, T>> flattree;
-  flattree.resize(total_nodes);
-  FlatTreeNode<T, T> node;
-  node.best_metric_val = initial_metric;
-  flattree[0] = node;
+  std::vector<T> sparse_meanstate;
+  std::vector<unsigned int> sparse_countstate;
+  sparse_meanstate.resize(total_nodes, 0.0);
+  sparse_countstate.resize(total_nodes, 0);
+  sparse_meanstate[0] = mean;
+  sparse_countstate[0] = count;
+  std::vector<SparseTreeNode<T, T>> sparsetree;
+  sparsetree.reserve(total_nodes);
+  SparseTreeNode<T, T> sparsenode;
+  sparsenode.best_metric_val = initial_metric;
+  sparsetree.push_back(sparsenode);
+  int sparsesize = 0;
+  int sparsesize_nextitr = 0;
+
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
-  std::vector<int> nodelist;
-  nodelist.push_back(0);
+  std::vector<int> sparse_nodelist;
+  sparse_nodelist.reserve(pow(2, maxdepth));
+  sparse_nodelist.push_back(0);
 
   //Setup pointers
   T* d_mseout = tempmem->d_mseout->data();
@@ -87,11 +91,15 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
+    sparsesize = sparsesize_nextitr;
+    sparsesize_nextitr = sparsetree.size();
+
     ASSERT(
       n_nodes <= tempmem->max_nodes_per_level,
       "Max node limit reached. Requested nodes %d > %d max nodes at depth %d\n",
       n_nodes, tempmem->max_nodes_per_level, depth);
-    init_parent_value(meanstate, countstate, nodelist, depth, tempmem);
+    init_parent_value(sparse_meanstate, sparse_countstate, sparse_nodelist,
+                      sparsesize, depth, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(
@@ -103,28 +111,26 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
                                         d_mseout, d_predout, d_count);
     }
 
-    std::vector<float> infogain;
+    float* infogain = tempmem->h_outgain->data();
     get_best_split_regression(
       h_mseout, d_mseout, h_predout, d_predout, h_count, d_count,
       feature_selector, d_colids, nbins, n_nodes, depth, min_rows_per_node,
-      infogain, meanstate, countstate, flattree, nodelist, h_split_colidx,
-      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+      sparsesize, infogain, sparse_meanstate, sparse_countstate, sparsetree,
+      sparse_nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+      d_split_binidx, tempmem);
 
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
-                         flattree, meanstate, n_nodes_nextitr, nodelist,
-                         leaf_cnt);
+                         sparsetree, sparsesize, sparse_meanstate,
+                         n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
     make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
-
-    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   }
-  int nleaves = pow(2, maxdepth);
-  int leaf_st = flattree.size() - nleaves;
-  for (int i = 0; i < nleaves; i++) {
-    flattree[leaf_st + i].prediction = meanstate[leaf_st + i];
+  for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
+    sparsetree[i].prediction = sparse_meanstate[i];
   }
-  return go_recursive<T, T>(flattree);
+  return go_recursive_sparse(sparsetree);
 }
