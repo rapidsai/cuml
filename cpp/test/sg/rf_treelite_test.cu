@@ -27,6 +27,7 @@
 #include <string>
 #include "decisiontree/decisiontree_impl.h"
 #include "ml_utils.h"
+#include "random/rng.h"
 #include "randomforest/randomforest.hpp"
 
 namespace ML {
@@ -73,11 +74,10 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     // Create a directory if the test is the first one in the test case.
     // https://stackoverflow.com/questions/12510874/how-can-i-check-if-a-directory-exists.
-    std::string create_dir = "mkdir " + test_dir;
     struct stat info;
-    if (!(stat(test_dir.c_str(), &info) == 0 && S_ISDIR(info.st_mode))) {
-      ASSERT(system(create_dir.c_str()) == 0, "Call %s fails.",
-             create_dir.c_str());
+    if (stat(test_dir.c_str(), &info) != 0) {
+      ASSERT(mkdir(test_dir.c_str(), 0777) == 0, "Call mkdir %s fails.",
+             test_dir.c_str());
     }
 
     // Create a sub-directory for the test case.
@@ -146,24 +146,19 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
             params.n_cols, predicted_labels_d, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    if (is_classification) {
-      predicted_labels_h.resize(params.n_inference_rows);
-      CUDA_CHECK(cudaMemcpy(predicted_labels_h.data(), predicted_labels_d,
-                            sizeof(L) * params.n_inference_rows,
-                            cudaMemcpyDeviceToHost));
-    } else {
-      // In case of regression, predicted_labels_d alreay has the final result.
-      ref_predicted_labels.resize(params.n_inference_rows);
-      CUDA_CHECK(cudaMemcpy(ref_predicted_labels.data(), predicted_labels_d,
-                            sizeof(L) * params.n_inference_rows,
-                            cudaMemcpyDeviceToHost));
-    }
+    predicted_labels_h.resize(params.n_inference_rows);
+    ref_predicted_labels.resize(params.n_inference_rows);
 
-    if (is_classification) {
-      for (int i = 0; i < params.n_inference_rows; i++) {
+    updateHost(predicted_labels_h.data(), predicted_labels_d,
+               params.n_inference_rows, stream);
+
+    for (int i = 0; i < params.n_inference_rows; i++) {
+      if (is_classification) {
         ref_predicted_labels[i] = static_cast<float>(predicted_labels_h[i]);
         treelite_predicted_labels[i] =
           treelite_predicted_labels[i] >= 0.5 ? 1 : 0;
+      } else {
+        ref_predicted_labels[i] = static_cast<float>(predicted_labels_h[i]);
       }
     }
 
@@ -205,21 +200,14 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
 
-    for (int i = 0; i < params.n_rows; i++) {
-      for (int j = 0; j < params.n_cols; j++) {
-        float base = j * 100.0;
-        // Generate random numbers from 0.0 to 10.0
-        float random_noise =
-          static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 10.0));
-        // Populate data (assume Col major)
-        data_h[j * params.n_rows + i] = base + random_noise;
-        // Populate inference data (The same as data but in Row major)
-        inference_data_h[i * params.n_cols + j] = base + random_noise;
-      }
-    }
+    Random::Rng r(1234ULL);
 
-    updateDevice(data_d, data_h.data(), data_len, stream);
-    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
+    r.uniform(data_d, data_len, T(0.0), T(100.0), stream);
+    r.uniform(inference_data_d, inference_data_len, T(0.0), T(100.0), stream);
+
+    updateHost(data_h.data(), data_d, data_len, stream);
+    updateHost(inference_data_h.data(), inference_data_d, inference_data_len,
+               stream);
   }
 
   void TearDown() override {
@@ -270,7 +258,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   std::vector<L> predicted_labels_h;
 
   RandomForestMetaData<T, L>* forest;
-};
+};  // namespace ML
 
 template <typename T, typename L>
 class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
@@ -283,7 +271,7 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     this->task_category = 2;
 
     // Populate labels randomly.
-    for (int i = 0; i < this->params.n_inference_rows; i++) {
+    for (int i = 0; i < this->params.n_rows; i++) {
       this->labels_h.push_back(rand() % 2);
     }
     updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
@@ -320,10 +308,11 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    // Populate labels randomly.
-    for (int i = 0; i < this->params.n_inference_rows; i++) {
-      this->labels_h.push_back(static_cast<float>(rand()) /
-                               (static_cast<float>(RAND_MAX / 10.0)));
+    for (int i = 0; i < this->params.n_rows; i++) {
+      // Generate labels which are linear to #row plus small noise.
+      this->labels_h.push_back(
+        i + static_cast<float>(rand()) /
+              (static_cast<float>(RAND_MAX / (this->params.n_rows / 10.0))));
     }
     updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
                  this->stream);
@@ -348,14 +337,14 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
   {4, 2, 11, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::
-     GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
+     GINI},  //forest with 11 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
    CRITERION::
-     GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-  {40, 20, 10, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
+     GINI},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins
+  {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2,
    CRITERION::
-     CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
+     CRITERION_END},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
   {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::ENTROPY},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
