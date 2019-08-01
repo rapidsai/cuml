@@ -43,7 +43,12 @@ class cumlCommunicator {
   enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
   enum op_t { SUM, PROD, MIN, MAX };
 
-  enum status_t { commStatusSuccess, commStatusError, commStatusAbort };
+  /**
+   * The resulting status of distributed stream synchronization
+   */
+  enum status_t { commStatusSuccess, // Synchronization successful
+                  commStatusError,   // An error occured querying sync status
+                  commStatusAbort }; // A failure occured in sync, queued operations aborted
 
   template <typename T>
   datatype_t getDataType() const;
@@ -73,10 +78,24 @@ class cumlCommunicator {
   cumlCommunicator commSplit(int color, int key) const;
 
   /**
-     * Synchronization all ranks for the underlying communicator.
+     * Synchronization of all ranks for the underlying communicator.
      */
   void barrier() const;
 
+  /**
+   * Synchronization all ranks for the current stream. This allows difference cumlCommunicator
+   * implementations to provide custom handling of asynchronous errors, such as the failure of
+   * ranks during collective communication operations.
+   *
+   * In the case where status of commStatusAbort is returned, the underlying comms implementation
+   * may need to be re-initialized.
+   *
+   * A status of commStatusError should be thrown if an error occurs when querying the stream
+   * sync status of the underlying communicator.
+   *
+   * @param[in] stream  the stream to synchronize
+   * @return            resulting status of the synchronization.
+   */
   status_t syncStream(cudaStream_t stream) const;
 
   /**
