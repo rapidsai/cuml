@@ -50,6 +50,60 @@ using namespace MLCommon;
 *
 * Note: we should have a look if the index management could be simplified using
 * concurrent_unordered_map.cuh from cudf. See Issue #914.
+*
+* Example usage:
+* @code{.cpp}
+*
+* // An expensive calculation that we want to accelerate with caching:
+* // we have n keys, and for each key we generate a vector with m elements.
+* // The keys and the output values are stored in GPU memory.
+* void calc(int *key, int n, int m, float *out, cudaStream_t stream) {
+*   for (k=0; k<n; k++) {
+*     // use key[k] to generate out[i + m*k],  where i=0..m-1
+*   }
+* }
+*
+* // We assume that our ML algo repeatedly calls calc, and the set of keys have
+* // an overlap. We will use the cache to avoid repeated calculations.
+*
+* // Assume we have cumlHandle_impl& h, and cudaStream_t stream
+* Cache<float> cache(h.getDeviceAllocator(), stream, m);
+*
+* // A buffer that we will reuse to store the cache indices.
+* device_buffer<int> cache_idx(h.getDeviceAllocator(), stream, n);
+*
+* void cached_calc(int *key, int n, int m, float *out, stream) {
+*   int n_cached = 0;
+*
+*   cache.GetCacheIdxPartitioned(key, n, cache_idx.data(), &n_cached,
+*                                cudaStream_t stream);
+*
+*   // Note: GetCacheIdxPartitioned has reordered the keys so that
+*   // key[0..n_cached-1] are the keys already in the cache.
+*   // We collect the corresponding values
+*   cache.GetCols(cache_idx.data(), n_cached, out, stream);
+*
+*   // Calculate the elements not in the cache
+*   int non_cached = n - n_cached;
+*   if (non_cached > 0) {
+*     int *key_new = key + n_cached;
+*     int *cache_idx_new = cache_idx.data() + n_cached;
+*     float *out_new = out + n_cached * m;
+*     // AssignCacheIdx can permute the keys, therefore it has to come before
+*     // we call calc.
+*     // Note: a call to AssignCacheIdx should always be preceded with
+*     // GetCacheIdxPartitioned, because that initializes the cache_idx_new array
+*     // with the cache set (hash bucket) that correspond to the keys.
+*     // The cache idx will be assigned from that cache set.
+*     cache.AssignCacheIdx(key_new, non_cached, cache_idx_new, stream);
+*
+*     calc(key_new, non_cached, m, out_new, stream);
+*
+*     // Store the calculated vectors into the cache.
+*     cache.StoreCols(out_new, non_cached, non_cached, cache_idx_new, stream);
+*    }
+* }
+* @endcode
 */
 template <typename math_t, int associativity = 32>
 class Cache {
