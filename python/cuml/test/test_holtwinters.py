@@ -170,7 +170,11 @@ def test_series_holtwinters(idx, h):
     data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
+    cu_hw.score(idx)
     cu_hw.forecast(h, idx)
+    cu_hw.get_level(idx)
+    cu_hw.get_trend(idx)
+    cu_hw.get_season(idx)
 
 
 @pytest.mark.parametrize('frequency', [7, 12])
@@ -209,3 +213,7 @@ def test_inputs_holtwinters(datatype, input_type):
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)
+    cu_hw.score()
+    cu_hw.get_level(0)
+    cu_hw.get_trend(1)
+    cu_hw.get_season(2)
