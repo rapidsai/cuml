@@ -178,8 +178,9 @@ const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
  * @param[in] forest: CPU point to RandomForestMetaData struct.
  */
 template <typename T>
-void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
-                          int n_cols, int* labels, int n_unique_labels,
+void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
+                          int n_rows, int n_cols, int* labels,
+                          int n_unique_labels,
                           RandomForestMetaData<T, int>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
@@ -440,8 +441,8 @@ const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
  * @param[in, out] forest: CPU pointer to RandomForestMetaData struct
  */
 template <typename T>
-void rfRegressor<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
-                         int n_cols, T* labels,
+void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
+                         int n_rows, int n_cols, T* labels,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 

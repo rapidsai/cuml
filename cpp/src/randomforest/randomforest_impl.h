@@ -53,8 +53,8 @@ class rfClassifier : public rf<T, int> {
   rfClassifier(RF_params cfg_rf_params);
   ~rfClassifier();
 
-  void fit(const cumlHandle& user_handle, T* input, int n_rows, int n_cols,
-           int* labels, int n_unique_labels,
+  void fit(const cumlHandle& user_handle, const T* input, int n_rows,
+           int n_cols, int* labels, int n_unique_labels,
            RandomForestMetaData<T, int>*& forest);
   void predict(const cumlHandle& user_handle, const T* input, int n_rows,
                int n_cols, int* predictions,
@@ -76,8 +76,8 @@ class rfRegressor : public rf<T, T> {
   rfRegressor(RF_params cfg_rf_params);
   ~rfRegressor();
 
-  void fit(const cumlHandle& user_handle, T* input, int n_rows, int n_cols,
-           T* labels, RandomForestMetaData<T, T>*& forest);
+  void fit(const cumlHandle& user_handle, const T* input, int n_rows,
+           int n_cols, T* labels, RandomForestMetaData<T, T>*& forest);
   void predict(const cumlHandle& user_handle, const T* input, int n_rows,
                int n_cols, T* predictions,
                const RandomForestMetaData<T, T>* forest,

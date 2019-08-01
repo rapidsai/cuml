@@ -16,7 +16,7 @@
 #pragma once
 #include "levelkernel_regressor.cuh"
 template <typename T, typename F>
-void initial_metric_regression(T *labels, unsigned int *sample_cnt,
+void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
                                const int nrows, T &mean, unsigned int &count,
                                T &initial_metric,
                                std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
@@ -50,7 +50,7 @@ void initial_metric_regression(T *labels, unsigned int *sample_cnt,
 }
 
 template <typename T, typename F>
-void get_mse_regression(T *data, T *labels, unsigned int *flags,
+void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
                         unsigned int *sample_cnt, const int nrows,
                         const int ncols, const int nbins, const int n_nodes,
                         std::shared_ptr<TemporaryMemory<T, T>> tempmem,

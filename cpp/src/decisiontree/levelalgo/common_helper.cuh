@@ -32,7 +32,7 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
 }
 
 template <typename T, typename L>
-void make_level_split(T *data, const int nrows, const int ncols,
+void make_level_split(const T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes, int *split_colidx,
                       int *split_binidx, const unsigned int *new_node_flags,
                       unsigned int *flags,
