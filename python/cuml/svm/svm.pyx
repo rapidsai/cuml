@@ -18,19 +18,20 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import cudf
 import ctypes
+import cudf
 import numpy as np
 
-from cuml.common.handle cimport cumlHandle
-from cuml.common.base import Base
+from numba import cuda
+
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from numba import cuda
+
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
+from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr
+
 from sklearn.exceptions import NotFittedError
-
-cimport numpy as np
-
 
 cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
     enum KernelType:
@@ -122,7 +123,7 @@ class SVC(Base):
         self.dual_coefs_ = None  # TODO populate this after fitting
         self.intercept_ = None
         self.n_support_ = None
-        self.gdf_datatype = None
+        self.dtype = None
         self.kernel_params = None
         self.svcHandle = None
         self.verbose = verbose
@@ -143,10 +144,10 @@ class SVC(Base):
         cdef CppSVC[double]* svc_d
         cdef KernelParams *kernel_params
         if self.svcHandle is not None:
-            if self.gdf_datatype.type == np.float32:
+            if self.dtype == np.float32:
                 svc_f = <CppSVC[float]*><size_t> self.svcHandle
                 del svc_f
-            elif self.gdf_datatype.type == np.float64:
+            elif self.dtype == np.float64:
                 svc_d = <CppSVC[double]*><size_t> self.svcHandle
                 del svc_d
             else:
@@ -162,15 +163,6 @@ class SVC(Base):
             'rbf': RBF,
             'sigmoid': TANH
         }[kernel]
-
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def _gamma_val(self, X):
         # Calculate the value for gamma kernel parameter
@@ -191,46 +183,30 @@ class SVC(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame or NumPy array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame or NumPy array
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
-        cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
+        cdef uintptr_t X_ptr, y_ptr
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
+        X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X, order='F')
 
-        else:
-            msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
-            raise TypeError(msg)
-
-        X_ptr = self._get_ctype_ptr(X_m)
-        cdef uintptr_t y_ptr
-        if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_column_ptr(y)
-        elif (isinstance(y, np.ndarray)):
-            y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
-        else:
-            msg = "y vector must be a cuDF series or Numpy ndarray"
-            raise TypeError(msg)
+        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         cdef CppSVC[float]* svc_f = NULL
         cdef CppSVC[double]* svc_d = NULL
-
         cdef KernelParams *kernel_params
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.kernel_params is None:
             kernel_params = new KernelParams(
                 <KernelType>self.kernel, <int>self.degree,
@@ -239,9 +215,7 @@ class SVC(Base):
         else:
             kernel_params = <KernelParams*><size_t> self.kernel_params
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             if self.svcHandle is None:
                 svc_f = new CppSVC[float](
                     handle_[0], self.C, self.tol, deref(kernel_params),
@@ -267,6 +241,8 @@ class SVC(Base):
             self.intercept_ = svc_d.b
             self.n_support_ = svc_d.n_support
 
+        self.handle.sync()
+
         del X_m
         del y_m
 
@@ -278,51 +254,30 @@ class SVC(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame or NumPy array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         Returns
         ----------
-        y: cuDF DataFrame or NumPy array (depending on input type)
-           Dense vector (floats or doubles) of shape (n_samples, )
+        y: cuDF Series
+           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
         if self.svcHandle is None:
             raise NotFittedError("Call fit before prediction")
 
-        cdef uintptr_t preds_ptr
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, n_cols, pred_dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
-        if (isinstance(X, cudf.DataFrame)):
-            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            n_rows = len(X)
-            n_cols = len(X._cols)
-            preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-            preds_ptr = self._get_column_ptr(preds)
-
-        elif (isinstance(X, np.ndarray)):
-            pred_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-            preds = cuda.device_array((X.shape[0],), dtype=pred_datatype,
-                                      order='F')
-            preds_ptr = self._get_ctype_ptr(preds)
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        if self.gdf_datatype.type != pred_datatype.type:
-            msg = "Datatype for prediction should be the same as for fitting"
-            raise TypeError(msg)
-
-        cdef uintptr_t X_ptr = self._get_ctype_ptr(X_m)
+        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef CppSVC[float]* svc_f
         cdef CppSVC[double]* svc_d
 
-        if pred_datatype.type == np.float32:
+        if self.dtype == np.float32:
             svc_f = <CppSVC[float]*><size_t> self.svcHandle
             svc_f.predict(<float*>X_ptr,
                           <int>n_rows,
@@ -335,8 +290,7 @@ class SVC(Base):
                           <int>n_cols,
                           <double*>preds_ptr)
 
-        if isinstance(X, np.ndarray):
-            preds = preds.copy_to_host()
+        self.handle.sync()
 
         del(X_m)
 
