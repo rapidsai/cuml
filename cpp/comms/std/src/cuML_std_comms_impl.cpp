@@ -261,7 +261,8 @@ void cumlStdCommunicator_impl::barrier() const {
   allreduce(_sendbuff, _recvbuff, 1, MLCommon::cumlCommunicator::INT,
             MLCommon::cumlCommunicator::SUM, _stream);
 
-  cudaStreamSynchronize(_stream);
+  ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
+         "ERROR: syncStream failed. This can be caused by a failed rank.");
 }
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
@@ -406,7 +407,8 @@ void cumlStdCommunicator_impl::reducescatter(const void *sendbuff,
                                _nccl_comm, stream));
 }
 
-MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(cudaStream_t stream) const {
+MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
+  cudaStream_t stream) const {
   cudaError_t cudaErr;
   ncclResult_t ncclErr, ncclAsyncErr;
   while (1) {
