@@ -50,7 +50,9 @@ namespace ML {
  
 The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
 https://github.com/CannyLab/tsne-cuda/. The CannyLabs code is licensed according to the conditions in
-cuml/cpp/src/tsne/cannylabs_tsne_license.txt.
+cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of their approach is available in their
+article t-SNE-CUDA: GPU-Accelerated t-SNE and its Applications to Modern Data
+(https://arxiv.org/abs/1807.11824).
  */
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const int p, const int dim = 2, int n_neighbors = 1023,
