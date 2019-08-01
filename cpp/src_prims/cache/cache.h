@@ -34,7 +34,7 @@ using namespace MLCommon;
 *
 * SW managed cache in device memory, for ML algos where we can trade memory
 * access for computation. The two main functions of this class are the
-* management of cache indices, and methods to retreive/store data using the
+* management of cache indices, and methods to retrieve/store data using the
 * cache indices.
 *
 * The index management can be considered as a hash map<int, int>, where the int
@@ -49,7 +49,7 @@ using namespace MLCommon;
 * entry.
 *
 * Note: we should have a look if the index management could be simplified using
-* concurrent_unordered_map.cuh from cudf.
+* concurrent_unordered_map.cuh from cudf. See Issue #914.
 */
 template <typename math_t, int associativity = 32>
 class Cache {
@@ -60,8 +60,8 @@ class Cache {
    * @tparam math_t type of elements to be cached
    * @tparam associativity number of vectors in a cache set
    *
-   * @param handle
-   * @param stream
+   * @param allocator device memory allocator
+   * @param stream cuda stream
    * @param n_vec number of elements in a single vector that is stored in a
    *   cache entry
    * @param cache_size in MiB
@@ -114,7 +114,7 @@ class Cache {
   Cache &operator=(const Cache &other) = delete;
 
   /** @brief Collect cached data into columns of contiguous memory space (using
-   * column major memory layout.
+   * column major memory layout).
    *
    * On exit, the tile array is filled the following way:
    * out[i + n_vec*k] = cache[i + n_vec * vec_idx[k]]), where i=0..n_vec-1,
@@ -124,6 +124,7 @@ class Cache {
    * @param [in] n the number of vectors that need to be collected
    * @param [out] out vectors collected from cache in column major format,
    *  size [n_vec*n]
+   * @param [in] stream cuda stream
    */
   void GetCols(const int *idx, int n, math_t *out, cudaStream_t stream) {
     if (n > 0) {
@@ -133,7 +134,7 @@ class Cache {
     }
   }
 
- /** Store column major data into the cache.
+  /** @brief Store column major data into the cache.
  * Roughly the opposite of GetCols, but the input columns can be scattered
  * in memory. The cache is updated using the following formula:
  *
@@ -149,6 +150,7 @@ class Cache {
      of all the vectors in the tile)
  * @param [in] cache_idx cache indices for storing the vectors (negative values
  *   are ignored), size [n]
+ * @param [in] stream cuda stream
  * @param [in] tile_idx indices of vectors that need to be stored
  */
   void StoreCols(const math_t *tile, int n_tile, int n, int *cache_idx,
@@ -161,7 +163,7 @@ class Cache {
     }
   }
 
-  /** Map a set of indices to cache indices.
+  /** @brief Map a set of indices to cache indices.
    *
    * For each k in 0..n-1, if in_idx[k] is found in the cache, then out_idx[k]
    * will tell the corresponding cache idx, and is_cached[k] is set to true.
@@ -193,7 +195,7 @@ class Cache {
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
-  /** Map a set of indices to cache indices.
+  /** @brief Map a set of indices to cache indices.
    *
    * Same as GetCacheIdx, but partitions the in_idx, and out_idx arrays in a way
    * that in_idx[0..n_cached-1] and out_idx[0..n_cached-1] store the indices of
@@ -232,7 +234,7 @@ class Cache {
   }
 
   /**
-   * Assign cache location to a set of indices.
+   * @brief Assign cache location to a set of indices.
    *
    * Note: calle GetCacheIdx first, to get the cache_set assigned to the input
    * vectors.
@@ -241,6 +243,7 @@ class Cache {
    * @param [in] n number of elements that we want to cache
    * @param [inout] cidx on entry: cache_set, on exit: assigned cache_idx, or -1
    *   size[n]
+   * @param [in] stream cuda stream
    */
   void AssignCacheIdx(int *idx, int n, int *cidx, cudaStream_t stream) {
     if (n <= 0) return;
@@ -251,7 +254,7 @@ class Cache {
     copy(idx, idx_tmp.data(), n, stream);
 
     // set it to -1
-    CUDA_CHECK(cudaMemset(cidx, 255, n * sizeof(int)));
+    CUDA_CHECK(cudaMemsetAsync(cidx, 255, n * sizeof(int), stream));
     const int nthreads = associativity <= 32 ? associativity : 32;
 
     assign_cache_idx<nthreads, associativity>
