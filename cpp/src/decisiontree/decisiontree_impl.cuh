@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
+  Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
@@ -116,7 +116,8 @@ void DecisionTreeBase<T, L>::print(const TreeNode<T, L> *root) const {
 }
 
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::split_branch(T *data, MetricQuestion<T> &ques,
+void DecisionTreeBase<T, L>::split_branch(const T *data,
+                                          MetricQuestion<T> &ques,
                                           const int n_sampled_rows,
                                           int &nrowsleft, int &nrowsright,
                                           unsigned int *rowids) {
@@ -128,8 +129,8 @@ void DecisionTreeBase<T, L>::split_branch(T *data, MetricQuestion<T> &ques,
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
-  const cumlHandle_impl &handle, TreeNode<T, L> *&root, T *data,
-  const int ncols, const int nrows, L *labels, unsigned int *rowids,
+  const cumlHandle_impl &handle, TreeNode<T, L> *&root, const T *data,
+  const int ncols, const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes,
   const float colper, int n_bins, int split_algo_flag,
   int cfg_min_rows_per_node, bool cfg_bootstrap_features,
@@ -214,8 +215,9 @@ void DecisionTreeBase<T, L>::plant(
 
 template <typename T, typename L>
 TreeNode<T, L> *DecisionTreeBase<T, L>::grow_tree(
-  T *data, const float colper, L *labels, int depth, unsigned int *rowids,
-  const int n_sampled_rows, MetricInfo<T> prev_split_info) {
+  const T *data, const float colper, const L *labels, int depth,
+  unsigned int *rowids, const int n_sampled_rows,
+  MetricInfo<T> prev_split_info) {
   TreeNode<T, L> *node = new TreeNode<T, L>;
   null_tree_node_child_ptrs(*node);
   MetricQuestion<T> ques;
@@ -362,10 +364,10 @@ void DecisionTreeBase<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(
-  const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
-  L *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-  TreeNode<T, L> *&root, DecisionTreeParams &tree_params, bool is_classifier,
-  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
+  const L *labels, unsigned int *rowids, const int n_sampled_rows,
+  int unique_labels, TreeNode<T, L> *&root, DecisionTreeParams &tree_params,
+  bool is_classifier, std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
@@ -401,8 +403,8 @@ void DecisionTreeBase<T, L>::base_fit(
 
 template <typename T>
 void DecisionTreeClassifier<T>::fit(
-  const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
-  int *labels, unsigned int *rowids, const int n_sampled_rows,
+  const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
+  const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
   DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
@@ -413,7 +415,7 @@ void DecisionTreeClassifier<T>::fit(
 
 template <typename T>
 void DecisionTreeClassifier<T>::find_best_fruit_all(
-  T *data, int *labels, const float colper, MetricQuestion<T> &ques,
+  const T *data, const int *labels, const float colper, MetricQuestion<T> &ques,
   float &gain, unsigned int *rowids, const int n_sampled_rows,
   MetricInfo<T> split_info[3], int depth) {
   std::vector<unsigned int> &colselector = this->feature_selector;
@@ -453,8 +455,8 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(
 
 template <typename T>
 void DecisionTreeRegressor<T>::fit(
-  const ML::cumlHandle &handle, T *data, const int ncols, const int nrows,
-  T *labels, unsigned int *rowids, const int n_sampled_rows,
+  const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
+  const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1,
@@ -464,9 +466,9 @@ void DecisionTreeRegressor<T>::fit(
 
 template <typename T>
 void DecisionTreeRegressor<T>::find_best_fruit_all(
-  T *data, T *labels, const float colper, MetricQuestion<T> &ques, float &gain,
-  unsigned int *rowids, const int n_sampled_rows, MetricInfo<T> split_info[3],
-  int depth) {
+  const T *data, const T *labels, const float colper, MetricQuestion<T> &ques,
+  float &gain, unsigned int *rowids, const int n_sampled_rows,
+  MetricInfo<T> split_info[3], int depth) {
   std::vector<unsigned int> &colselector = this->feature_selector;
 
   if (depth == 0) {
@@ -503,9 +505,9 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(
 
 template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
-  const ML::cumlHandle_impl &handle, T *data, int *labels, unsigned int *rowids,
-  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-  const int ncols, const int nrows,
+  const ML::cumlHandle_impl &handle, const T *data, const int *labels,
+  unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
+  const int n_sampled_rows, const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
@@ -521,9 +523,9 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
 
 template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
-  const ML::cumlHandle_impl &handle, T *data, T *labels, unsigned int *rowids,
-  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-  const int ncols, const int nrows,
+  const ML::cumlHandle_impl &handle, const T *data, const T *labels,
+  unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
+  const int n_sampled_rows, const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;

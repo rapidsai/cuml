@@ -17,7 +17,7 @@
 #include "levelkernel_classifier.cuh"
 template <typename T, typename F>
 void initial_metric_classification(
-  int *labels, unsigned int *sample_cnt, const int nrows,
+  const int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<int> &histvec, T &initial_metric,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_parent_hist->data(), 0,
@@ -40,10 +40,10 @@ void initial_metric_classification(
 
 template <typename T>
 void get_histogram_classification(
-  T *data, int *labels, unsigned int *flags, unsigned int *sample_cnt,
-  const int nrows, const int ncols, const int n_unique_labels, const int nbins,
-  const int n_nodes, std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-  unsigned int *histout) {
+  const T *data, const int *labels, unsigned int *flags,
+  unsigned int *sample_cnt, const int nrows, const int ncols,
+  const int n_unique_labels, const int nbins, const int n_nodes,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));

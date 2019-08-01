@@ -23,7 +23,9 @@ __global__ void gini_kernel_level(const int* __restrict__ labels,
                                   int* histout) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   extern __shared__ unsigned int shmemhist[];
-  if (threadIdx.x < nmax) shmemhist[threadIdx.x] = 0;
+  for (int tid = threadIdx.x; tid < nmax; tid += blockDim.x) {
+    shmemhist[tid] = 0;
+  }
 
   __syncthreads();
 
@@ -35,9 +37,9 @@ __global__ void gini_kernel_level(const int* __restrict__ labels,
 
   __syncthreads();
 
-  if (threadIdx.x < nmax)
-    atomicAdd(&histout[threadIdx.x], shmemhist[threadIdx.x]);
-
+  for (int tid = threadIdx.x; tid < nmax; tid += blockDim.x) {
+    atomicAdd(&histout[tid], shmemhist[tid]);
+  }
   return;
 }
 
