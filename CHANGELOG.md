@@ -29,6 +29,7 @@
 - PR #857: Small modifications to comms for utilizing IB w/ Dask
 - PR #851: Random forest Stateless API wrappers
 - PR #895: Pretty prints arguments!
+- PR #915: syncStream added to cumlCommunicator
 
 ## Bug Fixes
 

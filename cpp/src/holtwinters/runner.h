@@ -106,13 +106,12 @@ void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
   if (!(!level && !trend && !season && !xhat && !error)) {
     holtwinters_eval_gpu(handle_impl, ts, n, batch_size, frequency, start_level,
                          start_trend, start_season, alpha, beta, gamma, level,
-                         trend, season, xhat, error,
-                         seasonal);
+                         trend, season, xhat, error, seasonal);
   }
 }
 
 // expose line search step size - https://github.com/rapidsai/cuml/issues/886
-// Also, precision errors arise in optimization. There's floating point instability, 
+// Also, precision errors arise in optimization. There's floating point instability,
 // and epsilon majorly influences the fitting based on precision. For a summary,
 // https://github.com/rapidsai/cuml/issues/888
 template <typename Dtype>
@@ -174,8 +173,7 @@ void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
     holtwinters_optim_gpu(
       handle_impl, ts, n, batch_size, frequency, start_level, start_trend,
       start_season, alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma,
-      level, trend, season, xhat, error, optim_result, seasonal,
-      optim_params_);
+      level, trend, season, xhat, error, optim_result, seasonal, optim_params_);
   }
 }
 
@@ -192,8 +190,7 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
          "HW error in in line %d", __LINE__);
   ASSERT(!(season_coef && frequency < 2), "HW error in in line %d", __LINE__);
   holtwinters_forecast_gpu(handle_impl, forecast, h, batch_size, frequency,
-                           level_coef, trend_coef, season_coef,
-                           seasonal);
+                           level_coef, trend_coef, season_coef, seasonal);
 }
 
 // change optim_gamma to false here to test bug in Double Exponential Smoothing
@@ -292,7 +289,7 @@ void HoltWintersForecastHelper(const ML::cumlHandle &handle, int n,
   std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
     handle_impl.getDeviceAllocator();
 
-  bool optim_alpha = true, optim_beta = true, optim_gamma = true;
+  bool optim_beta = true, optim_gamma = true;
 
   int leveltrend_seed_len, season_seed_len, components_len;
   int leveltrend_coef_offset, season_coef_offset;
