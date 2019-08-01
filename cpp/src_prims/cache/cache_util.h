@@ -16,19 +16,16 @@
 
 #pragma once
 
-#include "ml_utils.h"
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuML.hpp"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
+#include "ml_utils.h"
 #include "selection/kselection.h"
 
 namespace MLCommon {
 namespace Cache {
-
 
 /**
  * @brief Collect data from the cache into columns of contiguous memory buffer.
@@ -46,13 +43,12 @@ namespace Cache {
  *   size [n_vec, n]
  */
 template <typename math_t>
-__global__ void get_cols(const math_t *cache, int n_vec,
-                              const int *cache_idx, int n, math_t *out)
-{
+__global__ void get_cols(const math_t *cache, int n_vec, const int *cache_idx,
+                         int n, math_t *out) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec; // row idx
+  int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int out_col = tid / n_vec; // col idx
+    int out_col = tid / n_vec;  // col idx
     int cache_col = cache_idx[out_col];
     if (row + out_col * n_vec < n_vec * n) {
       out[tid] = cache[row + cache_col * n_vec];
@@ -61,7 +57,7 @@ __global__ void get_cols(const math_t *cache, int n_vec,
 }
 
 /**
- * Store columns of data into the cache. Assume column major data storage.
+ * @brief Store columns of data into the cache. Assume column major data storage.
  * (But could be used to store rows of row major data.)
  *
  * If tile_idx==nullptr then the operation is the opposite of get_cols, ie
@@ -85,19 +81,18 @@ __global__ void get_cols(const math_t *cache, int n_vec,
  */
 template <typename math_t>
 __global__ void store_cols(const math_t *tile, int n_tile, int n_vec,
-  const int *tile_idx, int n, const int *cache_idx, math_t *cache,
-  int n_cache_vecs)
-{
+                           const int *tile_idx, int n, const int *cache_idx,
+                           math_t *cache, int n_cache_vecs) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec; // row idx
+  int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int tile_col = tid / n_vec; // col idx
+    int tile_col = tid / n_vec;  // col idx
     int data_col = tile_idx ? tile_idx[tile_col] : tile_col;
     int cache_col = cache_idx[tile_col];
 
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
-    if(cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
+    if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
       cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
     }
   }
@@ -111,7 +106,7 @@ int DI hash(int idx, int n_cache_sets, int associativity) {
 }
 
 /**
- * Binary search to find the first element in the array which is greater
+ * @brief Binary search to find the first element in the array which is greater
  * equal than a given value.
  * @param [in] array sorted array of n numbers
  * @param [in] n length of the array
@@ -120,28 +115,28 @@ int DI hash(int idx, int n_cache_sets, int associativity) {
  * array[idx] >= value. If there is no such value, then return n.
  */
 int DI arg_first_ge(const int *array, int n, int val) {
-    int start = 0;
-    int end = n-1;
-    if (array[0] == val) return 0;
-    if (array[end] < val) return n;
-    while (start+1 < end) {
-      int q = (start + end + 1)/2;
-      //invariants:
-      // start < end
-      // start < q <=end
-      // array[start] < val && array[end] <=val
-      // at every iteration d = end-start is decreasing
-      // when d==0, then array[end] will be the first element >= val.
-      if (array[q] >= val) {
-        end = q;
-      } else {
-        start = q;
-      }
+  int start = 0;
+  int end = n - 1;
+  if (array[0] == val) return 0;
+  if (array[end] < val) return n;
+  while (start + 1 < end) {
+    int q = (start + end + 1) / 2;
+    //invariants:
+    // start < end
+    // start < q <=end
+    // array[start] < val && array[end] <=val
+    // at every iteration d = end-start is decreasing
+    // when d==0, then array[end] will be the first element >= val.
+    if (array[q] >= val) {
+      end = q;
+    } else {
+      start = q;
     }
-    return end;
+  }
+  return end;
 }
 /**
- * Find the k-th occurrence of value in a sorted array.
+ * @brief Find the k-th occurrence of value in a sorted array.
  *
  * Assume that array is [0, 1, 1, 1, 2, 2, 4, 4, 4, 4, 6, 7]
  * then find_nth_occurrence(cset, 12, 4, 2) == 7, because cset_array[7] stores
@@ -156,20 +151,18 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * the value is not found.
  */
 int DI find_nth_occurrence(const int *array, int n, int val, int k) {
-   int q = arg_first_ge(array, n, val);
-   //printf("fno n v k q %d %d %d %d\n", n, val, k, q);
-   if (q+k<n && array[q+k]==val) {
-       q += k;
-   } else {
-       q = -1;
-   }
-   //printf("fno2 n v k q %d %d %d %d\n", n, val, k, q);
-   return q;
+  int q = arg_first_ge(array, n, val);
+  if (q + k < n && array[q + k] == val) {
+    q += k;
+  } else {
+    q = -1;
+  }
+  return q;
 }
 
 /**
- * Rank the entries in a cache set according the time stamp, return the indices
- * that would sort the time stamp in ascending order.
+ * @brief Rank the entries in a cache set according the time stamp, return the
+ * indices that would sort the time stamp in ascending order.
  *
  * Assume we have a single cache set with time stamps as:
  * key (threadIdx.x):   0   1   2   3
@@ -195,11 +188,11 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * @param [out] rank within the cache set size [nthreads * items_per_thread]
  *   Each block should give a different pointer for rank.
  */
-template<int nthreads, int associativity>
+template <int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
-
   const int items_per_thread = ceildiv(associativity, nthreads);
-  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int> BlockRadixSort;
+  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int>
+    BlockRadixSort;
   __shared__ typename BlockRadixSort::TempStorage temp_storage;
 
   int key[items_per_thread];
@@ -207,7 +200,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 
   int block_offset = blockIdx.x * associativity;
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     int k = threadIdx.x + j * nthreads;
     int t = (k < associativity) ? cache_time[block_offset + k] : 32768;
     key[j] = t;
@@ -216,7 +209,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 
   BlockRadixSort(temp_storage).Sort(key, val);
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     if (val[j] < associativity) {
       rank[val[j]] = threadIdx.x * items_per_thread + j;
     }
@@ -224,9 +217,8 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
   __syncthreads();
 }
 
-
 /**
- * Assign cache location to a set of indices using LRU replacement policy.
+ * @brief Assign cache location to a set of indices using LRU replacement policy.
  *
  * The in_idx and the corresponding cache_set arrays shall be sorted according
  * to cache_set in ascending order. One block should be launched for every cache
@@ -252,10 +244,10 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
  * @param [out] out_idx the cache idx assigned to the input, or -1 if it could
  *   not be cached, size [n]
  */
-template<int nthreads, int associativity>
+template <int nthreads, int associativity>
 __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
-   int *cache_idx, int n_cache_sets, int *cache_time, int time, int *out_idx) {
-
+                                 int *cache_idx, int n_cache_sets,
+                                 int *cache_time, int time, int *out_idx) {
   int block_offset = blockIdx.x * associativity;
 
   const int items_per_thread = ceildiv(associativity, nthreads);
@@ -264,16 +256,16 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
   __shared__ int rank[items_per_thread * nthreads];
   rank_set_entries<nthreads, associativity>(cache_time, n_cache_sets, rank);
 
-   // Each thread will fill items_per_thread items in the cache.
-   // It uses a place, only if it was not udated at the current time step
-   // (cache_time != time).
-   // We rank the places acconding to the time stamp, least recently used
-   // elements come to the front.
-   // We fill the least recently used elements with the working set.
-   // there might be elements which cannot be assigned to cache loc.
-   // these elements are assigned -1.
+  // Each thread will fill items_per_thread items in the cache.
+  // It uses a place, only if it was not udated at the current time step
+  // (cache_time != time).
+  // We rank the places acconding to the time stamp, least recently used
+  // elements come to the front.
+  // We fill the least recently used elements with the working set.
+  // there might be elements which cannot be assigned to cache loc.
+  // these elements are assigned -1.
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     int i = threadIdx.x + j * nthreads;
     int t_idx = block_offset + i;
     bool mask = (i < associativity);
@@ -284,8 +276,8 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
     // we look up where is the idx stored in the input array
     if (mask) {
       int k = find_nth_occurrence(cache_set, n, blockIdx.x, rank[i]);
-      mask = mask && k>-1;
-      if ( k > -1) {
+      mask = mask && k > -1;
+      if (k > -1) {
         int idx_val = in_idx[k];
         cache_idx[t_idx] = idx_val;
         out_idx[k] = t_idx;
@@ -319,32 +311,32 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
  * @param [out] is_cached  whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-inline __global__ void get_cache_idx(int *idx, int n, int *vec_idx, int n_cache_sets,
-    int associativity, int *cache_time, int *out_cache_idx, bool *is_cached,
-    int time) {
+inline __global__ void get_cache_idx(int *idx, int n, int *vec_idx,
+                                     int n_cache_sets, int associativity,
+                                     int *cache_time, int *out_cache_idx,
+                                     bool *is_cached, int time) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid<n) {
-      int widx = idx[tid];
-      int sidx = hash(widx, n_cache_sets, associativity);
-      int cidx = sidx *associativity;
-      int i = 0;
-      bool found = false;
-      // search for empty spot and the least recently used spot
-      while (i < associativity && !found) {
-        found = (cache_time[cidx + i] > 0 && vec_idx[cidx + i] == widx);
-        //printf("tid cid wid i ctime cacheidx %d %d %d %d %d %d\n", tid, cidx, widx, i, cache_time[cidx+i], cache_idx[cidx+i]);
-        i++;
-      }
-      is_cached[tid] = found;
-      if (found) {
-        cidx = cidx + i - 1;
-        cache_time[cidx] = time;  //update time stamp
-        out_cache_idx[tid] = cidx; //exact cache idx
-      } else {
-        out_cache_idx[tid] = sidx; // assign cache set
-      }
+  if (tid < n) {
+    int widx = idx[tid];
+    int sidx = hash(widx, n_cache_sets, associativity);
+    int cidx = sidx * associativity;
+    int i = 0;
+    bool found = false;
+    // search for empty spot and the least recently used spot
+    while (i < associativity && !found) {
+      found = (cache_time[cidx + i] > 0 && vec_idx[cidx + i] == widx);
+      i++;
+    }
+    is_cached[tid] = found;
+    if (found) {
+      cidx = cidx + i - 1;
+      cache_time[cidx] = time;    //update time stamp
+      out_cache_idx[tid] = cidx;  //exact cache idx
+    } else {
+      out_cache_idx[tid] = sidx;  // assign cache set
+    }
   }
 }
 
-}; // end namespace Cache
-}; // end namespace MLCommon
+};  // end namespace Cache
+};  // end namespace MLCommon
