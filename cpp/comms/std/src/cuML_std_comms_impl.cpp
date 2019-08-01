@@ -416,14 +416,12 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
     if (cudaErr == cudaSuccess) return status_t::commStatusSuccess;
 
     if (cudaErr != cudaErrorNotReady) {
-      printf("CUDA Error : cudaStreamQuery returned %d\n", cudaErr);
       // An error occurred querying the status of the stream
       return status_t::commStatusError;
     }
 
     ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
     if (ncclErr != ncclSuccess) {
-      printf("NCCL Error : ncclCommGetAsyncError returned %d\n", ncclErr);
       // An error occurred retrieving the asynchronous error
       return status_t::commStatusError;
     }
@@ -433,9 +431,8 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
       // the communicator
       ncclErr = ncclCommAbort(_nccl_comm);
       if (ncclErr != ncclSuccess)
-        printf("NCCL Error : ncclCommDestroy returned %d\n", ncclErr);
-      // Caller may abort with an exception or try to re-create a new communicator.
-      return status_t::commStatusAbort;
+        // Caller may abort with an exception or try to re-create a new communicator.
+        return status_t::commStatusAbort;
     }
 
     // Let other threads (including NCCL threads) use the CPU.

@@ -46,9 +46,11 @@ class cumlCommunicator {
   /**
    * The resulting status of distributed stream synchronization
    */
-  enum status_t { commStatusSuccess, // Synchronization successful
-                  commStatusError,   // An error occured querying sync status
-                  commStatusAbort }; // A failure occured in sync, queued operations aborted
+  enum status_t {
+    commStatusSuccess,  // Synchronization successful
+    commStatusError,    // An error occured querying sync status
+    commStatusAbort
+  };  // A failure occured in sync, queued operations aborted
 
   template <typename T>
   datatype_t getDataType() const;
@@ -83,12 +85,12 @@ class cumlCommunicator {
   void barrier() const;
 
   /**
-   * Synchronization all ranks for the current stream. This allows difference cumlCommunicator
+   * Synchronization of all ranks for the current stream. This allows different cumlCommunicator
    * implementations to provide custom handling of asynchronous errors, such as the failure of
    * ranks during collective communication operations.
    *
-   * In the case where status of commStatusAbort is returned, the underlying comms implementation
-   * may need to be re-initialized.
+   * In the case where commStatusAbort is returned, the underlying comms implementation may need
+   * to be re-initialized.
    *
    * A status of commStatusError should be thrown if an error occurs when querying the stream
    * sync status of the underlying communicator.
