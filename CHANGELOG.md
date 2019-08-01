@@ -1,12 +1,65 @@
-# cuML 0.8.0 (Date TBD)
+# cuML 0.9.0 (Date TBD)
 
 ## New Features
+
+- PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
+- PR #697: Silhouette Score metric ml-prim
+- PR #674: KL Divergence metric ml-prim
+- PR #787: homogeneity, completeness and v-measure metrics ml-prim
+- PR #711: Mutual Information metric ml-prim
+- PR #724: Entropy metric ml-prim
+- PR #766: Expose score method based on inertia for KMeans
+- PR #816: Added inverse_transform() for LabelEncoder
+- PR #789: prims: sampling without replacement
+- PR #813: prims: Col major istance prim
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #819: Forest Inferencing Library (FIL)
+- PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
+- PR #837: treelite for decision forest exchange format
+- PR #870: make_blobs python function
+- PR #883: Adding MNMG Kmeans
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+
+## Improvements
+- PR #822: build: build.sh update to club all make targets together
+- PR #807: Added development conda yml files
+- PR #840: Require cmake >= 3.14
+- PR #832: Stateless Decision Tree and Random Forest API
+- PR #857: Small modifications to comms for utilizing IB w/ Dask
+- PR #851: Random forest Stateless API wrappers
+- PR #895: Pretty prints arguments!
+
+## Bug Fixes
+
+- PR #831: Update conda package dependencies to cudf 0.9
+- PR #772: Add missing cython headers to SGD and CD
+- PR #849: PCA no attribute trans_input_ transform bug fix
+- PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
+
+# cuML 0.8.0 (27 June 2019)
+
+## New Features
+
+- PR #652: Adjusted Rand Index metric ml-prim
+- PR #679: Class label manipulation ml-prim
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
-- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+- PR #644: Add train_test_split utility for cuDF dataframes
+- PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #681: Add MBSGDClassifier and MBSGDRegressor classes around SGD
+- PR #705: Quasi Newton solver and LogisticRegression Python classes
+- PR #670: Add test skipping functionality to build.sh
+- PR #678: Random Forest Python class
+- PR #684: prims: make_blobs primitive
+- PR #673: prims: reduce cols by key primitive
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 
@@ -23,6 +76,24 @@
 - PR #622: Updated to use 0.8 dependencies
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
+- PR #650: Moving brute force kNN to prims. Creating stateless kNN API.
+- PR #662: C++: Bulk clang-format updates
+- PR #671: Added pickle pytests and correct pickling of Base class
+- PR #675: atomicMin/Max(float, double) with integer atomics and bit flipping
+- PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
+- PR #683: Use stateless c++ API in KNN so that it can be pickled properly
+- PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
+- PR #695: prims: Refactor pairwise distance
+- PR #707: Added stress test and updated documentation for RF
+- PR #701: Added emacs temporary file patterns to .gitignore
+- PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
+- PR #726: Updated RF docs and stress test
+- PR #730: Update README and RF docs for 0.8
+- PR #744: Random projections generating binomial on device. Fixing tests.
+- PR #741: Update API docs for 0.8
+- PR #754: Pickling of UMAP/KNN
+- PR #753: Made PCA and TSVD picklable
+- PR #746: LogisticRegression and QN API docstrings
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -31,6 +102,27 @@
 - PR #640: Remove setuptools from conda run dependency
 - PR #646: Update link in contributing.md
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
+- PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
+- PR #676: Fix template parameters in `bernoulli()` implementation.
+- PR #685: Make CuPy optional to avoid nccl conda package conflicts
+- PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
+- PR #689: Removing extra prints from NearestNeighbors cython
+- PR #718: Bug fix for DBSCAN and increasing batch size of sgd
+- PR #719: Adding additional checks for dtype of the data
+- PR #736: Bug fix for RF wrapper and .cu print function
+- PR #547: Fixed issue if C++ compiler is specified via CXX during configure.
+- PR #759: Configure Sphinx to render params correctly
+- PR #762: Apply threshold to remove flakiness of UMAP tests.
+- PR #768: Fixing memory bug from stateless refactor
+- PR #782: Nearest neighbors checking properly whether memory should be freed
+- PR #783: UMAP was using wrong size for knn computation
+- PR #776: Hotfix for self.variables in RF
+- PR #777: Fix numpy input bug
+- PR #784: Fix jit of shuffle_idx python function
+- PR #790: Fix rows_sample input type for RF
+- PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
+- PR #806: Add a seed for sklearn model in RF test file
+- PR #843: Rf quantile fix
 
 # cuML 0.7.0 (10 May 2019)
 
@@ -80,6 +172,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #721: Added pickle tests for DBSCAN and Random Projections
 
 ## Bug Fixes
 
@@ -197,7 +290,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy
 
 # cuML 0.5.1 (05 Feb 2019)
 

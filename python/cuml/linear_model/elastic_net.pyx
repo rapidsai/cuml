@@ -31,8 +31,8 @@ class ElasticNet:
     some coefficients to be smaell, and improves the conditioning of the
     problem.
 
-    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit
-    a linear model.
+    cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
+    descent to fit a linear model.
 
     Examples
     ---------
@@ -180,11 +180,15 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
@@ -209,8 +213,10 @@ class ElasticNet:
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------

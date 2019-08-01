@@ -19,6 +19,17 @@
 
 namespace ML {
 enum SPLIT_ALGO {
-	HIST, GLOBAL_QUANTILE, SPLIT_ALGO_END,
+  HIST,
+  GLOBAL_QUANTILE,
+  SPLIT_ALGO_END,
 };
+
+enum CRITERION {
+  GINI,
+  ENTROPY,
+  MSE,
+  MAE,
+  CRITERION_END,
 };
+
+};  // namespace ML

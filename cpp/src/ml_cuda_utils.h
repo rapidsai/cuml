@@ -17,30 +17,31 @@
 #include <cuda_runtime.h>
 #include "utils.h"
 
+#pragma once
+
 namespace ML {
+
 int get_device(const void *ptr) {
-    cudaPointerAttributes att;
-    cudaPointerGetAttributes(&att, ptr);
-    return att.device;
+  cudaPointerAttributes att;
+  cudaPointerGetAttributes(&att, ptr);
+  return att.device;
 }
 
-cudaMemoryType
-memory_type(const void *p){
-    cudaPointerAttributes att;
-    cudaError_t err = cudaPointerGetAttributes(&att, p);
-    ASSERT(err == cudaSuccess ||
-           err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
+cudaMemoryType memory_type(const void *p) {
+  cudaPointerAttributes att;
+  cudaError_t err = cudaPointerGetAttributes(&att, p);
+  ASSERT(err == cudaSuccess || err == cudaErrorInvalidValue, "%s",
+         cudaGetErrorString(err));
 
-    if (err == cudaErrorInvalidValue) {
-        // Make sure the current thread error status has been reset
-        err = cudaGetLastError();
-        ASSERT(err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
-    }
+  if (err == cudaErrorInvalidValue) {
+    // Make sure the current thread error status has been reset
+    err = cudaGetLastError();
+    ASSERT(err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
+  }
 #if CUDA_VERSION >= 10000
-    return att.type;
+  return att.type;
 #else
-    return att.memoryType;
+  return att.memoryType;
 #endif
 }
-
-}
+}  // namespace ML

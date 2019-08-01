@@ -31,14 +31,12 @@ namespace ML {
  * allocations fall back to cudaMalloc.
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
-public:
-    rmmAllocatorAdapter()
-        : _rmmInitialized( rmmIsInitialized( NULL ) )
-    {
-        //@todo: Log warning if RMM is not initialized. Blocked by https://github.com/rapidsai/cuml/issues/229
-    }
+ public:
+  rmmAllocatorAdapter() : _rmmInitialized(rmmIsInitialized(NULL)) {
+    //@todo: Log warning if RMM is not initialized. Blocked by https://github.com/rapidsai/cuml/issues/229
+  }
 
-    /**
+  /**
      * @brief asynchronosly allocate n bytes that can be used after all work in stream sheduled prior to this call
      *        has completetd.
      *
@@ -46,27 +44,24 @@ public:
      * @param[in] stream    the stream to use for the asynchronous allocations
      * @returns             a pointer to n byte of device memory
      */
-    virtual void* allocate( std::size_t n, cudaStream_t stream )
-    {
-        void* ptr = 0;
-        if (!_rmmInitialized)
-        {
-            CUDA_CHECK( cudaMalloc( &ptr, n ) );
-        }
-        else
-        {
-            rmmError_t rmmStatus = RMM_ALLOC(&ptr, n, stream);
-            if ( RMM_SUCCESS != rmmStatus || 0 == ptr )
-            {
-                std::ostringstream msg;
-                msg<<"RMM allocation of "<<n<<" byte failed: "<<rmmGetErrorString(rmmStatus)<<std::endl;;
-                throw MLCommon::Exception(msg.str());
-            }
-        }
-        return ptr;
+  virtual void* allocate(std::size_t n, cudaStream_t stream) {
+    void* ptr = 0;
+    if (!_rmmInitialized) {
+      CUDA_CHECK(cudaMalloc(&ptr, n));
+    } else {
+      rmmError_t rmmStatus = RMM_ALLOC(&ptr, n, stream);
+      if (RMM_SUCCESS != rmmStatus || 0 == ptr) {
+        std::ostringstream msg;
+        msg << "RMM allocation of " << n
+            << " byte failed: " << rmmGetErrorString(rmmStatus) << std::endl;
+        ;
+        throw MLCommon::Exception(msg.str());
+      }
     }
+    return ptr;
+  }
 
-    /**
+  /**
      * @brief asynchronosly free an allocation of n bytes that can be reused after all work in stream scheduled prior to this
      *        call has completed.
      *
@@ -74,32 +69,26 @@ public:
      * @param[in] n         size of the allocation to release in bytes
      * @param[in] stream    the stream to use for the asynchronous free
      */
-    virtual void deallocate( void* p, std::size_t, cudaStream_t stream )
-    {
-        if (!_rmmInitialized)
-        {
-            cudaError_t status = cudaFree(p);
-            if ( cudaSuccess != status )
-            {
-                //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-                // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-            }
-        }
-        else
-        {
-            rmmError_t rmmStatus = RMM_FREE(p, stream);
-            if ( RMM_SUCCESS != rmmStatus )
-            {
-                //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-                // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-            }
-        }
+  virtual void deallocate(void* p, std::size_t, cudaStream_t stream) {
+    if (!_rmmInitialized) {
+      cudaError_t status = cudaFree(p);
+      if (cudaSuccess != status) {
+        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
+      }
+    } else {
+      rmmError_t rmmStatus = RMM_FREE(p, stream);
+      if (RMM_SUCCESS != rmmStatus) {
+        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
+      }
     }
+  }
 
-    virtual ~rmmAllocatorAdapter() {}
+  virtual ~rmmAllocatorAdapter() {}
 
-private:
-    const bool _rmmInitialized;
+ private:
+  const bool _rmmInitialized;
 };
 
-} // end namespace ML
+}  // end namespace ML

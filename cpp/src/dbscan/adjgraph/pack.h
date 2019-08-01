@@ -21,28 +21,28 @@ namespace AdjGraph {
 
 template <typename Type, typename Index_ = int>
 struct Pack {
-    /**
+  /**
      * vertex degree array
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of poTypes
      */
-    int *vd;
-    /** the adjacency matrix */
-    bool *adj;     
-    /** the adjacency graph */
-    Type *adj_graph;
+  int *vd;
+  /** the adjacency matrix */
+  bool *adj;
+  /** the adjacency graph */
+  Type *adj_graph;
 
-    Type adjnnz;
+  Type adjnnz;
 
-    /** exculusive scan generated from vd */ 
-    Type *ex_scan;
-    /** array to store whether a vertex is core poType or not */
-    bool *core_pts;
-    /** number of poTypes in the dataset */
-    Index_ N;
-    /** Minpts for classifying core pts */
-    Type minPts;
+  /** exculusive scan generated from vd */
+  Type *ex_scan;
+  /** array to store whether a vertex is core poType or not */
+  bool *core_pts;
+  /** number of poTypes in the dataset */
+  Index_ N;
+  /** Minpts for classifying core pts */
+  Type minPts;
 };
 
-} // namespace AdjGraph
-} // namespace Dbscan
+}  // namespace AdjGraph
+}  // namespace Dbscan

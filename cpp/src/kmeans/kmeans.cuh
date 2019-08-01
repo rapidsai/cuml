@@ -16,28 +16,28 @@
 
 #pragma once
 
-#include <linalg/matrix_vector_op.h>
-#include <linalg/reduce_rows_by_key.h>
-#include <linalg/mean_squared_error.h>
-#include <linalg/binary_op.h>
 #include <distance/distance.h>
+#include <linalg/binary_op.h>
+#include <linalg/matrix_vector_op.h>
+#include <linalg/mean_squared_error.h>
+#include <linalg/reduce_rows_by_key.h>
 #include <matrix/gather.h>
-#include <random>
-#include <random/rng.h>
 #include <random/permute.h>
+#include <random/rng.h>
+#include <random>
 
-#include <numeric>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/scan.h>
-#include <thrust/execution_policy.h>
+#include <numeric>
 
 #include <ml_cuda_utils.h>
 #include <common/allocatorAdapter.hpp>
-#include <common/tensor.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include <common/tensor.hpp>
 #include <cuML.hpp>
 
 #include "kmeans.hpp"
@@ -49,27 +49,25 @@ using namespace MLCommon;
  * @tparam DataT 
  * @tparam IndexT
  */
-template <typename DataT,
-	  typename IndexT = int>
-class KMeans{
-public:
+template <typename DataT, typename IndexT = int>
+class KMeans {
+ public:
+  struct Options {
+    int seed;
+    int oversampling_factor;
+    Random::GeneratorType gtype;
+    bool inertia_check;
 
-    struct Options{
-	int seed;
-	int oversampling_factor;
-	Random::GeneratorType gtype;
-	bool inertia_check;
-    public:
-	Options(){
-	    seed = -1;
-	    oversampling_factor = 0;
-	    gtype = Random::GeneratorType::GenPhilox;
-	    inertia_check = false;
-	}
-    };
+   public:
+    Options() {
+      seed = -1;
+      oversampling_factor = 0;
+      gtype = Random::GeneratorType::GenPhilox;
+      inertia_check = false;
+    }
+  };
 
-    
-    /**
+  /**
      * @param[in] cumlHandle  The handle to the cuML library context that manages the CUDA resources.
      * @param[in] n_clusters  The number of clusters to form as well as the number of centroids to generate (default:8).
      * @param[in] metric      Metric to use for distance computation. Any metric from MLCommon::Distance::DistanceType can be used
@@ -81,30 +79,22 @@ public:
      * @param[in] tol         Relative tolerance with regards to inertia to declare convergence.
      * @param[in] seed        Seed to the random number generator.
      */
-    KMeans(const ML::cumlHandle_impl &cumlHandle,
-	   int n_clusters = 8,
-	   MLCommon::Distance::DistanceType metric = MLCommon::Distance::DistanceType::EucExpandedL2Sqrt,
-	   kmeans::InitMethod init = kmeans::InitMethod::KMeansPlusPlus,
-	   int max_iter = 300,
-	   double tol = 1e-4,
-	   int seed = -1,
-	   int verbose = 0);
+  KMeans(const ML::cumlHandle_impl &cumlHandle, int n_clusters = 8,
+         MLCommon::Distance::DistanceType metric =
+           MLCommon::Distance::DistanceType::EucExpandedL2Sqrt,
+         kmeans::InitMethod init = kmeans::InitMethod::KMeansPlusPlus,
+         int max_iter = 300, double tol = 1e-4, int seed = -1, int verbose = 0);
 
-
-    /**
+  /**
      * @brief Compute k-means clustering.
      *
      * @param[in] X          Training instances to cluster. It must be noted that the data must be in row-major format and stored in device accessible location.
      * @param[in] n_samples  Number of samples in the input X.
      * @param[in] n_features Number of features or the dimensions of each sample.
      */
-    void
-    fit(const DataT *X,
-	int n_samples,
-	int n_features);
+  void fit(const DataT *X, int n_samples, int n_features);
 
-
-    /**
+  /**
      * @brief Predict the closest cluster each sample in X belongs to.
      *
      * @param[in]  X          New data to predict.
@@ -112,13 +102,9 @@ public:
      * @param[in]  n_features Number of features or the dimensions of each sample.
      * @param[out] labels     Index of the cluster each sample belongs to.
      */
-    void
-    predict(const DataT *X,
-	    int n_samples,
-	    int n_features,
-	    IndexT *labels);
+  void predict(const DataT *X, int n_samples, int n_features, IndexT *labels);
 
-    /**
+  /**
      * @brief Transform X to a cluster-distance space. In the new space, each dimension is the distance to the cluster centers.
      *
      * @param[in]  X          New data to transform.
@@ -126,92 +112,76 @@ public:
      * @param[in]  n_features Number of features or the dimensions of each sample.
      * @param[out] X_new      X transformed in the new space (output size is [n_samples x n_clusters].
      */
-    void
-    transform(const DataT *X,
-	      int n_samples,
-	      int n_features,
-	      DataT *X_new);
- 
+  void transform(const DataT *X, int n_samples, int n_features, DataT *X_new);
 
-    /**
+  /**
      * @brief Set centroids to be user provided value X
      *
      * @param[in]  X          New data to centroids.
      * @param[in]  n_samples  Number of samples in the input X.
      * @param[in]  n_features Number of features or the dimensions of each sample.
      */
-    void
-    setCentroids(const DataT *X,
-		 int n_samples,
-		 int n_features);
-    
-    // returns the raw pointer to the generated centroids
-    DataT*
-    centroids();
+  void setCentroids(const DataT *X, int n_samples, int n_features);
 
+  // returns the raw pointer to the generated centroids
+  DataT *centroids();
 
-    // release local resources
-    ~KMeans();
+  // returns the inertia
+  double getInertia();
 
-  
-    // internal functions (ideally must be private methods, but its not possible today because of the lambda limitations of CUDA compiler)
-    void
-    fit(Tensor<DataT, 2, IndexT> &);
+  // release local resources
+  ~KMeans();
 
-    void
-    predict(Tensor<DataT, 2, IndexT> &);
-       
-    void
-    initRandom(Tensor<DataT, 2, IndexT> &);
-    
-    void
-    initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &);
-    
-    
+  // internal functions (ideally must be private methods, but its not possible today because of the lambda limitations of CUDA compiler)
+  void fit(Tensor<DataT, 2, IndexT> &);
 
-private:
+  void predict(Tensor<DataT, 2, IndexT> &);
 
-    // Maximum number of iterations of the k-means algorithm for a single run.
-    int max_iter;
+  void initRandom(Tensor<DataT, 2, IndexT> &);
 
-    // Relative tolerance with regards to inertia to declare convergence.
-    double tol;
+  void initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &);
 
-    // Sum of squared distances of samples to their closest cluster center.
-    double inertia;
+ private:
+  // Maximum number of iterations of the k-means algorithm for a single run.
+  int max_iter;
 
-    // Number of iterations run.
-    int n_iter;
-  
-    // number of clusters to form as well as the number of centroids to generate.
-    int n_clusters;
+  // Relative tolerance with regards to inertia to declare convergence.
+  double tol;
 
-    // number of features or the dimensions of the input.
-    int _n_features;
+  // Sum of squared distances of samples to their closest cluster center.
+  double inertia;
 
-    // verbosity mode.  
-    int _verbose;
-  
-    // Device-accessible allocation of expandable storage used as temorary buffers
-    MLCommon::device_buffer<char> _workspace;
+  // Number of iterations run.
+  int n_iter;
 
-    // underlying expandable storage that holds centroids data 
-    MLCommon::device_buffer<DataT> _centroidsRawData;
-    
-    // underlying expandable storage that holds labels 
-    MLCommon::device_buffer<IndexT> _labelsRawData;
-       
-    const ML::cumlHandle_impl &_handle; 
-        
-    // method for initialization, defaults to 'k-means++':
-    kmeans::InitMethod _init;
+  // number of clusters to form as well as the number of centroids to generate.
+  int n_clusters;
 
-    MLCommon::Distance::DistanceType _metric;
+  // number of features or the dimensions of the input.
+  int _n_features;
 
-    // optional 
-    Options options;
+  // verbosity mode.
+  int _verbose;
+
+  // Device-accessible allocation of expandable storage used as temorary buffers
+  MLCommon::device_buffer<char> _workspace;
+
+  // underlying expandable storage that holds centroids data
+  MLCommon::device_buffer<DataT> _centroidsRawData;
+
+  // underlying expandable storage that holds labels
+  MLCommon::device_buffer<IndexT> _labelsRawData;
+
+  const ML::cumlHandle_impl &_handle;
+
+  // method for initialization, defaults to 'k-means++':
+  kmeans::InitMethod _init;
+
+  MLCommon::Distance::DistanceType _metric;
+
+  // optional
+  Options options;
 };
-}
+}  // namespace ML
 
 #include "kmeans-inl.cuh"
-

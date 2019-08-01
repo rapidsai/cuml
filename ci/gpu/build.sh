@@ -4,10 +4,17 @@
 # cuML GPU build and test script for CI #
 #########################################
 set -e
+NUMARGS=$#
+ARGS=$*
 
 # Logger function for build status output
 function logger() {
   echo -e "\n>>>> $@\n"
+}
+
+# Arg parsing function
+function hasArg {
+    (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
 # Set path and build parallel level
@@ -35,7 +42,23 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} -c conda-forge -c rapidsai cudf=${CUDF_VERSION} rmm=${RMM_VERSION} nvstrings=${NVSTRINGS_VERSION} lapack cmake==3.14.3 umap-learn libclang
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      cudf=${CUDF_VERSION} \
+      rmm=${RMM_VERSION} \
+      nvstrings=${NVSTRINGS_VERSION} \
+      lapack \
+      cmake==3.14.3 \
+      umap-learn \
+      nccl>=2.4 \
+      dask \
+      distributed \
+      dask-cudf \
+      dask-cuda \
+      statsmodels
+
+# installing libclang separately so it doesn't get installed from conda-forge
+conda install -c rapidsai \
+      libclang
 
 logger "Check versions..."
 python --version
@@ -54,6 +77,11 @@ $WORKSPACE/build.sh clean libcuml cuml prims -v
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
 ################################################################################
 
+if hasArg --skip-tests; then
+    logger "Skipping Tests..."
+    exit 0
+fi
+
 logger "Check GPU usage..."
 nvidia-smi
 
@@ -61,14 +89,9 @@ logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-# Disabled while CI/the test become compatible
-# logger "GoogleTest for libcuml mg..."
-# cd $WORKSPACE/cpp/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
-
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

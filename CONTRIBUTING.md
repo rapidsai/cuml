@@ -28,15 +28,19 @@ into three categories:
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
 4. Get familar with the developer guide relevant for you:
-    * For C++ developers it is available here [DEVELOPER_GUIDE.md](cpp/DEVELOPER_GUIDE.md)
+    * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
 8. Wait for other developers to review your code and update code as needed.
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
-Remember, if you are unsure about anything, don't hesitate to comment on issues
-and ask for clarifications!
+### A note related to our CI process
+After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
+
+To quantify this, the average check in our CI takes between 25 and 32 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
+
+Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
 
 ### Seasoned developers
 

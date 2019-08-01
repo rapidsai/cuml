@@ -18,8 +18,6 @@
 #include <iostream>
 #include <vector>
 
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <cuda_utils.h>
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
@@ -27,23 +25,26 @@
 #include <linalg/norm.h>
 #include <linalg/ternary_op.h>
 #include <linalg/unary_op.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 
 namespace ML {
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
-template <typename T> struct SimpleMat {
+template <typename T>
+struct SimpleMat {
   int m, n;
   T *data;
   int len;
 
-  STORAGE_ORDER ord; // storage order: runtime param for compile time sake
+  STORAGE_ORDER ord;  // storage order: runtime param for compile time sake
 
   SimpleMat(STORAGE_ORDER order = COL_MAJOR)
-      : data(nullptr), len(0), ord(order) {}
+    : data(nullptr), len(0), ord(order) {}
 
   SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
-      : data(data), len(m * n), m(m), n(n), ord(order) {}
+    : data(data), len(m * n), m(m), n(n), ord(order) {}
 
   void reset(T *data_, int m_, int n_) {
     m = m_;
@@ -58,7 +59,6 @@ template <typename T> struct SimpleMat {
                           const SimpleMat<T> &A, const bool transA,
                           const SimpleMat<T> &B, const bool transB,
                           const T beta, cudaStream_t stream) {
-
     int kA = A.n;
     int kB = B.m;
 
@@ -78,17 +78,18 @@ template <typename T> struct SimpleMat {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {                                // base case
-      MLCommon::LinAlg::cublasgemm(handle.getCublasHandle(), // handle
-                                   transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
-                                   transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
-                                   this->m, this->n, kA, // dimensions m,n,k
-                                   &alpha, A.data,
-                                   A.m,         // lda
-                                   B.data, B.m, // ldb
-                                   &beta, this->data,
-                                   this->m, // ldc,
-                                   stream);
+        B.ord == COL_MAJOR) {  // base case
+      MLCommon::LinAlg::cublasgemm(
+        handle.getCublasHandle(),            // handle
+        transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
+        transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
+        this->m, this->n, kA,                // dimensions m,n,k
+        &alpha, A.data,
+        A.m,          // lda
+        B.data, B.m,  // ldb
+        &beta, this->data,
+        this->m,  // ldc,
+        stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {
@@ -139,7 +140,6 @@ template <typename T> struct SimpleMat {
   inline void assign_binary(const SimpleMat<T> &other1,
                             const SimpleMat<T> &other2, Lambda &f,
                             cudaStream_t stream) {
-
     ASSERT(ord == other1.ord,
            "SimpleMat::assign_binary: Storage orders must match");
     ASSERT(ord == other2.ord,
@@ -149,9 +149,10 @@ template <typename T> struct SimpleMat {
   }
 
   template <typename Lambda>
-  inline void
-  assign_ternary(const SimpleMat<T> &other1, const SimpleMat<T> &other2,
-                 const SimpleMat<T> &other3, Lambda &f, cudaStream_t stream) {
+  inline void assign_ternary(const SimpleMat<T> &other1,
+                             const SimpleMat<T> &other2,
+                             const SimpleMat<T> &other3, Lambda &f,
+                             cudaStream_t stream) {
     ASSERT(ord == other1.ord,
            "SimpleMat::assign_ternary: Storage orders must match");
     ASSERT(ord == other2.ord,
@@ -180,7 +181,8 @@ template <typename T> struct SimpleMat {
   void operator=(const SimpleMat<T> &other) = delete;
 };
 
-template <typename T> struct SimpleVec : SimpleMat<T> {
+template <typename T>
+struct SimpleVec : SimpleMat<T> {
   typedef SimpleMat<T> Super;
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
@@ -294,7 +296,8 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   return os;
 }
 
-template <typename T> struct SimpleVecOwning : SimpleVec<T> {
+template <typename T>
+struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   typedef MLCommon::device_buffer<T> Buffer;
   Buffer buf;
@@ -303,15 +306,15 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
                   cudaStream_t stream)
-      : Super(), buf(allocator, stream, n) {
-
+    : Super(), buf(allocator, stream, n) {
     Super::reset(buf.data(), n);
   }
 
   void operator=(const SimpleVec<T> &other) = delete;
 };
 
-template <typename T> struct SimpleMatOwning : SimpleMat<T> {
+template <typename T>
+struct SimpleMatOwning : SimpleMat<T> {
   typedef SimpleMat<T> Super;
   typedef MLCommon::device_buffer<T> Buffer;
   Buffer buf;
@@ -323,11 +326,11 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
                   cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
-      : Super(order), buf(allocator, stream, m * n) {
+    : Super(order), buf(allocator, stream, m * n) {
     Super::reset(buf.data(), m, n);
   }
 
   void operator=(const SimpleVec<T> &other) = delete;
 };
 
-}; // namespace ML
+};  // namespace ML

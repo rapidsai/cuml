@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-
+#include "common/cuml_allocator.hpp"
 #include "csr.h"
 
 #include "cusparse_wrappers.h"
@@ -22,19 +22,19 @@
 #include <cusparse_v2.h>
 
 #include <thrust/device_ptr.h>
-#include <thrust/scan.h>
 #include <thrust/device_vector.h>
+#include <thrust/scan.h>
 
-#include "cuda_utils.h"
 #include <cuda_runtime.h>
+#include "cuda_utils.h"
 
 #include <iostream>
+#define restrict __restrict__
 
 #pragma once
 
 namespace MLCommon {
 namespace Sparse {
-
 
 /** @brief A Container object for sparse coordinate
  * format.
@@ -42,29 +42,34 @@ namespace Sparse {
  * @tparam T: the type of the value array.
  *
  */
-template<typename T>
+template <typename T>
 class COO {
+ protected:
+  bool owner;
 
-    protected:
-       bool owner;
-    public:
-       int *rows;
-       int *cols;
-       T *vals;
-       int nnz;
-       int n_rows;
-       int n_cols;
-       bool device;
+ public:
+  int *rows;
+  int *cols;
+  T *vals;
+  int nnz;
+  int n_rows;
+  int n_cols;
+  bool device;
 
-
-       /**
+  /**
         * @param device: are the underlying arrays going to be on device?
         */
-       COO(bool device = true): rows(nullptr), cols(nullptr), vals(nullptr),
-               nnz(-1), n_rows(-1), n_cols(-1),
-               device(device), owner(true){}
+  COO(bool device = true)
+    : rows(nullptr),
+      cols(nullptr),
+      vals(nullptr),
+      nnz(-1),
+      n_rows(-1),
+      n_cols(-1),
+      device(device),
+      owner(true) {}
 
-       /**
+  /**
         * @param rows: coo rows array
         * @param cols: coo cols array
         * @param vals: coo vals array
@@ -73,128 +78,125 @@ class COO {
         * @param n_cols: number of cols in the dense matrix
         * @param device: are the underlying arrays on device?
         */
-       COO(int *rows, int *cols, T *vals,
-               int nnz, int n_rows = -1, int n_cols = -1,
-               bool device = true):
-           rows(rows), cols(cols), vals(vals),
-           nnz(nnz), n_rows(n_rows), n_cols(n_cols),
-           device(device), owner(false){}
+  COO(int *rows, int *cols, T *vals, int nnz, int n_rows = -1, int n_cols = -1,
+      bool device = true)
+    : rows(rows),
+      cols(cols),
+      vals(vals),
+      nnz(nnz),
+      n_rows(n_rows),
+      n_cols(n_cols),
+      device(device),
+      owner(false) {}
 
-       /**
+  /**
         * @param nnz: size of the rows/cols/vals arrays
         * @param n_rows: number of rows in the dense matrix
         * @param n_cols: number of cols in the dense matrix
         * @param device: are the underlying arrays on device?
         */
-       COO(int nnz,
-               int n_rows = -1, int n_cols = -1,
-               bool device = true, bool init = true):
-           rows(nullptr), cols(nullptr), vals(nullptr), nnz(nnz),
-           n_rows(n_rows), n_cols(n_cols),
-           device(device), owner(true){
-           this->allocate(nnz, n_rows, n_cols, device, init);
-       }
+  COO(int nnz, int n_rows = -1, int n_cols = -1, bool device = true,
+      bool init = true)
+    : rows(nullptr),
+      cols(nullptr),
+      vals(nullptr),
+      nnz(nnz),
+      n_rows(n_rows),
+      n_cols(n_cols),
+      device(device),
+      owner(true) {
+    this->allocate(nnz, n_rows, n_cols, device, init);
+  }
 
+  ~COO() { this->destroy(); }
 
-       ~COO() {
-           this->destroy();
-       }
-
-       /**
+  /**
         * @brief Size should be > 0, with the number of rows
         * and cols in the dense matrix being > 0.
         */
-       bool validate_size() const {
-           if(this->nnz < 0 || n_rows < 0 || n_cols < 0)
-               return false;
-           return true;
-       }
+  bool validate_size() const {
+    if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
+    return true;
+  }
 
-       /**
+  /**
         * @brief If the underlying arrays have not been set,
         * return false. Otherwise true.
         */
-       bool validate_mem() const {
-           if(this->rows == nullptr ||
-                   this->cols == nullptr ||
-                   this->vals == nullptr) {
-               return false;
-           }
+  bool validate_mem() const {
+    if (this->rows == nullptr || this->cols == nullptr ||
+        this->vals == nullptr) {
+      return false;
+    }
 
-           return true;
-       }
+    return true;
+  }
 
-       /**
+  /**
         * @brief Send human-readable state information to output stream
         */
-       friend std::ostream & operator << (std::ostream &out, const COO<T> &c) {
+  friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
+    if (c.validate_size() && c.validate_mem()) {
+      cudaStream_t stream;
+      cudaStreamCreate(&stream);
 
-           if(c.validate_size() && c.validate_mem() ) {
+      out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
+      out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
+      out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
+      out << "nnz=" << c.nnz << std::endl;
+      out << "n_rows=" << c.n_rows << std::endl;
+      out << "n_cols=" << c.n_cols << std::endl;
+      out << "owner=" << c.owner << std::endl;
 
-               cudaStream_t stream;
-               cudaStreamCreate(&stream);
+      cudaStreamDestroy(stream);
+    } else {
+      out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
+    }
 
-               out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
-               out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
-               out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
-               out << "nnz=" << c.nnz << std::endl;
-               out << "n_rows=" << c.n_rows << std::endl;
-               out << "n_cols=" << c.n_cols << std::endl;
-               out << "owner=" << c.owner << std::endl;
+    return out;
+  }
 
-               cudaStreamDestroy(stream);
-           } else {
-               out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
-           }
-
-           return out;
-       }
-
-       /**
+  /**
         * @brief Set the number of rows and cols
         * @param n_rows: number of rows in the dense matrix
         * @param n_cols: number of columns in the dense matrix
         */
-       void setSize(int n_rows, int n_cols) {
-           this->n_rows = n_rows;
-           this->n_cols = n_cols;
-       }
+  void setSize(int n_rows, int n_cols) {
+    this->n_rows = n_rows;
+    this->n_cols = n_cols;
+  }
 
-       /**
+  /**
         * @brief Set the number of rows and cols for a square dense matrix
         * @param n: number of rows and cols
         */
-       void setSize(int n) {
-           this->n_rows = n;
-           this->n_cols = n;
-       }
+  void setSize(int n) {
+    this->n_rows = n;
+    this->n_cols = n;
+  }
 
-       /**
+  /**
         * @brief Allocate the underlying arrays
         * @param nnz: size of underlying row/col/val arrays
         * @param device: allocate on device or host?
         * @param init: should values be initialized to 0?
         */
-       void allocate(int nnz,
-               bool device = true,
-               bool init = true) {
-           this->allocate(nnz, -1, device, init);
-       }
+  void allocate(int nnz, bool device = true, bool init = true) {
+    this->allocate(nnz, -1, device, init);
+  }
 
-       /**
+  /**
         * @brief Allocate the underlying arrays
         * @param nnz: size of the underlying row/col/val arrays
         * @param size: the number of rows/cols in a square dense matrix
         * @param device: allocate on device or host?
         * @param init: should values be initialized to 0?
         */
-       void allocate(int nnz, int size,
-               bool device = true,
-               bool init = true) {
-           this->allocate(nnz, size, size, device, init);
-       }
+  void allocate(int nnz, int size, bool device = true, bool init = true) {
+    this->allocate(nnz, size, size, device, init);
+  }
 
-       /**
+  /**
         * @brief Allocate the underlying arrays
         * @param nnz: size of the underlying row/col/val arrays
         * @param n_rows: number of rows in the dense matrix
@@ -202,99 +204,76 @@ class COO {
         * @param device: allocate on device or host?
         * @param init: should values be initialized to 0?
         */
-       void allocate(int nnz, int n_rows, int n_cols,
-               bool device = true,
-               bool init = true) {
-           this->n_rows = n_rows;
-           this->n_cols = n_cols;
-           this->nnz = nnz;
-           this->owner = true;
+  void allocate(int nnz, int n_rows, int n_cols, bool device = true,
+                bool init = true) {
+    this->n_rows = n_rows;
+    this->n_cols = n_cols;
+    this->nnz = nnz;
+    this->owner = true;
 
-           if(device) {
-               MLCommon::allocate(this->rows, this->nnz, init);
-               MLCommon::allocate(this->cols, this->nnz, init);
-               MLCommon::allocate(this->vals, this->nnz, init);
-           } else {
-               this->rows = (int*)malloc(this->nnz*sizeof(int));
-               this->cols = (int*)malloc(this->nnz*sizeof(int));
-               this->vals = (T*)malloc(this->nnz*sizeof(T));
-           }
-       }
+    if (device) {
+      MLCommon::allocate(this->rows, this->nnz, init);
+      MLCommon::allocate(this->cols, this->nnz, init);
+      MLCommon::allocate(this->vals, this->nnz, init);
+    } else {
+      this->rows = (int *)malloc(this->nnz * sizeof(int));
+      this->cols = (int *)malloc(this->nnz * sizeof(int));
+      this->vals = (T *)malloc(this->nnz * sizeof(T));
+    }
+  }
 
-       /**
+  /**
         * @brief Deallocate the underlying arrays if this object
         * owns the underlying memory
         */
-       void destroy() {
+  void destroy() {
+    if (this->owner) {
+      try {
+        if (rows != nullptr) {
+          if (this->device)
+            CUDA_CHECK(cudaFree(rows));
+          else
+            free(rows);
+        }
 
-           if(this->owner) {
-               try {
-                   if(rows != nullptr) {
-                       if(this->device)
-                           CUDA_CHECK(cudaFree(rows));
-                       else
-                           free(rows);
-                   }
+        if (cols != nullptr) {
+          if (this->device)
+            CUDA_CHECK(cudaFree(cols));
+          else
+            free(cols);
+        }
 
-                   if(cols != nullptr) {
-                       if(this->device)
-                           CUDA_CHECK(cudaFree(cols));
-                       else
-                           free(cols);
-                   }
+        if (vals != nullptr) {
+          if (this->device)
+            CUDA_CHECK(cudaFree(vals));
+          else
+            free(vals);
+        }
 
-                   if(vals != nullptr) {
-                       if(this->device)
-                           CUDA_CHECK(cudaFree(vals));
-                       else
-                           free(vals);
-                   }
+        rows = nullptr;
+        cols = nullptr;
+        vals = nullptr;
 
-                   rows = nullptr;
-                   cols = nullptr;
-                   vals = nullptr;
-
-               } catch(Exception &e) {
-                   std::cout << "An exception occurred freeing COO memory" << std::endl;
-               }
-           }
-       }
+      } catch (Exception &e) {
+        std::cout << "An exception occurred freeing COO memory" << std::endl;
+      }
+    }
+  }
 };
 
-
-template<typename T>
-cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
-        int nnz,
-        float *vals,
-        float *vals_sorted,
-        int *d_P) {
-    return cusparseSgthr(
-        handle,
-        nnz,
-        vals,
-        vals_sorted,
-        d_P,
-        CUSPARSE_INDEX_BASE_ZERO
-    );
+template <typename T>
+cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, float *vals,
+                               float *vals_sorted, int *d_P) {
+  return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
+                       CUSPARSE_INDEX_BASE_ZERO);
 }
 
-template<typename T>
-cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
-        int nnz,
-        double *vals,
-        double *vals_sorted,
-        int *d_P) {
-    return cusparseDgthr(
-        handle,
-        nnz,
-        vals,
-        vals_sorted,
-        d_P,
-        CUSPARSE_INDEX_BASE_ZERO
-    );
+template <typename T>
+cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, double *vals,
+                               double *vals_sorted, int *d_P) {
+  return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
+                       CUSPARSE_INDEX_BASE_ZERO);
 }
-
-
 
 /**
  * @brief Sorts the arrays that comprise the coo matrix
@@ -307,72 +286,44 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
  * @param vals vals array from coo matrix
  * @param stream: cuda stream to use
  */
-template<typename T>
-void coo_sort(int m, int n, int nnz,
-              int *rows, int *cols, T *vals,
+template <typename T>
+void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
               cudaStream_t stream = 0) {
+  cusparseHandle_t handle = NULL;
 
-    cusparseHandle_t handle = NULL;
+  size_t pBufferSizeInBytes = 0;
+  void *pBuffer = NULL;
+  int *d_P = NULL;
 
-    size_t pBufferSizeInBytes = 0;
-    void *pBuffer = NULL;
-    int *d_P = NULL;
+  CUSPARSE_CHECK(cusparseCreate(&handle));
 
-    CUSPARSE_CHECK(cusparseCreate(&handle));
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-    CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, rows, cols,
+                                                &pBufferSizeInBytes));
 
-    CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(
-        handle,
-        m,
-        n,
-        nnz,
-        rows,
-        cols,
-        &pBufferSizeInBytes
-    ));
+  allocate(d_P, nnz);
+  cudaMalloc(&pBuffer, pBufferSizeInBytes * sizeof(char));
 
-    allocate(d_P, nnz);
-    cudaMalloc(&pBuffer, pBufferSizeInBytes*sizeof(char));
+  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, d_P));
 
-    CUSPARSE_CHECK(cusparseCreateIdentityPermutation(
-        handle,
-        nnz,
-        d_P));
+  CUSPARSE_CHECK(
+    cusparseXcoosortByRow(handle, m, n, nnz, rows, cols, d_P, pBuffer));
 
-    CUSPARSE_CHECK(cusparseXcoosortByRow(
-        handle,
-        m,
-        n,
-        nnz,
-        rows,
-        cols,
-        d_P,
-        pBuffer
-    ));
+  T *vals_sorted;
+  allocate(vals_sorted, nnz);
 
-    T* vals_sorted;
-    allocate(vals_sorted, nnz);
+  CUSPARSE_CHECK(cusparse_gthr<T>(handle, nnz, vals, vals_sorted, d_P));
 
-    CUSPARSE_CHECK(cusparse_gthr<T>(
-        handle,
-        nnz,
-        vals,
-        vals_sorted,
-        d_P
-    ));
+  cudaDeviceSynchronize();
 
-    cudaDeviceSynchronize();
+  copy(vals, vals_sorted, nnz, stream);
 
-
-    copy(vals, vals_sorted, nnz, stream);
-
-    cudaFree(d_P);
-    cudaFree(vals_sorted);
-    cudaFree(pBuffer);
-    CUSPARSE_CHECK(cusparseDestroy(handle));
+  cudaFree(d_P);
+  cudaFree(vals_sorted);
+  cudaFree(pBuffer);
+  CUSPARSE_CHECK(cusparseDestroy(handle));
 }
-
 
 /**
  * @brief Sort the underlying COO arrays by row
@@ -380,62 +331,57 @@ void coo_sort(int m, int n, int nnz,
  * @param in: COO to sort by row
  * @param stream: the cuda stream to use
  */
-template<typename T>
- void coo_sort(COO<T>* const in, cudaStream_t stream = 0) {
-     coo_sort<T>(in->n_rows, in->n_cols, in->nnz,
-             in->rows, in->cols, in->vals, stream);
- }
-
-
-template<int TPB_X, typename T>
-__global__ void coo_remove_zeros_kernel(
-        const int *rows, const int *cols, const T *vals, int nnz,
-        int *crows, int *ccols, T *cvals,
-        int *ex_scan, int *cur_ex_scan, int m) {
-
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-    if (row < m) {
-        int start = cur_ex_scan[row];
-        int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
-        int cur_out_idx = ex_scan[row];
-
-        for (int idx = start; idx < stop; idx++) {
-            if (vals[idx] != 0.0) {
-                crows[cur_out_idx] = rows[idx];
-                ccols[cur_out_idx] = cols[idx];
-                cvals[cur_out_idx] = vals[idx];
-                ++cur_out_idx;
-            }
-        }
-    }
+template <typename T>
+void coo_sort(COO<T> *const in, cudaStream_t stream = 0) {
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows, in->cols, in->vals,
+              stream);
 }
 
-template<int TPB_X, typename T>
-__global__ void coo_remove_scalar_kernel(
-        const int *rows, const int *cols, const T *vals, int nnz,
-        int *crows, int *ccols, T *cvals,
-        int *ex_scan, int *cur_ex_scan, int m, T scalar) {
+template <int TPB_X, typename T>
+__global__ void coo_remove_zeros_kernel(const int *rows, const int *cols,
+                                        const T *vals, int nnz, int *crows,
+                                        int *ccols, T *cvals, int *ex_scan,
+                                        int *cur_ex_scan, int m) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < m) {
+    int start = cur_ex_scan[row];
+    int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+    int cur_out_idx = ex_scan[row];
 
-    if (row < m) {
-        int start = cur_ex_scan[row];
-        int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
-        int cur_out_idx = ex_scan[row];
-
-        for (int idx = start; idx < stop; idx++) {
-            if (vals[idx] != scalar) {
-                crows[cur_out_idx] = rows[idx];
-                ccols[cur_out_idx] = cols[idx];
-                cvals[cur_out_idx] = vals[idx];
-                ++cur_out_idx;
-            }
-        }
+    for (int idx = start; idx < stop; idx++) {
+      if (vals[idx] != 0.0) {
+        crows[cur_out_idx] = rows[idx];
+        ccols[cur_out_idx] = cols[idx];
+        cvals[cur_out_idx] = vals[idx];
+        ++cur_out_idx;
+      }
     }
+  }
 }
 
+template <int TPB_X, typename T>
+__global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
+                                         const T *vals, int nnz, int *crows,
+                                         int *ccols, T *cvals, int *ex_scan,
+                                         int *cur_ex_scan, int m, T scalar) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
+  if (row < m) {
+    int start = cur_ex_scan[row];
+    int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+    int cur_out_idx = ex_scan[row];
+
+    for (int idx = start; idx < stop; idx++) {
+      if (vals[idx] != scalar) {
+        crows[cur_out_idx] = rows[idx];
+        ccols[cur_out_idx] = cols[idx];
+        cvals[cur_out_idx] = vals[idx];
+        ++cur_out_idx;
+      }
+    }
+  }
+}
 
 /**
  * @brief Count all the rows in the coo row array and place them in the
@@ -446,13 +392,12 @@ __global__ void coo_remove_scalar_kernel(
  * @param nnz the size of the rows array
  * @param results array to place results
  */
-template<int TPB_X>
-__global__ void coo_row_count_kernel(int* const rows, int nnz,
-        int *results) {
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
-    if(row < nnz) {
-        atomicAdd(results+rows[row], 1);
-    }
+template <int TPB_X>
+__global__ void coo_row_count_kernel(int *const rows, int nnz, int *results) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < nnz) {
+    atomicAdd(results + rows[row], 1);
+  }
 }
 
 /**
@@ -463,14 +408,14 @@ __global__ void coo_row_count_kernel(int* const rows, int nnz,
  * @param results: output result array
  * @param stream: cuda stream to use
  */
-template<int TPB_X>
-void coo_row_count(int* const rows, int nnz, int *results,
-        cudaStream_t stream) {
-    dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X>
+void coo_row_count(int *const rows, int nnz, int *results,
+                   cudaStream_t stream) {
+  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc, 0, stream>>>(
-            rows, nnz, results);
+  coo_row_count_kernel<TPB_X>
+    <<<grid_rc, blk_rc, 0, stream>>>(rows, nnz, results);
 }
 
 /**
@@ -481,31 +426,31 @@ void coo_row_count(int* const rows, int nnz, int *results,
  * @param results: output array with row counts (size=in->n_rows)
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_row_count(COO<T>* const in, int *results, cudaStream_t stream = 0) {
-    dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X, typename T>
+void coo_row_count(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc, 0, stream>>>(
-            in->rows, in->nnz, results);
+  coo_row_count_kernel<TPB_X>
+    <<<grid_rc, blk_rc, 0, stream>>>(in->rows, in->nnz, results);
 }
 
-template<int TPB_X, typename T>
-__global__ void coo_row_count_nz_kernel(int* const rows, T* const vals, int nnz,
-        int *results) {
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
-    if(row < nnz && vals[row] != 0.0) {
-        atomicAdd(results+rows[row], 1);
-    }
+template <int TPB_X, typename T>
+__global__ void coo_row_count_nz_kernel(int *const rows, T *const vals, int nnz,
+                                        int *results) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < nnz && vals[row] != 0.0) {
+    atomicAdd(results + rows[row], 1);
+  }
 }
 
-template<int TPB_X, typename T>
-__global__ void coo_row_count_scalar_kernel(int* const rows, T* const vals, int nnz,
-        T scalar, int *results) {
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
-    if(row < nnz && vals[row] != scalar) {
-        atomicAdd(results+rows[row], 1);
-    }
+template <int TPB_X, typename T>
+__global__ void coo_row_count_scalar_kernel(int *const rows, T *const vals,
+                                            int nnz, T scalar, int *results) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < nnz && vals[row] != scalar) {
+    atomicAdd(results + rows[row], 1);
+  }
 }
 
 /**
@@ -517,14 +462,14 @@ __global__ void coo_row_count_scalar_kernel(int* const rows, T* const vals, int 
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_row_count_scalar(COO<T>* const in, T scalar, int *results,
-        cudaStream_t stream = 0) {
-    dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X, typename T>
+void coo_row_count_scalar(COO<T> *const in, T scalar, int *results,
+                          cudaStream_t stream = 0) {
+  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
-            in->rows, in->vals, in->nnz, scalar, results);
+  coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc, blk_rc, 0, stream>>>(
+    in->rows, in->vals, in->nnz, scalar, results);
 }
 
 /**
@@ -539,14 +484,14 @@ void coo_row_count_scalar(COO<T>* const in, T scalar, int *results,
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_row_count_scalar(int* const rows, T* const vals, int nnz, T scalar,
-        int *results, cudaStream_t stream = 0) {
-    dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X, typename T>
+void coo_row_count_scalar(int *const rows, T *const vals, int nnz, T scalar,
+                          int *results, cudaStream_t stream = 0) {
+  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
-            rows, vals, nnz, scalar, results);
+  coo_row_count_scalar_kernel<TPB_X, T>
+    <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, scalar, results);
 }
 
 /**
@@ -560,14 +505,14 @@ void coo_row_count_scalar(int* const rows, T* const vals, int nnz, T scalar,
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_row_count_nz(int* const rows, T* const vals, int nnz, int *results,
-        cudaStream_t stream = 0) {
-    dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X, typename T>
+void coo_row_count_nz(int *const rows, T *const vals, int nnz, int *results,
+                      cudaStream_t stream = 0) {
+  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
-            rows, vals, nnz, results);
+  coo_row_count_nz_kernel<TPB_X, T>
+    <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, results);
 }
 
 /**
@@ -578,16 +523,14 @@ void coo_row_count_nz(int* const rows, T* const vals, int nnz, int *results,
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_row_count_nz(COO<T>* const in, int *results, cudaStream_t stream = 0) {
-    dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
-    dim3 blk_rc(TPB_X, 1, 1);
+template <int TPB_X, typename T>
+void coo_row_count_nz(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
-            in->rows, in->vals, in->nnz, results);
+  coo_row_count_nz_kernel<TPB_X, T>
+    <<<grid_rc, blk_rc, 0, stream>>>(in->rows, in->vals, in->nnz, results);
 }
-
-
 
 /**
  * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
@@ -605,46 +548,37 @@ void coo_row_count_nz(COO<T>* const in, int *results, cudaStream_t stream = 0) {
  * @param n: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_remove_scalar(
-        const int *rows, const int *cols, const T *vals, int nnz,
-        int *crows, int *ccols, T *cvals,
-        int *cnnz, int *cur_cnnz, T scalar, int n,
-        cudaStream_t stream) {
+template <int TPB_X, typename T>
+void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
+                       int *crows, int *ccols, T *cvals, int *cnnz,
+                       int *cur_cnnz, T scalar, int n, cudaStream_t stream) {
+  int *ex_scan, *cur_ex_scan;
+  MLCommon::allocate(ex_scan, n, true);
+  MLCommon::allocate(cur_ex_scan, n, true);
 
-    int *ex_scan, *cur_ex_scan;
-    MLCommon::allocate(ex_scan, n, true);
-    MLCommon::allocate(cur_ex_scan, n, true);
+  thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(cnnz);
+  thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cnnz, dev_cnnz + n,
+                         dev_ex_scan);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(
-            cnnz);
-    thrust::device_ptr<int> dev_ex_scan =
-            thrust::device_pointer_cast(ex_scan);
-    thrust::exclusive_scan(thrust::cuda::par.on(stream),
-            dev_cnnz, dev_cnnz + n, dev_ex_scan);
-    CUDA_CHECK(cudaPeekAtLastError());
+  thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(cur_cnnz);
+  thrust::device_ptr<int> dev_cur_ex_scan =
+    thrust::device_pointer_cast(cur_ex_scan);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cur_cnnz,
+                         dev_cur_cnnz + n, dev_cur_ex_scan);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(
-            cur_cnnz);
-    thrust::device_ptr<int> dev_cur_ex_scan =
-            thrust::device_pointer_cast(cur_ex_scan);
-    thrust::exclusive_scan(thrust::cuda::par.on(stream),
-            dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
-    CUDA_CHECK(cudaPeekAtLastError());
+  dim3 grid(ceildiv(n, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
 
+  coo_remove_scalar_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+    rows, cols, vals, nnz, crows, ccols, cvals, dev_ex_scan.get(),
+    dev_cur_ex_scan.get(), n, scalar);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    dim3 grid(ceildiv(n, TPB_X), 1, 1);
-    dim3 blk(TPB_X, 1, 1);
-
-    coo_remove_scalar_kernel<TPB_X><<<grid, blk, 0, stream>>>(
-            rows, cols, vals, nnz,
-            crows, ccols, cvals,
-            dev_ex_scan.get(), dev_cur_ex_scan.get(), n, scalar
-    );
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(cur_ex_scan));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(cur_ex_scan));
 }
 
 /**
@@ -655,44 +589,37 @@ void coo_remove_scalar(
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_remove_scalar(COO<T>* const in,
-                    COO<T> *out,
-                    T scalar,
-                    cudaStream_t stream) {
+template <int TPB_X, typename T>
+void coo_remove_scalar(COO<T> *const in, COO<T> *out, T scalar,
+                       cudaStream_t stream) {
+  int *row_count_nz, *row_count;
 
-    int *row_count_nz, *row_count;
+  MLCommon::allocate(row_count, in->n_rows, true);
+  MLCommon::allocate(row_count_nz, in->n_rows, true);
 
-    MLCommon::allocate(row_count, in->n_rows, true);
-    MLCommon::allocate(row_count_nz, in->n_rows, true);
+  MLCommon::Sparse::coo_row_count<TPB_X>(in->rows, in->nnz, row_count, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    MLCommon::Sparse::coo_row_count<TPB_X>(
-            in->rows, in->nnz, row_count, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+  MLCommon::Sparse::coo_row_count_scalar<TPB_X>(in->rows, in->vals, in->nnz,
+                                                scalar, row_count_nz, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    MLCommon::Sparse::coo_row_count_scalar<TPB_X>(
-            in->rows, in->vals, in->nnz, scalar, row_count_nz,
-            stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+  thrust::device_ptr<int> d_row_count_nz =
+    thrust::device_pointer_cast(row_count_nz);
+  int out_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz,
+                               d_row_count_nz + in->n_rows);
 
-    thrust::device_ptr<int> d_row_count_nz =
-            thrust::device_pointer_cast(row_count_nz);
-    int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
-            d_row_count_nz, d_row_count_nz+in->n_rows);
+  out->allocate(out_nnz, in->n_rows, in->n_cols);
 
-    out->allocate(out_nnz, in->n_rows, in->n_cols);
+  coo_remove_scalar<TPB_X, T>(in->rows, in->cols, in->vals, in->nnz, out->rows,
+                              out->cols, out->vals, row_count_nz, row_count,
+                              scalar, in->n_rows, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-    coo_remove_scalar<TPB_X, T>(
-        in->rows, in->cols, in->vals, in->nnz,
-        out->rows, out->cols, out->vals,
-        row_count_nz, row_count, scalar, in->n_rows,
-        stream);
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    CUDA_CHECK(cudaFree(row_count));
-    CUDA_CHECK(cudaFree(row_count_nz));
+  CUDA_CHECK(cudaFree(row_count));
+  CUDA_CHECK(cudaFree(row_count_nz));
 }
 
 /**
@@ -702,26 +629,23 @@ void coo_remove_scalar(COO<T>* const in,
  * @param out: output COO matrix
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
-void coo_remove_zeros(COO<T>* const in,
-                    COO<T> *out,
-                    cudaStream_t stream) {
-    coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
+template <int TPB_X, typename T>
+void coo_remove_zeros(COO<T> *const in, COO<T> *out, cudaStream_t stream) {
+  coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
-template<int TPB_X, typename T>
-__global__ void from_knn_graph_kernel(long* const knn_indices, T* const knn_dists, int m, int k,
-        int *rows, int *cols, T *vals) {
-
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
-    if(row < m) {
-
-        for(int i = 0; i < k; i++) {
-            rows[row*k+i] = row;
-            cols[row*k+i] = knn_indices[row*k+i];
-            vals[row*k+i] = knn_dists[row*k+i];
-        }
+template <int TPB_X, typename T>
+__global__ void from_knn_graph_kernel(long *const knn_indices,
+                                      T *const knn_dists, int m, int k,
+                                      int *rows, int *cols, T *vals) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < m) {
+    for (int i = 0; i < k; i++) {
+      rows[row * k + i] = row;
+      cols[row * k + i] = knn_indices[row * k + i];
+      vals[row * k + i] = knn_dists[row * k + i];
     }
+  }
 }
 
 /**
@@ -736,28 +660,25 @@ __global__ void from_knn_graph_kernel(long* const knn_indices, T* const knn_dist
  * @param cols: output COO col array
  * @param vals: output COO val array
  */
-template<typename T>
-void from_knn(long* const knn_indices, T* const knn_dists, int m, int k,
-        int *rows, int *cols, T *vals) {
-
-    dim3 grid(ceildiv(m, 32), 1, 1);
-    dim3 blk(32, 1, 1);
-    from_knn_graph_kernel<32, T><<<grid, blk>>>(
-            knn_indices, knn_dists, m, k, rows, cols, vals);
+template <typename T>
+void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+              int *rows, int *cols, T *vals) {
+  dim3 grid(ceildiv(m, 32), 1, 1);
+  dim3 blk(32, 1, 1);
+  from_knn_graph_kernel<32, T>
+    <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
 }
 
 /**
  * Converts a knn graph, defined by index and distance matrices,
  * into COO format.
  */
-template<typename T>
-void from_knn(long* const knn_indices, T* const knn_dists, int m, int k,
-        COO<T> *out) {
+template <typename T>
+void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+              COO<T> *out) {
+  out->allocate(m * k, m, m);
 
-    out->allocate(m*k, m, m);
-
-    from_knn(knn_indices, knn_dists, m, k,
-            out->rows, out->cols, out->vals);
+  from_knn(knn_indices, knn_dists, m, k, out->rows, out->cols, out->vals);
 }
 
 /**
@@ -769,25 +690,24 @@ void from_knn(long* const knn_indices, T* const knn_dists, int m, int k,
  * @param m: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template<typename T>
-void sorted_coo_to_csr(
-        T* const rows, int nnz, T *row_ind, int m,
-        cudaStream_t stream = 0) {
+template <typename T>
+void sorted_coo_to_csr(T *const rows, int nnz, T *row_ind, int m,
+                       cudaStream_t stream = 0) {
+  T *row_counts;
+  MLCommon::allocate(row_counts, m, true);
 
-    T *row_counts;
-    MLCommon::allocate(row_counts, m, true);
+  dim3 grid(ceildiv(m, 32), 1, 1);
+  dim3 blk(32, 1, 1);
 
-    dim3 grid(ceildiv(m, 32), 1, 1);
-    dim3 blk(32, 1, 1);
+  coo_row_count<32>(rows, nnz, row_counts, stream);
 
-    coo_row_count<32>(rows, nnz, row_counts, stream);
+  // create csr compressed row index from row counts
+  thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
+  thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
+  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
+                 c_ind_d);
 
-    // create csr compressed row index from row counts
-    thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
-    thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-    exclusive_scan(thrust::cuda::par.on(stream),row_counts_d, row_counts_d + m, c_ind_d);
-
-    CUDA_CHECK(cudaFree(row_counts));
+  CUDA_CHECK(cudaFree(row_counts));
 }
 
 /**
@@ -797,72 +717,65 @@ void sorted_coo_to_csr(
  * @param row_ind: output row indices array
  * @param stream: cuda stream to use
  */
-template<typename T>
-void sorted_coo_to_csr(COO<T>* const coo, int *row_ind, cudaStream_t stream = 0) {
-    sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
+template <typename T>
+void sorted_coo_to_csr(COO<T> *const coo, int *row_ind,
+                       cudaStream_t stream = 0) {
+  sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
 
-template< int TPB_X, typename T, typename Lambda>
-__global__ void coo_symmetrize_kernel(
-        int *row_ind, int *rows, int *cols, T *vals,
-        int *orows, int *ocols, T *ovals,
-        int n, int cnnz,
-        Lambda reduction_op) {
+template <int TPB_X, typename T, typename Lambda>
+__global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
+                                      T *vals, int *orows, int *ocols, T *ovals,
+                                      int n, int cnnz, Lambda reduction_op) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-    int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (row < n) {
+    int start_idx = row_ind[row];  // each thread processes one row
+    int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
-    if (row < n) {
+    int nnz = 0;
+    for (int idx = 0; idx < stop_idx - start_idx; idx++) {
+      int out_idx = start_idx * 2 + nnz;
+      int row_lookup = cols[idx + start_idx];
+      int t_start = row_ind[row_lookup];  // Start at
+      int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
 
-        int start_idx = row_ind[row]; // each thread processes one row
-        int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
-
-        int nnz = 0;
-        for (int idx = 0; idx < stop_idx-start_idx; idx++) {
-
-            int out_idx = start_idx*2+nnz;
-            int row_lookup = cols[idx+start_idx];
-            int t_start = row_ind[row_lookup]; // Start at
-            int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
-
-            T transpose = 0.0;
-            bool found_match = false;
-            for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-
-                // If we find a match, let's get out of the loop
-                if (cols[t_idx] == rows[idx+start_idx]
-                        && rows[t_idx] == cols[idx+start_idx]
-                        && vals[t_idx] != 0.0) {
-                    transpose = vals[t_idx];
-                    found_match = true;
-                    break;
-                }
-            }
-
-
-            // if we didn't find an exact match, we need to add
-            // the transposed value into our current matrix.
-            if (!found_match && vals[idx] != 0.0) {
-                orows[out_idx + nnz] = cols[idx+start_idx];
-                ocols[out_idx + nnz] = rows[idx+start_idx];
-                ovals[out_idx + nnz] = vals[idx+start_idx];
-                ++nnz;
-            }
-
-            T val = vals[idx+start_idx];
-
-            // Custom reduction op on value and its transpose
-            T res = reduction_op(rows[idx+start_idx], cols[idx+start_idx], val, transpose);
-
-            if (res != 0.0) {
-                orows[out_idx + nnz] = rows[idx+start_idx];
-                ocols[out_idx + nnz] = cols[idx+start_idx];
-                ovals[out_idx + nnz] = T(res);
-                ++nnz;
-            }
+      T transpose = 0.0;
+      bool found_match = false;
+      for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
+        // If we find a match, let's get out of the loop
+        if (cols[t_idx] == rows[idx + start_idx] &&
+            rows[t_idx] == cols[idx + start_idx] && vals[t_idx] != 0.0) {
+          transpose = vals[t_idx];
+          found_match = true;
+          break;
         }
-    }
-}
+      }
 
+      // if we didn't find an exact match, we need to add
+      // the transposed value into our current matrix.
+      if (!found_match && vals[idx] != 0.0) {
+        orows[out_idx + nnz] = cols[idx + start_idx];
+        ocols[out_idx + nnz] = rows[idx + start_idx];
+        ovals[out_idx + nnz] = vals[idx + start_idx];
+        ++nnz;
+      }
+
+      T val = vals[idx + start_idx];
+
+      // Custom reduction op on value and its transpose
+      T res = reduction_op(rows[idx + start_idx], cols[idx + start_idx], val,
+                           transpose);
+
+      if (res != 0.0) {
+        orows[out_idx + nnz] = rows[idx + start_idx];
+        ocols[out_idx + nnz] = cols[idx + start_idx];
+        ovals[out_idx + nnz] = T(res);
+        ++nnz;
+      }
+    }
+  }
+}
 
 /**
  * @brief takes a COO matrix which may not be symmetric and symmetrizes
@@ -874,32 +787,186 @@ __global__ void coo_symmetrize_kernel(
  * @param reduction_op: a custom reduction function
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T, typename Lambda>
-void coo_symmetrize(COO<T>* const in,
-                    COO<T> *out,
-                    Lambda reduction_op, // two-argument reducer
+template <int TPB_X, typename T, typename Lambda>
+void coo_symmetrize(COO<T> *const in, COO<T> *out,
+                    Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream) {
+  dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
 
-    dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
-    dim3 blk(TPB_X, 1, 1);
+  ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-    ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
+  int *in_row_ind;
+  MLCommon::allocate(in_row_ind, in->n_rows);
 
-    int *in_row_ind;
-    MLCommon::allocate(in_row_ind, in->n_rows);
+  sorted_coo_to_csr(in, in_row_ind, stream);
 
-    sorted_coo_to_csr(in, in_row_ind, stream);
+  out->allocate(in->nnz * 2, in->n_rows, in->n_cols);
 
-    out->allocate(in->nnz*2, in->n_rows, in->n_cols);
-
-    coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
-            in_row_ind, in->rows, in->cols, in->vals,
-            out->rows, out->cols, out->vals,
-            in->n_rows, in->nnz, reduction_op
-    );
-    CUDA_CHECK(cudaPeekAtLastError());
-
+  coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
+    in_row_ind, in->rows, in->cols, in->vals, out->rows, out->cols, out->vals,
+    in->n_rows, in->nnz, reduction_op);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};
-};
+/**
+ * @brief Find how much space needed in each row.
+ * We look through all datapoints and increment the count for each row.
+ *
+ * @param data: Input knn distances(n, k)
+ * @param indices: Input knn indices(n, k)
+ * @param n: Number of rows
+ * @param k: Number of n_neighbors
+ * @param row_sizes: Input empty row sum 1 array(n)
+ * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
+ */
+template <typename math_t>
+__global__ static void symmetric_find_size(const math_t *restrict data,
+                                           const long *restrict indices,
+                                           const int n, const int k,
+                                           int *restrict row_sizes,
+                                           int *restrict row_sizes2) {
+  const int j =
+    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+  if (row >= n || j >= k) return;
+
+  const int col = indices[row * k + j];
+  if (j % 2)
+    atomicAdd(&row_sizes[col], 1);
+  else
+    atomicAdd(&row_sizes2[col], 1);
+}
+
+/**
+ * @brief Reduce sum(row_sizes) + k
+ * Reduction for symmetric_find_size kernel. Allows algo to be faster.
+ *
+ * @param n: Number of rows
+ * @param k: Number of n_neighbors
+ * @param row_sizes: Input row sum 1 array(n)
+ * @param row_sizes2: Input row sum 2 array(n) for faster reduction
+ */
+__global__ static void reduce_find_size(const int n, const int k,
+                                        int *restrict row_sizes,
+                                        const int *restrict row_sizes2) {
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (i >= n) return;
+  row_sizes[i] += (row_sizes2[i] + k);
+}
+
+/**
+ * @brief Perform data + data.T operation.
+ * Can only run once row_sizes from the CSR matrix of data + data.T has been
+ * determined.
+ *
+ * @param edges: Input row sum array(n) after reduction
+ * @param data: Input knn distances(n, k)
+ * @param indices: Input knn indices(n, k)
+ * @param VAL: Output values for data + data.T
+ * @param COL: Output column indices for data + data.T
+ * @param ROW: Output row indices for data + data.T
+ * @param n: Number of rows
+ * @param k: Number of n_neighbors
+ */
+template <typename math_t>
+__global__ static void symmetric_sum(int *restrict edges,
+                                     const math_t *restrict data,
+                                     const long *restrict indices,
+                                     math_t *restrict VAL, int *restrict COL,
+                                     int *restrict ROW, const int n,
+                                     const int k) {
+  const int j =
+    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+  if (row >= n || j >= k) return;
+
+  const int col = indices[row * k + j];
+  const int original = atomicAdd(&edges[row], 1);
+  const int transpose = atomicAdd(&edges[col], 1);
+
+  VAL[transpose] = VAL[original] = data[row * k + j];
+  // Notice swapped ROW, COL since transpose
+  ROW[original] = row;
+  COL[original] = col;
+
+  ROW[transpose] = col;
+  COL[transpose] = row;
+}
+
+/**
+ * @brief Perform data + data.T on raw KNN data.
+ * The following steps are invoked:
+ * (1) Find how much space needed in each row
+ * (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
+ * (3) Allocate new space
+ * (4) Prepare edges for each new row
+ * (5) Perform final data + data.T operation
+ * (6) Return summed up VAL, COL, ROW
+ *
+ * @param knn_indices: Input knn distances(n, k)
+ * @param knn_dists: Input knn indices(n, k)
+ * @param n: Number of rows
+ * @param k: Number of n_neighbors
+ * @param out: Output COO Matrix class
+ * @param stream: Input cuda stream
+ */
+template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
+void from_knn_symmetrize_matrix(const long *restrict knn_indices,
+                                const math_t *restrict knn_dists, const int n,
+                                const int k, COO<math_t> *out,
+                                cudaStream_t stream,
+                                std::shared_ptr<deviceAllocator> d_alloc) {
+  // (1) Find how much space needed in each row
+  // We look through all datapoints and increment the count for each row.
+  const dim3 threadsPerBlock(TPB_X, TPB_Y);
+  const dim3 numBlocks(MLCommon::ceildiv(k, TPB_X),
+                       MLCommon::ceildiv(n, TPB_Y));
+
+  // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
+  int *row_sizes = (int *)d_alloc->allocate(sizeof(int) * n, stream);
+  CUDA_CHECK(cudaMemsetAsync(row_sizes, 0, sizeof(int) * n, stream));
+
+  int *row_sizes2 = (int *)d_alloc->allocate(sizeof(int) * n, stream);
+  CUDA_CHECK(cudaMemsetAsync(row_sizes2, 0, sizeof(int) * n, stream));
+
+  symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
+    knn_dists, knn_indices, n, k, row_sizes, row_sizes2);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
+    n, k, row_sizes, row_sizes2);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
+  // Notice we don't do any merging and leave the result as 2*NNZ
+  const int NNZ = 2 * n * k;
+
+  // (3) Allocate new space
+  out->allocate(NNZ, n, n);
+
+  // (4) Prepare edges for each new row
+  // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
+  // are calculated as the cumulative rolling sum of the previous rows.
+  // Notice reusing old row_sizes2 memory
+  int *edges = row_sizes2;
+  thrust::device_ptr<int> __edges = thrust::device_pointer_cast(edges);
+  thrust::device_ptr<int> __row_sizes = thrust::device_pointer_cast(row_sizes);
+
+  // Rolling cumulative sum
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
+                         __row_sizes + n, __edges);
+  // Set last to NNZ only if CSR needed
+  // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
+
+  // (5) Perform final data + data.T operation in tandem with memcpying
+  symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
+    edges, knn_dists, knn_indices, out->vals, out->cols, out->rows, n, k);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);
+  d_alloc->deallocate(row_sizes2, sizeof(int) * n, stream);
+}
+
+};  // namespace Sparse
+};  // namespace MLCommon

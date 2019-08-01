@@ -18,10 +18,11 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
+   deep-clean    - same as 'clean' option, but also cleans up the faiss build
    libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
                    around the C++ code.
    cuml          - build the cuml Python package
@@ -37,9 +38,9 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
+CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
-# TODO: consider adding the faiss build dir to clean, possibly only done with a
-# new "deep-clean" target.
+FAISS_DIR=${REPODIR}/thirdparty/faiss
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -48,6 +49,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 MULTIGPU=""
+CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -91,9 +93,12 @@ fi
 if hasArg --multigpu; then
     MULTIGPU=--multigpu
 fi
+if hasArg deep-clean || hasArg clean; then
+    CLEAN=1
+fi
 
 # If clean given, run it prior to any other steps
-if hasArg clean; then
+if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
     # contents should be removed but the mounted dirs will remain.
     # The find removes all contents but leaves the dirs, the rmdir
@@ -104,6 +109,14 @@ if hasArg clean; then
 	    rmdir ${bd} || true
 	fi
     done
+fi
+
+# clean the faiss build also, if asked
+if hasArg deep-clean; then
+    cd ${FAISS_DIR}
+    make clean
+    cd gpu
+    make clean
 fi
 
 ################################################################################
@@ -125,13 +138,32 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+
+fi
+
+# Run all make targets at once
+MAKE_TARGETS=
+if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
+fi
+if (( ${NUMARGS} == 0 )) || hasArg prims; then
+    MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
 
 # Build and (optionally) install libcuml + tests
-if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
-
+if [ "${MAKE_TARGETS}" != "" ]; then
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} cuml++ cuml ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+
+    mkdir -p ${CUML_COMMS_BUILD_DIR}
+    cd ${CUML_COMMS_BUILD_DIR}
+
+    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DWITH_UCX=OFF \
+          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
+
+    cd ${CUML_COMMS_BUILD_DIR}
+    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
 # Build and (optionally) install the cuml Python package
@@ -144,11 +176,4 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
     else
 	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
     fi
-fi
-
-# Build the ML prims tests
-if (( ${NUMARGS} == 0 )) || hasArg prims; then
-
-    cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} prims
 fi
