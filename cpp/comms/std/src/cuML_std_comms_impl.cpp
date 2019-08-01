@@ -406,4 +406,37 @@ void cumlStdCommunicator_impl::reducescatter(const void *sendbuff,
                                _nccl_comm, stream));
 }
 
+MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(cudaStream_t stream) const {
+  cudaError_t cudaErr;
+  ncclResult_t ncclErr, ncclAsyncErr;
+  while (1) {
+    cudaErr = cudaStreamQuery(stream);
+    if (cudaErr == cudaSuccess) return status_t::commStatusSuccess;
+
+    if (cudaErr != cudaErrorNotReady) {
+      printf("CUDA Error : cudaStreamQuery returned %d\n", cudaErr);
+      return status_t::commStatusError;
+    }
+
+    ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
+    if (ncclErr != ncclSuccess) {
+      printf("NCCL Error : ncclCommGetAsyncError returned %d\n", ncclErr);
+      return status_t::commStatusError;
+    }
+
+    if (ncclAsyncErr != ncclSuccess) {
+      // An asynchronous error happened. Stop the operation and destroy
+      // the communicator
+      ncclErr = ncclCommAbort(_nccl_comm);
+      if (ncclErr != ncclSuccess)
+        printf("NCCL Error : ncclCommDestroy returned %d\n", ncclErr);
+      // Caller may abort or try to re-create a new communicator.
+      return status_t::commStatusAbort;
+    }
+
+    // Let other threads (including NCCL threads) use the CPU.
+    pthread_yield();
+  }
+}
+
 }  // end namespace ML

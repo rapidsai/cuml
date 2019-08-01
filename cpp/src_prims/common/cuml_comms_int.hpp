@@ -38,27 +38,29 @@ class cumlCommunicator_iface;
  * a comms stack with MPI semantics.
  */
 class cumlCommunicator {
-public:
-    typedef unsigned int request_t;
-    enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
-    enum op_t { SUM, PROD, MIN, MAX };
+ public:
+  typedef unsigned int request_t;
+  enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
+  enum op_t { SUM, PROD, MIN, MAX };
 
-    template<typename T>
-    datatype_t getDataType() const;
+  enum status_t { commStatusSuccess, commStatusError, commStatusAbort };
 
-    cumlCommunicator() =delete;
-    cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
+  template <typename T>
+  datatype_t getDataType() const;
 
-    /**
+  cumlCommunicator() = delete;
+  cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
+
+  /**
      * Returns the size of the group associated with the underlying communicator.
      */
-    int getSize() const;
-    /**
+  int getSize() const;
+  /**
      * Determines the rank of the calling process in the underlying communicator.
      */
-    int getRank() const;
+  int getRank() const;
 
-    /**
+  /**
      * Creates new communicators based on colors and keys following the sematics of MPI_Comm_split.
      *
      * Note: Issuing concurrent communication requests to overlapping communicators can cause a 
@@ -68,14 +70,16 @@ public:
      * @param[in]   key     Control of rank assignment
      * @return              new communicator instance containing only the ranks with the same color
      */
-    cumlCommunicator commSplit( int color, int key ) const;
+  cumlCommunicator commSplit(int color, int key) const;
 
-    /**
+  /**
      * Synchronization all ranks for the underlying communicator.
      */
-    void barrier() const;
+  void barrier() const;
 
-    /**
+  status_t syncStream(cudaStream_t stream) const;
+
+  /**
      * Starts a nonblocking send following the semantics of MPI_Isend
      *
      * @param[in]   buf     address of send buffer (can be a CPU or GPU pointer)
@@ -84,8 +88,9 @@ public:
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-    void isend(const void *buf, int size, int dest, int tag, request_t *request) const;
-    /**
+  void isend(const void* buf, int size, int dest, int tag,
+             request_t* request) const;
+  /**
      * Starts a nonblocking receive following the semantics of MPI_Irecv
      *
      * @param[in]   buf     address of receive buffer (can be a CPU or GPU pointer)
@@ -94,9 +99,10 @@ public:
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-    void irecv(void *buf, int size, int source, int tag, request_t *request) const;
+  void irecv(void* buf, int size, int source, int tag,
+             request_t* request) const;
 
-    /**
+  /**
      * Convience wrapper around isend deducing message size from sizeof(T).
      *
      * @param[in]   buf     address of send buffer (can be a CPU or GPU pointer)
@@ -105,13 +111,12 @@ public:
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-    template<typename T>
-    void isend(const T *buf, int n, int dest, int tag, request_t *request) const
-    {
-        isend(static_cast<const void*>(buf), n*sizeof(T), dest, tag, request);
-    }
+  template <typename T>
+  void isend(const T* buf, int n, int dest, int tag, request_t* request) const {
+    isend(static_cast<const void*>(buf), n * sizeof(T), dest, tag, request);
+  }
 
-    /**
+  /**
      * Convience wrapper around irecv deducing message size from sizeof(T).
      *
      * @param[in]   buf     address of receive buffer (can be a CPU or GPU pointer)
@@ -120,21 +125,20 @@ public:
      * @param[in]   tag     message tag
      * @param[out]  request communication request (handle)
      */
-    template<typename T>
-    void irecv(T *buf, int n, int source, int tag, request_t *request) const
-    {
-        irecv(static_cast<void*>(buf), n*sizeof(T), source, tag, request);
-    }
+  template <typename T>
+  void irecv(T* buf, int n, int source, int tag, request_t* request) const {
+    irecv(static_cast<void*>(buf), n * sizeof(T), source, tag, request);
+  }
 
-    /**
+  /**
      * Waits for all given communication requests to complete following the semantics of MPI_Waitall.
      *
      * @param[in]   count               number of requests
      * @param[in]   array_of_requests   array of request handles
      */
-    void waitall(int count, request_t array_of_requests[]) const;
+  void waitall(int count, request_t array_of_requests[]) const;
 
-    /**
+  /**
      * Reduce data arrays of length count in sendbuff using op operation and leaves identical copies of the 
      * result on each recvbuff.
      *
@@ -147,18 +151,19 @@ public:
      * @param[in]   op          reduction operation to perform.
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const;
+  void allreduce(const void* sendbuff, void* recvbuff, int count,
+                 datatype_t datatype, op_t op, cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around allreduce deducing datatype_t from T.
      */
-    template<typename T>
-    void allreduce(const T* sendbuff, T* recvbuff, int count, op_t op, cudaStream_t stream) const
-    {
-        allreduce(sendbuff, recvbuff, count, getDataType<T>(), op, stream);
-    }
+  template <typename T>
+  void allreduce(const T* sendbuff, T* recvbuff, int count, op_t op,
+                 cudaStream_t stream) const {
+    allreduce(sendbuff, recvbuff, count, getDataType<T>(), op, stream);
+  }
 
-    /**
+  /**
      * Copies count elements from buff on the root rank to all ranks buff.
      *
      * Follows the semantics of ncclBcast.
@@ -169,18 +174,18 @@ public:
      * @param[in]   root        rank of broadcast root
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const;
+  void bcast(void* buff, int count, datatype_t datatype, int root,
+             cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around bcast deducing datatype_t from T.
      */
-    template<typename T>
-    void bcast(T* buff, int count, int root, cudaStream_t stream) const
-    {
-        bcast(buff, count, getDataType<T>(), root, stream);
-    }
+  template <typename T>
+  void bcast(T* buff, int count, int root, cudaStream_t stream) const {
+    bcast(buff, count, getDataType<T>(), root, stream);
+  }
 
-    /**
+  /**
      * Reduce data arrays of length count in sendbuff into recvbuff on the root rank using the op operation.
      * recvbuff is only used on rank root and ignored for other ranks. 
      *
@@ -194,18 +199,20 @@ public:
      * @param[in]   root        rank of broadcast root
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const;
+  void reduce(const void* sendbuff, void* recvbuff, int count,
+              datatype_t datatype, op_t op, int root,
+              cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around reduce deducing datatype_t from T.
      */
-    template<typename T>
-    void reduce(const T* sendbuff, T* recvbuff, int count, op_t op, int root, cudaStream_t stream) const
-    {
-        reduce(sendbuff, recvbuff, count, getDataType<T>(), op, root, stream);
-    }
+  template <typename T>
+  void reduce(const T* sendbuff, T* recvbuff, int count, op_t op, int root,
+              cudaStream_t stream) const {
+    reduce(sendbuff, recvbuff, count, getDataType<T>(), op, root, stream);
+  }
 
-    /**
+  /**
      * Gather sendcount values from all GPUs into recvbuff, receiving data from rank i at offset i*sendcount.
      *
      * Note : This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should
@@ -221,18 +228,19 @@ public:
      * @param[in]   datatype    data type of sendbuff and recvbuff
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const;
+  void allgather(const void* sendbuff, void* recvbuff, int sendcount,
+                 datatype_t datatype, cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around allgather deducing datatype_t from T.
      */
-    template<typename T>
-    void allgather(const T* sendbuff, T* recvbuff, int sendcount, cudaStream_t stream) const
-    {
-        allgather(sendbuff, recvbuff, sendcount, getDataType<T>(), stream);
-    }
+  template <typename T>
+  void allgather(const T* sendbuff, T* recvbuff, int sendcount,
+                 cudaStream_t stream) const {
+    allgather(sendbuff, recvbuff, sendcount, getDataType<T>(), stream);
+  }
 
-    /**
+  /**
      * Gathers data from all processes and delivers it to all. Each process may contribute a
      * different amount of data.
      *
@@ -253,18 +261,20 @@ public:
      * @param[in]   datatype    data type of sendbuff and recvbuff
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const;
+  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
+                  const int displs[], datatype_t datatype,
+                  cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around allgatherv deducing datatype_t from T.
      */
-    template<typename T>
-    void allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], cudaStream_t stream) const
-    {
-        allgatherv(sendbuf, recvbuf, recvcounts, displs, getDataType<T>(), stream);
-    }
+  template <typename T>
+  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
+                  const int displs[], cudaStream_t stream) const {
+    allgatherv(sendbuf, recvbuf, recvcounts, displs, getDataType<T>(), stream);
+  }
 
-    /**
+  /**
      * Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered
      * over the devices so that the recvbuff on rank i will contain the i-th block of the result.
      *
@@ -280,19 +290,20 @@ public:
      * @param[in]   op          reduction operation to perform.
      * @param[in]   stream      stream to submit this asynchronous (with respect to the CPU) operation to
      */
-    void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const;
+  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
+                     datatype_t datatype, op_t op, cudaStream_t stream) const;
 
-    /**
+  /**
      * Convience wrapper around reducescatter deducing datatype_t from T.
      */
-    template<typename T>
-    void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const
-    {
-        reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
-    }
+  template <typename T>
+  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
+                     datatype_t datatype, op_t op, cudaStream_t stream) const {
+    reducescatter(sendbuff, recvbuff, recvcount, getDataType<T>(), op, stream);
+  }
 
-private:
-    std::unique_ptr<cumlCommunicator_iface> _impl;
+ private:
+  std::unique_ptr<cumlCommunicator_iface> _impl;
 };
 
-} // end namespace MLCommon
+}  // end namespace MLCommon
