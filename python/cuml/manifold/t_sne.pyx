@@ -169,7 +169,9 @@ class TSNE(Base):
     The CUDA implementation is derived from the excellent CannyLabs open source
     implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
     code is licensed according to the conditions in cuml/cpp/src/tsne/
-    cannylabs_tsne_license.txt. We extend our big thanks to CannyLabs!
+    cannylabs_tsne_license.txt. A full description of their approach is
+    available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and its
+    Applications to Modern Data (https://arxiv.org/abs/1807.11824).
     """
     def __init__(self,
                  int n_components=2,
