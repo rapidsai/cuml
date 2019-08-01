@@ -18,6 +18,7 @@
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
+- PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
