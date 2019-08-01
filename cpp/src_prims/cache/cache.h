@@ -55,7 +55,7 @@ template <typename math_t, int associativity = 32>
 class Cache {
  public:
   /**
-   * Construct a Cache object
+   * @brief Construct a Cache object
    *
    * @tparam math_t type of elements to be cached
    * @tparam associativity number of vectors in a cache set
