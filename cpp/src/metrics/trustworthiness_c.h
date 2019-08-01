@@ -15,33 +15,32 @@
  */
 
 namespace MLCommon {
-    namespace Distance {
-        enum DistanceType {
-            /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
-            EucExpandedL2 = 0,
-            /** same as above, but inside the epilogue, perform square root operation */
-            EucExpandedL2Sqrt,
-            /** cosine distance */
-            EucExpandedCosine,
-            /** L1 distance */
-            EucUnexpandedL1,
-            /** evaluate as dist_ij += (x_ik - y-jk)^2 */
-            EucUnexpandedL2,
-            /** same as above, but inside the epilogue, perform square root operation */
-            EucUnexpandedL2Sqrt,
-        };
-    }
+namespace Distance {
+enum DistanceType {
+  /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
+  EucExpandedL2 = 0,
+  /** same as above, but inside the epilogue, perform square root operation */
+  EucExpandedL2Sqrt,
+  /** cosine distance */
+  EucExpandedCosine,
+  /** L1 distance */
+  EucUnexpandedL1,
+  /** evaluate as dist_ij += (x_ik - y-jk)^2 */
+  EucUnexpandedL2,
+  /** same as above, but inside the epilogue, perform square root operation */
+  EucUnexpandedL2Sqrt,
 };
+}
+};  // namespace MLCommon
 
 using namespace MLCommon::Distance;
 
 namespace ML {
-    namespace Metrics {
+namespace Metrics {
 
-        template<typename math_t, DistanceType distance_type>
-        double trustworthiness_score(const cumlHandle& h, math_t* X,
-                        math_t* X_embedded, int n, int m, int d,
-                        int n_neighbors);
+template <typename math_t, DistanceType distance_type>
+double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
+                             int n, int m, int d, int n_neighbors);
 
-    }
 }
+}  // namespace ML

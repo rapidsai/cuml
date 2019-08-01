@@ -32,6 +32,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
@@ -106,7 +108,7 @@ class LinearRegression(Base):
         reg = lr.fit(X,y)
         print("Coefficients:")
         print(reg.coef_)
-        print("intercept:")
+        print("Intercept:")
         print(reg.intercept_)
 
         X_new = cudf.DataFrame()
@@ -114,6 +116,7 @@ class LinearRegression(Base):
         X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = lr.predict(X_new)
 
+        print("Predictions:")
         print(preds)
 
     Output:
@@ -128,7 +131,7 @@ class LinearRegression(Base):
         Intercept:
                     3.0
 
-        Preds:
+        Predictions:
 
                     0 15.999999
                     1 14.999999
@@ -229,62 +232,40 @@ class LinearRegression(Base):
 
         """
 
-        cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
+        cdef uintptr_t X_ptr, y_ptr
+        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X)
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
-            raise TypeError(msg)
+        y_m, y_ptr, _, _, _ = \
+            input_to_dev_array(y)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
-        if self.n_rows < 2:
+        if n_rows < 2:
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
         if self.n_cols == 1:
-            # TODO: Throw algorithm when this changes algorithm from the user's
+            # TODO: Throw exception when this changes algorithm from the user's
             # choice. Github issue #602
             # eig based method doesn't work when there is only one column.
             self.algo = 0
 
-        X_ptr = self._get_dev_array_ptr(X_m)
-
-        cdef uintptr_t y_ptr
-        if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_cudf_column_ptr(y)
-        elif (isinstance(y, np.ndarray)):
-            y_m = cuda.to_device(y)
-            y_ptr = self._get_dev_array_ptr(y_m)
-        else:
-            msg = "y vector must be a cuDF series or Numpy ndarray"
-            raise TypeError(msg)
-
-        self.coef_ = cudf.Series(np.zeros(self.n_cols,
-                                          dtype=self.gdf_datatype))
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        self.coef_ = cudf.Series(zeros(self.n_cols,
+                                       dtype=self.dtype))
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
         cdef double c_intercept2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
 
             olsFit(handle_[0],
                    <float*>X_ptr,
-                   <int>self.n_rows,
+                   <int>n_rows,
                    <int>self.n_cols,
                    <float*>y_ptr,
                    <float*>coef_ptr,
@@ -297,7 +278,7 @@ class LinearRegression(Base):
         else:
             olsFit(handle_[0],
                    <double*>X_ptr,
-                   <int>self.n_rows,
+                   <int>n_rows,
                    <int>self.n_cols,
                    <double*>y_ptr,
                    <double*>coef_ptr,
@@ -309,6 +290,9 @@ class LinearRegression(Base):
             self.intercept_ = c_intercept2
 
         self.handle.sync()
+
+        del X_m
+        del y_m
 
         return self
 
@@ -327,32 +311,16 @@ class LinearRegression(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            n_rows = len(X)
-            n_cols = len(X._cols)
+        X_m, X_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
-        elif (isinstance(X, np.ndarray)):
-            pred_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        X_ptr = self._get_dev_array_ptr(X_m)
-
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        preds = cudf.Series(zeros(n_rows, dtype=dtype))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if pred_datatype.type == np.float32:
+        if dtype.type == np.float32:
             olsPredict(handle_[0],
                        <float*>X_ptr,
                        <int>n_rows,

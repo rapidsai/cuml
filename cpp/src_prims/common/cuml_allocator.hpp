@@ -29,8 +29,8 @@ namespace MLCommon {
  * - Allocations may be always on the device that was specified on construction.
  */
 class deviceAllocator {
-public:
-    /**
+ public:
+  /**
      * @brief Asynchronously allocates device memory.
      * 
      * An implementation of this need to return a allocation of n bytes properly align bytes
@@ -44,8 +44,8 @@ public:
      * @param[in] stream    stream to issue the possible asynchronous allocation in
      * @returns a pointer to a n byte properly aligned device buffer on the configured device.
      */
-    virtual void* allocate( std::size_t n, cudaStream_t stream ) = 0;
-    /**
+  virtual void* allocate(std::size_t n, cudaStream_t stream) = 0;
+  /**
      * @brief Asynchronously deallocates device memory
      * 
      * An implementation of this need to ensure that the allocation that the passed in pointer
@@ -56,9 +56,9 @@ public:
      * @param[in] n         size of the buffer to deallocte in bytes
      * @param[in] stream    stream in which the allocation might be still in use
      */
-    virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
-    virtual ~deviceAllocator() {}
+  virtual ~deviceAllocator() {}
 };
 
 /**
@@ -69,8 +69,8 @@ public:
  * - Allocations don't need to be zero copy accessible form a device.
  */
 class hostAllocator {
-public:
-    /**
+ public:
+  /**
      * @brief Asynchronously allocates host memory.
      * 
      * An implementation of this need to return a allocation of n bytes properly align bytes
@@ -84,8 +84,8 @@ public:
      * @param[in] stream    stream to issue the possible asynchronous allocation in
      * @returns a pointer to a n byte properly aligned host buffer.
      */
-    virtual void* allocate( std::size_t n, cudaStream_t stream ) = 0;
-    /**
+  virtual void* allocate(std::size_t n, cudaStream_t stream) = 0;
+  /**
      * @brief Asynchronously deallocates host memory
      * 
      * An implementation of this need to ensure that the allocation that the passed in pointer
@@ -96,51 +96,47 @@ public:
      * @param[in] n         size of the buffer to deallocte in bytes
      * @param[in] stream    stream in which the allocation might be still in use
      */
-    virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
-    virtual ~hostAllocator() {}
+  virtual ~hostAllocator() {}
 };
-
 
 /** Default cudaMalloc/cudaFree based device allocator */
 class defaultDeviceAllocator : public deviceAllocator {
-public:
-    virtual void* allocate( std::size_t n, cudaStream_t ) {
-        void* ptr = 0;
-        CUDA_CHECK( cudaMalloc( &ptr, n ) );
-        return ptr;
+ public:
+  virtual void* allocate(std::size_t n, cudaStream_t) {
+    void* ptr = 0;
+    CUDA_CHECK(cudaMalloc(&ptr, n));
+    return ptr;
+  }
+  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
+    cudaError_t status = cudaFree(p);
+    if (cudaSuccess != status) {
+      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
     }
-    virtual void deallocate( void* p, std::size_t, cudaStream_t ) {
-        cudaError_t status = cudaFree( p);
-        if ( cudaSuccess != status )
-        {
-            //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-            // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-        }
-    }
+  }
 
-    virtual ~defaultDeviceAllocator() {}
+  virtual ~defaultDeviceAllocator() {}
 };
-
 
 /** Default cudaMallocHost/cudaFreeHost based host allocator */
 class defaultHostAllocator : public hostAllocator {
-public:
-    virtual void* allocate( std::size_t n, cudaStream_t ) {
-        void* ptr = 0;
-        CUDA_CHECK( cudaMallocHost( &ptr, n ) );
-        return ptr;
+ public:
+  virtual void* allocate(std::size_t n, cudaStream_t) {
+    void* ptr = 0;
+    CUDA_CHECK(cudaMallocHost(&ptr, n));
+    return ptr;
+  }
+  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
+    cudaError_t status = cudaFreeHost(p);
+    if (cudaSuccess != status) {
+      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
     }
-    virtual void deallocate( void* p, std::size_t, cudaStream_t ) {
-        cudaError_t status = cudaFreeHost( p);
-        if ( cudaSuccess != status )
-        {
-            //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-            // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-        }
-    }
+  }
 
-    virtual ~defaultHostAllocator() {}
+  virtual ~defaultHostAllocator() {}
 };
 
-}; // end namespace MLCommon
+};  // end namespace MLCommon

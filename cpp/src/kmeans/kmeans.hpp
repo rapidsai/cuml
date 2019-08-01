@@ -20,9 +20,9 @@
 
 namespace ML {
 
-namespace kmeans{
+namespace kmeans {
 
-enum InitMethod{KMeansPlusPlus, Random, Array};
+enum InitMethod { KMeansPlusPlus, Random, Array };
 
 /**
  * @brief Compute k-means clustering and optionally predicts cluster index for each sample in the input.
@@ -44,35 +44,16 @@ enum InitMethod{KMeansPlusPlus, Random, Array};
  *                            [out] Otherwise, generated centroids from the kmeans algorithm is stored at the address pointed by 'centroids'.
  * @param[out]    labels      [optional] Index of the cluster each sample in X belongs to.
  */
-void fit_predict(const ML::cumlHandle& handle, 
-		 int n_clusters,
-		 int metric,
-		 InitMethod init,
-		 int max_iter,
-		 double tol,
-		 int seed,
-		 const float *X,
-		 int n_samples,
-		 int n_features,
-		 float *centroids,
-		 int *labels = 0,
-		 int verbose = 0);
+void fit_predict(const ML::cumlHandle &handle, int n_clusters, int metric,
+                 InitMethod init, int max_iter, double tol, int seed,
+                 const float *X, int n_samples, int n_features,
+                 float *centroids, int *labels = 0, int verbose = 0);
 
-void fit_predict(const ML::cumlHandle& handle, 
-		 int n_clusters,
-		 int metric,
-		 InitMethod init,
-		 int max_iter,
-		 double tol,
-		 int seed,
-		 const double *X,
-		 int n_samples,
-		 int n_features,
-		 double *centroids,
-		 int *labels = 0,
-		 int verbose = 0);
-  
-  
+void fit_predict(const ML::cumlHandle &handle, int n_clusters, int metric,
+                 InitMethod init, int max_iter, double tol, int seed,
+                 const double *X, int n_samples, int n_features,
+                 double *centroids, int *labels = 0, int verbose = 0);
+
 /**
  * @brief Compute k-means clustering.
  *
@@ -92,34 +73,13 @@ void fit_predict(const ML::cumlHandle& handle,
  * @param[in|out] centroids   [in] When init is InitMethod::Array, use centroids as the initial cluster centers
  *                            [out] Otherwise, generated centroids from the kmeans algorithm is stored at the address pointed by 'centroids'.
  */
-void fit(const ML::cumlHandle& handle, 
-	 int n_clusters,
-	 int metric,
-	 InitMethod init,
-	 int max_iter,
-	 double tol,
-	 int seed,
-	 const float *X,
-	 int n_samples,
-	 int n_features,
-	 float *centroids,
-	 int verbose = 0);
+void fit(const ML::cumlHandle &handle, int n_clusters, int metric,
+         InitMethod init, int max_iter, double tol, int seed, const float *X,
+         int n_samples, int n_features, float *centroids, int verbose = 0);
 
-void fit(const ML::cumlHandle& handle, 
-	 int n_clusters,
-	 int metric,
-	 InitMethod init,
-	 int max_iter,
-	 double tol,
-	 int seed,
-	 const double *X,
-	 int n_samples,
-	 int n_features,
-	 double *centroids,
-	 int verbose = 0);
-  
-  
-
+void fit(const ML::cumlHandle &handle, int n_clusters, int metric,
+         InitMethod init, int max_iter, double tol, int seed, const double *X,
+         int n_samples, int n_features, double *centroids, int verbose = 0);
 
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
@@ -133,29 +93,13 @@ void fit(const ML::cumlHandle& handle,
  * @param[in]     metric      Metric to use for distance computation. Any metric from MLCommon::Distance::DistanceType can be used
  * @param[out]    labels      Index of the cluster each sample in X belongs to.
  */
-void predict(const ML::cumlHandle& handle, 
-	     float *centroids,
-	     int n_clusters,
-	     const float *X,
-	     int n_samples,
-	     int n_features,
-	     int metric,
-	     int *labels,
-	     int verbose = 0);
+void predict(const ML::cumlHandle &handle, float *centroids, int n_clusters,
+             const float *X, int n_samples, int n_features, int metric,
+             int *labels, double *inertia, int verbose = 0);
 
-
-void predict(const ML::cumlHandle& handle, 
-	     double *centroids,
-	     int n_clusters,
-	     const double *X,
-	     int n_samples,
-	     int n_features,
-	     int metric,
-	     int *labels,
-	     int verbose = 0);
-  
-  
-  
+void predict(const ML::cumlHandle &handle, double *centroids, int n_clusters,
+             const double *X, int n_samples, int n_features, int metric,
+             int *labels, double *inertia, int verbose = 0);
 
 /**
  * @brief Transform X to a cluster-distance space.
@@ -169,27 +113,33 @@ void predict(const ML::cumlHandle& handle,
  * @param[in]     metric      Metric to use for distance computation. Any metric from MLCommon::Distance::DistanceType can be used 
  * @param[out]    X_new       X transformed in the new space..
  */
-void transform(const ML::cumlHandle& handle, 
-	       const float *centroids,
-	       int n_clusters,
-	       const float *X,
-	       int n_samples,
-	       int n_features,
-	       int metric,
-	       float *X_new,
-	       int verbose = 0);
+void transform(const ML::cumlHandle &handle, const float *centroids,
+               int n_clusters, const float *X, int n_samples, int n_features,
+               int metric, float *X_new, double *inertia, int verbose = 0);
 
+void transform(const ML::cumlHandle &handle, const double *centroids,
+               int n_clusters, const double *X, int n_samples, int n_features,
+               int metric, double *X_new, double *inertia, int verbose = 0);
 
-void transform(const ML::cumlHandle& handle, 
-	       const double *centroids,
-	       int n_clusters,
-	       const double *X,
-	       int n_samples,
-	       int n_features,
-	       int metric,
-	       double *X_new,
-	       int verbose = 0);
+/**
+ * @brief Calculate the inertia value.
+ *
+ * @param[in]     cumlHandle  The handle to the cuML library context that manages the CUDA resources.
+ * @param[in]     centroids   Cluster centroids. It must be noted that the data must be in row-major format and stored in device accessible location.
+ * @param[in]     n_clusters  The number of clusters.
+ * @param[in]     X           Training instances to cluster. It must be noted that the data must be in row-major format and stored in device accessible location.
+ * @param[in]     n_samples   Number of samples in the input X.
+ * @param[in]     n_features  Number of features or the dimensions of each sample in 'X' (value should be same as the dimension for each cluster centers in 'centroids').
+ * @param[in]     metric      Metric to use for distance computation. Any metric from MLCommon::Distance::DistanceType can be used
+ * @param[out]    inertia     The inertia score.
+ */
+void score(const ML::cumlHandle &handle, float *centroids, int n_clusters,
+           const float *X, int n_samples, int n_features, int metric,
+           int *labels, double *inertia, int verbose = 0);
 
-  
-};// end namespace kmeans
-};// end namespace ML
+void score(const ML::cumlHandle &handle, double *centroids, int n_clusters,
+           const double *X, int n_samples, int n_features, int metric,
+           int *labels, double *inertia, int verbose = 0);
+
+};  // end namespace kmeans
+};  // end namespace ML

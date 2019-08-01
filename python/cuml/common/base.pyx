@@ -22,8 +22,7 @@
 
 import cuml.common.handle
 import cuml.common.cuda
-
-import cudf
+import inspect
 
 
 class Base:
@@ -82,6 +81,27 @@ class Base:
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
 
+    def __repr__(self):
+        """
+        Pretty prints the arguments of a class using Sklearn standard :)
+        """
+        cdef list signature = inspect.getfullargspec(self.__init__).args
+        if signature[0] == 'self':
+            del signature[0]
+        cdef dict state = self.__dict__
+        cdef str string = self.__class__.__name__ + '('
+        cdef str key
+        for key in signature:
+            if key not in state:
+                continue
+            if type(state[key]) is str:
+                string += "{}='{}', ".format(key, state[key])
+            else:
+                if hasattr(state[key], "__str__"):
+                    string += "{}={}, ".format(key, state[key])
+        string = string.rstrip(', ')
+        return string + ')'
+
     def get_param_names(self):
         """
         Returns a list of hyperparameter names owned by this class. It is
@@ -122,14 +142,13 @@ class Base:
                 setattr(self, key, value)
         return self
 
-    def _get_dev_array_ptr(self, obj):
-        """
-        Get ctype pointer of a numba style device array
-        """
-        return obj.device_ctypes_pointer.value
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        # todo: look into/enable pickling handle if necessary
+        del state['handle']
+        return state
 
-    def _get_cudf_column_ptr(self, col):
-        """
-        Get ctype pointer of a cudf column
-        """
-        return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.handle = cuml.common.handle.Handle()

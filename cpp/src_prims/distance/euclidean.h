@@ -20,10 +20,8 @@
 #include "linalg/custom_accum.h"
 #include "linalg/eltwise2d.h"
 #include "linalg/gemm.h"
-#include "linalg/row_gemm.h"
 
 #include <cutlass/shape.h>
-
 #include <type_traits>
 
 namespace MLCommon {
@@ -49,21 +47,21 @@ namespace Distance {
  * @param worksize number of bytes of the workspace
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
-                    OutType *pD, bool enable_sqrt, AccType *workspace,
-                    size_t &worksize, FinalLambda fin_op,
-                    cudaStream_t stream) {
+void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
+                    InType const *pB, OutType *pD, bool enable_sqrt,
+                    AccType *workspace, size_t &worksize, FinalLambda fin_op,
+                    cudaStream_t stream, bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(InType in) { return in; };
   distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
                 FinalLambda, decltype(norm_op), Index_>(
     m, n, k, pA, pB, pD, enable_sqrt, workspace, worksize, fin_op, norm_op,
-    stream);
+    stream, isRowMajor);
 }
 
 /**
@@ -84,16 +82,18 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
  * @param enable_sqrt if the square root is computed or not
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
-                    OutType *pD, bool enable_sqrt, FinalLambda fin_op,
-                    cudaStream_t stream) {
+void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
+                    InType const *pB, OutType *pD, bool enable_sqrt,
+                    FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
-  EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
+  typedef typename std::conditional<is_bool::value, AccType, OutType>::type
+    EffOutType;
+  EffOutType *pDCast =
+    reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef LinAlg::ThreadDiffSquaredAdd<
@@ -109,10 +109,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
                                             FragmentMultiplyAdd_>
     EpilogueFunctor_;
 
-  typedef typename std::conditional<is_bool::value,
+  typedef typename std::conditional<
+    is_bool::value,
     BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-    cutlass::gemm::GemmEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>>::type
-    EpilogueTraitsHelper_;
+    cutlass::gemm::GemmEpilogueTraitsHelper<
+      GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
 
   typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
@@ -120,18 +121,41 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
   typedef UnexpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
-  LinAlg::row_gemm<InType, AccType, EffOutType, OutputTile_,
-                   AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                   GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                   GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k, (EffOutType)0,
-    nullptr, n, pDCast,
-    [enable_sqrt] HD (EpiParams & p) {
+  cublasOperation_t transa, transb;
+  const InType *aPtr, *bPtr;
+  Index_ lda, ldb, ldd;
+  Index_ gemm_m, gemm_n;
+  if (isRowMajor) {
+    transa = CUBLAS_OP_T;
+    transb = CUBLAS_OP_N;
+    aPtr = pB;
+    bPtr = pA;
+    lda = ldb = k;
+    ldd = n;
+    gemm_m = n;
+    gemm_n = m;
+  } else {
+    transa = CUBLAS_OP_N;
+    transb = CUBLAS_OP_T;
+    aPtr = pA;
+    bPtr = pB;
+    lda = m;
+    ldb = n;
+    ldd = m;
+    gemm_m = m;
+    gemm_n = n;
+  }
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [enable_sqrt] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
       return err;
     },
     fin_op, stream);
 }
 
-}; // end namespace Distance
-}; // end namespace MLCommon
+};  // end namespace Distance
+};  // end namespace MLCommon

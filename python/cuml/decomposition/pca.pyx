@@ -31,6 +31,8 @@ from libc.stdint cimport uintptr_t
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 
 cdef extern from "pca/pca.hpp" namespace "ML":
@@ -118,10 +120,11 @@ class PCA(Base):
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and
-    Jacobi. Full (default) uses a full eigendecomposition then selects the top
-    K eigenvectors. The Jacobi algorithm is much faster as it iteratively tries
-    to correct the top K eigenvectors, but might be less accurate.
+    cuML's PCA expects an array-like object or cuDF DataFrame, and provides 2
+    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
+    then selects the top K eigenvectors. The Jacobi algorithm is much faster
+    as it iteratively tries to correct the top K eigenvectors, but might be
+    less accurate.
 
     Examples
     ---------
@@ -295,12 +298,6 @@ class PCA(Base):
         self.singular_values_ = None
         self.mean_ = None
         self.noise_variance_ = None
-        self.components_ptr = None
-        self.explained_variance_ptr = None
-        self.explained_variance_ratio_ptr = None
-        self.singular_values_ptr = None
-        self.mean_ptr = None
-        self.noise_variance_ptr = None
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -317,19 +314,18 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
-                                                    dtype=self.gdf_datatype))
-        self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
-                                                   dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(np.zeros(n_components,
-                                               dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
-        self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.noise_variance_ = cudf.Series(np.zeros(1,
-                                                    dtype=self.gdf_datatype))
+        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
+                                                 dtype=self.dtype))
+        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
+                                                   dtype=self.dtype))
+        self.explained_variance_ = cudf.Series(zeros(n_components,
+                                               dtype=self.dtype))
+        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
+                                                     dtype=self.dtype))
+        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+        self.singular_values_ = cudf.Series(zeros(n_components,
+                                                  dtype=self.dtype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
 
     def fit(self, X, _transform=False):
         """
@@ -337,33 +333,19 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-          Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
         cluster labels
 
         """
-        # c params
-
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            # PCA expects transpose of the input
-            X_m = X.as_gpu_matrix()
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -381,26 +363,26 @@ class PCA(Base):
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
 
         cdef uintptr_t explained_var_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_)
+            get_cudf_column_ptr(self.explained_variance_)
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+            get_cudf_column_ptr(self.explained_variance_ratio_)
 
         cdef uintptr_t singular_vals_ptr = \
-            self._get_cudf_column_ptr(self.singular_values_)
+            get_cudf_column_ptr(self.singular_values_)
 
-        cdef uintptr_t mean_ptr = self._get_cudf_column_ptr(self.mean_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
         cdef uintptr_t noise_vars_ptr = \
-            self._get_cudf_column_ptr(self.noise_variance_)
+            get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             pcaFitTransform(handle_[0],
                             <float*> input_ptr,
                             <float*> t_input_ptr,
@@ -427,18 +409,12 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        components_gdf = cudf.DataFrame()
+        # Keeping the additional dataframe components during cuml 0.8.
+        # See github issue #749
+        self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
-            components_gdf[str(i)] = self.components_[i*n_c:(i+1)*n_c]
-
-        self.components_ = components_gdf
-        self.components_ptr = comp_ptr
-        self.explained_variance_ptr = explained_var_ptr
-        self.explained_variance_ratio_ptr = explained_var_ratio_ptr
-        self.singular_values_ptr = singular_vals_ptr
-        self.mean_ptr = mean_ptr
-        self.noise_variance_ptr = noise_vars_ptr
+            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
@@ -454,9 +430,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of
           samples, and n_features is the number of features.
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
 
         y : ignored
 
@@ -481,9 +459,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_components)
+        X : array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
             samples and n_components is the number of components.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -491,35 +471,28 @@ class PCA(Base):
 
         """
         cdef uintptr_t trans_input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix()
-        elif (isinstance(X, np.ndarray)):
-            gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
+        X_m, trans_input_ptr, n_rows, _, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
-        trans_input_ptr = self._get_dev_array_ptr(X_m)
-
+        # todo: check n_cols and dtype
         cpdef paramsPCA params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
 
-        input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
-                                             dtype=gdf_datatype.type))
+        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
+                                          dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
 
-        cdef uintptr_t components_ptr = self.components_ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
-        cdef uintptr_t mean_ptr = self.mean_ptr
+        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t singular_vals_ptr = \
+            get_cudf_column_ptr(self.singular_values_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
         cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             pcaInverseTransform(h_[0],
                                 <float*> trans_input_ptr,
                                 <float*> components_ptr,
@@ -558,9 +531,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
-            samples and n_features is the number of features.
+            samples and n_components is the number of components.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -569,24 +544,10 @@ class PCA(Base):
         """
 
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix()
-            n_rows = len(X)
-            n_cols = len(X._cols)
+        X_m, input_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
-        elif (isinstance(X, np.ndarray)):
-            gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
-
+        # todo: check dtype
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = n_rows
@@ -594,16 +555,17 @@ class PCA(Base):
         params.whiten = self.whiten
 
         t_input_data = \
-            cuda.to_device(np.zeros(params.n_rows*params.n_components,
-                                    dtype=gdf_datatype.type))
+            cuda.to_device(zeros(params.n_rows*params.n_components,
+                                 dtype=dtype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
-        cdef uintptr_t components_ptr = self.components_ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
-        cdef uintptr_t mean_ptr = self.mean_ptr
+        cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
+        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t singular_vals_ptr = \
+            get_cudf_column_ptr(self.singular_values_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             pcaTransform(handle_[0],
                          <float*> input_ptr,
                          <float*> components_ptr,
@@ -634,3 +596,22 @@ class PCA(Base):
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten"]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        del state['c_algorithm']
+        state['trans_input_'] = cudf.Series(state['trans_input_'])
+        state['components_ary'] = cudf.Series(self.components_ary)
+
+        return state
+
+    def __setstate__(self, state):
+        super(PCA, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['trans_input_'] = state['trans_input_'].to_gpu_array()
+        state['components_ary'] = state['components_ary'].to_gpu_array()
+
+        self.__dict__.update(state)
+        self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
