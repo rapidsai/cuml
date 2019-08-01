@@ -1,6 +1,6 @@
 from cuml.cluster.sg.kmeans import KMeans as sgKmeans
 from cuml.dask.cluster.kmeans import KMeans as mgKmeans
-from cuml.utils.input_utils import input_to_multi_gpu
+from cuml.utils.input_utils import input_to_multi_gpu, check_client
 
 class KMeans():
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
@@ -23,7 +23,7 @@ class KMeans():
         self.n_gpu = 1
         self.kmeans_obj = None
         self.execution_type = None
-        self.client = client
+        self.client = check_client(client)
 
     def kmeans_init(self, execution_type):
         if self.execution_type == 'SG':
@@ -39,13 +39,12 @@ class KMeans():
                                     n_gpu=self.n_gpu)
         else:
             self.kmeans_obj = mgKmeans(n_clusters=self.n_clusters,
-                                    init_method=self.init, 
+                                    init=self.init, 
                                     verbose=self.verbose,
                                     client=self.client)
 
     def fit(self, X):
         X, self.execution_type, self.client = input_to_multi_gpu(X, client=self.client)
-        print(self.execution_type)
         self.kmeans_init(self.execution_type)
         self.kmeans_obj.fit(X)
 
@@ -53,25 +52,25 @@ class KMeans():
         X, self.execution_type, self.client = input_to_multi_gpu(X, client=self.client)
         y, _, self.client = input_to_multi_gpu(y, execution_type=self.execution_type, client=self.client)
         self.kmeans_init(self.execution_type)
-        self.kmeans_obj.fit(X)  
+        self.kmeans_obj.fit_predict(X)  
 
     def predict(self, X):
         X, _, self.client = input_to_multi_gpu(X, execution_type=self.execution_type, client=self.client)
-        self.kmeans_obj.fit(X)
+        self.kmeans_obj.predict(X)
 
     def transform(self, X):
         X, self.execution_type, self.client = input_to_multi_gpu(X, client=self.client)
         self.kmeans_init(self.execution_type)
-        self.kmeans_obj.fit(X)
+        self.kmeans_obj.transform(X)
 
     def score(self, X):
         X, _, self.client = input_to_multi_gpu(X, execution_type=self.execution_type, client=self.client)
-        self.kmeans_obj.fit(X)
+        self.kmeans_obj.score(X)
 
     def fit_transform(self, X):
         X, self.execution_type, self.client = input_to_multi_gpu(X, client=self.client)
         self.kmeans_init(self.execution_type)
-        self.kmeans_obj.fit(X)
+        self.kmeans_obj.fit_transform(X)
 
     def get_params(self, deep=True):
         self.kmeans_obj.get_params(deep)

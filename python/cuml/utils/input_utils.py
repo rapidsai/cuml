@@ -250,20 +250,18 @@ def input_to_multi_gpu(X, execution_type=None, client=None):
             raise TypeError("X must be of type numpy.ndarray, cupy.ndarray," +
                 "or numba.cuda.cudadrv.devicearray. Given: " + str(type(X)))
         else:
-            client = check_client()
             execution_type = 'MG'
     else:
-        if execution_type == 'MG':
-            client = check_client()
+        if execution_type == 'MG' and client:
             X = sg_input_to_mg(X, client)
         else:
-            if execution_type is None and check_client:
+            if execution_type is None and client:
                 X = sg_input_to_mg(X, client)
                 execution_type = 'MG'
             else:
                 execution_type = 'SG'
 
-    return (X, client, execution_type)
+    return (X, execution_type, client)
 
 def sg_input_to_mg(X, client):
     n_workers = len(client.has_what().keys())
@@ -277,7 +275,7 @@ def sg_input_to_mg(X, client):
     return X
 
 def check_client(client=None):
-    if client:
+    if client is True:
         try:
             client = default_client()
         except ValueError:
