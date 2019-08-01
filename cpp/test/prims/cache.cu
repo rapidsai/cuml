@@ -261,10 +261,10 @@ TEST_F(CacheTest, TestStoreCollect) {
   cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
                                stream);
 
-  cache.StoreCols(x_dev, 10, n_cached, ws_cache_idx_dev, stream, ws_idx_dev);
+  cache.StoreVecs(x_dev, 10, n_cached, ws_cache_idx_dev, stream, ws_idx_dev);
   cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
                                stream);
-  cache.GetCols(ws_cache_idx_dev, n_cached, tile_dev, stream);
+  cache.GetVecs(ws_cache_idx_dev, n_cached, tile_dev, stream);
 
   int cache_idx_host[10];
   updateHost(cache_idx_host, ws_cache_idx_dev, n_cached, stream);
@@ -288,10 +288,10 @@ TEST_F(CacheTest, TestStoreCollect) {
 
     cache.AssignCacheIdx(ws_idx_dev + n_cached, 10 - n_cached,
                          ws_cache_idx_dev + n_cached, stream);
-    cache.StoreCols(x_dev, 10, 10 - n_cached, ws_cache_idx_dev + n_cached,
+    cache.StoreVecs(x_dev, 10, 10 - n_cached, ws_cache_idx_dev + n_cached,
                     stream, ws_idx_dev + n_cached);
 
-    cache.GetCols(ws_cache_idx_dev, 10, tile_dev, stream);
+    cache.GetVecs(ws_cache_idx_dev, 10, tile_dev, stream);
 
     updateHost(cache_idx_host, ws_cache_idx_dev, 10, stream);
     updateHost(ws_idx_host, ws_idx_dev, 10, stream);
