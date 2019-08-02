@@ -32,7 +32,7 @@
 - PR #851: Random forest Stateless API wrappers
 - PR #895: Pretty prints arguments!
 - PR #915: syncStream added to cumlCommunicator
-- PR #???: Random Forest support in FIL
+- PR #922: Random Forest support in FIL
 
 ## Bug Fixes
 
