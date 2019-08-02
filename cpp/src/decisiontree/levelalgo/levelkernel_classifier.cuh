@@ -17,10 +17,9 @@
 #include "common_kernel.cuh"
 #include "cub/cub.cuh"
 
-__global__ void gini_kernel_level(const int* __restrict__ labels,
-                                  const unsigned int* __restrict__ sample_cnt,
-                                  const int nrows, const int nmax,
-                                  int* histout) {
+__global__ void sample_count_histogram_kernel(
+  const int* __restrict__ labels, const unsigned int* __restrict__ sample_cnt,
+  const int nrows, const int nmax, int* histout) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
   extern __shared__ unsigned int shmemhist[];
   for (int tid = threadIdx.x; tid < nmax; tid += blockDim.x) {

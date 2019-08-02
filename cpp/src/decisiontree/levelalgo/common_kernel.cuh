@@ -47,14 +47,10 @@ __global__ void split_level_kernel(
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
   unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int local_flag;
+  unsigned int local_flag = LEAF;
 
   for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
-    if (tid < nrows) {
-      local_flag = flags[tid];
-    } else {
-      local_flag = LEAF;
-    }
+    local_flag = flags[tid];
 
     if (local_flag != LEAF) {
       unsigned int local_leaf_flag = new_node_flags[local_flag];
