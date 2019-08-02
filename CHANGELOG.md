@@ -19,6 +19,7 @@
 - PR #837: treelite for decision forest exchange format
 - PR #870: make_blobs python function
 - PR #884: dask LabelEncoder
+- PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
@@ -41,6 +42,8 @@
 - PR #869: Removing incorrect information from KNN Docs
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+
 
 # cuML 0.8.0 (27 June 2019)
 
