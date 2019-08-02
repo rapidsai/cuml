@@ -22,9 +22,8 @@
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
-                                       int Ncols, int maxstr, int n_unique,
-                                       int n_bins, const int split_algo,
-                                       int depth)
+                                       int Ncols, int n_unique, int n_bins,
+                                       const int split_algo, int depth)
   : ml_handle(handle) {
   //Assign Stream from cumlHandle
   stream = ml_handle.getStream();
@@ -32,7 +31,7 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
     LevelMemAllocator(N, Ncols, n_unique, n_bins, depth);
   } else {
-    NodeMemAllocator(N, Ncols, maxstr, n_unique, n_bins, split_algo);
+    NodeMemAllocator(N, Ncols, n_unique, n_bins, split_algo);
   }
 }
 
@@ -46,9 +45,8 @@ TemporaryMemory<T, L>::~TemporaryMemory() {
 }
 
 template <class T, class L>
-void TemporaryMemory<T, L>::NodeMemAllocator(int N, int Ncols, int maxstr,
-                                             int n_unique, int n_bins,
-                                             const int split_algo) {
+void TemporaryMemory<T, L>::NodeMemAllocator(int N, int Ncols, int n_unique,
+                                             int n_bins, const int split_algo) {
   int n_hist_elements = n_unique * n_bins;
 
   h_hist = new MLCommon::host_buffer<int>(ml_handle.getHostAllocator(), stream,
@@ -292,14 +290,14 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   size_t max_shared_mem = prop.sharedMemPerBlock;
   if (typeid(L) == typeid(int)) {
     max_nodes_class = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
-    max_nodes_class /= 2; // For occupancy purposes.
+    max_nodes_class /= 2;  // For occupancy purposes.
   }
   if (typeid(L) == typeid(T)) {
     size_t pernode_pred = nbins * (sizeof(T) + sizeof(unsigned int));
     max_nodes_pred = max_shared_mem / pernode_pred;
     max_nodes_mse = max_shared_mem / (pernode_pred + 2 * nbins * sizeof(T));
-    max_nodes_pred /= 2; // For occupancy purposes.
-    max_nodes_mse /= 2; // For occupancy purposes.
+    max_nodes_pred /= 2;  // For occupancy purposes.
+    max_nodes_mse /= 2;   // For occupancy purposes.
   }
 }
 
