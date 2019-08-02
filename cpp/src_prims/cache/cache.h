@@ -108,6 +108,8 @@ using namespace MLCommon;
 template <typename math_t, int associativity = 32>
 class Cache {
  public:
+  bool verbose = false;  //!< Enable verbose output
+
   /**
    * @brief Construct a Cache object
    *
@@ -159,8 +161,12 @@ class Cache {
       n_cache_sets = 0;
       cache_size = 0;
     }
-    //std::cout << "Creating cache with size " << cache_size << " MiB, to store " <<
-    //  n_cache_vecs<< " vectors, in "<<n_cache_sets<<" sets with associativity "<<associativity<<"\n";
+    if (verbose) {
+      std::cout << "Creating cache with size " << cache_size
+                << " MiB, to store " << n_cache_vecs << " vectors, in "
+                << n_cache_sets << " sets with associativity " << associativity
+                << "\n";
+    }
   }
 
   Cache(const Cache &other) = delete;
@@ -187,7 +193,7 @@ class Cache {
   }
 
   /** @brief Store vectors of data into the cache.
-  * 
+  *
   * Roughly the opposite of GetVecs, but the input vectors can be scattered
   * in memory. The cache is updated using the following formula:
   *
@@ -195,9 +201,9 @@ class Cache {
   * for i=0..n_vec-1, k=0..n-1
   *
   * If tile_idx==nullptr, then we assume tile_idx[k] = k.
-  * 
-  * Elements within a vector should be contiguous in memory (i.e. column vectors 
-  * for column major data storage, or row vectors of row major data). 
+  *
+  * Elements within a vector should be contiguous in memory (i.e. column vectors
+  * for column major data storage, or row vectors of row major data).
   *
   * @param [in] tile stores the data to be cashed cached, size [n_vec x n_tile]
   * @param [in] n_tile number of vectors in tile (at least n)
