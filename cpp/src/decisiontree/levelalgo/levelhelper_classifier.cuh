@@ -24,10 +24,10 @@ void initial_metric_classification(
                              n_unique_labels * sizeof(unsigned int),
                              tempmem->stream));
   int blocks = MLCommon::ceildiv(nrows, 128);
-  gini_kernel_level<<<blocks, 128, sizeof(int) * n_unique_labels,
-                      tempmem->stream>>>(labels, sample_cnt, nrows,
-                                         n_unique_labels,
-                                         (int *)tempmem->d_parent_hist->data());
+  sample_count_histogram_kernel<<<blocks, 128, sizeof(int) * n_unique_labels,
+                                  tempmem->stream>>>(
+    labels, sample_cnt, nrows, n_unique_labels,
+    (int *)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
   MLCommon::updateHost(tempmem->h_parent_hist->data(),
                        tempmem->d_parent_hist->data(), n_unique_labels,
