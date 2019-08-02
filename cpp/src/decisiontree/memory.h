@@ -95,17 +95,16 @@ struct TemporaryMemory {
   MLCommon::host_buffer<unsigned int> *h_count = nullptr;
   MLCommon::host_buffer<T> *h_child_pred = nullptr;
   MLCommon::host_buffer<unsigned int> *h_child_count = nullptr;
-  
+
   int max_nodes_class = 0;
   int max_nodes_pred = 0;
   int max_nodes_mse = 0;
   int max_nodes_per_level = 0;
-  
+
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
-                  int maxstr, int n_unique, int n_bins, const int split_algo,
-                  int depth);
+                  int n_unique, int n_bins, const int split_algo, int depth);
   ~TemporaryMemory();
-  void NodeMemAllocator(int N, int Ncols, int maxstr, int n_unique, int n_bins,
+  void NodeMemAllocator(int N, int Ncols, int n_unique, int n_bins,
                         const int split_algo);
   void LevelMemAllocator(int nrows, int ncols, int n_unique_labels, int nbins,
                          int depth);

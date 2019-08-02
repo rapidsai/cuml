@@ -183,8 +183,7 @@ void DecisionTreeBase<T, L>::plant(
     tempmem = in_tempmem;
   } else {
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
-      handle, nrows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo,
-      maxdepth);
+      handle, nrows, ncols, unique_labels, n_bins, split_algo, maxdepth);
     quantile_per_tree = true;
   }
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
@@ -197,7 +196,6 @@ void DecisionTreeBase<T, L>::plant(
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
   total_temp_mem = tempmem->totalmem;
-  total_temp_mem *= MAXSTREAMS;
   MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
