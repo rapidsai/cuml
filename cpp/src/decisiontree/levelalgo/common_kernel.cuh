@@ -17,7 +17,8 @@
 #include "cuda_utils.h"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
-
+//Setup how many times a sample is being used.
+//This is due to bootstrap nature of Random Forest.
 __global__ void setup_counts_kernel(unsigned int* sample_cnt,
                                     const unsigned int* __restrict__ rowids,
                                     const int n_sampled_rows) {
@@ -28,6 +29,7 @@ __global__ void setup_counts_kernel(unsigned int* sample_cnt,
     atomicAdd(&sample_cnt[stid], 1);
   }
 }
+//This initializes the flags to 0x00000000. IF a sample is not used at all we Leaf out.
 __global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
                                    unsigned int* flags, const int nrows) {
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -39,6 +41,9 @@ __global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
   }
 }
 
+// This make actual split. A split is done using bits.
+//Least significant Bit 0 means left and 1 means right.
+//As a result a max depth of 32 is supported for now.
 template <typename T>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ quantile,

@@ -16,6 +16,7 @@
 #pragma once
 #include "common_kernel.cuh"
 #include "flatnode.h"
+// This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
                     const unsigned int *rowids, const int nrows,
                     const int n_sampled_rows, cudaStream_t &stream) {
@@ -31,6 +32,7 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   CUDA_CHECK(cudaGetLastError());
 }
 
+//This function call the split kernel
 template <typename T, typename L>
 void make_level_split(const T *data, const int nrows, const int ncols,
                       const int nbins, const int n_nodes, int *split_colidx,
@@ -45,6 +47,7 @@ void make_level_split(const T *data, const int nrows, const int ncols,
   CUDA_CHECK(cudaGetLastError());
 }
 
+// Converts flat sparse tree generated to recursive format.
 template <typename T, typename L>
 ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
   std::vector<SparseTreeNode<T, L>> &sparsetree, int idx = 0) {

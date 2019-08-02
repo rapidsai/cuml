@@ -70,6 +70,8 @@ void validity_check(const DecisionTreeParams params) {
   ASSERT((params.min_rows_per_node >= 2),
          "Invalid min # rows per node value %d. Should be >= 2.",
          params.min_rows_per_node);
+  ASSERT((params.max_depth <= 32),
+         " Max depth of upto 32 is supported currenty.");
 }
 
 /**

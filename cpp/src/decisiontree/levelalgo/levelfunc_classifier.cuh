@@ -22,7 +22,15 @@
 #include "common_helper.cuh"
 #include "flatnode.h"
 #include "levelhelper_classifier.cuh"
-
+/*
+This is the driver function for building classification tree 
+level by level using a simple for loop.
+At each level; following steps are involved.
+1. Compute histograms for all nodes, all cols and all bins.
+2. Find best split col and bin for each node.
+3. Check info gain and then leaf out nodes as needed.
+4. make split.
+*/
 template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const ML::cumlHandle_impl& handle, const T* data, const int* labels,
