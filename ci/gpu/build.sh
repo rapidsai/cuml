@@ -46,14 +46,19 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       cudf=${CUDF_VERSION} \
       rmm=${RMM_VERSION} \
       nvstrings=${NVSTRINGS_VERSION} \
-      lapack cmake==3.14.3 \
+      lapack \
+      cmake==3.14.3 \
       umap-learn \
-      libclang \
       nccl>=2.4 \
       dask \
       distributed \
       dask-cudf \
-      dask-cuda
+      dask-cuda \
+      statsmodels
+
+# installing libclang separately so it doesn't get installed from conda-forge
+conda install -c rapidsai \
+      libclang
 
 logger "Check versions..."
 python --version
