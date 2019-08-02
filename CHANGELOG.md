@@ -40,6 +40,8 @@
 - PR #869: Removing incorrect information from KNN Docs
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+
 
 # cuML 0.8.0 (27 June 2019)
 

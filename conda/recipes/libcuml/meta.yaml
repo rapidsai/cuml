@@ -3,6 +3,7 @@
 # Usage:
 #   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major = environ.get('CUDA', '9.2').split('.')[0] %}
@@ -27,12 +28,12 @@ build:
 requirements:
   build:
     - cmake>=3.14
-    - cudf 0.9*
+    - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - lapack
     - libclang
   run:
-    - cudf 0.9*
+    - cudf {{ minor_version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
