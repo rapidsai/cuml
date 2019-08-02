@@ -136,8 +136,7 @@ __global__ void get_hist_kernel_global(
 }
 
 struct GiniDevFunctor {
-  static __device__ __forceinline__ float exec(unsigned int* hist, int nrows,
-                                               int n_unique_labels) {
+  static DI float exec(unsigned int* hist, int nrows, int n_unique_labels) {
     float gval = 1.0;
     for (int i = 0; i < n_unique_labels; i++) {
       float prob = ((float)hist[i]) / nrows;
@@ -148,8 +147,7 @@ struct GiniDevFunctor {
 };
 
 struct EntropyDevFunctor {
-  static __device__ __forceinline__ float exec(unsigned int* hist, int nrows,
-                                               int n_unique_labels) {
+  static DI float exec(unsigned int* hist, int nrows, int n_unique_labels) {
     float eval = 0.0;
     for (int i = 0; i < n_unique_labels; i++) {
       if (hist[i] != 0) {

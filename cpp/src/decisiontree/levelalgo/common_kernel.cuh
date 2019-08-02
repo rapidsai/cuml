@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "cuda_utils.h"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
 
@@ -80,10 +81,9 @@ struct GainIdxPair {
 template <typename KeyReduceOp>
 struct ReducePair {
   KeyReduceOp op;
-  __device__ __forceinline__ ReducePair() {}
-  __device__ __forceinline__ ReducePair(KeyReduceOp op) : op(op) {}
-  __device__ __forceinline__ GainIdxPair operator()(const GainIdxPair& a,
-                                                    const GainIdxPair& b) {
+  DI ReducePair() {}
+  DI ReducePair(KeyReduceOp op) : op(op) {}
+  DI GainIdxPair operator()(const GainIdxPair& a, const GainIdxPair& b) {
     GainIdxPair retval;
     retval.gain = op(a.gain, b.gain);
     if (retval.gain == a.gain) {
