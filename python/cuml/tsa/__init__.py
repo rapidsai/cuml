@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.kmeans import KMeans
-
+from cuml.tsa.holtwinters import ExponentialSmoothing
