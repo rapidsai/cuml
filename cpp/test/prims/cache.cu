@@ -34,21 +34,21 @@ class CacheTest : public ::testing::Test {
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
     allocate(tile_dev, n_rows * n_cols);
 
-    allocate(ws_idx_dev, n_ws);
-    allocate(is_cached, n_ws);
-    allocate(ws_cache_idx_dev, n_ws);
-    updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
-    allocate(zeroone_dev, n_ws);
+    allocate(keys_dev, n);
+    allocate(is_cached, n);
+    allocate(cache_idx_dev, n);
+    updateDevice(keys_dev, keys_host, n, stream);
+    allocate(zeroone_dev, n);
     allocate(int_array_dev, 12);
-    updateDevice(zeroone_dev, zeroone_host, n_ws, stream);
+    updateDevice(zeroone_dev, zeroone_host, n, stream);
     allocate(argfirst_dev, n_rows);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(x_dev));
     CUDA_CHECK(cudaFree(tile_dev));
-    CUDA_CHECK(cudaFree(ws_idx_dev));
-    CUDA_CHECK(cudaFree(ws_cache_idx_dev));
+    CUDA_CHECK(cudaFree(keys_dev));
+    CUDA_CHECK(cudaFree(cache_idx_dev));
     CUDA_CHECK(cudaFree(is_cached));
     CUDA_CHECK(cudaFree(zeroone_dev));
     CUDA_CHECK(cudaFree(int_array_dev));
@@ -58,18 +58,18 @@ class CacheTest : public ::testing::Test {
 
   int n_rows = 10;
   int n_cols = 2;
-  int n_ws = 10;
+  int n = 10;
 
   float *x_dev;
-  int *ws_idx_dev;
-  int *ws_cache_idx_dev;
+  int *keys_dev;
+  int *cache_idx_dev;
   int *int_array_dev;
   float x_host[20] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
                       11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
 
   float *tile_dev;
 
-  int ws_idx_host[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  int keys_host[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
   int zeroone_host[10] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
   int *zeroone_dev;
@@ -156,15 +156,13 @@ TEST_F(CacheTest, TestSimple) {
 
   ASSERT_EQ(cache.GetSize(), 4);
 
-  cache.GetCacheIdx(ws_idx_dev, n_ws, ws_cache_idx_dev, is_cached, stream);
-  EXPECT_TRUE(devArrMatch(false, is_cached, n_ws, Compare<bool>()));
+  cache.GetCacheIdx(keys_dev, n, cache_idx_dev, is_cached, stream);
+  EXPECT_TRUE(devArrMatch(false, is_cached, n, Compare<bool>()));
 
   int cache_set[10] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
-  EXPECT_TRUE(
-    devArrMatchHost(cache_set, ws_cache_idx_dev, n_ws, Compare<int>()));
+  EXPECT_TRUE(devArrMatchHost(cache_set, cache_idx_dev, n, Compare<int>()));
   int n_cached = 1;
-  cache.GetCacheIdxPartitioned(ws_idx_dev, n_ws, ws_cache_idx_dev, &n_cached,
-                               stream);
+  cache.GetCacheIdxPartitioned(keys_dev, n, cache_idx_dev, &n_cached, stream);
   EXPECT_EQ(n_cached, 0);
 }
 
@@ -175,38 +173,34 @@ TEST_F(CacheTest, TestAssignCacheIdx) {
   ASSERT_EQ(cache.GetSize(), 4);
 
   int n_cached;
-  cache.GetCacheIdxPartitioned(ws_idx_dev, n_ws, ws_cache_idx_dev, &n_cached,
-                               stream);
+  cache.GetCacheIdxPartitioned(keys_dev, n, cache_idx_dev, &n_cached, stream);
 
-  cache.AssignCacheIdx(ws_idx_dev, n_ws, ws_cache_idx_dev, stream);
+  cache.AssignCacheIdx(keys_dev, n, cache_idx_dev, stream);
 
   int cache_idx_exp[10] = {0, 1, -1, -1, -1, 2, 3, -1, -1, -1};
-  int ws_idx_exp[10] = {8, 6, 4, 2, 0, 9, 7, 5, 3, 1};
-  EXPECT_TRUE(
-    devArrMatchHost(cache_idx_exp, ws_cache_idx_dev, n_ws, Compare<int>()));
-  EXPECT_TRUE(devArrMatchHost(ws_idx_exp, ws_idx_dev, n_ws, Compare<int>()));
+  int keys_exp[10] = {8, 6, 4, 2, 0, 9, 7, 5, 3, 1};
+  EXPECT_TRUE(devArrMatchHost(cache_idx_exp, cache_idx_dev, n, Compare<int>()));
+  EXPECT_TRUE(devArrMatchHost(keys_exp, keys_dev, n, Compare<int>()));
 
   // Now the elements that have been assigned a cache slot are considered cached
-  // A subsequent cache lookup should give us these:
-  updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
-  cache.GetCacheIdxPartitioned(ws_idx_dev, n_ws, ws_cache_idx_dev, &n_cached,
-                               stream);
+  // A subsequent cache lookup should give us their cache indices.
+  updateDevice(keys_dev, keys_host, n, stream);
+  cache.GetCacheIdxPartitioned(keys_dev, n, cache_idx_dev, &n_cached, stream);
   ASSERT_EQ(n_cached, 4);
 
-  int ws_idx_exp2[4] = {6, 7, 8, 9};
-  EXPECT_TRUE(
-    devArrMatchHost(ws_idx_exp2, ws_idx_dev, n_cached, Compare<int>()));
+  int keys_exp2[4] = {6, 7, 8, 9};
+  EXPECT_TRUE(devArrMatchHost(keys_exp2, keys_dev, n_cached, Compare<int>()));
   int cache_idx_exp2[4] = {1, 3, 0, 2};
-  EXPECT_TRUE(devArrMatchHost(cache_idx_exp2, ws_cache_idx_dev, n_cached,
-                              Compare<int>()));
+  EXPECT_TRUE(
+    devArrMatchHost(cache_idx_exp2, cache_idx_dev, n_cached, Compare<int>()));
 
   // Find cache slots, when not available
-  int non_cached = n_ws - n_cached;
-  cache.AssignCacheIdx(ws_idx_dev + n_cached, non_cached,
-                       ws_cache_idx_dev + n_cached, stream);
+  int non_cached = n - n_cached;
+  cache.AssignCacheIdx(keys_dev + n_cached, non_cached,
+                       cache_idx_dev + n_cached, stream);
 
   int cache_idx_exp3[6] = {-1, -1, -1, -1, -1, -1};
-  EXPECT_TRUE(devArrMatchHost(cache_idx_exp3, ws_cache_idx_dev + n_cached,
+  EXPECT_TRUE(devArrMatchHost(cache_idx_exp3, cache_idx_dev + n_cached,
                               non_cached, Compare<int>()));
 }
 
@@ -217,34 +211,31 @@ TEST_F(CacheTest, TestEvict) {
   ASSERT_EQ(cache.GetSize(), 8);
 
   int n_cached;
-  cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
-                               stream);
+  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
   ASSERT_EQ(n_cached, 0);
-  cache.AssignCacheIdx(ws_idx_dev, 5, ws_cache_idx_dev, stream);
+  cache.AssignCacheIdx(keys_dev, 5, cache_idx_dev, stream);
 
   int cache_idx_exp[5] = {0, 1, 2, 4, 5};
-  int ws_idx_exp[5] = {4, 2, 0, 3, 1};
-  EXPECT_TRUE(
-    devArrMatchHost(cache_idx_exp, ws_cache_idx_dev, 5, Compare<int>()));
-  EXPECT_TRUE(devArrMatchHost(ws_idx_exp, ws_idx_dev, 5, Compare<int>()));
+  int keys_exp[5] = {4, 2, 0, 3, 1};
+  EXPECT_TRUE(devArrMatchHost(cache_idx_exp, cache_idx_dev, 5, Compare<int>()));
+  EXPECT_TRUE(devArrMatchHost(keys_exp, keys_dev, 5, Compare<int>()));
 
   int idx_host[10] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-  updateDevice(ws_idx_dev, idx_host, 10, stream);
-  cache.GetCacheIdxPartitioned(ws_idx_dev, 10, ws_cache_idx_dev, &n_cached,
-                               stream);
+  updateDevice(keys_dev, idx_host, 10, stream);
+  cache.GetCacheIdxPartitioned(keys_dev, 10, cache_idx_dev, &n_cached, stream);
   EXPECT_EQ(n_cached, 3);
   int cache_idx_exp2[3] = {1, 4, 0};
   EXPECT_TRUE(
-    devArrMatchHost(cache_idx_exp2, ws_cache_idx_dev, 3, Compare<int>()));
+    devArrMatchHost(cache_idx_exp2, cache_idx_dev, 3, Compare<int>()));
 
-  cache.AssignCacheIdx(ws_idx_dev + n_cached, 10 - n_cached,
-                       ws_cache_idx_dev + n_cached, stream);
+  cache.AssignCacheIdx(keys_dev + n_cached, 10 - n_cached,
+                       cache_idx_dev + n_cached, stream);
 
-  int ws_idx_exp3[10] = {2, 3, 4, 10, 8, 6, 11, 9, 7, 5};
+  int keys_exp3[10] = {2, 3, 4, 10, 8, 6, 11, 9, 7, 5};
   int cache_idx_exp3[10] = {1, 4, 0, 3, 2, -1, 6, 7, 5, -1};
-  EXPECT_TRUE(devArrMatchHost(ws_idx_exp3, ws_idx_dev, 10, Compare<int>()));
+  EXPECT_TRUE(devArrMatchHost(keys_exp3, keys_dev, 10, Compare<int>()));
   EXPECT_TRUE(
-    devArrMatchHost(cache_idx_exp3, ws_cache_idx_dev, 10, Compare<int>()));
+    devArrMatchHost(cache_idx_exp3, cache_idx_dev, 10, Compare<int>()));
 }
 
 TEST_F(CacheTest, TestStoreCollect) {
@@ -255,30 +246,27 @@ TEST_F(CacheTest, TestStoreCollect) {
 
   int n_cached;
 
-  cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
-                               stream);
-  cache.AssignCacheIdx(ws_idx_dev, 5, ws_cache_idx_dev, stream);
-  cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
-                               stream);
+  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
+  cache.AssignCacheIdx(keys_dev, 5, cache_idx_dev, stream);
+  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
 
-  cache.StoreVecs(x_dev, 10, n_cached, ws_cache_idx_dev, stream, ws_idx_dev);
-  cache.GetCacheIdxPartitioned(ws_idx_dev, 5, ws_cache_idx_dev, &n_cached,
-                               stream);
-  cache.GetVecs(ws_cache_idx_dev, n_cached, tile_dev, stream);
+  cache.StoreVecs(x_dev, 10, n_cached, cache_idx_dev, stream, keys_dev);
+  cache.GetCacheIdxPartitioned(keys_dev, 5, cache_idx_dev, &n_cached, stream);
+  cache.GetVecs(cache_idx_dev, n_cached, tile_dev, stream);
 
   int cache_idx_host[10];
-  updateHost(cache_idx_host, ws_cache_idx_dev, n_cached, stream);
-  int ws_idx_host[10];
-  updateHost(ws_idx_host, ws_idx_dev, n_cached, stream);
+  updateHost(cache_idx_host, cache_idx_dev, n_cached, stream);
+  int keys_host[10];
+  updateHost(keys_host, keys_dev, n_cached, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < n_cached; i++) {
-    EXPECT_TRUE(devArrMatch(x_dev + ws_idx_host[i] * n_cols,
+    EXPECT_TRUE(devArrMatch(x_dev + keys_host[i] * n_cols,
                             tile_dev + i * n_cols, n_cols, Compare<int>()))
       << "vector " << i;
   }
 
   for (int k = 0; k < 4; k++) {
-    cache.GetCacheIdxPartitioned(ws_idx_dev, 10, ws_cache_idx_dev, &n_cached,
+    cache.GetCacheIdxPartitioned(keys_dev, 10, cache_idx_dev, &n_cached,
                                  stream);
     if (k == 0) {
       EXPECT_EQ(n_cached, 5);
@@ -286,19 +274,19 @@ TEST_F(CacheTest, TestStoreCollect) {
       EXPECT_EQ(n_cached, 8);
     }
 
-    cache.AssignCacheIdx(ws_idx_dev + n_cached, 10 - n_cached,
-                         ws_cache_idx_dev + n_cached, stream);
-    cache.StoreVecs(x_dev, 10, 10 - n_cached, ws_cache_idx_dev + n_cached,
-                    stream, ws_idx_dev + n_cached);
+    cache.AssignCacheIdx(keys_dev + n_cached, 10 - n_cached,
+                         cache_idx_dev + n_cached, stream);
+    cache.StoreVecs(x_dev, 10, 10 - n_cached, cache_idx_dev + n_cached, stream,
+                    keys_dev + n_cached);
 
-    cache.GetVecs(ws_cache_idx_dev, 10, tile_dev, stream);
+    cache.GetVecs(cache_idx_dev, 10, tile_dev, stream);
 
-    updateHost(cache_idx_host, ws_cache_idx_dev, 10, stream);
-    updateHost(ws_idx_host, ws_idx_dev, 10, stream);
+    updateHost(cache_idx_host, cache_idx_dev, 10, stream);
+    updateHost(keys_host, keys_dev, 10, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     for (int i = 0; i < 10; i++) {
       if (cache_idx_host[i] >= 0) {
-        EXPECT_TRUE(devArrMatch(x_dev + ws_idx_host[i] * n_cols,
+        EXPECT_TRUE(devArrMatch(x_dev + keys_host[i] * n_cols,
                                 tile_dev + i * n_cols, n_cols, Compare<int>()))
           << "vector " << i;
       }
