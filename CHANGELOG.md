@@ -20,7 +20,6 @@
 - PR #870: make_blobs python function
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
-- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
