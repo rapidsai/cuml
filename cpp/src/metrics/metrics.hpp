@@ -1,18 +1,18 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+* Copyright (c) 2019, NVIDIA CORPORATION.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #pragma once
 
@@ -73,9 +73,30 @@ double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
 double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 
 /**
+* Calculates the "Silhouette Score"
+*
+* The Silhouette Coefficient is calculated using the mean intra-cluster distance (a)
+* and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient
+* for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample 
+* and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient
+* is only defined if number of labels is 2 <= n_labels <= n_samples - 1.
+*
+* @param handle: cumlHandle
+* @param y: Array of data samples with dimensions (nRows x nCols)
+* @param nRows: number of data samples
+* @param nCols: number of features
+* @param labels: Array containing labels for every data sample (1 x nRows)
+* @param nLabels: number of Labels
+* @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
+* @param silScores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
+*/
+double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
+                       int nCols, int *labels, int nLabels, double *silScores,
+                       int metric);
+/**
 * Calculates the "adjusted rand index"
 *
-* This metric is the corrected-for-chance version of the rand index 
+* This metric is the corrected-for-chance version of the rand index
 *
 * @param handle: cumlHandle
 * @param y: Array of response variables of the first clustering classifications
@@ -89,6 +110,38 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
                          const int upper_class_range);
+
+/**
+* Calculates the "Kullback-Leibler Divergence"
+*
+* The KL divergence tells us how well the probability distribution Q
+* approximates the probability distribution P
+* It is often also used as a 'distance metric' between two probablity ditributions (not symmetric)
+*
+* @param handle: cumlHandle
+* @param y: Array of probabilities corresponding to distribution P
+* @param y_hat: Array of probabilities corresponding to distribution Q
+* @param n: Number of elements in y and y_hat
+* @return: The KL Divergence value
+*/
+double klDivergence(const cumlHandle &handle, const double *y,
+                    const double *y_hat, int n);
+
+/**
+* Calculates the "Kullback-Leibler Divergence"
+*
+* The KL divergence tells us how well the probability distribution Q
+* approximates the probability distribution P
+* It is often also used as a 'distance metric' between two probablity ditributions (not symmetric)
+*
+* @param handle: cumlHandle
+* @param y: Array of probabilities corresponding to distribution P
+* @param y_hat: Array of probabilities corresponding to distribution Q
+* @param n: Number of elements in y and y_hat
+* @return: The KL Divergence value
+*/
+float klDivergence(const cumlHandle &handle, const float *y, const float *y_hat,
+                   int n);
 
 /**
 * Calculates the "entropy" of a labelling
