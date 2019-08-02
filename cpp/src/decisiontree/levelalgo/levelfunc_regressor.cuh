@@ -22,7 +22,16 @@
 #include "common_helper.cuh"
 #include "flatnode.h"
 #include "levelhelper_regressor.cuh"
-
+/*
+This is the driver function for building regression tree 
+level by level using a simple for loop.
+At each level; following steps are involved.
+1. Set up parent node mean and counts
+2. Compute means and counts for all nodes, all cols and all bins.
+3. Find best split col and bin for each node.
+4. Check info gain and then leaf out nodes as needed.
+5. make split.
+*/
 template <typename T>
 ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const ML::cumlHandle_impl& handle, const T* data, const T* labels,
