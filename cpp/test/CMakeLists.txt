@@ -154,6 +154,7 @@ if(BUILD_PRIMS_TESTS)
       prims/entropy.cu
       prims/gather.cu
       prims/gemm.cu
+      prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
       prims/homogeneityScore.cu
