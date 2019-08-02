@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+/* sparse node same tree node in Decsion Tree.
+* This however used an index instead of pointer to left child
+* Right child index is left_child_id + 1
+*/
 template <class T, class L>
 struct SparseTreeNode {
   L prediction;
