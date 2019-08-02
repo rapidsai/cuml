@@ -42,6 +42,7 @@ __global__ void sample_count_histogram_kernel(
   return;
 }
 
+//This kernel does histograms for all bins, all cols and all nodes at a given level
 template <typename T>
 __global__ void get_hist_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
@@ -95,6 +96,10 @@ __global__ void get_hist_kernel(
   }
 }
 
+/*This kernel does histograms for all bins, all cols and all nodes at a given level
+ *when nodes cannot fit in shared memory. We use direct global atomics;
+ *as this will be faster than shared memory loop due to reduced conjetion for atomics
+ */
 template <typename T>
 __global__ void get_hist_kernel_global(
   const T* __restrict__ data, const int* __restrict__ labels,
@@ -158,7 +163,8 @@ struct EntropyDevFunctor {
     return (-1 * eval);
   }
 };
-
+//This is device equialent of best split finding reduction.
+//Only kicks in when number of node is more than 512. otherwise we use CPU.
 template <typename T, typename F>
 __global__ void get_best_split_classification_kernel(
   const unsigned int* __restrict__ hist,

@@ -71,7 +71,7 @@ __global__ void mse_kernel_level(const T *__restrict__ labels,
   }
   return;
 }
-
+//This kernel computes predictions and count for all colls, all bins and all nodes at a given level
 template <typename T>
 __global__ void get_pred_kernel(const T *__restrict__ data,
                                 const T *__restrict__ labels,
@@ -130,6 +130,7 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
   }
 }
 
+//This kernel computes mse/mae for all colls, all bins and all nodes at a given level
 template <typename T, typename F>
 __global__ void get_mse_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
@@ -209,6 +210,8 @@ __global__ void get_mse_kernel(
   }
 }
 
+//This kernel computes predictions and count for all colls, all bins and all nodes at a given level
+//This is when nodes dont fit anymore in shared memory.
 template <typename T>
 __global__ void get_pred_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
@@ -249,6 +252,8 @@ __global__ void get_pred_kernel_global(
   }
 }
 
+//This kernel computes mse/mae for all colls, all bins and all nodes at a given level
+// This is when nodes dont fit in shared memory
 template <typename T, typename F>
 __global__ void get_mse_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
@@ -300,7 +305,7 @@ __global__ void get_mse_kernel_global(
     }
   }
 }
-
+//This is device version of best split in case, used when more than 512 nodes.
 template <typename T>
 __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
