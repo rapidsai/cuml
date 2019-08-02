@@ -29,9 +29,9 @@ namespace Cache {
 
 /**
  * @brief Collect vectors of data from the cache into a contiguous memory buffer.
- * 
+ *
  * We assume contiguous memory layout for the output buffer, i.e. we get
- * column vectors into a column major out buffer, or row vectors into a row 
+ * column vectors into a column major out buffer, or row vectors into a row
  * major output buffer.
  *
  * On exit, the output array is filled the following way:
@@ -59,18 +59,18 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
 }
 
 /**
- * @brief Store vectors of data into the cache. 
- * 
- * Elements within a vector should be contiguous in memory (i.e. column vectors 
- * for column major data storage, or row vectors of row major data). 
+ * @brief Store vectors of data into the cache.
  *
- * If tile_idx==nullptr then the operation is the opposite of get_vecs, 
+ * Elements within a vector should be contiguous in memory (i.e. column vectors
+ * for column major data storage, or row vectors of row major data).
+ *
+ * If tile_idx==nullptr then the operation is the opposite of get_vecs,
  * i.e. we store
  * cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for i=0..n_vec-1, k=0..n-1
  *
  * If tile_idx != nullptr, then  we permute the vectors from tile according
  * to tile_idx. This allows to store vectors from a buffer where the individual
- * vectors are not stored contiguously (but the elements of each vector shall 
+ * vectors are not stored contiguously (but the elements of each vector shall
  * be contiguous):
  * cache[i + cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec],
  * for i=0..n_vec-1, k=0..n-1
@@ -291,6 +291,9 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
   }
 }
 
+/* Unnamed namespace is used to avoid multiple definition error for the
+  following non-template function */
+namespace {
 /**
  * @brief Get the cache indices for keys stored in the cache.
  *
@@ -315,10 +318,10 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
  * @param [out] is_cached  whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-inline __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
-                                     int n_cache_sets, int associativity,
-                                     int *cache_time, int *cache_idx,
-                                     bool *is_cached, int time) {
+__global__ void get_cache_idx(int *keys, int n, int *cached_keys,
+                              int n_cache_sets, int associativity,
+                              int *cache_time, int *cache_idx, bool *is_cached,
+                              int time) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     int widx = keys[tid];
@@ -341,6 +344,6 @@ inline __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
     }
   }
 }
-
+};  // end unnamed namespace
 };  // end namespace Cache
 };  // end namespace MLCommon
