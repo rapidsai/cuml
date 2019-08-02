@@ -30,6 +30,7 @@
 - PR #851: Random forest Stateless API wrappers
 - PR #895: Pretty prints arguments!
 - PR #915: syncStream added to cumlCommunicator
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
 
 ## Bug Fixes
 
