@@ -26,6 +26,7 @@
 #include <limits>
 #include <string>
 #include "decisiontree/decisiontree_impl.h"
+#include "linalg/gemm.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "randomforest/randomforest.hpp"
@@ -53,7 +54,7 @@ struct RfInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
+::std::ostream &operator<<(::std::ostream &os, const RfInputs<T> &dims) {
   return os;
 }
 
@@ -73,11 +74,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
       test_name.substr(test_name.find("/") + 1, test_name.length());
 
     // Create a directory if the test is the first one in the test case.
-    // https://stackoverflow.com/questions/12510874/how-can-i-check-if-a-directory-exists.
-    struct stat info;
-    if (stat(test_dir.c_str(), &info) != 0) {
-      ASSERT(mkdir(test_dir.c_str(), 0777) == 0, "Call mkdir %s fails.",
-             test_dir.c_str());
+    int mkdir_ret = mkdir(test_dir.c_str(), 0777);
+    if (mkdir_ret != 0) {
+      // Ignore the error if the error is caused by EEXIT.
+      // Treelite will generate errors when the directory is not accessible.
+      ASSERT(errno == EEXIST, "Call mkdir %s fails.", test_dir.c_str());
     }
 
     // Create a sub-directory for the test case.
@@ -151,6 +152,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     updateHost(predicted_labels_h.data(), predicted_labels_d,
                params.n_inference_rows, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < params.n_inference_rows; i++) {
       if (is_classification) {
@@ -200,14 +202,16 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
 
+    // Random number generator.
     Random::Rng r(1234ULL);
-
     r.uniform(data_d, data_len, T(0.0), T(100.0), stream);
     r.uniform(inference_data_d, inference_data_len, T(0.0), T(100.0), stream);
 
     updateHost(data_h.data(), data_d, data_len, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     updateHost(inference_data_h.data(), inference_data_d, inference_data_len,
                stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
@@ -257,7 +261,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   std::vector<L> labels_h;
   std::vector<L> predicted_labels_h;
 
-  RandomForestMetaData<T, L>* forest;
+  RandomForestMetaData<T, L> *forest;
 };  // namespace ML
 
 template <typename T, typename L>
@@ -270,10 +274,41 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 2;
 
-    // Populate labels randomly.
+    float *weight, *noise, *temp_label_d;
+    std::vector<float> temp_label_h;
+
+    allocate(weight, this->params.n_cols);
+    allocate(noise, this->params.n_rows);
+    allocate(temp_label_d, this->params.n_rows);
+
+    Random::Rng r(1234ULL);
+
+    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(noise, this->params.n_rows, T(0.0), T(10.0), this->stream);
+
+    LinAlg::gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
+      CUBLAS_OP_N, CUBLAS_OP_N, this->params.n_rows, this->params.n_cols, 1,
+      1.f, this->data_d, this->params.n_rows, weight, this->params.n_cols, 1.f,
+      noise, this->params.n_rows, temp_label_d, this->stream);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+
+    temp_label_h.resize(this->params.n_rows);
+    updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
+               this->stream);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+
+    int value;
     for (int i = 0; i < this->params.n_rows; i++) {
-      this->labels_h.push_back(rand() % 2);
+      // The value of temp_label is between 0 to 110.
+      // Choose 55 as the theshold to balance two classes.
+      if (temp_label_h[i] >= 55) {
+        value = 1;
+      } else {
+        value = 0;
+      }
+      this->labels_h.push_back(value);
     }
+
     updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
                  this->stream);
 
@@ -308,14 +343,25 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    for (int i = 0; i < this->params.n_rows; i++) {
-      // Generate labels which are linear to #row plus small noise.
-      this->labels_h.push_back(
-        i + static_cast<float>(rand()) /
-              (static_cast<float>(RAND_MAX / (this->params.n_rows / 10.0))));
-    }
-    updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
-                 this->stream);
+    float *weight, *noise;
+
+    allocate(weight, this->params.n_cols);
+    allocate(noise, this->params.n_rows);
+
+    Random::Rng r(1234ULL);
+    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(noise, this->params.n_rows, T(0.0), T(10.0), this->stream);
+
+    LinAlg::gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
+      CUBLAS_OP_N, CUBLAS_OP_N, this->params.n_rows, this->params.n_cols, 1,
+      1.f, this->data_d, this->params.n_rows, weight, this->params.n_cols, 1.f,
+      noise, this->params.n_rows, this->labels_d, this->stream);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+
+    this->labels_h.resize(this->params.n_rows);
+    updateHost(this->labels_h.data(), this->labels_d, this->params.n_rows,
+               this->stream);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
     fit(this->handle, this->forest, this->data_d, this->params.n_rows,
         this->params.n_cols, this->labels_d, this->rf_params);
