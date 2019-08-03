@@ -23,7 +23,7 @@ from librmm_cffi import librmm
 
 
 def _enforce_str(y):
-    ''' Check and convert to string '''
+    ''' Check and convert to string. '''
     if y.dtype != "object":
         return y.astype("str")
     return y
