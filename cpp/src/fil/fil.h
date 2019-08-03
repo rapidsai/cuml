@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <treelite/c_api.h>
 #include "cuML.hpp"
 
 namespace ML {
@@ -90,6 +91,18 @@ struct forest_params_t {
   float threshold;
 };
 
+/** treelite_params_t are parameters for importing treelite models */
+struct treelite_params_t {
+  // algo is the inference algorithm
+  algo_t algo;
+  // output_class indicates whether thresholding will be applied
+  // to the model output
+  bool output_class;
+  // threshold is used for thresholding if output_class == true,
+  // and is ignored otherwise
+  float threshold;
+};
+
 /** init_dense uses params to initialize the forest stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
@@ -97,6 +110,15 @@ struct forest_params_t {
  */
 void init_dense(const cumlHandle& h, forest_t* pf,
                 const forest_params_t* params);
+
+/** from_treelite uses a treelite model to initialize the forest
+ * @param handle cuML handle used by this function
+ * @param pforest pointer to where to store the newly created forest
+ * @param model treelite model used to initialize the forest
+ * @param tl_params additional parameters for the forest
+ */
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable 
  *  @param h cuML handle used by this function
