@@ -297,7 +297,6 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self.Y = None
         return
 
     def fit(self, X):
@@ -459,8 +458,8 @@ class TSNE(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if state["Y"] is not None:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(self.Y)
+        if "Y" in state:
+            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
 
         if "handle" in state:
             del state["handle"]
