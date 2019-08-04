@@ -124,7 +124,8 @@ class SVC(Base):
         super(SVC, self).__init__(handle=handle, verbose=verbose)
         self.tol = tol
         self.C = C
-        self.kernel = self._get_c_kernel(kernel)
+        self.kernel = kernel
+        self._c_kernel = self._get_c_kernel(kernel)
         self.degree = degree
         self.gamma = gamma
         self.coef0 = coef0
@@ -188,14 +189,13 @@ class SVC(Base):
             return self.gamma
 
     def _calc_coef(self):
-        tmp = np.dot(self.dual_coef_.copy_to_host(),
-                     self.support_vectors_.copy_to_host())
-        return np.sum(tmp, axis=1)
+        return np.dot(self.dual_coef_.copy_to_host(),
+                      self.support_vectors_.copy_to_host())
 
     @property
     def coef_(self):
-        if self.kernel != LINEAR:
-            raise AttributeError("Coef_ is only available for linear kernels")
+        if self._c_kernel != LINEAR:
+            raise AttributeError("coef_ is only available for linear kernels")
         if self.svcHandle is None:
             raise NotFittedError("Call fit before prediction")
         if self._coef_ is None:
@@ -234,7 +234,7 @@ class SVC(Base):
 
         if self.kernel_params is None:
             kernel_params = new KernelParams(
-                <KernelType>self.kernel, <int>self.degree,
+                <KernelType>self._c_kernel, <int>self.degree,
                 <double> self._gamma_val(X), <double>self.coef0)
             self.kernel_params = <size_t> kernel_params
         else:
