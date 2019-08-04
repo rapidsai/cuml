@@ -21,6 +21,7 @@ from numba.cuda.cudadrv.driver import driver
 from librmm_cffi import librmm as rmm
 import numpy as np
 
+
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
@@ -179,6 +180,6 @@ def stride_from_order(shape, order, itemsize):
     stride[0] = itemsize
     for i in range(n - 1):
         stride[i+1] = stride[i] * shape[i]
-    if order ==  'C':
+    if order == 'C':
         stride.reverse()
     return tuple(stride)
