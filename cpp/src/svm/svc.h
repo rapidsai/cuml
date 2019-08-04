@@ -34,7 +34,7 @@ using namespace MLCommon;
  *
  * The decision function takes the following form
  * \f[
- *    f(x) = sign\left( \sum_i=1^{N_{support} y_i \alpha_i K(x_i,x) + b \right),
+ *    sign\left( \sum_{i=1}^{N_{support}} y_i \alpha_i K(x_i,x) + b \right),
  * \f]
  * where \f$x_i\f$ are the support vectors, and \f$ y_i \alpha_i \f$ are the dual
  * coordinates.
@@ -110,6 +110,8 @@ class SVC {
   bool need_kernel_dealloc = false;
 
   const cumlHandle &handle;
+
+  void free_buffers();
 };
 
 };  // end namespace SVM

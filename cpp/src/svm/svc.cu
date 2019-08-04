@@ -44,15 +44,25 @@ SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
 
 template <typename math_t>
 SVC<math_t>::~SVC() {
+  free_buffers();
+}
+
+template <typename math_t>
+void SVC<math_t>::free_buffers() {
   if (dual_coefs) CUDA_CHECK(cudaFree(dual_coefs));
   if (support_idx) CUDA_CHECK(cudaFree(support_idx));
   if (x_support) CUDA_CHECK(cudaFree(x_support));
   if (unique_labels) CUDA_CHECK(cudaFree(unique_labels));
+  dual_coefs = nullptr;
+  support_idx = nullptr;
+  x_support = nullptr;
+  unique_labels = nullptr;
 }
 
 template <typename math_t>
 void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
   this->n_cols = n_cols;
+  if (dual_coefs) free_buffers();
   svcFit(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
          cache_size, max_iter, &dual_coefs, &n_support, &b, &x_support,
          &support_idx, &unique_labels, &n_classes);
