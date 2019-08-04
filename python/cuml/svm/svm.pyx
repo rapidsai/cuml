@@ -29,7 +29,8 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr
+from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
+    device_array_from_ptr
 
 from sklearn.exceptions import NotFittedError
 
@@ -52,6 +53,7 @@ cdef extern from "svm/svc.h" namespace "ML::SVM":
         # number of these parameters are not known before fitting.
         int n_support
         math_t *dual_coefs
+        math_t *x_support
         int *support_idx
         math_t b
         KernelParams kernel_params
@@ -71,6 +73,8 @@ class SVC(Base):
     SVC (C-Support Vector Classification)
 
     Currently only binary classification is supported.
+
+    The solver uses the SMO method similarily to fit the classifier.
 
     Parameters
     ----------
@@ -99,14 +103,20 @@ class SVC(Base):
 
     Attributes
     ----------
-
     n_support_ : int
         The total number of support vectors.
         TODO change this to represent number support vectors for each class.
+    support_ : int, shape = [n_support]
+        Device array of suppurt vector indices
+    support_vectors_ : float, shape [n_support, n_cols]
+        Device array of support vectors
+    dual_coef_ : float, shape = [1, n_support]
+        Device array of coefficients for support vectors
     intercept_ : int
         The constant in the decision function
-
-    The solver uses the SMO method similarily to ThunderSVM and OHD-SVM.
+    coef_ : float, shape [1, n_cols]
+        Only available for linear kernels. It is the normal of the hyperplane.
+        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
     """
     def __init__(self, handle=None, C=1, kernel='linear', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
@@ -120,9 +130,12 @@ class SVC(Base):
         self.coef0 = coef0
         self.cache_size = cache_size
         self.max_iter = max_iter
-        self.dual_coefs_ = None  # TODO populate this after fitting
+        self.dual_coef_ = None
+        self.support_ = None
+        self.support_vectors_ = None
         self.intercept_ = None
         self.n_support_ = None
+        self._coef_ = None
         self.dtype = None
         self.kernel_params = None
         self.svcHandle = None
@@ -130,9 +143,6 @@ class SVC(Base):
         # The current implementation stores the pointer to CppSVC in svcHandle.
         # The pointer is stored with type size_t (see fit()), because we
         # cannot have cdef CppSVC[float, float] *svc here.
-        #
-        # Alternatively we could have a thin cdef class PyCppSVC wrapper around
-        # CppSVC, or we could make SVC itself a cdef class.
         #
         # CppSVC is not yet created here because the data type will be only
         # known when we call fit(). Similarily kernel_params is not yet created
@@ -176,6 +186,21 @@ class SVC(Base):
                 raise ValueError("Not implemented gamma option: " + self.gamma)
         else:
             return self.gamma
+
+    def _calc_coef(self):
+        tmp = np.dot(self.dual_coef_.copy_to_host(),
+                     self.support_vectors_.copy_to_host())
+        return np.sum(tmp, axis=1)
+
+    @property
+    def coef_(self):
+        if self.kernel != LINEAR:
+            raise AttributeError("Coef_ is only available for linear kernels")
+        if self.svcHandle is None:
+            raise NotFittedError("Call fit before prediction")
+        if self._coef_ is None:
+            self._coef_ = self._calc_coef()
+        return self._coef_
 
     def fit(self, X, y):
         """
@@ -223,11 +248,18 @@ class SVC(Base):
                 self.svcHandle = <size_t> svc_f
             else:
                 svc_f = <CppSVC[float]*><size_t> self.svcHandle
+                self._coef_ = None
             svc_f.fit(<float*>X_ptr, <int>self.n_rows,
                       <int>self.n_cols, <float*>y_ptr)
             self.intercept_ = svc_f.b
             self.n_support_ = svc_f.n_support
-
+            self.dual_coef_ = device_array_from_ptr(
+                <uintptr_t>svc_f.dual_coefs, (1, self.n_support_), self.dtype)
+            self.support_ = device_array_from_ptr(
+                <uintptr_t>svc_f.support_idx, (self.n_support_,), np.int32)
+            self.support_vectors_ = device_array_from_ptr(
+                <uintptr_t>svc_f.x_support, (self.n_support_, self.n_cols),
+                self.dtype)
         else:
             if self.svcHandle is None:
                 svc_d = new CppSVC[double](
@@ -236,10 +268,18 @@ class SVC(Base):
                 self.svcHandle = <size_t> svc_d
             else:
                 svc_d = <CppSVC[double]*><size_t> self.svcHandle
+                self._coef_ = None
             svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
                       <double*>y_ptr)
             self.intercept_ = svc_d.b
             self.n_support_ = svc_d.n_support
+            self.dual_coef_ = device_array_from_ptr(
+                <uintptr_t>svc_d.dual_coefs, (1, self.n_support_), self.dtype)
+            self.support_ = device_array_from_ptr(
+                <uintptr_t>svc_d.support_idx, (self.n_support_,), np.int32)
+            self.support_vectors_ = device_array_from_ptr(
+                <uintptr_t>svc_d.x_support, (self.n_support_, self.n_cols),
+                self.dtype)
 
         self.handle.sync()
 
