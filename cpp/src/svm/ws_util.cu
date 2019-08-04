@@ -30,15 +30,15 @@ __global__ void range(int *f_idx, int n) {
   }
 }
 
-__global__ void map_to_sorted(bool *available, int n_rows,
-                              bool *available_sorted, int *idx_sorted) {
+__global__ void map_to_sorted(const bool *available, int n_rows,
+                              bool *available_sorted, const int *idx_sorted) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_rows) {
     int idx = idx_sorted[tid];
     available_sorted[tid] = available[idx];
   }
 }
-__global__ void set_unavailable(bool *available, int n_rows, int *idx,
+__global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_selected) {
@@ -46,8 +46,9 @@ __global__ void set_unavailable(bool *available, int n_rows, int *idx,
   }
 }
 
-__global__ void update_priority(int *new_priority, int n_selected, int *new_idx,
-                                int n_ws, int *idx, int *priority) {
+__global__ void update_priority(int *new_priority, int n_selected,
+                                const int *new_idx, int n_ws, const int *idx,
+                                const int *priority) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_selected) {
     int my_new_idx = new_idx[tid];
