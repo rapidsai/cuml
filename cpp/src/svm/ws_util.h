@@ -35,11 +35,11 @@ __global__ void range(int *f_idx, int n);
  * \param [in] idx list of indices already selected, size [n_selected]
  * \param [in] n_selected number of elements in the idx list
  */
-__global__ void set_unavailable(bool *available, int n_rows, int *idx,
+__global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected);
 
-__global__ void map_to_sorted(bool *available, int n_rows,
-                              bool *available_sorted, int *idx_sorted);
+__global__ void map_to_sorted(const bool *available, int n_rows,
+                              bool *available_sorted, const int *idx_sorted);
 
 /** Set availability to true for elements in the upper set, otherwise false.
  * @param [out] available, size [n]
@@ -49,8 +49,8 @@ __global__ void map_to_sorted(bool *available, int n_rows,
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_upper(bool *available, int n, math_t *alpha, math_t *y,
-                          math_t C) {
+__global__ void set_upper(bool *available, int n, const math_t *alpha,
+                          const math_t *y, math_t C) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) available[tid] = in_upper(alpha[tid], y[tid], C);
 }
@@ -63,8 +63,8 @@ __global__ void set_upper(bool *available, int n, math_t *alpha, math_t *y,
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_lower(bool *available, int n, math_t *alpha, math_t *y,
-                          math_t C) {
+__global__ void set_lower(bool *available, int n, const math_t *alpha,
+                          const math_t *y, math_t C) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) available[tid] = in_lower(alpha[tid], y[tid], C);
 }
@@ -81,7 +81,8 @@ __global__ void set_lower(bool *available, int n, math_t *alpha, math_t *y,
 * @param [in] idx indices in the old working set, size [n_ws]
 * @param [in] priority of elements in the old working set, size [n_ws]
 */
-__global__ void update_priority(int *new_priority, int n_selected, int *new_idx,
-                                int n_ws, int *idx, int *priority);
+__global__ void update_priority(int *new_priority, int n_selected,
+                                const int *new_idx, int n_ws, const int *idx,
+                                const int *priority);
 }  // namespace SVM
 }  // namespace ML
