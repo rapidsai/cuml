@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import copy
 import ctypes
 import math
 import numpy as np
@@ -114,6 +115,7 @@ cdef class FIL_impl():
     cdef forest_t* forest_pointer
     cdef forest_t forest_data
     cdef forest_params_t* params
+    cdef ModelHandle* model_ptr
     cdef object depth
     cdef object num_trees
     cdef object algo
@@ -122,8 +124,6 @@ cdef class FIL_impl():
     cdef object n_cols
     cdef object dtype
     cdef object fid
-    cdef object def_left
-    cdef object is_leaf
     cdef object num_nodes
     cdef object verbose
 
@@ -198,27 +198,21 @@ cdef class FIL_impl():
 
     def from_treelite(self, model, output_class):
 
-        print("Entered the from_treelite function in cython")
         cdef treelite_params_t treelite_params
-        print("what is wrong?")
         treelite_params.output_class = output_class
-        print(treelite_params.output_class)
         treelite_params.threshold = self.threshold
-        print(treelite_params.threshold)
         treelite_params.algo = self.algo
-        print(" assigned treelite_params variable all the required values")
+        #model_copy = copy.deepcopy(model)
+        #cdef ModelHandle model_ptr = new ModelHandle*> &model
+        print(" model.num_feature : ", model.num_feature)
+        print(" model.num_output_group : ",model.num_output_group)
+        print(" model : ", model.handle)
+        model_handle = model.handle
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        print(" Create and assign the handle ")    
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print(" <ModelHandle> model : ", model)
-        print(" Model.num_feature in python : ", model.num_feature)
-        cdef ModelHandle temp = <ModelHandle> model
-        cdef ModelHandle* model_ptr = <ModelHandle*> &temp
         from_treelite(handle_[0],
                       self.forest_pointer,
-                      <ModelHandle> model, 
+                      <ModelHandle> model.handle, 
                       &treelite_params)
 
 
