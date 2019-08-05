@@ -455,7 +455,7 @@ class TSNE(Base):
         self.__dict__.update(state)
         self._assure_clean_memory()
         return state
-    
+
     def _assure_clean_memory(self):
         """
         TSNE is sensitive to what is currently in memory.
