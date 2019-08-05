@@ -352,11 +352,12 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   std::vector<dense_node_t> nodes;
   tl::Model& temp = *(tl::Model*)model;
   std::cout << " model in C++ function : " << model << std::endl << std::flush;
-  std::cout << " Model pointer printed in C++ : " << &model << std::endl
+  std::cout << " New model pointer printed in C++ : " << &temp << std::endl
+            << std::flush;
+  std::cout << " model num_output_group in c++ : " << temp.num_output_group
+            << std::endl
             << std::flush;
   std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
-            << std::flush;
-  std::cout << "initialize vector dense node t variable , nodes : " << std::endl
             << std::flush;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::flush;
   std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl
