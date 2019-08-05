@@ -26,7 +26,8 @@
 #include <limits>
 #include <string>
 #include "decisiontree/decisiontree_impl.h"
-#include "linalg/gemm.h"
+#include "linalg/gemv.h"
+#include "linalg/transpose.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "randomforest/randomforest.hpp"
@@ -74,9 +75,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
       test_name.substr(test_name.find("/") + 1, test_name.length());
 
     // Create a directory if the test is the first one in the test case.
-    int mkdir_ret = mkdir(test_dir.c_str(), 0777);
+    int mkdir_ret = mkdir(test_dir.c_str(), 0700);
     if (mkdir_ret != 0) {
-      // Ignore the error if the error is caused by EEXIT.
+      // Ignore the error if the error is caused by EEXIST.
       // Treelite will generate errors when the directory is not accessible.
       ASSERT(errno == EEXIST, "Call mkdir %s fails.", test_dir.c_str());
     }
@@ -203,12 +204,14 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h.resize(inference_data_len);
 
     // Random number generator.
-    Random::Rng r(1234ULL);
-    r.uniform(data_d, data_len, T(0.0), T(100.0), stream);
-    r.uniform(inference_data_d, inference_data_len, T(0.0), T(100.0), stream);
+    Random::Rng r1(1234ULL);
+    // Generate data_d is in column major order.
+    r1.uniform(data_d, data_len, T(0.0), T(10.0), stream);
+    Random::Rng r2(1234ULL);
+    // Generate inference_data_d which is in row major order.
+    r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
 
     updateHost(data_h.data(), data_d, data_len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     updateHost(inference_data_h.data(), inference_data_d, inference_data_len,
                stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -274,23 +277,22 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 2;
 
-    float *weight, *noise, *temp_label_d;
+    float *weight, *temp_label_d;
     std::vector<float> temp_label_h;
 
     allocate(weight, this->params.n_cols);
-    allocate(noise, this->params.n_rows);
     allocate(temp_label_d, this->params.n_rows);
 
     Random::Rng r(1234ULL);
 
+    // Generate weight for each feature.
     r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
-    r.uniform(noise, this->params.n_rows, T(0.0), T(10.0), this->stream);
+    // Generate noise.
+    r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
-      CUBLAS_OP_N, CUBLAS_OP_N, this->params.n_rows, this->params.n_cols, 1,
-      1.f, this->data_d, this->params.n_rows, weight, this->params.n_cols, 1.f,
-      noise, this->params.n_rows, temp_label_d, this->stream);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    LinAlg::gemv<float>(this->data_d, this->params.n_cols, this->params.n_rows,
+                        weight, temp_label_d, false, 1.f, 1.f,
+                        this->handle.getImpl().getCublasHandle(), this->stream);
 
     temp_label_h.resize(this->params.n_rows);
     updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
@@ -299,9 +301,9 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
     int value;
     for (int i = 0; i < this->params.n_rows; i++) {
-      // The value of temp_label is between 0 to 110.
-      // Choose 55 as the theshold to balance two classes.
-      if (temp_label_h[i] >= 55) {
+      // The value of temp_label is between 0 to 10*n_cols+noise_level(10).
+      // Choose half of that as the theshold to balance two classes.
+      if (temp_label_h[i] >= (10 * this->params.n_cols + 10) / 2.0) {
         value = 1;
       } else {
         value = 0;
@@ -343,20 +345,20 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    float *weight, *noise;
-
+    float *weight;
     allocate(weight, this->params.n_cols);
-    allocate(noise, this->params.n_rows);
 
     Random::Rng r(1234ULL);
-    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
-    r.uniform(noise, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
-      CUBLAS_OP_N, CUBLAS_OP_N, this->params.n_rows, this->params.n_cols, 1,
-      1.f, this->data_d, this->params.n_rows, weight, this->params.n_cols, 1.f,
-      noise, this->params.n_rows, this->labels_d, this->stream);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    // Generate weight for each feature.
+    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
+    // Generate noise.
+    r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0),
+              this->stream);
+
+    LinAlg::gemv<float>(this->data_d, this->params.n_cols, this->params.n_rows,
+                        weight, this->labels_d, true, 1.f, 1.f,
+                        this->handle.getImpl().getCublasHandle(), this->stream);
 
     this->labels_h.resize(this->params.n_rows);
     updateHost(this->labels_h.data(), this->labels_d, this->params.n_rows,
