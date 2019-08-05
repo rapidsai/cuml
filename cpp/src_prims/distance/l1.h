@@ -44,7 +44,7 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
+void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
             OutType *pD, FinalLambda fin_op, cudaStream_t stream,
             bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
