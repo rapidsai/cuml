@@ -21,6 +21,7 @@
 - PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
+- PR #882: T-Distributed Stochastic Neighborbood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
