@@ -206,7 +206,7 @@ cdef class FIL_impl():
         #cdef ModelHandle model_ptr = new ModelHandle*> &model
         print(" model.num_feature : ", model.num_feature)
         print(" model.num_output_group : ",model.num_output_group)
-        print(" model : ", model.handle)
+        print(" model handle : ", model.handle)
         model_handle = model.handle
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
