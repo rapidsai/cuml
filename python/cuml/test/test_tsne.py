@@ -39,7 +39,7 @@ def test_tsne(name):
         print("Trust = ", trust)
         if trust < 0.97:
             if trust < 0.95:
-                assert trust > 0.9
+                assert trust > 0.88
         assert nans == 0
         del Y
 
@@ -50,7 +50,7 @@ def test_tsne(name):
         print("Trust = ", trust)
         if trust < 0.97:
             if trust < 0.95:
-                assert trust > 0.9
+                assert trust > 0.88
         assert nans == 0
         del Y
 
@@ -63,7 +63,7 @@ def test_tsne(name):
         print("Trust = ", trust)
         if trust < 0.97:
             if trust < 0.95:
-                assert trust > 0.9
+                assert trust > 0.88
         assert nans == 0
         del Y
 
@@ -74,6 +74,6 @@ def test_tsne(name):
         print("Trust = ", trust)
         if trust < 0.97:
             if trust < 0.95:
-                assert trust > 0.9
+                assert trust > 0.88
         assert nans == 0
         del Y
