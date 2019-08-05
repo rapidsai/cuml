@@ -184,7 +184,7 @@ void TemporaryMemory<T, L>::NodeMemCleaner() {
 
 template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
-                                              int n_unique_labels, int nbins,
+                                              int n_unique, int nbins,
                                               int depth) {
   if (depth > 20) {
     max_nodes_per_level = pow(2, 20);
@@ -269,27 +269,28 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
 
   //Classification
   if (typeid(L) == typeid(int)) {
-    size_t histcount = ncols * nbins * n_unique_labels * maxnodes;
+    size_t histcount = ncols * nbins * n_unique * maxnodes;
     d_histogram = new MLCommon::device_buffer<unsigned int>(
       ml_handle.getDeviceAllocator(), stream, histcount);
     h_histogram = new MLCommon::host_buffer<unsigned int>(
       ml_handle.getHostAllocator(), stream, histcount);
     h_parent_hist = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, maxnodes * n_unique_labels);
+      ml_handle.getHostAllocator(), stream, maxnodes * n_unique);
     h_child_hist = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, 2 * maxnodes * n_unique_labels);
+      ml_handle.getHostAllocator(), stream, 2 * maxnodes * n_unique);
     d_parent_hist = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, maxnodes * n_unique_labels);
+      ml_handle.getDeviceAllocator(), stream, maxnodes * n_unique);
     d_child_hist = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * n_unique_labels);
-    totalmem += histcount * sizeof(int);
-    totalmem += n_unique_labels * maxnodes * 3 * sizeof(float);
+      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * n_unique);
+    totalmem += histcount * sizeof(unsigned int);
+    totalmem += n_unique * maxnodes * 3 * sizeof(unsigned int);
   }
+  //Calculate Max nodes in shared memory.
   cudaDeviceProp prop;
   CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
   size_t max_shared_mem = prop.sharedMemPerBlock;
   if (typeid(L) == typeid(int)) {
-    max_nodes_class = max_shared_mem / (nbins * n_unique_labels * sizeof(int));
+    max_nodes_class = max_shared_mem / (nbins * n_unique * sizeof(int));
     max_nodes_class /= 2;  // For occupancy purposes.
   }
   if (typeid(L) == typeid(T)) {

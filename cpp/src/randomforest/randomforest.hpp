@@ -65,7 +65,8 @@ struct RF_params {
    * Decision tree training hyper parameter struct.
    */
   /**
-   * Number of concurrent (cpu thread + gpu stream)  pair per GPU for parallel tree building. 
+   * Number of concurrent GPU streams for parallel tree building.
+   * Each stream is independently managed by CPU thread.
    * N streams need N times RF workspace. 
    */
   int n_streams;
