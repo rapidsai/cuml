@@ -3,20 +3,20 @@ This document summarizes guidelines and best practices for contributions to the 
 
 ## General
 Please start by reading:
-1. [CONTRIBUTING.md](../CONTRIBUTING.md).
-2. [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md)
-3. [Python cuML README.md](README.md)
+1. [CONTRIBUTING.md](../../CONTRIBUTING.md).
+2. [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md)
+3. [Python cuML README.md](../../python/README.md)
 
 ## Thread safety
-Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md#thread-safety)
+Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md#thread-safety)
 
 ## Coding style
 1. [PEP8](https://www.python.org/dev/peps/pep-0008) and [flake8](http://flake8.pycqa.org/en/latest/) is used to check the adherence to this style.
 2. [sklearn coding guidelines](https://scikit-learn.org/stable/developers/contributing.html#coding-guidelines)
 
 ## Creating class for a new ML algo
-1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
-2. Refer to the [next section](./DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
+1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
+2. Refer to the [next section](DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
 
 ## Creating python wrapper class for an existing ML algo
 1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
@@ -63,7 +63,7 @@ algo2 = cuml.Algo2(handle=h2, ...)
 algo1.fit(X1, y1)
 algo2.fit(X2, y2)
 ```
-To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
+To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Multi GPU
 We currently have **S**ingle **P**rocess **M**ultiple **G**PU (SPMG) versions of KNN, OLS and tSVD. Our upcoming versions will concentrate on **O**ne **P**rocess per **G**PU (OPG) paradigm.

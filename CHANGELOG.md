@@ -2,17 +2,25 @@
 
 ## New Features
 
+- PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
 - PR #787: homogeneity, completeness and v-measure metrics ml-prim
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #816: Added inverse_transform() for LabelEncoder
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #870: make_blobs python function
+- PR #879: import of treelite models to FIL
+- PR #892: General Gram matrices prim
+- PR #883: Adding MNMG Kmeans
 - PR #853: LRU cache ml-prim
 
 ## Improvements
@@ -20,12 +28,23 @@
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
+- PR #857: Small modifications to comms for utilizing IB w/ Dask
+- PR #851: Random forest Stateless API wrappers
+- PR #895: Pretty prints arguments!
+- PR #920: Add an empty marker kernel for tracing purposes
+- PR #915: syncStream added to cumlCommunicator
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
 
 ## Bug Fixes
 
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
+- PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+
 
 # cuML 0.8.0 (27 June 2019)
 
@@ -46,6 +65,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 

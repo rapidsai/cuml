@@ -45,26 +45,31 @@ if os.environ.get('CONDA_PREFIX', None):
 
 exc_list = []
 
-libs = ['cuda', 'cuml++', 'rmm']
+libs = ['cuda', 'cuml++', "cumlcomms", 'nccl', 'rmm']
+
+include_dirs = ['../cpp/src',
+                '../cpp/external',
+                '../cpp/src_prims',
+                '../thirdparty/cutlass',
+                '../thirdparty/cub',
+                '../cpp/comms/std/src',
+                '../cpp/comms/std/include',
+                cuda_include_dir,
+                rmm_include_dir]
 
 if "--multigpu" not in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append("cuml/cluster/kmeans_mg.pyx")
 else:
-    libs.append('cumlMG')
+    libs.append('cumlprims')
     sys.argv.remove("--multigpu")
 
 
 extensions = [
     Extension("*",
-              sources=['cuml/*/*.pyx'],
-              include_dirs=['../cpp/src',
-                            '../cpp/external',
-                            '../cpp/src_prims',
-                            '../thirdparty/cutlass',
-                            '../thirdparty/cub',
-                            cuda_include_dir,
-                            rmm_include_dir],
+              sources=["cuml/**/**/*.pyx"],
+              include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
                                     rmm_lib_dir],
