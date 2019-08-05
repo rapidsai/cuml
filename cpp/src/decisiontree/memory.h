@@ -106,7 +106,7 @@ struct TemporaryMemory {
   ~TemporaryMemory();
   void NodeMemAllocator(int N, int Ncols, int n_unique, int n_bins,
                         const int split_algo);
-  void LevelMemAllocator(int nrows, int ncols, int n_unique_labels, int nbins,
+  void LevelMemAllocator(int nrows, int ncols, int n_unique, int nbins,
                          int depth);
   void NodeMemCleaner();
   void LevelMemCleaner();

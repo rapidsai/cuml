@@ -82,7 +82,7 @@ class DecisionTreeBase {
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
              int maxdepth = -1, int max_leaf_nodes = -1,
              const float colper = 1.0, int n_bins = 8,
-             int split_algo_flag = SPLIT_ALGO::HIST,
+             int split_algo_flag = SPLIT_ALGO::GLOBAL_QUANTILE,
              int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
              CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
              bool cfg_quantile_per_tree = false,

@@ -145,6 +145,7 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_n_trees: number of trees; default 1
  * @param[in] cfg_bootstrap: bootstrapping; default true
  * @param[in] cfg_rows_sample: rows sample; default 1.0f
+ * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
                    float cfg_rows_sample, int cfg_n_streams) {
@@ -152,6 +153,10 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   params.bootstrap = cfg_bootstrap;
   params.rows_sample = cfg_rows_sample;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
+  if (params.n_streams == cfg_n_streams) {
+    std::cout << "Warning! Max setting Max streams to max openmp threads "
+              << omp_get_max_threads() << std::endl;
+  }
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
   if (params.tree_params.split_algo == 0) params.n_streams = 1;
@@ -163,6 +168,7 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in] cfg_n_trees: number of trees
  * @param[in] cfg_bootstrap: bootstrapping
  * @param[in] cfg_rows_sample: rows sample
+ * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
