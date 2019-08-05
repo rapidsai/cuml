@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/**@file smoblocksolve.h  contains implementation of the blocke SMO solver
+*/
 #pragma once
 
 #include <cuda_utils.h>
@@ -29,30 +31,62 @@ namespace SVM {
  *
  * Based on Platt's SMO [1], using improvements from Keerthy and Shevade [2].
  * A concise summary of the math can be found in Appendix A1 of [3].
+ * We solve the QP subproblem for the vectors in the working set (WS).
+ *
+ * We would like to maximize the following quantity
+ * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
+ *   + \frac{1}{2} \mathbf{\alpha}^T Q \mathbf{\alpha}, \f]
+ * subject to
+ * \f[ \mathbf{\alpha}^T \mathbf{y} = 0 \\
+ *     \mathbf{0} \le \mathbf{\alpha}\le C \mathbf{1},\f]
+ * where \f$ Q_{i,j} = y_i y_j K(\mathbf{x}_i, \mathbf{x}_j)\f$
+ *
+ * This corresponds to Lagrangian for the dual is:
+ * \f[ L = \frac{1}{2}  \sum_{i,j}\alpha_i Q \alpha_j - \sum_i \alpha_i
+ *      -\sum_i \delta_i \alpha_i + \sum_i\mu_i(\alpha_i -C)
+ *      - \beta \sum_i \alpha_i y_i
+ *\f]
+ *
+ * Let us define the optimality indicator vector
+ * \f[ f_i = y_i
+ *     \frac{\partial W(\mathbf{\alpha})}{\partial \alpha_i} =
+ *     -y_i +   y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j) =
+ *     -y_i + y_i Q_{i,j} \alpha_j.
+ * \f]
+
+ * The Karush-Kuhn-Tucker conditions are necesary and sufficient for optimality.
+ * According to [2], the conditions simplify to
+ * \f[ \beta \le f_i, \forall i \in I_\mathrm{upper}, \quad
+ *     \beta \ge f_i \forall i \in I_\mathrm{lower}. \f]
+ *
+ * If \f$ \max\{f_i | i \in I_\mathrm{lower}\} \le \min\{f_i| i\in I_\mathrm{upper}\}\f$,
+ * then we are converged because any beta value in this interval would lead to
+ * an optimal solution. Otherwise we modify the alpha parameters until the
+ * corresponding changes in f lead to an on optimal solution.
  *
  * Before the first iteration, one should set \f$ \alpha_i = 0\f$, and
  * \f$ f_i = -y_i \f$, for each \f$ i \in [0..n_{rows}]\f$.
  *
- * We solve the QP subproblem for the vectors in the working set (WS).
- * We use the SMO method: we select two vectors u and l from the WS and update
- * the dual cofficients of these vectors. We iterate several times, and
- * accumulate the change in the dual coeffs in \f$\Delta\alpha\f$.
+ * To find the optimal alpha parameters, we use the SMO method: we select two
+ * vectors u and l from the WS and update the dual coefficients of these vectors.
+ * We iterate several times, and accumulate the change in the dual coeffs in
+ * \f$\Delta\alpha\f$.
  *
  * In every iteration we select the two vectors using the following formulas
- *   \f[ u = \mathrm{argmax}_{i=1}^{n_{ws}}\left[ f_i |
+ *   \f[ u = \mathrm{argmin}_{i=1}^{n_{ws}}\left[ f_i |
  *      x_i \in X_\mathrm{upper} \right] \f]
  *
- *  \f[ l = \mathrm{argmax}_{i=1}^n_{ws}} \left[
- *          \frac{(f_u-f_i)^2}{\eta_i}| f_u < f_i \and x_i \in
+ *  \f[ l = \mathrm{argmax}_{i=1}^{n_{ws}} \left[
+ *          \frac{(f_u-f_i)^2}{\eta_i}| f_u < f_i \land x_i \in
  *           X_{\mathrm{lower}}\right], \f]
  *  where \f[\eta_i = K(x_u, x_u) + K(x_i, x_i) - 2K(x_u, x_i). \f]
  *
- * We update the values of the dual coefs according to (additionaly we clip
+ * We update the values of the dual coefs according to (additionally we clip
  * values so that the coefficients stay in the [0, C] interval)
- * \f[ \Delta \alpha_l = y_l \frac{f_u - f_l}{\eta_l}, \f]
+ * \f[ \Delta \alpha_l = - y_l \frac{f_l - f_u}{\eta_l} = -y_l q, \f]
  * \f[ \alpha_l += \Delta \alpha_l, \f]
- * \f[ \Delta \alpha_u = -y_u y_l \Delta \alpha_l, \f]
- * \f[ \alpha_l += \Delta \alpha_l. \f]
+ * \f[ \Delta \alpha_u = -y_u y_l \Delta \alpha_l = y_u q, \f]
+ * \f[ \alpha_u += \Delta \alpha_u. \f]
  *
  * We also update the optimality indicator vector for the WS:
  * \f[ f_i += \Delta\alpha_u y_u K(x_u,x_i) + \Delta\alpha_l y_l K(x_l, x_i) \f]
@@ -65,11 +99,11 @@ namespace SVM {
  * parameter.
  *
  * References:
- *  [1] J. C. Platt Sequential Minimal Optimization: A Fast Algorithm for
+ * - [1] J. C. Platt Sequential Minimal Optimization: A Fast Algorithm for
  *      Training Support Vector Machines, Technical Report MS-TR-98-14 (1998)
- *  [2] S.S. Keerthi et al. Improvements to Platt's SMO Algorithm for SVM
+ * - [2] S.S. Keerthi et al. Improvements to Platt's SMO Algorithm for SVM
  *      Classifier Design, Neural Computation 13, 637-649 (2001)
- *  [3] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
+ * - [3] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
  *      of Machine Learning Research, 19, 1-5 (2018)
  *
  * @tparam math_t floating point data type
@@ -103,6 +137,13 @@ __global__ void SmoBlockSolve(math_t *y_array, int n_rows, math_t *alpha,
     typename BlockReduce::TempStorage pair;
     typename BlockReduceFloat::TempStorage single;
   } temp_storage;
+
+  // From Platt [1]: "Under unusual circumtances \eta will not be positive.
+  // A negative \eta will occur if the kernel K does note obey Mercer's
+  // condition [...]. A zero \eta can occur even with a correct kernel, if more
+  // than one training exampe has the input vector x." We set a lower limit to
+  // \eta, to ensure correct behavior of SMO.
+  constexpr math_t ETA_EPS = 1.0e-12;  // minimum value for \eta
 
   __shared__ math_t f_u;
   __shared__ int u;
@@ -155,7 +196,8 @@ __global__ void SmoBlockSolve(math_t *y_array, int n_rows, math_t *alpha,
     }
 
     if (f_u < f && in_lower(a, y, C)) {
-      f_tmp = (f_u - f) * (f_u - f) / (Kd[tid] + Kd[u] - 2 * Kui);
+      math_t eta_ui = max(Kd[tid] + Kd[u] - 2 * Kui, ETA_EPS);
+      f_tmp = (f_u - f) * (f_u - f) / eta_ui;
     } else {
       f_tmp = -INFINITY;
     }
@@ -168,19 +210,28 @@ __global__ void SmoBlockSolve(math_t *y_array, int n_rows, math_t *alpha,
     math_t Kli = kernel[l * n_rows + idx];
 
     // Update alpha
-    //
-    // We know that 0 <= a <= C
-    // We select q so that both delta alpha_u and delta alpha_l stay in this limit.
+    // Let's set q = \frac{f_l - f_u}{\eta_{ul}
+    // Ideally we would have a'_u = a_u + y_u*q and a'_l = a_l - y_l*q
+    // We know that 0 <= a <= C, and the updated values (a') should also stay in
+    // this range. Therefore
+    // 0 <= a_u + y_u *q <= C   -->   -a_u <= y_u * q <= C - a_u
+    // Based on the value of y_u we have two branches:
+    // y == 1: -a_u <= q <= C-a_u and y == -1: a_u >= q >= a_u - C
+    // Knowing that q > 0 (since f_l > f_u and \eta_ul > 0), and 0 <= a_u <= C,
+    // the constraints are simplified as
+    // y == 1:  q <= C-a_u, and  y == -1: q <= a_u
+    // Similarily we can say for a'_l:
+    // y == 1:  q <= a_l, and y ==- 1: q <= C - a_l
+    // We clip q accordingly before we do the update of a.
     if (threadIdx.x == u) tmp_u = y > 0 ? C - a : a;
     if (threadIdx.x == l) {
       tmp_l = y > 0 ? a : C - a;
-      tmp_l =
-        min(tmp_l, (f - f_u) / (Kd[u] + Kd[l] -
-                                2 * Kui));  // note: Kui == Kul for this thread
+      // note: Kui == Kul for this thread
+      math_t eta_ul = max(Kd[u] + Kd[l] - 2 * Kui, ETA_EPS);
+      tmp_l = min(tmp_l, (f - f_u) / eta_ul);
     }
     __syncthreads();
     math_t q = min(tmp_u, tmp_l);
-
     if (threadIdx.x == u) a += q * y;
     if (threadIdx.x == l) a -= q * y;
     f += q * (Kui - Kli);
