@@ -21,7 +21,6 @@
 - PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
-- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -33,6 +32,7 @@
 - PR #895: Pretty prints arguments!
 - PR #920: Add an empty marker kernel for tracing purposes
 - PR #915: syncStream added to cumlCommunicator
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
 
 ## Bug Fixes
 
