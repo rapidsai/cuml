@@ -114,16 +114,16 @@ class WorkingSet {
    * some elements selected by a different strategy, therefore we select only
    * n = n_ws - n_already_selected.
    *
+   * References:
+   * [1] Joachims, T. (1998). Making large-scale support vector machine learning
+   *     practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
+   *     kernel methods: Support vector machines. Cambridge, MA: MIT Press
+   *
    * @param f optimality indicator vector, size [n_rows]
    * @param alpha dual coefficients, size [n_rows]
    * @param y target labels (+/- 1)
    * @param C penalty parameter
    * @param n_already_selected
-   *
-   * References:
-   * [1] Joachims, T. (1998). Making large-scale support vector machine learning
-   *     practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
-   *     kernel methods: Support vector machines. Cambridge, MA: MIT Press
    */
 
   void SimpleSelect(math_t *f, math_t *alpha, math_t *y, math_t C,
