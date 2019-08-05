@@ -49,6 +49,7 @@ if(BUILD_CUML_TESTS)
       sg/dbscan_test.cu
       sg/fil_test.cu
       sg/handle_test.cu
+      sg/holtwinters_test.cu
       sg/kmeans_test.cu
       sg/knn_test.cu
       sg/lkf_test.cu
@@ -153,6 +154,7 @@ if(BUILD_PRIMS_TESTS)
       prims/entropy.cu
       prims/gather.cu
       prims/gemm.cu
+      prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
       prims/homogeneityScore.cu
