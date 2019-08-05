@@ -332,8 +332,9 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     this->getResultAndCheck();
 
     postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
+    
     labels_map.clear();
-
+    temp_label_h.clear(); 
     CUDA_CHECK(cudaFree(weight));
     CUDA_CHECK(cudaFree(temp_label_d));
     CUDA_CHECK(cudaFree(temp_data_d));
