@@ -92,6 +92,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     int verbose = 0;
     // Generate C code in the directory specified below.
     // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of CompilerHandle.
+    // Treelite will create a directory if it doesn't exist.
     TREELITE_CHECK(
       TreeliteCompilerGenerateCode(compiler, model, verbose, dir_name.c_str()));
     TREELITE_CHECK(TreeliteCompilerFree(compiler));
@@ -207,7 +208,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     Random::Rng r1(1234ULL);
     // Generate data_d is in column major order.
     r1.uniform(data_d, data_len, T(0.0), T(10.0), stream);
-    Random::Rng r2(1234ULL);
+    Random::Rng r2(4321ULL);
     // Generate inference_data_d which is in row major order.
     r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
 
@@ -277,11 +278,12 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 2;
 
-    float *weight, *temp_label_d;
+    float *weight, *temp_label_d, *temp_data_d;
     std::vector<float> temp_label_h;
 
     allocate(weight, this->params.n_cols);
     allocate(temp_label_d, this->params.n_rows);
+    allocate(temp_data_d, this->data_len);
 
     Random::Rng r(1234ULL);
 
@@ -290,8 +292,12 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     // Generate noise.
     r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::gemv<float>(this->data_d, this->params.n_cols, this->params.n_rows,
-                        weight, temp_label_d, false, 1.f, 1.f,
+    LinAlg::transpose<float>(
+      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
+      this->handle.getImpl().getCublasHandle(), this->stream);
+
+    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
+                        weight, temp_label_d, true, 1.f, 1.f,
                         this->handle.getImpl().getCublasHandle(), this->stream);
 
     temp_label_h.resize(this->params.n_rows);
@@ -327,6 +333,10 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
     postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
     labels_map.clear();
+
+    CUDA_CHECK(cudaFree(weight));
+    CUDA_CHECK(cudaFree(temp_label_d));
+    CUDA_CHECK(cudaFree(temp_data_d));
   }
 
  protected:
@@ -345,8 +355,9 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    float *weight;
+    float *weight, *temp_data_d;
     allocate(weight, this->params.n_cols);
+    allocate(temp_data_d, this->data_len);
 
     Random::Rng r(1234ULL);
 
@@ -356,7 +367,11 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
     r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0),
               this->stream);
 
-    LinAlg::gemv<float>(this->data_d, this->params.n_cols, this->params.n_rows,
+    LinAlg::transpose<float>(
+      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
+      this->handle.getImpl().getCublasHandle(), this->stream);
+
+    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
                         weight, this->labels_d, true, 1.f, 1.f,
                         this->handle.getImpl().getCublasHandle(), this->stream);
 
@@ -372,6 +387,9 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
 
     this->convertToTreelite();
     this->getResultAndCheck();
+
+    CUDA_CHECK(cudaFree(weight));
+    CUDA_CHECK(cudaFree(temp_data_d));
   }
 };
 
