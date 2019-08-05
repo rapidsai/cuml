@@ -162,22 +162,22 @@ void DecisionTreeBase<T, L>::plant(
   std::random_shuffle(feature_selector.begin(), feature_selector.end());
   feature_selector.resize((int)(colper * dinfo.Ncols));
 
-  cudaDeviceProp prop;
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
-  max_shared_mem = prop.sharedMemPerBlock;
-
   if (split_algo == SPLIT_ALGO::HIST) {
+    cudaDeviceProp prop;
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
+    max_shared_mem = prop.sharedMemPerBlock;
     shmem_used += 2 * sizeof(T);
+
+    if (typeid(L) == typeid(int)) {  // Classification
+      shmem_used += nbins * n_unique_labels * sizeof(int);
+    } else {  // Regression
+      shmem_used += nbins * sizeof(T) * 3;
+      shmem_used += nbins * sizeof(int);
+    }
+    ASSERT(shmem_used <= max_shared_mem,
+           "Shared memory per block limit %zd , requested %zd \n",
+           max_shared_mem, shmem_used);
   }
-  if (typeid(L) == typeid(int)) {  // Classification
-    shmem_used += nbins * n_unique_labels * sizeof(int);
-  } else {  // Regression
-    shmem_used += nbins * sizeof(T) * 3;
-    shmem_used += nbins * sizeof(int);
-  }
-  ASSERT(shmem_used <= max_shared_mem,
-         "Shared memory per block limit %zd , requested %zd \n", max_shared_mem,
-         shmem_used);
 
   if (in_tempmem != nullptr) {
     tempmem = in_tempmem;
