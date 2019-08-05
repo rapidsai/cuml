@@ -58,13 +58,13 @@ using namespace MLCommon;
  * which is implemented in SmoBlockSolve.
  *
  * References:
- * [1] Joachims, T. Making large-scale support vector machine learning
+ * - [1] Joachims, T. Making large-scale support vector machine learning
  *      practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
  *      kernel methods: Support vector machines. Cambridge, MA: MIT Press (1998)
- * [2] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
+ * - [2] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
  *      Algorithm for Support VectorMachine Training, IEEE Transactions on
  *      Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
- * [3] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
+ * - [3] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
  *      of Machine Learning Research, 19, 1-5 (2018)
  */
 template <typename math_t>
@@ -159,8 +159,8 @@ class SmoSolver {
     std::cout << "SMO solver finished after " << n_iter << " outer iterations, "
               << n_inner_iter << " total inner iterations, and diff "
               << diff_prev << "\n";
-    Results<math_t> res(handle, x, y, n_rows, n_cols, C, kernel);
-    res.Get(alpha.data(), dual_coefs, n_support, idx, x_support, b);
+    Results<math_t> res(handle, x, y, n_rows, n_cols, C);
+    res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
   }
 

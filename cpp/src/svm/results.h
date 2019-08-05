@@ -27,7 +27,6 @@
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
-#include "gram/grammatrix.h"
 #include "kernelcache.h"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
@@ -59,11 +58,9 @@ class Results {
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
-   * @param kernel pointer to a kernel class
    */
   Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
-          int n_rows, int n_cols, math_t C,
-          GramMatrix::GramMatrixBase<math_t> *kernel)
+          int n_rows, int n_cols, math_t C)
     : allocator(handle.getDeviceAllocator()),
       stream(handle.getStream()),
       handle(handle),
@@ -74,10 +71,11 @@ class Results {
       C(C),
       cub_storage(handle.getDeviceAllocator(), stream),
       d_num_selected(handle.getDeviceAllocator(), stream, 1),
+      d_val_reduced(handle.getDeviceAllocator(), stream, 1),
       f_idx(handle.getDeviceAllocator(), stream, n_rows),
       idx_selected(handle.getDeviceAllocator(), stream, n_rows),
-      flag(handle.getDeviceAllocator(), stream, n_rows),
-      kernel(kernel) {
+      val_selected(handle.getDeviceAllocator(), stream, n_rows),
+      flag(handle.getDeviceAllocator(), stream, n_rows) {
     InitCubBuffers();
     range<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(f_idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -94,19 +92,20 @@ class Results {
    * Note that b is not an array but a host scalar.
    *
    * @param [in] alpha dual coefficients, size [n_rows]
+   * @param [in] f optimality indicator vector, size [n_rows]
    * @param [out] dual_coefs size [n_support]
    * @param [out] n_support number of support vectors
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
    * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
    * @param [out] b scalar constant in the decision function
    */
-  void Get(const math_t *alpha, math_t **dual_coefs, int *n_support, int **idx,
-           math_t **x_support, math_t *b) {
+  void Get(const math_t *alpha, const math_t *f, math_t **dual_coefs,
+           int *n_support, int **idx, math_t **x_support, math_t *b) {
     GetSupportVectorIndices(alpha, n_support, idx);
     if (*n_support > 0) {
       *x_support = CollectSupportVectors(*idx, *n_support);
       *dual_coefs = GetDualCoefs(*n_support, alpha);
-      *b = CalcB(*x_support, *n_support, *dual_coefs, *idx);
+      *b = CalcB(alpha, f);
     }
   }
 
@@ -143,6 +142,7 @@ class Results {
       math_tmp.data(), alpha, y, n_rows,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
     // Return only the non-zero coefficients
+    // Flag.data() still contains the mask for selecting support vectors
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, math_tmp.data(),
                                flag.data(), dual_coefs, d_num_selected.data(),
                                n_rows, stream);
@@ -160,21 +160,9 @@ class Results {
    * @param [out] flag[i] = alpha[i] > 0, size [n_rows]
    */
   void GetSupportVectorIndices(const math_t *alpha, int *n_support, int **idx) {
-    //Set flags true for non-zero alpha
-    set_flag<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      flag.data(), alpha, n_rows, [] __device__(math_t a) { return a > 0; });
-    CUDA_CHECK(cudaPeekAtLastError());
-    // This would be better, but we have different input and output types:
-    //LinAlg::unaryOp(flag, alpha, n_rows,
-    //  []__device__(math_t a) { return a > 0;}, stream);
-
-    // Select indices for non-zero dual coefficient
-    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f_idx.data(),
-                               flag.data(), idx_selected.data(),
-                               d_num_selected.data(), n_rows, stream);
-
-    updateHost(n_support, d_num_selected.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    *n_support = SelectByAlpha(
+      alpha, n_rows, f_idx.data(),
+      [] __device__(math_t a) -> bool { return 0 < a; }, idx_selected.data());
     if (*n_support > 0) {
       *idx = (int *)allocator->allocate((*n_support) * sizeof(int), stream);
       copy(*idx, idx_selected.data(), *n_support, stream);
@@ -182,83 +170,42 @@ class Results {
   }
 
   /**
-  * Find an unbound support vector.
-  * A support vector is unbound if its dual coefficient is smaller than C.
-  * This subroutine fills idx with indices of support vectors, and also returns
-  * the value of the first index.
-  * @param dual_coefs dual coefficients (=alpha*y), size [n_support]
-  * @param n_support number of dual coefficients
-  * @param [out] idx device buffer used to select unbound indices, size [n_support]
-  * @return an index of the first unbound support vector
-  */
-  int get_unbound_idx(const math_t *dual_coefs, int n_support, int *idx) {
-    // Set flags true for 0 < alpha < C, these are the unbound support vectors
-    // Note that abs(dual_coefs) > 0
-    math_t C = this->C;
-    set_flag<<<ceildiv(n_support, TPB), TPB, 0, stream>>>(
-      flag.data(), dual_coefs, n_support,
-      [C] __device__(math_t a) -> bool { return abs(a) < C; });
-    CUDA_CHECK(cudaPeekAtLastError());
-    //LinAlg::unaryOp(flag, dual_coefs, n_support,
-    //  [C]__device__(math_t a) {  abs(a) < C;}, stream);
-
-    // Select the first the unbound support vector
-    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f_idx.data(),
-                               flag.data(), idx, d_num_selected.data(),
-                               n_support, stream);
-    int n_selected;
-    updateHost(&n_selected, d_num_selected.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    if (n_selected == 0) {
-      // should not really happen in practice, that woud mean that all support
-      // vectors are bound (alpha==C). If it does happen, then we
-      // just use one of the bound support vectors
-      copy(idx, f_idx.data(), 1, stream);
-    }
-    int idx_unbound;
-    updateHost(&idx_unbound, idx, 1, stream);
-    return idx_unbound;
-  }
-  /**
    * Calculate the b constant in the decision function.
    *
-   * @param [in] x_support support vectors, size [n_support*n_cols]
-   * @param [in] n_support number of support vectors
-   * @param [in] dual_coefs dual coefficients, size [n_support]
-   * @param [in] support_idx indices of support vectors size [n_support]
+   * @param [in] alpha dual coefficients, size [n_rows]
+   * @param [in] f optimality indicator vector, size [n_rows]
    * @return the value of b
-   */
-  math_t CalcB(const math_t *x_support, int n_support, const math_t *dual_coefs,
-               const int *support_idx) {
-    // To calculate b, we know that for an unbound support vector i, the
-    // decision function has value f(x_i) = y_i.
-    // We also know that f(x_i) = s + b, where
-    // s = \sum_j y_j \alpha_j K(x_j, x_i), here j runs through all support
-    // vectors. We will calculate b as  b = y_i - s;
+ */
+  math_t CalcB(const math_t *alpha, const math_t *f) {
+    // We know that for an unbound support vector i, the decision function
+    // (before taking the sign) has value F(x_i) = y_i, where
+    // F(x_i) = \sum_j y_j \alpha_j K(x_j, x_i) + b, and j runs through all
+    // support vectors. The constant b can be expressed from these formulas.
+    // Note that F and f denote different quantities. The lower case f is the
+    // optimality indicator vector defined as
+    // f_i = y_i - \sum_j y_j \alpha_j K(x_j, x_i).
+    // For unbound support vectors f_i = -b.
 
-    int idx_val = get_unbound_idx(dual_coefs, n_support, idx_selected.data());
-
-    device_buffer<math_t> K(allocator, stream, n_support);
-    kernel->evaluate(x_support, n_support, n_cols, x_support + idx_val, 1,
-                     K.data(), stream, n_support, n_support, n_support);
-
-    // Calculate s = \sum y_j \alpha_j K(x_j, x_i)
-    device_buffer<math_t> s(allocator, stream, 1);
-    auto mult = [] __device__(const math_t x, const math_t y) { return x * y; };
-    LinAlg::mapThenSumReduce(s.data(), n_support, mult, stream, dual_coefs,
-                             K.data());
-    math_t s_val;
-    updateHost(&s_val, s.data(), 1, stream);
-
-    // Get y that corresponds to the unbound support vector
-    int sv_idx;
-    updateHost(&sv_idx, support_idx + idx_val, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    math_t y_val;
-    updateHost(&y_val, y + sv_idx, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    return y_val - s_val;
+    // Select f for unbound support vectors (0 < alpha < C)
+    math_t C = this->C;
+    auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
+    int n_free = SelectByAlpha(alpha, n_rows, f, select, val_selected.data());
+    if (n_free > 0) {
+      cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
+                             d_val_reduced.data(), n_free, stream);
+      math_t sum;
+      updateHost(&sum, d_val_reduced.data(), 1, stream);
+      return -sum / n_free;
+    } else {
+      // All support vectors are bound. Let's define
+      // b_up = min {f_i | i \in I_upper} and
+      // b_low = max {f_i | i \in I_lower}
+      // Any value in the interval [b_low, b_up] would be allowable for b,
+      // we will select in the middle point b = -(b_low + b_up)/2
+      math_t b_up = SelectReduce(alpha, f, true, set_upper);
+      math_t b_low = SelectReduce(alpha, f, false, set_lower);
+      return -(b_up + b_low) / 2;
+    }
   }
 
   std::shared_ptr<deviceAllocator> allocator;
@@ -272,17 +219,18 @@ class Results {
   const math_t *x;  //!< training vectors
   const math_t *y;  //!< labels
   math_t C;
-  GramMatrix::GramMatrixBase<math_t> *kernel;
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
   device_buffer<int> d_num_selected;
+  device_buffer<math_t> d_val_reduced;
   device_buffer<char> cub_storage;
   size_t cub_bytes = 0;
 
   // Helper arrays for collecting the results
   device_buffer<int> f_idx;
   device_buffer<int> idx_selected;
+  device_buffer<math_t> val_selected;
   device_buffer<bool> flag;
 
   /* Allocate cub temporary buffers for GetResults
@@ -297,9 +245,74 @@ class Results {
     cub::DeviceSelect::Flagged(NULL, cub_bytes2, p, flag.data(), p,
                                d_num_selected.data(), n_rows, stream);
     cub_bytes = max(cub_bytes, cub_bytes2);
+    cub::DeviceReduce::Sum(NULL, cub_bytes2, val_selected.data(),
+                           d_val_reduced.data(), n_rows, stream);
+    cub_bytes = max(cub_bytes, cub_bytes2);
+    cub::DeviceReduce::Min(NULL, cub_bytes2, val_selected.data(),
+                           d_val_reduced.data(), n_rows, stream);
+    cub_bytes = max(cub_bytes, cub_bytes2);
     cub_storage.resize(cub_bytes, stream);
   }
-};
 
-};  // end namespace SVM
+  /**
+  * Filter values based on the corresponding alpha values.
+  * @tparam select_op lambda selection criteria
+  * @tparam valType type of values that will be selected
+  * @param [in] alpha dual coefficients, size [n]
+  * @param [in] n number of dual coefficients
+  * @param [in] val values to filter, size [n]
+  * @param [out] out buffer size [n]
+  * @return number of selected elements
+  */
+  template <typename select_op, typename valType>
+  int SelectByAlpha(const math_t *alpha, int n, const valType *val,
+                    select_op op, valType *out) {
+    set_flag<<<ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), alpha, n, op);
+    CUDA_CHECK(cudaPeekAtLastError());
+    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
+                               out, d_num_selected.data(), n, stream);
+    int n_selected;
+    updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    return n_selected;
+  }
+
+  /** Select values from f, and do a min or max reduction on them.
+   * @param [in] alpha dual coefficients, size [n_rows]
+   * @param [in] f optimality indicator vector, size [n_rows]
+   * @param flag_op operation to flag values for selection (set_upper/lower)
+   * @param return the reduced value.
+   */
+  math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
+                      void (*flag_op)(bool *, int, const math_t *,
+                                      const math_t *, math_t)) {
+    flag_op<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(flag.data(), n_rows,
+                                                      alpha, y, C);
+    CUDA_CHECK(cudaPeekAtLastError());
+    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f, flag.data(),
+                               val_selected.data(), d_num_selected.data(),
+                               n_rows, stream);
+    int n_selected;
+    updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    math_t res = 0;
+    if (n_selected > 0) {
+      if (min) {
+        cub::DeviceReduce::Min(cub_storage.data(), cub_bytes,
+                               val_selected.data(), d_val_reduced.data(),
+                               n_selected, stream);
+      } else {
+        cub::DeviceReduce::Max(cub_storage.data(), cub_bytes,
+                               val_selected.data(), d_val_reduced.data(),
+                               n_selected, stream);
+      }
+      updateHost(&res, d_val_reduced.data(), 1, stream);
+    } else {
+      std::cerr << "Error: empty set in calcB\n";
+    }
+    return res;
+  }
+};  // namespace SVM
+
+};  // namespace SVM
 };  // end namespace ML
