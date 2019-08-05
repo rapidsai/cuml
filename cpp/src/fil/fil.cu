@@ -22,6 +22,7 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <utility>
 
@@ -291,11 +292,20 @@ void tree2fil(std::vector<dense_node_t>* pnodes, int root,
 void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
             const tl::Model& model, const treelite_params_t* tl_params) {
   // fill in forest-indendent params
+  std::cout << "tl_params->algo is : " << tl_params->algo << std::endl
+            << std::flush;
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
-
+  std::cout << "tl_params->threshold is : " << tl_params->threshold << std::endl
+            << std::flush;
   // fill in forest-dependent params
   params->cols = model.num_feature;
+  std::cout << "model.num_feature is : " << model.num_feature << std::endl
+            << std::flush;
+  std::cout << "model.num_output_group is : " << model.num_output_group
+            << std::endl
+            << std::flush;
+
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -340,8 +350,31 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   forest_params_t params;
   std::vector<dense_node_t> nodes;
+  tl::Model& temp = *(tl::Model*)model;
+  std::cout << " model in C++ function : " << model << std::endl << std::flush;
+  std::cout << " Model pointer printed in C++ : " << &model << std::endl
+            << std::flush;
+  std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
+            << std::flush;
+  std::cout << "initialize vector dense node t variable , nodes : " << std::endl
+            << std::flush;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::flush;
+  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl
+            << std::flush;
+
+  std::cout << " Model pointer val for num feats in C++ : "
+            << &(temp.num_feature) << std::endl
+            << std::flush;
+
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
+  std::cout
+    << "Ran the function tl2fil which does not require the pforest variable : "
+    << std::endl
+    << std::flush;
+  std::cout << "Entering the init_dense function : " << std::endl << std::flush;
   init_dense(handle, pforest, &params);
+  std::cout << "Passed through the init_dense function : " << std::endl
+            << std::flush;
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
