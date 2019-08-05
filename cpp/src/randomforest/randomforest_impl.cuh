@@ -62,14 +62,11 @@ int rf<T, L>::get_ntrees() {
  * @param[in] temp_storage_bytes: size in bytes of rows_temp_storage.
  */
 template <typename T, typename L>
-void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle,
-                                    int tree_id, int n_rows, int n_sampled_rows,
-                                    unsigned int* selected_rows,
-                                    unsigned int* sorted_selected_rows,
-                                    char* rows_temp_storage,
-                                    size_t temp_storage_bytes) {
-  cudaStream_t stream = handle.getStream();
-
+void rf<T, L>::prepare_fit_per_tree(
+  int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
+  unsigned int* sorted_selected_rows, char* rows_temp_storage,
+  size_t temp_storage_bytes, const cudaStream_t stream,
+  std::shared_ptr<deviceAllocator> device_allocator) {
   if (rf_params.bootstrap) {
     MLCommon::Random::Rng r(
       tree_id *
@@ -84,11 +81,11 @@ void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle,
     }
   } else {  // Sampling w/o replacement
     MLCommon::device_buffer<unsigned int>* inkeys =
-      new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                                stream, n_rows);
+      new MLCommon::device_buffer<unsigned int>(device_allocator, stream,
+                                                n_rows);
     MLCommon::device_buffer<unsigned int>* outkeys =
-      new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(),
-                                                stream, n_rows);
+      new MLCommon::device_buffer<unsigned int>(device_allocator, stream,
+                                                n_rows);
     thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(),
                      inkeys->data() + n_rows);
     int* perms = nullptr;
@@ -261,10 +258,11 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     } else {
       rowids = selected_rows[stream_id]->data();
     }
-    this->prepare_fit_per_tree(local_handle[stream_id].getImpl(), i, n_rows,
-                               n_sampled_rows, selected_rows[stream_id]->data(),
-                               selected_ptr, temp_storage_ptr,
-                               temp_storage_bytes[stream_id]);
+    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows,
+                               selected_rows[stream_id]->data(), selected_ptr,
+                               temp_storage_ptr, temp_storage_bytes[stream_id],
+                               local_handle[stream_id].getStream(),
+                               local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -524,10 +522,11 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     } else {
       rowids = selected_rows[stream_id]->data();
     }
-    this->prepare_fit_per_tree(local_handle[stream_id].getImpl(), i, n_rows,
-                               n_sampled_rows, selected_rows[stream_id]->data(),
-                               selected_ptr, temp_storage_ptr,
-                               temp_storage_bytes[stream_id]);
+    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows,
+                               selected_rows[stream_id]->data(), selected_ptr,
+                               temp_storage_ptr, temp_storage_bytes[stream_id],
+                               local_handle[stream_id].getStream(),
+                               local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
