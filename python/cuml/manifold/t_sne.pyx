@@ -197,12 +197,6 @@ class TSNE(Base):
                  handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -297,6 +291,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
+        self._assure_clean_memory() # Ensures all frees are freed.
         return
 
     def fit(self, X):
@@ -403,12 +398,7 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
+        self._assure_clean_memory() # Ensures all frees are freed.
         self.Y = Y
         return self
 
@@ -416,12 +406,7 @@ class TSNE(Base):
         if "Y" in self.__dict__:
             del self.Y
             self.Y = None
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
+        self._assure_clean_memory() # Ensures all frees are freed.
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -440,18 +425,16 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
+                self._assure_clean_memory() # Ensures all frees are freed.
                 return self.Y
             else:
-                return cudf.DataFrame.from_gpu_matrix(self.Y)
+                data = cudf.DataFrame.from_gpu_matrix(self.Y)
+                self._assure_clean_memory() # Ensures all frees are freed.
+                return data
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
             del self.Y
-            # TSNE is sensitive to what is currently in memory.
-            # Use Numba's garbabge collector to clean up already removed
-            # GPU memory.
-            context = cuda.current_context().deallocations
-            if context is not None:
-                context.clear()
+            self._assure_clean_memory() # Ensures all frees are freed.
             return data
         return None  # is this even possible?
 
@@ -463,10 +446,27 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
+        self._assure_clean_memory() # Ensures all frees are freed.
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
+        self._assure_clean_memory() # Ensures all frees are freed.
         return state
+    
+    def _assure_clean_memory(self):
+        """
+        TSNE is sensitive to what is currently in memory.
+        Use Numba's garbabge collector to clean up already removed
+        GPU memory.
+        """
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
+        # Run again to be 100% sure all memory is freed.
+        # This is very very conservative.
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
