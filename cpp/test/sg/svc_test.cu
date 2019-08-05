@@ -131,15 +131,15 @@ class KernelCacheTest : public ::testing::Test {
 
   int n_rows = 4;
   int n_cols = 2;
-  int n_ws = 4;
+  int n_ws = 3;
 
   float *x_dev;
   int *ws_idx_dev;
 
   float x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-  int ws_idx_host[4] = {0, 1, 2, 3};
-  float tile_host_expected[16] = {26, 32, 38, 44, 32, 40, 48, 56,
-                                  38, 48, 58, 68, 44, 56, 68, 80};
+  int ws_idx_host[4] = {0, 1, 3};
+  float tile_host_expected[12] = {26, 32, 38, 44, 32, 40,
+                                  48, 56, 44, 56, 68, 80};
 };
 
 TEST_F(KernelCacheTest, EvalTestLin) {
@@ -155,7 +155,7 @@ TEST_F(KernelCacheTest, EvalTestPoly) {
   float gain = 1.0;
   auto nonlin = new GramMatrix::PolynomialKernel<float, int>(2, gain, offset,
                                                              cublas_handle);
-  for (int z = 0; z < 16; z++) {
+  for (int z = 0; z < n_rows * n_ws; z++) {
     float val = tile_host_expected[z] + offset;
     tile_host_expected[z] = val * val;
   }
@@ -168,7 +168,7 @@ TEST_F(KernelCacheTest, EvalTestPoly) {
 
 TEST_F(KernelCacheTest, EvalTestTanh) {
   auto nonlin = new GramMatrix::TanhKernel<float>(0.5, 2.4, cublas_handle);
-  for (int z = 0; z < 16; z++)
+  for (int z = 0; z < n_rows * n_ws; z++)
     tile_host_expected[z] = tanh(tile_host_expected[z] * 0.5 + 2.4);
   KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
                            nonlin);
@@ -179,11 +179,12 @@ TEST_F(KernelCacheTest, EvalTestTanh) {
 
 TEST_F(KernelCacheTest, EvalTestRBF) {
   auto nonlin = new GramMatrix::RBFKernel<float>(0.5);
-  for (int i = 0; i < n_rows; i++) {
+  for (int i = 0; i < n_ws; i++) {
     for (int j = 0; j < n_rows; j++) {
       float d = 0;
       for (int k = 0; k < n_cols; k++) {
-        float diff = x_host[i + k * n_rows] - x_host[j + k * n_rows];
+        int idx_i = ws_idx_host[i];
+        float diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
         d += diff * diff;
       }
       tile_host_expected[i * n_rows + j] = exp(-0.5 * d);
@@ -196,134 +197,13 @@ TEST_F(KernelCacheTest, EvalTestRBF) {
                               CompareApprox<float>(1e-6f)));
 }
 
-TEST_F(KernelCacheTest, EvalTestRBF_Rectangular) {
-  float gamma = 0.7;
-  auto nonlin = new GramMatrix::RBFKernel<float>(gamma);
-  // The exp function is disabled, we just calculate the L2 distance.
-  //
-  // Instead of a 5x5 tile, we want to calculate a 5x3 tile here.
-  // The inputs to the distance function are the vectors x1 and x2.
-  //
-  // x1 = [ [1, 6],
-  //        [2, 7],
-  //        [3, 8],
-  //        [4, 9],
-  //        [5, 10] ];
-  // The vectors are stored in column major format, so actually
-  float x1[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  n_rows = 5;
-  //
-  n_ws = 3;
-  // We set n_ws = 3, this way the working set (x2 input for distance)
-  // will be the first three vectors.
-  // x2 = [ [1, 6],
-  //        [2, 7],
-  //        [3, 8] ];
-  // KernelCache.CollectRows collects the data to a contiguous memory space
-  // (column major), therefore:
-  // x2[] = {1, 2, 3, 6, 7, 8};
-  //
-  // The GetTile function should calculate the 5x3 output matrix. Here is the
-  // distance matrix
-  //  K(x1,x2)  = [ [ 0,  2, 8],
-  //                [ 2,  0, 2],
-  //                [ 8,  2, 0],
-  //                [18,  8, 2],
-  //                [32, 18, 8] ];
-  //
-  // It is also stored in colum major format, therefore:
-  float K[] = {0, 2, 8, 18, 32, 2, 0, 2, 8, 18, 8, 2, 0, 2, 8};
-
-  // The RBF kernel calculates exp for the distance matrix
-  for (int i = 0; i < n_rows * n_ws; i++) {
-    K[i] = exp(-gamma * K[i]);
-  }
-
-  float *x1_dev;
-  allocate(x1_dev, n_rows * n_cols);
-  updateDevice(x1_dev, x1, n_rows * n_cols, stream);
-
-  KernelCache<float> cache(handle.getImpl(), x1_dev, n_rows, n_cols, n_ws,
-                           nonlin, 0);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  //myPrintHostVector("Exp:  ", K, n_rows * n_ws);
-  //myPrintDevVector("Actual:", tile_dev, n_rows * n_ws);
-  ASSERT_TRUE(
-    devArrMatchHost(K, tile_dev, n_rows * n_ws, CompareApprox<float>(1e-6f)));
-}
-
-TEST_F(KernelCacheTest, EvalWsOnly) {
-  // now check with selecting a subset of the rows
-  n_ws = 2;
-  ws_idx_host[1] = 3;  // i.e. ws_idx_host[] = {0,3}
-  auto lin = new GramMatrix::GramMatrixBase<float>(cublas_handle);
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws, lin);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  float tile_host_expected[] = {26, 32, 38, 44, 44, 56, 68, 80};
-  ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
-                              CompareApprox<float>(1e-6f)));
-}
-
-__global__ void init_training_vectors(float *x, int n_rows, int n_cols,
-                                      int *ws_idx, int n_ws) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n_rows * n_cols) {
-    int i = tid % n_rows;
-    int k = tid / n_rows;
-    x[tid] = tid;
-    if (k == 0) {
-      ws_idx[i] = i;
-    }
-  }
-}
-
-TEST(SmoSolverTest, KernelCacheLargeTest) {
-  // This was used earlier to cache memory errors
-  // since no test is active, it should probably be removed
-  cumlHandle handle;
-  cudaStream_t stream;
-  stream = handle.getImpl().getInternalStream(0);
-  cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
-  int n_rows = 10;
-  int n_cols = 700;
-  int n_ws = n_rows;
-
-  float *x_dev;
-  allocate(x_dev, n_rows * n_cols);
-  int *ws_idx_dev;
-  allocate(ws_idx_dev, n_ws);
-
-  int TPB = 256;
-  init_training_vectors<<<ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
-    x_dev, n_rows, n_cols, ws_idx_dev, n_ws);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  auto lin = new GramMatrix::GramMatrixBase<float>(cublas_handle);
-  KernelCache<float> *cache =
-    new KernelCache<float>(handle.getImpl(), x_dev, n_rows, n_cols, n_ws, lin);
-  float *tile_dev = cache->GetTile(ws_idx_dev);
-  float *tile_host = new float[n_rows * n_cols];
-  //updateHost(tile_host, tile_dev, n_ws*n_rows, stream);
-  //CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  //for (int i=0; i<n_ws*n_ws; i++) {
-  //  EXPECT_EQ(tile_host[i], tile_host_expected[i])<< "First tile " << i;
-  //}
-
-  delete cache;
-  delete[] tile_host;
-  CUDA_CHECK(cudaFree(x_dev));
-  CUDA_CHECK(cudaFree(ws_idx_dev));
-}
-
 class SmoBlockSolverTest : public ::testing::Test {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.setStream(stream);
     cublas_handle = handle.getImpl().getCublasHandle();
-    auto lin = new GramMatrix::GramMatrixBase<float>(cublas_handle);
-
+    kernel = new GramMatrix::GramMatrixBase<float>(cublas_handle);
     allocate(ws_idx_dev, n_ws);
     allocate(y_dev, n_rows);
     allocate(f_dev, n_rows);
@@ -556,6 +436,8 @@ TEST_F(SmoSolverTestF, BlockSolveTest) {
   EXPECT_FLOAT_EQ(return_buff[0], 2.0f) << return_buff[0];
   EXPECT_LT(return_buff[1], 100) << return_buff[1];
 
+  // check results won't work, because it expets that GetResults was called
+
   float host_alpha[6], host_dalpha[6];
   updateHost(host_alpha, alpha_dev, n_rows, stream);
   updateHost(host_dalpha, delta_alpha_dev, n_ws, stream);
@@ -566,11 +448,11 @@ TEST_F(SmoSolverTestF, BlockSolveTest) {
   }
   float w[] = {0, 0};
 
-  //float alpha_expected[] = {0.6f, 0, 1, 1, 0, 0.6f};
+  float alpha_expected[] = {0.6f, 0, 1, 1, 0, 0.6f};
   //for C=10: {0.25f, 0, 2.25f, 3.75f, 0, 1.75f};
   float ay = 0;
   for (int i = 0; i < n_rows; i++) {
-    //   EXPECT_FLOAT_EQ(host_alpha[i], alpha_expected[i]) << "alpha " << i;
+    EXPECT_FLOAT_EQ(host_alpha[i], alpha_expected[i]) << "alpha " << i;
     w[0] += x_host[i] * host_alpha[i] * y_host[i];
     w[1] += x_host[i + n_rows] * host_alpha[i] * y_host[i];
     ay += host_alpha[i] * y_host[i];
@@ -590,19 +472,26 @@ TEST(SmoSolverTest, GetResultsTest) {
   handle.setStream(stream);
   auto allocator = handle.getImpl().getDeviceAllocator();
 
-  int n_rows = 6;
+  int n_rows = 10;
   int n_cols = 2;
 
   device_buffer<float> x_dev(allocator, stream, n_rows * n_cols);
-  float x_host[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  float x_host[] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
   updateDevice(x_dev.data(), x_host, n_rows * n_cols, stream);
 
+  float f_host[10] = {1, 3, 10, 4, 2, 8, 6, 5, 9, 7};
+  device_buffer<float> f_dev(allocator, stream, n_rows);
+  updateDevice(f_dev.data(), f_host, n_rows, stream);
+
+  float y_host[10] = {-1, -1, -1, -1, -1, 1, 1, 1, 1, 1};
   device_buffer<float> y_dev(allocator, stream, n_rows);
-  float y_host[] = {1, 1, 1, -1, -1, -1};
   updateDevice(y_dev.data(), y_host, n_rows, stream);
 
+  float C = 1.5;
+  //                      l  l  l/u  l/u    u  u  l/u  l/u  l    l
+  float alpha_host[10] = {0, 0, 0.1, 0.2, 1.5, 0, 0.2, 0.4, 1.5, 1.5};
   device_buffer<float> alpha_dev(allocator, stream, n_rows);
-  float alpha_host[] = {0.0, 0.5, 0.5, 0, 1.0, 0, 0};
   updateDevice(alpha_dev.data(), alpha_host, n_rows, stream);
 
   float *dual_coefs;
@@ -610,35 +499,40 @@ TEST(SmoSolverTest, GetResultsTest) {
   int *idx;
   float *x_support;
   float b;
-  float C = 1;
-  GramMatrix::GramMatrixBase<float> kernel(handle.getImpl().getCublasHandle());
+
   Results<float> res(handle.getImpl(), x_dev.data(), y_dev.data(), n_rows,
-                     n_cols, C, &kernel);
-  res.Get(alpha_dev.data(), &dual_coefs, &n_coefs, &idx, &x_support, &b);
+                     n_cols, C);
+  res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx,
+          &x_support, &b);
 
-  ASSERT_EQ(n_coefs, 3);
+  ASSERT_EQ(n_coefs, 7);
 
-  float dual_coefs_exp[] = {0.5, 0.5, -1.0};
+  float dual_coefs_exp[] = {-0.1, -0.2, -1.5, 0.2, 0.4, 1.5, 1.5};
   EXPECT_TRUE(devArrMatchHost(dual_coefs_exp, dual_coefs, n_coefs,
                               CompareApprox<float>(1e-6f)));
 
-  int idx_exp[] = {1, 2, 4};
+  int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
   EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, Compare<int>()));
 
-  float x_support_exp[] = {2, 3, 5, 8, 9, 11};
+  float x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
   EXPECT_TRUE(devArrMatchHost(x_support_exp, x_support, n_coefs * n_cols,
                               CompareApprox<float>(1e-6f)));
 
-  EXPECT_FLOAT_EQ(b, 26.0f);
+  EXPECT_FLOAT_EQ(b, -6.25f);
 
   if (n_coefs > 0) {
     allocator->deallocate(dual_coefs, n_coefs * sizeof(float), stream);
     allocator->deallocate(idx, n_coefs * sizeof(int), stream);
     allocator->deallocate(x_support, n_coefs * n_cols * sizeof(float), stream);
   }
-  CUDA_CHECK(cudaStreamDestroy(stream));
 
-  CUDA_CHECK(cudaDeviceSynchronize());
+  // Modify the test by setting all SV's bound, then b is calculated differently
+  float alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
+  updateDevice(alpha_dev.data(), alpha_host2, n_rows, stream);
+  res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx,
+          &x_support, &b);
+  EXPECT_FLOAT_EQ(b, -5.5f);
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 TEST(SmoSolverTest, SmoUpdateFTest) {
@@ -707,8 +601,7 @@ TEST_F(SmoSolverTestF, SmoSolveTestLargeC) {
   float dual_coefs_exp[] = {-2, 4, -2, 0, 0};
   float w_exp[] = {-2, 2};
 
-  int *idx_exp = nullptr;  //{ 0, 2, 3 };
-  //float x_support_exp[] = { 1, 1, 2,  1, 2, 2, 0,0};
+  int *idx_exp = nullptr;
   float *x_support_exp = nullptr;
 
   SCOPED_TRACE("SmoSolveTestLargeC");
@@ -743,8 +636,6 @@ TEST_F(SmoSolverTestF, SvcTest) {
   SCOPED_TRACE("SvcTest");
   checkResults(4, dual_coefs_exp, -1.8f, w_exp, x_support_exp, idx_exp,
                svc.dual_coefs, svc.x_support, svc.support_idx);
-  //  float dual_coefs_exp[] = { -2, 4, -2, 0, 0 };
-  //  float x_support_exp[] = { 1, 1, 2,  1, 2, 2, 0,0};
   // allocate a prediction buffer, then we can compare pred buffer to y_dev
   for (int i = 0; i < 3; i++) {
     svc.predict(x_dev, n_rows, n_cols, y_pred);
@@ -754,18 +645,50 @@ TEST_F(SmoSolverTestF, SvcTest) {
 }
 
 TEST_F(SmoSolverTestF, SvcTestPoly) {
-  float epsilon = 0.001;
+  float epsilon = 1.0e-6;
   SVC<float> svc(handle, 1.0f, epsilon,
                  GramMatrix::KernelParams(GramMatrix::POLYNOMIAL));
   svc.fit(x_dev, n_rows, n_cols, y_dev);
   n_coefs = svc.n_support;
   b = svc.b;
-  float dual_coefs_exp[] = {-0.6, 1, -1, 0.6};
-  float w_exp[] = {-0.4, 1.2};
-  float x_support_exp[] = {1, 1, 2, 2, 1, 2, 2, 3};
-  int idx_exp[] = {0, 2, 3, 5};
+  int n_coefs = 3;
+  float dual_coefs_exp[] = {-0.03900895, 0.05904058, -0.02003163};
+  float x_support_exp[] = {1, 1, 2, 1, 2, 2};
+  int idx_exp[] = {0, 2, 3};
   SCOPED_TRACE("SvcTestPoly");
-  //TODO add checkResults
+  checkResults(n_coefs, dual_coefs_exp, -0.99999959, nullptr, x_support_exp,
+               idx_exp, svc.dual_coefs, svc.x_support, svc.support_idx);
+}
+
+TEST_F(SmoSolverTestF, SvcTestTanh) {
+  float epsilon = 1.0e-6;
+  SVC<float> svc(handle, 10.0f, epsilon,
+                 GramMatrix::KernelParams(GramMatrix::TANH, 3, 0.3, 1.0));
+  svc.fit(x_dev, n_rows, n_cols, y_dev);
+  n_coefs = svc.n_support;
+  b = svc.b;
+  int n_coefs = 6;
+  float dual_coefs_exp[] = {-10., -10., 10., -10., 10., 10.};
+  // x_support_exp == x_host;
+  int idx_exp[] = {0, 1, 2, 3, 4, 5};
+  SCOPED_TRACE("SvcTestTanh");
+  checkResults(n_coefs, dual_coefs_exp, -0.3927505, nullptr, x_host, idx_exp,
+               svc.dual_coefs, svc.x_support, svc.support_idx);
+}
+
+TEST_F(SmoSolverTestF, SvcTestRBF) {
+  float epsilon = 1.0e-6;
+  SVC<float> svc(handle, 1.0f, epsilon,
+                 GramMatrix::KernelParams(GramMatrix::RBF, 0, 0.15));
+  svc.fit(x_dev, n_rows, n_cols, y_dev);
+  n_coefs = svc.n_support;
+  b = svc.b;
+  int n_coefs = 6;
+  float dual_coefs_exp[] = {-1., -1, 1., -1., 1, 1.};
+  int idx_exp[] = {0, 1, 2, 3, 4, 5};
+  SCOPED_TRACE("SvcTestRBF");
+  checkResults(n_coefs, dual_coefs_exp, -0.0f, nullptr, x_host, idx_exp,
+               svc.dual_coefs, svc.x_support, svc.support_idx);
 }
 
 __global__ void init_training_vectors(float *x, int n_rows, int n_cols,
