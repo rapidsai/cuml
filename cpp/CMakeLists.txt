@@ -61,6 +61,7 @@ option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
@@ -178,6 +179,9 @@ endif(KERNEL_INFO)
 if(NVTX)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
+  if(EMPTY_MARKER_KERNEL)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
+  endif(EMPTY_MARKER_KERNEL)
 endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -335,7 +339,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
     src/comms/cuML_comms_test.cpp
-    src/common/nvtx.cpp
+    src/common/nvtx.cu
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
@@ -344,6 +348,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/naive.cu
     src/fil/tree_reorg.cu
     src/glm/glm.cu
+    src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -393,7 +398,8 @@ if(BUILD_CUML_C_LIBRARY)
   add_library(${CUML_C_TARGET} SHARED
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
-    src/glm/glm_api.cpp)
+    src/glm/glm_api.cpp
+    src/holtwinters/holtwinters_api.cpp)
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
