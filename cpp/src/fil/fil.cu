@@ -360,8 +360,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
             << std::flush;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::flush;
-  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl
-            << std::flush;
+  std::cout << "###################################" << std::endl << std::flush;
 
   std::cout << " Model pointer val for num feats in C++ : "
             << &(temp.num_feature) << std::endl
