@@ -70,7 +70,17 @@ else:
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
-              include_dirs=include_dirs,
+              include_dirs=['../cpp/src',
+                            '../cpp/external',
+                            '../cpp/src_prims',
+                            '../thirdparty/cutlass',
+                            '../thirdparty/cub',
+                            '../thirdparty/treelite/include',
+                            # Ideally we enable this to be swapped out.
+                            '../cpp/comms/std/src',
+                            '../cpp/comms/std/include',
+                            cuda_include_dir,
+                            rmm_include_dir],
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
                                     rmm_lib_dir],
