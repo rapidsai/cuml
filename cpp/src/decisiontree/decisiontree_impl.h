@@ -101,9 +101,9 @@ class DecisionTreeBase {
                                    MetricInfo<T> split_info[3], int depth) = 0;
 
   virtual TreeNode<T, L> *grow_deep_tree(
-    const ML::cumlHandle_impl &handle, const T *data, const L *labels,
-    unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
-    const int n_sampled_rows, const int ncols, const int nrows,
+    const T *data, const L *labels, unsigned int *rowids,
+    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+    const int ncols, const int nrows,
     std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(const ML::cumlHandle &handle, const T *data, const int ncols,
@@ -153,9 +153,9 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
                            unsigned int *rowids, const int n_sampled_rows,
                            MetricInfo<T> split_info[3], int depth);
   TreeNode<T, int> *grow_deep_tree(
-    const ML::cumlHandle_impl &handle, const T *data, const int *labels,
-    unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
-    const int n_sampled_rows, const int ncols, const int nrows,
+    const T *data, const int *labels, unsigned int *rowids,
+    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+    const int ncols, const int nrows,
     std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
@@ -176,9 +176,9 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
                            unsigned int *rowids, const int n_sampled_rows,
                            MetricInfo<T> split_info[3], int depth);
   TreeNode<T, T> *grow_deep_tree(
-    const ML::cumlHandle_impl &handle, const T *data, const T *labels,
-    unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
-    const int n_sampled_rows, const int ncols, const int nrows,
+    const T *data, const T *labels, unsigned int *rowids,
+    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+    const int ncols, const int nrows,
     std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class
