@@ -140,7 +140,7 @@ cdef class FIL_impl():
 
     def predict(self, X):
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, _, _ = \
+        X_m, X_ptr, n_rows, _, X_dtype = \
             input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ =\
@@ -150,6 +150,7 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
+        print( " dtype of X : ", X_dtype)
         #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
                 self.forest_data,
