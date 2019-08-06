@@ -150,7 +150,6 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-        print( " dtype of X : ", X_dtype)
         #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
                 self.forest_data,
@@ -178,11 +177,6 @@ cdef class FIL_impl():
         treelite_params.output_class = output_class
         treelite_params.threshold = self.threshold
         treelite_params.algo = self.algo
-        #model_copy = copy.deepcopy(model)
-        #cdef ModelHandle model_ptr = new ModelHandle*> &model
-        print(" model.num_feature : ", model.num_feature)
-        print(" model.num_output_group : ",model.num_output_group)
-        print(" model handle : ", model.handle)
         self.forest_pointer = <forest_t*><size_t> model.handle.value
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
