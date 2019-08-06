@@ -17,11 +17,13 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
-- PR #882: T-Distributed Stochastic Neighborbood Embedding
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -44,7 +46,6 @@
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
-- PR #928: TSNE Stability Adjustments
 
 
 # cuML 0.8.0 (27 June 2019)
