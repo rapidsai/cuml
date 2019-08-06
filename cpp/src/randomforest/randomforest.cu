@@ -351,6 +351,41 @@ void predict(const cumlHandle& user_handle,
 /** @} */
 
 /**
+ * @defgroup Random Forest Classification - Predict function
+ * @brief Predict target feature for input data; n-ary classification for
+     single feature supported.
+ * @param[in] user_handle: cumlHandle.
+ * @param[in] forest: CPU pointer to RandomForestMetaData object.
+ *   The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ * @{
+ */
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierF* forest, const float* input,
+                   int n_rows, int n_cols, int* predictions, bool verbose) {
+  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  std::shared_ptr<rfClassifier<float>> rf_classifier =
+    std::make_shared<rfClassifier<float>>(forest->rf_params);
+  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
+                               forest, verbose);
+}
+
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierD* forest, const double* input,
+                   int n_rows, int n_cols, int* predictions, bool verbose) {
+  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  std::shared_ptr<rfClassifier<double>> rf_classifier =
+    std::make_shared<rfClassifier<double>>(forest->rf_params);
+  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
+                               forest, verbose);
+}
+/** @} */
+
+/**
  * @defgroup Random Forest Classification - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
