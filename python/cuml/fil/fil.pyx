@@ -157,7 +157,9 @@ cdef class FIL_impl():
                 <float*> preds_ptr,
                 <float*> X_ptr,
                 <size_t> n_rows)
-
+        self.handle.sync()
+        # synchronous w/o a stream
+        preds = preds_m.copy_to_host()
         return preds
 
     def free(self):

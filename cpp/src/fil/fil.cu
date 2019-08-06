@@ -128,40 +128,14 @@ struct forest {
     // Initialize prediction parameters.
     predict_params ps;
     ps.nodes = nodes_;
-    std::cout << " predict params node: " << ps.nodes << std::endl
-              << std::flush;
     ps.ntrees = ntrees_;
-    std::cout << " predict params ntrees: " << ps.ntrees << std::endl
-              << std::flush;
-
     ps.depth = depth_;
-    std::cout << " predict params depth: " << ps.depth << std::endl
-              << std::flush;
-
     ps.cols = cols_;
-    std::cout << " predict params cols: " << ps.cols << std::endl << std::flush;
-
     ps.preds = preds;
-    std::cout << " predict params preds: " << ps.preds << std::endl
-              << std::flush;
     ps.data = data;
-    std::cout << " predict params data: " << ps.data << std::endl << std::flush;
     ps.rows = rows;
     ps.max_shm = max_shm_;
-    std::cout << " predict params all assigned now " << std::endl << std::flush;
-
-    std::cout << " ALGO TYPE: " << algo_ << std::endl << std::flush;
     cudaStream_t stream = h.getStream();
-
-    float* preds_h = new float[rows];
-    CUDA_CHECK(cudaMemcpyAsync(preds_h, preds, rows * sizeof(float),
-                               cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    std::cout << " preds data at posi 10 before predicion " << preds_h[10]
-              << std::endl
-              << std::flush;
-
-    delete[] preds_h;
     // Predict using the forest.
     switch (algo_) {
       case algo_t::NAIVE:
@@ -317,19 +291,10 @@ void tree2fil(std::vector<dense_node_t>* pnodes, int root,
 void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
             const tl::Model& model, const treelite_params_t* tl_params) {
   // fill in forest-indendent params
-  std::cout << "tl_params->algo is : " << tl_params->algo << std::endl
-            << std::flush;
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
-  std::cout << "tl_params->threshold is : " << tl_params->threshold << std::endl
-            << std::flush;
   // fill in forest-dependent params
   params->cols = model.num_feature;
-  std::cout << "model.num_feature is : " << model.num_feature << std::endl
-            << std::flush;
-  std::cout << "model.num_output_group is : " << model.num_output_group
-            << std::endl
-            << std::flush;
 
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
@@ -366,52 +331,17 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
 void init_dense(const cumlHandle& h, forest_t* pf,
                 const forest_params_t* params) {
   check_params(params);
-  std::cout << " check params done " << std::endl << std::flush;
-  std::cout << " forest_t* pf :  " << pf << std::endl << std::flush;
   forest* f = new forest;
   f->init(h, params);
-  std::cout << " after init in init_dense " << std::endl << std::flush;
   *pf = f;
-  std::cout << " after *pf = f " << &pf << std::endl << std::flush;
 }
 
 forest_t from_treelite(const cumlHandle& handle, forest_t* pforest,
                        ModelHandle model, const treelite_params_t* tl_params) {
   forest_params_t params;
   std::vector<dense_node_t> nodes;
-  tl::Model& temp = *(tl::Model*)model;
-  std::cout << " before in from_treelite *pf = f " << &pforest << std::endl
-            << std::flush;
-  std::cout << " treelite_params_t tl_params algo : " << tl_params->algo
-            << std::endl
-            << std::flush;
-  std::cout << " model in C++ function : " << model << std::endl << std::flush;
-  std::cout << " New model pointer printed in C++ : " << &temp << std::endl
-            << std::flush;
-  std::cout << " model num_output_group in c++ : " << temp.num_output_group
-            << std::endl
-            << std::flush;
-  std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
-            << std::flush;
-  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::flush;
-  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl
-            << std::flush;
-  std::cout << " model randomforest flag in c++ : " << temp.random_forest_flag
-            << std::endl
-            << std::flush;
-  std::cout << " Model pointer val for num feats in C++ : "
-            << &(temp.num_feature) << std::endl
-            << std::flush;
-
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
-  std::cout
-    << "Ran the function tl2fil which does not require the pforest variable : "
-    << std::endl
-    << std::flush;
-  std::cout << "Entering the init_dense function : " << std::endl << std::flush;
   init_dense(handle, pforest, &params);
-  std::cout << "Passed through the init_dense function : " << std::endl
-            << std::flush;
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
@@ -425,20 +355,7 @@ void free(const cumlHandle& h, forest_t f) {
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t n) {
-  std::cout << " forest data passsed from cython : " << f << std::endl
-            << std::flush;
-
   f->predict(h, preds, data, n);
-  float* preds_f = new float[n];
-  cudaStream_t stream = h.getStream();
-  CUDA_CHECK(cudaMemcpyAsync(preds_f, preds, n * sizeof(float),
-                             cudaMemcpyDefault, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  std::cout << " preds data at posi 10 after prediction " << preds_f[10]
-            << std::endl
-            << std::flush;
-  delete[] preds_f;
 }
-
 }  // namespace fil
 }  // namespace ML
