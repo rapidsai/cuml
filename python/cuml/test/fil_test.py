@@ -100,11 +100,12 @@ bst = xgb.train(params, dtrain, num_round, evallist)
 
 bst.save_model('xgb.model')
 
-tl_model = tl.Model.load('xgb.model', 'xgboost')
-
-fm = fil(algo=2, output=0, threshold=0.55)
+print(" read the saved xgb modle")
+tl_model = tl.Model.load('xgb.modle', 'xgboost')
+#tl_copy = copy.deepcopy(tl_model)
+print(" create a fil model")
+fm = fil(algo=0, output=0, threshold=0.55)
+print(" read data from the model and convert treelite to FIL")
 forest = fm.from_treelite(tl_model, output_class=True)
-
-
-
-
+print(" Predict the labels ")
+fm.predict(X_validation)
