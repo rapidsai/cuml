@@ -57,17 +57,20 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
+/** performs additional transformations on the array of forest predictions
+    (preds) of size n; the transformations are defined by output, and include
+    averaging (multiplying by inv_num_trees), sigmoid and applying threshold */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  float pred = preds[i];
-  if ((output & output_t::AVG) != 0) pred *= inv_num_trees;
-  if ((output & output_t::SIGMOID) != 0) pred = sigmoid(pred);
+  float result = preds[i];
+  if ((output & output_t::AVG) != 0) result *= inv_num_trees;
+  if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
   if ((output & output_t::THRESHOLD) != 0) {
-    pred = pred > threshold ? 1.0f : 0.0f;
+    result = result > threshold ? 1.0f : 0.0f;
   }
-  preds[i] = pred;
+  preds[i] = result;
 }
 
 struct forest {
@@ -157,7 +160,8 @@ struct forest {
     // Transform the output if necessary (sigmoid + thresholding if necessary).
     if (output_ != output_t::RAW) {
       transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_, ntrees_ > 0 ? 1.0f / ntrees_ : 1.0f, threshold_);
+        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f,
+        threshold_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
