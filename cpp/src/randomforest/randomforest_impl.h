@@ -61,6 +61,10 @@ class rfClassifier : public rf<T, int> {
                int n_cols, int* predictions,
                const RandomForestMetaData<T, int>* forest,
                bool verbose = false) const;
+  void predictGetAll(const cumlHandle& user_handle, const T* input, int n_rows,
+                     int n_cols, int* predictions,
+                     const RandomForestMetaData<T, int>* forest,
+                     bool verbose = false);
   RF_metrics score(const cumlHandle& user_handle, const T* input,
                    const int* ref_labels, int n_rows, int n_cols,
                    int* predictions, const RandomForestMetaData<T, int>* forest,
