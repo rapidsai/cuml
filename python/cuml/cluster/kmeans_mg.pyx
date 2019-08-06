@@ -38,23 +38,24 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cuml.cluster import KMeans
 
 
-cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans::KMeansParams" nogil:
+cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace \
+        "ML::kmeans::KMeansParams" nogil:
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
 cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
 
     cdef struct KMeansParams:
-       int n_clusters,
-       InitMethod init
-       int max_iter,
-       double tol,
-       int verbose,
-       int seed,
-       int metric,
-       int oversampling_factor,
-       int batch_size,
-       bool inertia_check,
+        int n_clusters,
+        InitMethod init
+        int max_iter,
+        double tol,
+        int verbose,
+        int seed,
+        int metric,
+        int oversampling_factor,
+        int batch_size,
+        bool inertia_check
 
     cdef void fit_mnmg(cumlHandle& handle,
                        KMeansParams& params,
@@ -125,8 +126,8 @@ class KMeansMG(KMeans):
         cdef size_t n_rows = self.n_rows
         cdef size_t n_cols = self.n_cols
 
-        cdef float inertiaf = 0;
-        cdef double inertiad = 0;
+        cdef float inertiaf = 0
+        cdef double inertiad = 0
 
         cdef KMeansParams params = self._params
         cdef int n_iter = 0
