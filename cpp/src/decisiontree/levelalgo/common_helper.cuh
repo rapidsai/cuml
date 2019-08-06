@@ -16,6 +16,27 @@
 #pragma once
 #include "common_kernel.cuh"
 #include "flatnode.h"
+
+template <typename T, typename L>
+void get_minmax(const T *data, const int nrows, const int ncols,
+                const int n_nodes, const int max_shmem_nodes, T *minmax,
+                cudaStream_t &stream) {
+  using E = typename MLCommon::Stats::encode_traits<T>::E;
+  T init_val = std::numeric_limits<T>::max();
+  int threads = 128;
+  int nblocks = MLCommon::ceildiv(ncols * n_nodes, threads);
+  MLCommon::Stats::minmaxInitKernel<T, E><<<nblocks, threads, 0, stream>>>(
+    ncols * n_nodes, &minmax[0], &minmax[ncols * n_nodes], init_val);
+  CUDA_CHECK(cudaGetLastError());
+  if (max_shmem_nodes <= n_nodes) {
+  } else {
+  }
+  CUDA_CHECK(cudaGetLastError());
+  MLCommon::Stats::decodeKernel<T, E><<<nblocks, threads, 0, stream>>>(
+    &minmax[0], &minmax[ncols * n_nodes], ncols * n_nodes);
+
+  CUDA_CHECK(cudaGetLastError());
+}
 // This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
                     const unsigned int *rowids, const int nrows,

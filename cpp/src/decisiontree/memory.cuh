@@ -29,7 +29,7 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   stream = ml_handle.getStream();
   splitalgo = split_algo;
   if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-    LevelMemAllocator(N, Ncols, n_unique, n_bins, depth);
+    LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
   } else {
     NodeMemAllocator(N, Ncols, n_unique, n_bins, split_algo);
   }
@@ -185,7 +185,7 @@ void TemporaryMemory<T, L>::NodeMemCleaner() {
 template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               int n_unique, int nbins,
-                                              int depth) {
+                                              int depth, const int split_algo) {
   if (depth > 20) {
     max_nodes_per_level = pow(2, 20);
   } else {
@@ -299,6 +299,11 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     max_nodes_mse = max_shared_mem / (pernode_pred + 2 * nbins * sizeof(T));
     max_nodes_pred /= 2;  // For occupancy purposes.
     max_nodes_mse /= 2;   // For occupancy purposes.
+  }
+  if (split_algo == ML::SPLIT_ALGO::HIST) {
+    size_t shmem_per_node = 2 * sizeof(T);
+    max_nodes_minmax = max_shared_mem / shmem_per_node;
+    max_nodes_minmax /= 2;
   }
 }
 
