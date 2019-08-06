@@ -32,7 +32,7 @@ class rf {
                             unsigned int* selected_rows,
                             unsigned int* sorted_selected_rows,
                             char* rows_temp_storage, size_t temp_storage_bytes,
-                            const cudaStream_t stream,
+                            int no_sms, const cudaStream_t stream,
                             std::shared_ptr<deviceAllocator> device_allocator);
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
