@@ -64,13 +64,20 @@ struct RF_params {
   /**
    * Decision tree training hyper parameter struct.
    */
+  /**
+   * Number of concurrent GPU streams for parallel tree building.
+   * Each stream is independently managed by CPU thread.
+   * N streams need N times RF workspace. 
+   */
+  int n_streams;
   DecisionTree::DecisionTreeParams tree_params;
 };
 
 void set_rf_params(RF_params& params, int cfg_n_trees = 1,
-                   bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f);
+                   bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f,
+                   int cfg_n_streams = 4);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample,
+                       float cfg_rows_sample, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
 void validity_check(const RF_params rf_params);
 void print(const RF_params rf_params);
@@ -120,6 +127,15 @@ void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, bool verbose = false);
 
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierF* forest, const float* input,
+                   int n_rows, int n_cols, int* predictions,
+                   bool verbose = false);
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierD* forest, const double* input,
+                   int n_rows, int n_cols, int* predictions,
+                   bool verbose = false);
+
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const float* input,
                  const int* ref_labels, int n_rows, int n_cols,
@@ -133,7 +149,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, CRITERION split_criterion,
-                           bool quantile_per_tree);
+                           bool quantile_per_tree, int cfg_n_streams);
 
 // ----------------------------- Regression ----------------------------------- //
 
