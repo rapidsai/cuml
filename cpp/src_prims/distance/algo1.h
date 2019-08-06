@@ -61,8 +61,8 @@ namespace Distance {
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,
           typename FinalLambda, typename NormLambda, typename Index_ = int>
-void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
-                   InType const *pB, OutType *pD, bool enable_sqrt,
+void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
+                   const InType *pB, OutType *pD, bool enable_sqrt,
                    AccType *workspace, size_t worksize, FinalLambda fin_op,
                    NormLambda norm_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
