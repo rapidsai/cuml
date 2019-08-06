@@ -35,6 +35,7 @@
 - PR #895: Pretty prints arguments!
 - PR #920: Add an empty marker kernel for tracing purposes
 - PR #915: syncStream added to cumlCommunicator
+- PR #922: Random Forest support in FIL
 - PR #911: Update headers to credit CannyLabs BH TSNE implementation
 
 ## Bug Fixes
