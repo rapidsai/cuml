@@ -85,37 +85,59 @@ class RandomForestRegressor:
                       for mean square error' : 'mse'
     """
 
-    def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features='auto', n_bins=8,
-                 split_algo=1, split_criterion=2,
-                 bootstrap=True, bootstrap_features=False,
-                 verbose=False, min_rows_per_node=2,
-                 rows_sample=1.0, max_leaves=-1,
-                 accuracy_metric='mse', min_samples_leaf=None,
-                 min_weight_fraction_leaf=None, n_jobs=None,
-                 max_leaf_nodes=None, min_impurity_decrease=None,
-                 min_impurity_split=None, oob_score=None,
-                 random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
+    def __init__(
+        self,
+        n_estimators=10,
+        max_depth=-1,
+        handle=None,
+        max_features="auto",
+        n_bins=8,
+        split_algo=1,
+        split_criterion=2,
+        bootstrap=True,
+        bootstrap_features=False,
+        verbose=False,
+        min_rows_per_node=2,
+        rows_sample=1.0,
+        max_leaves=-1,
+        accuracy_metric="mse",
+        min_samples_leaf=None,
+        min_weight_fraction_leaf=None,
+        n_jobs=None,
+        max_leaf_nodes=None,
+        min_impurity_decrease=None,
+        min_impurity_split=None,
+        oob_score=None,
+        random_state=None,
+        warm_start=None,
+        class_weight=None,
+        quantile_per_tree=False,
+        criterion=None,
+    ):
 
-
-        unsupported_sklearn_params = {"criterion": criterion,
-                                      "min_samples_leaf": min_samples_leaf,
-                                      "min_weight_fraction_leaf": min_weight_fraction_leaf,
-                                      "max_leaf_nodes": max_leaf_nodes,
-                                      "min_impurity_decrease": min_impurity_decrease,
-                                      "min_impurity_split": min_impurity_split,
-                                      "oob_score": oob_score, "n_jobs": n_jobs,
-                                      "random_state": random_state,
-                                      "warm_start": warm_start,
-                                      "class_weight": class_weight}
+        unsupported_sklearn_params = {
+            "criterion": criterion,
+            "min_samples_leaf": min_samples_leaf,
+            "min_weight_fraction_leaf": min_weight_fraction_leaf,
+            "max_leaf_nodes": max_leaf_nodes,
+            "min_impurity_decrease": min_impurity_decrease,
+            "min_impurity_split": min_impurity_split,
+            "oob_score": oob_score,
+            "n_jobs": n_jobs,
+            "random_state": random_state,
+            "warm_start": warm_start,
+            "class_weight": class_weight,
+        }
 
         for key, vals in unsupported_sklearn_params.items():
             if vals is not None:
-                raise TypeError(" The Scikit-learn variable ", key,
-                                " is not supported in cuML,"
-                                " please read the cuML documentation for"
-                                " more information")
+                raise TypeError(
+                    " The Scikit-learn variable ",
+                    key,
+                    " is not supported in cuML,"
+                    " please read the cuML documentation for"
+                    " more information",
+                )
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
@@ -125,7 +147,9 @@ class RandomForestRegressor:
 
         n_workers = len(workers)
         if n_estimators < n_workers:
-            raise ValueError('n_estimators cannot be lower than number of dask workers.')
+            raise ValueError(
+                "n_estimators cannot be lower than number of dask workers."
+            )
 
         n_est_per_worker = math.floor(n_estimators / n_workers)
 
@@ -135,22 +159,36 @@ class RandomForestRegressor:
         remaining_est = n_estimators - (n_est_per_worker * n_workers)
 
         for i in range(remaining_est):
-            self.n_estimators_per_worker[i] = self.n_estimators_per_worker[i] + 1
+            self.n_estimators_per_worker[i] = (
+                self.n_estimators_per_worker[i] + 1
+            )
 
         ws = list(zip(workers, list(range(len(workers)))))
 
-        self.rfs = {worker: c.submit(RandomForestRegressor._func_build_rf,
-                             n, self.n_estimators_per_worker[n],
-                             max_depth,
-                             handle, max_features, n_bins,
-                             split_algo, split_criterion,
-                             bootstrap, bootstrap_features,
-                             verbose, min_rows_per_node,
-                             rows_sample, max_leaves,
-                             accuracy_metric, quantile_per_tree,
-                             random.random(),
-                             workers=[worker])
-            for worker, n in ws}
+        self.rfs = {
+            worker: c.submit(
+                RandomForestRegressor._func_build_rf,
+                n,
+                self.n_estimators_per_worker[n],
+                max_depth,
+                handle,
+                max_features,
+                n_bins,
+                split_algo,
+                split_criterion,
+                bootstrap,
+                bootstrap_features,
+                verbose,
+                min_rows_per_node,
+                rows_sample,
+                max_leaves,
+                accuracy_metric,
+                quantile_per_tree,
+                random.random(),
+                workers=[worker],
+            )
+            for worker, n in ws
+        }
 
         rfs_wait = list()
         for r in self.rfs.values():
@@ -159,23 +197,43 @@ class RandomForestRegressor:
         wait(rfs_wait)
 
     @staticmethod
-    def _func_build_rf(n, n_estimators, max_depth,
-                       handle, max_features, n_bins,
-                       split_algo, split_criterion,
-                       bootstrap, bootstrap_features,
-                       verbose, min_rows_per_node,
-                       rows_sample, max_leaves,
-                       accuracy_metric, quantile_per_tree,
-                       r):
+    def _func_build_rf(
+        n,
+        n_estimators,
+        max_depth,
+        handle,
+        max_features,
+        n_bins,
+        split_algo,
+        split_criterion,
+        bootstrap,
+        bootstrap_features,
+        verbose,
+        min_rows_per_node,
+        rows_sample,
+        max_leaves,
+        accuracy_metric,
+        quantile_per_tree,
+        r,
+    ):
 
-        return cuRFR(n_estimators=n_estimators, max_depth=max_depth, handle=handle,
-                     max_features=max_features, n_bins=n_bins,
-                     split_algo=split_algo, split_criterion=split_criterion,
-                     bootstrap=bootstrap, bootstrap_features=bootstrap_features,
-                     verbose=verbose, min_rows_per_node=min_rows_per_node,
-                     rows_sample=rows_sample, max_leaves=max_leaves,
-                     accuracy_metric=accuracy_metric,
-                     quantile_per_tree=quantile_per_tree)
+        return cuRFR(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            handle=handle,
+            max_features=max_features,
+            n_bins=n_bins,
+            split_algo=split_algo,
+            split_criterion=split_criterion,
+            bootstrap=bootstrap,
+            bootstrap_features=bootstrap_features,
+            verbose=verbose,
+            min_rows_per_node=min_rows_per_node,
+            rows_sample=rows_sample,
+            max_leaves=max_leaves,
+            accuracy_metric=accuracy_metric,
+            quantile_per_tree=quantile_per_tree,
+        )
 
     @staticmethod
     def _fit(model, X_df, y_df, r):
@@ -191,8 +249,12 @@ class RandomForestRegressor:
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, n_features).
-        y : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, 1)
+        X : dask_cudf.Dataframe
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Features of training examples.
+        y : dask_cudf.Dataframe
+            Dense matrix (floats or doubles) of shape (n_samples, 1)
+            Labels of training examples.
         """
         c = default_client()
 
@@ -201,8 +263,16 @@ class RandomForestRegressor:
 
         f = list()
         for w, xc in X_futures:
-            f.append(c.submit(RandomForestRegressor._fit, self.rfs[w], xc, y_futures[w], random.random(),
-                             workers=[w]))
+            f.append(
+                c.submit(
+                    RandomForestRegressor._fit,
+                    self.rfs[w],
+                    xc,
+                    y_futures[w],
+                    random.random(),
+                    workers=[w],
+                )
+            )
 
         wait(f)
 
@@ -214,7 +284,8 @@ class RandomForestRegressor:
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe containing dense matrix (floats or doubles) of shape (n_samples, n_features).
+        X : dask_cudf.Dataframe
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         Returns
         ----------
@@ -230,8 +301,15 @@ class RandomForestRegressor:
 
         f = list()
         for w, n in ws:
-            f.append(c.submit(RandomForestRegressor._predict, self.rfs[w], X_Scattered, random.random(),
-                             workers=[w]))
+            f.append(
+                c.submit(
+                    RandomForestRegressor._predict,
+                    self.rfs[w],
+                    X_Scattered,
+                    random.random(),
+                    workers=[w],
+                )
+            )
 
         wait(f)
 
@@ -279,7 +357,7 @@ class RandomForestRegressor:
             return self
         for key, value in params.items():
             if key not in RandomForestRegressor.variables:
-                raise ValueError('Invalid parameter for estimator')
+                raise ValueError("Invalid parameter for estimator")
             else:
                 setattr(self, key, value)
 
