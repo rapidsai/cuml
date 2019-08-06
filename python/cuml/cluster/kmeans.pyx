@@ -42,16 +42,16 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans::KMeansParams":
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
     cdef struct KMeansParams:
-       int n_clusters,
-       InitMethod init
-       int max_iter,
-       double tol,
-       int verbose,
-       int seed,
-       int metric,
-       int oversampling_factor,
-       int batch_size,
-       bool inertia_check,
+        int n_clusters,
+        InitMethod init
+        int max_iter,
+        double tol,
+        int verbose,
+        int seed,
+        int metric,
+        int oversampling_factor,
+        int batch_size,
+        bool inertia_check
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,
@@ -272,7 +272,7 @@ class KMeans(Base):
         self.n_gpu = n_gpu
         self.inertia_ = 0
         self.n_iter_ = 0
-        
+
         cdef KMeansParams params
         params.n_clusters = self.n_clusters
         if (isinstance(self.init, cudf.DataFrame)):
@@ -300,7 +300,7 @@ class KMeans(Base):
 
         elif (self.init == 'random'):
             params.init = Random
-            
+
         else:
             raise TypeError('initialization method not supported')
 
@@ -308,10 +308,9 @@ class KMeans(Base):
         params.tol = self.tol
         params.verbose = self.verbose
         params.seed = self.random_state
-        params.metric = 0 # distance metric as squared L2: @todo - support other metrics # noqa: E501
+        params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         self._params = params
-        
-        
+
     def fit(self, X):
         """
         Compute k-means clustering with X.
@@ -339,17 +338,16 @@ class KMeans(Base):
             clust_cent = zeros(self.n_clusters * self.n_cols,
                                dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
-        
 
         c_c = self.cluster_centers_
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
 
-        cdef float inertiaf = 0;
-        cdef double inertiad = 0;
+        cdef float inertiaf = 0
+        cdef double inertiad = 0
 
         cdef KMeansParams params = self._params
         cdef int n_iter = 0
-        
+
         if self.dtype == np.float32:
             fit_predict(
                 handle_[0],
@@ -357,7 +355,7 @@ class KMeans(Base):
                 <const float*> input_ptr,
                 <size_t> self.n_rows,
                 <size_t> self.n_cols,
-                <float*> cluster_centers_ptr,  
+                <float*> cluster_centers_ptr,
                 <int*> labels_ptr,
                 inertiaf,
                 n_iter)
@@ -476,7 +474,7 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
         del(clust_mat)
-        return self.labels_,inertia
+        return self.labels_, inertia
 
     def predict(self, X):
         """
@@ -522,7 +520,6 @@ class KMeans(Base):
                                     dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
-
 
         # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
         distance_metric = 1
@@ -578,7 +575,6 @@ class KMeans(Base):
                  Opposite of the value of X on the K-means objective.
         """
         return -1 * self.__predict_labels_inertia(X)[1]
-
 
     def fit_transform(self, X):
         """
