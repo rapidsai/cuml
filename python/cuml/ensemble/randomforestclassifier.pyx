@@ -115,20 +115,20 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                       bool) except +
 
     cdef void predictGetAll(cumlHandle& handle,
-                      RandomForestMetaData[float, int] *,
-                      float*,
-                      int,
-                      int,
-                      int*,
-                      bool) except +
+                            RandomForestMetaData[float, int] *,
+                            float*,
+                            int,
+                            int,
+                            int*,
+                            bool) except +
 
     cdef void predictGetAll(cumlHandle& handle,
-                      RandomForestMetaData[double, int]*,
-                      double*,
-                      int,
-                      int,
-                      int*,
-                      bool) except +
+                            RandomForestMetaData[double, int]*,
+                            double*,
+                            int,
+                            int,
+                            int*,
+                            bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -605,21 +605,21 @@ class RandomForestClassifier(Base):
 
         if self.dtype == np.float32:
             predictGetAll(handle_[0],
-                    rf_forest,
-                    <float*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <int*> preds_ptr,
-                    <bool> self.verbose)
+                          rf_forest,
+                          <float*> X_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <int*> preds_ptr,
+                          <bool> self.verbose)
 
         elif self.dtype == np.float64:
             predictGetAll(handle_[0],
-                    rf_forest64,
-                    <double*> X_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <int*> preds_ptr,
-                    <bool> self.verbose)
+                          rf_forest64,
+                          <double*> X_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <int*> preds_ptr,
+                          <bool> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
