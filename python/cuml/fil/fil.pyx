@@ -114,7 +114,6 @@ cdef class FIL_impl():
     cpdef object handle
     cdef forest_t* forest_pointer
     cdef forest_t forest_data
-    cdef forest_params_t* params
     cdef ModelHandle* model_ptr
     cdef object depth
     cdef object num_trees
@@ -123,8 +122,6 @@ cdef class FIL_impl():
     cdef object threshold
     cdef object n_cols
     cdef object dtype
-    cdef object fid
-    cdef object num_nodes
     cdef object verbose
 
     def __cinit__(self, depth=8, n_estimators=50,
@@ -140,33 +137,9 @@ cdef class FIL_impl():
         self.handle = handle
         self.verbose = verbose
         self.forest_pointer = NULL
-        self.params = NULL
-
-    def init_dense(self, X):
-
-        cdef uintptr_t X_ptr
-        _, _, _, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
-
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-
-        self.params.depth = self.depth
-        self.params.ntrees = self.num_trees
-        self.params.cols = self.n_cols
-        self.params.algo = self.algo
-        self.params.output = self.output
-        self.params.threshold = self.threshold
-
-        init_dense(handle_[0],
-                   <forest_t*> self.forest_pointer,
-                   <forest_params_t*> self.params)
-
-        return self
 
     def predict(self, X):
         cdef uintptr_t X_ptr
-
         X_m, X_ptr, n_rows, _, _ = \
             input_to_dev_array(X, order='C')
 
@@ -177,9 +150,9 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-
+        cdef forest_t forest_data = <forest_t><size_t>&self.forest_pointer
         predict(handle_[0],
-                self.forest_data,
+                forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
                 <size_t> n_rows)
@@ -207,14 +180,16 @@ cdef class FIL_impl():
         print(" model.num_feature : ", model.num_feature)
         print(" model.num_output_group : ",model.num_output_group)
         print(" model handle : ", model.handle)
-        model_handle = model.handle
+        self.forest_pointer = <forest_t*><size_t> model.handle.value
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t model_ptr = model.handle.value
         from_treelite(handle_[0],
                       self.forest_pointer,
-                      <ModelHandle> model.handle, 
+                      <ModelHandle> model_ptr,
                       &treelite_params)
 
+        return self
 
 class FIL(Base):
     def __init__(self, depth=8, n_estimators=50,

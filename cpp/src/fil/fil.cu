@@ -341,9 +341,13 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
 void init_dense(const cumlHandle& h, forest_t* pf,
                 const forest_params_t* params) {
   check_params(params);
+  std::cout << " check params done " << std::endl << std::flush;
+  std::cout << " forest_t* pf :  " << pf << std::endl << std::flush;
   forest* f = new forest;
   f->init(h, params);
+  std::cout << " after init in init_dense " << std::endl << std::flush;
   *pf = f;
+  std::cout << " after *pf = f " << &pf << std::endl << std::flush;
 }
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
@@ -351,6 +355,11 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   forest_params_t params;
   std::vector<dense_node_t> nodes;
   tl::Model& temp = *(tl::Model*)model;
+  std::cout << " before in from_treelite *pf = f " << &pforest << std::endl
+            << std::flush;
+  std::cout << " treelite_params_t tl_params algo : " << tl_params->algo
+            << std::endl
+            << std::flush;
   std::cout << " model in C++ function : " << model << std::endl << std::flush;
   std::cout << " New model pointer printed in C++ : " << &temp << std::endl
             << std::flush;
@@ -360,8 +369,11 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
             << std::flush;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::flush;
-  std::cout << "###################################" << std::endl << std::flush;
-
+  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl
+            << std::flush;
+  std::cout << " model randomforest flag in c++ : " << temp.random_forest_flag
+            << std::endl
+            << std::flush;
   std::cout << " Model pointer val for num feats in C++ : "
             << &(temp.num_feature) << std::endl
             << std::flush;
@@ -387,6 +399,8 @@ void free(const cumlHandle& h, forest_t f) {
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t n) {
+  std::cout << " forest data passsed from cython : " << f << std::endl
+            << std::flush;
   f->predict(h, preds, data, n);
 }
 
