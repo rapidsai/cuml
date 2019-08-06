@@ -24,8 +24,8 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <typeinfo>
 #include <utility>
-
 #include "common.cuh"
 #include "fil.h"
 
@@ -142,15 +142,27 @@ struct forest {
     std::cout << " predict params cols: " << ps.cols << std::endl << std::flush;
 
     ps.preds = preds;
+    std::cout << " predict params preds: " << ps.preds << std::endl
+              << std::flush;
     ps.data = data;
+    std::cout << " predict params data: " << ps.data << std::endl << std::flush;
     ps.rows = rows;
     ps.max_shm = max_shm_;
     std::cout << " predict params all assigned now " << std::endl << std::flush;
 
     std::cout << " ALGO TYPE: " << algo_ << std::endl << std::flush;
-
-    // Predict using the forest.
     cudaStream_t stream = h.getStream();
+
+    float* preds_h = new float[rows];
+    CUDA_CHECK(cudaMemcpyAsync(preds_h, preds, rows * sizeof(float),
+                               cudaMemcpyDefault, stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    std::cout << " preds data at posi 10 before predicion " << preds_h[10]
+              << std::endl
+              << std::flush;
+
+    delete[] preds_h;
+    // Predict using the forest.
     switch (algo_) {
       case algo_t::NAIVE:
         naive(ps, stream);
@@ -415,7 +427,17 @@ void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t n) {
   std::cout << " forest data passsed from cython : " << f << std::endl
             << std::flush;
+
   f->predict(h, preds, data, n);
+  float* preds_f = new float[n];
+  cudaStream_t stream = h.getStream();
+  CUDA_CHECK(cudaMemcpyAsync(preds_f, preds, n * sizeof(float),
+                             cudaMemcpyDefault, stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  std::cout << " preds data at posi 10 after prediction " << preds_f[10]
+            << std::endl
+            << std::flush;
+  delete[] preds_f;
 }
 
 }  // namespace fil
