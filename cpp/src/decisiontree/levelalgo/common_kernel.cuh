@@ -17,6 +17,85 @@
 #include "cuda_utils.h"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
+#include "stats/minmax.h"
+
+//This kernel calculates minmax at node level
+template <typename T, typename E>
+__global__ void get_minmax_kernel(const T* __restrict__ data,
+                                  const unsigned int* __restrict__ flags,
+                                  const unsigned int* __restrict__ colids,
+                                  const int nrows, const int ncols,
+                                  const int n_nodes, T init_min_val,
+                                  T* minmax) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int local_flag = LEAF;
+  extern __shared__ T shmem_minmax[];
+  if (tid < nrows) {
+    local_flag = flags[tid];
+  }
+
+  for (int colcnt = 0; colcnt < ncols; colcnt++) {
+    for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
+      if (i < n_nodes) {
+        *(E*)&shmem_minmax[i] = encode(init_min_val);
+      } else {
+        *(E*)&shmem_minmax[i] = encode(-init_min_val);
+      }
+    }
+
+    __syncthreads();
+    int col = colids[colcnt];
+    T local_data;
+    if (local_flag != LEAF) {
+      local_data = data[col * nrows + tid];
+
+      if (!isnan(local_data)) {
+        //Min max values are saved in shared memory and global memory as per the shuffled colids.
+        MLCommon::Stats::atomicMinBits<T, E>(&shmem_minmax[local_flag],
+                                             local_data);
+        MLCommon::Stats::atomicMaxBits<T, E>(
+          &shmem_minmax[local_flag + n_nodes], local_data);
+      }
+    }
+    __syncthreads();
+
+    // finally, perform global mem atomics
+    for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
+      if (i < n_nodes) {
+        MLCommon::Stats::atomicMinBits<T, E>(&minmax[i + 2 * colcnt * n_nodes],
+                                             decode(*(E*)&shmem_minmax[i]));
+      } else {
+        MLCommon::Stats::atomicMaxBits<T, E>(&minmax[i + 2 * colcnt * n_nodes],
+                                             decode(*(E*)&shmem_minmax[i]));
+      }
+    }
+    __syncthreads();
+  }
+}
+
+template <typename T, typename E>
+__global__ void get_minmax_kernel_global(
+  const T* __restrict__ data, const unsigned int* __restrict__ flags,
+  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
+  const int n_nodes, T init_min_val, T* minmax) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int local_flag = LEAF;
+  if (tid < nrows) {
+    local_flag = flags[tid];
+    for (int colcnt = 0; colcnt < ncols; colcnt++) {
+      int coloff = 2 * n_nodes * colcnt;
+      int col = colids[colcnt];
+      T local_data = data[col * nrows + tid];
+      if (!isnan(local_data)) {
+        //Min max values are saved in shared memory and global memory as per the shuffled colids.
+        MLCommon::Stats::atomicMinBits<T, E>(&minmax[coloff + local_flag],
+                                             local_data);
+        MLCommon::Stats::atomicMaxBits<T, E>(
+          &minmax[coloff + n_nodes + local_flag], local_data);
+      }
+    }
+  }
+}
 //Setup how many times a sample is being used.
 //This is due to bootstrap nature of Random Forest.
 __global__ void setup_counts_kernel(unsigned int* sample_cnt,

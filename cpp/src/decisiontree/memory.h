@@ -100,14 +100,14 @@ struct TemporaryMemory {
   int max_nodes_pred = 0;
   int max_nodes_mse = 0;
   int max_nodes_per_level = 0;
-
+  int max_nodes_minmax = 0;
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   int n_unique, int n_bins, const int split_algo, int depth);
   ~TemporaryMemory();
   void NodeMemAllocator(int N, int Ncols, int n_unique, int n_bins,
                         const int split_algo);
   void LevelMemAllocator(int nrows, int ncols, int n_unique, int nbins,
-                         int depth);
+                         int depth, const int split_algo);
   void NodeMemCleaner();
   void LevelMemCleaner();
   void print_info();
