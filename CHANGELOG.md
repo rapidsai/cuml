@@ -13,6 +13,7 @@
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #829: C++: enable nvtx ranges
 - PR #837: treelite for decision forest exchange format
+- PR #918: Streamline CUDA_REL environment variable
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
