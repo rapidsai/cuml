@@ -164,7 +164,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float, CRITERION,
-                                    bool) except +
+                                    bool,
+                                    int) except +
 
 
 class RandomForestClassifier(Base):
@@ -275,7 +276,7 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8,
+                 max_features=1.0, n_bins=8, n_streams=4,
                  split_algo=0, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
@@ -329,6 +330,7 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
+        self.n_streams = n_streams
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -470,7 +472,8 @@ class RandomForestClassifier(Base):
                                      <int> self.n_estimators,
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree)
+                                     <bool> self.quantile_per_tree,
+                                     <int> self.n_streams)
 
         if self.dtype == np.float32:
             fit(handle_[0],

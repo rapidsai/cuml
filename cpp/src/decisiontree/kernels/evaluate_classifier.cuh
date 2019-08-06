@@ -192,9 +192,9 @@ void find_best_split_classifier(
 
       float max_value = F::max_val(n_unique_labels);
       ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= max_value),
-             "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
+             "gini left value %f not in [0.0, %f]", tmp_gini_left, max_value);
       ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= max_value),
-             "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
+             "gini right value %f not in [0.0, %f]", tmp_gini_right, max_value);
 
       float impurity = (tmp_lnrows * 1.0f / nrows) * tmp_gini_left +
                        (tmp_rnrows * 1.0f / nrows) * tmp_gini_right;
@@ -259,7 +259,7 @@ void best_split_all_cols_classifier(
     cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
   const int threads = 512;
-  int blocks = min(MLCommon::ceildiv(nrows * ncols, threads), 65536);
+  int blocks = MLCommon::ceildiv(nrows * ncols, threads);
 
   /* Kernel allcolsampler_*_kernel:
 		- populates tempmem->tempdata with the sampled column data,
