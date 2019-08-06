@@ -58,14 +58,20 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-__global__ void transform_k(float* preds, size_t n, bool output_class,
-                            float threshold) {
+/** performs additional transformations on the array of forest predictions
+    (preds) of size n; the transformations are defined by output, and include
+    averaging (multiplying by inv_num_trees), sigmoid and applying threshold */
+__global__ void transform_k(float* preds, size_t n, output_t output,
+                            float inv_num_trees, float threshold) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  float out = preds[i];
-  out = sigmoid(out);
-  if (output_class) out = out > threshold ? 1.0f : 0.0f;
-  preds[i] = out;
+  float result = preds[i];
+  if ((output & output_t::AVG) != 0) result *= inv_num_trees;
+  if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
+  if ((output & output_t::THRESHOLD) != 0) {
+    result = result > threshold ? 1.0f : 0.0f;
+  }
+  preds[i] = result;
 }
 
 struct forest {
@@ -154,7 +160,8 @@ struct forest {
     // Transform the output if necessary (sigmoid + thresholding if necessary).
     if (output_ != output_t::RAW) {
       transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_ == output_t::CLASS, threshold_);
+        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f,
+        threshold_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -188,13 +195,12 @@ void check_params(const forest_params_t* params) {
     default:
       ASSERT(false, "aglo should be NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
-  switch (params->output) {
-    case output_t::RAW:
-    case output_t::PROB:
-    case output_t::CLASS:
-      break;
-    default:
-      ASSERT(false, "output should be RAW, PROB or CLASS");
+  // output_t::RAW == 0, and doesn't have a separate flag
+  output_t all_set =
+    output_t(output_t::AVG | output_t::SIGMOID | output_t::THRESHOLD);
+  if ((params->output & ~all_set) != 0) {
+    ASSERT(false,
+           "output should be a combination of RAW, AVG, SIGMOID and THRESHOLD");
   }
 }
 
@@ -301,15 +307,17 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   ASSERT(param.global_bias == 0.0f, "bias not supported");
-  // in treelite, "random forest" means averaging the output of all trees
-  ASSERT(!model.random_forest_flag, "output averaging not supported");
-  if (param.pred_transform == "identity") {
-    ASSERT(!tl_params->output_class,
-           "class output only supported for the sigmoid transform");
-    params->output = output_t::RAW;
-  } else if (param.pred_transform == "sigmoid") {
-    params->output = tl_params->output_class ? output_t::CLASS : output_t::PROB;
-  } else {
+  params->output = output_t::RAW;
+  if (tl_params->output_class) {
+    params->output = output_t(params->output | output_t::THRESHOLD);
+  }
+  // "random forest" in treelite means tree output averaging
+  if (model.random_forest_flag) {
+    params->output = output_t(params->output | output_t::AVG);
+  }
+  if (param.pred_transform == "sigmoid") {
+    params->output = output_t(params->output | output_t::SIGMOID);
+  } else if (param.pred_transform != "identity") {
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
   }

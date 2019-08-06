@@ -43,14 +43,31 @@ enum algo_t {
   BATCH_TREE_REORG
 };
 
+/** 
+ * output_t are flags that define the output produced by the FIL predictor; a
+ * valid output_t values consists of the following, combined using '|' (bitwise
+ * or), which define stages, which operation in the next stage applied to the
+ * output of the previous stage:
+ * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
+ * - optional SIGMOID for applying the sigmoid transform
+ * - optional THRESHOLD, for thresholding for classification
+ */
 enum output_t {
-  /** raw output; use for regression, or for binary classification for the value
-      before the transformation */
-  RAW,
-  /** output probability; use for binary classification for probability */
-  PROB,
-  /** output class; use for binary classification for class (0 or 1) */
-  CLASS
+  /** raw output: the sum of the tree outputs; use for GBM models for
+      regression, or for binary classification for the value before the
+      transformation; note that this value is 0, and may be omitted
+      when combined with other flags */
+  RAW = 0x0,
+  /** average output: divide the sum of the tree outputs by the number of trees 
+      before further transformations; use for random forests for regression 
+      and binary classification for the probability */
+  AVG = 0x1,
+  /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
+      outputs; use for GBM binary classification models for probability */
+  SIGMOID = 0x10,
+  /** threshold: apply threshold to the output of the previous stage to get the
+      class (0 or 1) */
+  THRESHOLD = 0x100,
 };
 
 /** dense_node is a single tree node */
