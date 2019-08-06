@@ -17,10 +17,13 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
