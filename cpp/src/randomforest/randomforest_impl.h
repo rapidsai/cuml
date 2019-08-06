@@ -32,7 +32,7 @@ class rf {
                             unsigned int* selected_rows,
                             unsigned int* sorted_selected_rows,
                             char* rows_temp_storage, size_t temp_storage_bytes,
-                            const cudaStream_t stream,
+                            int no_sms, const cudaStream_t stream,
                             std::shared_ptr<deviceAllocator> device_allocator);
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
@@ -61,6 +61,10 @@ class rfClassifier : public rf<T, int> {
                int n_cols, int* predictions,
                const RandomForestMetaData<T, int>* forest,
                bool verbose = false) const;
+  void predictGetAll(const cumlHandle& user_handle, const T* input, int n_rows,
+                     int n_cols, int* predictions,
+                     const RandomForestMetaData<T, int>* forest,
+                     bool verbose = false);
   RF_metrics score(const cumlHandle& user_handle, const T* input,
                    const int* ref_labels, int n_rows, int n_cols,
                    int* predictions, const RandomForestMetaData<T, int>* forest,

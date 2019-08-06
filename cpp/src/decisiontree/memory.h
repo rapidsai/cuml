@@ -56,6 +56,12 @@ struct TemporaryMemory {
   //CUDA stream
   cudaStream_t stream;
 
+  //No of SMs
+  int no_sms;
+
+  //Maximum shared memory in GPU
+  size_t max_shared_mem;
+
   //For quantiles and colids; this part is common
   MLCommon::device_buffer<T> *d_quantile = nullptr;
   MLCommon::host_buffer<T> *h_quantile = nullptr;

@@ -28,6 +28,12 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   //Assign Stream from cumlHandle
   stream = ml_handle.getStream();
   splitalgo = split_algo;
+
+  cudaDeviceProp prop;
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
+  max_shared_mem = prop.sharedMemPerBlock;
+  no_sms = prop.multiProcessorCount;
+
   if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
     LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
   } else {
@@ -286,9 +292,6 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     totalmem += n_unique * maxnodes * 3 * sizeof(unsigned int);
   }
   //Calculate Max nodes in shared memory.
-  cudaDeviceProp prop;
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
-  size_t max_shared_mem = prop.sharedMemPerBlock;
   if (typeid(L) == typeid(int)) {
     max_nodes_class = max_shared_mem / (nbins * n_unique * sizeof(int));
     max_nodes_class /= 2;  // For occupancy purposes.

@@ -24,7 +24,6 @@
 #include "score/scores.h"
 
 namespace ML {
-
 /**
  * @brief Construct rf (random forest) object.
  * @tparam T: data type for input data (float or double).
@@ -48,11 +47,18 @@ int rf<T, L>::get_ntrees() {
   return rf_params.n_trees;
 }
 
+void random_uniformInt(unsigned int* data, int len, int n_rows,
+                       const int no_sms, cudaStream_t stream) {
+  uint64_t offset = 0;
+  MLCommon::Random::randImpl(
+    offset, data, len,
+    [=] __device__(unsigned int val, int idx) { return (val % n_rows); }, 256,
+    4 * no_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
+}
 /**
  * @brief Sample row IDs for tree fitting and bootstrap if requested.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] handle: cumlHandle
  * @param[in] tree_id: unique tree ID
  * @param[in] n_rows: total number of data samples.
  * @param[in] n_sampled_rows: number of rows used for training
@@ -60,19 +66,19 @@ int rf<T, L>::get_ntrees() {
  * @param[in, out] sorted_selected_rows: already allocated array. Will contain sorted row IDs.
  * @param[in, out] rows_temp_storage: temp. storage used for sorting (previously allocated).
  * @param[in] temp_storage_bytes: size in bytes of rows_temp_storage.
+ * @param[in] no_sms: No of SM in current GPU
+ * @param[in] stream: Current cuda stream
+ * @param[in] device_allocator: Current device allocator from cuml handle
  */
 template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   unsigned int* sorted_selected_rows, char* rows_temp_storage,
-  size_t temp_storage_bytes, const cudaStream_t stream,
+  size_t temp_storage_bytes, const int no_sms, const cudaStream_t stream,
   std::shared_ptr<deviceAllocator> device_allocator) {
   if (rf_params.bootstrap) {
-    MLCommon::Random::Rng r(
-      tree_id *
-      1000);  // Ensure the seed for each tree is different and meaningful.
-    r.uniformInt(selected_rows, n_sampled_rows, (unsigned int)0,
-                 (unsigned int)n_rows, stream);
+    random_uniformInt(selected_rows, n_sampled_rows, n_rows, no_sms, stream);
+
     if (temp_storage_bytes != 0) {
       CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
         (void*)rows_temp_storage, temp_storage_bytes, selected_rows,
@@ -258,11 +264,11 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     } else {
       rowids = selected_rows[stream_id]->data();
     }
-    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows,
-                               selected_rows[stream_id]->data(), selected_ptr,
-                               temp_storage_ptr, temp_storage_bytes[stream_id],
-                               local_handle[stream_id].getStream(),
-                               local_handle[stream_id].getDeviceAllocator());
+    this->prepare_fit_per_tree(
+      i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(), selected_ptr,
+      temp_storage_ptr, temp_storage_bytes[stream_id],
+      tempmem[stream_id]->no_sms, local_handle[stream_id].getStream(),
+      local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -363,6 +369,50 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
   }
 
   MLCommon::updateDevice(predictions, h_predictions.data(), n_rows, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+/**
+ * @brief Predict target feature for input data; n-ary classification for single feature supported.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+template <typename T>
+void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
+                                    const T* input, int n_rows, int n_cols,
+                                    int* predictions,
+                                    const RandomForestMetaData<T, int>* forest,
+                                    bool verbose) {
+  const cumlHandle_impl& handle = user_handle.getImpl();
+  cudaStream_t stream = user_handle.getStream();
+
+  int row_size = n_cols;
+  int pred_id = 0;
+
+  for (int row_id = 0; row_id < n_rows; row_id++) {
+    if (verbose) {
+      std::cout << "\n\n";
+      std::cout << "Predict for sample: ";
+      for (int i = 0; i < n_cols; i++)
+        std::cout << input[row_id * row_size + i] << ", ";
+      std::cout << std::endl;
+    }
+
+    for (int i = 0; i < this->rf_params.n_trees; i++) {
+      int prediction;
+      trees[i].predict(user_handle, &forest->trees[i],
+                       &input[row_id * row_size], 1, n_cols, &prediction,
+                       verbose);
+      predictions[pred_id] = prediction;
+      pred_id++;
+    }
+  }
+
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -522,11 +572,11 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     } else {
       rowids = selected_rows[stream_id]->data();
     }
-    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows,
-                               selected_rows[stream_id]->data(), selected_ptr,
-                               temp_storage_ptr, temp_storage_bytes[stream_id],
-                               local_handle[stream_id].getStream(),
-                               local_handle[stream_id].getDeviceAllocator());
+    this->prepare_fit_per_tree(
+      i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(), selected_ptr,
+      temp_storage_ptr, temp_storage_bytes[stream_id],
+      tempmem[stream_id]->no_sms, local_handle[stream_id].getStream(),
+      local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.

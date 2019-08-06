@@ -127,6 +127,15 @@ void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, bool verbose = false);
 
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierF* forest, const float* input,
+                   int n_rows, int n_cols, int* predictions,
+                   bool verbose = false);
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierD* forest, const double* input,
+                   int n_rows, int n_cols, int* predictions,
+                   bool verbose = false);
+
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const float* input,
                  const int* ref_labels, int n_rows, int n_cols,
