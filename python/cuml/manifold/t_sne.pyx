@@ -163,6 +163,15 @@ class TSNE(Base):
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
+
+    Reference Implementation
+    -------------------------
+    The CUDA implementation is derived from the excellent CannyLabs open source
+    implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
+    code is licensed according to the conditions in cuml/cpp/src/tsne/
+    cannylabs_tsne_license.txt. A full description of their approach is
+    available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and its
+    Applications to Modern Data (https://arxiv.org/abs/1807.11824).
     """
     def __init__(self,
                  int n_components=2,
@@ -288,7 +297,6 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self.Y = None
         return
 
     def fit(self, X):
@@ -450,8 +458,8 @@ class TSNE(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if state["Y"] is not None:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(self.Y)
+        if "Y" in state:
+            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
 
         if "handle" in state:
             del state["handle"]
