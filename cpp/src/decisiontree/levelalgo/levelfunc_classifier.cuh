@@ -33,12 +33,12 @@ At each level; following steps are involved.
 */
 template <typename T>
 ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
-  const ML::cumlHandle_impl& handle, const T* data, const int* labels,
-  unsigned int* rowids, const std::vector<unsigned int>& feature_selector,
-  int n_sampled_rows, const int nrows, const int n_unique_labels,
-  const int nbins, const int maxdepth, const int maxleaves,
-  const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
-  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const T* data, const int* labels, unsigned int* rowids,
+  const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
+  const int nrows, const int n_unique_labels, const int nbins,
+  const int maxdepth, const int maxleaves, const int min_rows_per_node,
+  const ML::CRITERION split_cr, int& depth_cnt, int& leaf_cnt,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);

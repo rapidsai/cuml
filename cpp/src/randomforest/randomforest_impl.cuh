@@ -48,12 +48,12 @@ int rf<T, L>::get_ntrees() {
 }
 
 void random_uniformInt(unsigned int* data, int len, int n_rows,
-                       const int no_sms, cudaStream_t stream) {
+                       const int num_sms, cudaStream_t stream) {
   uint64_t offset = 0;
   MLCommon::Random::randImpl(
     offset, data, len,
     [=] __device__(unsigned int val, int idx) { return (val % n_rows); }, 256,
-    4 * no_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
+    4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
 }
 /**
  * @brief Sample row IDs for tree fitting and bootstrap if requested.
@@ -66,7 +66,7 @@ void random_uniformInt(unsigned int* data, int len, int n_rows,
  * @param[in, out] sorted_selected_rows: already allocated array. Will contain sorted row IDs.
  * @param[in, out] rows_temp_storage: temp. storage used for sorting (previously allocated).
  * @param[in] temp_storage_bytes: size in bytes of rows_temp_storage.
- * @param[in] no_sms: No of SM in current GPU
+ * @param[in] num_sms: No of SM in current GPU
  * @param[in] stream: Current cuda stream
  * @param[in] device_allocator: Current device allocator from cuml handle
  */
@@ -74,10 +74,10 @@ template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   unsigned int* sorted_selected_rows, char* rows_temp_storage,
-  size_t temp_storage_bytes, const int no_sms, const cudaStream_t stream,
+  size_t temp_storage_bytes, const int num_sms, const cudaStream_t stream,
   std::shared_ptr<deviceAllocator> device_allocator) {
   if (rf_params.bootstrap) {
-    random_uniformInt(selected_rows, n_sampled_rows, n_rows, no_sms, stream);
+    random_uniformInt(selected_rows, n_sampled_rows, n_rows, num_sms, stream);
 
     if (temp_storage_bytes != 0) {
       CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
@@ -267,7 +267,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(), selected_ptr,
       temp_storage_ptr, temp_storage_bytes[stream_id],
-      tempmem[stream_id]->no_sms, local_handle[stream_id].getStream(),
+      tempmem[stream_id]->num_sms, local_handle[stream_id].getStream(),
       local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.
@@ -575,7 +575,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, selected_rows[stream_id]->data(), selected_ptr,
       temp_storage_ptr, temp_storage_bytes[stream_id],
-      tempmem[stream_id]->no_sms, local_handle[stream_id].getStream(),
+      tempmem[stream_id]->num_sms, local_handle[stream_id].getStream(),
       local_handle[stream_id].getDeviceAllocator());
 
     /* Build individual tree in the forest.

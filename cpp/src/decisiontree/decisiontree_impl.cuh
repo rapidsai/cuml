@@ -199,7 +199,7 @@ void DecisionTreeBase<T, L>::plant(
   MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
-    root = grow_deep_tree(handle, data, labels, rowids, feature_selector,
+    root = grow_deep_tree(data, labels, rowids, feature_selector,
                           n_sampled_rows, ncols, dinfo.NLocalrows, tempmem);
   } else {
     root =
@@ -503,14 +503,14 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(
 
 template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
-  const ML::cumlHandle_impl &handle, const T *data, const int *labels,
-  unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
-  const int n_sampled_rows, const int ncols, const int nrows,
+  const T *data, const int *labels, unsigned int *rowids,
+  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+  const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
   TreeNode<T, int> *root = grow_deep_tree_classification(
-    handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
+    data, labels, rowids, feature_selector, n_sampled_rows, nrows,
     this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
     this->min_rows_per_node, this->split_criterion, depth_cnt, leaf_cnt,
     tempmem);
@@ -521,15 +521,15 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
 
 template <typename T>
 TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
-  const ML::cumlHandle_impl &handle, const T *data, const T *labels,
-  unsigned int *rowids, const std::vector<unsigned int> &feature_selector,
-  const int n_sampled_rows, const int ncols, const int nrows,
+  const T *data, const T *labels, unsigned int *rowids,
+  const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
+  const int ncols, const int nrows,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
   TreeNode<T, T> *root = grow_deep_tree_regression(
-    handle, data, labels, rowids, feature_selector, n_sampled_rows, nrows,
-    this->nbins, this->treedepth, this->maxleaves, this->min_rows_per_node,
+    data, labels, rowids, feature_selector, n_sampled_rows, nrows, this->nbins,
+    this->treedepth, this->maxleaves, this->min_rows_per_node,
     this->split_criterion, depth_cnt, leaf_cnt, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
