@@ -59,10 +59,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
                                              count, initial_metric, tempmem);
   }
-  size_t total_nodes = 0;
-  for (int i = 0; i <= maxdepth; i++) {
-    total_nodes += pow(2, i);
-  }
+
+  size_t total_nodes = pow(2, (maxdepth + 1)) - 1;
+
   std::vector<T> sparse_meanstate;
   std::vector<unsigned int> sparse_countstate;
   sparse_meanstate.resize(total_nodes, 0.0);
