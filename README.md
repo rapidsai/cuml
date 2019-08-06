@@ -76,6 +76,7 @@ repo](https://github.com/rapidsai/notebooks-extended).
 | | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
+| | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
 | | Linear Regression with Lasso or Ridge Regularization | |
 | | ElasticNet Regression | |
