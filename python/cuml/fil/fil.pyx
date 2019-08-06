@@ -150,7 +150,7 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-        cdef forest_t forest_data = <forest_t><size_t>&self.forest_pointer
+        cdef forest_t forest_data = <forest_t>&self.forest_pointer
         predict(handle_[0],
                 forest_data,
                 <float*> preds_ptr,
