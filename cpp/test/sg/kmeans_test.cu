@@ -46,6 +46,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     // make space for outputs : d_centroids, d_labels
     // and reference output : d_labels_ref
     allocate(d_srcdata, n_samples * n_features);
+    allocate(d_transform, n_samples * n_features);
+    allocate(d_transform_ref, n_samples * n_features);
     allocate(d_labels, n_samples);
     allocate(d_labels_ref, n_samples);
     allocate(d_centroids, params.n_clusters * n_features);
@@ -66,6 +68,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     updateDevice(d_centroids_ref, h_centroids_ref.data(),
                  params.n_clusters * n_features, stream);
 
+    std::vector<T> h_transform_ref = {0.5, 2.91547595, 3.20156212, 0.70710678,
+                                      0.5, 2.12132034, 1.80277564, 0.70710678};
+    updateDevice(d_transform_ref, h_transform_ref.data(),
+                 n_samples * n_features, stream);
+
     cumlHandle handle;
     handle.setStream(stream);
 
@@ -73,6 +80,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     int n_iter = 0;
     kmeans::fit_predict(handle, params, d_srcdata, n_samples, n_features,
                         d_centroids, d_labels, inertia, n_iter);
+
+    kmeans::transform(handle, params, d_centroids, d_srcdata, n_samples,
+                      n_features, params.metric, d_transform);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -85,14 +96,17 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     CUDA_CHECK(cudaFree(d_srcdata));
     CUDA_CHECK(cudaFree(d_labels));
     CUDA_CHECK(cudaFree(d_centroids));
+    CUDA_CHECK(cudaFree(d_transform));
     CUDA_CHECK(cudaFree(d_labels_ref));
     CUDA_CHECK(cudaFree(d_centroids_ref));
+    CUDA_CHECK(cudaFree(d_transform_ref));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   KmeansInputs<T> testparams;
   T *d_srcdata;
+  T *d_transform, *d_transform_ref;
   int *d_labels, *d_labels_ref;
   T *d_centroids, *d_centroids_ref;
   ML::kmeans::KMeansParams params;
@@ -112,6 +126,9 @@ TEST_P(KmeansTestF, Result) {
   ASSERT_TRUE(devArrMatch(d_centroids_ref, d_centroids,
                           testparams.n_clusters * testparams.n_col,
                           CompareApproxAbs<float>(testparams.tol)));
+  ASSERT_TRUE(devArrMatch(d_transform_ref, d_transform,
+                          testparams.n_row * testparams.n_col,
+                          CompareApproxAbs<float>(testparams.tol)));
 }
 
 typedef KmeansTest<double> KmeansTestD;
@@ -120,6 +137,9 @@ TEST_P(KmeansTestD, Result) {
                           CompareApproxAbs<double>(testparams.tol)));
   ASSERT_TRUE(devArrMatch(d_centroids_ref, d_centroids,
                           testparams.n_clusters * testparams.n_col,
+                          CompareApproxAbs<double>(testparams.tol)));
+  ASSERT_TRUE(devArrMatch(d_transform_ref, d_transform,
+                          testparams.n_row * testparams.n_col,
                           CompareApproxAbs<double>(testparams.tol)));
 }
 

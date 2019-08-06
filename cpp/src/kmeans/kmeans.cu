@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#include "kmeans-inl.cuh"
-#include "kmeans-sg-inl.cuh"
+#include "sg_impl.cuh"
 
 namespace ML {
 namespace kmeans {

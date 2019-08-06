@@ -64,8 +64,8 @@ struct KMeansParams {
 };
 
 /**
- * @brief Compute k-means clustering and optionally predicts cluster index for
- * each sample in the input.
+ * @brief Compute k-means clustering and predicts cluster index for each sample
+ in the input.
  *
  * @param[in]     handle        The handle to the cuML library context that
  manages the CUDA resources.
