@@ -83,8 +83,8 @@ class RandomForestRegressor:
                       for median of abs error : 'median_ae'
                       for mean of abs error : 'mean_ae'
                       for mean square error' : 'mse'
-    n_streams: int (default = 4 )
-	       Number of parallel streams used for forest building
+    n_streams : int (default = 4 )
+                Number of parallel streams used for forest building
     """
 
     def __init__(
@@ -102,7 +102,7 @@ class RandomForestRegressor:
         min_rows_per_node=2,
         rows_sample=1.0,
         max_leaves=-1,
-	n_streams=4,
+        n_streams=4,
         accuracy_metric="mse",
         min_samples_leaf=None,
         min_weight_fraction_leaf=None,
@@ -185,7 +185,7 @@ class RandomForestRegressor:
                 min_rows_per_node,
                 rows_sample,
                 max_leaves,
-		n_streams,
+                n_streams,
                 accuracy_metric,
                 quantile_per_tree,
                 random.random(),
@@ -216,7 +216,7 @@ class RandomForestRegressor:
         min_rows_per_node,
         rows_sample,
         max_leaves,
-	n_streams,
+        n_streams,
         accuracy_metric,
         quantile_per_tree,
         r,
@@ -236,7 +236,7 @@ class RandomForestRegressor:
             min_rows_per_node=min_rows_per_node,
             rows_sample=rows_sample,
             max_leaves=max_leaves,
-	    n_streams=n_streams,
+            n_streams=n_streams,
             accuracy_metric=accuracy_metric,
             quantile_per_tree=quantile_per_tree,
         )
