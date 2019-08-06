@@ -113,6 +113,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
                              int recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const;
 
+  virtual status_t syncStream(cudaStream_t stream) const;
+
  private:
   ncclComm_t _nccl_comm;
   cudaStream_t _stream;
