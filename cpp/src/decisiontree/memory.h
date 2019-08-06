@@ -57,7 +57,7 @@ struct TemporaryMemory {
   cudaStream_t stream;
 
   //No of SMs
-  int no_sms;
+  int num_sms;
 
   //Maximum shared memory in GPU
   size_t max_shared_mem;

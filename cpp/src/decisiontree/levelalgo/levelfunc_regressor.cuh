@@ -34,12 +34,11 @@ At each level; following steps are involved.
 */
 template <typename T>
 ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
-  const ML::cumlHandle_impl& handle, const T* data, const T* labels,
-  unsigned int* rowids, const std::vector<unsigned int>& feature_selector,
-  const int n_sampled_rows, const int nrows, const int nbins, int maxdepth,
-  const int maxleaves, const int min_rows_per_node,
-  const ML::CRITERION split_cr, int& depth_cnt, int& leaf_cnt,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const T* data, const T* labels, unsigned int* rowids,
+  const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
+  const int nrows, const int nbins, int maxdepth, const int maxleaves,
+  const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
+  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);
@@ -59,10 +58,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
                                              count, initial_metric, tempmem);
   }
-  size_t total_nodes = 0;
-  for (int i = 0; i <= maxdepth; i++) {
-    total_nodes += pow(2, i);
-  }
+
+  size_t total_nodes = pow(2, (maxdepth + 1)) - 1;
+
   std::vector<T> sparse_meanstate;
   std::vector<unsigned int> sparse_countstate;
   sparse_meanstate.resize(total_nodes, 0.0);
