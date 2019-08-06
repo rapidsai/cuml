@@ -39,5 +39,5 @@ void update_kernel_config(const size_t avail_shared_memory,
   shmemsize =
     (requested_shared_memory / ncols) *
     batch_ncols;  // requested_shared_memory is a multiple of ncols for all kernels
-  blocks = min(MLCommon::ceildiv(batch_ncols * nrows, threads), 65536);
+  blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
 }
