@@ -104,10 +104,10 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
                       float*,
                       size_t)
 
-    cdef void from_treelite(cumlHandle& handle,
-                            forest_t*,
-                            ModelHandle,
-                            treelite_params_t*)
+    cdef forest_t from_treelite(cumlHandle& handle,
+                                forest_t*,
+                                ModelHandle,
+                                treelite_params_t*)
 
 cdef class FIL_impl():
 
@@ -146,13 +146,13 @@ cdef class FIL_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        preds = np.zeros(n_rows, dtype=np.int32)
+        preds = np.ones(n_rows, dtype=np.float32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-        cdef forest_t forest_data = <forest_t>&self.forest_pointer
+        #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
-                forest_data,
+                self.forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
                 <size_t> n_rows)
@@ -184,10 +184,10 @@ cdef class FIL_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = model.handle.value
-        from_treelite(handle_[0],
-                      self.forest_pointer,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
+        self.forest_data = from_treelite(handle_[0],
+                                         self.forest_pointer,
+                                         <ModelHandle> model_ptr,
+                                         &treelite_params)
 
         return self
 

@@ -128,13 +128,26 @@ struct forest {
     // Initialize prediction parameters.
     predict_params ps;
     ps.nodes = nodes_;
+    std::cout << " predict params node: " << ps.nodes << std::endl
+              << std::flush;
     ps.ntrees = ntrees_;
+    std::cout << " predict params ntrees: " << ps.ntrees << std::endl
+              << std::flush;
+
     ps.depth = depth_;
+    std::cout << " predict params depth: " << ps.depth << std::endl
+              << std::flush;
+
     ps.cols = cols_;
+    std::cout << " predict params cols: " << ps.cols << std::endl << std::flush;
+
     ps.preds = preds;
     ps.data = data;
     ps.rows = rows;
     ps.max_shm = max_shm_;
+    std::cout << " predict params all assigned now " << std::endl << std::flush;
+
+    std::cout << " ALGO TYPE: " << algo_ << std::endl << std::flush;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
@@ -350,8 +363,8 @@ void init_dense(const cumlHandle& h, forest_t* pf,
   std::cout << " after *pf = f " << &pf << std::endl << std::flush;
 }
 
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
-                   ModelHandle model, const treelite_params_t* tl_params) {
+forest_t from_treelite(const cumlHandle& handle, forest_t* pforest,
+                       ModelHandle model, const treelite_params_t* tl_params) {
   forest_params_t params;
   std::vector<dense_node_t> nodes;
   tl::Model& temp = *(tl::Model*)model;
@@ -390,6 +403,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  return *pforest;
 }
 
 void free(const cumlHandle& h, forest_t f) {
