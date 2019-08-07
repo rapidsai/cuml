@@ -15,3 +15,4 @@
 #
 
 from cuml.fil.fil import FIL
+from cuml.fil import fil
