@@ -31,6 +31,7 @@ struct TemporaryMemory {
 
   //Host/Device histograms and device minmaxs
   MLCommon::device_buffer<T> *d_globalminmax = nullptr;
+  MLCommon::host_buffer<T> *h_globalminmax = nullptr;
   MLCommon::device_buffer<int> *d_histout = nullptr;
   MLCommon::host_buffer<int> *h_histout = nullptr;
   MLCommon::device_buffer<T> *d_mseout = nullptr;

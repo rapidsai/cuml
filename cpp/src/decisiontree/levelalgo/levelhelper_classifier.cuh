@@ -152,11 +152,11 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
-      curr_node.colid = split_colidx[nodecnt];
+      curr_node.colid = colselector[split_colidx[nodecnt]];
       T *dummy = nullptr;
       curr_node.quesval =
         getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], split_algo);
+                     split_binidx[nodecnt], colselector, split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
@@ -224,7 +224,7 @@ void get_best_split_classification(
           if (info_gain > gain[nodecnt]) {
             gain[nodecnt] = info_gain;
             best_bin_id = binid;
-            best_col_id = colselector[colid];
+            best_col_id = colid;
             besthist_left = tmp_histleft;
             besthist_right = tmp_histright;
             bestmetric[0] = tmp_gini_left;
@@ -237,11 +237,11 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
-      curr_node.colid = split_colidx[nodecnt];
+      curr_node.colid = colselector[split_colidx[nodecnt]];
       T *dummy = nullptr;
       curr_node.quesval =
         getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], split_algo);
+                     split_binidx[nodecnt], colselector, split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];

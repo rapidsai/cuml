@@ -117,28 +117,13 @@ __global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
   }
 }
 
-template <typename T>
-struct splitQuantileQues {
-  static DI T getQuesVal(const T* __restrict__ quantile, const int nbins,
-                         const int colid, const int binid, const int nodeid) {
-    return quantile[colid * nbins + binid];
-  }
-};
-
-template <typename T>
-struct splitMinMaxQues {
-  static DI T getQuesVal(const T* __restrict__ minmax, const int nbins,
-                         const int colid, const int binid, const int nodeid) {
-    return 0;
-  }
-};
-
 // This make actual split. A split is done using bits.
 //Least significant Bit 0 means left and 1 means right.
 //As a result a max depth of 32 is supported for now.
 template <typename T, typename QuestionType>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ question_ptr,
+  const unsigned int* __restrict__ colids,
   const int* __restrict__ split_col_index,
   const int* __restrict__ split_bin_index, const int nrows, const int ncols,
   const int nbins, const int n_nodes,
@@ -154,9 +139,10 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        T quesval = QuestionType::getQuesVal(
-          question_ptr, nbins, colidx, split_bin_index[local_flag], local_flag);
-        T local_data = data[colidx * nrows + tid];
+        QuestionType question(question_ptr, colids, colidx, n_nodes, local_flag,
+                              nbins);
+        T quesval = question(split_bin_index[local_flag]);
+        T local_data = data[colids[colidx] * nrows + tid];
         //The inverse comparision here to push right instead of left
         if (local_data <= quesval) {
           local_flag = local_leaf_flag << 1;
@@ -207,16 +193,16 @@ struct QuantileQues {
 
 template <typename T>
 struct MinMaxQues {
-  T min, max;
+  T min, delta;
   DI MinMaxQues(const T* __restrict__ minmax_ptr,
                 const unsigned int* __restrict__ colids,
                 const unsigned int colcnt, const int n_nodes,
                 const unsigned int local_flag, const int nbins) {
     int off = colcnt * 2 * n_nodes + local_flag;
     min = minmax_ptr[off];
-    max = minmax_ptr[off + n_nodes];
+    delta = (minmax_ptr[off + n_nodes] - min) / nbins;
   }
 
-  DI T operator()(const int binid) { return 0; }
+  DI T operator()(const int binid) { return (min + (binid + 1) * delta); }
 };
 

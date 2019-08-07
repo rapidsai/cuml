@@ -363,7 +363,7 @@ __global__ void get_best_split_regression_kernel(
 
     if (threadIdx.x == 0) {
       outgain[nodeid] = ans.gain;
-      best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
+      best_col_id[nodeid] = (int)(ans.idx / nbins);
       best_bin_id[nodeid] = ans.idx % nbins;
       int coloffset = ((int)(ans.idx / nbins)) * nbins * n_nodes;
       int binoffset = ans.idx % nbins;
