@@ -56,15 +56,19 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
 //This function call the split kernel
 template <typename T, typename L>
 void make_level_split(const T *data, const int nrows, const int ncols,
-                      const int nbins, const int n_nodes, int *split_colidx,
-                      int *split_binidx, const unsigned int *new_node_flags,
-                      unsigned int *flags,
+                      const int nbins, const int n_nodes, const int split_algo,
+                      int *split_colidx, int *split_binidx,
+                      const unsigned int *new_node_flags, unsigned int *flags,
                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-  split_level_kernel<<<blocks, threads, 0, tempmem->stream>>>(
-    data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows, ncols,
-    nbins, n_nodes, new_node_flags, flags);
+  if (split_algo == 0) {
+  } else {
+    split_level_kernel<T, splitQuantileQues<T>>
+      <<<blocks, threads, 0, tempmem->stream>>>(
+        data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows,
+        ncols, nbins, n_nodes, new_node_flags, flags);
+  }
   CUDA_CHECK(cudaGetLastError());
 }
 

@@ -129,11 +129,10 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-
-    make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
-                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+    make_level_split(data, nrows, ncols, nbins, n_nodes, split_algo,
+                     d_split_colidx, d_split_binidx, d_new_node_flags, flagsptr,
+                     tempmem);
   }
-
   for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
     sparsetree[i].prediction = get_class_hist(sparse_histstate[i]);
   }
