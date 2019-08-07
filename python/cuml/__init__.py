@@ -21,6 +21,8 @@ import cuml.common.cuda as cuda
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 
+from cuml.datasets.blobs import blobs as make_blobs
+
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
@@ -44,7 +46,10 @@ from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN
 
+from cuml.tsa.holtwinters import ExponentialSmoothing
+
 from cuml.manifold.umap import UMAP
+from cuml.manifold.t_sne import TSNE
 
 from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
