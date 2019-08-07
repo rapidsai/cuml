@@ -117,12 +117,28 @@ __global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
   }
 }
 
+template <typename T>
+struct splitQuantileQues {
+  static DI T getQuesVal(const T* __restrict__ quantile, const int nbins,
+                         const int colid, const int binid, const int nodeid) {
+    return quantile[colid * nbins + binid];
+  }
+};
+
+template <typename T>
+struct splitMinMaxQues {
+  static DI T getQuesVal(const T* __restrict__ minmax, const int nbins,
+                         const int colid, const int binid, const int nodeid) {
+    return 0;
+  }
+};
+
 // This make actual split. A split is done using bits.
 //Least significant Bit 0 means left and 1 means right.
 //As a result a max depth of 32 is supported for now.
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void split_level_kernel(
-  const T* __restrict__ data, const T* __restrict__ quantile,
+  const T* __restrict__ data, const T* __restrict__ question_ptr,
   const int* __restrict__ split_col_index,
   const int* __restrict__ split_bin_index, const int nrows, const int ncols,
   const int nbins, const int n_nodes,
@@ -138,7 +154,8 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
+        T quesval = QuestionType::getQuesVal(
+          question_ptr, nbins, colidx, split_bin_index[local_flag], local_flag);
         T local_data = data[colidx * nrows + tid];
         //The inverse comparision here to push right instead of left
         if (local_data <= quesval) {
