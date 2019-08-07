@@ -247,7 +247,7 @@ __global__ void get_best_split_classification_kernel(
 
     if (threadIdx.x == (blockDim.x - 1)) {
       outgain[nodeid] = ans.gain;
-      best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
+      best_col_id[nodeid] = (int)(ans.idx / nbins);
       best_bin_id[nodeid] = ans.idx % nbins;
     }
 

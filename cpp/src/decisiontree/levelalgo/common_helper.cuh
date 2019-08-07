@@ -64,10 +64,11 @@ void make_level_split(const T *data, const int nrows, const int ncols,
   int blocks = MLCommon::ceildiv(nrows, threads);
   if (split_algo == 0) {
   } else {
-    split_level_kernel<T, splitQuantileQues<T>>
+    split_level_kernel<T, QuantileQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
-        data, tempmem->d_quantile->data(), split_colidx, split_binidx, nrows,
-        ncols, nbins, n_nodes, new_node_flags, flags);
+        data, tempmem->d_quantile->data(), tempmem->d_colids->data(),
+        split_colidx, split_binidx, nrows, ncols, nbins, n_nodes,
+        new_node_flags, flags);
   }
   CUDA_CHECK(cudaGetLastError());
 }
@@ -93,11 +94,13 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
 
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
-               const int colid, const int binid, const int split_algo) {
+               const int colid, const int binid,
+               const std::vector<unsigned int> &colselector,
+               const int split_algo) {
   if (split_algo == 0) {
     return 0;
   } else {
-    return quantile[colid * nbins + binid];
+    return quantile[colselector[colid] * nbins + binid];
   }
 }
 

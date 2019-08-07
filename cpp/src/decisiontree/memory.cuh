@@ -224,6 +224,8 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   if (split_algo == 0) {
     d_globalminmax = new MLCommon::device_buffer<T>(
       ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * ncols);
+    h_globalminmax = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
+                                                  stream, 2 * maxnodes * ncols);
     totalmem += maxnodes * ncols * sizeof(T);
   } else {
     h_quantile = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
@@ -330,6 +332,7 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   if (h_quantile != nullptr) h_quantile->release(stream);
   if (d_quantile != nullptr) d_quantile->release(stream);
   if (d_globalminmax != nullptr) d_globalminmax->release(stream);
+  if (h_globalminmax != nullptr) h_globalminmax->release(stream);
   d_sample_cnt->release(stream);
   d_colids->release(stream);
   delete h_new_node_flags;
@@ -348,6 +351,7 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   if (h_quantile != nullptr) delete h_quantile;
   if (d_quantile != nullptr) delete d_quantile;
   if (d_globalminmax != nullptr) delete d_globalminmax;
+  if (h_globalminmax != nullptr) delete h_globalminmax;
   delete d_sample_cnt;
   delete d_colids;
   //Classification
