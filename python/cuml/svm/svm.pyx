@@ -225,7 +225,8 @@ class SVC(Base):
         X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
 
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, _, _, _ = input_to_dev_array(y,
+                                                 convert_to_dtype=self.dtype)
 
         cdef CppSVC[float]* svc_f = NULL
         cdef CppSVC[double]* svc_d = NULL
@@ -260,7 +261,7 @@ class SVC(Base):
             self.support_vectors_ = device_array_from_ptr(
                 <uintptr_t>svc_f.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
-        else:
+        elif self.dtype == np.float64:
             if self.svcHandle is None:
                 svc_d = new CppSVC[double](
                     handle_[0], self.C, self.tol, deref(kernel_params),
@@ -280,6 +281,8 @@ class SVC(Base):
             self.support_vectors_ = device_array_from_ptr(
                 <uintptr_t>svc_d.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
+        else:
+            raise TypeError('Input data type should be float32 or float64')
 
         self.handle.sync()
 
