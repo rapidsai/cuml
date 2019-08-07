@@ -147,7 +147,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int,
                                     float,
                                     CRITERION,
-                                    bool) except +
+                                    bool,
+                                    int) except +
 
 
 class RandomForestRegressor(Base):
@@ -241,7 +242,7 @@ class RandomForestRegressor(Base):
                  'accuracy_metric']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features='auto', n_bins=8,
+                 max_features='auto', n_bins=8, n_streams=4,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
@@ -296,6 +297,7 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.n_streams = n_streams
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -414,7 +416,8 @@ class RandomForestRegressor(Base):
                                      <int> self.n_estimators,
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree)
+                                     <bool> self.quantile_per_tree,
+                                     <int> self.n_streams)
 
         if self.dtype == np.float32:
             fit(handle_[0],
