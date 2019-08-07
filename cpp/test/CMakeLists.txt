@@ -47,7 +47,9 @@ if(BUILD_CUML_TESTS)
     add_executable(ml
       sg/cd_test.cu
       sg/dbscan_test.cu
+      sg/fil_test.cu
       sg/handle_test.cu
+      sg/holtwinters_test.cu
       sg/kmeans_test.cu
       sg/knn_test.cu
       sg/lkf_test.cu
@@ -59,6 +61,7 @@ if(BUILD_CUML_TESTS)
       sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
+      sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu
       )
@@ -151,10 +154,12 @@ if(BUILD_PRIMS_TESTS)
       prims/entropy.cu
       prims/gather.cu
       prims/gemm.cu
+      prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
       prims/homogeneityScore.cu
       prims/host_buffer.cu
+      prims/jones_transform.cu
       prims/klDivergence.cu
       prims/knn.cu
       prims/kselection.cu

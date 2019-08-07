@@ -114,6 +114,22 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
+    cdef void predictGetAll(cumlHandle& handle,
+                            RandomForestMetaData[float, int] *,
+                            float*,
+                            int,
+                            int,
+                            int*,
+                            bool) except +
+
+    cdef void predictGetAll(cumlHandle& handle,
+                            RandomForestMetaData[double, int]*,
+                            double*,
+                            int,
+                            int,
+                            int*,
+                            bool) except +
+
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
                           float*,
@@ -148,7 +164,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float, CRITERION,
-                                    bool) except +
+                                    bool,
+                                    int) except +
 
 
 class RandomForestClassifier(Base):
@@ -259,7 +276,7 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8,
+                 max_features=1.0, n_bins=8, n_streams=4,
                  split_algo=0, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
@@ -313,6 +330,7 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
+        self.n_streams = n_streams
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -454,7 +472,8 @@ class RandomForestClassifier(Base):
                                      <int> self.n_estimators,
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree)
+                                     <bool> self.quantile_per_tree,
+                                     <int> self.n_streams)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -548,6 +567,68 @@ class RandomForestClassifier(Base):
         preds = preds_m.copy_to_host()
         del(X_m)
         del(preds_m)
+        return preds
+
+    def _predict_get_all(self, X):
+        """
+        Predicts the labels for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        Returns
+        ----------
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        """
+        cdef uintptr_t X_ptr
+        X_ptr = X.ctypes.data
+        n_rows, n_cols = np.shape(X)
+        if n_cols != self.n_cols:
+            raise ValueError("The number of columns/features in the training"
+                             " and test data should be the same ")
+        if X.dtype != self.dtype:
+            raise ValueError("The datatype of the training data is different"
+                             " from the datatype of the testing data")
+
+        preds = np.zeros(n_rows * self.n_estimators,
+                         dtype=np.int32)
+
+        cdef uintptr_t preds_ptr = preds.ctypes.data
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
+
+        if self.dtype == np.float32:
+            predictGetAll(handle_[0],
+                          rf_forest,
+                          <float*> X_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <int*> preds_ptr,
+                          <bool> self.verbose)
+
+        elif self.dtype == np.float64:
+            predictGetAll(handle_[0],
+                          rf_forest64,
+                          <double*> X_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <int*> preds_ptr,
+                          <bool> self.verbose)
+        else:
+            raise TypeError("supports only np.float32 and np.float64 input,"
+                            " but input of type '%s' passed."
+                            % (str(self.dtype)))
+
+        self.handle.sync()
         return preds
 
     def score(self, X, y):
