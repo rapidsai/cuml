@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 import copy
+import cudf
 import ctypes
 import math
 import numpy as np
@@ -96,23 +97,20 @@ cdef class FIL_impl():
     cpdef object handle
     cdef forest_t* forest_pointer
     cdef forest_t forest_data
-    cdef ModelHandle* model_ptr
     cdef object algo
-    cdef object output
     cdef object threshold
 
     def __cinit__(self,
-                  output=0, algo=0,
+                  algo=0,
                   threshold=0.0,
                   handle=None):
 
-        self.output = output
         self.algo = algo
         self.threshold = threshold
         self.handle = handle
         self.forest_pointer = NULL
 
-    def predict(self, X):
+    def predict(self, X,):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
             input_to_dev_array(X, order='C')
@@ -120,7 +118,7 @@ cdef class FIL_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        preds = np.ones(n_rows, dtype=np.float32)
+        preds = cudf.Series(zeros(n_rows, dtype=np.float32))
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -131,10 +129,9 @@ cdef class FIL_impl():
                 <size_t> n_rows)
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
         return preds
 
-    def free(self):
+    def __cdel__(self):
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -165,16 +162,15 @@ class FIL(Base):
 
 
     def __init__(self,
-                 output=0, algo=0,
+                 algo=0,
                  threshold=0.0,
                  handle=None):
 
         super(FIL, self).__init__(handle)
-        self.output_type = output
         self.algo_type = algo
         self.threshold = threshold
 
-        self._impl = FIL_impl(output, algo,
+        self._impl = FIL_impl(algo,
                               threshold,
                               self.handle)
 
@@ -182,9 +178,9 @@ class FIL(Base):
 
         return self._impl.predict(X)
 
-    def free(self):
+    def __del__(self):
 
-        return self._impl.free()
+        return self._impl.__cdel__()
 
     def from_treelite(self, model, output_class):
         return self._impl.from_treelite(model, output_class)
