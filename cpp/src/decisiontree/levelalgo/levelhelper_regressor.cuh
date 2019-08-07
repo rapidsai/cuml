@@ -101,19 +101,17 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
-void get_best_split_regression(T *mseout, T *d_mseout, T *predout, T *d_predout,
-                               unsigned int *count, unsigned int *d_count,
-                               const std::vector<unsigned int> &colselector,
-                               unsigned int *d_colids, const int nbins,
-                               const int n_nodes, const int depth,
-                               const int min_rpn, const int sparsesize,
-                               float *gain, std::vector<T> &sparse_meanstate,
-                               std::vector<unsigned int> &sparse_countstate,
-                               std::vector<SparseTreeNode<T, T>> &sparsetree,
-                               std::vector<int> &sparse_nodelist,
-                               int *split_colidx, int *split_binidx,
-                               int *d_split_colidx, int *d_split_binidx,
-                               std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+void get_best_split_regression(
+  T *mseout, T *d_mseout, T *predout, T *d_predout, unsigned int *count,
+  unsigned int *d_count, const std::vector<unsigned int> &colselector,
+  unsigned int *d_colids, const int nbins, const int n_nodes, const int depth,
+  const int min_rpn, const int split_algo, const int sparsesize, float *gain,
+  std::vector<T> &sparse_meanstate,
+  std::vector<unsigned int> &sparse_countstate,
+  std::vector<SparseTreeNode<T, T>> &sparsetree,
+  std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
+  int *d_split_colidx, int *d_split_binidx,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   T *quantile = tempmem->h_quantile->data();
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
@@ -172,8 +170,11 @@ void get_best_split_regression(T *mseout, T *d_mseout, T *predout, T *d_predout,
       int sparse_nodeid = sparse_nodelist[nodecnt];
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = split_colidx[nodecnt];
+      T *dummy = nullptr;
       curr_node.quesval =
-        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
+                     split_binidx[nodecnt], split_algo);
+
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       sparse_meanstate[curr_node.left_child_id] = h_childmean[nodecnt * 2];
       sparse_meanstate[curr_node.left_child_id + 1] =
@@ -255,8 +256,10 @@ void get_best_split_regression(T *mseout, T *d_mseout, T *predout, T *d_predout,
       //Sparse Tree
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = split_colidx[nodecnt];
+      T *dummy = nullptr;
       curr_node.quesval =
-        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
+                     split_binidx[nodecnt], split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       sparse_meanstate[curr_node.left_child_id] = bestmean_left;
       sparse_meanstate[curr_node.left_child_id + 1] = bestmean_right;

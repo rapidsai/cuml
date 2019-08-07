@@ -37,8 +37,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int n_unique_labels, const int nbins,
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
-  const ML::CRITERION split_cr, int& depth_cnt, int& leaf_cnt,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
+  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);
@@ -102,21 +102,21 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  ncols, n_unique_labels, nbins, n_nodes,
-                                 tempmem, d_histogram);
+                                 split_algo, tempmem, d_histogram);
 
     float* infogain = tempmem->h_outgain->data();
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
-        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
+        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
-        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
+        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
     }

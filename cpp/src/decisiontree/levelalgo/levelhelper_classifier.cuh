@@ -44,7 +44,8 @@ void get_histogram_classification(
   const T *data, const int *labels, unsigned int *flags,
   unsigned int *sample_cnt, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, const int n_nodes,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
+  const int split_algo, std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  unsigned int *histout) {
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
@@ -52,19 +53,21 @@ void get_histogram_classification(
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-
-  if ((n_nodes == node_batch)) {
-    get_hist_kernel<T, QuantileQues<T>>
-      <<<blocks, threads, shmem, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
-        histout);
+  if (split_algo == 0) {
   } else {
-    get_hist_kernel_global<T, QuantileQues<T>>
-      <<<blocks, threads, 0, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
-        histout);
+    if ((n_nodes == node_batch)) {
+      get_hist_kernel<T, QuantileQues<T>>
+        <<<blocks, threads, shmem, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+          histout);
+    } else {
+      get_hist_kernel_global<T, QuantileQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+          histout);
+    }
   }
   CUDA_CHECK(cudaGetLastError());
 }
@@ -73,7 +76,7 @@ void get_best_split_classification(
   unsigned int *hist, unsigned int *d_hist,
   const std::vector<unsigned int> &colselector, unsigned int *d_colids,
   const int nbins, const int n_unique_labels, const int n_nodes,
-  const int depth, const int min_rpn, float *gain,
+  const int depth, const int min_rpn, const int split_algo, float *gain,
   std::vector<std::vector<int>> &sparse_histstate,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -150,8 +153,11 @@ void get_best_split_classification(
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = split_colidx[nodecnt];
+      T *dummy = nullptr;
       curr_node.quesval =
-        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
+                     split_binidx[nodecnt], split_algo);
+
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = h_child_best_metric[2 * nodecnt];
@@ -232,8 +238,10 @@ void get_best_split_classification(
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = split_colidx[nodecnt];
+      T *dummy = nullptr;
       curr_node.quesval =
-        quantile[split_colidx[nodecnt] * nbins + split_binidx[nodecnt]];
+        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
+                     split_binidx[nodecnt], split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];
