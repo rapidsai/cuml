@@ -31,7 +31,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr
-
+from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
 
 cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
@@ -59,10 +59,11 @@ cdef extern from "svm/svc.h" namespace "ML::SVM":
         KernelParams _kernel_params
         math_t C
         math_t tol
+        bool verbose
 
         CppSVC(cumlHandle& handle, math_t C, math_t tol,
                KernelParams _kernel_params, float cache_size,
-               int max_iter) except+
+               int max_iter, bool verbose) except+
         void fit(math_t *input, int n_rows, int n_cols, math_t *labels) except+
         void predict(math_t *input, int n_rows, int n_cols,
                      math_t *preds) except+
@@ -251,7 +252,7 @@ class SVC(Base):
         if self.dtype == np.float32:
             svc_f = new CppSVC[float](
                 handle_[0], self.C, self.tol, deref(_kernel_params),
-                self.cache_size, self.max_iter)
+                self.cache_size, self.max_iter, self.verbose)
             self._svcHandle = <size_t> svc_f
             svc_f.fit(<float*>X_ptr, <int>self.n_rows,
                       <int>self.n_cols, <float*>y_ptr)
@@ -268,7 +269,7 @@ class SVC(Base):
         elif self.dtype == np.float64:
             svc_d = new CppSVC[double](
                 handle_[0], self.C, self.tol, deref(_kernel_params),
-                self.cache_size, self.max_iter)
+                self.cache_size, self.max_iter, self.verbose)
             self._svcHandle = <size_t> svc_d
             svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
                       <double*>y_ptr)
