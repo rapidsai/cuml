@@ -234,7 +234,7 @@ class RandomForestClassifier(Base):
                      2 and 3 not valid for classification
                      (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-                 (default = 0)
+                 (default = 1)
                  the algorithm to determine how nodes are split in the tree.
     bootstrap : boolean (default = True)
                 Control bootstrapping.
@@ -277,7 +277,7 @@ class RandomForestClassifier(Base):
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, n_bins=8, n_streams=4,
-                 split_algo=0, split_criterion=0, min_rows_per_node=2,
+                 split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
