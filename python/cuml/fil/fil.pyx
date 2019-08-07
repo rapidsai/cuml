@@ -77,6 +77,9 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
 
+    cdef void free(cumlHandle& handle,
+                   forest_t)
+
     cdef void predict(cumlHandle& handle,
                       forest_t,
                       float*,
@@ -94,21 +97,15 @@ cdef class FIL_impl():
     cdef forest_t* forest_pointer
     cdef forest_t forest_data
     cdef ModelHandle* model_ptr
-    cdef object depth
-    cdef object num_trees
     cdef object algo
     cdef object output
     cdef object threshold
-    cdef object n_cols
-    cdef object dtype
 
-    def __cinit__(self, depth=8, n_estimators=50,
+    def __cinit__(self,
                   output=0, algo=0,
                   threshold=0.0,
                   handle=None):
 
-        self.depth = depth
-        self.num_trees = n_estimators
         self.output = output
         self.algo = algo
         self.threshold = threshold
@@ -127,6 +124,7 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
+        #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
                 self.forest_data,
                 <float*> preds_ptr,
@@ -136,6 +134,16 @@ cdef class FIL_impl():
         # synchronous w/o a stream
         preds = preds_m.copy_to_host()
         return preds
+
+    def free(self):
+
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+
+        free(handle_[0],
+             self.forest_data)
+
+        return self
 
     def from_treelite(self, model, output_class):
 
@@ -155,26 +163,27 @@ cdef class FIL_impl():
         return self
 
 class FIL(Base):
-    def __init__(self, depth=8, n_estimators=50,
+    def __init__(self,
                  output=0, algo=0,
                  threshold=0.0,
                  handle=None):
 
         super(FIL, self).__init__(handle)
-        self.depth = depth
-        self.num_trees = n_estimators
         self.output_type = output
         self.algo_type = algo
         self.threshold = threshold
 
-        self._impl = FIL_impl(depth, n_estimators,
-                              output, algo,
+        self._impl = FIL_impl(output, algo,
                               threshold,
                               self.handle)
 
     def predict(self, X):
 
         return self._impl.predict(X)
+
+    def free(self):
+
+        return self._impl.free()
 
     def from_treelite(self, model, output_class):
 
