@@ -19,6 +19,11 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
+Dataset Generation
+------------------
+
+  .. automethod:: cuml.datasets.make_blobs
+
 Regression and Classification
 =============================
 
@@ -121,6 +126,13 @@ Random Projections
 
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
+    
+TSNE
+-------------
+
+.. autoclass:: cuml.TSNE
+    :members:
+
 
 Neighbors
 ==========

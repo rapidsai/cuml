@@ -14,6 +14,7 @@
 #
 
 import pytest
+
 from dask_cuda import LocalCUDACluster
 
 import random
@@ -25,6 +26,8 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+
+pytestmark = pytest.mark.mg
 
 
 def test_comms_init_no_p2p():
@@ -88,7 +91,8 @@ def test_allreduce():
     start = time.time()
     dfs = [client.submit(func_test_allreduce, cb.sessionId,
                          random.random(), workers=[w])
-           for wid, w in zip(range(len(cb.workers)), cb.workers)]
+           for wid, w in zip(range(len(cb.worker_addresses)),
+                             cb.worker_addresses)]
     wait(dfs)
 
     print("Time: " + str(time.time() - start))
@@ -119,7 +123,8 @@ def test_send_recv(n_trials):
                          n_trials,
                          random.random(),
                          workers=[w])
-           for wid, w in zip(range(len(cb.workers)), cb.workers)]
+           for wid, w in zip(range(len(cb.worker_addresses)),
+                             cb.worker_addresses)]
 
     wait(dfs)
     print("Time: " + str(time.time() - start))

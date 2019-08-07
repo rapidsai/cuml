@@ -2,7 +2,7 @@
 This document summarizes rules and best practices for contributions to the cuML C++ component of rapidsai/cuml. This is a living document and contributions for clarifications or fixes and issue reports are highly welcome.
 
 ## General
-Please start by reading [CONTRIBUTING.md](../CONTRIBUTING.md).
+Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Thread safety
 cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
@@ -26,7 +26,7 @@ Thus, this section lays out guidelines for managing state along the API of cuML.
 ### General guideline
 As mentioned before, functions exposed via the C++ API must be stateless. Things that are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
-2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](src/cuML_api.h)), instead.
+2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](../../cpp/src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though it can be considered as a POD).
 Internal to the C++ API, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
@@ -81,7 +81,7 @@ void loadTree(TreeNodeD *&root, std::istream &is);
 It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
 
 ### C API
-Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
+Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](../../cpp/src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
 1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
 2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
@@ -102,10 +102,10 @@ cuML relies on `clang-format` to enforce code style across all C++ and CUDA sour
 1. Do not split empty functions/records/namespaces.
 2. Two-space indentation everywhere, including the line continuations.
 3. Disable reflowing of comments.
-The reasons behind these deviations from the Google style guide are given in comments [here](./.clang-format).
+The reasons behind these deviations from the Google style guide are given in comments [here](../../cpp/.clang-format).
 
 ### How is the check done?
-[run-clang-format.py](scripts/run-clang-format.py) is run first by `make`. This script runs clang-format only on modified files. An error is raised if the code diverges from the format suggested by clang-format, and the build fails.
+[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is run first by `make`. This script runs clang-format only on modified files. An error is raised if the code diverges from the format suggested by clang-format, and the build fails.
 
 ### How to know the formatting violations?
 When there are formatting errors, `run-clang-format.py` prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
@@ -114,7 +114,7 @@ When there are formatting errors, `run-clang-format.py` prints a `diff` command,
 When there are formatting violations, `run-clang-format.py` prints an `-inplace` command you can use to automatically fix formatting errors. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/248215) shows a typical build-fix-build cycle during cuML development.
 
 ### clang-format version?
-To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by a CMake check for the required version. [See here for more details on the dependencies](./README.md#dependencies).
+To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by a CMake check for the required version. [See here for more details on the dependencies](../../cpp/README.md#dependencies).
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
