@@ -77,27 +77,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
 
-    cdef void dense_node_init(dense_node_t*,
-                              float,
-                              float,
-                              int,
-                              bool,
-                              bool)
-
-    cdef void dense_node_decode(dense_node_t*,
-                                float*,
-                                float*,
-                                int*,
-                                bool*,
-                                bool*)
-
-    cdef void init_dense(cumlHandle& handle,
-                         forest_t*,
-                         forest_params_t*)
-
-    cdef void free(cumlHandle& handle,
-                   forest_t)
-
     cdef void predict(cumlHandle& handle,
                       forest_t,
                       float*,
@@ -122,12 +101,11 @@ cdef class FIL_impl():
     cdef object threshold
     cdef object n_cols
     cdef object dtype
-    cdef object verbose
 
     def __cinit__(self, depth=8, n_estimators=50,
                   output=0, algo=0,
                   threshold=0.0,
-                  handle=None, verbose=False):
+                  handle=None):
 
         self.depth = depth
         self.num_trees = n_estimators
@@ -135,7 +113,6 @@ cdef class FIL_impl():
         self.algo = algo
         self.threshold = threshold
         self.handle = handle
-        self.verbose = verbose
         self.forest_pointer = NULL
 
     def predict(self, X):
@@ -150,7 +127,6 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-        #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
                 self.forest_data,
                 <float*> preds_ptr,
@@ -160,16 +136,6 @@ cdef class FIL_impl():
         # synchronous w/o a stream
         preds = preds_m.copy_to_host()
         return preds
-
-    def free(self):
-
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-
-        free(handle_[0],
-             self.forest_data)
-
-        return self
 
     def from_treelite(self, model, output_class):
 
@@ -192,9 +158,9 @@ class FIL(Base):
     def __init__(self, depth=8, n_estimators=50,
                  output=0, algo=0,
                  threshold=0.0,
-                 handle=None, verbose=False):
+                 handle=None):
 
-        super(FIL, self).__init__(handle, verbose)
+        super(FIL, self).__init__(handle)
         self.depth = depth
         self.num_trees = n_estimators
         self.output_type = output
@@ -209,10 +175,6 @@ class FIL(Base):
     def predict(self, X):
 
         return self._impl.predict(X)
-
-    def free(self):
-
-        return self._impl.free()
 
     def from_treelite(self, model, output_class):
 
