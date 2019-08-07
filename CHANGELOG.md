@@ -48,7 +48,9 @@
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
 - PR #932: Change default param value for RF classifier
+
 
 # cuML 0.8.0 (27 June 2019)
 
