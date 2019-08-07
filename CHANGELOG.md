@@ -25,6 +25,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #926: Wrapper for FIL
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
