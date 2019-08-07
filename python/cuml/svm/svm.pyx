@@ -56,12 +56,12 @@ cdef extern from "svm/svc.h" namespace "ML::SVM":
         math_t *x_support
         int *support_idx
         math_t b
-        KernelParams kernel_params
+        KernelParams _kernel_params
         math_t C
         math_t tol
 
         CppSVC(cumlHandle& handle, math_t C, math_t tol,
-               KernelParams kernel_params, float cache_size,
+               KernelParams _kernel_params, float cache_size,
                int max_iter) except+
         void fit(math_t *input, int n_rows, int n_cols, math_t *labels) except+
         void predict(math_t *input, int n_rows, int n_cols,
@@ -114,9 +114,14 @@ class SVC(Base):
         Device array of coefficients for support vectors
     intercept_ : int
         The constant in the decision function
+    fit_status_ : int
+        0 if SVM is correctly fitted
     coef_ : float, shape [1, n_cols]
         Only available for linear kernels. It is the normal of the hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
+
+    For additional docs, see `scikitlearn's SVC
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
     """
     def __init__(self, handle=None, C=1, kernel='linear', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
@@ -138,34 +143,36 @@ class SVC(Base):
         self.n_support_ = None
         self._coef_ = None
         self.dtype = None
-        self.kernel_params = None
-        self.svcHandle = None
+        self._kernel_params = None
+        self._svcHandle = None
         self.verbose = verbose
         # The current implementation stores the pointer to CppSVC in svcHandle.
         # The pointer is stored with type size_t (see fit()), because we
         # cannot have cdef CppSVC[float, float] *svc here.
         #
         # CppSVC is not yet created here because the data type will be only
-        # known when we call fit(). Similarily kernel_params is not yet created
-        # here, because gamma can depend on the input data.
+        # known when we call fit(). Similarily kernel_params is not yet
+        # initialized here, because gamma can depend on the input data.
 
     def __dealloc__(self):
         # deallocate CppSVC
         cdef CppSVC[float]* svc_f
         cdef CppSVC[double]* svc_d
-        cdef KernelParams *kernel_params
-        if self.svcHandle is not None:
+        cdef KernelParams *_kernel_params
+        if self._svcHandle is not None:
             if self.dtype == np.float32:
-                svc_f = <CppSVC[float]*><size_t> self.svcHandle
+                svc_f = <CppSVC[float]*><size_t> self._svcHandle
                 del svc_f
             elif self.dtype == np.float64:
-                svc_d = <CppSVC[double]*><size_t> self.svcHandle
+                svc_d = <CppSVC[double]*><size_t> self._svcHandle
                 del svc_d
             else:
                 raise TypeError("Unknown type for SVC class")
-        if self.kernel_params is not None:
-            kernel_params = <KernelParams*><size_t> self.kernel_params
-            del kernel_params
+        if self._kernel_params is not None:
+            _kernel_params = <KernelParams*><size_t> self._kernel_params
+            del _kernel_params
+        self._svcHandle = None
+        self._kernel_params = None
 
     def _get_c_kernel(self, kernel):
         return {
@@ -196,7 +203,7 @@ class SVC(Base):
     def coef_(self):
         if self._c_kernel != LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
-        if self.svcHandle is None:
+        if self._svcHandle is None:
             raise NotFittedError("Call fit before prediction")
         if self._coef_ is None:
             self._coef_ = self._calc_coef()
@@ -228,28 +235,24 @@ class SVC(Base):
         y_m, y_ptr, _, _, _ = input_to_dev_array(y,
                                                  convert_to_dtype=self.dtype)
 
+        self.__dealloc__()  # delete any previously allocated CppSVC instance
+        self._coef_ = None
+
         cdef CppSVC[float]* svc_f = NULL
         cdef CppSVC[double]* svc_d = NULL
-        cdef KernelParams *kernel_params
+        cdef KernelParams *_kernel_params
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.kernel_params is None:
-            kernel_params = new KernelParams(
-                <KernelType>self._c_kernel, <int>self.degree,
-                <double> self._gamma_val(X), <double>self.coef0)
-            self.kernel_params = <size_t> kernel_params
-        else:
-            kernel_params = <KernelParams*><size_t> self.kernel_params
+        _kernel_params = new KernelParams(
+            <KernelType>self._c_kernel, <int>self.degree,
+            <double> self._gamma_val(X), <double>self.coef0)
+        self._kernel_params = <size_t> _kernel_params
 
         if self.dtype == np.float32:
-            if self.svcHandle is None:
-                svc_f = new CppSVC[float](
-                    handle_[0], self.C, self.tol, deref(kernel_params),
-                    self.cache_size, self.max_iter)
-                self.svcHandle = <size_t> svc_f
-            else:
-                svc_f = <CppSVC[float]*><size_t> self.svcHandle
-                self._coef_ = None
+            svc_f = new CppSVC[float](
+                handle_[0], self.C, self.tol, deref(_kernel_params),
+                self.cache_size, self.max_iter)
+            self._svcHandle = <size_t> svc_f
             svc_f.fit(<float*>X_ptr, <int>self.n_rows,
                       <int>self.n_cols, <float*>y_ptr)
             self.intercept_ = svc_f.b
@@ -261,15 +264,12 @@ class SVC(Base):
             self.support_vectors_ = device_array_from_ptr(
                 <uintptr_t>svc_f.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
+            self.fit_status_ = 0
         elif self.dtype == np.float64:
-            if self.svcHandle is None:
-                svc_d = new CppSVC[double](
-                    handle_[0], self.C, self.tol, deref(kernel_params),
-                    self.cache_size, self.max_iter)
-                self.svcHandle = <size_t> svc_d
-            else:
-                svc_d = <CppSVC[double]*><size_t> self.svcHandle
-                self._coef_ = None
+            svc_d = new CppSVC[double](
+                handle_[0], self.C, self.tol, deref(_kernel_params),
+                self.cache_size, self.max_iter)
+            self._svcHandle = <size_t> svc_d
             svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
                       <double*>y_ptr)
             self.intercept_ = svc_d.b
@@ -281,6 +281,7 @@ class SVC(Base):
             self.support_vectors_ = device_array_from_ptr(
                 <uintptr_t>svc_d.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
+            self.fit_status_ = 0
         else:
             raise TypeError('Input data type should be float32 or float64')
 
@@ -307,7 +308,7 @@ class SVC(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        if self.svcHandle is None:
+        if self._svcHandle is None:
             raise NotFittedError("Call fit before prediction")
 
         cdef uintptr_t X_ptr
@@ -321,13 +322,13 @@ class SVC(Base):
         cdef CppSVC[double]* svc_d
 
         if self.dtype == np.float32:
-            svc_f = <CppSVC[float]*><size_t> self.svcHandle
+            svc_f = <CppSVC[float]*><size_t> self._svcHandle
             svc_f.predict(<float*>X_ptr,
                           <int>n_rows,
                           <int>n_cols,
                           <float*>preds_ptr)
         else:
-            svc_d = <CppSVC[double]*><size_t> self.svcHandle
+            svc_d = <CppSVC[double]*><size_t> self._svcHandle
             svc_d.predict(<double*>X_ptr,
                           <int>n_rows,
                           <int>n_cols,
