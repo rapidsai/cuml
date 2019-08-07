@@ -72,27 +72,31 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   int blocks = MLCommon::ceildiv(nrows, threads);
 
   if ((n_nodes == node_batch_pred)) {
-    get_pred_kernel<<<blocks, threads, shmempred, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
+    get_pred_kernel<T, QuantileQues<T>>
+      <<<blocks, threads, shmempred, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
   } else {
-    get_pred_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
+    get_pred_kernel_global<T, QuantileQues<T>>
+      <<<blocks, threads, 0, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
   }
   CUDA_CHECK(cudaGetLastError());
   if ((n_nodes == node_batch_mse)) {
-    get_mse_kernel<T, F><<<blocks, threads, shmemmse, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      nbins, n_nodes, tempmem->d_quantile->data(),
-      tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
-      d_predout, d_count, d_mseout);
+    get_mse_kernel<T, F, QuantileQues<T>>
+      <<<blocks, threads, shmemmse, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, nbins, n_nodes, tempmem->d_quantile->data(),
+        tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+        d_predout, d_count, d_mseout);
   } else {
-    get_mse_kernel_global<T, F><<<blocks, threads, 0, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      nbins, n_nodes, tempmem->d_quantile->data(),
-      tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
-      d_predout, d_count, d_mseout);
+    get_mse_kernel_global<T, F, QuantileQues<T>>
+      <<<blocks, threads, 0, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, nbins, n_nodes, tempmem->d_quantile->data(),
+        tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+        d_predout, d_count, d_mseout);
   }
   CUDA_CHECK(cudaGetLastError());
 }

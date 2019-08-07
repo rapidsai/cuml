@@ -36,11 +36,8 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 
   for (int colcnt = 0; colcnt < ncols; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
-      if (i < n_nodes) {
-        *(E*)&shmem_minmax[i] = encode(init_min_val);
-      } else {
-        *(E*)&shmem_minmax[i] = encode(-init_min_val);
-      }
+      *(E*)&shmem_minmax[i] =
+        (i < n_nodes) ? encode(init_min_val) : encode(-init_min_val);
     }
 
     __syncthreads();
@@ -178,3 +175,31 @@ struct ReducePair {
     return retval;
   }
 };
+
+template <typename T>
+struct QuantileQues {
+  const T* __restrict__ quantile;
+  DI QuantileQues(const T* __restrict__ quantile_ptr,
+                  const unsigned int* __restrict__ colids,
+                  const unsigned int colcnt, const int n_nodes,
+                  const unsigned int local_flag, const int nbins)
+    : quantile(quantile_ptr + colids[colcnt] * nbins) {}
+
+  DI T operator()(const int binid) { return quantile[binid]; }
+};
+
+template <typename T>
+struct MinMaxQues {
+  T min, max;
+  DI MinMaxQues(const T* __restrict__ minmax_ptr,
+                const unsigned int* __restrict__ colids,
+                const unsigned int colcnt, const int n_nodes,
+                const unsigned int local_flag, const int nbins) {
+    int off = colcnt * 2 * n_nodes + local_flag;
+    min = minmax_ptr[off];
+    max = minmax_ptr[off + n_nodes];
+  }
+
+  DI T operator()(const int binid) { return 0; }
+};
+

@@ -72,7 +72,7 @@ __global__ void mse_kernel_level(const T *__restrict__ labels,
   return;
 }
 //This kernel computes predictions and count for all colls, all bins and all nodes at a given level
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void get_pred_kernel(const T *__restrict__ data,
                                 const T *__restrict__ labels,
                                 const unsigned int *__restrict__ flags,
@@ -80,7 +80,7 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
                                 const unsigned int *__restrict__ colids,
                                 const int nrows, const int ncols,
                                 const int nbins, const int n_nodes,
-                                const T *__restrict__ quantile, T *predout,
+                                const T *__restrict__ question_ptr, T *predout,
                                 unsigned int *countout) {
   extern __shared__ char shmem_pred_kernel[];
   T *shmempred = (T *)shmem_pred_kernel;
@@ -108,11 +108,12 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                            nbins);
 
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-        T quesval = quantile[colid * nbins + binid];
-        if (local_data <= quesval) {
+        if (local_data <= question(binid)) {
           unsigned int nodeoff = local_flag * nbins;
           atomicAdd(&shmempred[nodeoff + binid], local_label * local_cnt);
           atomicAdd(&shmemcount[nodeoff + binid], local_cnt);
@@ -131,13 +132,13 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
 }
 
 //This kernel computes mse/mae for all colls, all bins and all nodes at a given level
-template <typename T, typename F>
+template <typename T, typename F, typename QuestionType>
 __global__ void get_mse_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
+  const int nbins, const int n_nodes, const T *__restrict__ question_ptr,
   const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
@@ -182,13 +183,15 @@ __global__ void get_mse_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                            nbins);
+
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-        T quesval = quantile[colid * nbins + binid];
         unsigned int nodeoff = local_flag * nbins;
         T local_pred = shmem_predout[nodeoff + binid];
         unsigned int local_count = shmem_countout[nodeoff + binid];
-        if (local_data <= quesval) {
+        if (local_data <= question(binid)) {
           T leftmean = local_pred / local_count;
           atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
                     local_cnt * F::exec(local_label - leftmean));
@@ -212,13 +215,13 @@ __global__ void get_mse_kernel(
 
 //This kernel computes predictions and count for all colls, all bins and all nodes at a given level
 //This is when nodes dont fit anymore in shared memory.
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void get_pred_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
+  const int nbins, const int n_nodes, const T *__restrict__ question_ptr,
   T *predout, unsigned int *countout) {
   unsigned int local_flag = LEAF;
   T local_label;
@@ -236,11 +239,12 @@ __global__ void get_pred_kernel_global(
         unsigned int colid = colids[colcnt];
         unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
+        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                              nbins);
 
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
-          T quesval = quantile[colid * nbins + binid];
-          if (local_data <= quesval) {
+          if (local_data <= question(binid)) {
             unsigned int nodeoff = local_flag * nbins;
             atomicAdd(&predout[coloffset + nodeoff + binid],
                       local_label * local_cnt);
@@ -254,13 +258,13 @@ __global__ void get_pred_kernel_global(
 
 //This kernel computes mse/mae for all colls, all bins and all nodes at a given level
 // This is when nodes dont fit in shared memory
-template <typename T, typename F>
+template <typename T, typename F, typename QuestionType>
 __global__ void get_mse_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
+  const int nbins, const int n_nodes, const T *__restrict__ question_ptr,
   const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
@@ -284,13 +288,15 @@ __global__ void get_mse_kernel_global(
         unsigned int colid = colids[colcnt];
         unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
+        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                              nbins);
+
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
-          T quesval = quantile[colid * nbins + binid];
           unsigned int nodeoff = local_flag * nbins;
           T local_pred = predout[coloff + nodeoff + binid];
           unsigned int local_count = countout[coloff + nodeoff + binid];
-          if (local_data <= quesval) {
+          if (local_data <= question(binid)) {
             T leftmean = local_pred / local_count;
             atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
                       local_cnt * F::exec(local_label - leftmean));
