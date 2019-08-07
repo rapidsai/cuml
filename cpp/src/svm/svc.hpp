@@ -20,8 +20,8 @@
 
 #include <iostream>
 
-#include "common/cumlHandle.hpp"
 #include <cublas_v2.h>
+#include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "gram/kernelfactory.h"
 #include "kernelcache.h"
@@ -71,12 +71,12 @@ using namespace MLCommon;
  * @param [out] n_classes number of unique labels
  */
 template <typename math_t>
-void svcFit(const cumlHandle &handle, math_t *input, int n_rows,
-            int n_cols, math_t *labels, math_t C, math_t tol,
+void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t C, math_t tol,
             GramMatrix::KernelParams &kernel_params, math_t cache_size,
             int max_iter, math_t **dual_coefs, int *n_support, math_t *b,
             math_t **x_support, int **support_idx, math_t **unique_labels,
-            int *n_classes) {
+            int *n_classes, bool verbose) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
@@ -84,7 +84,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows,
 
   // KernelCache could use multiple streams, not implemented currently
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl& handle_impl = handle.getImpl();
+  const cumlHandle_impl &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
   Label::getUniqueLabels(labels, n_rows, unique_labels, n_classes, stream,
@@ -101,11 +101,11 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows,
     GramMatrix::KernelFactory<math_t>::create(kernel_params,
                                               handle_impl.getCublasHandle());
   SmoSolver<math_t> smo(handle_impl, C, tol, kernel, cache_size);
-  smo.Solve(input, n_rows, n_cols, y.data(), dual_coefs, n_support,
-            x_support, support_idx, b, max_iter);
+  smo.verbose = verbose;
+  smo.Solve(input, n_rows, n_cols, y.data(), dual_coefs, n_support, x_support,
+            support_idx, b, max_iter);
   delete kernel;
 }
-
 
 /**
  * @brief Predict classes for samples in input.
@@ -137,16 +137,15 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows,
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                GramMatrix::KernelParams &kernel_params,
-                math_t *dual_coefs, int n_support, math_t b,
-                math_t *x_support, math_t *unique_labels, int n_classes,
-                math_t *preds) {
+                GramMatrix::KernelParams &kernel_params, math_t *dual_coefs,
+                int n_support, math_t b, math_t *x_support,
+                math_t *unique_labels, int n_classes, math_t *preds) {
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
 #define N_PRED_BATCH 4096
   int n_batch = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
 
-  const cumlHandle_impl& handle_impl = handle.getImpl();
+  const cumlHandle_impl &handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
 
   device_buffer<math_t> K(handle_impl.getDeviceAllocator(), stream,
@@ -184,7 +183,6 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     stream);
   delete kernel;
 }
-
 
 };  // end namespace SVM
 };  // end namespace ML

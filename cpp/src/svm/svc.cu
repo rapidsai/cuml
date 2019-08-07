@@ -34,13 +34,14 @@ using namespace MLCommon;
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
                  GramMatrix::KernelParams kernel_params, math_t cache_size,
-                 int max_iter)
+                 int max_iter, bool verbose)
   : handle(handle),
     C(C),
     tol(tol),
     kernel_params(kernel_params),
     cache_size(cache_size),
-    max_iter(max_iter) {}
+    max_iter(max_iter),
+    verbose(verbose) {}
 
 template <typename math_t>
 SVC<math_t>::~SVC() {
@@ -65,7 +66,7 @@ void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
   if (dual_coefs) free_buffers();
   svcFit(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
          cache_size, max_iter, &dual_coefs, &n_support, &b, &x_support,
-         &support_idx, &unique_labels, &n_classes);
+         &support_idx, &unique_labels, &n_classes, verbose);
 }
 
 template <typename math_t>

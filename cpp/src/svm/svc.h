@@ -49,8 +49,9 @@ class SVC {
   // Public members for easier access during testing (and for Python).
   // TODO Think over how to hide most of this.
 
-  math_t C;    //!< Penalty term C
-  math_t tol;  //!< Tolerance used to stop fitting.
+  math_t C;      //!< Penalty term C
+  math_t tol;    //!< Tolerance used to stop fitting.
+  bool verbose;  //!< Print information about traning
 
   GramMatrix::KernelParams kernel_params;
   math_t cache_size;  //!< kernel cache size in MiB
@@ -75,7 +76,7 @@ class SVC {
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       GramMatrix::KernelParams kernel_params = GramMatrix::KernelParams(),
-      math_t cache_size = 200, int max_iter = -1);
+      math_t cache_size = 200, int max_iter = -1, bool verbose = false);
 
   ~SVC();
 

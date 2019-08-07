@@ -70,6 +70,7 @@ using namespace MLCommon;
 template <typename math_t>
 class SmoSolver {
  public:
+  bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, math_t C, math_t tol,
             GramMatrix::GramMatrixBase<math_t> *kernel, float cache_size = 200)
     : handle(handle),
@@ -151,14 +152,16 @@ class SmoSolver {
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (n_iter % 500 == 0) {
+      if (verbose && n_iter % 500 == 0) {
         std::cout << "SMO iteration " << n_iter << ", diff " << diff << "\n";
       }
     }
 
-    std::cout << "SMO solver finished after " << n_iter << " outer iterations, "
-              << n_inner_iter << " total inner iterations, and diff "
-              << diff_prev << "\n";
+    if (verbose) {
+      std::cout << "SMO solver finished after " << n_iter
+                << " outer iterations, " << n_inner_iter
+                << " total inner iterations, and diff " << diff_prev << "\n";
+    }
     Results<math_t> res(handle, x, y, n_rows, n_cols, C);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
