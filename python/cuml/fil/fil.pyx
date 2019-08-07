@@ -63,16 +63,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
 
     ctypedef forest* forest_t
 
-    cdef struct forest_params_t:
-        dense_node_t* nodes
-        int depth
-        int ntrees
-        int cols
-        algo_t algo
-        output_t output
-        float threshold
-        pass
-
     cdef struct treelite_params_t:
         algo_t algo
         bool output_class
@@ -95,7 +85,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
 cdef class FIL_impl():
 
     cpdef object handle
-    cdef forest_t* forest_pointer
     cdef forest_t forest_data
     cdef object algo
     cdef object threshold
@@ -104,13 +93,11 @@ cdef class FIL_impl():
                   algo=0,
                   threshold=0.0,
                   handle=None):
-
         self.algo = algo
         self.threshold = threshold
         self.handle = handle
-        self.forest_pointer = NULL
 
-    def predict(self, X,):
+    def predict(self, X, preds=None):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
             input_to_dev_array(X, order='C')
@@ -118,7 +105,8 @@ cdef class FIL_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        preds = cudf.Series(zeros(n_rows, dtype=np.float32))
+        if preds is None:
+            preds = cudf.Series(zeros(n_rows, dtype=np.float32))
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -131,55 +119,114 @@ cdef class FIL_impl():
         # synchronous w/o a stream
         return preds
 
-    def __cdel__(self):
-
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-
-        free(handle_[0],
-             self.forest_data)
-
-        return self
-
     def from_treelite(self, model, output_class):
-
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = self.threshold
         treelite_params.algo = self.algo
-        self.forest_pointer = <forest_t*><size_t> model.handle.value
+        cdef forest_t* forest_pointer =\
+            <forest_t*><size_t> model.handle.value
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = model.handle.value
         self.forest_data = from_treelite(handle_[0],
-                                         self.forest_pointer,
+                                         forest_pointer,
                                          <ModelHandle> model_ptr,
                                          &treelite_params)
         return self
 
+    def __cdel__(self):
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        free(handle_[0],
+             self.forest_data)
+        return self
+
 
 class FIL(Base):
-
+    """
+    Parameters
+    ----------
+    model : the model information in the treelite format
+       loaded from a saved model using the treelite API
+       https://treelite.readthedocs.io/en/latest/treelite-api.html
+    output_class: boolean
+       True or False
+    algo : 0 = NAIVE, 1 = TREE_REORG, 2 = BATCH_TREE_REORG
+    threshold : threshold is used to for classification
+       if output == OUTPUT_CLASS, else it is ignored
+    """
     def __init__(self,
                  algo=0,
                  threshold=0.0,
                  handle=None):
-
         super(FIL, self).__init__(handle)
         self.algo_type = algo
         self.threshold = threshold
-
         self._impl = FIL_impl(algo,
                               threshold,
                               self.handle)
 
-    def predict(self, X):
-
-        return self._impl.predict(X)
-
-    def __del__(self):
-
-        return self._impl.__cdel__()
+    def predict(self, X, preds=None):
+        """
+        Predicts the labels for X on the model that was loaded
+        using from_treelite function.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
+        preds: NumPy or cuDF dataframe
+           Dense vector (int) of shape (n_samples, 1)
+        Returns
+        ----------
+        labels predicted by the model
+        """
+        return self._impl.predict(X, preds)
 
     def from_treelite(self, model, output_class):
+        """
+        Creates a FIL model using the treelite model
+        passed to the function.
+        Parameters
+        ----------
+        model : the model information in the treelite format
+           loaded from a saved model using the treelite API
+           https://treelite.readthedocs.io/en/latest/treelite-api.html
+        output_class: boolean
+           True or False
+        """
         return self._impl.from_treelite(model, output_class)
+
+
+def from_treelite_direct(model, algo=0, output_class=True,
+                         threshold=0.5, handle=None):
+    """
+    Creates a FIL model using the treelite model
+    passed to the function.
+    Note : from cuml import fil
+           forest = fil.from_treelite_direct(params)
+           # in order to predict
+           predicted_labels = forest.predict(X_test)
+
+    Note : do not reuse or overwrite a tl_model variable which is
+       used to load a saved treelite model.
+       This will cause Segmentation errors.
+
+    Parameters
+    ----------
+    model : the model information in the treelite format
+       loaded from a saved model using the treelite API
+       https://treelite.readthedocs.io/en/latest/treelite-api.html
+    output_class: boolean
+       True or False
+    algo : 0 = NAIVE, 1 = TREE_REORG, 2 = BATCH_TREE_REORG
+    threshold : threshold is used to for classification if
+       output == OUTPUT_CLASS, else it is ignored
+    handle : cuml.Handle
+       If it is None, a new one is created just for this class.
+    """
+    fil_model = FIL(algo=algo, threshold=threshold, handle=handle)
+    fil_model.from_treelite(model=model, output_class=output_class)
+    return fil_model
