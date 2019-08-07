@@ -43,14 +43,14 @@ __global__ void sample_count_histogram_kernel(
 }
 
 //This kernel does histograms for all bins, all cols and all nodes at a given level
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void get_hist_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ sample_cnt,
   const unsigned int* __restrict__ colids, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, const int n_nodes,
-  const T* __restrict__ quantile, unsigned int* histout) {
+  const T* __restrict__ question_ptr, unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
   unsigned int local_flag = LEAF;
   int local_label = -1;
@@ -74,11 +74,11 @@ __global__ void get_hist_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-
+      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                            nbins);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-        T quesval = quantile[colid * nbins + binid];
-        if (local_data <= quesval) {
+        if (local_data <= question(binid)) {
           unsigned int nodeoff = local_flag * nbins * n_unique_labels;
           atomicAdd(&shmemhist[nodeoff + binid * n_unique_labels + local_label],
                     local_cnt);
@@ -100,14 +100,14 @@ __global__ void get_hist_kernel(
  *when nodes cannot fit in shared memory. We use direct global atomics;
  *as this will be faster than shared memory loop due to reduced conjetion for atomics
  */
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void get_hist_kernel_global(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ sample_cnt,
   const unsigned int* __restrict__ colids, const int nrows, const int ncols,
   const int n_unique_labels, const int nbins, const int n_nodes,
-  const T* __restrict__ quantile, unsigned int* histout) {
+  const T* __restrict__ question_ptr, unsigned int* histout) {
   unsigned int local_flag;
   int local_label;
   int local_cnt;
@@ -123,11 +123,12 @@ __global__ void get_hist_kernel_global(
       if (local_flag != LEAF) {
         T local_data = data[tid + colid * nrows];
         //Loop over nbins
+        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+                              nbins);
 
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
-          T quesval = quantile[colid * nbins + binid];
-          if (local_data <= quesval) {
+          if (local_data <= question(binid)) {
             unsigned int coloff = colcnt * nbins * n_nodes * n_unique_labels;
             unsigned int nodeoff = local_flag * nbins * n_unique_labels;
             atomicAdd(&histout[coloff + nodeoff + binid * n_unique_labels +

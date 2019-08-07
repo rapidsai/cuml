@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "levelkernel_classifier.cuh"
+
 template <typename T, typename F>
 void initial_metric_classification(
   const int *labels, unsigned int *sample_cnt, const int nrows,
@@ -53,13 +54,17 @@ void get_histogram_classification(
   int blocks = MLCommon::ceildiv(nrows, threads);
 
   if ((n_nodes == node_batch)) {
-    get_hist_kernel<<<blocks, threads, shmem, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
+    get_hist_kernel<T, QuantileQues<T>>
+      <<<blocks, threads, shmem, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+        histout);
   } else {
-    get_hist_kernel_global<<<blocks, threads, 0, tempmem->stream>>>(
-      data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows, ncols,
-      n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(), histout);
+    get_hist_kernel_global<T, QuantileQues<T>>
+      <<<blocks, threads, 0, tempmem->stream>>>(
+        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+        ncols, n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+        histout);
   }
   CUDA_CHECK(cudaGetLastError());
 }
