@@ -198,13 +198,8 @@ void DecisionTreeBase<T, L>::plant(
   total_temp_mem = tempmem->totalmem;
   MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
-  if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
-    root = grow_deep_tree(data, labels, rowids, feature_selector,
-                          n_sampled_rows, ncols, dinfo.NLocalrows, tempmem);
-  } else {
-    root =
-      grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
-  }
+  root = grow_deep_tree(data, labels, rowids, feature_selector, n_sampled_rows,
+                        ncols, dinfo.NLocalrows, tempmem);
   train_time = timer.getElapsedSeconds();
   if (in_tempmem == nullptr) {
     tempmem.reset();
@@ -512,8 +507,8 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   TreeNode<T, int> *root = grow_deep_tree_classification(
     data, labels, rowids, feature_selector, n_sampled_rows, nrows,
     this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
-    this->min_rows_per_node, this->split_criterion, depth_cnt, leaf_cnt,
-    tempmem);
+    this->min_rows_per_node, this->split_criterion, this->split_algo, depth_cnt,
+    leaf_cnt, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
   return root;
@@ -530,7 +525,7 @@ TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   TreeNode<T, T> *root = grow_deep_tree_regression(
     data, labels, rowids, feature_selector, n_sampled_rows, nrows, this->nbins,
     this->treedepth, this->maxleaves, this->min_rows_per_node,
-    this->split_criterion, depth_cnt, leaf_cnt, tempmem);
+    this->split_criterion, this->split_algo, depth_cnt, leaf_cnt, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
   return root;

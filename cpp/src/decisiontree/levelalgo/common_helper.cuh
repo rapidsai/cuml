@@ -86,3 +86,14 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
     go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id + 1);
   return node;
 }
+
+template <typename T>
+T getQuesValue(const T *minmax, const T *quantile, const int nbins,
+               const int colid, const int binid, const int split_algo) {
+  if (split_algo == 0) {
+    return 0;
+  } else {
+    return quantile[colid * nbins + binid];
+  }
+}
+

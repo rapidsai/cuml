@@ -37,8 +37,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const T* data, const T* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
   const int nrows, const int nbins, int maxdepth, const int maxleaves,
-  const int min_rows_per_node, const ML::CRITERION split_cr, int& depth_cnt,
-  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
+  int& depth_cnt, int& leaf_cnt,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);
@@ -123,9 +124,9 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
     get_best_split_regression(
       h_mseout, d_mseout, h_predout, d_predout, h_count, d_count,
       feature_selector, d_colids, nbins, n_nodes, depth, min_rows_per_node,
-      sparsesize, infogain, sparse_meanstate, sparse_countstate, sparsetree,
-      sparse_nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
-      d_split_binidx, tempmem);
+      split_algo, sparsesize, infogain, sparse_meanstate, sparse_countstate,
+      sparsetree, sparse_nodelist, h_split_colidx, h_split_binidx,
+      d_split_colidx, d_split_binidx, tempmem);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,

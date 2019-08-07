@@ -34,11 +34,7 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   max_shared_mem = prop.sharedMemPerBlock;
   num_sms = prop.multiProcessorCount;
 
-  if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-    LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
-  } else {
-    NodeMemAllocator(N, Ncols, n_unique, n_bins, split_algo);
-  }
+  LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
 }
 
 template <class T, class L>
@@ -225,10 +221,17 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
   d_outgain = new MLCommon::device_buffer<float>(ml_handle.getDeviceAllocator(),
                                                  stream, maxnodes);
-  h_quantile = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                            stream, nbins * ncols);
-  d_quantile = new MLCommon::device_buffer<T>(ml_handle.getDeviceAllocator(),
+  if (split_algo == 0) {
+    d_globalminmax = new MLCommon::device_buffer<T>(
+      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * ncols);
+    totalmem += maxnodes * ncols * sizeof(T);
+  } else {
+    h_quantile = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
                                               stream, nbins * ncols);
+    d_quantile = new MLCommon::device_buffer<T>(ml_handle.getDeviceAllocator(),
+                                                stream, nbins * ncols);
+    totalmem += nbins * ncols * sizeof(T);
+  }
   d_sample_cnt = new MLCommon::device_buffer<unsigned int>(
     ml_handle.getDeviceAllocator(), stream, nrows);
   d_colids = new MLCommon::device_buffer<unsigned int>(
@@ -239,7 +242,6 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   totalmem += maxnodes * sizeof(float);
   totalmem += 3 * maxnodes * sizeof(T);
   totalmem += ncols * sizeof(int);
-  totalmem += nbins * ncols * sizeof(T);
   //Regression
   if (typeid(L) == typeid(T)) {
     d_mseout = new MLCommon::device_buffer<T>(
@@ -325,8 +327,9 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   d_child_best_metric->release(stream);
   d_outgain->release(stream);
   d_flags->release(stream);
-  h_quantile->release(stream);
-  d_quantile->release(stream);
+  if (h_quantile != nullptr) h_quantile->release(stream);
+  if (d_quantile != nullptr) d_quantile->release(stream);
+  if (d_globalminmax != nullptr) d_globalminmax->release(stream);
   d_sample_cnt->release(stream);
   d_colids->release(stream);
   delete h_new_node_flags;
@@ -342,8 +345,9 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   delete d_child_best_metric;
   delete d_outgain;
   delete d_flags;
-  delete h_quantile;
-  delete d_quantile;
+  if (h_quantile != nullptr) delete h_quantile;
+  if (d_quantile != nullptr) delete d_quantile;
+  if (d_globalminmax != nullptr) delete d_globalminmax;
   delete d_sample_cnt;
   delete d_colids;
   //Classification
