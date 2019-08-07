@@ -155,11 +155,10 @@ cdef class FIL_impl():
                                          self.forest_pointer,
                                          <ModelHandle> model_ptr,
                                          &treelite_params)
-
         return self
 
-class FIL(Base):
 
+class FIL(Base):
 
     def __init__(self,
                  algo=0,
