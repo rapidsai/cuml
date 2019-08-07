@@ -21,7 +21,7 @@ def simulate_data(m, n, k=2, random_state=None, classification=True):
                                            random_state=random_state)
     return np.c_[labels, features].astype(np.float32)
 
-# settings
+
 simulate = True
 classification = True  # change this to false to use regression
 n_rows = int(1e6)  # we'll use 1 millions rows
@@ -103,7 +103,7 @@ tl_model = tl.Model.load('xgb.modle', 'xgboost')
 print(" create a fil model")
 fm = fil(algo=0, output=0, threshold=0.55)
 print(" read data from the model and convert treelite to FIL")
-forest = fm.from_treelite(tl_model, output_class=True)
+fm.from_treelite(tl_model, output_class=True)
 print(" Predict the labels ")
-fm.predict(X_validation)
+preds = fm.predict(X_validation)
 fm.free()
