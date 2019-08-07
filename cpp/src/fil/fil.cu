@@ -22,10 +22,9 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <limits>
-#include <typeinfo>
 #include <utility>
+
 #include "common.cuh"
 #include "fil.h"
 
@@ -141,6 +140,7 @@ struct forest {
     ps.data = data;
     ps.rows = rows;
     ps.max_shm = max_shm_;
+
     cudaStream_t stream = h.getStream();
     // Predict using the forest.
     switch (algo_) {
@@ -365,5 +365,6 @@ void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t n) {
   f->predict(h, preds, data, n);
 }
+
 }  // namespace fil
 }  // namespace ML
