@@ -1,9 +1,7 @@
-
-import numpy as np; print('numpy Version:', np.__version__)
-import pandas as pd; print('pandas Version:', pd.__version__)
-import sklearn; print('Scikit-Learn Version:', sklearn.__version__)
-import xgboost as xgb; print('XGBoost Version:', xgb.__version__)
+import numpy as np
 import treelite as tl
+import xgboost as xgb
+
 from cuml import FIL as fil
 
 from sklearn.datasets import make_classification, make_regression
@@ -13,11 +11,13 @@ from sklearn.datasets import make_classification, make_regression
 def simulate_data(m, n, k=2, random_state=None, classification=True):
     if classification:
         features, labels = make_classification(n_samples=m, n_features=n,
-                                               n_informative=int(n/5), n_classes=k,
-                                              random_state=random_state)
+                                               n_informative=int(n/5),
+                                               n_classes=k,
+                                               random_state=random_state)
     else:
         features, labels = make_regression(n_samples=m, n_features=n,
-                                           n_informative=int(n/5), n_targets=1,
+                                           n_informative=int(n/5),
+                                           n_targets=1,
                                            random_state=random_state)
     return np.c_[labels, features].astype(np.float32)
 
@@ -29,13 +29,9 @@ n_columns = int(50)
 n_categories = 2
 random_state = np.random.RandomState(43210)
 
-if simulate:
-    dataset = simulate_data(n_rows, n_columns, n_categories,
-                            random_state=random_state,
-                            classification=classification)
-else:
-    dataset = load_data('/tmp', n_rows)
-print(dataset.shape)
+dataset = simulate_data(n_rows, n_columns, n_categories,
+                        random_state=random_state,
+                        classification=classification)
 
 # identify shape and indices
 n_rows, n_columns = dataset.shape
@@ -53,9 +49,10 @@ X_train, y_train = X[:train_index, :], y[:train_index]
 X_validation, y_validation = X[train_index:, :], y[train_index:]
 
 # check dimensions
-print('X_train: ', X_train.shape, X_train.dtype, 'y_train: ', y_train.shape, y_train.
-dtype)
-print('X_validation', X_validation.shape, X_validation.dtype, 'y_validation: ', y_validation.shape, y_validation.dtype)
+print('X_train: ', X_train.shape, X_train.dtype, 'y_train: ',
+      y_train.shape, y_train.dtype)
+print('X_validation', X_validation.shape, X_validation.dtype,
+      'y_validation: ', y_validation.shape, y_validation.dtype)
 
 # check the proportions
 total = X_train.shape[0] + X_validation.shape[0]
@@ -73,7 +70,8 @@ general_params = {'silent': 1}
 params.update(general_params)
 
 # booster params
-n_gpus = 0  # change this to -1 to use all GPUs available or 0 to use the CPU
+# change this to -1 to use all GPUs available or 0 to use the CPU
+n_gpus = 0
 booster_params = {}
 
 if n_gpus != 0:
@@ -102,10 +100,10 @@ bst.save_model('xgb.model')
 
 print(" read the saved xgb modle")
 tl_model = tl.Model.load('xgb.modle', 'xgboost')
-#tl_copy = copy.deepcopy(tl_model)
 print(" create a fil model")
 fm = fil(algo=0, output=0, threshold=0.55)
 print(" read data from the model and convert treelite to FIL")
 forest = fm.from_treelite(tl_model, output_class=True)
 print(" Predict the labels ")
 fm.predict(X_validation)
+fm.free()

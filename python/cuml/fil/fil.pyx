@@ -39,7 +39,7 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle;
+    ctypedef void* ModelHandle
 
 cdef extern from "fil/fil.h" namespace "ML::fil":
 
@@ -124,7 +124,6 @@ cdef class FIL_impl():
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
-        #cdef forest_t forest_data = <forest_t> &self.forest_pointer
         predict(handle_[0],
                 self.forest_data,
                 <float*> preds_ptr,
@@ -163,6 +162,8 @@ cdef class FIL_impl():
         return self
 
 class FIL(Base):
+
+
     def __init__(self,
                  output=0, algo=0,
                  threshold=0.0,
@@ -186,5 +187,4 @@ class FIL(Base):
         return self._impl.free()
 
     def from_treelite(self, model, output_class):
-
         return self._impl.from_treelite(model, output_class)
