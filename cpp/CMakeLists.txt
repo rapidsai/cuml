@@ -369,8 +369,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
-    dmlclib
     treelitelib
+    dmlclib
     gpufaisslib
     faisslib)
 
