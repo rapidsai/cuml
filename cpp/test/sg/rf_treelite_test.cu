@@ -52,6 +52,7 @@ struct RfInputs {
   int split_algo;
   int min_rows_per_node;
   CRITERION split_criterion;
+  int n_streams;
 };
 
 template <typename T>
@@ -180,7 +181,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.min_rows_per_node, params.bootstrap_features,
                     params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, tree_params);
+                      params.rows_sample, params.n_streams, tree_params);
     // print(rf_params);
 
     data_len = params.n_rows * params.n_cols;
@@ -332,9 +333,9 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     this->getResultAndCheck();
 
     postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
-    
+
     labels_map.clear();
-    temp_label_h.clear(); 
+    temp_label_h.clear();
     CUDA_CHECK(cudaFree(weight));
     CUDA_CHECK(cudaFree(temp_label_d));
     CUDA_CHECK(cudaFree(temp_data_d));
@@ -398,30 +399,30 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::
-     GINI},  // single tree forest, bootstrap false, unlimited depth, 4 bins
+   CRITERION::GINI,
+   1},  // single tree forest, bootstrap false, unlimited depth, 4 bins
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
+   CRITERION::GINI,
+   1},  // single tree forest, bootstrap false, depth of 8, 4 bins
   {4, 2, 11, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::
-     GINI},  //forest with 11 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
+   CRITERION::GINI,
+   1},  //forest with 11 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
-   CRITERION::
-     GINI},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins
+   CRITERION::GINI,
+   1},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2,
-   CRITERION::
-     CRITERION_END},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::CRITERION_END,
+   1},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
   {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::ENTROPY},
+   CRITERION::ENTROPY, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::ENTROPY},
+   CRITERION::ENTROPY, 1},
   {400, 200, 11, 1.0f, 1.0f, 400, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::ENTROPY},
+   CRITERION::ENTROPY, 1},
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
-   CRITERION::ENTROPY},
+   CRITERION::ENTROPY, 1},
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::ENTROPY}};
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::ENTROPY, 1}};
 
 typedef RfTreeliteTestClf<float, int> RfBinaryClassifierTreeliteTestF;
 TEST_P(RfBinaryClassifierTreeliteTestF, Convert_Clf) { testClassifier(); }
@@ -432,18 +433,18 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierTreeliteTests,
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
   {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::MSE},
+   CRITERION::MSE, 1},
   {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::MSE},
+   CRITERION::MSE, 1},
   {40, 20, 5, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::
-     CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
+   CRITERION::CRITERION_END,
+   1},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
   {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::MAE},
+   CRITERION::MAE, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MAE},
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MAE, 1},
   {400, 200, 5, 1.0f, 1.0f, 400, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::CRITERION_END}};
+   CRITERION::CRITERION_END, 1}};
 
 typedef RfTreeliteTestReg<float, float> RfRegressorTreeliteTestF;
 TEST_P(RfRegressorTreeliteTestF, Convert_Reg) { testRegressor(); }
