@@ -86,16 +86,9 @@ cdef class FIL_impl():
 
     cpdef object handle
     cdef forest_t forest_data
-    cdef forest_t* forest_pointer
-    cdef object algo
-    cdef object threshold
 
     def __cinit__(self,
-                  algo=0,
-                  threshold=0.0,
                   handle=None):
-        self.algo = algo
-        self.threshold = threshold
         self.handle = handle
 
     def predict(self, X, preds=None):
@@ -120,11 +113,12 @@ cdef class FIL_impl():
         # synchronous w/o a stream
         return preds
 
-    def from_treelite(self, model, output_class):
+    def from_treelite(self, model, output_class,
+    	              algo, threshold):
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
-        treelite_params.threshold = self.threshold
-        treelite_params.algo = NAIVE
+        treelite_params.threshold = threshold
+        treelite_params.algo = algo
         self.forest_data =\
             NULL
         cdef cumlHandle* handle_ =\
@@ -148,22 +142,13 @@ class FIL(Base):
     """
     Parameters
     ----------
-    algo : 0 = NAIVE, 1 = TREE_REORG, 2 = BATCH_TREE_REORG
-    threshold : threshold is used to for classification
-       if output == OUTPUT_CLASS, else it is ignored
     handle : cuml.Handle
        If it is None, a new one is created just for this class.
     """
     def __init__(self,
-                 algo=0,
-                 threshold=0.0,
                  handle=None):
         super(FIL, self).__init__(handle)
-        self.algo_type = algo
-        self.threshold = threshold
-        self._impl = FIL_impl(algo,
-                              threshold,
-                              self.handle)
+        self._impl = FIL_impl(self.handle)
 
     def predict(self, X, preds=None):
         """
@@ -183,7 +168,7 @@ class FIL(Base):
         """
         return self._impl.predict(X, preds)
 
-    def from_treelite(self, model, output_class):
+    def from_treelite(self, model, output_class, algo, threshold):
         """
         Creates a FIL model using the treelite model
         passed to the function.
@@ -194,8 +179,11 @@ class FIL(Base):
            https://treelite.readthedocs.io/en/latest/treelite-api.html
         output_class: boolean
            True or False
+        algo : 0 = NAIVE, 1 = TREE_REORG, 2 = BATCH_TREE_REORG
+        threshold : threshold is used to for classification
+           if output == OUTPUT_CLASS, else it is ignored
         """
-        return self._impl.from_treelite(model, output_class)
+        return self._impl.from_treelite(model, output_class, algo, threshold)
 
 
 def from_treelite_direct(model, algo=0, output_class=True,
