@@ -71,34 +71,73 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
 
-  if ((n_nodes == node_batch_pred)) {
-    get_pred_kernel<T, QuantileQues<T>>
-      <<<blocks, threads, shmempred, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
+  if (split_algo == 0) {
+    get_minmax(data, flags, tempmem->d_colids->data(), nrows, ncols, n_nodes,
+               tempmem->max_nodes_minmax, tempmem->d_globalminmax->data(),
+               tempmem->h_globalminmax->data(), tempmem->stream);
+    if ((n_nodes == node_batch_pred)) {
+      get_pred_kernel<T, MinMaxQues<T>>
+        <<<blocks, threads, shmempred, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_globalminmax->data(), d_predout,
+          d_count);
+    } else {
+      get_pred_kernel_global<T, MinMaxQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_globalminmax->data(), d_predout,
+          d_count);
+    }
+    CUDA_CHECK(cudaGetLastError());
+    if ((n_nodes == node_batch_mse)) {
+      get_mse_kernel<T, F, MinMaxQues<T>>
+        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_globalminmax->data(),
+          tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+          d_predout, d_count, d_mseout);
+    } else {
+      get_mse_kernel_global<T, F, MinMaxQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_globalminmax->data(),
+          tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+          d_predout, d_count, d_mseout);
+    }
+    CUDA_CHECK(cudaGetLastError());
+
   } else {
-    get_pred_kernel_global<T, QuantileQues<T>>
-      <<<blocks, threads, 0, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout, d_count);
+    if ((n_nodes == node_batch_pred)) {
+      get_pred_kernel<T, QuantileQues<T>>
+        <<<blocks, threads, shmempred, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout,
+          d_count);
+    } else {
+      get_pred_kernel_global<T, QuantileQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_quantile->data(), d_predout,
+          d_count);
+    }
+    CUDA_CHECK(cudaGetLastError());
+    if ((n_nodes == node_batch_mse)) {
+      get_mse_kernel<T, F, QuantileQues<T>>
+        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_quantile->data(),
+          tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+          d_predout, d_count, d_mseout);
+    } else {
+      get_mse_kernel_global<T, F, QuantileQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, nbins, n_nodes, tempmem->d_quantile->data(),
+          tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
+          d_predout, d_count, d_mseout);
+    }
+    CUDA_CHECK(cudaGetLastError());
   }
-  CUDA_CHECK(cudaGetLastError());
-  if ((n_nodes == node_batch_mse)) {
-    get_mse_kernel<T, F, QuantileQues<T>>
-      <<<blocks, threads, shmemmse, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, nbins, n_nodes, tempmem->d_quantile->data(),
-        tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
-        d_predout, d_count, d_mseout);
-  } else {
-    get_mse_kernel_global<T, F, QuantileQues<T>>
-      <<<blocks, threads, 0, tempmem->stream>>>(
-        data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
-        ncols, nbins, n_nodes, tempmem->d_quantile->data(),
-        tempmem->d_parent_pred->data(), tempmem->d_parent_count->data(),
-        d_predout, d_count, d_mseout);
-  }
-  CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
 void get_best_split_regression(
@@ -112,7 +151,12 @@ void get_best_split_regression(
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-  T *quantile = tempmem->h_quantile->data();
+  T *quantile = nullptr;
+  T *minmax = nullptr;
+  if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
+  if (tempmem->h_globalminmax != nullptr)
+    minmax = tempmem->h_globalminmax->data();
+
   int ncols = colselector.size();
   size_t predcount = ncols * nbins * n_nodes;
   bool use_gpu_flag = false;
@@ -170,9 +214,9 @@ void get_best_split_regression(
       int sparse_nodeid = sparse_nodelist[nodecnt];
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
-      T *dummy = nullptr;
+
       curr_node.quesval = getQuesValue(
-        dummy, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
         nodecnt, n_nodes, colselector, split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
@@ -256,9 +300,9 @@ void get_best_split_regression(
       //Sparse Tree
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
-      T *dummy = nullptr;
+
       curr_node.quesval = getQuesValue(
-        dummy, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
         nodecnt, n_nodes, colselector, split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       sparse_meanstate[curr_node.left_child_id] = bestmean_left;
