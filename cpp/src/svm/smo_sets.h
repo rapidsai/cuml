@@ -23,8 +23,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 /** Determine whether a training instance is in the upper set */
 template <typename math_t>
 DI bool in_upper(math_t a, math_t y, math_t C) {
