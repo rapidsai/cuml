@@ -16,8 +16,8 @@
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
-#include "../decisiontree/kernels/quantile.h"
 #include "../decisiontree/memory.h"
+#include "../decisiontree/qunatile/quantile.h"
 #include "random/permute.h"
 #include "random/rng.h"
 #include "randomforest_impl.h"

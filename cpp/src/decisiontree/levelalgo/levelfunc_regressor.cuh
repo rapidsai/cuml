@@ -17,11 +17,10 @@
 #include <iostream>
 #include <numeric>
 #include "../decisiontree.hpp"
-#include "../kernels/metric.cuh"
-#include "../kernels/metric_def.h"
 #include "common_helper.cuh"
 #include "flatnode.h"
 #include "levelhelper_regressor.cuh"
+#include "metric.cuh"
 /*
 This is the driver function for building regression tree 
 level by level using a simple for loop.
