@@ -107,7 +107,7 @@ namespace SVM {
  *      of Machine Learning Research, 19, 1-5 (2018)
  *
  * @tparam math_t floating point data type
- * @tparam WSIZE working set size (max 1024, should be divisible by 4)
+ * @tparam WSIZE working set size (max 1024)
  * @param [in] y_array target labels size [n_rows]
  * @param [in] n_rows number of trainig vectors
  * @param [inout] alpha dual coefficients, size [n_rows]
