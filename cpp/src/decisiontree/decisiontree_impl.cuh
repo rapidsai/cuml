@@ -205,96 +205,6 @@ void DecisionTreeBase<T, L>::plant(
     tempmem.reset();
   }
 }
-
-template <typename T, typename L>
-TreeNode<T, L> *DecisionTreeBase<T, L>::grow_tree(
-  const T *data, const float colper, const L *labels, int depth,
-  unsigned int *rowids, const int n_sampled_rows,
-  MetricInfo<T> prev_split_info) {
-  TreeNode<T, L> *node = new TreeNode<T, L>;
-  null_tree_node_child_ptrs(*node);
-  MetricQuestion<T> ques;
-  Question<T> node_ques;
-  float gain = 0.0;
-  MetricInfo<T> split_info[3];  // basis, left, right. Populate this
-  split_info[0] = prev_split_info;
-
-  bool condition =
-    ((depth != 0) &&
-     (prev_split_info.best_metric ==
-      0.0f));  // This node is a leaf, no need to search for best split
-  condition =
-    condition ||
-    (n_sampled_rows <
-     min_rows_per_node);  // Do not split a node with less than min_rows_per_node samples
-
-  if (treedepth != -1) {
-    condition = (condition || (depth == treedepth));
-  }
-
-  if (maxleaves != -1) {
-    condition =
-      (condition ||
-       (leaf_counter >=
-        maxleaves));  // FIXME not fully respecting maxleaves, but >= constraints it more than ==
-  }
-
-  if (!condition) {
-    find_best_fruit_all(data, labels, colper, ques, gain, rowids,
-                        n_sampled_rows, &split_info[0],
-                        depth);  //ques and gain are output here
-    condition = condition || (gain == 0.0f);
-  }
-
-  if (condition) {
-    if (typeid(L) == typeid(int)) {  // classification
-      node->prediction = get_class_hist(split_info[0].hist);
-    } else {  // regression (typeid(L) == typeid(T))
-      node->prediction = split_info[0].predict;
-    }
-    node->split_metric_val = split_info[0].best_metric;
-
-    leaf_counter++;
-    if (depth > depth_counter) {
-      depth_counter = depth;
-    }
-  } else {
-    int nrowsleft, nrowsright;
-    split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright,
-                 rowids);  // populates ques.value
-    node_ques.column = ques.original_column;
-    node_ques.value = ques.value;
-    node->question = node_ques;
-    node->left = grow_tree(data, colper, labels, depth + 1, &rowids[0],
-                           nrowsleft, split_info[1]);
-    node->right = grow_tree(data, colper, labels, depth + 1, &rowids[nrowsleft],
-                            nrowsright, split_info[2]);
-    node->split_metric_val = split_info[0].best_metric;
-  }
-  return node;
-}
-
-template <typename T, typename L>
-void DecisionTreeBase<T, L>::init_depth_zero(
-  const L *labels, std::vector<unsigned int> &colselector,
-  const unsigned int *rowids, const int n_sampled_rows,
-  const std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
-  CUDA_CHECK(cudaHostRegister(colselector.data(),
-                              sizeof(unsigned int) * colselector.size(),
-                              cudaHostRegisterDefault));
-  // Copy sampled column IDs to device memory
-  MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(),
-                         colselector.size(), tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
-  L *labelptr = tempmem->sampledlabels->data();
-  get_sampled_labels<L>(labels, labelptr, rowids, n_sampled_rows,
-                        tempmem->stream);
-
-  //Unregister
-  CUDA_CHECK(cudaHostUnregister(colselector.data()));
-}
-
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::predict(const ML::cumlHandle &handle,
                                      const TreeMetaDataNode<T, L> *tree,
@@ -407,46 +317,6 @@ void DecisionTreeClassifier<T>::fit(
 }
 
 template <typename T>
-void DecisionTreeClassifier<T>::find_best_fruit_all(
-  const T *data, const int *labels, const float colper, MetricQuestion<T> &ques,
-  float &gain, unsigned int *rowids, const int n_sampled_rows,
-  MetricInfo<T> split_info[3], int depth) {
-  std::vector<unsigned int> &colselector = this->feature_selector;
-
-  // Optimize ginibefore; no need to compute except for root.
-  if (depth == 0) {
-    this->init_depth_zero(labels, colselector, rowids, n_sampled_rows,
-                          this->tempmem);
-    int *labelptr = this->tempmem->sampledlabels->data();
-    if (this->split_criterion == CRITERION::GINI) {
-      gini<T, GiniFunctor>(labelptr, n_sampled_rows, this->tempmem,
-                           split_info[0], this->n_unique_labels);
-    } else {
-      gini<T, EntropyFunctor>(labelptr, n_sampled_rows, this->tempmem,
-                              split_info[0], this->n_unique_labels);
-    }
-  }
-
-  // Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
-  int current_nbins = ((this->split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) &&
-                       (n_sampled_rows < this->nbins))
-                        ? n_sampled_rows
-                        : this->nbins;
-
-  if (this->split_criterion == CRITERION::GINI) {
-    best_split_all_cols_classifier<T, int, GiniFunctor>(
-      data, rowids, labels, current_nbins, n_sampled_rows,
-      this->n_unique_labels, this->dinfo.NLocalrows, colselector, this->tempmem,
-      &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
-  } else {
-    best_split_all_cols_classifier<T, int, EntropyFunctor>(
-      data, rowids, labels, current_nbins, n_sampled_rows,
-      this->n_unique_labels, this->dinfo.NLocalrows, colselector, this->tempmem,
-      &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
-  }
-}
-
-template <typename T>
 void DecisionTreeRegressor<T>::fit(
   const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
@@ -456,46 +326,6 @@ void DecisionTreeRegressor<T>::fit(
                  tree->root, tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
-
-template <typename T>
-void DecisionTreeRegressor<T>::find_best_fruit_all(
-  const T *data, const T *labels, const float colper, MetricQuestion<T> &ques,
-  float &gain, unsigned int *rowids, const int n_sampled_rows,
-  MetricInfo<T> split_info[3], int depth) {
-  std::vector<unsigned int> &colselector = this->feature_selector;
-
-  if (depth == 0) {
-    this->init_depth_zero(labels, colselector, rowids, n_sampled_rows,
-                          this->tempmem);
-    T *labelptr = this->tempmem->sampledlabels->data();
-    if (this->split_criterion == CRITERION::MSE) {
-      mse<T, SquareFunctor>(labelptr, n_sampled_rows, this->tempmem,
-                            split_info[0]);
-    } else {
-      mse<T, AbsFunctor>(labelptr, n_sampled_rows, this->tempmem,
-                         split_info[0]);
-    }
-  }
-
-  // Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
-  int current_nbins = ((this->split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) &&
-                       (n_sampled_rows < this->nbins))
-                        ? n_sampled_rows
-                        : this->nbins;
-
-  if (this->split_criterion == CRITERION::MSE) {
-    best_split_all_cols_regressor<T, SquareFunctor>(
-      data, rowids, labels, current_nbins, n_sampled_rows,
-      this->dinfo.NLocalrows, colselector, this->tempmem, split_info, ques,
-      gain, this->split_algo, this->max_shared_mem);
-  } else {
-    best_split_all_cols_regressor<T, AbsFunctor>(
-      data, rowids, labels, current_nbins, n_sampled_rows,
-      this->dinfo.NLocalrows, colselector, this->tempmem, split_info, ques,
-      gain, this->split_algo, this->max_shared_mem);
-  }
-}
-
 template <typename T>
 TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const T *data, const int *labels, unsigned int *rowids,
