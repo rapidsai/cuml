@@ -39,3 +39,10 @@ def has_ucp():
         return True
     except ImportError:
         return False
+
+def has_treelite():
+    try:
+        import treelite  # NOQA
+        return True
+    except ImportError:
+        return False
