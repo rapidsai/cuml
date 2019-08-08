@@ -17,27 +17,27 @@ import numpy as np
 import pytest
 import os
 
-from cuml import FIL, fil
-from cuml.utils.import_utils import has_treelite, has_xgboost
+from cuml import FIL
+from cuml.utils.import_utils import has_xgboost
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
 
-if has_treelite():
-    import treelite as tl
-
 if has_xgboost():
     import xgboost as xgb
 
-
     def simulate_data(m, n, k=2, random_state=None, classification=True):
         if classification:
-            features, labels = make_classification(n_samples=m, n_features=n,
-                                                   n_informative=int(n/5), n_classes=k,
-                                                  random_state=random_state)
+            features, labels = make_classification(n_samples=m,
+                                                   n_features=n,
+                                                   n_informative=int(n/5),
+                                                   n_classes=k,
+                                                   random_state=random_state)
         else:
-            features, labels = make_regression(n_samples=m, n_features=n,
-                                               n_informative=int(n/5), n_targets=1,
+            features, labels = make_regression(n_samples=m,
+                                               n_features=n,
+                                               n_informative=int(n/5),
+                                               n_targets=1,
                                                random_state=random_state)
         return np.c_[labels, features].astype(np.float32)
 
@@ -80,7 +80,6 @@ def _build_and_save_xgboost(model_path, X_train, y_train):
                          stress_param(500)])
 @pytest.mark.parametrize('num_round', [unit_param(20), quality_param(50),
                          stress_param(90)])
-@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_fil(n_rows, n_columns, n_info, num_round, tmp_path):
     # settings
@@ -109,7 +108,6 @@ def test_fil(n_rows, n_columns, n_info, num_round, tmp_path):
     # split validation data
     X_validation, y_validation = X[train_index:, :], y[train_index:]
 
-
     model_path = os.path.join(tmp_path, 'xgb.model')
 
     bst = _build_and_save_xgboost(model_path, X_train, y_train)
@@ -130,4 +128,3 @@ def test_fil(n_rows, n_columns, n_info, num_round, tmp_path):
     print("XGB accuracy = ", xgb_acc, " FIL accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert fil_acc > 0.80
-
