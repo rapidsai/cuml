@@ -51,7 +51,6 @@ class Results {
    * Helper class to collect the parameters of the SVC classifier after it is
    * fitted using SMO.
    *
-   * @tparam math_t
    * @param handle cuML handle implementation
    * @param x training vectors in column major format, size [n_rows x n_cols]
    * @param y target labels (values +/-1), size [n_rows]
@@ -153,11 +152,12 @@ class Results {
    * Flag support vectors and also collect their indices.
    * Support vectors are the vectors where alpha > 0.
    *
+   * On exit, the flag member variable will be initialized as
+   *  flag[i] = alpha[i] > 0
+   *
    * @param [in] alpha dual coefficients, size [n_rows]
-   * @param [in] n_rows number of traning vectors
    * @param [out] n_support number of support vectors
    * @param [out] idx indices of the suport vectors, size [n_support]
-   * @param [out] flag[i] = alpha[i] > 0, size [n_rows]
    */
   void GetSupportVectorIndices(const math_t *alpha, int *n_support, int **idx) {
     *n_support = SelectByAlpha(
