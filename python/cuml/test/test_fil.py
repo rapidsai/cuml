@@ -15,8 +15,9 @@
 
 import numpy as np
 import pytest
+import os
 
-from cuml import FIL as fil
+from cuml import FIL, fil
 from cuml.utils.import_utils import has_treelite, has_xgboost
 
 from sklearn.datasets import make_classification
@@ -53,6 +54,24 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
+def _build_and_save_xgboost(model_path, X_train, y_train):
+    """Trains a small xgboost classifier and saves it to model_path"""
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+
+    # instantiate params
+    params = {'silent': 1}
+
+    # learning task params
+    params['eval_metric'] = 'error'
+    params['objective'] = 'binary:logistic'
+
+    # model training settings
+    num_round = 5
+
+    bst = xgb.train(params, dtrain, num_round)
+    bst.save_model(model_path)
+    return bst
+
 @pytest.mark.parametrize('n_rows', [unit_param(100), quality_param(1000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_columns', [unit_param(30), quality_param(100),
@@ -63,9 +82,7 @@ def stress_param(*args, **kwargs):
                          stress_param(90)])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil(n_rows, n_columns, n_info, num_round):
-
-
+def test_fil(n_rows, n_columns, n_info, num_round, tmp_path):
     # settings
     simulate = True
     classification = True  # change this to false to use regression
@@ -92,42 +109,25 @@ def test_fil(n_rows, n_columns, n_info, num_round):
     # split validation data
     X_validation, y_validation = X[train_index:, :], y[train_index:]
 
-    dtrain = xgb.DMatrix(X_train, label=y_train)
+
+    model_path = os.path.join(tmp_path, 'xgb.model')
+
+    bst = _build_and_save_xgboost(model_path, X_train, y_train)
+
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-
-    # instantiate params
-    params = {}
-
-    # general params
-    general_params = {'silent': 1}
-    params.update(general_params)
-
-    # booster params
-    n_gpus = 0  # change this to -1 to use all GPUs available or 0 to use the CPU
-
-    #classification=1
-    # learning task params
-    learning_task_params = {}
-    learning_task_params['eval_metric'] = 'error'
-    learning_task_params['objective'] = 'binary:logistic'
-    params.update(learning_task_params)
-
-    # model training settings
-    evallist = [(dvalidation, 'validation'), (dtrain, 'train')]
-    num_round = 5
-
-    bst = xgb.train(params, dtrain, num_round, evallist)
-
-    bst.save_model('xgb.model')
     xgb_preds = bst.predict(dvalidation)
 
-    xgb_err = sum(1 for i in range(len(xgb_preds))
-                  if xgb_preds[i] != y_validation[i]) / float(len(xgb_preds))
-    print(" read the saved xgb modle")
-    tl_model = tl.Model.from_xgboost(bst)
-    #tl_copy = copy.deepcopy(tl_model)
-    fm = fil()
-    forest = fm.from_treelite(tl_model, output_class=True, algo=1, threshold=0.5)
-    preds_1 = fm.predict(X_validation).to_array()
+    xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
+
+    print("Reading the saved xgb model")
+    fm = FIL.from_treelite_file(model_path,
+                                algo=0,
+                                output_class=True,
+                                threshold=0.50)
+    preds_1 = np.asarray(fm.predict(X_validation))
     fil_acc = accuracy_score(y_validation, preds_1)
-    assert fil_acc > 0.8
+
+    print("XGB accuracy = ", xgb_acc, " FIL accuracy: ", fil_acc)
+    assert fil_acc == pytest.approx(xgb_acc, 0.01)
+    assert fil_acc > 0.80
+
