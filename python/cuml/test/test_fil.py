@@ -94,8 +94,9 @@ def test_fil(n_rows, n_columns, n_info, num_round):
 
     # using treelite for prediction
     tl_model = tl.Model.load('xgb.model', 'xgboost')
-    fm = fil(algo=2, threshold=0.55)
-    fm.from_treelite(tl_model, output_class=True)
+    fm = fil()
+    fm.from_treelite(tl_model, output_class=True,
+                     algo=2, threshold=0.55)
     preds = fm.predict(X_validation).to_array()
     fil_acc = accuracy_score(y_validation, preds)
     assert fil_acc > 0.5
