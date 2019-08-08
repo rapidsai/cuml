@@ -90,15 +90,6 @@ class DecisionTreeBase {
   void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
                        const unsigned int *rowids, const int n_sampled_rows,
                        const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
-  TreeNode<T, L> *grow_tree(const T *data, const float colper, const L *labels,
-                            int depth, unsigned int *rowids,
-                            const int n_sampled_rows,
-                            MetricInfo<T> prev_split_info);
-  virtual void find_best_fruit_all(const T *data, const L *labels,
-                                   const float colper, MetricQuestion<T> &ques,
-                                   float &gain, unsigned int *rowids,
-                                   const int n_sampled_rows,
-                                   MetricInfo<T> split_info[3], int depth) = 0;
 
   virtual TreeNode<T, L> *grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
@@ -147,11 +138,6 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
  private:
-  /* depth is used to distinguish between root and other tree nodes for computations */
-  void find_best_fruit_all(const T *data, const int *labels, const float colper,
-                           MetricQuestion<T> &ques, float &gain,
-                           unsigned int *rowids, const int n_sampled_rows,
-                           MetricInfo<T> split_info[3], int depth);
   TreeNode<T, int> *grow_deep_tree(
     const T *data, const int *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
@@ -170,11 +156,6 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
  private:
-  /* depth is used to distinguish between root and other tree nodes for computations */
-  void find_best_fruit_all(const T *data, const T *labels, const float colper,
-                           MetricQuestion<T> &ques, float &gain,
-                           unsigned int *rowids, const int n_sampled_rows,
-                           MetricInfo<T> split_info[3], int depth);
   TreeNode<T, T> *grow_deep_tree(
     const T *data, const T *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,

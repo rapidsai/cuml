@@ -185,7 +185,7 @@ struct QuantileQues {
   DI QuantileQues(const T* __restrict__ quantile_ptr,
                   const unsigned int* __restrict__ colids,
                   const unsigned int colcnt, const int n_nodes,
-                  const unsigned int local_flag, const int nbins)
+                  const unsigned int nodeid, const int nbins)
     : quantile(quantile_ptr + colids[colcnt] * nbins) {}
 
   DI T operator()(const int binid) { return quantile[binid]; }
@@ -197,8 +197,8 @@ struct MinMaxQues {
   DI MinMaxQues(const T* __restrict__ minmax_ptr,
                 const unsigned int* __restrict__ colids,
                 const unsigned int colcnt, const int n_nodes,
-                const unsigned int local_flag, const int nbins) {
-    int off = colcnt * 2 * n_nodes + local_flag;
+                const unsigned int nodeid, const int nbins) {
+    int off = colcnt * 2 * n_nodes + nodeid;
     min = minmax_ptr[off];
     delta = (minmax_ptr[off + n_nodes] - min) / nbins;
   }
