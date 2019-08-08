@@ -182,14 +182,6 @@ class RandomForestClassifier(Base):
     Random Forest code. It contains a number of known
     limitations:
 
-       * Only classification is supported. Regression support is planned for
-         the next release.
-
-       * The implementation relies on limited CUDA shared memory for scratch
-         space, so models with a very large number of features or bins will
-         generate a memory limit exception. This limitation will be lifted in
-         the next release.
-
        * Inference/prediction takes place on the CPU. A GPU-based inference
          solution is planned for a near-future release release.
 
