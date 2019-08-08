@@ -114,7 +114,7 @@ cdef class FIL_impl():
         return preds
 
     def from_treelite(self, model, output_class,
-    	              algo, threshold):
+                      algo, threshold):
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold

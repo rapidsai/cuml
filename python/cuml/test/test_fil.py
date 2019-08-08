@@ -15,16 +15,18 @@
 
 import numpy as np
 import pytest
-import xgboost as xgb
 
 from cuml import FIL as fil
-from cuml.utils.import_utils import has_treelite
+from cuml.utils.import_utils import has_treelite, has_xgboost
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
 
 if has_treelite():
     import treelite as tl
+
+if has_xgboost():
+    import xgboost as xgb
 
 
 def unit_param(*args, **kwargs):
@@ -48,6 +50,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('num_round', [unit_param(20), quality_param(50),
                          stress_param(90)])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_fil(n_rows, n_columns, n_info, num_round):
     random_state = np.random.RandomState(43210)
     X, y = make_classification(n_samples=n_rows, n_features=n_columns,
