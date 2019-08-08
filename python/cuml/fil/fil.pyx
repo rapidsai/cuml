@@ -147,14 +147,11 @@ class FIL(Base):
     """
     Parameters
     ----------
-    model : the model information in the treelite format
-       loaded from a saved model using the treelite API
-       https://treelite.readthedocs.io/en/latest/treelite-api.html
-    output_class: boolean
-       True or False
     algo : 0 = NAIVE, 1 = TREE_REORG, 2 = BATCH_TREE_REORG
     threshold : threshold is used to for classification
        if output == OUTPUT_CLASS, else it is ignored
+    handle : cuml.Handle
+       If it is None, a new one is created just for this class.
     """
     def __init__(self,
                  algo=0,
@@ -210,9 +207,10 @@ def from_treelite_direct(model, algo=0, output_class=True,
            # in order to predict
            predicted_labels = forest.predict(X_test)
 
-    Note : do not reuse or overwrite a tl_model variable which is
-       used to load a saved treelite model.
+    Note : do not reuse or overwrite the tl_model variable which is
+       used to load a saved model.
        This will cause Segmentation errors.
+       here tl_model = = treelite.Model.load('xgb.modle', 'xgboost')
 
     Parameters
     ----------
