@@ -15,6 +15,7 @@
  */
 
 #include <utils.h>
+#include <queue>
 #include <type_traits>
 #include "decisiontree_impl.h"
 #include "kernels/col_condenser.cuh"
@@ -80,6 +81,86 @@ template <typename T, typename L>
 std::ostream &operator<<(std::ostream &os, const TreeNode<T, L> *const node) {
   DecisionTree::print(*node, os);
   return os;
+}
+
+template <typename T, typename L>
+struct Node_ID_info {
+  const DecisionTree::TreeNode<T, L> *node;
+  int unique_node_id;
+
+  Node_ID_info(const DecisionTree::TreeNode<T, L> *cfg_node,
+               int cfg_unique_node_id)
+    : node(cfg_node), unique_node_id(cfg_unique_node_id) {}
+};
+
+template <class T, class L>
+void build_treelite_tree(TreeBuilderHandle tree_builder,
+                         const DecisionTree::TreeNode<T, L> *root,
+                         int num_output_group) {
+  int node_id = 0;
+  TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
+  TREELITE_CHECK(TreeliteTreeBuilderSetRootNode(tree_builder, node_id));
+
+  std::queue<Node_ID_info<T, L>> cur_level_queue;
+  std::queue<Node_ID_info<T, L>> next_level_queue;
+
+  cur_level_queue.push(Node_ID_info<T, L>(root, 0));
+  node_id = -1;
+
+  while (!cur_level_queue.empty()) {
+    int cur_level_size = cur_level_queue.size();
+    node_id += cur_level_size;
+
+    for (int i = 0; i < cur_level_size; i++) {
+      Node_ID_info<T, L> q_node = cur_level_queue.front();
+      cur_level_queue.pop();
+
+      bool is_leaf_node =
+        q_node.node->left == nullptr && q_node.node->right == nullptr;
+
+      if (!is_leaf_node) {
+        // Push left child to next_level queue.
+        next_level_queue.push(
+          Node_ID_info<T, L>(q_node.node->left, node_id + 1));
+        TREELITE_CHECK(
+          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 1));
+
+        // Push right child to next_level deque.
+        next_level_queue.push(
+          Node_ID_info<T, L>(q_node.node->right, node_id + 2));
+        TREELITE_CHECK(
+          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 2));
+
+        // Set node from current level as numerical node. Children IDs known.
+        TREELITE_CHECK(TreeliteTreeBuilderSetNumericalTestNode(
+          tree_builder, q_node.unique_node_id, q_node.node->question.column,
+          "<=", q_node.node->question.value, 1, node_id + 1, node_id + 2));
+
+        node_id += 2;
+      } else {
+        if (num_output_group == 1) {
+          TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
+            tree_builder, q_node.unique_node_id, q_node.node->prediction));
+        } else {
+          std::vector<double> leaf_vector(num_output_group);
+          for (int j = 0; j < num_output_group; j++) {
+            if (q_node.node->prediction == j) {
+              leaf_vector[j] = 1;
+            } else {
+              leaf_vector[j] = 0;
+            }
+          }
+          TREELITE_CHECK(TreeliteTreeBuilderSetLeafVectorNode(
+            tree_builder, q_node.unique_node_id, leaf_vector.data(),
+            num_output_group));
+          leaf_vector.clear();
+        }
+      }
+    }
+
+    // The cur_level_queue is empty here, as all the elements are already poped out.
+    cur_level_queue.swap(next_level_queue);
+  }
 }
 
 /**
@@ -548,6 +629,18 @@ template class DecisionTreeClassifier<double>;
 template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
+template void build_treelite_tree<float, int>(
+  TreeBuilderHandle tree_builder,
+  const DecisionTree::TreeNode<float, int> *root, int num_output_group);
+template void build_treelite_tree<double, int>(
+  TreeBuilderHandle tree_builder,
+  const DecisionTree::TreeNode<double, int> *root, int num_output_group);
+template void build_treelite_tree<float, float>(
+  TreeBuilderHandle tree_builder,
+  const DecisionTree::TreeNode<float, float> *root, int num_output_group);
+template void build_treelite_tree<double, double>(
+  TreeBuilderHandle tree_builder,
+  const DecisionTree::TreeNode<double, double> *root, int num_output_group);
 }  //End namespace DecisionTree
 
 }  //End namespace ML
