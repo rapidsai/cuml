@@ -17,6 +17,7 @@
 
 #pragma once
 #include <common/Timer.h>
+#include <treelite/c_api.h>
 #include <algorithm>
 #include <climits>
 #include <common/cumlHandle.hpp>
@@ -26,6 +27,14 @@
 #include "algo_helper.h"
 #include "decisiontree.hpp"
 #include "kernels/metric_def.h"
+
+/** check for treelite runtime API errors and assert accordingly */
+#define TREELITE_CHECK(call)                                            \
+  do {                                                                  \
+    int status = call;                                                  \
+    ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, \
+           TreeliteGetLastError());                                     \
+  } while (0)
 
 namespace ML {
 
@@ -42,6 +51,11 @@ void print(const TreeNode<T, L> &node, std::ostream &os);
 template <class T, class L>
 void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
                 bool isLeft);
+
+template <class T, class L>
+void build_treelite_tree(TreeBuilderHandle tree_builder,
+                         const DecisionTree::TreeNode<T, L> *root,
+                         int num_output_group);
 
 struct DataInfo {
   unsigned int NLocalrows;
