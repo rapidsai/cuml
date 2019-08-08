@@ -50,10 +50,17 @@ SVC<math_t>::~SVC() {
 
 template <typename math_t>
 void SVC<math_t>::free_buffers() {
-  if (dual_coefs) CUDA_CHECK(cudaFree(dual_coefs));
-  if (support_idx) CUDA_CHECK(cudaFree(support_idx));
-  if (x_support) CUDA_CHECK(cudaFree(x_support));
-  if (unique_labels) CUDA_CHECK(cudaFree(unique_labels));
+  auto allocator = handle.getImpl().getDeviceAllocator();
+  cudaStream_t stream = handle.getStream();
+  if (dual_coefs)
+    allocator->deallocate(dual_coefs, n_support * sizeof(math_t), stream);
+  if (support_idx)
+    allocator->deallocate(support_idx, n_support * sizeof(int), stream);
+  if (x_support)
+    allocator->deallocate(x_support, n_support * n_cols * sizeof(math_t),
+                          stream);
+  if (unique_labels)
+    allocator->deallocate(unique_labels, n_classes * sizeof(math_t), stream);
   dual_coefs = nullptr;
   support_idx = nullptr;
   x_support = nullptr;
