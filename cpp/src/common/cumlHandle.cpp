@@ -143,6 +143,10 @@ void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
 
 cudaStream_t cumlHandle::getStream() const { return _impl->getStream(); }
 
+const cudaDeviceProp& cumlHandle::getDeviceProp() const {
+  return _impl->getDeviceProp();
+}
+
 void cumlHandle::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
   _impl->setDeviceAllocator(allocator);
@@ -189,6 +193,8 @@ int cumlHandle_impl::getDevice() const { return _dev_id; }
 void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
 
 cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
+
+const cudaDeviceProp& cumlHandle_impl::getDeviceProp() const { return prop; }
 
 void cumlHandle_impl::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -259,13 +265,9 @@ bool cumlHandle_impl::commsInitialized() const
 void cumlHandle_impl::createResources() {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-
   CUBLAS_CHECK(cublasCreate(&_cublas_handle));
-
   CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
-
   CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
-
   _streams.push_back(stream);
   for (int i = 1; i < _num_streams; ++i) {
     cudaStream_t stream;
@@ -273,6 +275,7 @@ void cumlHandle_impl::createResources() {
     _streams.push_back(stream);
   }
   CUDA_CHECK(cudaEventCreateWithFlags(&_event, cudaEventDisableTiming));
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, _dev_id));
 }
 
 void cumlHandle_impl::destroyResources() {
