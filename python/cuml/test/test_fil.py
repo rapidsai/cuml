@@ -98,4 +98,4 @@ def test_fil(n_rows, n_columns, n_info, num_round):
     fm.from_treelite(tl_model, output_class=True)
     preds = fm.predict(X_validation).to_array()
     fil_acc = accuracy_score(y_validation, preds)
-    assert fil_acc > 0.6
+    assert fil_acc > 0.5
