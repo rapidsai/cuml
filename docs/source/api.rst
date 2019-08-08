@@ -126,6 +126,13 @@ Random Projections
 
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
+    
+TSNE
+-------------
+
+.. autoclass:: cuml.TSNE
+    :members:
+
 
 Neighbors
 ==========

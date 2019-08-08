@@ -394,7 +394,6 @@ void best_split_all_cols_regressor(
 
   const int threads = 512;
   int blocks = MLCommon::ceildiv(nrows * ncols, threads);
-  if (blocks > 65536) blocks = 65536;
 
   /* Kernel allcolsampler_*_kernel:
 	   - populates tempmem->tempdata with the sampled column data,
