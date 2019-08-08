@@ -19,6 +19,25 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
+template <typename T, typename E>
+__global__ void minmax_init_kernel(T* minmax, const int len, const int n_nodes,
+                                   const T init_val) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < 2 * len) {
+    bool ifmin = (((int)(tid / n_nodes) % 2) == 0);
+    *(E*)&minmax[tid] = (ifmin) ? MLCommon::Stats::encode(init_val)
+                                : MLCommon::Stats::encode(-init_val);
+  }
+}
+
+template <typename T, typename E>
+__global__ void minmax_decode_kernel(T* minmax, const int len) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < 2 * len) {
+    minmax[tid] = MLCommon::Stats::decode(*(E*)&minmax[tid]);
+  }
+}
+
 //This kernel calculates minmax at node level
 template <typename T, typename E>
 __global__ void get_minmax_kernel(const T* __restrict__ data,
@@ -34,7 +53,6 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
   if (tid < nrows) {
     local_flag = flags[tid];
   }
-
   for (int colcnt = 0; colcnt < ncols; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
       *(E*)&shmem_minmax[i] = (i < n_nodes)
@@ -43,10 +61,10 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
     }
 
     __syncthreads();
-    int col = colids[colcnt];
-    T local_data;
+
     if (local_flag != LEAF) {
-      local_data = data[col * nrows + tid];
+      int col = colids[colcnt];
+      T local_data = data[col * nrows + tid];
 
       if (!isnan(local_data)) {
         //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -56,6 +74,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
           &shmem_minmax[local_flag + n_nodes], local_data);
       }
     }
+
     __syncthreads();
 
     // finally, perform global mem atomics
@@ -78,7 +97,7 @@ template <typename T, typename E>
 __global__ void get_minmax_kernel_global(
   const T* __restrict__ data, const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ colids, const int nrows, const int ncols,
-  const int n_nodes, T init_min_val, T* minmax) {
+  const int n_nodes, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
   if (tid < nrows) {
