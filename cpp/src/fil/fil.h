@@ -134,8 +134,8 @@ void init_dense(const cumlHandle& h, forest_t* pf,
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-forest_t from_treelite(const cumlHandle& handle, forest_t* pforest,
-                       ModelHandle model, const treelite_params_t* tl_params);
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable 
  *  @param h cuML handle used by this function

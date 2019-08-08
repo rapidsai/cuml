@@ -86,6 +86,7 @@ cdef class FIL_impl():
 
     cpdef object handle
     cdef forest_t forest_data
+    cdef forest_t* forest_pointer
     cdef object algo
     cdef object threshold
 
@@ -104,7 +105,7 @@ cdef class FIL_impl():
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-
+        # self.forest_data = <forest_t> <size_t> &self.forest_pointer
         if preds is None:
             preds = cudf.Series(zeros(n_rows, dtype=np.float32))
         cdef uintptr_t preds_ptr
@@ -123,16 +124,16 @@ cdef class FIL_impl():
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = self.threshold
-        treelite_params.algo = self.algo
-        cdef forest_t* forest_pointer =\
-            <forest_t*><size_t> model.handle.value
+        treelite_params.algo = NAIVE
+        self.forest_data =\
+            NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = model.handle.value
-        self.forest_data = from_treelite(handle_[0],
-                                         forest_pointer,
-                                         <ModelHandle> model_ptr,
-                                         &treelite_params)
+        from_treelite(handle_[0],
+                      &self.forest_data,
+                      <ModelHandle> model_ptr,
+                      &treelite_params)
         return self
 
     def __cdel__(self):
