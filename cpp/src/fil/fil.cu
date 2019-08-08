@@ -141,8 +141,8 @@ struct forest {
     ps.rows = rows;
     ps.max_shm = max_shm_;
 
-    cudaStream_t stream = h.getStream();
     // Predict using the forest.
+    cudaStream_t stream = h.getStream();
     switch (algo_) {
       case algo_t::NAIVE:
         naive(ps, stream);
@@ -299,9 +299,9 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
+
   // fill in forest-dependent params
   params->cols = model.num_feature;
-
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -344,8 +344,8 @@ void init_dense(const cumlHandle& h, forest_t* pf,
   *pf = f;
 }
 
-forest_t from_treelite(const cumlHandle& handle, forest_t* pforest,
-                       ModelHandle model, const treelite_params_t* tl_params) {
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model, const treelite_params_t* tl_params) {
   forest_params_t params;
   std::vector<dense_node_t> nodes;
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
@@ -353,7 +353,6 @@ forest_t from_treelite(const cumlHandle& handle, forest_t* pforest,
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
-  return *pforest;
 }
 
 void free(const cumlHandle& h, forest_t f) {
