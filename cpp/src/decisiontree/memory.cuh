@@ -39,11 +39,7 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
 
 template <class T, class L>
 TemporaryMemory<T, L>::~TemporaryMemory() {
-  if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-    LevelMemCleaner();
-  } else {
-    NodeMemCleaner();
-  }
+  LevelMemCleaner();
 }
 
 template <class T, class L>

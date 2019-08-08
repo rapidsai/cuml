@@ -53,7 +53,25 @@ void get_histogram_classification(
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
+
   if (split_algo == 0) {
+    get_minmax(data, flags, tempmem->d_colids->data(), nrows, ncols, n_nodes,
+               tempmem->max_nodes_minmax, tempmem->d_globalminmax->data(),
+               tempmem->h_globalminmax->data(), tempmem->stream);
+    if ((n_nodes == node_batch)) {
+      get_hist_kernel<T, MinMaxQues<T>>
+        <<<blocks, threads, shmem, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, n_unique_labels, nbins, n_nodes,
+          tempmem->d_globalminmax->data(), histout);
+    } else {
+      get_hist_kernel_global<T, MinMaxQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(), nrows,
+          ncols, n_unique_labels, nbins, n_nodes,
+          tempmem->d_globalminmax->data(), histout);
+    }
+
   } else {
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, QuantileQues<T>>
@@ -82,7 +100,11 @@ void get_best_split_classification(
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  T *quantile = tempmem->h_quantile->data();
+  T *quantile = nullptr;
+  T *minmax = nullptr;
+  if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
+  if (tempmem->h_globalminmax != nullptr)
+    minmax = tempmem->h_globalminmax->data();
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
@@ -153,10 +175,9 @@ void get_best_split_classification(
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
-      T *dummy = nullptr;
-      curr_node.quesval =
-        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], colselector, split_algo);
+      curr_node.quesval = getQuesValue(
+        minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        nodecnt, n_nodes, colselector, split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
@@ -238,10 +259,9 @@ void get_best_split_classification(
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
-      T *dummy = nullptr;
-      curr_node.quesval =
-        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], colselector, split_algo);
+      curr_node.quesval = getQuesValue(
+        minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        nodecnt, n_nodes, colselector, split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];

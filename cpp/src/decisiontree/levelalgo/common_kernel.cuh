@@ -29,15 +29,17 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
                                   T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
-  extern __shared__ T shmem_minmax[];
+  extern __shared__ char shared_mem_minmax[];
+  T* shmem_minmax = (T*)shared_mem_minmax;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
 
   for (int colcnt = 0; colcnt < ncols; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
-      *(E*)&shmem_minmax[i] =
-        (i < n_nodes) ? encode(init_min_val) : encode(-init_min_val);
+      *(E*)&shmem_minmax[i] = (i < n_nodes)
+                                ? MLCommon::Stats::encode(init_min_val)
+                                : MLCommon::Stats::encode(-init_min_val);
     }
 
     __syncthreads();
@@ -59,11 +61,13 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
     // finally, perform global mem atomics
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
       if (i < n_nodes) {
-        MLCommon::Stats::atomicMinBits<T, E>(&minmax[i + 2 * colcnt * n_nodes],
-                                             decode(*(E*)&shmem_minmax[i]));
+        MLCommon::Stats::atomicMinBits<T, E>(
+          &minmax[i + 2 * colcnt * n_nodes],
+          MLCommon::Stats::decode(*(E*)&shmem_minmax[i]));
       } else {
-        MLCommon::Stats::atomicMaxBits<T, E>(&minmax[i + 2 * colcnt * n_nodes],
-                                             decode(*(E*)&shmem_minmax[i]));
+        MLCommon::Stats::atomicMaxBits<T, E>(
+          &minmax[i + 2 * colcnt * n_nodes],
+          MLCommon::Stats::decode(*(E*)&shmem_minmax[i]));
       }
     }
     __syncthreads();
@@ -205,4 +209,3 @@ struct MinMaxQues {
 
   DI T operator()(const int binid) { return (min + (binid + 1) * delta); }
 };
-

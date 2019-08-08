@@ -16,26 +16,36 @@
 #pragma once
 #include "common_kernel.cuh"
 #include "flatnode.h"
+#include "stats/minmax.h"
 
-template <typename T, typename L>
-void get_minmax(const T *data, const int nrows, const int ncols,
-                const int n_nodes, const int max_shmem_nodes, T *minmax,
-                cudaStream_t &stream) {
+template <typename T>
+void get_minmax(const T *data, const unsigned int *flags,
+                const unsigned int *colids, const int nrows, const int ncols,
+                const int n_nodes, const int max_shmem_nodes, T *d_minmax,
+                T *h_minmax, cudaStream_t &stream) {
   using E = typename MLCommon::Stats::encode_traits<T>::E;
   T init_val = std::numeric_limits<T>::max();
   int threads = 128;
   int nblocks = MLCommon::ceildiv(ncols * n_nodes, threads);
   MLCommon::Stats::minmaxInitKernel<T, E><<<nblocks, threads, 0, stream>>>(
-    ncols * n_nodes, &minmax[0], &minmax[ncols * n_nodes], init_val);
+    ncols * n_nodes, &d_minmax[0], &d_minmax[ncols * n_nodes], init_val);
   CUDA_CHECK(cudaGetLastError());
+  nblocks = MLCommon::ceildiv(nrows, threads);
   if (max_shmem_nodes <= n_nodes) {
+    get_minmax_kernel<T, E>
+      <<<nblocks, threads, 2 * n_nodes * ncols * sizeof(T), stream>>>(
+        data, flags, colids, nrows, ncols, n_nodes, init_val, d_minmax);
   } else {
+    get_minmax_kernel_global<T, E><<<nblocks, threads, 0, stream>>>(
+      data, flags, colids, nrows, ncols, n_nodes, init_val, d_minmax);
   }
   CUDA_CHECK(cudaGetLastError());
   MLCommon::Stats::decodeKernel<T, E><<<nblocks, threads, 0, stream>>>(
-    &minmax[0], &minmax[ncols * n_nodes], ncols * n_nodes);
+    &d_minmax[0], &d_minmax[ncols * n_nodes], ncols * n_nodes);
 
   CUDA_CHECK(cudaGetLastError());
+
+  MLCommon::updateHost(h_minmax, d_minmax, 2 * n_nodes * ncols, stream);
 }
 // This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
@@ -63,6 +73,11 @@ void make_level_split(const T *data, const int nrows, const int ncols,
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   if (split_algo == 0) {
+    split_level_kernel<T, MinMaxQues<T>>
+      <<<blocks, threads, 0, tempmem->stream>>>(
+        data, tempmem->d_globalminmax->data(), tempmem->d_colids->data(),
+        split_colidx, split_binidx, nrows, ncols, nbins, n_nodes,
+        new_node_flags, flags);
   } else {
     split_level_kernel<T, QuantileQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
@@ -102,13 +117,14 @@ int get_class_hist(std::vector<int> &node_hist) {
 
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
-               const int colid, const int binid,
-               const std::vector<unsigned int> &colselector,
+               const int colid, const int binid, const int nodeid,
+               const int n_nodes, const std::vector<unsigned int> &colselector,
                const int split_algo) {
   if (split_algo == 0) {
-    return 0;
+    T min = minmax[nodeid + colid * n_nodes * 2];
+    T delta = (minmax[nodeid + n_nodes + colid * n_nodes * 2] - min) / nbins;
+    return (min + delta * (binid + 1));
   } else {
     return quantile[colselector[colid] * nbins + binid];
   }
 }
-
