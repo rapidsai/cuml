@@ -15,9 +15,36 @@
  */
 
 #pragma once
-#include "col_condenser.cuh"
 #include "cub/cub.cuh"
 #include "quantile.h"
+
+template <typename T>
+__global__ void allcolsampler_kernel(const T *__restrict__ data,
+                                     const unsigned int *__restrict__ rowids,
+                                     const unsigned int *__restrict__ colids,
+                                     const int nrows, const int ncols,
+                                     const int rowoffset, T *sampledcols) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  for (unsigned int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
+    int newcolid = (int)(i / nrows);
+    int myrowstart;
+    if (colids != nullptr) {
+      myrowstart = colids[newcolid] * rowoffset;
+    } else {
+      myrowstart = newcolid * rowoffset;
+    }
+
+    int index;
+    if (rowids != nullptr) {
+      index = rowids[i % nrows] + myrowstart;
+    } else {
+      index = i % nrows + myrowstart;
+    }
+    sampledcols[i] = data[index];
+  }
+  return;
+}
 
 __global__ void set_sorting_offset(const int nrows, const int ncols,
                                    int *offsets) {

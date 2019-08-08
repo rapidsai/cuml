@@ -17,15 +17,11 @@
 #include <utils.h>
 #include <type_traits>
 #include "decisiontree_impl.h"
-#include "kernels/col_condenser.cuh"
-#include "kernels/evaluate_classifier.cuh"
-#include "kernels/evaluate_regressor.cuh"
-#include "kernels/metric.cuh"
-#include "kernels/quantile.cuh"
-#include "kernels/split_labels.cuh"
 #include "levelalgo/levelfunc_classifier.cuh"
 #include "levelalgo/levelfunc_regressor.cuh"
+#include "levelalgo/metric.cuh"
 #include "memory.cuh"
+#include "quantile/quantile.cuh"
 
 namespace ML {
 
@@ -113,18 +109,6 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::print(const TreeNode<T, L> *root) const {
   DecisionTreeBase<T, L>::print_tree_summary();
   print_node<T, L>("", root, false);
-}
-
-template <typename T, typename L>
-void DecisionTreeBase<T, L>::split_branch(const T *data,
-                                          MetricQuestion<T> &ques,
-                                          const int n_sampled_rows,
-                                          int &nrowsleft, int &nrowsright,
-                                          unsigned int *rowids) {
-  T *temp_data = tempmem->temp_data->data();
-  T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
-  make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids,
-             split_algo, tempmem);
 }
 
 template <typename T, typename L>

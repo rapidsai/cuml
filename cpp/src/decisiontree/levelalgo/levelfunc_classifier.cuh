@@ -17,11 +17,11 @@
 #include <iostream>
 #include <numeric>
 #include "../decisiontree.hpp"
-#include "../kernels/metric.cuh"
-#include "../kernels/metric_def.h"
 #include "common_helper.cuh"
 #include "flatnode.h"
 #include "levelhelper_classifier.cuh"
+#include "metric.cuh"
+
 /*
 This is the driver function for building classification tree 
 level by level using a simple for loop.

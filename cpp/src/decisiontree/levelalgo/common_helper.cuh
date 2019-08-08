@@ -92,6 +92,14 @@ ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
   return node;
 }
 
+/* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
+   computation. */
+int get_class_hist(std::vector<int> &node_hist) {
+  int classval =
+    std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
+  return classval;
+}
+
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
                const int colid, const int binid,

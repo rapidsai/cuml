@@ -25,7 +25,7 @@
 #include <vector>
 #include "algo_helper.h"
 #include "decisiontree.hpp"
-#include "kernels/metric_def.h"
+#include "levelalgo/metric_def.h"
 
 namespace ML {
 
@@ -73,10 +73,6 @@ class DecisionTreeBase {
   std::vector<unsigned int> feature_selector;
   MLCommon::TimerCPU prepare_fit_timer;
 
-  void split_branch(const T *data, MetricQuestion<T> &ques,
-                    const int n_sampled_rows, int &nrowsleft, int &nrowsright,
-                    unsigned int *rowids);
-
   void plant(const cumlHandle_impl &handle, TreeNode<T, L> *&root,
              const T *data, const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
@@ -87,9 +83,6 @@ class DecisionTreeBase {
              CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
              bool cfg_quantile_per_tree = false,
              std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
-  void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
-                       const unsigned int *rowids, const int n_sampled_rows,
-                       const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
 
   virtual TreeNode<T, L> *grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
