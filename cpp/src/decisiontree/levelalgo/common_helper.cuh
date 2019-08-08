@@ -25,23 +25,27 @@ void get_minmax(const T *data, const unsigned int *flags,
                 T *h_minmax, cudaStream_t &stream) {
   using E = typename MLCommon::Stats::encode_traits<T>::E;
   T init_val = std::numeric_limits<T>::max();
+  init_val = 100;
   int threads = 128;
-  int nblocks = MLCommon::ceildiv(ncols * n_nodes, threads);
-  MLCommon::Stats::minmaxInitKernel<T, E><<<nblocks, threads, 0, stream>>>(
-    ncols * n_nodes, &d_minmax[0], &d_minmax[ncols * n_nodes], init_val);
+  int nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
+  minmax_init_kernel<T, E><<<nblocks, threads, 0, stream>>>(
+    d_minmax, ncols * n_nodes, n_nodes, init_val);
   CUDA_CHECK(cudaGetLastError());
+
   nblocks = MLCommon::ceildiv(nrows, threads);
-  if (max_shmem_nodes <= n_nodes) {
+  if (n_nodes <= max_shmem_nodes) {
     get_minmax_kernel<T, E>
-      <<<nblocks, threads, 2 * n_nodes * ncols * sizeof(T), stream>>>(
+      <<<nblocks, threads, 2 * n_nodes * sizeof(T), stream>>>(
         data, flags, colids, nrows, ncols, n_nodes, init_val, d_minmax);
   } else {
     get_minmax_kernel_global<T, E><<<nblocks, threads, 0, stream>>>(
-      data, flags, colids, nrows, ncols, n_nodes, init_val, d_minmax);
+      data, flags, colids, nrows, 1, n_nodes, d_minmax);
   }
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::Stats::decodeKernel<T, E><<<nblocks, threads, 0, stream>>>(
-    &d_minmax[0], &d_minmax[ncols * n_nodes], ncols * n_nodes);
+
+  nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
+  minmax_decode_kernel<T, E>
+    <<<nblocks, threads, 0, stream>>>(d_minmax, ncols * n_nodes);
 
   CUDA_CHECK(cudaGetLastError());
 

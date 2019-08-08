@@ -105,11 +105,11 @@ void get_best_split_classification(
   if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
   if (tempmem->h_globalminmax != nullptr)
     minmax = tempmem->h_globalminmax->data();
+  if (split_algo == 0) CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
   if (n_nodes > 512) use_gpu_flag = true;
-
   memset(gain, 0, n_nodes * sizeof(float));
   int sparsetree_sz = sparsetree.size();
   if (use_gpu_flag) {
