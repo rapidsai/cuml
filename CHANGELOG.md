@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #894: Convert RF to treelite format
 - PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
@@ -17,10 +18,13 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
 - PR #892: General Gram matrices prim
 - PR #883: Adding MNMG Kmeans
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #853: LRU cache ml-prim
 
 ## Improvements
@@ -30,10 +34,13 @@
 - PR #832: Stateless Decision Tree and Random Forest API
 - PR #857: Small modifications to comms for utilizing IB w/ Dask
 - PR #851: Random forest Stateless API wrappers
+- PR #865: High Performance RF
 - PR #895: Pretty prints arguments!
 - PR #920: Add an empty marker kernel for tracing purposes
 - PR #915: syncStream added to cumlCommunicator
+- PR #922: Random Forest support in FIL
 - PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
 
 ## Bug Fixes
 
@@ -44,6 +51,7 @@
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
 
 
 # cuML 0.8.0 (27 June 2019)
