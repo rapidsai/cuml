@@ -40,8 +40,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 /**
  * Solve the quadratic optimization problem using two level decomposition and
  * Sequential Minimal Optimization (SMO).
@@ -72,7 +70,8 @@ class SmoSolver {
  public:
   bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, math_t C, math_t tol,
-            GramMatrix::GramMatrixBase<math_t> *kernel, float cache_size = 200)
+            MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel,
+            float cache_size = 200)
     : handle(handle),
       n_rows(n_rows),
       C(C),
@@ -209,22 +208,22 @@ class SmoSolver {
   int n_ws = 0;    //!< size of the working set
 
   // Buffers for the domain [n_rows]
-  device_buffer<math_t> alpha;  //!< dual coordinates
-  device_buffer<math_t> f;      //!< optimality indicator vector
+  MLCommon::device_buffer<math_t> alpha;  //!< dual coordinates
+  MLCommon::device_buffer<math_t> f;      //!< optimality indicator vector
 
   // Buffers for the working set [n_ws]
   //! change in alpha parameter during a blocksolve step
-  device_buffer<math_t> delta_alpha;
+  MLCommon::device_buffer<math_t> delta_alpha;
 
   // Buffers to return some parameters from the kernel (iteration number, and
   // convergence information)
-  device_buffer<math_t> return_buff;
+  MLCommon::device_buffer<math_t> return_buff;
   math_t host_return_buff[2];
 
   math_t C;
   math_t tol;  //!< tolerance for stopping condition
 
-  GramMatrix::GramMatrixBase<math_t> *kernel;
+  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
   // Variables to track convergence of training
