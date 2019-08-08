@@ -195,8 +195,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       for (int j = 0; j < ps.num_trees; ++j) {
         pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.cols]);
       }
-      if (ps.output != fil::output_t::RAW) pred = sigmoid(pred);
-      if (ps.output == fil::output_t::CLASS) {
+      if ((ps.output & fil::output_t::AVG) != 0) pred = pred / ps.num_trees;
+      if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
+      if ((ps.output & fil::output_t::THRESHOLD) != 0) {
         pred = pred > ps.threshold ? 1.0f : 0.0f;
       }
       want_preds_h[i] = pred;
@@ -329,19 +330,13 @@ class TreeliteFilTest : public BaseFilTest {
   }
 
   void init_forest(fil::forest_t* pforest) override {
+    bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     std::unique_ptr<tlf::ModelBuilder> model_builder(
-      new tlf::ModelBuilder(ps.cols, 1, false));
+      new tlf::ModelBuilder(ps.cols, 1, random_forest_flag));
 
     // model metadata
-    switch (ps.output) {
-      case fil::output_t::RAW:
-        break;
-      case fil::output_t::PROB:
-      case fil::output_t::CLASS:
-        model_builder->SetModelParam("pred_transform", "sigmoid");
-        break;
-      default:
-        ASSERT(false, "invalid output type");
+    if ((ps.output & fil::output_t::SIGMOID) != 0) {
+      model_builder->SetModelParam("pred_transform", "sigmoid");
     }
 
     // build the trees
@@ -363,7 +358,7 @@ class TreeliteFilTest : public BaseFilTest {
     fil::treelite_params_t params;
     params.algo = ps.algo;
     params.threshold = ps.threshold;
-    params.output_class = ps.output == fil::output_t::CLASS;
+    params.output_class = (ps.output & fil::output_t::THRESHOLD) != 0;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -378,17 +373,35 @@ std::vector<FilTestParams> predict_inputs = {
    42, 2e-3f},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0, fil::algo_t::NAIVE, 42,
-   2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, fil::algo_t::NAIVE,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, fil::algo_t::NAIVE,
    42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
    fil::algo_t::TREE_REORG, 42, 2e-3f},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, fil::algo_t::NAIVE, 42,
+   2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, fil::algo_t::TREE_REORG,
+   42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f},
 };
 
@@ -400,36 +413,60 @@ INSTANTIATE_TEST_CASE_P(FilTests, PredictFilTest,
 std::vector<FilTestParams> import_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::NAIVE, 42,
    2e-3f, tl::Operator::kLT},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0, fil::algo_t::NAIVE, 42,
-   2e-3f, tl::Operator::kLE},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, fil::algo_t::NAIVE, 42,
+   2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, fil::algo_t::TREE_REORG,
-   42, 2e-3f, tl::Operator::kGE},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+   42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, fil::algo_t::TREE_REORG,
+   42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
    fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::PROB, 0,
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::CLASS, 0,
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0,
    fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
 };
 
 TEST_P(TreeliteFilTest, Import) { compare(); }
