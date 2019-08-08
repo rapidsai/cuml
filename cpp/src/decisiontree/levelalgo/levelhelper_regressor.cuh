@@ -171,9 +171,9 @@ void get_best_split_regression(
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
       T *dummy = nullptr;
-      curr_node.quesval =
-        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], colselector, split_algo);
+      curr_node.quesval = getQuesValue(
+        dummy, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        nodecnt, n_nodes, colselector, split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       sparse_meanstate[curr_node.left_child_id] = h_childmean[nodecnt * 2];
@@ -257,9 +257,9 @@ void get_best_split_regression(
       SparseTreeNode<T, T> &curr_node = sparsetree[sparsesize + sparse_nodeid];
       curr_node.colid = colselector[split_colidx[nodecnt]];
       T *dummy = nullptr;
-      curr_node.quesval =
-        getQuesValue(dummy, quantile, nbins, split_colidx[nodecnt],
-                     split_binidx[nodecnt], colselector, split_algo);
+      curr_node.quesval = getQuesValue(
+        dummy, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
+        nodecnt, n_nodes, colselector, split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       sparse_meanstate[curr_node.left_child_id] = bestmean_left;
       sparse_meanstate[curr_node.left_child_id + 1] = bestmean_right;
