@@ -47,3 +47,12 @@ def has_treelite():
         return True
     except ImportError:
         return False
+
+
+def has_xgboost():
+    try:
+        import xgboost  # NOQA
+        return True
+    except ImportError:
+        return False
+
