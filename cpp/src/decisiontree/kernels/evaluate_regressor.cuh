@@ -405,7 +405,7 @@ void best_split_all_cols_regressor(
     MLCommon::Stats::minmax<T, threads>(
       data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0],
       &d_globalminmax[colselector.size()], tempmem->temp_data->data(),
-      tempmem->stream);
+      tempmem->ml_handle.getDeviceProp().sharedMemPerBlock, tempmem->stream);
   } else if (split_algo ==
              ML::SPLIT_ALGO::
                GLOBAL_QUANTILE) {  // Global quantiles; just col condenser
