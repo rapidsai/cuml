@@ -55,4 +55,3 @@ def has_xgboost():
         return True
     except ImportError:
         return False
-
