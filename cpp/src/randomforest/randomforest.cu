@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#define omp_get_max_threads() 1
+#endif
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
@@ -141,13 +145,21 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_n_trees: number of trees; default 1
  * @param[in] cfg_bootstrap: bootstrapping; default true
  * @param[in] cfg_rows_sample: rows sample; default 1.0f
+ * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_rows_sample) {
+                   float cfg_rows_sample, int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.rows_sample = cfg_rows_sample;
+  params.n_streams = min(cfg_n_streams, omp_get_max_threads());
+  if (params.n_streams == cfg_n_streams) {
+    std::cout << "Warning! Max setting Max streams to max openmp threads "
+              << omp_get_max_threads() << std::endl;
+  }
+  if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
+  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
@@ -156,15 +168,20 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in] cfg_n_trees: number of trees
  * @param[in] cfg_bootstrap: bootstrapping
  * @param[in] cfg_rows_sample: rows sample
+ * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample,
+                       float cfg_rows_sample, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.rows_sample = cfg_rows_sample;
+  params.n_streams = min(cfg_n_streams, omp_get_max_threads());
+  if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
+  set_tree_params(params.tree_params);  // use input tree params
   params.tree_params = cfg_tree_params;
+  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
@@ -187,6 +204,7 @@ void print(const RF_params rf_params) {
   std::cout << "n_trees: " << rf_params.n_trees << std::endl;
   std::cout << "bootstrap: " << rf_params.bootstrap << std::endl;
   std::cout << "rows_sample: " << rf_params.rows_sample << std::endl;
+  std::cout << "n_streams: " << rf_params.n_streams << std::endl;
   DecisionTree::print(rf_params.tree_params);
 }
 
@@ -243,6 +261,45 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
       DecisionTree::print_tree<T, L>(&(forest->trees[i]));
     }
   }
+}
+
+template <class T, class L>
+void build_treelite_forest(ModelHandle* model,
+                           const RandomForestMetaData<T, L>* forest,
+                           int num_features, int task_category) {
+  // Non-zero value here for random forest models.
+  // The value should be set to 0 if the model is gradient boosted trees.
+  int random_forest_flag = 1;
+
+  ModelBuilderHandle model_builder;
+  // num_output_group is 1 for binary classification and regression
+  // num_output_group is #class for multiclass classification which is the same as task_category
+  int num_output_group = task_category > 2 ? task_category : 1;
+  TREELITE_CHECK(TreeliteCreateModelBuilder(
+    num_features, num_output_group, random_forest_flag, &model_builder));
+
+  if (task_category > 2) {
+    // Multi-class classification
+    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
+      model_builder, "pred_transform", "max_index"));
+  }
+
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
+    TreeBuilderHandle tree_builder;
+    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
+    if (tree_ptr->root != nullptr) {
+      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr->root,
+                                              num_output_group);
+
+      // The third argument -1 means append to the end of the tree list.
+      TREELITE_CHECK(
+        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+    }
+  }
+
+  TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
+  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
 }
 
 /**
@@ -333,6 +390,41 @@ void predict(const cumlHandle& user_handle,
 /** @} */
 
 /**
+ * @defgroup Random Forest Classification - Predict function
+ * @brief Predict target feature for input data; n-ary classification for
+     single feature supported.
+ * @param[in] user_handle: cumlHandle.
+ * @param[in] forest: CPU pointer to RandomForestMetaData object.
+ *   The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ * @{
+ */
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierF* forest, const float* input,
+                   int n_rows, int n_cols, int* predictions, bool verbose) {
+  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  std::shared_ptr<rfClassifier<float>> rf_classifier =
+    std::make_shared<rfClassifier<float>>(forest->rf_params);
+  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
+                               forest, verbose);
+}
+
+void predictGetAll(const cumlHandle& user_handle,
+                   const RandomForestClassifierD* forest, const double* input,
+                   int n_rows, int n_cols, int* predictions, bool verbose) {
+  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  std::shared_ptr<rfClassifier<double>> rf_classifier =
+    std::make_shared<rfClassifier<double>>(forest->rf_params);
+  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
+                               forest, verbose);
+}
+/** @} */
+
+/**
  * @defgroup Random Forest Classification - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
@@ -378,13 +470,14 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, CRITERION split_criterion,
-                           bool quantile_per_tree) {
+                           bool quantile_per_tree, int cfg_n_streams) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
     min_rows_per_node, bootstrap_features, split_criterion, quantile_per_tree);
   RF_params rf_params;
-  set_all_rf_params(rf_params, n_trees, bootstrap, rows_sample, tree_params);
+  set_all_rf_params(rf_params, n_trees, bootstrap, rows_sample, cfg_n_streams,
+                    tree_params);
   return rf_params;
 }
 
@@ -536,4 +629,16 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
+template void build_treelite_forest<float, int>(
+  ModelHandle* model, const RandomForestMetaData<float, int>* forest,
+  int num_features, int task_category);
+template void build_treelite_forest<double, int>(
+  ModelHandle* model, const RandomForestMetaData<double, int>* forest,
+  int num_features, int task_category);
+template void build_treelite_forest<float, float>(
+  ModelHandle* model, const RandomForestMetaData<float, float>* forest,
+  int num_features, int task_category);
+template void build_treelite_forest<double, double>(
+  ModelHandle* model, const RandomForestMetaData<double, double>* forest,
+  int num_features, int task_category);
 }  // End namespace ML

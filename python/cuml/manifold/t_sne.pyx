@@ -163,6 +163,15 @@ class TSNE(Base):
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
+
+    Reference Implementation
+    -------------------------
+    The CUDA implementation is derived from the excellent CannyLabs open source
+    implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
+    code is licensed according to the conditions in cuml/cpp/src/tsne/
+    cannylabs_tsne_license.txt. A full description of their approach is
+    available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and its
+    Applications to Modern Data (https://arxiv.org/abs/1807.11824).
     """
     def __init__(self,
                  int n_components=2,
@@ -188,12 +197,6 @@ class TSNE(Base):
                  handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -288,7 +291,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self.Y = None
+        self._assure_clean_memory()
         return
 
     def fit(self, X):
@@ -395,12 +398,7 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
+        self._assure_clean_memory()
         self.Y = Y
         return self
 
@@ -408,12 +406,7 @@ class TSNE(Base):
         if "Y" in self.__dict__:
             del self.Y
             self.Y = None
-        # TSNE is sensitive to what is currently in memory.
-        # Use Numba's garbabge collector to clean up already removed
-        # GPU memory.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
+        self._assure_clean_memory()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -432,33 +425,48 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
+                self._assure_clean_memory()
                 return self.Y
             else:
-                return cudf.DataFrame.from_gpu_matrix(self.Y)
+                data = cudf.DataFrame.from_gpu_matrix(self.Y)
+                self._assure_clean_memory()
+                return data
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
             del self.Y
-            # TSNE is sensitive to what is currently in memory.
-            # Use Numba's garbabge collector to clean up already removed
-            # GPU memory.
-            context = cuda.current_context().deallocations
-            if context is not None:
-                context.clear()
+            self._assure_clean_memory()
             return data
         return None  # is this even possible?
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if state["Y"] is not None:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(self.Y)
+        if "Y" in state:
+            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
 
         if "handle" in state:
             del state["handle"]
+        self._assure_clean_memory()
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
+        self._assure_clean_memory()
         return state
+
+    def _assure_clean_memory(self):
+        """
+        TSNE is sensitive to what is currently in memory.
+        Use Numba's garbabge collector to clean up already removed
+        GPU memory.
+        """
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()
+        # Run again to be 100% sure all memory is freed.
+        # This is very very conservative.
+        context = cuda.current_context().deallocations
+        if context is not None:
+            context.clear()

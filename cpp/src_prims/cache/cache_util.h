@@ -16,23 +16,23 @@
 
 #pragma once
 
-#include "ml_utils.h"
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuML.hpp"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
+#include "ml_utils.h"
 #include "selection/kselection.h"
 
 namespace MLCommon {
 namespace Cache {
 
-
 /**
- * @brief Collect data from the cache into columns of contiguous memory buffer.
- * Assuming column major memory layout for the output buffer.
+ * @brief Collect vectors of data from the cache into a contiguous memory buffer.
+ *
+ * We assume contiguous memory layout for the output buffer, i.e. we get
+ * column vectors into a column major out buffer, or row vectors into a row
+ * major output buffer.
  *
  * On exit, the output array is filled the following way:
  * out[i + n_vec*k] = cache[i + n_vec * cache_idx[k]]), where i=0..n_vec-1, and
@@ -40,19 +40,17 @@ namespace Cache {
  *
  * @param [in] cache stores the cached data, size [n_vec x n_cached_vectors]
  * @param [in] n_vec number of elements in a cached vector
- * @param [in] cache_idx cache column indices, size [n]
+ * @param [in] cache_idx cache indices, size [n]
  * @param [in] n the number of elements that need to be collected
- * @param [out] out vectors collected from the cache in column major format,
- *   size [n_vec, n]
+ * @param [out] out vectors collected from the cache, size [n_vec * n]
  */
 template <typename math_t>
-__global__ void get_cols(const math_t *cache, int n_vec,
-                              const int *cache_idx, int n, math_t *out)
-{
+__global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
+                         int n, math_t *out) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec; // row idx
+  int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int out_col = tid / n_vec; // col idx
+    int out_col = tid / n_vec;  // col idx
     int cache_col = cache_idx[out_col];
     if (row + out_col * n_vec < n_vec * n) {
       out[tid] = cache[row + cache_col * n_vec];
@@ -61,20 +59,23 @@ __global__ void get_cols(const math_t *cache, int n_vec,
 }
 
 /**
- * Store columns of data into the cache. Assume column major data storage.
- * (But could be used to store rows of row major data.)
+ * @brief Store vectors of data into the cache.
  *
- * If tile_idx==nullptr then the operation is the opposite of get_cols, ie
- * we store
+ * Elements within a vector should be contiguous in memory (i.e. column vectors
+ * for column major data storage, or row vectors of row major data).
+ *
+ * If tile_idx==nullptr then the operation is the opposite of get_vecs,
+ * i.e. we store
  * cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for i=0..n_vec-1, k=0..n-1
  *
  * If tile_idx != nullptr, then  we permute the vectors from tile according
- * to tile_idx:
+ * to tile_idx. This allows to store vectors from a buffer where the individual
+ * vectors are not stored contiguously (but the elements of each vector shall
+ * be contiguous):
  * cache[i + cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec],
  * for i=0..n_vec-1, k=0..n-1
  *
- * @param [in] tile stores the data to be cashed cached in column major format
- *   size [n_vec x n_tile]
+ * @param [in] tile stores the data to be cashed cached, size [n_vec x n_tile]
  * @param [in] n_tile number of vectors in the input tile
  * @param [in] n_vec number of elements in a cached vector
  * @param [in] tile_idx indices of vectors that we want to store
@@ -84,34 +85,33 @@ __global__ void get_cols(const math_t *cache, int n_vec,
  * @param [in] n_cache_vecs
  */
 template <typename math_t>
-__global__ void store_cols(const math_t *tile, int n_tile, int n_vec,
-  const int *tile_idx, int n, const int *cache_idx, math_t *cache,
-  int n_cache_vecs)
-{
+__global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
+                           const int *tile_idx, int n, const int *cache_idx,
+                           math_t *cache, int n_cache_vecs) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec; // row idx
+  int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int tile_col = tid / n_vec; // col idx
+    int tile_col = tid / n_vec;  // col idx
     int data_col = tile_idx ? tile_idx[tile_col] : tile_col;
     int cache_col = cache_idx[tile_col];
 
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
-    if(cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
+    if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
       cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
     }
   }
 }
 
 /**
- * Map and index to a cache set.
+ * Map a key to a cache set.
  */
-int DI hash(int idx, int n_cache_sets, int associativity) {
-  return idx % n_cache_sets;
+int DI hash(int key, int n_cache_sets, int associativity) {
+  return key % n_cache_sets;
 }
 
 /**
- * Binary search to find the first element in the array which is greater
+ * @brief Binary search to find the first element in the array which is greater
  * equal than a given value.
  * @param [in] array sorted array of n numbers
  * @param [in] n length of the array
@@ -120,28 +120,28 @@ int DI hash(int idx, int n_cache_sets, int associativity) {
  * array[idx] >= value. If there is no such value, then return n.
  */
 int DI arg_first_ge(const int *array, int n, int val) {
-    int start = 0;
-    int end = n-1;
-    if (array[0] == val) return 0;
-    if (array[end] < val) return n;
-    while (start+1 < end) {
-      int q = (start + end + 1)/2;
-      //invariants:
-      // start < end
-      // start < q <=end
-      // array[start] < val && array[end] <=val
-      // at every iteration d = end-start is decreasing
-      // when d==0, then array[end] will be the first element >= val.
-      if (array[q] >= val) {
-        end = q;
-      } else {
-        start = q;
-      }
+  int start = 0;
+  int end = n - 1;
+  if (array[0] == val) return 0;
+  if (array[end] < val) return n;
+  while (start + 1 < end) {
+    int q = (start + end + 1) / 2;
+    //invariants:
+    // start < end
+    // start < q <=end
+    // array[start] < val && array[end] <=val
+    // at every iteration d = end-start is decreasing
+    // when d==0, then array[end] will be the first element >= val.
+    if (array[q] >= val) {
+      end = q;
+    } else {
+      start = q;
     }
-    return end;
+  }
+  return end;
 }
 /**
- * Find the k-th occurrence of value in a sorted array.
+ * @brief Find the k-th occurrence of value in a sorted array.
  *
  * Assume that array is [0, 1, 1, 1, 2, 2, 4, 4, 4, 4, 6, 7]
  * then find_nth_occurrence(cset, 12, 4, 2) == 7, because cset_array[7] stores
@@ -156,20 +156,18 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * the value is not found.
  */
 int DI find_nth_occurrence(const int *array, int n, int val, int k) {
-   int q = arg_first_ge(array, n, val);
-   //printf("fno n v k q %d %d %d %d\n", n, val, k, q);
-   if (q+k<n && array[q+k]==val) {
-       q += k;
-   } else {
-       q = -1;
-   }
-   //printf("fno2 n v k q %d %d %d %d\n", n, val, k, q);
-   return q;
+  int q = arg_first_ge(array, n, val);
+  if (q + k < n && array[q + k] == val) {
+    q += k;
+  } else {
+    q = -1;
+  }
+  return q;
 }
 
 /**
- * Rank the entries in a cache set according the time stamp, return the indices
- * that would sort the time stamp in ascending order.
+ * @brief Rank the entries in a cache set according the time stamp, return the
+ * indices that would sort the time stamp in ascending order.
  *
  * Assume we have a single cache set with time stamps as:
  * key (threadIdx.x):   0   1   2   3
@@ -195,11 +193,11 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * @param [out] rank within the cache set size [nthreads * items_per_thread]
  *   Each block should give a different pointer for rank.
  */
-template<int nthreads, int associativity>
+template <int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
-
   const int items_per_thread = ceildiv(associativity, nthreads);
-  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int> BlockRadixSort;
+  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int>
+    BlockRadixSort;
   __shared__ typename BlockRadixSort::TempStorage temp_storage;
 
   int key[items_per_thread];
@@ -207,7 +205,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 
   int block_offset = blockIdx.x * associativity;
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     int k = threadIdx.x + j * nthreads;
     int t = (k < associativity) ? cache_time[block_offset + k] : 32768;
     key[j] = t;
@@ -216,7 +214,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 
   BlockRadixSort(temp_storage).Sort(key, val);
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     if (val[j] < associativity) {
       rank[val[j]] = threadIdx.x * items_per_thread + j;
     }
@@ -224,38 +222,37 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
   __syncthreads();
 }
 
-
 /**
- * Assign cache location to a set of indices using LRU replacement policy.
+ * @brief Assign cache location to a set of keys using LRU replacement policy.
  *
- * The in_idx and the corresponding cache_set arrays shall be sorted according
+ * The keys and the corresponding cache_set arrays shall be sorted according
  * to cache_set in ascending order. One block should be launched for every cache
  * set.
  *
- * Each cache set is sorted according to time_stamp, and values from in_idx
+ * Each cache set is sorted according to time_stamp, and values from keys
  * are filled in starting at the oldest time stamp. Enties that were accessed
  * at the current time are not reassigned.
  *
  * @tparam nthreads number of threads per block
- * @tparam assaciativity number of indices in a cache set
+ * @tparam assaciativity number of keys in a cache set
  *
- * @param [in] in_idx indices that we want to cache size [n]
- * @param [in] n number of indices
- * @param [in] cache_set assigned to in_idx size [n]
- * @param [inout] cache_idx indices of already cached vectors,
+ * @param [in] keys that we want to cache size [n]
+ * @param [in] n number of keys
+ * @param [in] cache_set assigned to keys, size [n]
+ * @param [inout] cached_keys keys of already cached vectors,
  *   size [n_cache_sets*associativity], on exit it will be updated with the
- *   cached elements from in_idx.
+ *   cached elements from keys.
  * @param [in] n_cache_sets number of cache sets
  * @param [inout] cache_time will be updated to "time" for those elements that
  *   could be assigned to a cache location, size [n_cache_sets*associativity]
  * @param [in] time time stamp
- * @param [out] out_idx the cache idx assigned to the input, or -1 if it could
+ * @param [out] cache_idx the cache idx assigned to the input, or -1 if it could
  *   not be cached, size [n]
  */
-template<int nthreads, int associativity>
-__global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
-   int *cache_idx, int n_cache_sets, int *cache_time, int time, int *out_idx) {
-
+template <int nthreads, int associativity>
+__global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
+                                 int *cached_keys, int n_cache_sets,
+                                 int *cache_time, int time, int *cache_idx) {
   int block_offset = blockIdx.x * associativity;
 
   const int items_per_thread = ceildiv(associativity, nthreads);
@@ -264,16 +261,16 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
   __shared__ int rank[items_per_thread * nthreads];
   rank_set_entries<nthreads, associativity>(cache_time, n_cache_sets, rank);
 
-   // Each thread will fill items_per_thread items in the cache.
-   // It uses a place, only if it was not udated at the current time step
-   // (cache_time != time).
-   // We rank the places acconding to the time stamp, least recently used
-   // elements come to the front.
-   // We fill the least recently used elements with the working set.
-   // there might be elements which cannot be assigned to cache loc.
-   // these elements are assigned -1.
+  // Each thread will fill items_per_thread items in the cache.
+  // It uses a place, only if it was not udated at the current time step
+  // (cache_time != time).
+  // We rank the places acconding to the time stamp, least recently used
+  // elements come to the front.
+  // We fill the least recently used elements with the working set.
+  // there might be elements which cannot be assigned to cache loc.
+  // these elements are assigned -1.
 
-  for (int j=0; j<items_per_thread; j++) {
+  for (int j = 0; j < items_per_thread; j++) {
     int i = threadIdx.x + j * nthreads;
     int t_idx = block_offset + i;
     bool mask = (i < associativity);
@@ -281,70 +278,72 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
     mask = mask && (cache_time[t_idx] != time);
 
     // rank[i] tells which element to store by this thread
-    // we look up where is the idx stored in the input array
+    // we look up where is the corresponding key stored in the input array
     if (mask) {
       int k = find_nth_occurrence(cache_set, n, blockIdx.x, rank[i]);
-      mask = mask && k>-1;
-      if ( k > -1) {
-        int idx_val = in_idx[k];
-        cache_idx[t_idx] = idx_val;
-        out_idx[k] = t_idx;
+      if (k > -1) {
+        int key_val = keys[k];
+        cached_keys[t_idx] = key_val;
+        cache_idx[k] = t_idx;
         cache_time[t_idx] = time;
       }
     }
   }
 }
 
+/* Unnamed namespace is used to avoid multiple definition error for the
+  following non-template function */
+namespace {
 /**
- * @brief Get the cache indices for vectors stored in the cache.
+ * @brief Get the cache indices for keys stored in the cache.
  *
- * For every index in idx, we look up the corresponding cache position.
- * If idx[k] is stored in the cache, then is_cached[k] is set to true, and
- * out_cache_idx[k] stores the corresponding cache idx.
+ * For every key, we look up the corresponding cache position.
+ * If keys[k] is stored in the cache, then is_cached[k] is set to true, and
+ * cache_idx[k] stores the corresponding cache idx.
  *
- * If idx[k] is not stored in the cache, then we assign a cache set to it.
- * This idx is returned in out_cache_idx[k], and is_cached[k] is set to false.
+ * If keys[k] is not stored in the cache, then we assign a cache set to it.
+ * This  cache set is stored in cache_idx[k], and is_cached[k] is set to false.
  * In this case AssignCacheIdx should be called, to get an assigned position
  * within the cache set.
  *
  * Cache_time is assigned to the time input argument for all elements in idx.
  *
- * @param [in] idx array of vector indices that we want to look up in the cache, size [n]
- * @param [n] number of indices to look up
- * @param [inout] vec_idx indices stored in the cache, size [n_cache_sets x associativity]
+ * @param [in] keys array of keys that we want to look up in the cache, size [n]
+ * @param [in] n number of keys to look up
+ * @param [inout] cached_keys keys stored in the cache, size [n_cache_sets * associativity]
  * @param [in] n_cache_sets number of cache sets
- * @param [in] associativity number of vectors in cache set
+ * @param [in] associativity number of keys in cache set
  * @param [inout] cache_time time stamp when the indices were cached, size [n_cache_sets * associativity]
- * @param [out] out_cache_idx cache indices of the working set elements size [n]
+ * @param [out] cache_idx cache indices of the working set elements size [n]
  * @param [out] is_cached  whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-inline __global__ void get_cache_idx(int *idx, int n, int *vec_idx, int n_cache_sets,
-    int associativity, int *cache_time, int *out_cache_idx, bool *is_cached,
-    int time) {
+__global__ void get_cache_idx(int *keys, int n, int *cached_keys,
+                              int n_cache_sets, int associativity,
+                              int *cache_time, int *cache_idx, bool *is_cached,
+                              int time) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid<n) {
-      int widx = idx[tid];
-      int sidx = hash(widx, n_cache_sets, associativity);
-      int cidx = sidx *associativity;
-      int i = 0;
-      bool found = false;
-      // search for empty spot and the least recently used spot
-      while (i < associativity && !found) {
-        found = (cache_time[cidx + i] > 0 && vec_idx[cidx + i] == widx);
-        //printf("tid cid wid i ctime cacheidx %d %d %d %d %d %d\n", tid, cidx, widx, i, cache_time[cidx+i], cache_idx[cidx+i]);
-        i++;
-      }
-      is_cached[tid] = found;
-      if (found) {
-        cidx = cidx + i - 1;
-        cache_time[cidx] = time;  //update time stamp
-        out_cache_idx[tid] = cidx; //exact cache idx
-      } else {
-        out_cache_idx[tid] = sidx; // assign cache set
-      }
+  if (tid < n) {
+    int widx = keys[tid];
+    int sidx = hash(widx, n_cache_sets, associativity);
+    int cidx = sidx * associativity;
+    int i = 0;
+    bool found = false;
+    // search for empty spot and the least recently used spot
+    while (i < associativity && !found) {
+      found = (cache_time[cidx + i] > 0 && cached_keys[cidx + i] == widx);
+      i++;
+    }
+    is_cached[tid] = found;
+    if (found) {
+      cidx = cidx + i - 1;
+      cache_time[cidx] = time;  //update time stamp
+      cache_idx[tid] = cidx;    //exact cache idx
+    } else {
+      cache_idx[tid] = sidx;  // assign cache set
+    }
   }
 }
-
-}; // end namespace Cache
-}; // end namespace MLCommon
+};  // end unnamed namespace
+};  // end namespace Cache
+};  // end namespace MLCommon
