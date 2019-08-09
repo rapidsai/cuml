@@ -62,7 +62,7 @@ class cumlHandle_impl {
   const MLCommon::cumlCommunicator& getCommunicator() const;
   bool commsInitialized() const;
 
-  const cudaDeviceProp& getDeviceProp() const;
+  const cudaDeviceProp& getDeviceProperties() const;
 
  private:
   //TODO: What is the right number?
