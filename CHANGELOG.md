@@ -39,10 +39,13 @@
 - PR #915: syncStream added to cumlCommunicator
 - PR #922: Random Forest support in FIL
 - PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #918: Streamline CUDA_REL environment variable
 - PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
+
 
 ## Bug Fixes
 
+- PR #923: Fix misshapen level/trend/season HoltWinters output
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
@@ -52,6 +55,7 @@
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
 - PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
+- PR #932: Change default param value for RF classifier
 
 
 # cuML 0.8.0 (27 June 2019)
