@@ -226,7 +226,7 @@ def test_output_algos(algo, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = FIL.from_treelite_file(model_path,
                                 algo=algo,
-                                output_class=True,
+                                output_class=False,
                                 threshold=0.50)
     fil_preds = fm.predict(X)
     assert np.allclose(fil_preds, xgb_preds, 1e-3)
