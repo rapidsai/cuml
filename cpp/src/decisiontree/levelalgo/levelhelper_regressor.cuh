@@ -53,6 +53,7 @@ template <typename T, typename F>
 void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
                         unsigned int *sample_cnt, const int nrows,
                         const int ncols, const int nbins, const int n_nodes,
+                        const int split_algo,
                         std::shared_ptr<TemporaryMemory<T, T>> tempmem,
                         T *d_mseout, T *d_predout, unsigned int *d_count) {
   size_t predcount = ncols * nbins * n_nodes;

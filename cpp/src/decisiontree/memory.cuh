@@ -28,7 +28,6 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   //Assign Stream from cumlHandle
   stream = ml_handle.getStream();
   splitalgo = split_algo;
-
   cudaDeviceProp prop;
   CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
   max_shared_mem = prop.sharedMemPerBlock;
@@ -52,13 +51,12 @@ template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               int n_unique, int nbins,
                                               int depth, const int split_algo) {
-  if (depth > 20) {
+  if (depth > 20 || (depth == -1)) {
     max_nodes_per_level = pow(2, 20);
   } else {
     max_nodes_per_level = pow(2, depth);
   }
   int maxnodes = max_nodes_per_level;
-
   d_flags = new MLCommon::device_buffer<unsigned int>(
     ml_handle.getDeviceAllocator(), stream, nrows);
   h_split_colidx = new MLCommon::host_buffer<int>(ml_handle.getHostAllocator(),

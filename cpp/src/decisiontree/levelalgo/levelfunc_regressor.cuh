@@ -112,11 +112,11 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(
         data, labels, flagsptr, sample_cnt, nrows, ncols, nbins, n_nodes,
-        tempmem, d_mseout, d_predout, d_count);
+        split_algo, tempmem, d_mseout, d_predout, d_count);
     } else {
-      get_mse_regression<T, AbsFunctor>(data, labels, flagsptr, sample_cnt,
-                                        nrows, ncols, nbins, n_nodes, tempmem,
-                                        d_mseout, d_predout, d_count);
+      get_mse_regression<T, AbsFunctor>(
+        data, labels, flagsptr, sample_cnt, nrows, ncols, nbins, n_nodes,
+        split_algo, tempmem, d_mseout, d_predout, d_count);
     }
 
     float* infogain = tempmem->h_outgain->data();
