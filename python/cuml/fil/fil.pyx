@@ -95,7 +95,7 @@ cdef class TreeliteModel():
         return out
 
     @staticmethod
-    def from_filename(filename, model_type):
+    def from_filename(filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -324,7 +324,7 @@ class FIL(Base):
            exceeds the threshold. If False, just return the raw prediction.
         threshold : float
            Cutoff value above which a prediction is set to 1.0
-           Only used if the model is classificaiton and output_class is True
+           Only used if the model is classification and output_class is True
         algo : algo_t
            Which inference algorithm to use.
            See documentation in FIL.load_from_treelite_model
