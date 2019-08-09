@@ -140,7 +140,7 @@ class SmoSolver {
 
       CUDA_CHECK(cudaPeekAtLastError());
 
-      updateHost(host_return_buff, return_buff.data(), 2, stream);
+      MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
 
       UpdateF(f.data(), n_rows, delta_alpha.data(), n_ws, cacheTile);
 
@@ -184,9 +184,9 @@ class SmoSolver {
                const math_t *cacheTile) {
     math_t one =
       1;  // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
-    CUBLAS_CHECK(LinAlg::cublasgemv(handle.getCublasHandle(), CUBLAS_OP_N,
-                                    n_rows, n_ws, &one, cacheTile, n_rows,
-                                    delta_alpha, 1, &one, f, 1, stream));
+    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
+      handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+      n_rows, delta_alpha, 1, &one, f, 1, stream));
   }
 
   /// Initialize the values of alpha and f
@@ -195,7 +195,7 @@ class SmoSolver {
     // f_i = -y_i
     CUDA_CHECK(
       cudaMemsetAsync(alpha.data(), 0, n_rows * sizeof(math_t), stream));
-    LinAlg::unaryOp(
+    MLCommon::LinAlg::unaryOp(
       f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
   }
 
@@ -231,7 +231,7 @@ class SmoSolver {
   int n_small_diff;
 
   bool CheckStoppingCondition(math_t diff) {
-    // TODO improve stopping condition to detect oscillations
+    // TODO improve stopping condition to detect oscillationsq, see Issue #947
     bool keep_going = true;
     if (abs(diff - diff_prev) < 0.001 * tol) {
       n_small_diff++;
