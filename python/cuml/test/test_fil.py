@@ -44,7 +44,7 @@ if has_xgboost():
                                                n_targets=1,
                                                random_state=random_state)
         return np.c_[features].astype(np.float32), \
-            np.c_[labels].astype(np.float32)
+            np.c_[labels].astype(np.float32).flatten()
 
 
 def unit_param(*args, **kwargs):
@@ -216,9 +216,8 @@ def test_output_algos(algo, small_classifier_and_preds):
                                 output_class=False,
                                 threshold=0.50)
 
-    xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.asarray(fm.predict(X))
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+    assert np.allclose(fil_preds, xgb_preds, 1e-3)
 
 
 @pytest.mark.parametrize('output_class', [True, False])
