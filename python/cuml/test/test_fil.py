@@ -28,12 +28,14 @@ if has_xgboost():
 
     def simulate_data(m, n, k=2, random_state=None, classification=True):
         if classification:
-            features, labels = make_classification(n_samples=m, n_features=n,
+            features, labels = make_classification(n_samples=m,
+                                                   n_features=n,
                                                    n_informative=int(n/5),
                                                    n_classes=k,
                                                    random_state=random_state)
         else:
-            features, labels = make_regression(n_samples=m, n_features=n,
+            features, labels = make_regression(n_samples=m,
+                                               n_features=n,
                                                n_informative=int(n/5),
                                                n_targets=1,
                                                random_state=random_state)
