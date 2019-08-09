@@ -59,13 +59,16 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
-    averaging (multiplying by inv_num_trees), sigmoid and applying threshold */
+    averaging (multiplying by inv_num_trees), adding global_bias (always done),
+    sigmoid and applying threshold */
 __global__ void transform_k(float* preds, size_t n, output_t output,
-                            float inv_num_trees, float threshold) {
+                            float inv_num_trees, float threshold,
+                            float global_bias) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
   float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
+  result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
   if ((output & output_t::THRESHOLD) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
@@ -80,7 +83,8 @@ struct forest {
       cols_(0),
       algo_(algo_t::NAIVE),
       output_(output_t::RAW),
-      threshold_(0.5) {}
+      threshold_(0.5),
+      global_bias_(0) {}
 
   void transform_trees(const dense_node_t* nodes) {
     // populate node information
@@ -111,6 +115,7 @@ struct forest {
     algo_ = params->algo;
     output_ = params->output;
     threshold_ = params->threshold;
+    global_bias_ = params->global_bias;
     init_max_shm();
 
     int nnodes = forest_num_nodes(ntrees_, depth_);
@@ -157,11 +162,11 @@ struct forest {
         ASSERT(false, "internal error: invalid algorithm");
     }
 
-    // Transform the output if necessary (sigmoid + thresholding if necessary).
-    if (output_ != output_t::RAW) {
+    // Transform the output if necessary.
+    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
       transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f,
-        threshold_);
+        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f, threshold_,
+        global_bias_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -179,6 +184,7 @@ struct forest {
   int max_shm_;
   output_t output_;
   float threshold_;
+  float global_bias_;
   dense_node* nodes_ = nullptr;
   thrust::host_vector<dense_node> h_nodes_;
 };
@@ -306,7 +312,7 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
-  ASSERT(param.global_bias == 0.0f, "bias not supported");
+  params->global_bias = param.global_bias;
   params->output = output_t::RAW;
   if (tl_params->output_class) {
     params->output = output_t(params->output | output_t::THRESHOLD);
