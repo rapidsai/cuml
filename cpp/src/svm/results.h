@@ -36,8 +36,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 template <typename math_t, typename Lambda>
 __global__ void set_flag(bool *flag, const math_t *alpha, int n, Lambda op) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -137,7 +135,7 @@ class Results {
       (math_t *)allocator->allocate(n_support * sizeof(math_t), stream);
     device_buffer<math_t> math_tmp(allocator, stream, n_rows);
     // Calculate dual coefficients = alpha * y
-    LinAlg::binaryOp(
+    MLCommon::LinAlg::binaryOp(
       math_tmp.data(), alpha, y, n_rows,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
     // Return only the non-zero coefficients
@@ -217,16 +215,16 @@ class Results {
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
-  device_buffer<int> d_num_selected;
-  device_buffer<math_t> d_val_reduced;
-  device_buffer<char> cub_storage;
+  MLCommon::device_buffer<int> d_num_selected;
+  MLCommon::device_buffer<math_t> d_val_reduced;
+  MLCommon::device_buffer<char> cub_storage;
   size_t cub_bytes = 0;
 
   // Helper arrays for collecting the results
-  device_buffer<int> f_idx;
-  device_buffer<int> idx_selected;
-  device_buffer<math_t> val_selected;
-  device_buffer<bool> flag;
+  MLCommon::device_buffer<int> f_idx;
+  MLCommon::device_buffer<int> idx_selected;
+  MLCommon::device_buffer<math_t> val_selected;
+  MLCommon::device_buffer<bool> flag;
 
   /* Allocate cub temporary buffers for GetResults
     */
