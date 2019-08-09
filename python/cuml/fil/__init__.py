@@ -14,5 +14,5 @@
 # limitations under the License.
 #
 
-from cuml.fil.fil import FIL
+from cuml.fil.fil import ForestInference
 from cuml.fil import fil

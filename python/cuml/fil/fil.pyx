@@ -135,15 +135,6 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
         TREE_REORG,
         BATCH_TREE_REORG
 
-    cdef enum output_t:
-        RAW,
-        PROB,
-        CLASS
-
-    cdef struct dense_node_t:
-        float val
-        int bits
-
     cdef struct forest:
         pass
 
@@ -168,7 +159,7 @@ cdef extern from "fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*)
 
-cdef class FIL_impl():
+cdef class ForestInference_impl():
 
     cpdef object handle
     cdef forest_t forest_data
@@ -176,6 +167,14 @@ cdef class FIL_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
+
+    def get_algo(self, algo_str):
+        if algo_str == 'NAIVE':
+            return algo_t.NAIVE
+        elif algo_str == 'BATCH_TREE_REORG':
+            return algo_t.BATCH_TREE_REORG
+        else:
+            return algo_t.TREE_REORG
 
     def predict(self, X, preds=None):
         """
@@ -219,12 +218,12 @@ cdef class FIL_impl():
     def load_from_treelite_model(self,
                                  TreeliteModel model,
                                  bool output_class,
-                                 algo_t algo,
+                                 str algo,
                                  float threshold):
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
-        treelite_params.algo = algo
+        treelite_params.algo = self.get_algo(algo)
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -243,7 +242,7 @@ cdef class FIL_impl():
         return self
 
 
-class FIL(Base):
+class ForestInference(Base):
     """
     Parameters
     ----------
@@ -252,8 +251,8 @@ class FIL(Base):
     """
     def __init__(self,
                  handle=None):
-        super(FIL, self).__init__(handle)
-        self._impl = FIL_impl(self.handle)
+        super(ForestInference, self).__init__(handle)
+        self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None):
         """
@@ -291,25 +290,25 @@ class FIL(Base):
         output_class: boolean
            If true, return a 1 or 0 depending on whether the raw prediction
            exceeds the threshold. If False, just return the raw prediction.
-        algo : int (from algo_t enum)
-             0 (NAIVE) - simple inference using shared memory
-             1 (TREE_REORG) - similar to naive but trees rearranged to be more
+        algo : string name of the algo from (from algo_t enum)
+             'NAIVE' - simple inference using shared memory
+             'TREE_REORG' - similar to naive but trees rearranged to be more
                               coalescing-friendly
-             2 (BATCH_TREE_REORG) - similar to TREE_REORG but predicting
+             2 'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
                                     multiple rows per thread block
         threshold : threshold is used to for classification
-           applied if output == OUTPUT_CLASS, else it is ignored
+           applied if output_class == True, else it is ignored
         """
         return self._impl.load_from_treelite_model(model, output_class,
                                                    algo, threshold)
 
     @staticmethod
-    def from_treelite_file(filename,
-                           output_class=False,
-                           threshold=0.50,
-                           algo=algo_t.TREE_REORG,
-                           model_type="xgboost",
-                           handle=None):
+    def load(filename,
+             output_class=False,
+             threshold=0.50,
+             algo='TREE_REORG',
+             model_type="xgboost",
+             handle=None):
         """
         Returns a FIL instance containing the forest saved in 'filename'
         This uses Treelite to load the saved model.
@@ -325,14 +324,14 @@ class FIL(Base):
         threshold : float
            Cutoff value above which a prediction is set to 1.0
            Only used if the model is classification and output_class is True
-        algo : algo_t
+        algo : string
            Which inference algorithm to use.
            See documentation in FIL.load_from_treelite_model
         model_type : str
             Format of saved treelite model to load.
             Can be 'xgboost', 'lightgbm', or 'protobuf'
         """
-        cuml_fm = FIL(handle=handle)
+        cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
         cuml_fm.load_from_treelite_model(tl_model,
                                          algo=algo,
