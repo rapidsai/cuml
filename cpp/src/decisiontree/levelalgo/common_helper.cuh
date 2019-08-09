@@ -43,13 +43,22 @@ void get_minmax(const T *data, const unsigned int *flags,
   }
   CUDA_CHECK(cudaGetLastError());
 
+  CUDA_CHECK(cudaDeviceSynchronize());
   nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
   minmax_decode_kernel<T, E>
     <<<nblocks, threads, 0, stream>>>(d_minmax, ncols * n_nodes);
 
+  CUDA_CHECK(cudaDeviceSynchronize());
   CUDA_CHECK(cudaGetLastError());
-
   MLCommon::updateHost(h_minmax, d_minmax, 2 * n_nodes * ncols, stream);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  for (int i = 0; i < n_nodes; i++) {
+    printf("nodeid %d \n", i);
+    for (int j = 0; j < ncols; j++) {
+      printf("colid %d --> min %f max %f \n", j, h_minmax[i + j * n_nodes * 2],
+             h_minmax[i + n_nodes + j * n_nodes * 2]);
+    }
+  }
 }
 // This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
