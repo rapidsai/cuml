@@ -119,7 +119,6 @@ cdef class TreeliteModel():
             if res < 0:
                 raise RuntimeError("Failed to load %s" % filename)
         elif model_type == "lightgbm":
-            # XXX Not tested
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 raise RuntimeError("Failed to load %s" % filename)
