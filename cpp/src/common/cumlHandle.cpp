@@ -143,8 +143,8 @@ void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
 
 cudaStream_t cumlHandle::getStream() const { return _impl->getStream(); }
 
-const cudaDeviceProp& cumlHandle::getDeviceProp() const {
-  return _impl->getDeviceProp();
+const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
+  return _impl->getDeviceProperties();
 }
 
 void cumlHandle::setDeviceAllocator(
@@ -166,10 +166,7 @@ std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
 
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
-cumlHandle_impl& cumlHandle::getImpl()
-{
-    return *_impl.get();
-}
+cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
@@ -194,7 +191,9 @@ void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
 
 cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
 
-const cudaDeviceProp& cumlHandle_impl::getDeviceProp() const { return prop; }
+const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
+  return prop;
+}
 
 void cumlHandle_impl::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -246,20 +245,19 @@ void cumlHandle_impl::waitOnInternalStreams() const {
   }
 }
 
-void cumlHandle_impl::setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator )
-{
-    _communicator = communicator;
+void cumlHandle_impl::setCommunicator(
+  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
+  _communicator = communicator;
 }
 
-const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
-{
-    ASSERT(nullptr != _communicator.get(), "ERROR: Communicator was not initialized\n");
-    return *_communicator;
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
+  ASSERT(nullptr != _communicator.get(),
+         "ERROR: Communicator was not initialized\n");
+  return *_communicator;
 }
 
-bool cumlHandle_impl::commsInitialized() const
-{
-    return (nullptr != _communicator.get());
+bool cumlHandle_impl::commsInitialized() const {
+  return (nullptr != _communicator.get());
 }
 
 void cumlHandle_impl::createResources() {
