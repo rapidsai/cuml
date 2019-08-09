@@ -18,7 +18,7 @@ import pytest
 import os
 
 import cudf
-from cuml import FIL
+from cuml import ForestInference
 from cuml.test.utils import array_equal
 from cuml.utils.import_utils import has_xgboost, has_lightgbm
 from numba import cuda
@@ -80,6 +80,7 @@ def _build_and_save_xgboost(model_path,
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
 
+    params['max_depth'] = 25
     params.update(xgboost_params)
 
     bst = xgb.train(params, dtrain, num_rounds)
@@ -87,8 +88,8 @@ def _build_and_save_xgboost(model_path,
     return bst
 
 
-@pytest.mark.parametrize('n_rows', [unit_param(100),
-                                    quality_param(1000),
+@pytest.mark.parametrize('n_rows', [unit_param(1000),
+                                    quality_param(10000),
                                     stress_param(500000)])
 @pytest.mark.parametrize('n_columns', [unit_param(11),
                                        quality_param(100),
@@ -98,7 +99,7 @@ def _build_and_save_xgboost(model_path,
                                         quality_param(50),
                                         stress_param(90)])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
+def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     # settings
     classification = True  # change this to false to use regression
     n_rows = n_rows  # we'll use 1 millions rows
@@ -129,19 +130,19 @@ def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
 
     print("Reading the saved xgb model")
 
-    fm = FIL.from_treelite_file(model_path,
-                                algo=0,
-                                output_class=True,
-                                threshold=0.50)
+    fm = ForestInference.load(model_path,
+                              algo='BATCH_TREE_REORG',
+                              output_class=True,
+                              threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    print("XGB accuracy = ", xgb_acc, " FIL accuracy: ", fil_acc)
+    print("XGB accuracy = ", xgb_acc, " ForestInference accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
 
 
-@pytest.mark.parametrize('n_rows', [unit_param(100), quality_param(1000),
+@pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_columns', [unit_param(11), quality_param(100),
                          stress_param(1000)])
@@ -151,7 +152,7 @@ def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
                                        unit_param(7),
                                        stress_param(11)])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_reg(n_rows, n_columns, num_rounds, tmp_path, max_depth):
+def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     # settings
     classification = False  # change this to false to use regression
     n_rows = n_rows  # we'll use 1 millions rows
@@ -180,14 +181,13 @@ def test_fil_reg(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
     print("Reading the saved xgb model")
-    fm = FIL.from_treelite_file(model_path,
-                                algo=1,
-                                output_class=False,
-                                threshold=0.00)
+    fm = ForestInference.load(model_path,
+                              algo='BATCH_TREE_REORG',
+                              output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    print("XGB accuracy = ", xgb_mse, " FIL accuracy: ", fil_mse)
+    print("XGB accuracy = ", xgb_mse, " Forest accuracy: ", fil_mse)
     assert fil_mse == pytest.approx(xgb_mse, 0.01)
     assert array_equal(fil_preds, xgb_preds)
 
@@ -208,26 +208,27 @@ def small_classifier_and_preds(tmpdir_factory):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('algo', [0, 1, 2])
+@pytest.mark.parametrize('algo', ['NAIVE', 'TREE_REORG', 'BATCH_TREE_REORG'])
 def test_output_algos(algo, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
-    fm = FIL.from_treelite_file(model_path,
-                                algo=algo,
-                                output_class=False,
-                                threshold=0.50)
+    fm = ForestInference.load(model_path,
+                              algo=algo,
+                              output_class=True,
+                              threshold=0.50)
 
+    xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.asarray(fm.predict(X))
-    assert np.allclose(fil_preds, xgb_preds, 1e-3)
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
-    fm = FIL.from_treelite_file(model_path,
-                                algo=1,
-                                output_class=output_class,
-                                threshold=0.50)
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=output_class,
+                              threshold=0.50)
     fil_preds = np.asarray(fm.predict(X))
     if output_class:
         assert ((fil_preds != 0.0) & (fil_preds != 1.0)).sum() == 0
@@ -239,10 +240,10 @@ def test_thresholding(output_class, small_classifier_and_preds):
 @pytest.mark.parametrize('format', ['numpy', 'cudf', 'gpuarray'])
 def test_output_args(format, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
-    fm = FIL.from_treelite_file(model_path,
-                                algo=1,
-                                output_class=False,
-                                threshold=0.50)
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=False,
+                              threshold=0.50)
     if format == 'numpy':
         X = np.asarray(X)
     elif format == 'cudf':
@@ -275,10 +276,10 @@ def test_lightgbm(tmp_path):
                                   'lgb.model'))
     bst.save_model(model_path)
 
-    fm = FIL.from_treelite_file(model_path,
-                                algo=1,
-                                output_class=False,
-                                threshold=0.00,
-                                model_type="lightgbm")
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=False,
+                              threshold=0.00,
+                              model_type="lightgbm")
     fil_preds = np.asarray(fm.predict(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
