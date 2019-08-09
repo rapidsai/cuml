@@ -279,7 +279,6 @@ def test_lightgbm(tmp_path):
     fm = ForestInference.load(model_path,
                               algo='TREE_REORG',
                               output_class=False,
-                              threshold=0.00,
                               model_type="lightgbm")
     fil_preds = np.asarray(fm.predict(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)

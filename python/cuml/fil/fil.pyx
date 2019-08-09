@@ -173,8 +173,11 @@ cdef class ForestInference_impl():
             return algo_t.NAIVE
         elif algo_str == 'BATCH_TREE_REORG':
             return algo_t.BATCH_TREE_REORG
-        else:
+        elif algo_str == 'TREE_REORG':
             return algo_t.TREE_REORG
+        else:
+            raise Exception(' Wrong algorithm selected please refer'
+                            ' to the documentation')
 
     def predict(self, X, preds=None):
         """
@@ -276,7 +279,7 @@ class ForestInference(Base):
         return self._impl.predict(X, preds)
 
     def load_from_treelite_model(self, model, output_class,
-                                 algo=algo_t.TREE_REORG,
+                                 algo='TREE_REORG',
                                  threshold=0.5):
         """
         Creates a FIL model using the treelite model
@@ -294,7 +297,7 @@ class ForestInference(Base):
              'NAIVE' - simple inference using shared memory
              'TREE_REORG' - similar to naive but trees rearranged to be more
                               coalescing-friendly
-             2 'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+             'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
                                     multiple rows per thread block
         threshold : threshold is used to for classification
            applied if output_class == True, else it is ignored
