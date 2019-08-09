@@ -169,15 +169,13 @@ cdef class ForestInference_impl():
         self.handle = handle
 
     def get_algo(self, algo_str):
-        if algo_str == 'NAIVE':
-            return algo_t.NAIVE
-        elif algo_str == 'BATCH_TREE_REORG':
-            return algo_t.BATCH_TREE_REORG
-        elif algo_str == 'TREE_REORG':
-            return algo_t.TREE_REORG
-        else:
+        algo_dict={'NAIVE': algo_t.NAIVE,
+                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
+                   'TREE_REORG': algo_t.TREE_REORG}
+        if algo_str not in algo_dict.keys():
             raise Exception(' Wrong algorithm selected please refer'
                             ' to the documentation')
+        return algo_dict[algo_str]
 
     def predict(self, X, preds=None):
         """
