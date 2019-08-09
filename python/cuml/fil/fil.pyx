@@ -199,8 +199,8 @@ cdef class FIL_impl():
             preds = cuda.device_array(n_rows, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not cuda.is_cuda_array(preds)):
-                raise ValueError("Invalid type for output preds,"
-                                 " need GPU array")
+            raise ValueError("Invalid type for output preds,"
+                             " need GPU array")
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
