@@ -17,13 +17,15 @@ import numpy as np
 import pytest
 import os
 
+import cudf
 from cuml import FIL
+from cuml.test.utils import array_equal
 from cuml.utils.import_utils import has_xgboost, has_lightgbm
 from numba import cuda
-import cudf
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.model_selection import train_test_split
 
 if has_xgboost():
     import xgboost as xgb
@@ -41,7 +43,8 @@ if has_xgboost():
                                                n_informative=int(n/5),
                                                n_targets=1,
                                                random_state=random_state)
-        return np.c_[labels, features].astype(np.float32)
+        return np.c_[features].astype(np.float32), \
+            np.c_[labels].astype(np.float32)
 
 
 def unit_param(*args, **kwargs):
@@ -103,23 +106,15 @@ def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
     n_categories = 2
     random_state = np.random.RandomState(43210)
 
-    dataset = simulate_data(n_rows, n_columns, n_categories,
-                            random_state=random_state,
-                            classification=classification)
+    X, y = simulate_data(n_rows, n_columns, n_categories,
+                         random_state=random_state,
+                         classification=classification)
     # identify shape and indices
-    n_rows, n_columns = dataset.shape
+    n_rows, n_columns = X.shape
     train_size = 0.80
-    train_index = int(n_rows * train_size)
 
-    # split X, y
-    X, y = dataset[:, 1:], dataset[:, 0]
-    del dataset
-
-    # split train data
-    X_train, y_train = X[:train_index, :], y[:train_index]
-
-    # split validation data
-    X_validation, y_validation = X[train_index:, :], y[train_index:]
+    X_train, X_validation, y_train, y_validation = train_test_split(
+        X, y, train_size=train_size)
 
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
@@ -128,6 +123,7 @@ def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
+    xgb_preds_int = np.around(xgb_preds)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
 
@@ -142,7 +138,7 @@ def test_fil_class(n_rows, n_columns, num_rounds, tmp_path):
 
     print("XGB accuracy = ", xgb_acc, " FIL accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
-    assert fil_acc > 0.80
+    assert array_equal(fil_preds, xgb_preds_int)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(100), quality_param(1000),
@@ -162,23 +158,15 @@ def test_fil_reg(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     n_columns = n_columns
     random_state = np.random.RandomState(43210)
 
-    dataset = simulate_data(n_rows, n_columns,
-                            random_state=random_state,
-                            classification=classification)
+    X, y = simulate_data(n_rows, n_columns,
+                         random_state=random_state,
+                         classification=classification)
     # identify shape and indices
-    n_rows, n_columns = dataset.shape
+    n_rows, n_columns = X.shape
     train_size = 0.80
-    train_index = int(n_rows * train_size)
 
-    # split X, y
-    X, y = dataset[:, 1:], dataset[:, 0]
-    del dataset
-
-    # split train data
-    X_train, y_train = X[:train_index, :], y[:train_index]
-
-    # split validation data
-    X_validation, y_validation = X[train_index:, :], y[train_index:]
+    X_train, X_validation, y_train, y_validation = train_test_split(
+        X, y, train_size=train_size)
 
     model_path = os.path.join(tmp_path, 'xgb_reg.model')
     bst = _build_and_save_xgboost(model_path, X_train,
@@ -201,15 +189,14 @@ def test_fil_reg(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     print("XGB accuracy = ", xgb_mse, " FIL accuracy: ", fil_mse)
     assert fil_mse == pytest.approx(xgb_mse, 0.01)
+    assert array_equal(fil_preds, xgb_preds)
 
 
 @pytest.fixture(scope="session")
 def small_classifier_and_preds(tmpdir_factory):
-    dataset = simulate_data(100,
-                            10,
-                            random_state=43210,
-                            classification=True)
-    X, y = dataset[:, 1:], dataset[:, 0]
+    X, y = simulate_data(100, 10,
+                         random_state=43210,
+                         classification=True)
 
     model_path = str(tmpdir_factory.mktemp("models").join("small_class.model"))
     bst = _build_and_save_xgboost(model_path, X, y)
@@ -228,8 +215,10 @@ def test_output_algos(algo, small_classifier_and_preds):
                                 algo=algo,
                                 output_class=False,
                                 threshold=0.50)
-    fil_preds = fm.predict(X)
-    assert np.allclose(fil_preds, xgb_preds, 1e-3)
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.asarray(fm.predict(X))
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
 @pytest.mark.parametrize('output_class', [True, False])
@@ -272,12 +261,9 @@ def test_output_args(format, small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path):
     import lightgbm as lgb
-    dataset = simulate_data(100,
-                            10,
-                            random_state=43210,
-                            classification=True)
-    X, y = dataset[:, 1:], dataset[:, 0]
-
+    X, y = simulate_data(100, 10,
+                         random_state=43210,
+                         classification=True)
     train_data = lgb.Dataset(X, label=y)
     param = {'objective': 'binary',
              'metric': 'binary_logloss'}
