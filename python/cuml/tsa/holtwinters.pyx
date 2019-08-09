@@ -341,6 +341,11 @@ class ExponentialSmoothing(Base):
             raise TypeError("ExponentialSmoothing supports only float32"
                             " and float64 input, but input type "
                             + str(self.dtype) + " passed.")
+        num_rows = int(components_len/self.ts_num)
+        self.level = self.level.reshape((self.ts_num, num_rows), order='F')
+        self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
+        self.season = self.season.reshape((self.ts_num, num_rows), order='F')
+
         self.handle.sync()
         self.fit_executed_flag = True
         del(X_m)
@@ -471,17 +476,21 @@ class ExponentialSmoothing(Base):
 
         Returns:
         ----------
-        level : np.float32, np.float64, or cudf.Series
+        level : cudf.Series or cudf.DataFrame
                 the level component of the fitted model
         """
         if self.fit_executed_flag:
             if index is None:
-                return cudf.Series(self.level)
-            elif index < 0 or index >= self.ts_num:
-                raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.ts_num) + "]")
+                if self.ts_num == 1:
+                    return cudf.Series(self.level.ravel(order='F'))
+                else:
+                    return cudf.DataFrame.from_gpu_matrix(self.level.T)
             else:
-                return self.level[index]
+                if index < 0 or index >= self.ts_num:
+                    raise IndexError("Index input: " + str(index) + " outside "
+                                     "of range [0, " + str(self.ts_num) + "]")
+                else:
+                    return cudf.Series(self.level[index])
         else:
             raise ValueError("Fit() the model to get level values")
 
@@ -498,17 +507,21 @@ class ExponentialSmoothing(Base):
 
         Returns:
         ---------
-        trend : np.float32, np.float64, or cudf.Series
+        trend : cudf.Series or cudf.DataFrame
                 the trend component of the fitted model
         """
         if self.fit_executed_flag:
             if index is None:
-                return cudf.Series(self.trend)
-            elif index < 0 or index >= self.ts_num:
-                raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.ts_num) + "]")
+                if self.ts_num == 1:
+                    return cudf.Series(self.trend.ravel(order='F'))
+                else:
+                    return cudf.DataFrame.from_gpu_matrix(self.trend.T)
             else:
-                return self.trend[index]
+                if index < 0 or index >= self.ts_num:
+                    raise IndexError("Index input: " + str(index) + " outside "
+                                     "of range [0, " + str(self.ts_num) + "]")
+                else:
+                    return cudf.Series(self.trend[index])
         else:
             raise ValueError("Fit() the model to get trend values")
 
@@ -525,16 +538,20 @@ class ExponentialSmoothing(Base):
 
         Returns:
         ---------
-        season: np.float32, np.float64, or cudf.Series
+        season: cudf.Series or cudf.DataFrame
                 the season component of the fitted model
         """
         if self.fit_executed_flag:
             if index is None:
-                return cudf.Series(self.season)
-            elif index < 0 or index >= self.ts_num:
-                raise IndexError("Index input: " + str(index) + " outside of "
-                                 "range [0, " + str(self.ts_num) + "]")
+                if self.ts_num == 1:
+                    return cudf.Series(self.season.ravel(order='F'))
+                else:
+                    return cudf.DataFrame.from_gpu_matrix(self.season.T)
             else:
-                return self.season[index]
+                if index < 0 or index >= self.ts_num:
+                    raise IndexError("Index input: " + str(index) + " outside "
+                                     "of range [0, " + str(self.ts_num) + "]")
+                else:
+                    return cudf.Series(self.season[index])
         else:
             raise ValueError("Fit() the model to get season values")
