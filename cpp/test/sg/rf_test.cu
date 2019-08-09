@@ -62,7 +62,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, params.n_streams, tree_params);
-    print(rf_params);
+    //print(rf_params);
 
     //--------------------------------------------------------
     // Random Forest
@@ -97,7 +97,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
         labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    print_rf_detailed(forest);
+    //print_rf_detailed(forest);
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};

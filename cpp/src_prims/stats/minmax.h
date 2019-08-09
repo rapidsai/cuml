@@ -56,13 +56,13 @@ __host__ __device__ double decode(long long val) {
 }
 
 template <typename T, typename E>
-__device__ T atomicMaxBits(T* address, T val) {
+__device__ __forceinline__ T atomicMaxBits(T* address, T val) {
   E old = atomicMax((E*)address, encode(val));
   return decode(old);
 }
 
 template <typename T, typename E>
-__device__ T atomicMinBits(T* address, T val) {
+__device__ __forceinline__ T atomicMinBits(T* address, T val) {
   E old = atomicMin((E*)address, encode(val));
   return decode(old);
 }
