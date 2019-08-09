@@ -162,7 +162,7 @@ class KernelCache {
       cache.GetCacheIdxPartitioned(ws_idx, n_ws, ws_cache_idx.data(), &n_cached,
                                    stream);
       // collect allready cached values
-      cache.GetCols(ws_cache_idx.data(), n_cached, tile.data(), stream);
+      cache.GetVecs(ws_cache_idx.data(), n_cached, tile.data(), stream);
 
       int non_cached = n_ws - n_cached;
       if (non_cached > 0) {
@@ -179,7 +179,7 @@ class KernelCache {
         math_t *tile_new = tile.data() + n_cached * n_rows;
         (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
-        cache.StoreCols(tile_new, n_rows, non_cached,
+        cache.StoreVecs(tile_new, n_rows, non_cached,
                         ws_cache_idx.data() + n_cached, stream);
       }
     } else {
