@@ -95,7 +95,7 @@ cdef class TreeliteModel():
         return out
 
     @staticmethod
-    def from_filename(filename, model_type):
+    def from_filename(filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -199,8 +199,8 @@ cdef class FIL_impl():
             preds = cuda.device_array(n_rows, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not cuda.is_cuda_array(preds)):
-                raise ValueError("Invalid type for output preds,"
-                                 " need GPU array")
+            raise ValueError("Invalid type for output preds,"
+                             " need GPU array")
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
@@ -324,7 +324,7 @@ class FIL(Base):
            exceeds the threshold. If False, just return the raw prediction.
         threshold : float
            Cutoff value above which a prediction is set to 1.0
-           Only used if the model is classificaiton and output_class is True
+           Only used if the model is classification and output_class is True
         algo : algo_t
            Which inference algorithm to use.
            See documentation in FIL.load_from_treelite_model
