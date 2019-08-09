@@ -22,7 +22,7 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_dev_array, has_cupy
 
 from cuml.utils.input_utils import convert_dtype
 
@@ -75,6 +75,14 @@ def test_convert_inputs(from_dtype, to_dtype, input_type, num_rows, num_cols):
 
     if from_dtype == np.float16 and input_type != 'numpy':
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
+
+    if from_dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
+        if input_type == 'dataframe':
+            pytest.xfail("unsigned int types not yet supported by \
+                         cuDF")
+        elif not has_cupy():
+            pytest.xfail("unsigned int types not yet supported by \
+                         cuDF and cuPy is not installed.")
 
     input_data, real_data = get_input(input_type, num_rows, num_cols,
                                       from_dtype, out_dtype=to_dtype)
