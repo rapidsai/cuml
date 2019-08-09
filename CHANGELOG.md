@@ -55,6 +55,7 @@
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
 - PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 
 
 # cuML 0.8.0 (27 June 2019)
