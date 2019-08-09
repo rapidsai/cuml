@@ -141,19 +141,14 @@ class Results {
       math_tmp.data(), alpha, y, n_rows,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
     // Return only the non-zero coefficients
-    // Flag.data() still contains the mask for selecting support vectors
-    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, math_tmp.data(),
-                               flag.data(), dual_coefs, d_num_selected.data(),
-                               n_rows, stream);
+    auto select_op = [] __device__(math_t a) { return 0 < a; };
+    SelectByAlpha(alpha, n_rows, math_tmp.data(), select_op, dual_coefs);
     return dual_coefs;
   }
 
   /**
    * Flag support vectors and also collect their indices.
    * Support vectors are the vectors where alpha > 0.
-   *
-   * On exit, the flag member variable will be initialized as
-   *  flag[i] = alpha[i] > 0
    *
    * @param [in] alpha dual coefficients, size [n_rows]
    * @param [out] n_support number of support vectors
