@@ -23,8 +23,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 /**
  * @brief C-Support Vector Classification
  *
@@ -53,7 +51,7 @@ class SVC {
   math_t tol;    //!< Tolerance used to stop fitting.
   bool verbose;  //!< Print information about traning
 
-  GramMatrix::KernelParams kernel_params;
+  MLCommon::GramMatrix::KernelParams kernel_params;
   math_t cache_size;  //!< kernel cache size in MiB
   int max_iter;  //!< maximum number of outer iterations (default 100 * n_rows)
 
@@ -71,11 +69,17 @@ class SVC {
 
   /**
    * @brief Constructs a support vector classifier
+   * @param handle cuML handle
    * @param C penalty term
-   * @param tol tolerance to step fitting.
+   * @param tol tolerance to stop fitting
+   * @param kernel_params parameters for kernels
+   * @param cache_size size of kernel cache in device memory (MiB)
+   * @param max_iter maximum number of outer iterations in SmoSolver
+   * @param verbose enable verbose output
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
-      GramMatrix::KernelParams kernel_params = GramMatrix::KernelParams(),
+      MLCommon::GramMatrix::KernelParams kernel_params =
+        MLCommon::GramMatrix::KernelParams(),
       math_t cache_size = 200, int max_iter = -1, bool verbose = false);
 
   ~SVC();
@@ -95,9 +99,11 @@ class SVC {
 
   /**
    * @brief Predict classes for samples in input.
-   * @param input device pointer for the input data in column major format,
+   * @param [in]  device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
-   * @param preds device pointer to store the predicted class labels.
+   * @param [in] n_rows, number of vectors
+   * @param [in] n_cols number of featurs
+   * @param [out] preds device pointer to store the predicted class labels.
    *    Size [n_rows]. Should be allocated on entry.
    */
   void predict(math_t *input, int n_rows, int n_cols, math_t *preds);

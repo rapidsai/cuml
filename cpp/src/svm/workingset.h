@@ -29,8 +29,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 __device__ bool dummy_select_op(int idx) { return true; }
 
 /**
@@ -52,8 +50,10 @@ class WorkingSet {
   bool FIFO_strategy = true;
 
   /** Create a working set
-   * \param n_rows number of training vectors
-   * \param n_ws number of elements in the working set (default 1024)
+   * @param handle cuml handle implementation
+   * @stream cuda stream for working set operations
+   * @param n_rows number of training vectors
+   * @param n_ws number of elements in the working set (default 1024)
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0)
@@ -83,8 +83,8 @@ class WorkingSet {
   /**
    * Set the size of the working set and allocate buffers accordingly.
    *
-   * \param n_rows number of training vectors
-   * \param n_ws working set size (default min(1024, n_rows))
+   * @param n_rows number of training vectors
+   * @param n_ws working set size (default min(1024, n_rows))
    */
   void SetSize(int n_rows, int n_ws = 0) {
     if (n_ws == 0 || n_ws > n_rows) {
@@ -141,19 +141,20 @@ class WorkingSet {
       f_idx_sorted.data(), n_rows, 0, (int)8 * sizeof(int), stream);
 
     if (verbose && n_rows < 20) {
-      myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_rows, std::cout);
+      MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_rows,
+                                 std::cout);
     }
     // Select top n_ws/2 elements
     bool *available = this->available.data();
-    set_upper<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(available, n_rows,
-                                                        alpha, y, C);
+    set_upper<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+      available, n_rows, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_needed / 2, true);
 
     // Select bottom n_ws/2 elements
-    set_lower<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(available, n_rows,
-                                                        alpha, y, C);
+    set_lower<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+      available, n_rows, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_ws - n_already_selected, false);
@@ -181,7 +182,8 @@ class WorkingSet {
   * We can have a FIFO retention policy, or we can
   * consider the time (=ws_priority) a vector already spent in the ws.
   * References:
-  * [1] ThunderSVM
+  * [1] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
+  *     of Machine Learning Research, 19, 1-5 (2018)
   *
   */
   void Select(math_t *f, math_t *alpha, math_t *y, math_t C) {
@@ -197,10 +199,7 @@ class WorkingSet {
       // keep 1/2 of the old working set
       if (FIFO_strategy) {
         // FIFO selection following ThunderSVM
-        // TODO: confirm this: we should shift ws_idx_save.data() by nc, so that we do not keep
-        // always the same elements there.
-        copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
-        //copy(idx.data() + nc, ws_idx_save.data() + 3*nc, nc, stream);
+        MLCommon::copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
         n_selected = nc * 2;
       } else {
         // priority based selection preferring to keep newer elements in ws
@@ -208,7 +207,7 @@ class WorkingSet {
       }
     }
     SimpleSelect(f, alpha, y, C, n_selected);
-    copy(ws_idx_save.data(), idx.data(), n_ws, stream);
+    MLCommon::copy(ws_idx_save.data(), idx.data(), n_ws, stream);
   }
 
   /**
@@ -219,10 +218,16 @@ class WorkingSet {
    * and then select nc elements from free, and then lower/upper bound vectors.
    * For details see [2].
    *
+   * See Issue #946.
+   *
    * References:
    * [2] T Serafini, L Zanni: On the Working Set selection in grad. projection
    *     based decomposition techniques for Support Vector Machines
    *     DOI: 10.1080/10556780500140714
+   *
+   * @param [in] alpha device vector of dual coefficients, size [n_rows]
+   * @param [in] C penalty parameter
+   * @param [in] nc number of elements to select
    */
   int PrioritySelect(math_t *alpha, math_t C, int nc) {
     int n_selected = 0;
@@ -244,7 +249,7 @@ class WorkingSet {
       2 * nc, n_selected, [alpha, C] HD(int idx) { return alpha[idx] >= C; });
     // we have now idx[0:n_selected] indices from the old working set
     // we need to update their priority.
-    update_priority<<<ceildiv(n_selected, TPB), TPB, 0, stream>>>(
+    update_priority<<<MLCommon::ceildiv(n_selected, TPB), TPB, 0, stream>>>(
       ws_priority.data(), n_selected, idx.data(), n_ws, ws_idx_sorted.data(),
       ws_priority_sorted.data());
     return n_selected;
@@ -261,26 +266,27 @@ class WorkingSet {
   int TPB = 256;  //!< Threads per block for workspace selection kernels
 
   // Buffers for the domain size [n_rows]
-  device_buffer<int> f_idx;  //!< Arrays used for sorting for sorting
-  device_buffer<int> f_idx_sorted;
-  device_buffer<int> idx_tmp;  //!< Temporary buffer for index manipulation
-  device_buffer<math_t> f_sorted;
-
-  device_buffer<bool> available;  //!< Flag vectors available for selection
-  device_buffer<bool> available_sorted;
+  MLCommon::device_buffer<int> f_idx;  //!< Arrays used for sorting for sorting
+  MLCommon::device_buffer<int> f_idx_sorted;
+  //! Temporary buffer for index manipulation
+  MLCommon::device_buffer<int> idx_tmp;
+  MLCommon::device_buffer<math_t> f_sorted;
+  //! Flag vectors available for selection
+  MLCommon::device_buffer<bool> available;
+  MLCommon::device_buffer<bool> available_sorted;
 
   // working set buffers size [n_ws]
-  device_buffer<int> idx;  //!< Indices of the worknig set
-  device_buffer<int> ws_idx_sorted;
-  device_buffer<int> ws_idx_selected;
-  device_buffer<int> ws_idx_save;
+  MLCommon::device_buffer<int> idx;  //!< Indices of the worknig set
+  MLCommon::device_buffer<int> ws_idx_sorted;
+  MLCommon::device_buffer<int> ws_idx_selected;
+  MLCommon::device_buffer<int> ws_idx_save;
 
-  device_buffer<int> ws_priority;
-  device_buffer<int> ws_priority_sorted;
+  MLCommon::device_buffer<int> ws_priority;
+  MLCommon::device_buffer<int> ws_priority_sorted;
 
   int *d_num_selected = nullptr;
   size_t cub_bytes = 0;
-  device_buffer<char> cub_storage;
+  MLCommon::device_buffer<char> cub_storage;
 
   void AllocateBuffers() {
     if (n_ws > 0) {
@@ -332,21 +338,21 @@ class WorkingSet {
     // First we update the mask to ignores already selected elements
     bool *available = this->available.data();
     if (n_already_selected > 0) {
-      set_unavailable<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+      set_unavailable<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
         available, n_rows, idx.data(), n_already_selected);
       CUDA_CHECK(cudaPeekAtLastError());
     }
     if (verbose && n_rows < 20) {
-      myPrintDevVector("avail", available, n_rows, std::cout);
+      MLCommon::myPrintDevVector("avail", available, n_rows, std::cout);
     }
 
     // Map the mask to the sorted indices
-    map_to_sorted<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+    map_to_sorted<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
       available, n_rows, available_sorted.data(), f_idx_sorted.data());
     CUDA_CHECK(cudaPeekAtLastError());
     if (verbose && n_rows < 20) {
-      myPrintDevVector("avail_sorted", available_sorted.data(), n_rows,
-                       std::cout);
+      MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
+                                 n_rows, std::cout);
     }
 
     // Select the available elements
@@ -354,28 +360,29 @@ class WorkingSet {
                                f_idx_sorted.data(), available_sorted.data(),
                                idx_tmp.data(), d_num_selected, n_rows);
     int n_selected;
-    updateHost(&n_selected, d_num_selected, 1, stream);
+    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
     if (copy_front) {
-      copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy, stream);
+      MLCommon::copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy,
+                     stream);
     } else {
-      copy(idx.data() + n_already_selected,
-           idx_tmp.data() + n_selected - n_copy, n_copy, stream);
+      MLCommon::copy(idx.data() + n_already_selected,
+                     idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (verbose && n_rows < 20) {
-      myPrintDevVector("selected", idx.data(), n_already_selected + n_copy,
-                       std::cout);
+      MLCommon::myPrintDevVector("selected", idx.data(),
+                                 n_already_selected + n_copy, std::cout);
     }
     return n_copy;
   }
 
   void Initialize() {
-    range<<<ceildiv(n_rows, TPB), TPB>>>(f_idx.data(), n_rows);
+    range<<<MLCommon::ceildiv(n_rows, TPB), TPB>>>(f_idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
-    range<<<ceildiv(n_ws, TPB), TPB>>>(idx.data(), n_rows);
+    range<<<MLCommon::ceildiv(n_ws, TPB), TPB>>>(idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -398,11 +405,11 @@ class WorkingSet {
     cub::DeviceSelect::If(cub_storage.data(), cub_bytes, ws_idx_sorted.data(),
                           ws_idx_selected.data(), d_num_selected, n_ws, op);
     int n_selected;
-    updateHost(&n_selected, d_num_selected, 1, stream);
+    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
-    copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy,
-         stream);
+    MLCommon::copy(idx.data() + n_already_selected, ws_idx_selected.data(),
+                   n_copy, stream);
     return n_copy;
   }
 };

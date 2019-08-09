@@ -27,8 +27,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 /**
  * @brief Collect rows of the training data into contiguous space
  *
@@ -74,9 +72,11 @@ class KernelCache {
  private:
   const math_t *x;  //!< pointer to the training vectors
 
-  device_buffer<math_t> x_ws;  //!< feature vectors in the current working set
-  device_buffer<int> ws_cache_idx;  //!< cache position of a workspace vectors
-  device_buffer<math_t> tile;       //!< Kernel matrix  tile
+  MLCommon::device_buffer<math_t>
+    x_ws;  //!< feature vectors in the current working set
+  MLCommon::device_buffer<int>
+    ws_cache_idx;  //!< cache position of a workspace vectors
+  MLCommon::device_buffer<math_t> tile;  //!< Kernel matrix  tile
 
   int n_rows;  //!< number of rows in x
   int n_cols;  //!< number of columns in x
@@ -84,13 +84,13 @@ class KernelCache {
 
   cublasHandle_t cublas_handle;
 
-  GramMatrix::GramMatrixBase<math_t> *kernel;
+  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel;
 
   const cumlHandle_impl handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 
-  Cache::Cache<math_t> cache;
+  MLCommon::Cache::Cache<math_t> cache;
 
   cudaStream_t stream;
 
@@ -108,7 +108,8 @@ class KernelCache {
    * @param cache_size (default 200 MiB)
    */
   KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
-              int n_cols, int n_ws, GramMatrix::GramMatrixBase<math_t> *kernel,
+              int n_cols, int n_ws,
+              MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200)
     : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
             cache_size),
@@ -143,8 +144,8 @@ class KernelCache {
   void CollectRows(math_t *x_ws, int n, const int *ws_idx,
                    cudaStream_t stream) {
     if (n > 0) {
-      get_rows<<<ceildiv(n * n_cols, TPB), TPB, 0, stream>>>(x, n_rows, n_cols,
-                                                             x_ws, n, ws_idx);
+      get_rows<<<MLCommon::ceildiv(n * n_cols, TPB), TPB, 0, stream>>>(
+        x, n_rows, n_cols, x_ws, n, ws_idx);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }

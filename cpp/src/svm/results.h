@@ -74,7 +74,8 @@ class Results {
       val_selected(handle.getDeviceAllocator(), stream, n_rows),
       flag(handle.getDeviceAllocator(), stream, n_rows) {
     InitCubBuffers();
-    range<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(f_idx.data(), n_rows);
+    range<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(f_idx.data(),
+                                                              n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -118,7 +119,7 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    get_rows<<<ceildiv(n_support * n_cols, TPB), TPB, 0, stream>>>(
+    get_rows<<<MLCommon::ceildiv(n_support * n_cols, TPB), TPB, 0, stream>>>(
       x, n_rows, n_cols, x_support, n_support, idx);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
@@ -133,7 +134,7 @@ class Results {
     auto allocator = handle.getDeviceAllocator();
     math_t *dual_coefs =
       (math_t *)allocator->allocate(n_support * sizeof(math_t), stream);
-    device_buffer<math_t> math_tmp(allocator, stream, n_rows);
+    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_rows);
     // Calculate dual coefficients = alpha * y
     MLCommon::LinAlg::binaryOp(
       math_tmp.data(), alpha, y, n_rows,
@@ -158,7 +159,7 @@ class Results {
       [] __device__(math_t a) -> bool { return 0 < a; }, idx_selected.data());
     if (*n_support > 0) {
       *idx = (int *)allocator->allocate((*n_support) * sizeof(int), stream);
-      copy(*idx, idx_selected.data(), *n_support, stream);
+      MLCommon::copy(*idx, idx_selected.data(), *n_support, stream);
     }
   }
 
@@ -187,7 +188,7 @@ class Results {
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
-      updateHost(&sum, d_val_reduced.data(), 1, stream);
+      MLCommon::updateHost(&sum, d_val_reduced.data(), 1, stream);
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -260,12 +261,13 @@ class Results {
   template <typename select_op, typename valType>
   int SelectByAlpha(const math_t *alpha, int n, const valType *val,
                     select_op op, valType *out) {
-    set_flag<<<ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), alpha, n, op);
+    set_flag<<<MLCommon::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), alpha,
+                                                            n, op);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-    updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -279,14 +281,14 @@ class Results {
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,
                                       const math_t *, math_t)) {
-    flag_op<<<ceildiv(n_rows, TPB), TPB, 0, stream>>>(flag.data(), n_rows,
-                                                      alpha, y, C);
+    flag_op<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+      flag.data(), n_rows, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f, flag.data(),
                                val_selected.data(), d_num_selected.data(),
                                n_rows, stream);
     int n_selected;
-    updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
     if (n_selected > 0) {
@@ -299,7 +301,7 @@ class Results {
                                val_selected.data(), d_val_reduced.data(),
                                n_selected, stream);
       }
-      updateHost(&res, d_val_reduced.data(), 1, stream);
+      MLCommon::updateHost(&res, d_val_reduced.data(), 1, stream);
     } else {
       std::cerr << "Error: empty set in calcB\n";
     }

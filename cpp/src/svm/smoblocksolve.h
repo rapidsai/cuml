@@ -130,7 +130,7 @@ __global__ void SmoBlockSolve(math_t *y_array, int n_rows, math_t *alpha,
                               int n_ws, math_t *delta_alpha, math_t *f_array,
                               math_t *kernel, int *ws_idx, math_t C, math_t eps,
                               math_t *return_buff, int max_iter = 10000) {
-  typedef Selection::KVPair<math_t, int> Pair;
+  typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
   typedef cub::BlockReduce<math_t, WSIZE> BlockReduceFloat;
   __shared__ union {

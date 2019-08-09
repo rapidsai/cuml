@@ -33,8 +33,6 @@
 namespace ML {
 namespace SVM {
 
-using namespace MLCommon;
-
 /**
  * @brief Fit a support vector classifier to the training data.
  *
@@ -65,41 +63,43 @@ using namespace MLCommon;
  * @param [out] b scalar constant for the decision function
  * @param [out] x_support support vectors in column major format,
  *   size [n_support, n_cols]
- * @param [out] idx the original training set indices of the support vectors,
- *  size [n_support]
+ * @param [out] support_idx the original training set indices of the support
+ *    vectors, size [n_support]
  * @param [out] unique_labels device buffer of enique labels, size [n_classes]
  * @param [out] n_classes number of unique labels
  */
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, math_t C, math_t tol,
-            GramMatrix::KernelParams &kernel_params, math_t cache_size,
-            int max_iter, math_t **dual_coefs, int *n_support, math_t *b,
-            math_t **x_support, int **support_idx, math_t **unique_labels,
-            int *n_classes, bool verbose) {
+            MLCommon::GramMatrix::KernelParams &kernel_params,
+            math_t cache_size, int max_iter, math_t **dual_coefs,
+            int *n_support, math_t *b, math_t **x_support, int **support_idx,
+            math_t **unique_labels, int *n_classes, bool verbose) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
          "Parameter n_rows: number of rows cannot be less than one");
 
   // KernelCache could use multiple streams, not implemented currently
+  // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
   const cumlHandle_impl &handle_impl = handle.getImpl();
 
   cudaStream_t stream = handle_impl.getStream();
-  Label::getUniqueLabels(labels, n_rows, unique_labels, n_classes, stream,
-                         handle_impl.getDeviceAllocator());
+  MLCommon::Label::getUniqueLabels(labels, n_rows, unique_labels, n_classes,
+                                   stream, handle_impl.getDeviceAllocator());
 
   ASSERT(*n_classes == 2,
          "Only binary classification is implemented at the moment");
 
-  device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream, n_rows);
-  Label::getOvrLabels(labels, n_rows, *unique_labels, *n_classes, y.data(), 1,
-                      stream);
+  MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
+                                    n_rows);
+  MLCommon::Label::getOvrLabels(labels, n_rows, *unique_labels, *n_classes,
+                                y.data(), 1, stream);
 
-  GramMatrix::GramMatrixBase<math_t> *kernel =
-    GramMatrix::KernelFactory<math_t>::create(kernel_params,
-                                              handle_impl.getCublasHandle());
+  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
+    MLCommon::GramMatrix::KernelFactory<math_t>::create(
+      kernel_params, handle_impl.getCublasHandle());
   SmoSolver<math_t> smo(handle_impl, C, tol, kernel, cache_size);
   smo.verbose = verbose;
   smo.Solve(input, n_rows, n_cols, y.data(), dual_coefs, n_support, x_support,
@@ -137,8 +137,8 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                GramMatrix::KernelParams &kernel_params, math_t *dual_coefs,
-                int n_support, math_t b, math_t *x_support,
+                MLCommon::GramMatrix::KernelParams &kernel_params,
+                math_t *dual_coefs, int n_support, math_t b, math_t *x_support,
                 math_t *unique_labels, int n_classes, math_t *preds) {
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
@@ -148,14 +148,16 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   const cumlHandle_impl &handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
 
-  device_buffer<math_t> K(handle_impl.getDeviceAllocator(), stream,
-                          n_batch * n_support);
-  device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream, n_rows);
+  MLCommon::device_buffer<math_t> K(handle_impl.getDeviceAllocator(), stream,
+                                    n_batch * n_support);
+  MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
+                                    n_rows);
 
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
 
-  GramMatrix::GramMatrixBase<math_t> *kernel =
-    GramMatrix::KernelFactory<math_t>::create(kernel_params, cublas_handle);
+  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
+    MLCommon::GramMatrix::KernelFactory<math_t>::create(kernel_params,
+                                                        cublas_handle);
 
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
@@ -168,14 +170,14 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                      stream, n_rows, n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
-    CUBLAS_CHECK(LinAlg::cublasgemv(
+    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
       cublas_handle, CUBLAS_OP_N, n_batch, n_support, &one, K.data(), n_batch,
       dual_coefs, 1, &null, y.data() + i, 1, stream));
   }
   // Look up the label based on the value of the decision function:
   // f(x) = sign(y(x) + b)
   math_t *labels = unique_labels;
-  LinAlg::unaryOp(
+  MLCommon::LinAlg::unaryOp(
     preds, y.data(), n_rows,
     [labels, b] __device__(math_t y) {
       return y + b < 0 ? labels[0] : labels[1];
