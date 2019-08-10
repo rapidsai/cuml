@@ -17,8 +17,8 @@
 #include <iostream>
 #include <numeric>
 #include "../decisiontree.hpp"
+#include "../flatnode.h"
 #include "common_helper.cuh"
-#include "flatnode.h"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"
 /*
@@ -37,7 +37,7 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   const std::vector<unsigned int>& feature_selector, const int n_sampled_rows,
   const int nrows, const int nbins, int maxdepth, const int maxleaves,
   const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
-  int& depth_cnt, int& leaf_cnt,
+  int& depth_cnt, int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
@@ -67,7 +67,7 @@ ML::DecisionTree::TreeNode<T, T>* grow_deep_tree_regression(
   sparse_countstate.resize(total_nodes, 0);
   sparse_meanstate[0] = mean;
   sparse_countstate[0] = count;
-  std::vector<SparseTreeNode<T, T>> sparsetree;
+
   sparsetree.reserve(total_nodes);
   SparseTreeNode<T, T> sparsenode;
   sparsenode.best_metric_val = initial_metric;

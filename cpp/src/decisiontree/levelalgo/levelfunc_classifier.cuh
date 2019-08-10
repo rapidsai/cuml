@@ -17,8 +17,8 @@
 #include <iostream>
 #include <numeric>
 #include "../decisiontree.hpp"
+#include "../flatnode.h"
 #include "common_helper.cuh"
-#include "flatnode.h"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
 
@@ -38,7 +38,8 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   const int nrows, const int n_unique_labels, const int nbins,
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
   const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
-  int& leaf_cnt, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);
@@ -63,7 +64,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   sparse_histstate.resize(total_nodes, std::vector<int>(n_unique_labels));
   sparse_histstate[0] = histvec;
 
-  std::vector<SparseTreeNode<T, int>> sparsetree;
   sparsetree.reserve(total_nodes);
   SparseTreeNode<T, int> sparsenode;
   sparsenode.best_metric_val = initial_metric;
