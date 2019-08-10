@@ -138,6 +138,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   MLCommon::Sparse::COO<float> COO_Matrix;
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
+  d_alloc->deallocate(P, sizeof(float) * n * n_neighbors, stream);
+  d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+  
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals;
   const int *COL = COO_Matrix.cols;
