@@ -54,7 +54,6 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
     local_flag = flags[tid];
   }
   for (int colcnt = 0; colcnt < ncols; colcnt++) {
-    __syncthreads();
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
       *(E*)&shmem_minmax[i] = (i < n_nodes)
                                 ? MLCommon::Stats::encode(init_min_val)
@@ -78,18 +77,9 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 
     //finally, perform global mem atomics
     for (int i = threadIdx.x; i < n_nodes; i += blockDim.x) {
-      // if (i < n_nodes) {
       atomicMin((E*)&minmax[i + 2 * n_nodes * colcnt], *(E*)&shmem_minmax[i]);
-      //printf("tid %d colid %d gmem min val %f shmem min val %f \n", i, colcnt,
-      //       MLCommon::Stats::decode(*(E*)&minmax[i + 2 * n_nodes * colcnt]),
-      //       MLCommon::Stats::decode(*(E*)&shmem_minmax[i]));
-      //    } else {
       atomicMax((E*)&minmax[i + n_nodes + 2 * n_nodes * colcnt],
                 *(E*)&shmem_minmax[i + n_nodes]);
-      //printf("tid %d colid %d gmem max val %f shmem max val %f \n", i, colcnt,
-      //       MLCommon::Stats::decode(*(E*)&minmax[i + 2 * n_nodes * colcnt]),
-      //       MLCommon::Stats::decode(*(E*)&shmem_minmax[i]));
-      //  }
     }
     __syncthreads();
   }
