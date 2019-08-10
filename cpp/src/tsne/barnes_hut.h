@@ -78,7 +78,19 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
   if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
-
+  
+  
+  const int FOUR_NNODES = 4 * nnodes;
+  const int FOUR_N = 4 * n;
+  const float theta_squared = theta * theta;
+  const int NNODES = nnodes;
+  
+  thrust::device_ptr<float> begin_massl;
+  thrust::device_ptr<float> begin_gains_bh;
+  
+  float momentum = pre_momentum;
+  float learning_rate = pre_learning_rate;
+  
   // Allocate more space
   //---------------------------------------------------
   int *errl = NULL;
@@ -126,11 +138,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                   stepd, radiusd);
   CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
-  const int FOUR_NNODES = 4 * nnodes;
-  const int FOUR_N = 4 * n;
-  const float theta_squared = theta * theta;
-  const int NNODES = nnodes;
-
   // Actual mallocs
   startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
   childl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1) * 4, stream);
@@ -140,7 +147,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     printf("[Error] Out of Memory");
     goto ERROR;
   }
-  thrust::device_ptr<float> begin_massl = thrust::device_pointer_cast(massl);
+  begin_massl = thrust::device_pointer_cast(massl);
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
@@ -190,8 +197,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     printf("[Error] Out of Memory");
     goto ERROR;
   }
-  thrust::device_ptr<float> begin_gains_bh =
-    thrust::device_pointer_cast(gains_bh);
+  begin_gains_bh = thrust::device_pointer_cast(gains_bh);
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
                begin_gains_bh + (n * 2), 1.0f);
 
@@ -222,9 +228,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   //---------------------------------------------------
   if (verbose) printf("[Info] Start gradient updates!\n");
 
-  float momentum = pre_momentum;
-  float learning_rate = pre_learning_rate;
-
   for (int iter = 0; iter < max_iter; iter++) {
     CUDA_CHECK_GOTO(
       cudaMemsetAsync(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2, stream));
@@ -254,7 +257,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                     FOUR_N);
     CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
-    CUDA_CHECK_GOTO(ClearKernel1_time);
+    END_TIMER(ClearKernel1_time);
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
