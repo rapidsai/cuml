@@ -87,6 +87,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   thrust::device_ptr<float> begin_massl;
   thrust::device_ptr<float> begin_gains_bh;
+  thrust::device_ptr<float> Y_begin;
   
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
@@ -329,7 +330,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   PRINT_TIMES;
 
   // Copy final YY into true output Y
-  thrust::device_ptr<float> Y_begin = thrust::device_pointer_cast(Y);
+  Y_begin = thrust::device_pointer_cast(Y);
   thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
   thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
                YY + nnodes + 1 + n, Y_begin + n);
