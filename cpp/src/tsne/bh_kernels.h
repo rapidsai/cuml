@@ -170,9 +170,8 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
 /**
  * Clear some of the state vectors up.
  */
-__global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd,
-                                                        const int FOUR_NNODES,
-                                                        const int FOUR_N) {
+__global__ __launch_bounds__(1024, 1) void ClearKernel1(
+  volatile int *restrict childd, const int FOUR_NNODES, const int FOUR_N) {
   const int inc = blockDim.x * gridDim.x;
   int k = (FOUR_N & -32) + threadIdx.x +
           blockIdx.x * blockDim.x;  // align to warp size
