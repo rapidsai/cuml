@@ -16,7 +16,7 @@
 
 # cython: profile = False
 # distutils: language = c++
-# distutils: extra_compile_args = -Ofast
+# distutils: extra_compile_args = -O2
 # cython: embedsignature = True, language_level = 3
 # cython: boundscheck = False, wraparound = False, initializedcheck = False
 
@@ -27,6 +27,7 @@ import numpy as np
 import inspect
 import pandas as pd
 import warnings
+import gc
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -291,7 +292,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self._assure_clean_memory()
+        self._assure_clean_memory(1)
         return
 
     def fit(self, X):
@@ -370,7 +371,7 @@ class TSNE(Base):
         cdef long long seed = -1
         if self.random_state is not None:
             seed = self.random_state
-        self._assure_clean_memory()
+        self._assure_clean_memory(1)
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
@@ -404,10 +405,9 @@ class TSNE(Base):
         return self
 
     def __del__(self):
-        if "Y" in self.__dict__:
-            del self.Y
-            self.Y = None
-        self._assure_clean_memory()
+        for item in self.__dict__:
+            del self.__dict__[item]
+        self._assure_clean_memory(1)
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -447,22 +447,24 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        self._assure_clean_memory()
+        self._assure_clean_memory(1)
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        self._assure_clean_memory()
+        self._assure_clean_memory(1)
         return state
 
-    def _assure_clean_memory(self):
+    def _assure_clean_memory(self, int collect=0):
         """
         TSNE is sensitive to what is currently in memory.
         Use Numba's garbabge collector to clean up already removed
         GPU memory.
         """
+        if collect == 1:
+            gc.collect()
         context = cuda.current_context().deallocations
         if context is not None:
             context.clear()
