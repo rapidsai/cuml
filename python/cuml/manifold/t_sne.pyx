@@ -370,7 +370,6 @@ class TSNE(Base):
         cdef long long seed = -1
         if self.random_state is not None:
             seed = self.random_state
-        
         self._assure_clean_memory()
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
