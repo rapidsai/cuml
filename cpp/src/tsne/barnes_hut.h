@@ -81,13 +81,40 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate more space
   //---------------------------------------------------
-  int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
-  unsigned int *limiter =
-    (unsigned int *)d_alloc->allocate(sizeof(unsigned int), stream);
-  int *maxdepthd = (int *)d_alloc->allocate(sizeof(int), stream);
-  int *stepd = (int *)d_alloc->allocate(sizeof(int), stream);
-  int *bottomd = (int *)d_alloc->allocate(sizeof(int), stream);
-  float *radiusd = (float *)d_alloc->allocate(sizeof(float), stream);
+  int *errl = NULL;
+  unsigned int *limiter = NULL;
+  int *maxdepthd = NULL;
+  int *stepd = NULL;
+  int *bottomd = NULL;
+  float *radiusd = NULL;
+  
+  int *startl = NULL;
+  int *childl = NULL;
+  float *massl = NULL;
+  float *maxxl = NULL;
+  float *maxyl = NULL;
+  float *minxl = NULL;
+  float *minyl = NULL;
+  int *countl = NULL;
+  int *sortl = NULL;
+
+  float *rep_forces = NULL;
+  float *attr_forces = NULL;
+  float *norm_add1 = NULL;
+  float *norm = NULL;
+  float *Z_norm = NULL;
+
+  float *radiusd_squared = NULL;
+  float *gains_bh = NULL;
+  float *old_forces = NULL;
+  float *YY = NULL;
+  
+  errl = (int *)d_alloc->allocate(sizeof(int), stream);
+  limiter = (unsigned int *)d_alloc->allocate(sizeof(unsigned int), stream);
+  maxdepthd = (int *)d_alloc->allocate(sizeof(int), stream);
+  stepd = (int *)d_alloc->allocate(sizeof(int), stream);
+  bottomd = (int *)d_alloc->allocate(sizeof(int), stream);
+  radiusd = (float *)d_alloc->allocate(sizeof(float), stream);
   
   if (errl == NULL || limiter == NULL || maxdepthd == NULL ||
       stepd == NULL || bottomd == NULL || radiusd == NULL) {
@@ -105,11 +132,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const int NNODES = nnodes;
 
   // Actual mallocs
-  int *startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
-  int *childl =
-    (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1) * 4, stream);
-  float *massl =
-    (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
+  startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
+  childl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1) * 4, stream);
+  massl = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
   
   if (startl == NULL || childl == NULL || massl == NULL) {
     printf("[Error] Out of Memory");
@@ -119,14 +144,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
-  float *maxxl =
-    (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
-  float *maxyl =
-    (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
-  float *minxl =
-    (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
-  float *minyl =
-    (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
+  maxxl = (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
+  maxyl = (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
+  minxl = (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
+  minyl = (float *)d_alloc->allocate(sizeof(float) * blocks * FACTOR1, stream);
   
   if (maxxl == NULL || maxyl == NULL || minxl == NULL || minyl == NULL) {
     printf("[Error] Out of Memory");
@@ -134,10 +155,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   }
 
   // SummarizationKernel
-  int *countl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
+  countl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
 
   // SortKernel
-  int *sortl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
+  sortl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
   
   if (countl == NULL || sortl == NULL) {
     printf("[Error] Out of Memory");
@@ -145,29 +166,26 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   }
 
   // RepulsionKernel
-  float *rep_forces =
-    (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
-  float *attr_forces = (float *)d_alloc->allocate(
-    sizeof(float) * n * 2, stream);  // n*2 double for reduction sum
+  rep_forces = (float *)d_alloc->allocate(sizeof(float)*(nnodes + 1)*2, stream);
+  attr_forces = (float *)d_alloc->allocate(sizeof(float)*n*2, stream);
   
   if (rep_forces == NULL || attr_forces == NULL) {
     printf("[Error] Out of Memory");
     goto ERROR;
   }
 
-  float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-  float *Z_norm = (float *)d_alloc->allocate(sizeof(float), stream);
+  norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  Z_norm = (float *)d_alloc->allocate(sizeof(float), stream);
   
   if (norm_add1 == NULL || norm == NULL || Z_norm == NULL) {
     printf("[Error] Out of Memory");
     goto ERROR;
   }
 
-  float *radiusd_squared = (float *)d_alloc->allocate(sizeof(float), stream);
-
-  // Apply
-  float *gains_bh = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);  
+  radiusd_squared = (float *)d_alloc->allocate(sizeof(float), stream);
+  gains_bh = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);
+  
   if (radiusd_squared == NULL || gains_bh == NULL) {
     printf("[Error] Out of Memory");
     goto ERROR;
@@ -177,15 +195,14 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
                begin_gains_bh + (n * 2), 1.0f);
 
-  float *old_forces = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);
-  float *YY =
-    (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
-  random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
+  old_forces = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);
+  YY = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
   
   if (old_forces == NULL || YY == NULL) {
     printf("[Error] Out of Memory");
     goto ERROR;
   }
+  random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
   CUDA_CHECK_GOTO(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2, stream));
   
 
