@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+#include "../flatnode.h"
 #include "common_kernel.cuh"
-#include "flatnode.h"
 #include "stats/minmax.h"
 
 template <typename T>

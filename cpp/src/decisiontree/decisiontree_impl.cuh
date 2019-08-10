@@ -194,8 +194,9 @@ void DecisionTreeBase<T, L>::print(const TreeNode<T, L> *root) const {
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
-  const cumlHandle_impl &handle, TreeNode<T, L> *&root, const T *data,
-  const int ncols, const int nrows, const L *labels, unsigned int *rowids,
+  const cumlHandle_impl &handle, TreeNode<T, L> *&root,
+  std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
+  const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes,
   const float colper, int n_bins, int split_algo_flag,
   int cfg_min_rows_per_node, bool cfg_bootstrap_features,
@@ -246,7 +247,7 @@ void DecisionTreeBase<T, L>::plant(
   MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
   root = grow_deep_tree(data, labels, rowids, feature_selector, n_sampled_rows,
-                        ncols, dinfo.NLocalrows, tempmem);
+                        ncols, dinfo.NLocalrows, sparsetree, tempmem);
   train_time = timer.getElapsedSeconds();
   tempmem.reset();
 }
@@ -314,8 +315,10 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(
   const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
-  int unique_labels, TreeNode<T, L> *&root, DecisionTreeParams &tree_params,
-  bool is_classifier, std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  int unique_labels, TreeNode<T, L> *&root,
+  std::vector<SparseTreeNode<T, L>> &sparsetree,
+  DecisionTreeParams &tree_params, bool is_classifier,
+  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
@@ -341,7 +344,7 @@ void DecisionTreeBase<T, L>::base_fit(
          "Unsupported criterion %s\n",
          CRITERION_NAME[tree_params.split_criterion]);
 
-  plant(handle.getImpl(), root, data, ncols, nrows, labels, rowids,
+  plant(handle.getImpl(), root, sparsetree, data, ncols, nrows, labels, rowids,
         n_sampled_rows, unique_labels, tree_params.max_depth,
         tree_params.max_leaves, tree_params.max_features, tree_params.n_bins,
         tree_params.split_algo, tree_params.min_rows_per_node,
@@ -357,7 +360,8 @@ void DecisionTreeClassifier<T>::fit(
   DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                 unique_labels, tree->root, tree_params, true, in_tempmem);
+                 unique_labels, tree->root, tree->sparsetree, tree_params, true,
+                 in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -368,7 +372,7 @@ void DecisionTreeRegressor<T>::fit(
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1,
-                 tree->root, tree_params, false, in_tempmem);
+                 tree->root, tree->sparsetree, tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
 template <typename T>
@@ -376,6 +380,7 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
   const T *data, const int *labels, unsigned int *rowids,
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
   const int ncols, const int nrows,
+  std::vector<SparseTreeNode<T, int>> &sparsetree,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
@@ -383,7 +388,7 @@ TreeNode<T, int> *DecisionTreeClassifier<T>::grow_deep_tree(
     data, labels, rowids, feature_selector, n_sampled_rows, nrows,
     this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
     this->min_rows_per_node, this->split_criterion, this->split_algo, depth_cnt,
-    leaf_cnt, tempmem);
+    leaf_cnt, sparsetree, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
   return root;
@@ -394,13 +399,15 @@ TreeNode<T, T> *DecisionTreeRegressor<T>::grow_deep_tree(
   const T *data, const T *labels, unsigned int *rowids,
   const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
   const int ncols, const int nrows,
+  std::vector<SparseTreeNode<T, T>> &sparsetree,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
   TreeNode<T, T> *root = grow_deep_tree_regression(
     data, labels, rowids, feature_selector, n_sampled_rows, nrows, this->nbins,
     this->treedepth, this->maxleaves, this->min_rows_per_node,
-    this->split_criterion, this->split_algo, depth_cnt, leaf_cnt, tempmem);
+    this->split_criterion, this->split_algo, depth_cnt, leaf_cnt, sparsetree,
+    tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
   return root;

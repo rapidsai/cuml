@@ -88,7 +88,8 @@ class DecisionTreeBase {
   MLCommon::TimerCPU prepare_fit_timer;
 
   void plant(const cumlHandle_impl &handle, TreeNode<T, L> *&root,
-             const T *data, const int ncols, const int nrows, const L *labels,
+             std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
+             const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
              int maxdepth = -1, int max_leaf_nodes = -1,
              const float colper = 1.0, int n_bins = 8,
@@ -102,13 +103,15 @@ class DecisionTreeBase {
     const T *data, const L *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
+    std::vector<SparseTreeNode<T, L>> &sparsetree,
     std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(const ML::cumlHandle &handle, const T *data, const int ncols,
                 const int nrows, const L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
-                TreeNode<T, L> *&root, DecisionTreeParams &tree_params,
-                bool is_classifier,
+                TreeNode<T, L> *&root,
+                std::vector<SparseTreeNode<T, L>> &sparsetree,
+                DecisionTreeParams &tree_params, bool is_classifier,
                 std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
@@ -149,6 +152,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
     const T *data, const int *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
+    std::vector<SparseTreeNode<T, int>> &sparsetree,
     std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
@@ -167,6 +171,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
     const T *data, const T *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
+    std::vector<SparseTreeNode<T, T>> &sparsetree,
     std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class

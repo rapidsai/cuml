@@ -17,6 +17,7 @@
 #pragma once
 #include <common/cumlHandle.hpp>
 #include "algo_helper.h"
+#include "flatnode.h"
 
 namespace ML {
 
@@ -95,6 +96,7 @@ struct TreeMetaDataNode {
   double prepare_time;
   double train_time;
   TreeNode<T, L> *root;
+  std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 
 template <class T, class L>

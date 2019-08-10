@@ -16,6 +16,7 @@
 
 #include "decisiontree.hpp"
 #include "decisiontree_impl.cuh"
+#include "flatnode.h"
 
 namespace ML {
 namespace DecisionTree {
