@@ -111,7 +111,6 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
             params.n_cols, predicted_labels, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
-    printf("accuracy here %f\n", accuracy);
     accuracy = tmp.accuracy;
   }
 
