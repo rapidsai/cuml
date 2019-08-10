@@ -18,6 +18,17 @@
 #include "bh_kernels.h"
 #include "utils.h"
 
+#define CUDA_CHECK_GOTO(call)                                            \
+  do {                                                                   \
+    cudaError_t status = call;                                           \
+    if (status != cudaSuccess) {                                         \
+      printf("ERROR: CUDA call='%s' at file=%s line=%d failed with %s ", \
+             #call, __FILE__, __LINE__, cudaGetErrorString(status));     \
+      goto ERROR;                                                        \
+    }                                                                    \
+  } while (0)
+
+
 namespace ML {
 namespace TSNE {
 
@@ -81,12 +92,12 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   if (errl == NULL || limiter == NULL || maxdepthd == NULL ||
       stepd == NULL || bottomd == NULL || radiusd == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
 
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(errl, limiter, maxdepthd,
                                                   stepd, radiusd);
-  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
   const int FOUR_N = 4 * n;
@@ -102,7 +113,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (startl == NULL || childl == NULL || massl == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
   thrust::device_ptr<float> begin_massl = thrust::device_pointer_cast(massl);
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
@@ -119,7 +130,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (maxxl == NULL || maxyl == NULL || minxl == NULL || minyl == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
 
   // SummarizationKernel
@@ -130,7 +141,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (countl == NULL || sortl == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
 
   // RepulsionKernel
@@ -141,7 +152,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (rep_forces == NULL || attr_forces == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
 
   float *norm_add1 = (float *)d_alloc->allocate(sizeof(float) * n, stream);
@@ -150,7 +161,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (norm_add1 == NULL || norm == NULL || Z_norm == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
 
   float *radiusd_squared = (float *)d_alloc->allocate(sizeof(float), stream);
@@ -159,7 +170,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *gains_bh = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);  
   if (radiusd_squared == NULL || gains_bh == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
   thrust::device_ptr<float> begin_gains_bh =
     thrust::device_pointer_cast(gains_bh);
@@ -173,9 +184,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   
   if (old_forces == NULL || YY == NULL) {
     printf("[Error] Out of Memory");
-    return;
+    goto ERROR;
   }
-  CUDA_CHECK(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2, stream));
+  CUDA_CHECK_GOTO(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2, stream));
   
 
   // Set cache levels for faster algorithm execution
@@ -198,9 +209,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    CUDA_CHECK(
+    CUDA_CHECK_GOTO(
       cudaMemsetAsync(rep_forces, 0, sizeof(float) * (nnodes + 1) * 2, stream));
-    CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
+    CUDA_CHECK_GOTO(
+      cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
     TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(Z_norm, radiusd_squared,
                                                    bottomd, NNODES, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -216,43 +228,43 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl, childl, massl, YY, YY + nnodes + 1, maxxl, maxyl, minxl, minyl,
       FOUR_NNODES, NNODES, n, limiter, stepd, radiusd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(BoundingBoxKernel_time);
 
     START_TIMER;
     TSNE::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl, FOUR_NNODES,
                                                     FOUR_N);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
-    END_TIMER(ClearKernel1_time);
+    CUDA_CHECK_GOTO(ClearKernel1_time);
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
       errl, childl, YY, YY + nnodes + 1, NNODES, n, maxdepthd, bottomd,
       radiusd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
     TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(startl, massl, NNODES,
                                                         bottomd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel2_time);
 
     START_TIMER;
     TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl, childl, massl, YY, YY + nnodes + 1, NNODES, n, bottomd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
     TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
       sortl, countl, startl, childl, NNODES, n, bottomd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(SortKernel_time);
 
@@ -261,20 +273,20 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       errl, theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
       rep_forces + nnodes + 1, Z_norm, theta_squared, FOUR_NNODES, n,
       radiusd_squared, maxdepthd, stepd);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(RepulsionTime);
 
     START_TIMER;
     TSNE::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm, (float)n);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(Reduction_time);
 
     START_TIMER;
     TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
       YY, YY + nnodes + 1, norm, norm_add1, n);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
@@ -282,7 +294,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY, YY + nnodes + 1, norm, norm_add1, attr_forces,
         attr_forces + n, NNZ);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     START_TIMER;
@@ -290,7 +302,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       learning_rate, momentum, early_exaggeration, YY, YY + nnodes + 1,
       attr_forces, attr_forces + n, rep_forces, rep_forces + nnodes + 1,
       gains_bh, gains_bh + n, old_forces, old_forces + n, Z_norm, n);
-    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
   }
@@ -303,37 +315,62 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                YY + nnodes + 1 + n, Y_begin + n);
 
   // Deallocate everything
-  d_alloc->deallocate(errl, sizeof(int), stream);
-  d_alloc->deallocate(limiter, sizeof(unsigned int), stream);
-  d_alloc->deallocate(maxdepthd, sizeof(int), stream);
-  d_alloc->deallocate(stepd, sizeof(int), stream);
-  d_alloc->deallocate(bottomd, sizeof(int), stream);
-  d_alloc->deallocate(radiusd, sizeof(float), stream);
+  ERROR:
+  if (errl != NULL)
+    d_alloc->deallocate(errl, sizeof(int), stream);
+  if (limiter != NULL)
+    d_alloc->deallocate(limiter, sizeof(unsigned int), stream);
+  if (maxdepthd != NULL)
+    d_alloc->deallocate(maxdepthd, sizeof(int), stream);
+  if (stepd != NULL)
+    d_alloc->deallocate(stepd, sizeof(int), stream);
+  if (bottomd != NULL)
+    d_alloc->deallocate(bottomd, sizeof(int), stream);
+  if (radiusd != NULL)
+    d_alloc->deallocate(radiusd, sizeof(float), stream);
+  
+  if (startl != NULL)
+    d_alloc->deallocate(startl, sizeof(int) * (nnodes + 1), stream);
+  if (childl != NULL)
+    d_alloc->deallocate(childl, sizeof(int) * (nnodes + 1) * 4, stream);
+  if (massl != NULL)
+    d_alloc->deallocate(massl, sizeof(float) * (nnodes + 1), stream);
 
-  d_alloc->deallocate(startl, sizeof(int) * (nnodes + 1), stream);
-  d_alloc->deallocate(childl, sizeof(int) * (nnodes + 1) * 4, stream);
-  d_alloc->deallocate(massl, sizeof(float) * (nnodes + 1), stream);
+  if (maxxl != NULL)
+    d_alloc->deallocate(maxxl, sizeof(float) * blocks * FACTOR1, stream);
+  if (maxyl != NULL)
+    d_alloc->deallocate(maxyl, sizeof(float) * blocks * FACTOR1, stream);
+  if (minxl != NULL)
+    d_alloc->deallocate(minxl, sizeof(float) * blocks * FACTOR1, stream);
+  if (minyl != NULL)
+    d_alloc->deallocate(minyl, sizeof(float) * blocks * FACTOR1, stream);
 
-  d_alloc->deallocate(maxxl, sizeof(float) * blocks * FACTOR1, stream);
-  d_alloc->deallocate(maxyl, sizeof(float) * blocks * FACTOR1, stream);
-  d_alloc->deallocate(minxl, sizeof(float) * blocks * FACTOR1, stream);
-  d_alloc->deallocate(minyl, sizeof(float) * blocks * FACTOR1, stream);
+  if (countl != NULL)
+    d_alloc->deallocate(countl, sizeof(int) * (nnodes + 1), stream);
+  if (sortl != NULL)
+    d_alloc->deallocate(sortl, sizeof(int) * (nnodes + 1), stream);
 
-  d_alloc->deallocate(countl, sizeof(int) * (nnodes + 1), stream);
-  d_alloc->deallocate(sortl, sizeof(int) * (nnodes + 1), stream);
+  if (rep_forces != NULL)
+    d_alloc->deallocate(rep_forces, sizeof(float) * (nnodes + 1) * 2, stream);
+  if (attr_forces != NULL)
+    d_alloc->deallocate(attr_forces, sizeof(float) * n * 2, stream);
+  if (norm != NULL)
+    d_alloc->deallocate(norm, sizeof(float) * n, stream);
+  if (norm_add1 != NULL)
+    d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
 
-  d_alloc->deallocate(rep_forces, sizeof(float) * (nnodes + 1) * 2, stream);
-  d_alloc->deallocate(attr_forces, sizeof(float) * n * 2, stream);
-  d_alloc->deallocate(norm, sizeof(float) * n, stream);
-  d_alloc->deallocate(norm_add1, sizeof(float) * n, stream);
+  if (Z_norm != NULL)
+    d_alloc->deallocate(Z_norm, sizeof(float), stream);
+  if (radiusd_squared != NULL)
+    d_alloc->deallocate(radiusd_squared, sizeof(float), stream);
 
-  d_alloc->deallocate(Z_norm, sizeof(float), stream);
-  d_alloc->deallocate(radiusd_squared, sizeof(float), stream);
+  if (gains_bh != NULL)
+    d_alloc->deallocate(gains_bh, sizeof(float) * n * 2, stream);
+  if (old_forces != NULL)
+    d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
 
-  d_alloc->deallocate(gains_bh, sizeof(float) * n * 2, stream);
-  d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
-
-  d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
+  if (YY != NULL)
+    d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
 }
 
 }  // namespace TSNE
