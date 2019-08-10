@@ -41,9 +41,11 @@ def test_tsne(name):
             if trust < 0.95:
                 assert trust > 0.88
         assert nans == 0
-        del Y
+        del Y, tsne, nans, trust
 
         # Reuse
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+        
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
@@ -52,7 +54,7 @@ def test_tsne(name):
             if trust < 0.95:
                 assert trust > 0.88
         assert nans == 0
-        del Y
+        del Y, tsne, nans, trust
 
         # Again
         tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
@@ -65,9 +67,11 @@ def test_tsne(name):
             if trust < 0.95:
                 assert trust > 0.88
         assert nans == 0
-        del Y
+        del Y, tsne, nans, trust
 
         # Reuse
+        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+        
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
@@ -76,4 +80,4 @@ def test_tsne(name):
             if trust < 0.95:
                 assert trust > 0.88
         assert nans == 0
-        del Y
+        del Y, tsne, nans, trust
