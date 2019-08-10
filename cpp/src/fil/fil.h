@@ -106,6 +106,9 @@ struct forest_params_t {
   // threshold is used to for classification if output == OUTPUT_CLASS,
   // and is ignored otherwise
   float threshold;
+  // global_bias is added to the sum of tree predictions
+  // (after averaging, if it is used, but before any further transformations)
+  float global_bias;
 };
 
 /** treelite_params_t are parameters for importing treelite models */
