@@ -72,7 +72,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims -v
+$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -92,7 +92,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
