@@ -27,8 +27,6 @@
 namespace MLCommon {
 namespace Cache {
 
-using namespace MLCommon;
-
 /**
 * @brief Associative cache with least recently used replacement policy.
 *
@@ -108,7 +106,7 @@ using namespace MLCommon;
 template <typename math_t, int associativity = 32>
 class Cache {
  public:
-  bool verbose = false;  //!< Enable verbose output
+  bool verbose;  //!< Enable verbose output
 
   /**
    * @brief Construct a Cache object
@@ -121,9 +119,10 @@ class Cache {
    * @param n_vec number of elements in a single vector that is stored in a
    *   cache entry
    * @param cache_size in MiB
+   * @param verbose enable verbose output
    */
   Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-        int n_vec, float cache_size = 200)
+        int n_vec, float cache_size = 200, bool verbose = false)
     : allocator(allocator),
       n_vec(n_vec),
       cache_size(cache_size),
@@ -134,7 +133,8 @@ class Cache {
       ws_tmp(allocator, stream),
       idx_tmp(allocator, stream),
       d_num_selected_out(allocator, stream, 1),
-      d_temp_storage(allocator, stream) {
+      d_temp_storage(allocator, stream),
+      verbose(verbose) {
     ASSERT(n_vec > 0, "Parameter n_vec: shall be larger than zero");
     ASSERT(associativity > 0, "Associativity shall be larger than zero");
     ASSERT(cache_size >= 0, "Cache size should not be negative");
@@ -270,7 +270,7 @@ class Cache {
    * @param [out] cache_idx device array of cache indices corresponding to
    *   the input keys, size [n]
    * @param [out] n_cached number of elements that are cached
-   * @param [in] stream
+   * @param [in] stream cuda stream
    */
   void GetCacheIdxPartitioned(int *keys, int n, int *cache_idx, int *n_cached,
                               cudaStream_t stream) {

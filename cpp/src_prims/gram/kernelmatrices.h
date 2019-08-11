@@ -67,7 +67,7 @@ __global__ void polynomial_kernel(math_t *inout, int ld, int rows, int cols,
 /** Epiloge function for tanh kernel without padding.
  * Calculates output = tanh(gain*input + offset)
  * @param inout device vector in column major format, size [len]
- * @param exponent
+ * @param len length of the input vector
  * @param gain
  * @param offset
  */
@@ -86,7 +86,6 @@ __global__ void tanh_kernel_nopad(math_t *inout, int len, math_t gain,
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
  * @param cols number of colums
- * @param exponent
  * @param gain
  * @param offset
  */
@@ -124,7 +123,7 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-    * Constructs a polynomial kerner object.
+    * Constructs a polynomial kernel object.
     * It evaluates the kernel matrix using the following formula:
     * K_ij = (gain*<x1_i, x2_k> + offset)^exponent
     *
@@ -153,6 +152,7 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
    * @param [in] n1 number vectors in x1
    * @param [in] n_cols number of features in x1 and x2
    * @param [in] x2 device array of vectors in column major format,
+   * @param [in] n2 number vectors in x2
    *   size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix in column major
    *   format, size [n1*n2]
@@ -191,7 +191,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-  * Constructs a tanh kerner object.
+  * Constructs a tanh kernel object.
   * It evaluates the kernel matrix using the following formula:
   * K_ij = tanh(gain*<x1_i, x2_k> + offset)
   *
@@ -215,6 +215,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
   * @param [in] n_cols number of features in x1 and x2
   * @param [in] x2 device array of vectors in column major format,
   *   size [n2*n_cols]
+  * @param [in] n2 number vectors in x2
   * @param [out] out device buffer to store the Gram matrix in column major
   *   format, size [n1*n2]
   * @param [in] stream cuda stream
@@ -250,9 +251,9 @@ class RBFKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-   * Constructs a tanh kerner object.
+   * Constructs a RBF kernel object.
    * It evaluates the kernel matrix using the following formula:
-   * K_ij = exp(-gain*|x1_i- x2_k|)
+   * K_ij = exp(-gain*|x1_i- x2_k|^2)
    *
    * @tparam math_t floating point type
    * @param gain
@@ -271,6 +272,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
   * @param [in] n_cols number of features in x1 and x2
   * @param [in] x2 device array of vectors in column major format,
   *   size [n2*n_cols]
+  * @param [in] n2 number vectors in x2
   * @param [out] out device buffer to store the Gram matrix in column major
   *   format, size [n1*n2]
   * @param [in] stream cuda stream

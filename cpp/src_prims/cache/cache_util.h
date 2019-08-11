@@ -314,8 +314,8 @@ namespace {
  * @param [in] n_cache_sets number of cache sets
  * @param [in] associativity number of keys in cache set
  * @param [inout] cache_time time stamp when the indices were cached, size [n_cache_sets * associativity]
- * @param [out] cache_idx cache indices of the working set elements size [n]
- * @param [out] is_cached  whether the element is cached size[n]
+ * @param [out] cache_idx cache indices of the working set elements, size [n]
+ * @param [out] is_cached whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
 __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
