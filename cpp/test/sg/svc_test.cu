@@ -32,6 +32,7 @@ namespace SVM {
 using namespace MLCommon;
 using namespace GramMatrix;
 
+template <typename math_t>
 class WorkingSetTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -48,65 +49,63 @@ class WorkingSetTest : public ::testing::Test {
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
   cumlHandle handle;
   cudaStream_t stream;
-  WorkingSet<float> *ws;
+  WorkingSet<math_t> *ws;
 
-  float f_host[10] = {1, 3, 10, 4, 2, 8, 6, 5, 9, 7};
-  float *f_dev;
+  math_t f_host[10] = {1, 3, 10, 4, 2, 8, 6, 5, 9, 7};
+  math_t *f_dev;
 
-  float y_host[10] = {-1, -1, -1, -1, -1, 1, 1, 1, 1, 1};
-  float *y_dev;
+  math_t y_host[10] = {-1, -1, -1, -1, -1, 1, 1, 1, 1, 1};
+  math_t *y_dev;
 
-  float C = 1.5;
+  math_t C = 1.5;
 
-  float alpha_host[10] = {0, 0, 0.1, 0.2, 1.5, 0, 0.2, 0.4, 1.5, 1.5};
-  float *alpha_dev;  //   l  l  l/u  l/u    u  u  l/u  l/u  l    l
+  math_t alpha_host[10] = {0, 0, 0.1, 0.2, 1.5, 0, 0.2, 0.4, 1.5, 1.5};
+  math_t *alpha_dev;  //   l  l  l/u  l/u    u  u  l/u  l/u  l    l
 
   int expected_idx[4] = {4, 3, 8, 2};
   int expected_idx2[4] = {8, 2, 4, 9};
 };
 
-TEST_F(WorkingSetTest, Init) {
-  ws = new WorkingSet<float>(handle.getImpl(), handle.getStream(), 10);
-  EXPECT_EQ(ws->GetSize(), 10);
-  delete ws;
+typedef ::testing::Types<float, double> FloatTypes;
 
-  ws = new WorkingSet<float>(handle.getImpl(), stream, 100000);
-  EXPECT_EQ(ws->GetSize(), 1024);
-  delete ws;
+TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
+
+TYPED_TEST(WorkingSetTest, Init) {
+  this->ws = new WorkingSet<TypeParam>(this->handle.getImpl(),
+                                       this->handle.getStream(), 10);
+  EXPECT_EQ(this->ws->GetSize(), 10);
+  delete this->ws;
+
+  this->ws =
+    new WorkingSet<TypeParam>(this->handle.getImpl(), this->stream, 100000);
+  EXPECT_EQ(this->ws->GetSize(), 1024);
+  delete this->ws;
 }
 
-TEST_F(WorkingSetTest, Select) {
-  ws = new WorkingSet<float>(handle.getImpl(), stream, 10, 4);
-  EXPECT_EQ(ws->GetSize(), 4);
-  ws->SimpleSelect(f_dev, alpha_dev, y_dev, C);
-  ASSERT_TRUE(devArrMatchHost(expected_idx, ws->GetIndices(), ws->GetSize(),
-                              Compare<int>()));
+TYPED_TEST(WorkingSetTest, Select) {
+  this->ws =
+    new WorkingSet<TypeParam>(this->handle.getImpl(), this->stream, 10, 4);
+  EXPECT_EQ(this->ws->GetSize(), 4);
+  this->ws->SimpleSelect(this->f_dev, this->alpha_dev, this->y_dev, this->C);
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx, this->ws->GetIndices(),
+                              this->ws->GetSize(), Compare<int>()));
 
-  ws->Select(f_dev, alpha_dev, y_dev, C);
-  ASSERT_TRUE(devArrMatchHost(expected_idx, ws->GetIndices(), ws->GetSize(),
-                              Compare<int>()));
-  ws->Select(f_dev, alpha_dev, y_dev, C);
+  this->ws->Select(this->f_dev, this->alpha_dev, this->y_dev, this->C);
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx, this->ws->GetIndices(),
+                              this->ws->GetSize(), Compare<int>()));
+  this->ws->Select(this->f_dev, this->alpha_dev, this->y_dev, this->C);
 
-  ASSERT_TRUE(devArrMatchHost(expected_idx2, ws->GetIndices(), ws->GetSize(),
-                              Compare<int>()));
-  delete ws;
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx2, this->ws->GetIndices(),
+                              this->ws->GetSize(), Compare<int>()));
+  delete this->ws;
 }
-/*
-TEST_F(WorkingSetTest, Priority) {
-  ws = new WorkingSet<float>(handle.getImpl(), stream, 10, 8);
-  ASSERT_EQ(ws->GetSize(), 8);
-  ws->FIFO_strategy = false;
-  ws->Select(f_dev, alpha_dev, y_dev, C);
-  int expected_idx[] = {4, 3, 7, 6, 2, 8, 9, 1};
-  //ws->Select(f_dev, alpha_dev, y_dev, C);
-  ASSERT_TRUE(
-    devArrMatchHost(expected_idx, ws->GetIndices(), ws->GetSize(), Compare<int>())
-  );
-  delete ws;
-}
-*/
 
-class KernelCacheTest : public ::testing::Test {
+//TYPED_TEST(WorkingSetTest, Priority) {
+// See Issue #946
+//}
+
+class KernelCacheTest
+  : public ::testing::TestWithParam<GramMatrix::KernelParams> {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -125,6 +124,38 @@ class KernelCacheTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(ws_idx_dev));
   }
 
+  // Naive host side kernel implementation used for comparison
+  void ApplyNonlin(GramMatrix::KernelParams params) {
+    switch (params.kernel) {
+      case GramMatrix::LINEAR:
+        break;
+      case GramMatrix::POLYNOMIAL:
+        for (int z = 0; z < n_rows * n_ws; z++) {
+          float val = params.gamma * tile_host_expected[z] + params.coef0;
+          tile_host_expected[z] = pow(val, params.degree);
+        }
+        break;
+      case GramMatrix::TANH:
+        for (int z = 0; z < n_rows * n_ws; z++) {
+          float val = params.gamma * tile_host_expected[z] + params.coef0;
+          tile_host_expected[z] = tanh(val);
+        }
+        break;
+      case GramMatrix::RBF:
+        for (int i = 0; i < n_ws; i++) {
+          for (int j = 0; j < n_rows; j++) {
+            float d = 0;
+            for (int k = 0; k < n_cols; k++) {
+              int idx_i = ws_idx_host[i];
+              float diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
+              d += diff * diff;
+            }
+            tile_host_expected[i * n_rows + j] = exp(-params.gamma * d);
+          }
+        }
+        break;
+    }
+  }
   cumlHandle handle;
   cublasHandle_t cublas_handle;
   cudaStream_t stream;
@@ -142,60 +173,29 @@ class KernelCacheTest : public ::testing::Test {
                                   48, 56, 44, 56, 68, 80};
 };
 
-TEST_F(KernelCacheTest, EvalTestLin) {
-  auto lin = new GramMatrix::GramMatrixBase<float>(cublas_handle);
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws, lin);
+TEST_P(KernelCacheTest, EvalTest) {
+  GramMatrix::KernelParams params = GetParam();
+  GramMatrix::GramMatrixBase<float> *kernel =
+    GramMatrix::KernelFactory<float>::create(
+      params, handle.getImpl().getCublasHandle());
+  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
+                           kernel);
   float *tile_dev = cache.GetTile(ws_idx_dev);
+  // apply nonlinearity on tile_host_expected
+  ApplyNonlin(params);
   ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
                               CompareApprox<float>(1e-6f)));
+  delete kernel;
 }
 
-TEST_F(KernelCacheTest, EvalTestPoly) {
-  float offset = 1.3;
-  float gain = 1.0;
-  auto nonlin = new GramMatrix::PolynomialKernel<float, int>(2, gain, offset,
-                                                             cublas_handle);
-  for (int z = 0; z < n_rows * n_ws; z++) {
-    float val = tile_host_expected[z] + offset;
-    tile_host_expected[z] = val * val;
-  }
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
-                           nonlin);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
-                              CompareApprox<float>(1e-6f)));
-}
+GramMatrix::KernelParams LinearKernel{GramMatrix::LINEAR, 3, 1, 0};
+GramMatrix::KernelParams PolyKernel{GramMatrix::POLYNOMIAL, 2, 1.3, 1};
+GramMatrix::KernelParams TanhKernel{GramMatrix::TANH, 2, 0.5, 2.4};
+GramMatrix::KernelParams RbfKernel{GramMatrix::RBF, 2, 0.5, 0};
 
-TEST_F(KernelCacheTest, EvalTestTanh) {
-  auto nonlin = new GramMatrix::TanhKernel<float>(0.5, 2.4, cublas_handle);
-  for (int z = 0; z < n_rows * n_ws; z++)
-    tile_host_expected[z] = tanh(tile_host_expected[z] * 0.5 + 2.4);
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
-                           nonlin);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
-                              CompareApprox<float>(1e-6f)));
-}
-
-TEST_F(KernelCacheTest, EvalTestRBF) {
-  auto nonlin = new GramMatrix::RBFKernel<float>(0.5);
-  for (int i = 0; i < n_ws; i++) {
-    for (int j = 0; j < n_rows; j++) {
-      float d = 0;
-      for (int k = 0; k < n_cols; k++) {
-        int idx_i = ws_idx_host[i];
-        float diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
-        d += diff * diff;
-      }
-      tile_host_expected[i * n_rows + j] = exp(-0.5 * d);
-    }
-  }
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
-                           nonlin);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
-                              CompareApprox<float>(1e-6f)));
-}
+INSTANTIATE_TEST_CASE_P(KernelTests, KernelCacheTest,
+                        testing::Values(LinearKernel, PolyKernel, TanhKernel,
+                                        RbfKernel));
 
 class SmoBlockSolverTest : public ::testing::Test {
  protected:
