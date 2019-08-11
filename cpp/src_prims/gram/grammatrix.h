@@ -51,6 +51,7 @@ class GramMatrixBase {
   * @param [in] n_cols number of columns (features) in x1 and x2
   * @param [in] x2 device array of vectors in column major format,
   *   size [n2*n_cols]
+  * @param [in] n2 number vectors in x2
   * @param [out] out device buffer to store the Gram matrix in column major
   *   format, size [n1*n2]
   * @param [in] stream cuda stream
@@ -82,6 +83,7 @@ class GramMatrixBase {
   * @param [in] n_cols number of columns (features) in x1 and x2
   * @param [in] x2 device array of vectors in column major format,
   *   size [n2*n_cols]
+  * @param [in] n2 number vectors in x2
   * @param [out] out device buffer to store the Gram matrix in column major
   *   format, size [n1*n2]
   * @param [in] stream cuda stream
@@ -110,6 +112,7 @@ class GramMatrixBase {
    * @param [in] n_cols number of colums (features) in x1 and x2
    * @param [in] x2 device array of vectors in column major format,
    *   size [n2*n_cols]
+   * @param [in] n2 number vectors in x2
    * @param [out] out device buffer to store the Gram matrix in column major
    *   format, size [n1*n2]
    * @param [in] stream cuda stream
@@ -136,6 +139,7 @@ class GramMatrixBase {
    * @param [in] n_cols number of columns (features) in x1 and x2
    * @param [in] x2 device array of vectors in column major format,
    *   size [n2*n_cols]
+   * @param [in] n2 number vectors in x2
    * @param [out] out device buffer to store the Gram matrix in column major
    *   format, size [n1*n2]
    * @param [in] stream cuda stream
