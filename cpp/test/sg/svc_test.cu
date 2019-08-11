@@ -104,8 +104,8 @@ TYPED_TEST(WorkingSetTest, Select) {
 // See Issue #946
 //}
 
-class KernelCacheTest
-  : public ::testing::TestWithParam<GramMatrix::KernelParams> {
+template <typename math_t>
+class KernelCacheTest : public ::testing::Test {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -131,23 +131,23 @@ class KernelCacheTest
         break;
       case GramMatrix::POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
-          float val = params.gamma * tile_host_expected[z] + params.coef0;
+          math_t val = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = pow(val, params.degree);
         }
         break;
       case GramMatrix::TANH:
         for (int z = 0; z < n_rows * n_ws; z++) {
-          float val = params.gamma * tile_host_expected[z] + params.coef0;
+          math_t val = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = tanh(val);
         }
         break;
       case GramMatrix::RBF:
         for (int i = 0; i < n_ws; i++) {
           for (int j = 0; j < n_rows; j++) {
-            float d = 0;
+            math_t d = 0;
             for (int k = 0; k < n_cols; k++) {
               int idx_i = ws_idx_host[i];
-              float diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
+              math_t diff = x_host[idx_i + k * n_rows] - x_host[j + k * n_rows];
               d += diff * diff;
             }
             tile_host_expected[i * n_rows + j] = exp(-params.gamma * d);
@@ -164,38 +164,42 @@ class KernelCacheTest
   int n_cols = 2;
   int n_ws = 3;
 
-  float *x_dev;
+  math_t *x_dev;
   int *ws_idx_dev;
 
-  float x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+  math_t x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
   int ws_idx_host[4] = {0, 1, 3};
-  float tile_host_expected[12] = {26, 32, 38, 44, 32, 40,
-                                  48, 56, 44, 56, 68, 80};
+  math_t tile_host_expected[12] = {26, 32, 38, 44, 32, 40,
+                                   48, 56, 44, 56, 68, 80};
 };
 
-TEST_P(KernelCacheTest, EvalTest) {
-  GramMatrix::KernelParams params = GetParam();
-  GramMatrix::GramMatrixBase<float> *kernel =
-    GramMatrix::KernelFactory<float>::create(
-      params, handle.getImpl().getCublasHandle());
-  KernelCache<float> cache(handle.getImpl(), x_dev, n_rows, n_cols, n_ws,
-                           kernel);
-  float *tile_dev = cache.GetTile(ws_idx_dev);
-  // apply nonlinearity on tile_host_expected
-  ApplyNonlin(params);
-  ASSERT_TRUE(devArrMatchHost(tile_host_expected, tile_dev, n_ws * n_ws,
-                              CompareApprox<float>(1e-6f)));
-  delete kernel;
+TYPED_TEST_CASE_P(KernelCacheTest);
+
+TYPED_TEST_P(KernelCacheTest, EvalTest) {
+  std::vector<GramMatrix::KernelParams> param_vec{
+    GramMatrix::KernelParams{GramMatrix::LINEAR, 3, 1, 0},
+    GramMatrix::KernelParams{GramMatrix::POLYNOMIAL, 2, 1.3, 1},
+    GramMatrix::KernelParams{GramMatrix::TANH, 2, 0.5, 2.4},
+    GramMatrix::KernelParams{GramMatrix::RBF, 2, 0.5, 0}};
+  for (auto params : param_vec) {
+    GramMatrix::GramMatrixBase<TypeParam> *kernel =
+      GramMatrix::KernelFactory<TypeParam>::create(
+        params, this->handle.getImpl().getCublasHandle());
+    KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
+                                 this->n_rows, this->n_cols, this->n_ws,
+                                 kernel);
+    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
+    // apply nonlinearity on tile_host_expected
+    this->ApplyNonlin(params);
+    ASSERT_TRUE(devArrMatchHost(this->tile_host_expected, tile_dev,
+                                this->n_rows * this->n_ws,
+                                CompareApprox<TypeParam>(1e-6f)));
+    delete kernel;
+  }
 }
 
-GramMatrix::KernelParams LinearKernel{GramMatrix::LINEAR, 3, 1, 0};
-GramMatrix::KernelParams PolyKernel{GramMatrix::POLYNOMIAL, 2, 1.3, 1};
-GramMatrix::KernelParams TanhKernel{GramMatrix::TANH, 2, 0.5, 2.4};
-GramMatrix::KernelParams RbfKernel{GramMatrix::RBF, 2, 0.5, 0};
-
-INSTANTIATE_TEST_CASE_P(KernelTests, KernelCacheTest,
-                        testing::Values(LinearKernel, PolyKernel, TanhKernel,
-                                        RbfKernel));
+REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest);
+INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 
 class SmoBlockSolverTest : public ::testing::Test {
  protected:
