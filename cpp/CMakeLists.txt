@@ -426,6 +426,8 @@ endif(BUILD_CUML_EXAMPLES)
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+install(DIRECTORY ${PROJECT_BINARY_DIR}/treelite/include/treelite DESTINATION include
+  FILES_MATCHING PATTERN "*.h")
 
 ###################################################################################################
 # - doxygen targets -------------------------------------------------------------------------------

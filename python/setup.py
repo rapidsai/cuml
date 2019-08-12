@@ -73,6 +73,7 @@ extensions = [
               include_dirs=['../cpp/src',
                             '../cpp/external',
                             '../cpp/src_prims',
+                            '../cpp/comms/std/src',
                             '../thirdparty/cutlass',
                             '../thirdparty/cub',
                             cuda_include_dir,
