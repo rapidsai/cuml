@@ -77,56 +77,62 @@ class SVC(Base):
 
     The solver uses the SMO method similarily to fit the classifier.
 
-    Parameters
-    ----------
-    handle : cuml.Handle
-        If it is None, a new one is created for this class
-    C : float (default = 1.0)
-        Penalty parameter C
-    kernel : string (default='linear' TODO change to 'rbf' once implemented)
-        Specifies the kernel function. Possible options: 'linear', 'poly',
-        'rbf', 'sigmoid', 'precomputed'
-    degree : int (default=3)
-        Degree of polynomial kernel function.
-    gamma : float (default = 'auto')
-        Coefficient for rbf, poly, and sigmoid kernels.
-    coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
-        sigmoid
-    tol : float (default = 1e-3)
-        Tolerance for stopping criterion.
-    cache_size : float (default = 200 MiB)
-        Size of the kernel cache n MiB (TODO)
-    max_iter : int (default = 100*n_samples)
-        Limit the number of outer iterations in the solver
-    verbose : bool (default = False)
-        verbose mode
-
-    Attributes
-    ----------
-    n_support_ : int
-        The total number of support vectors.
-        TODO change this to represent number support vectors for each class.
-    support_ : int, shape = [n_support]
-        Device array of suppurt vector indices
-    support_vectors_ : float, shape [n_support, n_cols]
-        Device array of support vectors
-    dual_coef_ : float, shape = [1, n_support]
-        Device array of coefficients for support vectors
-    intercept_ : int
-        The constant in the decision function
-    fit_status_ : int
-        0 if SVM is correctly fitted
-    coef_ : float, shape [1, n_cols]
-        Only available for linear kernels. It is the normal of the hyperplane.
-        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
-    For additional docs, see `scikitlearn's SVC
-    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, verbose=False):
+        """
+        Construct an SVC classifier for training and predictions.
+
+        Parameters
+        ----------
+        handle : cuml.Handle
+            If it is None, a new one is created for this class
+        C : float (default = 1.0)
+            Penalty parameter C
+        kernel : string (default='rbf')
+            Specifies the kernel function. Possible options: 'linear', 'poly',
+            'rbf', 'sigmoid', 'precomputed'
+        degree : int (default=3)
+            Degree of polynomial kernel function.
+        gamma : float (default = 'auto')
+            Coefficient for rbf, poly, and sigmoid kernels.
+        coef0 : float (default = 0.0)
+            Independent term in kernel function, only signifficant for poly and
+            sigmoid
+        tol : float (default = 1e-3)
+            Tolerance for stopping criterion.
+        cache_size : float (default = 200 MiB)
+            Size of the kernel cache n MiB
+        max_iter : int (default = 100*n_samples)
+            Limit the number of outer iterations in the solver
+        verbose : bool (default = False)
+            verbose mode
+
+        Attributes
+        ----------
+        n_support_ : int
+            The total number of support vectors. Note: this will change in the
+            future to represent number support vectors for each class (like
+            in Sklearn, see Issue #956)
+        support_ : int, shape = [n_support]
+            Device array of suppurt vector indices
+        support_vectors_ : float, shape [n_support, n_cols]
+            Device array of support vectors
+        dual_coef_ : float, shape = [1, n_support]
+            Device array of coefficients for support vectors
+        intercept_ : int
+            The constant in the decision function
+        fit_status_ : int
+            0 if SVM is correctly fitted
+        coef_ : float, shape [1, n_cols]
+            Only available for linear kernels. It is the normal of the
+            hyperplane.
+            coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
+
+        For additional docs, see `scikitlearn's SVC
+        <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
+        """
         super(SVC, self).__init__(handle=handle, verbose=verbose)
         self.tol = tol
         self.C = C
@@ -176,6 +182,13 @@ class SVC(Base):
         self._kernel_params = None
 
     def _get_c_kernel(self, kernel):
+        """
+        Get KernelType from the kernel string.
+
+        Paramaters
+        ----------
+        kernel: string, ('linear', 'poly', 'rbf', or 'sigmoid')
+        """
         return {
             'linear': LINEAR,
             'poly': POLYNOMIAL,
@@ -184,7 +197,15 @@ class SVC(Base):
         }[kernel]
 
     def _gamma_val(self, X):
-        # Calculate the value for gamma kernel parameter
+        """
+        Calculate the value for gamma kernel parameter.
+
+        Parameters
+        ----------
+        X: array like
+            Array of training vectors. The 'auto' and 'scale' gamma options
+            derive the numerical value of the gamma parameter from X.
+        """
         if type(self.gamma) is str:
             if self.gamma == 'auto':
                 return 1 / self.n_cols
