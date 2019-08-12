@@ -75,7 +75,8 @@ class RandomForestClassifier:
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
-
+    n_streams : int (default = 4 )
+                Number of parallel streams used for forest building
     """
 
     def __init__(
@@ -94,6 +95,7 @@ class RandomForestClassifier:
         verbose=False,
         rows_sample=1.0,
         max_leaves=-1,
+        n_streams=4,
         quantile_per_tree=False,
         dtype=None,
         criterion=None,
@@ -177,6 +179,7 @@ class RandomForestClassifier:
                 verbose,
                 rows_sample,
                 max_leaves,
+                n_streams,
                 quantile_per_tree,
                 dtype,
                 random.random(),
@@ -210,6 +213,7 @@ class RandomForestClassifier:
         verbose,
         rows_sample,
         max_leaves,
+        n_streams,
         quantile_per_tree,
         dtype,
         r,
@@ -230,6 +234,7 @@ class RandomForestClassifier:
             verbose=verbose,
             rows_sample=rows_sample,
             max_leaves=max_leaves,
+            n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
             gdf_datatype=dtype,
         )
