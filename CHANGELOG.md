@@ -18,6 +18,9 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #871: Wrapper for FIL
+- PR #870: make_blobs python function
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
 - PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
@@ -44,6 +47,7 @@
 - PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
 - PR #950: global_bias support in FIL
 - PR #773: Significant improvements to input checking of all classes and common input API for Python
+- PR #965: Making dask-ml a hard dependency
 
 ## Bug Fixes
 
@@ -56,8 +60,10 @@
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
 
 
 # cuML 0.8.0 (27 June 2019)
