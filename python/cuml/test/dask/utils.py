@@ -112,6 +112,6 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
 
     if wait:
         # Wait for data persist before moving on
-        client.sync(extract_ddf_partitions, d_cudf)
+        dask_wait(d_cudf)
 
     return d_df, d_cudf
