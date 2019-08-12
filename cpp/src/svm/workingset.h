@@ -22,6 +22,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "linalg/add.h"
+#include "linalg/init.h"
 #include "ml_utils.h"
 #include "smo_sets.h"
 #include "ws_util.h"
@@ -380,9 +381,11 @@ class WorkingSet {
   }
 
   void Initialize() {
-    range<<<MLCommon::ceildiv(n_rows, TPB), TPB>>>(f_idx.data(), n_rows);
+    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_rows, TPB), TPB>>>(
+      f_idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
-    range<<<MLCommon::ceildiv(n_ws, TPB), TPB>>>(idx.data(), n_rows);
+    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_ws, TPB), TPB>>>(idx.data(),
+                                                                   n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
