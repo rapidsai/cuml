@@ -166,8 +166,8 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
  * @param init_val initial minimum value to be
- * @param sharedMemPerBlk max shared mem available per block. This is being
- * explicitly requested since querying it inside prims is not good for perf.
+ * @param prop cuda device properties. This is being explicitly requested since
+ * querying it inside prims is not good for perf.
  * @param stream: cuda stream
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
@@ -177,7 +177,7 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
 template <typename T, int TPB = 512>
 void minmax(const T* data, const unsigned* rowids, const unsigned* colids,
             int nrows, int ncols, int row_stride, T* globalmin, T* globalmax,
-            T* sampledcols, size_t sharedMemPerBlk, cudaStream_t stream) {
+            T* sampledcols, const cudaDeviceProp& prop, cudaStream_t stream) {
   using E = typename encode_traits<T>::E;
   int nblks = ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
@@ -190,7 +190,7 @@ void minmax(const T* data, const unsigned* rowids, const unsigned* colids,
 
   // Compute the batch_ncols, in [1, ncols] range, that meet the available
   // shared memory constraints.
-  int batch_ncols = min(ncols, (int)(sharedMemPerBlk / (sizeof(T) * 2)));
+  int batch_ncols = min(ncols, (int)(prop.sharedMemPerBlock / (sizeof(T) * 2)));
   int num_batches = ceildiv(ncols, batch_ncols);
   smemSize = sizeof(T) * 2 * batch_ncols;
 
