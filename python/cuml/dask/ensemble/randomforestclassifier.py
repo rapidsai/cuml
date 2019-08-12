@@ -18,7 +18,6 @@ from cuml.dask.common import extract_ddf_partitions
 from cuml.ensemble import RandomForestClassifier as cuRFC
 
 from dask.distributed import default_client, wait
-
 import math
 import random
 
@@ -42,7 +41,7 @@ class RandomForestClassifier:
                      2 and 3 not valid for classification
                      (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-                 (default = 0)
+                 (default = 1)
                  the algorithm to determine how nodes are split in the tree.
     split_criterion: The criterion used to split nodes.
                      0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
@@ -77,6 +76,9 @@ class RandomForestClassifier:
                         Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
+    workers : list of strings
+              Dask addresses of workers to use for computation.
+              If None, all available Dask workers will be used.
     """
 
     def __init__(
@@ -86,7 +88,7 @@ class RandomForestClassifier:
         handle=None,
         max_features=1.0,
         n_bins=8,
-        split_algo=0,
+        split_algo=1,
         split_criterion=0,
         min_rows_per_node=2,
         bootstrap=True,
@@ -109,6 +111,7 @@ class RandomForestClassifier:
         random_state=None,
         warm_start=None,
         class_weight=None,
+        workers=None
     ):
 
         unsupported_sklearn_params = {
@@ -139,7 +142,9 @@ class RandomForestClassifier:
         self.n_estimators_per_worker = list()
 
         c = default_client()
-        workers = c.has_what().keys()
+        if workers is None:
+            workers = c.has_what().keys()  # Default to all workers
+        self.workers = workers
 
         n_workers = len(workers)
         if n_estimators < n_workers:
@@ -158,8 +163,6 @@ class RandomForestClassifier:
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
             )
-
-        ws = list(zip(workers, list(range(len(workers)))))
 
         self.rfs = {
             worker: c.submit(
@@ -185,7 +188,7 @@ class RandomForestClassifier:
                 random.random(),
                 workers=[worker],
             )
-            for worker, n in ws
+            for n, worker in enumerate(workers)
         }
 
         print(str(self.rfs))
@@ -218,7 +221,6 @@ class RandomForestClassifier:
         dtype,
         r,
     ):
-
         return cuRFC(
             n_estimators=n_estimators,
             max_depth=max_depth,
@@ -255,13 +257,36 @@ class RandomForestClassifier:
         ----------
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Features of training examples.
+
+            IMPORTANT: X is expected to be partitioned with one partition
+            on each Dask worker being used by the forest (self.workers).
+            When persisting data, you can use
+            cuml.dask.common.utils.persist_across_workers to simplify this.
+
         y : dask_cudf.Dataframe
             Dense  matrix (floats or doubles) of shape (n_samples, 1)
+            Labels of training examples.
+            y must be partitioned the same way as X (one partition per worker)
         """
         c = default_client()
 
         X_futures = c.sync(extract_ddf_partitions, X)
         y_futures = dict(c.sync(extract_ddf_partitions, y))
+
+        X_partition_workers = [w for w, xc in X_futures]
+        y_partition_workers = [w for w, xc in y_futures.items()]
+
+        if set(X_partition_workers) != set(self.workers) or \
+           set(y_partition_workers) != set(self.workers):
+            raise ValueError("""
+              X is not partitioned on the same workers expected by RF\n
+              X workers: %s\n
+              y workers: %s\n
+              RF workers: %s
+            """ % (str(X_partition_workers),
+                   str(y_partition_workers),
+                   str(self.workers)))
 
         f = list()
         for w, xc in X_futures:
@@ -297,13 +322,11 @@ class RandomForestClassifier:
 
         """
         c = default_client()
-        workers = c.has_what().keys()
-
-        ws = list(zip(workers, list(range(len(workers)))))
+        workers = self.workers
 
         X_Scattered = c.scatter(X)
         f = list()
-        for w, n in ws:
+        for n, w in enumerate(workers):
             f.append(
                 c.submit(
                     RandomForestClassifier._predict,

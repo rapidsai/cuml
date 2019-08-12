@@ -38,7 +38,7 @@ class RandomForestRegressor:
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+                 1 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
@@ -85,6 +85,9 @@ class RandomForestRegressor:
                       for mean square error' : 'mse'
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
+    workers : list of strings
+              Dask addresses of workers to use for computation.
+              If None, all available Dask workers will be used.
     """
 
     def __init__(
@@ -116,6 +119,7 @@ class RandomForestRegressor:
         class_weight=None,
         quantile_per_tree=False,
         criterion=None,
+        workers=None
     ):
 
         unsupported_sklearn_params = {
@@ -146,8 +150,9 @@ class RandomForestRegressor:
         self.n_estimators_per_worker = list()
 
         c = default_client()
-        workers = c.has_what().keys()
-
+        if workers is None:
+            workers = c.has_what().keys()
+        self.workers = workers
         n_workers = len(workers)
         if n_estimators < n_workers:
             raise ValueError(
@@ -165,8 +170,6 @@ class RandomForestRegressor:
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
             )
-
-        ws = list(zip(workers, list(range(len(workers)))))
 
         self.rfs = {
             worker: c.submit(
@@ -191,7 +194,7 @@ class RandomForestRegressor:
                 random.random(),
                 workers=[worker],
             )
-            for worker, n in ws
+            for n, worker in enumerate(workers)
         }
 
         rfs_wait = list()
@@ -258,14 +261,35 @@ class RandomForestRegressor:
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Features of training examples.
+
+            IMPORTANT: X is expected to be partitioned with one partition
+            on each Dask worker being used by the forest (self.workers).
+            When persisting data, you can use
+            cuml.dask.common.utils.persist_across_workers to simplify this.
+
         y : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
+            y must be partitioned the same way as X (one partition per worker)
         """
         c = default_client()
 
         X_futures = c.sync(extract_ddf_partitions, X)
         y_futures = dict(c.sync(extract_ddf_partitions, y))
+
+        X_partition_workers = [w for w, xc in X_futures]
+        y_partition_workers = [w for w, xc in y_futures.items()]
+
+        if set(X_partition_workers) != set(self.workers) or \
+           set(y_partition_workers) != set(self.workers):
+            raise ValueError("""
+              X is not partitioned on the same workers expected by RF\n
+              X workers: %s\n
+              y workers: %s\n
+              RF workers: %s
+            """ % (str(X_partition_workers),
+                   str(y_partition_workers),
+                   str(self.workers)))
 
         f = list()
         for w, xc in X_futures:
@@ -286,27 +310,25 @@ class RandomForestRegressor:
 
     def predict(self, X):
         """
-        Predicts the labels for X.
+        Predicts the regressor outputs for X.
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         Returns
         ----------
         y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
+           Dense vector (float) of shape (n_samples, 1)
 
         """
         c = default_client()
-        workers = c.has_what().keys()
-        ws = list(zip(workers, list(range(len(workers)))))
+        workers = self.workers
 
         X_Scattered = c.scatter(X)
 
         f = list()
-        for w, n in ws:
+        for n, w in enumerate(workers):
             f.append(
                 c.submit(
                     RandomForestRegressor._predict,
