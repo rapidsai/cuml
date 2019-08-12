@@ -50,7 +50,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
     return df_X, df_y
 
 
-# @pytest.mark.skip(reason="Test should be run only with libcuML.so")
+@pytest.mark.skip(reason="Test should be run only with libcuML.so")
 def test_ols():
 
     cluster = LocalCUDACluster(threads_per_worker=1)

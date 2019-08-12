@@ -20,6 +20,9 @@ from dask.distributed import Client
 
 
 @pytest.mark.mg
+@pytest.mark.parametrize('nrows', [1e6])
+@pytest.mark.parametrize('ncols', [50])
+@pytest.mark.parametrize('nclusters', [5])
 def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     owns_cluster = False
