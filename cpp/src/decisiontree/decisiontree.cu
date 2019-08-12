@@ -121,7 +121,7 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_tree_summary<T, L>(tree);
-  print_node<T, L>("", tree->root, false);
+  print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
 /**

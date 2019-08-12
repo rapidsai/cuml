@@ -46,10 +46,11 @@ template <class T, class L>
 void null_tree_node_child_ptrs(TreeNode<T, L> &node);
 
 template <class T, class L>
-void print(const TreeNode<T, L> &node, std::ostream &os);
+void print(const SparseTreeNode<T, L> &node, std::ostream &os);
 
 template <class T, class L>
-void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
+void print_node(const std::string &prefix,
+                const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft);
 
 template <class T, class L>
@@ -87,7 +88,7 @@ class DecisionTreeBase {
   std::vector<unsigned int> feature_selector;
   MLCommon::TimerCPU prepare_fit_timer;
 
-  void plant(const cumlHandle_impl &handle, TreeNode<T, L> *&root,
+  void plant(const cumlHandle_impl &handle,
              std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
              const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
@@ -99,7 +100,7 @@ class DecisionTreeBase {
              bool cfg_quantile_per_tree = false,
              std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
 
-  virtual TreeNode<T, L> *grow_deep_tree(
+  virtual void grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
@@ -109,7 +110,6 @@ class DecisionTreeBase {
   void base_fit(const ML::cumlHandle &handle, const T *data, const int ncols,
                 const int nrows, const L *labels, unsigned int *rowids,
                 const int n_sampled_rows, int unique_labels,
-                TreeNode<T, L> *&root,
                 std::vector<SparseTreeNode<T, L>> &sparsetree,
                 DecisionTreeParams &tree_params, bool is_classifier,
                 std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
@@ -119,7 +119,7 @@ class DecisionTreeBase {
   void print_tree_summary() const;
 
   // Printing utility for debug and looking at nodes and leaves.
-  void print(const TreeNode<T, L> *root) const;
+  void print(const std::vector<SparseTreeNode<T, L>> &sparsetree) const;
 
   // Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
   void predict(const ML::cumlHandle &handle, const TreeMetaDataNode<T, L> *tree,
@@ -128,7 +128,8 @@ class DecisionTreeBase {
   void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
                    const int n_rows, const int n_cols, L *preds,
                    bool verbose = false) const;
-  L predict_one(const T *row, const TreeNode<T, L> *const node,
+  L predict_one(const T *row,
+                const std::vector<SparseTreeNode<T, L>> sparsetree, int idx,
                 bool verbose = false) const;
 
   void set_metadata(TreeMetaDataNode<T, L> *&tree);
@@ -148,12 +149,12 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
  private:
-  TreeNode<T, int> *grow_deep_tree(
-    const T *data, const int *labels, unsigned int *rowids,
-    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-    const int ncols, const int nrows,
-    std::vector<SparseTreeNode<T, int>> &sparsetree,
-    std::shared_ptr<TemporaryMemory<T, int>> tempmem);
+  void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
+                      const std::vector<unsigned int> &feature_selector,
+                      const int n_sampled_rows, const int ncols,
+                      const int nrows,
+                      std::vector<SparseTreeNode<T, int>> &sparsetree,
+                      std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
 
@@ -167,12 +168,12 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
  private:
-  TreeNode<T, T> *grow_deep_tree(
-    const T *data, const T *labels, unsigned int *rowids,
-    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-    const int ncols, const int nrows,
-    std::vector<SparseTreeNode<T, T>> &sparsetree,
-    std::shared_ptr<TemporaryMemory<T, T>> tempmem);
+  void grow_deep_tree(const T *data, const T *labels, unsigned int *rowids,
+                      const std::vector<unsigned int> &feature_selector,
+                      const int n_sampled_rows, const int ncols,
+                      const int nrows,
+                      std::vector<SparseTreeNode<T, T>> &sparsetree,
+                      std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class
 

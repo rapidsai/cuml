@@ -296,11 +296,6 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
     int majority_prediction = -1;
 
     for (int i = 0; i < this->rf_params.n_trees; i++) {
-      //Return prediction for one sample.
-      /*if (verbose) {
-        std::cout << "Printing tree " << i << std::endl;
-        trees[i].print(forest->trees[i].root);
-      }*/
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,
@@ -565,11 +560,6 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
     T sum_predictions = 0;
 
     for (int i = 0; i < this->rf_params.n_trees; i++) {
-      //Return prediction for one sample.
-      /*if (verbose) {
-        std::cout << "Printing tree " << i << std::endl;
-        trees[i].print(forest->trees[i].root);
-      }*/
       T prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,
