@@ -59,6 +59,8 @@ class cumlHandle {
      * @returns the stream to which cuML work should be ordered.
      */
   cudaStream_t getStream() const;
+  /** Get the cached device properties of the device this handle is for */
+  const cudaDeviceProp& getDeviceProperties() const;
   /**
      * @brief sets the allocator to use for all device allocations done in cuML.
      * 
@@ -86,13 +88,14 @@ class cumlHandle {
   /**
      * @brief for internal use only.
      */
-    const cumlHandle_impl& getImpl() const;
-    /**
+  const cumlHandle_impl& getImpl() const;
+  /**
      * @brief for internal use only.
      */
-    cumlHandle_impl& getImpl();
-private:
-    std::unique_ptr<cumlHandle_impl> _impl;
+  cumlHandle_impl& getImpl();
+
+ private:
+  std::unique_ptr<cumlHandle_impl> _impl;
 };
 
 }  // end namespace ML
