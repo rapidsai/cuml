@@ -379,7 +379,7 @@ class TruncatedSVD(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool (default = False)
+        convert_dtype : bool, optional (default = False)
             When set to True, the inverse_transform method will automatically
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
@@ -445,7 +445,7 @@ class TruncatedSVD(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool (default = False)
+        convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
             convert the input to the data type which was used to train the
             model.
