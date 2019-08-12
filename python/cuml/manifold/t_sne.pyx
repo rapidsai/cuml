@@ -371,7 +371,7 @@ class TSNE(Base):
         cdef long long seed = -1
         if self.random_state is not None:
             seed = self.random_state
-        self._assure_clean_memory()
+        self._assure_clean_memory(True)
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
@@ -400,14 +400,14 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        self._assure_clean_memory()
+        self._assure_clean_memory(True)
         self.Y = Y
         return self
 
     def __del__(self):
         for item in self.__dict__:
             del self.__dict__[item]
-        self._assure_clean_memory()
+        self._assure_clean_memory(True)
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -447,14 +447,14 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        self._assure_clean_memory()
+        self._assure_clean_memory(True)
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        self._assure_clean_memory()
+        self._assure_clean_memory(True)
         return state
 
     def _assure_clean_memory(self, bool collect=False):
