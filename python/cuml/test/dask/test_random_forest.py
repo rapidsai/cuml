@@ -31,8 +31,9 @@ import numpy as np
 import pandas as pd
 
 
-@pytest.mark.parametrize('n_workers', [1,2,4,8])
-def test_rf_classification(n_workers):
+@pytest.mark.parametrize('partitions_per_worker', [1, 3])
+@pytest.mark.parametrize('n_workers', [1, 2, 4, 8])
+def test_rf_classification(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
@@ -45,7 +46,7 @@ def test_rf_classification(n_workers):
 
     y = y.astype(np.int32)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1_000)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 
     cu_rf_params = {
         'n_estimators': 25,
@@ -54,16 +55,15 @@ def test_rf_classification(n_workers):
     }
 
     workers = c.has_what().keys()
-
+    n_partitions = partitions_per_worker * len(workers)
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = \
-            dask_cudf.from_cudf(X_cudf, npartitions=len(workers))
+    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = np.array(pd.DataFrame(y_train).values)
     y_cudf = y_cudf[:, 0]
     y_cudf = cudf.Series(y_cudf)
     y_train_df = \
-        dask_cudf.from_cudf(y_cudf, npartitions=len(workers))
+        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
     X_train_df, y_train_df = dask_utils.persist_across_workers(c,
                                                                [X_train_df,
@@ -81,8 +81,9 @@ def test_rf_classification(n_workers):
     cluster.close()
 
 
-@pytest.mark.parametrize('n_workers', [1,2,4,8])
-def test_rf_regression(n_workers):
+@pytest.mark.parametrize('partitions_per_worker', [1, 3])
+@pytest.mark.parametrize('n_workers', [1, 2, 8])
+def test_rf_regression(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
@@ -92,7 +93,7 @@ def test_rf_regression(n_workers):
     X, y = make_regression(n_samples=40000, n_features=20,
                            n_informative=10, random_state=123)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1_000)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 
     cu_rf_params = {
         'n_estimators': 25,
@@ -100,16 +101,17 @@ def test_rf_regression(n_workers):
     }
 
     workers = c.has_what().keys()
+    n_partitions = partitions_per_worker * len(workers)
 
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
     X_train_df = \
-        dask_cudf.from_cudf(X_cudf, npartitions=len(workers))
+        dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
     y_cudf = np.array(pd.DataFrame(y_train).values)
     y_cudf = y_cudf[:, 0]
     y_cudf = cudf.Series(y_cudf)
     y_train_df = \
-        dask_cudf.from_cudf(y_cudf, npartitions=len(workers))
+        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
     X_train_df, y_train_df = dask_utils.persist_across_workers(
         c, [X_train_df, y_train_df], workers=workers)
