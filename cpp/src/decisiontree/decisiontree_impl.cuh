@@ -85,32 +85,12 @@ std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
 
 template <typename T, typename L>
 struct Node_ID_info {
-  const DecisionTree::TreeNode<T, L> *node;
+  const SparseTreeNode<T, L> &node;
   int unique_node_id;
 
-  Node_ID_info(const DecisionTree::TreeNode<T, L> *cfg_node,
-               int cfg_unique_node_id)
+  Node_ID_info(const SparseTreeNode<T, L> &cfg_node, int cfg_unique_node_id)
     : node(cfg_node), unique_node_id(cfg_unique_node_id) {}
 };
-
-// Converts flat sparse tree generated to recursive format.
-template <typename T, typename L>
-ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
-  const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx = 0) {
-  ML::DecisionTree::TreeNode<T, L> *node = NULL;
-  node = new ML::DecisionTree::TreeNode<T, L>();
-  node->split_metric_val = sparsetree[idx].best_metric_val;
-  node->question.column = sparsetree[idx].colid;
-  node->question.value = sparsetree[idx].quesval;
-  node->prediction = sparsetree[idx].prediction;
-  if (sparsetree[idx].colid == -1) {
-    return node;
-  }
-  node->left = go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id);
-  node->right =
-    go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id + 1);
-  return node;
-}
 
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
@@ -123,9 +103,7 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
 
-  ML::DecisionTree::TreeNode<T, L> *root =
-    go_recursive_sparse(tree_ptr->sparsetree);
-  cur_level_queue.push(Node_ID_info<T, L>(root, 0));
+  cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->sparsetree[0], 0));
   node_id = -1;
 
   while (!cur_level_queue.empty()) {
@@ -136,36 +114,35 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
       Node_ID_info<T, L> q_node = cur_level_queue.front();
       cur_level_queue.pop();
 
-      bool is_leaf_node =
-        q_node.node->left == nullptr && q_node.node->right == nullptr;
+      bool is_leaf_node = q_node.node.colid == -1;
 
       if (!is_leaf_node) {
         // Push left child to next_level queue.
-        next_level_queue.push(
-          Node_ID_info<T, L>(q_node.node->left, node_id + 1));
+        next_level_queue.push(Node_ID_info<T, L>(
+          tree_ptr->sparsetree[q_node.node.left_child_id], node_id + 1));
         TREELITE_CHECK(
           TreeliteTreeBuilderCreateNode(tree_builder, node_id + 1));
 
         // Push right child to next_level deque.
-        next_level_queue.push(
-          Node_ID_info<T, L>(q_node.node->right, node_id + 2));
+        next_level_queue.push(Node_ID_info<T, L>(
+          tree_ptr->sparsetree[q_node.node.left_child_id + 1], node_id + 2));
         TREELITE_CHECK(
           TreeliteTreeBuilderCreateNode(tree_builder, node_id + 2));
 
         // Set node from current level as numerical node. Children IDs known.
         TREELITE_CHECK(TreeliteTreeBuilderSetNumericalTestNode(
-          tree_builder, q_node.unique_node_id, q_node.node->question.column,
-          "<=", q_node.node->question.value, 1, node_id + 1, node_id + 2));
+          tree_builder, q_node.unique_node_id, q_node.node.colid,
+          "<=", q_node.node.quesval, 1, node_id + 1, node_id + 2));
 
         node_id += 2;
       } else {
         if (num_output_group == 1) {
           TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
-            tree_builder, q_node.unique_node_id, q_node.node->prediction));
+            tree_builder, q_node.unique_node_id, q_node.node.prediction));
         } else {
           std::vector<double> leaf_vector(num_output_group);
           for (int j = 0; j < num_output_group; j++) {
-            if (q_node.node->prediction == j) {
+            if (q_node.node.prediction == j) {
               leaf_vector[j] = 1;
             } else {
               leaf_vector[j] = 0;
