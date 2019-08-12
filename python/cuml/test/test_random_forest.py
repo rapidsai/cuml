@@ -69,7 +69,7 @@ def test_rf_classification(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=0, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1)
+                       max_depth=10)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
@@ -77,7 +77,7 @@ def test_rf_classification(datatype, use_handle, split_algo,
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfc(n_estimators=40, max_depth=None,
+        sk_model = skrfc(n_estimators=40, max_depth=10,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
@@ -127,13 +127,13 @@ def test_rf_regression(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=0, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=50, accuracy_metric='mse')
+                       max_depth=10, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     cu_mse = cuml_model.score(X_test, y_test)
     if mode != 'stress':
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, max_depth=50,
+        sk_model = skrfr(n_estimators=50, max_depth=10,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
