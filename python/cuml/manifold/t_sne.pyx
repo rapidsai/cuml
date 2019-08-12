@@ -292,7 +292,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self._assure_clean_memory(1)
+        self._assure_clean_memory()
         return
 
     def fit(self, X):
@@ -371,7 +371,7 @@ class TSNE(Base):
         cdef long long seed = -1
         if self.random_state is not None:
             seed = self.random_state
-        self._assure_clean_memory(1)
+        self._assure_clean_memory()
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
@@ -407,7 +407,7 @@ class TSNE(Base):
     def __del__(self):
         for item in self.__dict__:
             del self.__dict__[item]
-        self._assure_clean_memory(1)
+        self._assure_clean_memory()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -447,23 +447,23 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        self._assure_clean_memory(1)
+        self._assure_clean_memory()
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        self._assure_clean_memory(1)
+        self._assure_clean_memory()
         return state
 
-    def _assure_clean_memory(self, int collect=0):
+    def _assure_clean_memory(self, bool collect=False):
         """
         TSNE is sensitive to what is currently in memory.
         Use Numba's garbabge collector to clean up already removed
         GPU memory.
         """
-        if collect == 1:
+        if collect is True:
             gc.collect()
         context = cuda.current_context().deallocations
         if context is not None:
