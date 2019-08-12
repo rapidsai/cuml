@@ -372,7 +372,8 @@ class TSNE(Base):
         if self.random_state is not None:
             seed = self.random_state
         self._assure_clean_memory(True)
-        TSNE_fit(handle_[0],
+        try:
+            TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
                  <int> n,
@@ -397,7 +398,9 @@ class TSNE(Base):
                  <bool> self.verbose,
                  <bool> True,
                  <bool> True)
-
+        except cuda.cudadrv.driver.CudaAPIError:
+            cuda.current_context.reset()
+            raise MemoryError("Out of GPU Memory")
         # Clean up memory
         del _X
         self._assure_clean_memory(True)
