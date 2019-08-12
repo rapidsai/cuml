@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #961: High Peformance RF; HIST algo
 
 ## Bug Fixes
 
