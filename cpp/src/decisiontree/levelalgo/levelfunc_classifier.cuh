@@ -32,7 +32,7 @@ At each level; following steps are involved.
 4. make split.
 */
 template <typename T>
-ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
+void grow_deep_tree_classification(
   const T* data, const int* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int n_unique_labels, const int nbins,
@@ -135,5 +135,4 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
     sparsetree[i].prediction = get_class_hist(sparse_histstate[i]);
   }
-  return go_recursive_sparse(sparsetree);
 }
