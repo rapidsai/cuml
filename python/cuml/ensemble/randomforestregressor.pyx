@@ -242,7 +242,7 @@ class RandomForestRegressor(Base):
                  'accuracy_metric']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features='auto', n_bins=8, n_streams=4,
+                 max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
