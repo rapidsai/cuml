@@ -28,6 +28,9 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #871: Wrapper for FIL
+- PR #870: make_blobs python function
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
 - PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
@@ -67,6 +70,7 @@
 - PR #928: TSNE Stability Adjustments
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
 
 
 # cuML 0.8.0 (27 June 2019)
