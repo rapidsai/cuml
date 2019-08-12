@@ -67,6 +67,7 @@
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 - PR #908: Fix local build generated file ownerships
