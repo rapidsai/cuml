@@ -473,4 +473,3 @@ class TSNE(Base):
             else:
                 break
             deallocs = context.deallocations
-        context.reset()
