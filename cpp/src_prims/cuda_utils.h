@@ -106,16 +106,15 @@ std::string arr2Str(const T *arr, int size, std::string name,
   return ss.str();
 }
 
-template<typename T>
+template <typename T>
 void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
-      cudaPointerAttributes s_att;
-      cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
+  cudaPointerAttributes s_att;
+  cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 
-      if(s_err != 0 || s_att.device == -1)
-          std::cout << "Invalid device pointer encountered in " << name <<
-                    ". device=" << s_att.device << ", err=" << s_err << std::endl;
+  if (s_err != 0 || s_att.device == -1)
+    std::cout << "Invalid device pointer encountered in " << name
+              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
 };
-
 
 /** number of threads per warp */
 static const int WarpSize = 32;
@@ -419,6 +418,38 @@ HDI float myPow(float x, float power) {
 template <>
 HDI double myPow(double x, double power) {
   return pow(x, power);
+}
+/** @} */
+
+/**
+ * @defgroup myTanh tanh function
+ * @{
+ */
+template <typename T>
+HDI T myTanh(T x);
+template <>
+HDI float myTanh(float x) {
+  return tanhf(x);
+}
+template <>
+HDI double myTanh(double x) {
+  return tanh(x);
+}
+/** @} */
+
+/**
+ * @defgroup myATanh arctanh function
+ * @{
+ */
+template <typename T>
+HDI T myATanh(T x);
+template <>
+HDI float myATanh(float x) {
+  return atanhf(x);
+}
+template <>
+HDI double myATanh(double x) {
+  return atanh(x);
 }
 /** @} */
 

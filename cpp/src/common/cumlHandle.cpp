@@ -162,6 +162,11 @@ std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
 
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
+cumlHandle_impl& cumlHandle::getImpl()
+{
+    return *_impl.get();
+}
+
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
@@ -233,6 +238,22 @@ void cumlHandle_impl::waitOnInternalStreams() const {
     CUDA_CHECK(cudaEventRecord(_event, s));
     CUDA_CHECK(cudaStreamWaitEvent(_userStream, _event, 0));
   }
+}
+
+void cumlHandle_impl::setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator )
+{
+    _communicator = communicator;
+}
+
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
+{
+    ASSERT(nullptr != _communicator.get(), "ERROR: Communicator was not initialized\n");
+    return *_communicator;
+}
+
+bool cumlHandle_impl::commsInitialized() const
+{
+    return (nullptr != _communicator.get());
 }
 
 void cumlHandle_impl::createResources() {

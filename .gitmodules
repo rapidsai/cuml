@@ -11,3 +11,6 @@
 [submodule "thirdparty/googletest"]
 	path = thirdparty/googletest
     url = https://github.com/google/googletest
+[submodule "thirdparty/treelite"]
+	path = thirdparty/treelite
+	url = https://github.com/dmlc/treelite.git

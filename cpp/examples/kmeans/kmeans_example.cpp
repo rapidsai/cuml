@@ -25,12 +25,12 @@
 
 #ifdef HAVE_CUB
 #include <cub/util_allocator.cuh>
-#endif  //HAVE_CUB
+#endif  // HAVE_CUB
 
 #ifdef HAVE_RMM
 #include <rmm/rmm.h>
 #include <common/rmmAllocatorAdapter.hpp>
-#endif  //HAVE_RMM
+#endif  // HAVE_RMM
 
 #include <cuML.hpp>
 #include <kmeans/kmeans.hpp>
@@ -46,13 +46,13 @@
               #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus),      \
               cudaStatus);                                                    \
   }
-#endif  //CUDA_RT_CALL
+#endif  // CUDA_RT_CALL
 
 template <typename T>
-T get_argval(char** begin, char** end, const std::string& arg,
+T get_argval(char **begin, char **end, const std::string &arg,
              const T default_val) {
   T argval = default_val;
-  char** itr = std::find(begin, end, arg);
+  char **itr = std::find(begin, end, arg);
   if (itr != end && ++itr != end) {
     std::istringstream inbuf(*itr);
     inbuf >> argval;
@@ -60,8 +60,8 @@ T get_argval(char** begin, char** end, const std::string& arg,
   return argval;
 }
 
-bool get_arg(char** begin, char** end, const std::string& arg) {
-  char** itr = std::find(begin, end, arg);
+bool get_arg(char **begin, char **end, const std::string &arg) {
+  char **itr = std::find(begin, end, arg);
   if (itr != end) {
     return true;
   }
@@ -75,45 +75,45 @@ class cachingDeviceAllocator : public ML::deviceAllocator {
     ,
     _allocator(8, 3, cub::CachingDeviceAllocator::INVALID_BIN,
                cub::CachingDeviceAllocator::INVALID_SIZE)
-#endif  //HAVE_CUB
+#endif  // HAVE_CUB
   {
   }
 
-  virtual void* allocate(std::size_t n, cudaStream_t stream) {
-    void* ptr = 0;
+  virtual void *allocate(std::size_t n, cudaStream_t stream) {
+    void *ptr = 0;
 #ifdef HAVE_CUB
     _allocator.DeviceAllocate(&ptr, n, stream);
-#else   //!HAVE_CUB
+#else   //! HAVE_CUB
     CUDA_RT_CALL(cudaMalloc(&ptr, n));
-#endif  //HAVE_CUB
+#endif  // HAVE_CUB
     return ptr;
   }
 
-  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
+  virtual void deallocate(void *p, std::size_t, cudaStream_t) {
 #ifdef HAVE_CUB
     _allocator.DeviceFree(p);
-#else   //!HAVE_CUB
+#else   //! HAVE_CUB
     CUDA_RT_CALL(cudaFree(p));
-#endif  //HAVE_CUB
+#endif  // HAVE_CUB
   }
 
 #ifdef HAVE_CUB
  private:
   cub::CachingDeviceAllocator _allocator;
-#endif  //HAVE_CUB
+#endif  // HAVE_CUB
 };
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   const int dev_id = get_argval<int>(argv, argv + argc, "-dev_id", 0);
   const size_t num_rows = get_argval<size_t>(argv, argv + argc, "-num_rows", 0);
   const size_t num_cols = get_argval<size_t>(argv, argv + argc, "-num_cols", 0);
   const std::string input =
     get_argval<std::string>(argv, argv + argc, "-input", std::string(""));
-  //Default values for k and max_iterations are taken from
-  //https://github.com/h2oai/h2o4gpu/blob/master/examples/py/demos/H2O4GPU_KMeans_Homesite.ipynb
-  int k = get_argval<int>(argv, argv + argc, "-k", 10);
-  int max_iterations =
-    get_argval<int>(argv, argv + argc, "-max_iterations", 300);
+  // Default values for k and max_iterations are taken from
+  // https://github.com/h2oai/h2o4gpu/blob/master/examples/py/demos/H2O4GPU_KMeans_Homesite.ipynb
+  ML::kmeans::KMeansParams params;
+  params.n_clusters = get_argval<int>(argv, argv + argc, "-k", 10);
+  params.max_iter = get_argval<int>(argv, argv + argc, "-max_iterations", 300);
   {
     cudaError_t cudaStatus = cudaSuccess;
     cudaStatus = cudaSetDevice(dev_id);
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
       std::cerr << "WARN: Could not initialize RMM: "
                 << rmmGetErrorString(rmmStatus) << std::endl;
     }
-#endif  //HAVE_RMM
+#endif  // HAVE_RMM
   }
 
   std::vector<double> h_srcdata;
@@ -158,19 +158,16 @@ int main(int argc, char* argv[]) {
   }
   bool results_correct = true;
   if (0 == h_srcdata.size() || (num_rows * num_cols) == h_srcdata.size()) {
-    double threshold = 1.0E-4;  //Scikit-Learn default
-
-    //Input parameters copied from kmeans_test.cu
+    // Input parameters copied from kmeans_test.cu
     if (0 == h_srcdata.size()) {
-      k = 2;
-      max_iterations = 300;
-      threshold = 0.05;
+      params.n_clusters = 2;
+      params.max_iter = 300;
+      params.tol = 0.05;
     }
-    int seed = 0;
-    int metric = 1;
-    ML::kmeans::InitMethod method = ML::kmeans::InitMethod::Random;
+    params.metric = 1;
+    params.init = ML::kmeans::KMeansParams::InitMethod::Random;
 
-    //Inputs copied from kmeans_test.cu
+    // Inputs copied from kmeans_test.cu
     size_t n_samples = 4;
     size_t n_features = 2;
     if (0 == h_srcdata.size()) {
@@ -179,51 +176,54 @@ int main(int argc, char* argv[]) {
       n_samples = num_rows;
       n_features = num_cols;
     }
-    std::cout << "Run KMeans with k=" << k
-              << ", max_iterations=" << max_iterations << std::endl;
+    std::cout << "Run KMeans with k=" << params.n_clusters
+              << ", max_iterations=" << params.max_iter << std::endl;
 
     ML::cumlHandle cumlHandle;
 #ifdef HAVE_RMM
     std::shared_ptr<ML::rmmAllocatorAdapter> allocator(
       new ML::rmmAllocatorAdapter());
-#else   //!HAVE_RMM
+#else   //! HAVE_RMM
     std::shared_ptr<cachingDeviceAllocator> allocator(
       new cachingDeviceAllocator());
-#endif  //HAVE_RMM
+#endif  // HAVE_RMM
     cumlHandle.setDeviceAllocator(allocator);
 
     cudaStream_t stream;
     CUDA_RT_CALL(cudaStreamCreate(&stream));
     cumlHandle.setStream(stream);
 
-    //srcdata size n_samples * n_features
-    double* d_srcdata = nullptr;
+    // srcdata size n_samples * n_features
+    double *d_srcdata = nullptr;
     CUDA_RT_CALL(
       cudaMalloc(&d_srcdata, n_samples * n_features * sizeof(double)));
     CUDA_RT_CALL(cudaMemcpyAsync(d_srcdata, h_srcdata.data(),
                                  n_samples * n_features * sizeof(double),
                                  cudaMemcpyHostToDevice, stream));
 
-    //output pred_centroids size k * n_features
-    double* d_pred_centroids = nullptr;
-    CUDA_RT_CALL(
-      cudaMalloc(&d_pred_centroids, k * n_features * sizeof(double)));
-    //output pred_labels size n_samples
-    int* d_pred_labels = nullptr;
+    // output pred_centroids size n_clusters * n_features
+    double *d_pred_centroids = nullptr;
+    CUDA_RT_CALL(cudaMalloc(&d_pred_centroids,
+                            params.n_clusters * n_features * sizeof(double)));
+    // output pred_labels size n_samples
+    int *d_pred_labels = nullptr;
     CUDA_RT_CALL(cudaMalloc(&d_pred_labels, n_samples * sizeof(int)));
 
-    ML::kmeans::fit_predict(cumlHandle, k, metric, method, max_iterations,
-                            threshold, seed, d_srcdata, n_samples, n_features,
-                            d_pred_centroids, d_pred_labels);
+    double inertia = 0;
+    int n_iter = 0;
+    ML::kmeans::fit_predict(cumlHandle, params, d_srcdata, n_samples,
+                            n_features, d_pred_centroids, d_pred_labels,
+                            inertia, n_iter);
 
     std::vector<int> h_pred_labels(n_samples);
     CUDA_RT_CALL(cudaMemcpyAsync(h_pred_labels.data(), d_pred_labels,
                                  n_samples * sizeof(int),
                                  cudaMemcpyDeviceToHost, stream));
-    std::vector<double> h_pred_centroids(k * n_features);
-    CUDA_RT_CALL(cudaMemcpyAsync(h_pred_centroids.data(), d_pred_centroids,
-                                 k * n_features * sizeof(double),
-                                 cudaMemcpyDeviceToHost, stream));
+    std::vector<double> h_pred_centroids(params.n_clusters * n_features);
+    CUDA_RT_CALL(
+      cudaMemcpyAsync(h_pred_centroids.data(), d_pred_centroids,
+                      params.n_clusters * n_features * sizeof(double),
+                      cudaMemcpyDeviceToHost, stream));
 
     CUDA_RT_CALL(cudaStreamSynchronize(stream));
 
@@ -239,8 +239,9 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      double h_centroids_ref[k * n_features] = {1.0, 1.5, 2.5, 3.5};
-      for (int i = 0; i < k * n_features; ++i) {
+      double h_centroids_ref[params.n_clusters * n_features] = {1.0, 1.5, 2.5,
+                                                                3.5};
+      for (int i = 0; i < params.n_clusters * n_features; ++i) {
         if (std::abs(h_centroids_ref[i] - h_pred_centroids[i]) /
               std::abs(h_centroids_ref[i]) >
             std::numeric_limits<double>::epsilon()) {
@@ -253,7 +254,7 @@ int main(int argc, char* argv[]) {
       }
     } else {
       std::vector<std::pair<size_t, double>> cluster_stats(
-        k, std::make_pair(static_cast<size_t>(0), 0.0));
+        params.n_clusters, std::make_pair(static_cast<size_t>(0), 0.0));
       double global_inertia = 0.0;
       size_t max_points = 0;
       for (size_t i = 0; i < n_samples; ++i) {
@@ -273,7 +274,7 @@ int main(int argc, char* argv[]) {
         global_inertia += sd;
       }
       int lable_widht = 0;
-      int max_label = (k - 1);
+      int max_label = (params.n_clusters - 1);
       do {
         lable_widht += 1;
         max_label /= 10;
@@ -287,7 +288,7 @@ int main(int argc, char* argv[]) {
 
       for (int c = 0; c < lable_widht; ++c) std::cout << " ";
       std::cout << "  num_pts       inertia" << std::endl;
-      for (int l = 0; l < k; ++l) {
+      for (int l = 0; l < params.n_clusters; ++l) {
         std::cout << std::setw(lable_widht) << l << "  "
                   << std::setw(num_pts_width) << cluster_stats[l].first << "  "
                   << std::scientific << std::setprecision(6)
@@ -313,7 +314,7 @@ int main(int argc, char* argv[]) {
   if (rmmIsInitialized(NULL)) {
     rmmFinalize();
   }
-#endif  //HAVE_RMM
+#endif  // HAVE_RMM
   CUDA_RT_CALL(cudaDeviceReset());
   return results_correct ? 0 : 1;
 }
