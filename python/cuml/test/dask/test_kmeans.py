@@ -16,8 +16,6 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from cuml.dask.common import extract_ddf_partitions
-
 from dask.distributed import Client
 
 
