@@ -93,7 +93,7 @@ $ ./test/prims --gtest_list_tests # ML Primitive function tests
 
 4. Build and install `libcumlcomms` (C++/CUDA library enabling multi-node multi-GPU communications), starting from the repository root folder:
 ```bash
-$ cd cpp/comms
+$ cd cpp/comms/std
 $ mkdir build && cd build
 $ cmake ..
 

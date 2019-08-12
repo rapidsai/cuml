@@ -32,37 +32,53 @@ namespace MLCommon {
  * cumlCommunicator_iface would be part of cuML-comms).
  */
 class cumlCommunicator_iface {
-public:
-    typedef cumlCommunicator::request_t     request_t;
-    typedef cumlCommunicator::datatype_t    datatype_t;
-    typedef cumlCommunicator::op_t          op_t;
+ public:
+  typedef cumlCommunicator::request_t request_t;
+  typedef cumlCommunicator::datatype_t datatype_t;
+  typedef cumlCommunicator::op_t op_t;
+  typedef cumlCommunicator::status_t status_t;
 
-    virtual ~cumlCommunicator_iface();
+  virtual ~cumlCommunicator_iface();
 
-    virtual int getSize() const =0;
-    virtual int getRank() const =0;
+  virtual int getSize() const = 0;
+  virtual int getRank() const = 0;
 
-    virtual std::unique_ptr<cumlCommunicator_iface> commSplit( int color, int key ) const =0;
+  virtual std::unique_ptr<cumlCommunicator_iface> commSplit(int color,
+                                                            int key) const = 0;
 
-    virtual void barrier() const =0;
+  virtual void barrier() const = 0;
 
-    virtual void isend(const void *buf, int size, int dest, int tag, request_t *request) const =0;
+  virtual status_t syncStream(cudaStream_t stream) const = 0;
 
-    virtual void irecv(void *buf, int size, int source, int tag, request_t *request) const =0;
+  virtual void isend(const void* buf, int size, int dest, int tag,
+                     request_t* request) const = 0;
 
-    virtual void waitall(int count, request_t array_of_requests[]) const =0;
+  virtual void irecv(void* buf, int size, int source, int tag,
+                     request_t* request) const = 0;
 
-    virtual void allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const =0;
+  virtual void waitall(int count, request_t array_of_requests[]) const = 0;
 
-    virtual void bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const =0;
+  virtual void allreduce(const void* sendbuff, void* recvbuff, int count,
+                         datatype_t datatype, op_t op,
+                         cudaStream_t stream) const = 0;
 
-    virtual void reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const =0;
+  virtual void bcast(void* buff, int count, datatype_t datatype, int root,
+                     cudaStream_t stream) const = 0;
 
-    virtual void allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const =0;
+  virtual void reduce(const void* sendbuff, void* recvbuff, int count,
+                      datatype_t datatype, op_t op, int root,
+                      cudaStream_t stream) const = 0;
 
-    virtual void allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const =0;
+  virtual void allgather(const void* sendbuff, void* recvbuff, int sendcount,
+                         datatype_t datatype, cudaStream_t stream) const = 0;
 
-    virtual void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const =0;
+  virtual void allgatherv(const void* sendbuf, void* recvbuf,
+                          const int recvcounts[], const int displs[],
+                          datatype_t datatype, cudaStream_t stream) const = 0;
+
+  virtual void reducescatter(const void* sendbuff, void* recvbuff,
+                             int recvcount, datatype_t datatype, op_t op,
+                             cudaStream_t stream) const = 0;
 };
 
-} // end namespace ML
+}  // namespace MLCommon
