@@ -29,6 +29,7 @@
 #include "common/host_buffer.hpp"
 #include "kernelcache.h"
 #include "linalg/binary_op.h"
+#include "linalg/init.h"
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"
 #include "ws_util.h"
@@ -74,8 +75,8 @@ class Results {
       val_selected(handle.getDeviceAllocator(), stream, n_rows),
       flag(handle.getDeviceAllocator(), stream, n_rows) {
     InitCubBuffers();
-    range<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(f_idx.data(),
-                                                              n_rows);
+    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
+      f_idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -291,20 +292,17 @@ class Results {
     MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
-    if (n_selected > 0) {
-      if (min) {
-        cub::DeviceReduce::Min(cub_storage.data(), cub_bytes,
-                               val_selected.data(), d_val_reduced.data(),
-                               n_selected, stream);
-      } else {
-        cub::DeviceReduce::Max(cub_storage.data(), cub_bytes,
-                               val_selected.data(), d_val_reduced.data(),
-                               n_selected, stream);
-      }
-      MLCommon::updateHost(&res, d_val_reduced.data(), 1, stream);
+    ASSERT(n_selected > 0,
+           "Incorrect training: cannot calculate the constant in the decision "
+           "function");
+    if (min) {
+      cub::DeviceReduce::Min(cub_storage.data(), cub_bytes, val_selected.data(),
+                             d_val_reduced.data(), n_selected, stream);
     } else {
-      std::cerr << "Error: empty set in calcB\n";
+      cub::DeviceReduce::Max(cub_storage.data(), cub_bytes, val_selected.data(),
+                             d_val_reduced.data(), n_selected, stream);
     }
+    MLCommon::updateHost(&res, d_val_reduced.data(), 1, stream);
     return res;
   }
 };  // namespace SVM

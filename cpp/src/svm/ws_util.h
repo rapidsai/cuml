@@ -21,14 +21,6 @@ namespace ML {
 namespace SVM {
 
 /**
- * \todo Should this go to ml-prims?
- *
- * \param [out] f_idx
- * \param [in] n length of the array
- */
-__global__ void range(int *f_idx, int n);
-
-/**
  * Mark elements as unavailable if they are in the the idx list.
  * \param [out] available flag whether an idx is available, size [n_rows]
  * \param [in] n_rows number of training vectors

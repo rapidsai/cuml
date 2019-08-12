@@ -23,13 +23,6 @@
 namespace ML {
 namespace SVM {
 
-__global__ void range(int *f_idx, int n) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) {
-    f_idx[tid] = tid;
-  }
-}
-
 __global__ void map_to_sorted(const bool *available, int n_rows,
                               bool *available_sorted, const int *idx_sorted) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
