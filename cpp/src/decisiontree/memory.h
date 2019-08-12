@@ -19,9 +19,14 @@
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include "common/cumlHandle.hpp"
+#include "common/cuml_allocator.hpp"
 
 template <class T, class L>
 struct TemporaryMemory {
+  //Allocators parsed from CUML handle
+  std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
+  std::shared_ptr<MLCommon::hostAllocator> host_allocator;
+
   //Temporary data buffer
   MLCommon::device_buffer<T> *temp_data = nullptr;
   //Host/Device histograms and device minmaxs
@@ -48,7 +53,6 @@ struct TemporaryMemory {
   MLCommon::host_buffer<T> *h_quantile = nullptr;
   MLCommon::device_buffer<unsigned int> *d_colids = nullptr;
 
-  const ML::cumlHandle_impl &ml_handle;
   //Split algo
   int splitalgo;
 
@@ -93,6 +97,7 @@ struct TemporaryMemory {
   ~TemporaryMemory();
   void LevelMemAllocator(int nrows, int ncols, int n_unique, int nbins,
                          int depth, const int split_algo);
+
   void LevelMemCleaner();
   void print_info();
 };

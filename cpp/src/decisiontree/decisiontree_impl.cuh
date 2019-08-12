@@ -220,13 +220,12 @@ void DecisionTreeBase<T, L>::print(
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
-  const cumlHandle_impl &handle, std::vector<SparseTreeNode<T, L>> &sparsetree,
-  const T *data, const int ncols, const int nrows, const L *labels,
-  unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-  int maxdepth, int max_leaf_nodes, const float colper, int n_bins,
-  int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-  CRITERION cfg_split_criterion, bool quantile_per_tree,
-  std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
+  std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
+  const int nrows, const L *labels, unsigned int *rowids,
+  const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes,
+  const float colper, int n_bins, int split_algo_flag,
+  int cfg_min_rows_per_node, bool cfg_bootstrap_features,
+  CRITERION cfg_split_criterion, bool quantile_per_tree) {
   split_algo = split_algo_flag;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
@@ -251,14 +250,6 @@ void DecisionTreeBase<T, L>::plant(
 
   std::random_shuffle(feature_selector.begin(), feature_selector.end());
   feature_selector.resize((int)(colper * dinfo.Ncols));
-
-  if (in_tempmem != nullptr) {
-    tempmem = in_tempmem;
-  } else {
-    tempmem = std::make_shared<TemporaryMemory<T, L>>(
-      handle, nrows, ncols, unique_labels, n_bins, split_algo, maxdepth);
-    quantile_per_tree = true;
-  }
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
     preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
                         n_bins, tempmem);
@@ -374,12 +365,20 @@ void DecisionTreeBase<T, L>::base_fit(
          "Unsupported criterion %s\n",
          CRITERION_NAME[tree_params.split_criterion]);
 
-  plant(handle.getImpl(), sparsetree, data, ncols, nrows, labels, rowids,
-        n_sampled_rows, unique_labels, tree_params.max_depth,
-        tree_params.max_leaves, tree_params.max_features, tree_params.n_bins,
-        tree_params.split_algo, tree_params.min_rows_per_node,
-        tree_params.bootstrap_features, tree_params.split_criterion,
-        tree_params.quantile_per_tree, in_tempmem);
+  if (in_tempmem != nullptr) {
+    tempmem = in_tempmem;
+  } else {
+    tempmem = std::make_shared<TemporaryMemory<T, L>>(
+      handle.getImpl(), nrows, ncols, unique_labels, tree_params.n_bins,
+      tree_params.split_algo, tree_params.max_depth);
+    tree_params.quantile_per_tree = true;
+  }
+
+  plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
+        unique_labels, tree_params.max_depth, tree_params.max_leaves,
+        tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
+        tree_params.min_rows_per_node, tree_params.bootstrap_features,
+        tree_params.split_criterion, tree_params.quantile_per_tree);
 }
 
 template <typename T>
