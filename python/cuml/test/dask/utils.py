@@ -46,25 +46,29 @@ def to_cudf(df, r):
     return cudf.from_pandas(df)
 
 
-def dask_make_blobs(nrows, ncols, n_centers=8, cluster_std=1.0,
+def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
                     center_box=(-10, 10), random_state=None, verbose=False):
 
     client = default_client()
 
-    workers = client.has_what().keys()
+    workers = list(client.has_what().keys())
+
+    n_parts = n_parts if n_parts is not None else len(workers)
+
+    parts = (workers * math.ceil(n_parts / len(workers)))[:n_parts]
 
     centers = np.random.uniform(center_box[0], center_box[1],
                                 size=(n_centers, ncols)).astype(np.float32)
 
     if verbose:
-        print("Generating %d samples on %d workers (total=%d samples)" %
-              (math.ceil(nrows/len(workers)), len(workers), nrows))
+        print("Generating %d samples across %d partitions on %d workers (total=%d samples)" %
+              (math.ceil(nrows/len(workers)), len(parts), len(workers), nrows))
 
     # Create dfs on each worker (gpu)
     dfs = [client.submit(create_df, n, math.ceil(nrows/len(workers)), ncols,
                          centers, cluster_std,
                          random_state, random.random(), workers=[worker])
-           for worker, n in list(zip(workers, list(range(len(workers)))))]
+           for worker, n in list(zip(parts, list(range(len(workers)))))]
     # Wait for completion
     wait(dfs)
 

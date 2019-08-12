@@ -16,11 +16,17 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
+from cuml.dask.common import extract_ddf_partitions
+
 from dask.distributed import Client
 
 
 @pytest.mark.mg
-def test_end_to_end(nrows, ncols, nclusters, client=None):
+@pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [5, 10])
+@pytest.mark.parametrize("n_parts", [None, 50])
+def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
     owns_cluster = False
     if client is None:
@@ -33,49 +39,28 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     from cuml.test.dask.utils import dask_make_blobs
 
-    print("Building dask df")
-
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters,
+    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
                                    cluster_std=0.1, verbose=True)
 
     X_df = X_df.persist()
     X_cudf = X_cudf.persist()
 
-    print("Building model")
+    # Wait for data persist before moving on
+    client.sync(extract_ddf_partitions, X_cudf)
+
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters)
     daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters)
 
-    print("Fitting model")
-    import time
-
-    cumlStart = time.time()
     cumlModel.fit(X_cudf)
-    cumlDuration = time.time() - cumlStart
-    print(str(cumlDuration))
-
-    daskStart = time.time()
     daskmlModel1.fit(X_df)
-    daskDuration = time.time()-daskStart
-
-    print(str(daskDuration))
-
-    print("Speedup=" + str(daskDuration/cumlDuration))
-
-    print("Predicting model")
 
     cumlLabels = cumlModel.predict(X_cudf)
     daskmlLabels1 = daskmlModel1.predict(X_df)
 
-    print("SCORE: " + str(cumlModel.score(X_cudf)))
-
     from sklearn.metrics import adjusted_rand_score
 
     cumlPred = cumlLabels.compute().to_pandas().values
-
     daskmlPred1 = daskmlLabels1.compute()
-
-    print(str(cumlPred))
-    print(str(daskmlPred1))
 
     score = adjusted_rand_score(cumlPred, daskmlPred1)
 

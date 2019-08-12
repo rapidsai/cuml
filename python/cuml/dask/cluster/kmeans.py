@@ -19,7 +19,16 @@ from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 import numpy as np
 
+import cudf
+
 import random
+
+
+def concat(dfs):
+    if len(dfs) == 1:
+        return dfs[0]
+    else:
+        return cudf.concat(dfs)
 
 
 class KMeans(object):
@@ -76,19 +85,23 @@ class KMeans(object):
         self.init = init
         self.verbose = verbose
 
+
     @staticmethod
     def func_fit(sessionId, n_clusters, max_iter, tol, verbose, random_state,
-                 precompute_distances, init, n_init, algorithm, df, r):
+                 precompute_distances, init, n_init, algorithm, dfs, r):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param df: List of cudf.Dataframes to use
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         handle = worker_state(sessionId)["handle"]
+
+        df = concat(dfs)
+
         return cumlKMeans(handle=handle,
                           init=init,
                           max_iter=max_iter,
@@ -101,7 +114,7 @@ class KMeans(object):
                           verbose=verbose).fit(df)
 
     @staticmethod
-    def func_transform(model, df, r):
+    def func_transform(model, dfs, r):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -109,10 +122,12 @@ class KMeans(object):
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
+
+        df = concat(dfs)
         return model.transform(df)
 
     @staticmethod
-    def func_predict(model, df, r):
+    def func_predict(model, dfs, r):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -120,10 +135,11 @@ class KMeans(object):
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """
+        df = concat(dfs)
         return model.predict(df)
 
     @staticmethod
-    def func_score(model, df, r):
+    def func_score(model, dfs, r):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -131,6 +147,7 @@ class KMeans(object):
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """
+        df = concat(dfs)
         return model.score(df)
 
     def fit(self, X):
@@ -141,7 +158,7 @@ class KMeans(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        workers = list(map(lambda x: x[0], gpu_futures))
+        workers = list(map(lambda x: x[0], gpu_futures.items()))
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
@@ -160,7 +177,7 @@ class KMeans(object):
             self.algorithm,
             f,
             random.random(),
-            workers=[w]) for w, f in gpu_futures]
+            workers=[w]) for w, f in gpu_futures.items()]
 
         wait(kmeans_fit)
 
@@ -183,7 +200,7 @@ class KMeans(object):
             self.local_model,
             f,
             random.random(),
-            workers=[w]) for w, f in gpu_futures]
+            workers=[w]) for w, f in gpu_futures.items()]
 
         return to_dask_cudf(kmeans_predict)
 
@@ -221,6 +238,6 @@ class KMeans(object):
             self.local_model,
             f,
             random.random(),
-            workers=[w]).result() for w, f in gpu_futures]
+            workers=[w]).result() for w, f in gpu_futures.items()]
 
         return np.sum(scores)

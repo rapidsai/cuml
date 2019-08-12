@@ -25,6 +25,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #926: Wrapper for FIL
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -41,7 +42,7 @@
 - PR #911: Update headers to credit CannyLabs BH TSNE implementation
 - PR #918: Streamline CUDA_REL environment variable
 - PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
-
+- PR #950: global_bias support in FIL
 
 ## Bug Fixes
 
@@ -55,6 +56,8 @@
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
 - PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
 
 
 # cuML 0.8.0 (27 June 2019)
