@@ -268,7 +268,7 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, n_bins=8, n_streams=4,
+                 max_features=1.0, n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,

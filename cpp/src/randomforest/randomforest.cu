@@ -159,7 +159,6 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   }
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
-  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
@@ -181,7 +180,6 @@ void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use input tree params
   params.tree_params = cfg_tree_params;
-  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
