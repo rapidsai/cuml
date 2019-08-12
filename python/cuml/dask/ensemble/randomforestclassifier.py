@@ -35,7 +35,7 @@ class RandomForestClassifier:
      * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
      * Training data is comes in the form of cuDF dataframes,
-       partitioned into exactly one partition per Dask worker
+       distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -283,10 +283,15 @@ class RandomForestClassifier:
 
     def fit(self, X, y):
         """
-        Fit the input data to Random Forest classifier
+        Fit the input data with a Random Forest classifier
 
-        IMPORTANT: X is expected to be partitioned with one partition
+        IMPORTANT: X is expected to be partitioned with at least one partition
         on each Dask worker being used by the forest (self.workers).
+
+        If a worker has multiple data partitions, they will be concatenated
+        before fitting, which will lead to additional memory usage. To minimize
+        memory consumption, ensure that each worker has exactly one partition.
+
         When persisting data, you can use
         cuml.dask.common.utils.persist_across_workers to simplify this::
 
@@ -296,7 +301,7 @@ class RandomForestClassifier:
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        or you can manually call persist with the input data and workers::
+        (this is equivalent to calling `persist` with the data and workers)::
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -308,12 +313,12 @@ class RandomForestClassifier:
         ----------
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples. One partition per Dask worker.
+            Features of training examples.
 
         y : dask_cudf.Dataframe
             Dense  matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
-            y must be partitioned the same way as X (one partition per worker)
+            y must be partitioned the same way as X
 
         """
         c = default_client()

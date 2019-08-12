@@ -19,8 +19,6 @@ from toolz import first
 import dask.dataframe as dd
 from collections import OrderedDict
 
-from collections import OrderedDict
-
 from dask.distributed import wait
 
 
