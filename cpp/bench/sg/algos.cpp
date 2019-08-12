@@ -70,13 +70,14 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
   return true;
 }
 
-bool rf(const Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
+bool rfClassifier(const Dataset& ret, const cumlHandle& handle, int argc,
+                  char** argv) {
   bool help = get_argval(argv, argv + argc, "-h");
   if (help) {
     printf(
       "USAGE:\n"
-      "bench rf [options]\n"
-      "  Run RF algo on the input dataset.\n"
+      "bench rfClassifier [options]\n"
+      "  Run RF Classifier algo on the input dataset.\n"
       "OPTIONS:\n"
       "  -ntrees <nt>       Number of trees to build. [100]\n"
       "  -bootstrap         Whether to bootstrap the input data.\n"
@@ -148,7 +149,7 @@ class Runner : public std::map<std::string, algoRunner> {
  public:
   Runner() : std::map<std::string, algoRunner>() {
     (*this)["dbscan"] = dbscan;
-    (*this)["rf"] = rf;
+    (*this)["rfClassifier"] = rfClassifier;
   }
 };
 
