@@ -261,7 +261,8 @@ void cumlStdCommunicator_impl::barrier() const {
   allreduce(_sendbuff, _recvbuff, 1, MLCommon::cumlCommunicator::INT,
             MLCommon::cumlCommunicator::SUM, _stream);
 
-  cudaStreamSynchronize(_stream);
+  ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
+         "ERROR: syncStream failed. This can be caused by a failed rank.");
 }
 
 void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
@@ -404,6 +405,39 @@ void cumlStdCommunicator_impl::reducescatter(const void *sendbuff,
   NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                getNCCLDatatype(datatype), getNCCLOp(op),
                                _nccl_comm, stream));
+}
+
+MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
+  cudaStream_t stream) const {
+  cudaError_t cudaErr;
+  ncclResult_t ncclErr, ncclAsyncErr;
+  while (1) {
+    cudaErr = cudaStreamQuery(stream);
+    if (cudaErr == cudaSuccess) return status_t::commStatusSuccess;
+
+    if (cudaErr != cudaErrorNotReady) {
+      // An error occurred querying the status of the stream
+      return status_t::commStatusError;
+    }
+
+    ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
+    if (ncclErr != ncclSuccess) {
+      // An error occurred retrieving the asynchronous error
+      return status_t::commStatusError;
+    }
+
+    if (ncclAsyncErr != ncclSuccess) {
+      // An asynchronous error happened. Stop the operation and destroy
+      // the communicator
+      ncclErr = ncclCommAbort(_nccl_comm);
+      if (ncclErr != ncclSuccess)
+        // Caller may abort with an exception or try to re-create a new communicator.
+        return status_t::commStatusAbort;
+    }
+
+    // Let other threads (including NCCL threads) use the CPU.
+    pthread_yield();
+  }
 }
 
 }  // end namespace ML
