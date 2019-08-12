@@ -66,7 +66,7 @@ __global__ void set_lower(bool *available, int n, const math_t *alpha,
 * We look up these indices from the old working set (idx), and return their
 * priority increased by one.
 *
-* @param [out] new_priorite size [n_selected]
+* @param [out] new_priority size [n_selected]
 * @param [in] n_selected (less equal n_ws)
 * @param [in] new_idx size [n_selected]
 * @param [in] n_ws working set size
