@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 
 
-@pytest.mark.parametrize('n_workers', [1,4,8])
+@pytest.mark.parametrize('n_workers', [1,2,4,8])
 def test_rf_classification(n_workers):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
@@ -81,7 +81,7 @@ def test_rf_classification(n_workers):
     cluster.close()
 
 
-@pytest.mark.parametrize('n_workers', [1,4,8])
+@pytest.mark.parametrize('n_workers', [1,2,4,8])
 def test_rf_regression(n_workers):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")

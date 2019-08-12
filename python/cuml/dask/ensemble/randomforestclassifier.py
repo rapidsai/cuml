@@ -24,16 +24,38 @@ import random
 
 class RandomForestClassifier:
     """
-    Implements a multi-GPU Random Forest classifier model which
-    fits multiple decision tree classifiers in an ensemble.
+    Experimental API implementing a multi-GPU Random Forest classifier
+    model which fits multiple decision tree classifiers in an
+    ensemble. This uses Dask to partition data over multiple GPUs
+    (possibly on different nodes).
+
+    Currently, this API makes the following assumptions:
+     * The set of Dask workers used between instantiation, fit,
+       and predict are all consistent
+     * Training data is comes in the form of cuDF dataframes,
+       partitioned into exactly one partition per Dask worker
+
+    Future versions of the API will support more flexible data
+    distribution and additional input types.
+
+    The distributed algorithm uses an embarrassingly-parallel
+    approach. For a forest with N trees being built on w workers, each
+    worker simply builds N/w trees on the data it has available
+    locally. In many cases, partitioning the data so that each worker
+    builds trees on a subset of the total dataset works well, but
+    it generally requires the data to be well-shuffled in advance.
+    Alternatively, callers can replicate all of the data across
+    workers so that rf.fit receives w partitions, each containing the
+    same data. This would produce results approximately identical to
+    single-GPU fitting.
 
     Please check the single-GPU implementation of Random Forest
-    classifier for more information about the algorithm.
+    classifier for more information about the underlying algorithm.
 
     Parameters
     -----------
     n_estimators : int (default = 10)
-                   number of trees in the forest.
+                   number of trees in the forest (total, not per-worker)
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
@@ -79,6 +101,7 @@ class RandomForestClassifier:
     workers : list of strings
               Dask addresses of workers to use for computation.
               If None, all available Dask workers will be used.
+
     """
 
     def __init__(
@@ -253,21 +276,36 @@ class RandomForestClassifier:
         """
         Fit the input data to Random Forest classifier
 
+        IMPORTANT: X is expected to be partitioned with one partition
+        on each Dask worker being used by the forest (self.workers).
+        When persisting data, you can use
+        cuml.dask.common.utils.persist_across_workers to simplify this::
+
+            X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
+            y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
+            X_dask_cudf, y_dask_cudf = persist_across_workers(dask_client,
+                                                              [X_dask_cudf,
+                                                               y_dask_cudf])
+
+        or you can manually call persist with the input data and workers::
+            X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
+                                                            y_dask_cudf],
+                                                           workers={
+                                                           X_dask_cudf=workers,
+                                                           y_dask_cudf=workers
+                                                           })
+
         Parameters
         ----------
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-
-            IMPORTANT: X is expected to be partitioned with one partition
-            on each Dask worker being used by the forest (self.workers).
-            When persisting data, you can use
-            cuml.dask.common.utils.persist_across_workers to simplify this.
+            Features of training examples. One partition per Dask worker.
 
         y : dask_cudf.Dataframe
             Dense  matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
             y must be partitioned the same way as X (one partition per worker)
+
         """
         c = default_client()
 
@@ -323,6 +361,9 @@ class RandomForestClassifier:
         """
         c = default_client()
         workers = self.workers
+
+        if not isinstance(X, np.array):
+            raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
         f = list()
