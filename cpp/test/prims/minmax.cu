@@ -112,7 +112,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                 minmax_ref + params.cols, stream);
     minmax<T, 512>(data, nullptr, nullptr, params.rows, params.cols,
                    params.rows, minmax_act, minmax_act + params.cols, nullptr,
-                   prop.sharedMemPerBlock, stream);
+                   prop, stream);
   }
 
   void TearDown() override {
