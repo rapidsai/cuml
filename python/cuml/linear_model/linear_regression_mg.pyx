@@ -132,7 +132,7 @@ class LinearRegressionMG:
 
     .. code-block:: python
 
-        from cuml import LinearRegression
+        from cuml import LinearRegressionMG
         import numpy as np
 
 
@@ -161,7 +161,7 @@ class LinearRegressionMG:
                       61.0, 62.0, 63.0, 60.0, 61.0, 62.0, 63.0],
                      dtype=np.float32)
 
-        lr = LinearRegression()
+        lr = LinearRegressionMG()
 
         res = lr.fit(X, y, gpu_ids=[0,1])
 
@@ -322,7 +322,7 @@ class LinearRegressionMG:
         cdef uintptr_t X_ptr, y_ptr, gpu_ids_ptr, coef_ptr
 
         self.gdf_datatype = X.dtype
-        self.coef_ = zeros(X.shape[1], dtype=X.dtype)
+        self.coef_ = np.zeros(X.shape[1], dtype=X.dtype)
 
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
