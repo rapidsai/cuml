@@ -50,8 +50,7 @@ def to_cudf(df, r):
 
 
 def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
-                    center_box=(-10, 10), random_state=None, verbose=False,
-                    wait=False):
+                    center_box=(-10, 10), random_state=None, verbose=False):
 
     """
     Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -109,9 +108,5 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
 
     d_df = dd.from_delayed(dfs, meta=meta_ddf)
     d_cudf = dask_cudf.from_delayed(ddfs, meta=meta_cudf)
-
-    if wait:
-        # Wait for data persist before moving on
-        dask_wait(d_cudf)
 
     return d_df, d_cudf
