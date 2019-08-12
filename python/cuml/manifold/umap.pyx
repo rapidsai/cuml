@@ -471,6 +471,12 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
+        if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
         cdef uintptr_t x_ptr
         X_m, x_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,

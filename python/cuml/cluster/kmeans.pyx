@@ -434,7 +434,7 @@ class KMeans(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, self.dtype = \
+        X_m, input_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
@@ -457,7 +457,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int*> labels_ptr,
                 inertiaf)
@@ -469,7 +469,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int*> labels_ptr,
                 inertiad)
@@ -524,7 +524,7 @@ class KMeans(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+        X_m, input_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
@@ -534,7 +534,7 @@ class KMeans(Base):
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(zeros(self.n_clusters*self.n_rows,
+        preds_data = cuda.to_device(zeros(self.n_clusters*n_rows,
                                     dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
@@ -548,7 +548,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int> distance_metric,
                 <float*> preds_ptr)
@@ -558,7 +558,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int> distance_metric,
                 <double*> preds_ptr)
@@ -570,7 +570,7 @@ class KMeans(Base):
         self.handle.sync()
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
+            preds_gdf[str(i)] = preds_data[i:n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
         del(clust_mat)
