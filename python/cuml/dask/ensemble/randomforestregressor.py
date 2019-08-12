@@ -36,10 +36,11 @@ class RandomForestRegressor:
      * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
      * Training data is comes in the form of cuDF dataframes,
-       partitioned into exactly one partition per Dask worker
+       distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
-    distribution and additional input types.
+    distribution and additional input types. User-facing APIs are
+    expected to change in upcoming versions.
 
     The distributed algorithm uses an embarrassingly-parallel
     approach. For a forest with N trees being built on w workers, each
@@ -63,7 +64,7 @@ class RandomForestRegressor:
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 1 for HIST, 1 for GLOBAL_QUANTILE
+                 0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
@@ -286,10 +287,11 @@ class RandomForestRegressor:
 
     def fit(self, X, y):
         """
-        Fit the input data to Random Forest regression model
+        Fit the input data with a Random Forest regression model
 
-        IMPORTANT: X is expected to be partitioned with one partition
+        IMPORTANT: X is expected to be partitioned with at least one partition
         on each Dask worker being used by the forest (self.workers).
+
         When persisting data, you can use
         cuml.dask.common.utils.persist_across_workers to simplify this::
 
@@ -299,7 +301,7 @@ class RandomForestRegressor:
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        or you can manually call persist with the input data and workers::
+        (this is equivalent to calling `persist` with the data and workers)::
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -310,12 +312,12 @@ class RandomForestRegressor:
         ----------
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples. One partition per Dask worker.
+            Features of training examples.
 
         y : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
-            y must be partitioned the same way as X (one partition per worker)
+            y must be partitioned the same way as X
         """
         c = default_client()
 
