@@ -418,7 +418,7 @@ class TSNE(Base):
             self._assure_clean_memory(True)
         except RuntimeError:
             # Possible out of memory
-            cuda.current_context.reset()
+            cuda.current_context().reset()
             raise MemoryError("Out of GPU Memory")
 
     def fit_transform(self, X):
