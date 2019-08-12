@@ -72,7 +72,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         n_neighbors : int, optional (default: 5)
             Number of neighbors considered
 
-        convert_dtype : bool (default = False)
+        convert_dtype : bool, optional (default = False)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
 

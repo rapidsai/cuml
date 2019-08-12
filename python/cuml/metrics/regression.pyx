@@ -45,8 +45,8 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool (default = False)
-            When set to True, the fit method will automatically convert
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
             y_hat to be the same data type as y if they differ. This
             will increase memory used for the method.
 
