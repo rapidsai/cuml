@@ -23,8 +23,6 @@ import dask_cudf
 from dask.distributed import default_client
 from dask.distributed import wait as dask_wait
 
-from cuml.dask.common import extract_ddf_partitions
-
 from sklearn.datasets import make_blobs
 
 import numpy as np
