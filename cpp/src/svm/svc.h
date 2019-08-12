@@ -99,7 +99,7 @@ class SVC {
 
   /**
    * @brief Predict classes for samples in input.
-   * @param [in]  device pointer for the input data in column major format,
+   * @param [in]  input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
    * @param [in] n_rows, number of vectors
    * @param [in] n_cols number of featurs
