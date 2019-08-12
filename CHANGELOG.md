@@ -26,6 +26,7 @@
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #926: Wrapper for FIL
+- PR #960: Enable using cumlprims for MG algorithms/prims
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
