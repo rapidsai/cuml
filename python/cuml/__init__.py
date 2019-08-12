@@ -37,6 +37,8 @@ from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 from cuml.linear_model.ridge import Ridge
 
 from cuml.metrics.regression import r2_score
+from cuml.metrics.accuracy import accuracy_score
+from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -57,10 +59,11 @@ from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
+from cuml.fil.fil import ForestInference
+from cuml.fil import fil
 
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
-
 
 from ._version import get_versions
 __version__ = get_versions()['version']
