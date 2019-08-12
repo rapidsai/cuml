@@ -14,7 +14,5 @@
 # limitations under the License.
 #
 
-from cuml.metrics.trustworthiness import trustworthiness
-from cuml.metrics.regression import r2_score
-from cuml.metrics.accuracy import accuracy_score
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.fil.fil import ForestInference
+from cuml.fil import fil

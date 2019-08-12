@@ -13,3 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from cuml.test.dask.utils import dask_make_blobs

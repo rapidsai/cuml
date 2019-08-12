@@ -39,3 +39,27 @@ def has_ucp():
         return True
     except ImportError:
         return False
+
+
+def has_treelite():
+    try:
+        import treelite  # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def has_lightgbm():
+    try:
+        import lightgbm  # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def has_xgboost():
+    try:
+        import xgboost  # NOQA
+        return True
+    except ImportError:
+        return False

@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #894: Convert RF to treelite format
 - PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
@@ -17,6 +18,9 @@
 - PR #829: C++: enable nvtx ranges
 - PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #871: Wrapper for FIL
+- PR #870: make_blobs python function
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
 - PR #840: Dask RF classification and regression
 - PR #870: make_blobs python function
 - PR #879: import of treelite models to FIL
@@ -24,6 +28,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #926: Wrapper for FIL
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -38,9 +43,14 @@
 - PR #915: syncStream added to cumlCommunicator
 - PR #922: Random Forest support in FIL
 - PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #918: Streamline CUDA_REL environment variable
+- PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
+- PR #950: global_bias support in FIL
+- PR #965: Making dask-ml a hard dependency
 
 ## Bug Fixes
 
+- PR #923: Fix misshapen level/trend/season HoltWinters output
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
@@ -48,6 +58,11 @@
 - PR #885: libclang installation fix for GPUCI
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
+- PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
 
 
 # cuML 0.8.0 (27 June 2019)
