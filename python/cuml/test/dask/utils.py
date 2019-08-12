@@ -49,6 +49,27 @@ def to_cudf(df, r):
 def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
                     center_box=(-10, 10), random_state=None, verbose=False):
 
+    """
+    Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    for a randomly generated set of centroids.
+
+    This function calls `make_blobs` from Scikitlearn on each Dask worker
+    and aggregates them into a single Dask Dataframe.
+
+    For more information on Scikit-learn's `make_blobs`:
+    https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html
+
+    :param nrows: number of rows
+    :param ncols: number of features
+    :param n_centers: number of centers to generate
+    :param n_parts: number of partitions to generate (this can be greater than the number of workers)
+    :param cluster_std: how far can each generated point deviate from its closest centroid?
+    :param center_box: the bounding box which constrains all the centroids
+    :param random_state: sets random seed
+    :param verbose: enables / disables verbose printing.
+    :return: dask.Dataframe & dask_cudf.Dataframe
+    """
+
     client = default_client()
 
     workers = list(client.has_what().keys())
