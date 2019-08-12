@@ -20,7 +20,7 @@ from dask.distributed import Client
 
 
 @pytest.mark.mg
-def test_end_to_end(nrows, ncols, nclusters, client=None):
+def test_end_to_end(nrows, ncols, nclusters, n_parts=None, client=None):
 
     owns_cluster = False
     if client is None:
@@ -35,7 +35,7 @@ def test_end_to_end(nrows, ncols, nclusters, client=None):
 
     print("Building dask df")
 
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters,
+    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
                                    cluster_std=0.1, verbose=True)
 
     X_df = X_df.persist()

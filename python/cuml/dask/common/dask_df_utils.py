@@ -18,6 +18,8 @@ from dask.distributed import default_client
 from toolz import first
 import dask.dataframe as dd
 
+from collections import OrderedDict
+
 from dask.distributed import wait
 
 
@@ -37,14 +39,16 @@ def extract_ddf_partitions(ddf):
     key_to_part_dict = dict([(str(part.key), part) for part in parts])
     who_has = yield client.who_has(parts)
 
-    worker_map = []
+    worker_map = {}
     for key, workers in who_has.items():
         worker = first(workers)
-        worker_map.append((key_to_part_dict[key], worker))
+        worker_map[key_to_part_dict[key]] = worker
 
-    worker_map = dict(worker_map)
-
-    gpu_data = [(worker_map[part], part) for part in parts]
+    gpu_data = OrderedDict()
+    for part in parts:
+        if worker_map[part] not in gpu_data:
+            gpu_data[worker_map[part]] = []
+        gpu_data[worker_map[part]].append(part)
 
     yield wait(gpu_data)
 
