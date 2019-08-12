@@ -40,13 +40,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     from cuml.test.dask.utils import dask_make_blobs
 
     X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
-                                   cluster_std=0.1, verbose=True)
-
-    X_df = X_df.persist()
-    X_cudf = X_cudf.persist()
-
-    # Wait for data persist before moving on
-    client.sync(extract_ddf_partitions, X_cudf)
+                                   cluster_std=0.1, verbose=True,
+                                   wait=True)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters)
     daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters)

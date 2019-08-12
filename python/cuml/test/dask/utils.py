@@ -22,6 +22,8 @@ import dask_cudf
 
 from dask.distributed import default_client, wait
 
+from cuml.dask.common import extract_ddf_partitions
+
 from sklearn.datasets import make_blobs
 
 import numpy as np
@@ -47,7 +49,8 @@ def to_cudf(df, r):
 
 
 def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
-                    center_box=(-10, 10), random_state=None, verbose=False):
+                    center_box=(-10, 10), random_state=None, verbose=False,
+                    wait=False):
 
     """
     Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -102,5 +105,9 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
 
     d_df = dd.from_delayed(dfs, meta=meta_ddf)
     d_cudf = dask_cudf.from_delayed(ddfs, meta=meta_cudf)
+
+    if wait:
+        # Wait for data persist before moving on
+        client.sync(extract_ddf_partitions, d_cudf)
 
     return d_df, d_cudf
