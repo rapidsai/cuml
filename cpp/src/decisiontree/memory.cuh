@@ -23,16 +23,16 @@
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
                                        int Ncols, int n_unique, int n_bins,
-                                       const int split_algo, int depth)
-  : ml_handle(handle) {
+                                       const int split_algo, int depth) {
   //Assign Stream from cumlHandle
-  stream = ml_handle.getStream();
+  stream = handle.getStream();
   splitalgo = split_algo;
   cudaDeviceProp prop;
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, ml_handle.getDevice()));
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
   max_shared_mem = prop.sharedMemPerBlock;
   num_sms = prop.multiProcessorCount;
-
+  device_allocator = handle.getDeviceAllocator();
+  host_allocator = handle.getHostAllocator();
   LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
 }
 
@@ -57,49 +57,49 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     max_nodes_per_level = pow(2, depth);
   }
   int maxnodes = max_nodes_per_level;
-  d_flags = new MLCommon::device_buffer<unsigned int>(
-    ml_handle.getDeviceAllocator(), stream, nrows);
-  h_split_colidx = new MLCommon::host_buffer<int>(ml_handle.getHostAllocator(),
-                                                  stream, maxnodes);
-  h_split_binidx = new MLCommon::host_buffer<int>(ml_handle.getHostAllocator(),
-                                                  stream, maxnodes);
-  d_split_colidx = new MLCommon::device_buffer<int>(
-    ml_handle.getDeviceAllocator(), stream, maxnodes);
-  d_split_binidx = new MLCommon::device_buffer<int>(
-    ml_handle.getDeviceAllocator(), stream, maxnodes);
-  h_new_node_flags = new MLCommon::host_buffer<unsigned int>(
-    ml_handle.getHostAllocator(), stream, maxnodes);
+  d_flags =
+    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
+  h_split_colidx =
+    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes);
+  h_split_binidx =
+    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes);
+  d_split_colidx =
+    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes);
+  d_split_binidx =
+    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes);
+  h_new_node_flags =
+    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
   d_new_node_flags = new MLCommon::device_buffer<unsigned int>(
-    ml_handle.getDeviceAllocator(), stream, maxnodes);
-  h_parent_metric = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                                 stream, maxnodes);
-  h_child_best_metric = new MLCommon::host_buffer<T>(
-    ml_handle.getHostAllocator(), stream, 2 * maxnodes);
-  h_outgain = new MLCommon::host_buffer<float>(ml_handle.getHostAllocator(),
-                                               stream, maxnodes);
-  d_parent_metric = new MLCommon::device_buffer<T>(
-    ml_handle.getDeviceAllocator(), stream, maxnodes);
-  d_child_best_metric = new MLCommon::device_buffer<T>(
-    ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
-  d_outgain = new MLCommon::device_buffer<float>(ml_handle.getDeviceAllocator(),
-                                                 stream, maxnodes);
+    device_allocator, stream, maxnodes);
+  h_parent_metric =
+    new MLCommon::host_buffer<T>(host_allocator, stream, maxnodes);
+  h_child_best_metric =
+    new MLCommon::host_buffer<T>(host_allocator, stream, 2 * maxnodes);
+  h_outgain =
+    new MLCommon::host_buffer<float>(host_allocator, stream, maxnodes);
+  d_parent_metric =
+    new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes);
+  d_child_best_metric =
+    new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
+  d_outgain =
+    new MLCommon::device_buffer<float>(device_allocator, stream, maxnodes);
   if (split_algo == 0) {
-    d_globalminmax = new MLCommon::device_buffer<T>(
-      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * ncols);
-    h_globalminmax = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                                  stream, 2 * maxnodes * ncols);
+    d_globalminmax = new MLCommon::device_buffer<T>(device_allocator, stream,
+                                                    2 * maxnodes * ncols);
+    h_globalminmax = new MLCommon::host_buffer<T>(host_allocator, stream,
+                                                  2 * maxnodes * ncols);
     totalmem += maxnodes * ncols * sizeof(T);
   } else {
-    h_quantile = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                              stream, nbins * ncols);
-    d_quantile = new MLCommon::device_buffer<T>(ml_handle.getDeviceAllocator(),
-                                                stream, nbins * ncols);
+    h_quantile =
+      new MLCommon::host_buffer<T>(host_allocator, stream, nbins * ncols);
+    d_quantile =
+      new MLCommon::device_buffer<T>(device_allocator, stream, nbins * ncols);
     totalmem += nbins * ncols * sizeof(T);
   }
-  d_sample_cnt = new MLCommon::device_buffer<unsigned int>(
-    ml_handle.getDeviceAllocator(), stream, nrows);
-  d_colids = new MLCommon::device_buffer<unsigned int>(
-    ml_handle.getDeviceAllocator(), stream, ncols);
+  d_sample_cnt =
+    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
+  d_colids =
+    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
 
   totalmem += nrows * 2 * sizeof(unsigned int);
   totalmem += maxnodes * 3 * sizeof(int);
@@ -108,30 +108,30 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   totalmem += ncols * sizeof(int);
   //Regression
   if (typeid(L) == typeid(T)) {
-    d_mseout = new MLCommon::device_buffer<T>(
-      ml_handle.getDeviceAllocator(), stream, 2 * nbins * ncols * maxnodes);
-    d_predout = new MLCommon::device_buffer<T>(
-      ml_handle.getDeviceAllocator(), stream, nbins * ncols * maxnodes);
+    d_mseout = new MLCommon::device_buffer<T>(device_allocator, stream,
+                                              2 * nbins * ncols * maxnodes);
+    d_predout = new MLCommon::device_buffer<T>(device_allocator, stream,
+                                               nbins * ncols * maxnodes);
     d_count = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, nbins * ncols * maxnodes);
-    d_parent_pred = new MLCommon::device_buffer<T>(
-      ml_handle.getDeviceAllocator(), stream, maxnodes);
+      device_allocator, stream, nbins * ncols * maxnodes);
+    d_parent_pred =
+      new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes);
     d_parent_count = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, maxnodes);
-    d_child_pred = new MLCommon::device_buffer<T>(
-      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
+      device_allocator, stream, maxnodes);
+    d_child_pred =
+      new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
     d_child_count = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes);
-    h_mseout = new MLCommon::host_buffer<T>(
-      ml_handle.getHostAllocator(), stream, 2 * nbins * ncols * maxnodes);
-    h_predout = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                             stream, nbins * ncols * maxnodes);
-    h_count = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, nbins * ncols * maxnodes);
-    h_child_pred = new MLCommon::host_buffer<T>(ml_handle.getHostAllocator(),
-                                                stream, 2 * maxnodes);
+      device_allocator, stream, 2 * maxnodes);
+    h_mseout = new MLCommon::host_buffer<T>(host_allocator, stream,
+                                            2 * nbins * ncols * maxnodes);
+    h_predout = new MLCommon::host_buffer<T>(host_allocator, stream,
+                                             nbins * ncols * maxnodes);
+    h_count = new MLCommon::host_buffer<unsigned int>(host_allocator, stream,
+                                                      nbins * ncols * maxnodes);
+    h_child_pred =
+      new MLCommon::host_buffer<T>(host_allocator, stream, 2 * maxnodes);
     h_child_count = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, 2 * maxnodes);
+      host_allocator, stream, 2 * maxnodes);
 
     totalmem += 3 * nbins * ncols * maxnodes * sizeof(T);
     totalmem += nbins * ncols * maxnodes * sizeof(unsigned int);
@@ -142,18 +142,18 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   //Classification
   if (typeid(L) == typeid(int)) {
     size_t histcount = ncols * nbins * n_unique * maxnodes;
-    d_histogram = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, histcount);
-    h_histogram = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, histcount);
+    d_histogram = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                            stream, histcount);
+    h_histogram = new MLCommon::host_buffer<unsigned int>(host_allocator,
+                                                          stream, histcount);
     h_parent_hist = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, maxnodes * n_unique);
+      host_allocator, stream, maxnodes * n_unique);
     h_child_hist = new MLCommon::host_buffer<unsigned int>(
-      ml_handle.getHostAllocator(), stream, 2 * maxnodes * n_unique);
+      host_allocator, stream, 2 * maxnodes * n_unique);
     d_parent_hist = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, maxnodes * n_unique);
+      device_allocator, stream, maxnodes * n_unique);
     d_child_hist = new MLCommon::device_buffer<unsigned int>(
-      ml_handle.getDeviceAllocator(), stream, 2 * maxnodes * n_unique);
+      device_allocator, stream, 2 * maxnodes * n_unique);
     totalmem += histcount * sizeof(unsigned int);
     totalmem += n_unique * maxnodes * 3 * sizeof(unsigned int);
   }

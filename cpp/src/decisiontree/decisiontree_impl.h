@@ -88,17 +88,13 @@ class DecisionTreeBase {
   std::vector<unsigned int> feature_selector;
   MLCommon::TimerCPU prepare_fit_timer;
 
-  void plant(const cumlHandle_impl &handle,
-             std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
+  void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
              const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-             int maxdepth = -1, int max_leaf_nodes = -1,
-             const float colper = 1.0, int n_bins = 8,
-             int split_algo_flag = SPLIT_ALGO::GLOBAL_QUANTILE,
-             int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
-             CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
-             bool cfg_quantile_per_tree = false,
-             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
+             int maxdepth, int max_leaf_nodes, const float colper, int n_bins,
+             int split_algo_flag, int cfg_min_rows_per_node,
+             bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
+             bool cfg_quantile_per_tree);
 
   virtual void grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
