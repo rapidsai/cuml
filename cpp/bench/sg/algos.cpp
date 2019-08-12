@@ -19,6 +19,7 @@
 #include <cuML.hpp>
 #include <dbscan/dbscan.hpp>
 #include <map>
+#include <randomforest/randomforest.hpp>
 #include "argparse.hpp"
 #include "dataset.h"
 
@@ -51,7 +52,7 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
     "With params:\n"
     "  min-pts              = %d\n"
     "  eps                  = %f\n"
-    "  max-bytes-per-launch = %lu\n",
+    "  max-bytes-per-batch  = %lu\n",
     minPts, eps, maxBytesPerBatch);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -69,10 +70,86 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
   return true;
 }
 
+bool rf(const Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
+  bool help = get_argval(argv, argv + argc, "-h");
+  if (help) {
+    printf(
+      "USAGE:\n"
+      "bench rf [options]\n"
+      "  Run RF algo on the input dataset.\n"
+      "OPTIONS:\n"
+      "  -ntrees <nt>       Number of trees to build. [100]\n"
+      "  -bootstrap         Whether to bootstrap the input data.\n"
+      "  -row-subsample <frac> Row subsample ratio. [1.f]\n"
+      "  -nstreams <ns>     Number of cuda streams to use. [4]\n"
+      "  -max-depth <md>    Max tree depth. [8]\n"
+      "  -max-leaves <ml>   Max leaves in each trees. [-1]\n"
+      "  -max-features <mf> Max features to consider per split. [1.f]\n"
+      "  -nbins <nb>        Number of bins used by split algo. [256]\n"
+      "  -split-algo <algo> Split algo. 0 = HIST, 1 = GLOBAL_QUANTILE [0]\n"
+      "  -min-rows-split <mrs>  Min number of rows needed for split. [2]\n"
+      "  -bootstrap-features    Whether to bootstrap features of input data.\n"
+      "  -quantile-per-tree     Compute quantile per tree. (default per RF)\n");
+    return false;
+  }
+  printf("Running RF...\n");
+  int nTrees = get_argval(argv, argv + argc, "-ntrees", 100);
+  bool bootstrap = get_argval(argv, argv + argc, "-bootstrap");
+  float rowSample = get_argval(argv, argv + argc, "-row-subsample", 1.f);
+  int nStreams = get_argval(argv, argv + argc, "-nstreams", 4);
+  int maxDepth = get_argval(argv, argv + argc, "-max-depth", 8);
+  int maxLeaves = get_argval(argv, argv + argc, "-max-leaves", -1);
+  float maxFeatures = get_argval(argv, argv + argc, "-max-features", 1.f);
+  int nBins = get_argval(argv, argv + argc, "-nbins", 256);
+  int algo = get_argval(argv, argv + argc, "-split-algo", 0);
+  int minRowsSplit = get_argval(argv, argv + argc, "-min-rows-split", 2);
+  bool bootstrapCols = get_argval(argv, argv + argc, "-bootstrap-features");
+  bool quantilePerTree = get_argval(argv, argv + argc, "-quantile-per-tree");
+  printf(
+    "With params:\n"
+    "  num-trees          = %d\n"
+    "  bootstrap          = %d\n"
+    "  row-subsample      = %f\n"
+    "  num-streams        = %d\n"
+    "  max-depth          = %d\n"
+    "  max-leaves         = %d\n"
+    "  max-features       = %f\n"
+    "  num-bins           = %d\n"
+    "  split-algo         = %d\n"
+    "  min-rows-split     = %d\n"
+    "  bootstrap-features = %d\n"
+    "  quantile-per-tree  = %d\n",
+    nTrees, bootstrap, rowSample, nStreams, maxDepth, maxLeaves, maxFeatures,
+    nBins, algo, minRowsSplit, bootstrapCols, quantilePerTree);
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  int* labels = (int*)allocator->allocate(ret.nrows * sizeof(int), stream);
+  {
+    struct timeval start;
+    TIC(start);
+    RandomForestClassifierF model;
+    model.trees = nullptr;
+    auto* mPtr = &model;
+    RF_params params = {nTrees,   bootstrap,    rowSample,     nStreams,
+                        maxDepth, maxLeaves,    maxFeatures,   nBins,
+                        algo,     minRowsSplit, bootstrapCols, quantilePerTree};
+    fit(handle, mPtr, ret.X, ret.nrows, ret.ncols, labels, 2, /*todo*/
+        params);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    TOC(start, "rfClassifierFit");
+  }
+  ///@todo: add some metrics for verification
+  allocator->deallocate(labels, ret.nrows * sizeof(int), stream);
+  return true;
+}
+
 typedef bool (*algoRunner)(const Dataset&, const cumlHandle&, int, char**);
 class Runner : public std::map<std::string, algoRunner> {
  public:
-  Runner() : std::map<std::string, algoRunner>() { (*this)["dbscan"] = dbscan; }
+  Runner() : std::map<std::string, algoRunner>() {
+    (*this)["dbscan"] = dbscan;
+    (*this)["rf"] = rf;
+  }
 };
 
 /// Do NOT touch anything below this line! ///
