@@ -21,13 +21,11 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, \
-    fit_predict, get_pattern
+    fit_predict, get_pattern, array_equal
 
 from numba import cuda
 
-from sklearn import cluster
 from sklearn.datasets import make_classification
-from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.preprocessing import StandardScaler
@@ -127,17 +125,9 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = cu_acc_score(y_test, cu_predict)
-
-    # sklearn random forest classification model
-    # initialization, fit and predict
-    sk_model = skrfc(n_estimators=40, max_depth=None,
-                     min_samples_split=2, max_features=1.0,
-                     random_state=10)
-    sk_model.fit(X_train, y_train)
-    sk_predict = sk_model.predict(X_test)
-    sk_acc = sk_acc_score(y_test, sk_predict)
+    cu_acc_using_sk = sk_acc_score(y_test, cu_predict)
     # compare the accuracy of the two models
-    assert cu_acc >= (sk_acc - 0.07)
+    assert array_equal(cu_acc, cu_acc_using_sk)
 
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'aniso'] + \
@@ -171,10 +161,7 @@ def test_rand_index_score(name, nrows):
     cu_y_pred, _ = fit_predict(cuml_kmeans,
                                'cuml_Kmeans', X)
 
-    kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
-    sk_y_pred, _ = fit_predict(kmeans,
-                               'sk_Kmeans', X)
     cu_score = cu_ars(y, cu_y_pred)
-    sk_score = sk_ars(y, sk_y_pred)
+    cu_score_using_sk = sk_ars(y, cu_y_pred)
 
-    assert cu_score >= sk_score
+    assert array_equal(cu_score, cu_score_using_sk)
