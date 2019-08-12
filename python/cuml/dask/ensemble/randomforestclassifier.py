@@ -16,10 +16,12 @@
 
 from cuml.dask.common import extract_ddf_partitions
 from cuml.ensemble import RandomForestClassifier as cuRFC
+import cudf
 
 from dask.distributed import default_client, wait
 import math
 import random
+import numpy as np
 
 
 class RandomForestClassifier:
@@ -265,7 +267,14 @@ class RandomForestClassifier:
         )
 
     @staticmethod
-    def _fit(model, X_df, y_df, r):
+    def _fit(model, X_df_list, y_df_list, r):
+        assert len(X_df_list) == len(y_df_list)
+        if len(X_df_list) == 1:
+            X_df = X_df_list[0]
+            y_df = y_df_list[0]
+        else:
+            X_df = cudf.concat(X_df_list)
+            y_df = cudf.concat(y_df_list)
         return model.fit(X_df, y_df)
 
     @staticmethod
@@ -310,9 +319,9 @@ class RandomForestClassifier:
         c = default_client()
 
         X_futures = c.sync(extract_ddf_partitions, X)
-        y_futures = dict(c.sync(extract_ddf_partitions, y))
+        y_futures = c.sync(extract_ddf_partitions, y)
 
-        X_partition_workers = [w for w, xc in X_futures]
+        X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]
 
         if set(X_partition_workers) != set(self.workers) or \
@@ -327,7 +336,7 @@ class RandomForestClassifier:
                    str(self.workers)))
 
         f = list()
-        for w, xc in X_futures:
+        for w, xc in X_futures.items():
             f.append(
                 c.submit(
                     RandomForestClassifier._fit,
@@ -362,7 +371,7 @@ class RandomForestClassifier:
         c = default_client()
         workers = self.workers
 
-        if not isinstance(X, np.array):
+        if not isinstance(X, np.ndarray):
             raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)

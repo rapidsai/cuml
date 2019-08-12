@@ -16,6 +16,8 @@
 
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions
+import cudf
+import numpy as np
 
 from dask.distributed import default_client, wait
 
@@ -268,7 +270,14 @@ class RandomForestRegressor:
         )
 
     @staticmethod
-    def _fit(model, X_df, y_df, r):
+    def _fit(model, X_df_list, y_df_list, r):
+        assert len(X_df_list) == len(y_df_list)
+        if len(X_df_list) == 1:
+            X_df = X_df_list[0]
+            y_df = y_df_list[0]
+        else:
+            X_df = cudf.concat(X_df_list)
+            y_df = cudf.concat(y_df_list)
         return model.fit(X_df, y_df)
 
     @staticmethod
@@ -311,9 +320,9 @@ class RandomForestRegressor:
         c = default_client()
 
         X_futures = c.sync(extract_ddf_partitions, X)
-        y_futures = dict(c.sync(extract_ddf_partitions, y))
+        y_futures = c.sync(extract_ddf_partitions, y)
 
-        X_partition_workers = [w for w, xc in X_futures]
+        X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]
 
         if set(X_partition_workers) != set(self.workers) or \
@@ -328,7 +337,7 @@ class RandomForestRegressor:
                    str(self.workers)))
 
         f = list()
-        for w, xc in X_futures:
+        for w, xc in X_futures.items():
             f.append(
                 c.submit(
                     RandomForestRegressor._fit,
@@ -361,7 +370,7 @@ class RandomForestRegressor:
         c = default_client()
         workers = self.workers
 
-        if not isinstance(X, np.array):
+        if not isinstance(X, np.ndarray):
             raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
