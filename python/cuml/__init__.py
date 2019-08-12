@@ -57,6 +57,8 @@ from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
+from cuml.fil.fil import ForestInference
+from cuml.fil import fil
 
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
