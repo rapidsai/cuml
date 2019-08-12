@@ -181,18 +181,18 @@ def paperTowels(plot=False):
         x0i = batched_arima.init_x0((1,1,1), yb[:,i])
         x0 = np.r_[x0, x0i]
     # x0[0] = x0[0]/2
-    print("my x0=", x0)
+    # print("my x0=", x0)
     # x0 =
     # x0 = np.array([-2.08696500e+02, -2.00178809e-01, -8.15867515e-01])
     mu0, ar0, ma0 = batched_arima.unpack(1, 1, nb, x0)
     start = timer()
-    batched_model = batched_arima.BatchedARIMAModel.fit(yb4, (1, 1, 1),
-                                                        mu0,
-                                                        ar0,
-                                                        ma0,
-                                                        opt_disp=1, h=1e-9, gpu=True)
+    batched_model = batched_arima.fit(yb4, (1, 1, 1),
+                                      mu0,
+                                      ar0,
+                                      ma0,
+                                      opt_disp=-1, h=1e-9, gpu=True)
 
-    y_b = batched_arima.BatchedARIMAModel.predict_in_sample(batched_model)
+    y_b = batched_arima.predict_in_sample(batched_model)
     end = timer()
 
     print("GPU Time for {} batches = {}s ({}s / batch)".format(yb4.shape[1], (end-start),
