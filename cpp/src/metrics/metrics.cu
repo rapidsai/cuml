@@ -112,5 +112,12 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
     handle.getDeviceAllocator(), handle.getStream());
 }
 
+float accuracy_score_py(const cumlHandle &handle, const int *predictions,
+                        const int *ref_predictions, int n) {
+  return MLCommon::Score::accuracy_score(predictions, ref_predictions, n,
+                                         handle.getDeviceAllocator(),
+                                         handle.getStream());
+}
+
 }  // namespace Metrics
 }  // namespace ML
