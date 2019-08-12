@@ -93,9 +93,28 @@ struct Node_ID_info {
     : node(cfg_node), unique_node_id(cfg_unique_node_id) {}
 };
 
+// Converts flat sparse tree generated to recursive format.
+template <typename T, typename L>
+ML::DecisionTree::TreeNode<T, L> *go_recursive_sparse(
+  const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx = 0) {
+  ML::DecisionTree::TreeNode<T, L> *node = NULL;
+  node = new ML::DecisionTree::TreeNode<T, L>();
+  node->split_metric_val = sparsetree[idx].best_metric_val;
+  node->question.column = sparsetree[idx].colid;
+  node->question.value = sparsetree[idx].quesval;
+  node->prediction = sparsetree[idx].prediction;
+  if (sparsetree[idx].colid == -1) {
+    return node;
+  }
+  node->left = go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id);
+  node->right =
+    go_recursive_sparse(sparsetree, sparsetree[idx].left_child_id + 1);
+  return node;
+}
+
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         const DecisionTree::TreeNode<T, L> *root,
+                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_output_group) {
   int node_id = 0;
   TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
@@ -103,8 +122,8 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
 
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
-
-  cur_level_queue.push(Node_ID_info<T, L>(root, 0));
+  tree_ptr->root = go_recursive_sparse(tree_ptr->sparsetree);
+  cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->root, 0));
   node_id = -1;
 
   while (!cur_level_queue.empty()) {
@@ -434,16 +453,17 @@ template class DecisionTreeRegressor<double>;
 
 template void build_treelite_tree<float, int>(
   TreeBuilderHandle tree_builder,
-  const DecisionTree::TreeNode<float, int> *root, int num_output_group);
+  DecisionTree::TreeMetaDataNode<float, int> *tree_ptr, int num_output_group);
 template void build_treelite_tree<double, int>(
   TreeBuilderHandle tree_builder,
-  const DecisionTree::TreeNode<double, int> *root, int num_output_group);
+  DecisionTree::TreeMetaDataNode<double, int> *tree_ptr, int num_output_group);
 template void build_treelite_tree<float, float>(
   TreeBuilderHandle tree_builder,
-  const DecisionTree::TreeNode<float, float> *root, int num_output_group);
+  DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_output_group);
 template void build_treelite_tree<double, double>(
   TreeBuilderHandle tree_builder,
-  const DecisionTree::TreeNode<double, double> *root, int num_output_group);
+  DecisionTree::TreeMetaDataNode<double, double> *tree_ptr,
+  int num_output_group);
 }  //End namespace DecisionTree
 
 }  //End namespace ML
