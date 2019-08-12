@@ -89,6 +89,10 @@ template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   void SetUp() override {
+    // Get available shared memory size.
+    int dev_ID = 0;
+    CUDA_CHECK(cudaGetDevice(&dev_ID));
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, dev_ID));
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.rows * params.cols;
@@ -108,7 +112,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                 minmax_ref + params.cols, stream);
     minmax<T, 512>(data, nullptr, nullptr, params.rows, params.cols,
                    params.rows, minmax_act, minmax_act + params.cols, nullptr,
-                   stream);
+                   prop, stream);
   }
 
   void TearDown() override {
@@ -123,6 +127,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
   T *data, *minmax_act, *minmax_ref;
   bool* mask;
   cudaStream_t stream;
+  cudaDeviceProp prop;
 };
 
 const std::vector<MinMaxInputs<float>> inputsf = {
