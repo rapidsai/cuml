@@ -47,8 +47,8 @@ if os.environ.get('CONDA_PREFIX', None):
     rmm_include_dir = conda_prefix + rmm_include_dir
     rmm_lib_dir = conda_prefix + rmm_lib_dir
 
-    cumlprims_include_dir = conda_prefix + rmm_include_dir
-    cumlprims_lib_dir = conda_prefix + rmm_lib_dir
+    cumlprims_include_dir = conda_prefix + cumlprims_include_dir
+    cumlprims_lib_dir = conda_prefix + cumlprims_lib_dir
 
 exc_list = []
 
