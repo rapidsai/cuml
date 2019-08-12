@@ -1,19 +1,72 @@
+# cuML 0.10.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
+
 # cuML 0.9.0 (Date TBD)
 
 ## New Features
 
+- PR #894: Convert RF to treelite format
+- PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
 - PR #787: homogeneity, completeness and v-measure metrics ml-prim
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #816: Added inverse_transform() for LabelEncoder
+- PR #789: prims: sampling without replacement
+- PR #813: prims: Col major istance prim
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #819: Forest Inferencing Library (FIL)
+- PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
+- PR #837: treelite for decision forest exchange format
+- PR #840: Dask RF classification and regression
+- PR #870: make_blobs python function
+- PR #879: import of treelite models to FIL
+- PR #892: General Gram matrices prim
+- PR #883: Adding MNMG Kmeans
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #926: Wrapper for FIL
 
 ## Improvements
+- PR #822: build: build.sh update to club all make targets together
+- PR #807: Added development conda yml files
+- PR #840: Require cmake >= 3.14
+- PR #832: Stateless Decision Tree and Random Forest API
+- PR #857: Small modifications to comms for utilizing IB w/ Dask
+- PR #851: Random forest Stateless API wrappers
+- PR #865: High Performance RF
+- PR #895: Pretty prints arguments!
+- PR #920: Add an empty marker kernel for tracing purposes
+- PR #915: syncStream added to cumlCommunicator
+- PR #922: Random Forest support in FIL
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #918: Streamline CUDA_REL environment variable
+- PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
+- PR #950: global_bias support in FIL
 
 ## Bug Fixes
 
+- PR #923: Fix misshapen level/trend/season HoltWinters output
+- PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
+- PR #849: PCA no attribute trans_input_ transform bug fix
+- PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
+- PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+
 
 # cuML 0.8.0 (27 June 2019)
 
@@ -34,6 +87,7 @@
 - PR #678: Random Forest Python class
 - PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
+- PR #812: Add cuML Communications API & consolidate Dask cuML
 
 ## Improvements
 
@@ -65,6 +119,7 @@
 - PR #730: Update README and RF docs for 0.8
 - PR #744: Random projections generating binomial on device. Fixing tests.
 - PR #741: Update API docs for 0.8
+- PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
 
@@ -95,6 +150,7 @@
 - PR #790: Fix rows_sample input type for RF
 - PR #793: Fix for dtype conversion utility for numba arrays without cupy installed
 - PR #806: Add a seed for sklearn model in RF test file
+- PR #843: Rf quantile fix
 
 # cuML 0.7.0 (10 May 2019)
 

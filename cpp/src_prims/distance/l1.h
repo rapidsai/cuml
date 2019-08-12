@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #pragma once
 #include "linalg/custom_accum.h"
 #include "linalg/gemm.h"
-#include "linalg/row_gemm.h"
 
 #include <type_traits>
 
@@ -41,12 +40,13 @@ namespace Distance {
  * @param pD output matrix
  * @param fin_op the final element-wise epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
-            OutType *pD, FinalLambda fin_op, cudaStream_t stream) {
+void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
+            OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+            bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -79,12 +79,35 @@ void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
   typedef UnexpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
-  LinAlg::row_gemm<InType, AccType, EffOutType, OutputTile_,
-                   AccumulatorsPerThread_, MainLoopFunctor_, Index_,
-                   GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
-                   GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
-    (EffOutType)0, nullptr, n, pDCast,
+  cublasOperation_t transa, transb;
+  const InType *aPtr, *bPtr;
+  Index_ lda, ldb, ldd;
+  Index_ gemm_m, gemm_n;
+  if (isRowMajor) {
+    transa = CUBLAS_OP_T;
+    transb = CUBLAS_OP_N;
+    aPtr = pB;
+    bPtr = pA;
+    lda = ldb = k;
+    ldd = n;
+    gemm_m = n;
+    gemm_n = m;
+  } else {
+    transa = CUBLAS_OP_N;
+    transb = CUBLAS_OP_T;
+    aPtr = pA;
+    bPtr = pB;
+    lda = m;
+    ldb = n;
+    ldd = m;
+    gemm_m = m;
+    gemm_n = n;
+  }
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
     [] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, false);
       return err;

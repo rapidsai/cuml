@@ -87,43 +87,62 @@ __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax,
 }
 
 template <typename T, typename E>
-__global__ void minmaxKernel(const T* data, const int* rowids,
-                             const int* colids, int nrows, int ncols,
+__global__ void minmaxKernel(const T* data, const unsigned int* rowids,
+                             const unsigned int* colids, int nrows, int ncols,
                              int row_stride, T* g_min, T* g_max, T* sampledcols,
-                             T init_min_val) {
+                             T init_min_val, int batch_ncols, int num_batches) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   extern __shared__ char shmem[];
   T* s_min = (T*)shmem;
-  T* s_max = (T*)(shmem + sizeof(T) * ncols);
-  for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-    *(E*)&s_min[i] = encode(init_min_val);
-    *(E*)&s_max[i] = encode(-init_min_val);
+  T* s_max = (T*)(shmem + sizeof(T) * batch_ncols);
+
+  int last_batch_ncols = ncols % batch_ncols;
+  if (last_batch_ncols == 0) {
+    last_batch_ncols = batch_ncols;
   }
-  __syncthreads();
-  for (int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
-    int col = i / nrows;
-    int row = i % nrows;
-    if (colids != nullptr) {
-      col = colids[col];
+  int orig_batch_ncols = batch_ncols;
+
+  for (int batch_id = 0; batch_id < num_batches; batch_id++) {
+    if (batch_id == num_batches - 1) {
+      batch_ncols = last_batch_ncols;
     }
-    if (rowids != nullptr) {
-      row = rowids[row];
+
+    for (int i = threadIdx.x; i < batch_ncols; i += blockDim.x) {
+      *(E*)&s_min[i] = encode(init_min_val);
+      *(E*)&s_max[i] = encode(-init_min_val);
     }
-    int index = row + col * row_stride;
-    T coldata = data[index];
-    if (!isnan(coldata)) {
-      atomicMinBits<T, E>(&s_min[col], coldata);
-      atomicMaxBits<T, E>(&s_max[col], coldata);
+    __syncthreads();
+
+    for (int i = tid; i < nrows * batch_ncols; i += blockDim.x * gridDim.x) {
+      int col = (batch_id * orig_batch_ncols) + (i / nrows);
+      int row = i % nrows;
+      if (colids != nullptr) {
+        col = colids[col];
+      }
+      if (rowids != nullptr) {
+        row = rowids[row];
+      }
+      int index = row + col * row_stride;
+      T coldata = data[index];
+      if (!isnan(coldata)) {
+        //Min max values are saved in shared memory and global memory as per the shuffled colids.
+        atomicMinBits<T, E>(&s_min[(int)(i / nrows)], coldata);
+        atomicMaxBits<T, E>(&s_max[(int)(i / nrows)], coldata);
+      }
+      if (sampledcols != nullptr) {
+        sampledcols[batch_id * orig_batch_ncols + i] = coldata;
+      }
     }
-    if (sampledcols != nullptr) {
-      sampledcols[i] = coldata;
+    __syncthreads();
+
+    // finally, perform global mem atomics
+    for (int j = threadIdx.x; j < batch_ncols; j += blockDim.x) {
+      atomicMinBits<T, E>(&g_min[batch_id * orig_batch_ncols + j],
+                          decode(*(E*)&s_min[j]));
+      atomicMaxBits<T, E>(&g_max[batch_id * orig_batch_ncols + j],
+                          decode(*(E*)&s_max[j]));
     }
-  }
-  __syncthreads();
-  // finally, perform global mem atomics
-  for (int j = threadIdx.x; j < ncols; j += blockDim.x) {
-    atomicMinBits<T, E>(&g_min[j], decode(*(E*)&s_min[j]));
-    atomicMaxBits<T, E>(&g_max[j], decode(*(E*)&s_max[j]));
+    __syncthreads();
   }
 }
 
@@ -146,7 +165,7 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
  * @param globalmin final col-wise global minimum (size = ncols)
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
- * @param init_val initial minimum value to be 
+ * @param init_val initial minimum value to be
  * @param stream: cuda stream
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
@@ -154,9 +173,9 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
  *    in shared memory
  */
 template <typename T, int TPB = 512>
-void minmax(const T* data, const int* rowids, const int* colids, int nrows,
-            int ncols, int row_stride, T* globalmin, T* globalmax,
-            T* sampledcols, cudaStream_t stream) {
+void minmax(const T* data, const unsigned int* rowids,
+            const unsigned int* colids, int nrows, int ncols, int row_stride,
+            T* globalmin, T* globalmax, T* sampledcols, cudaStream_t stream) {
   using E = typename encode_traits<T>::E;
   int nblks = ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
@@ -164,11 +183,24 @@ void minmax(const T* data, const int* rowids, const int* colids, int nrows,
     <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
   CUDA_CHECK(cudaPeekAtLastError());
   nblks = ceildiv(nrows * ncols, TPB);
-  nblks = max(nblks, 65536);
+  nblks = min(nblks, 65536);
   size_t smemSize = sizeof(T) * 2 * ncols;
+
+  // Get available shared memory size.
+  cudaDeviceProp prop;
+  int dev_ID = 0;
+  CUDA_CHECK(cudaGetDevice(&dev_ID));
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, dev_ID));
+  size_t max_shared_mem = prop.sharedMemPerBlock;
+
+  // Compute the batch_ncols, in [1, ncols] range, that meet the available shared memory constraints.
+  int batch_ncols = min(ncols, (int)(max_shared_mem / (sizeof(T) * 2)));
+  int num_batches = ceildiv(ncols, batch_ncols);
+  smemSize = sizeof(T) * 2 * batch_ncols;
+
   minmaxKernel<T, E><<<nblks, TPB, smemSize, stream>>>(
     data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
-    sampledcols, init_val);
+    sampledcols, init_val, batch_ncols, num_batches);
   CUDA_CHECK(cudaPeekAtLastError());
   decodeKernel<T, E><<<nblks, TPB, 0, stream>>>(globalmin, globalmax, ncols);
   CUDA_CHECK(cudaPeekAtLastError());

@@ -86,10 +86,13 @@ class cumlHandle {
   /**
      * @brief for internal use only.
      */
-  const cumlHandle_impl& getImpl() const;
-
- private:
-  std::unique_ptr<cumlHandle_impl> _impl;
+    const cumlHandle_impl& getImpl() const;
+    /**
+     * @brief for internal use only.
+     */
+    cumlHandle_impl& getImpl();
+private:
+    std::unique_ptr<cumlHandle_impl> _impl;
 };
 
 }  // end namespace ML

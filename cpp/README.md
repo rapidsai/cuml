@@ -15,10 +15,10 @@ The test folder has subfolders that reflect this distinction between the compone
 ### Dependencies
 
 1. zlib
-2. cmake (>= 3.12.4)
+2. cmake (>= 3.14)
 3. CUDA (>= 9.2)
 4. gcc (>=5.4.0)
-5. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
+5. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 6. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
 
 ### Building cuML:
@@ -40,6 +40,7 @@ Current cmake offers the following configuration options:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compiles only for that.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
 
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 

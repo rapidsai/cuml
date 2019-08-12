@@ -20,6 +20,8 @@ import cudf
 import numpy as np
 import warnings
 
+from .import_utils import has_cupy
+
 from collections import namedtuple
 from numba import cuda
 
@@ -193,14 +195,12 @@ def convert_dtype(X, to_dtype=np.float32):
             return X_m
 
     elif cuda.is_cuda_array(X):
-        try:
+        if has_cupy():
             import cupy as cp
             X_m = cp.asarray(X)
             X_m = X_m.astype(to_dtype)
             return cuda.as_cuda_array(X_m)
-
-        # todo: Remove once CuPy nccl conflicts are dealt with
-        except ImportError:
+        else:
             warnings.warn("Using cuDF for dtype conversion, install"
                           "CuPy for faster data conversion.")
 

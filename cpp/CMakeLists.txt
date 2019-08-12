@@ -16,10 +16,11 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.9.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.10.0 LANGUAGES CXX CUDA)
+
 
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
@@ -58,6 +59,9 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
+
+option(NVTX "Enable nvtx markers" OFF)
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
@@ -133,6 +137,9 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
+set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
+  "Path to treelite install directory")
+
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
@@ -153,6 +160,7 @@ endif(CMAKE_CUDA_HOST_COMPILER)
 
 if(OPENMP_FOUND)
   message(STATUS "Building with OpenMP support")
+  find_package(Threads REQUIRED)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
@@ -167,6 +175,14 @@ endif(LINE_INFO)
 if(KERNEL_INFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
 endif(KERNEL_INFO)
+
+if(NVTX)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
+  if(EMPTY_MARKER_KERNEL)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
+  endif(EMPTY_MARKER_KERNEL)
+endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
@@ -215,6 +231,29 @@ add_clang_format(
   SRCDIR ${PROJECT_SOURCE_DIR})
 
 ###################################################################################################
+# - treelite build --------------------------------------------------------------------------------
+
+include(ExternalProject)
+
+ExternalProject_Add(treelite
+    PREFIX ${TREELITE_DIR}
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
+    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
+
+add_library(dmlclib STATIC IMPORTED)
+add_library(treelitelib STATIC IMPORTED)
+add_library(treelite_runtimelib SHARED IMPORTED)
+
+add_dependencies(dmlclib treelite)
+add_dependencies(treelitelib treelite)
+add_dependencies(treelite_runtimelib treelite)
+
+set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
+set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
+set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+
+###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
@@ -248,7 +287,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
 
 
-  include (ExternalProject)
   ExternalProject_Add(faiss
     SOURCE_DIR ${FAISS_DIR}
     CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
@@ -284,6 +322,7 @@ include_directories(
   ${GTEST_DIR}/include
   ${CUTLASS_DIR}
   ${CUB_DIR}
+  ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -300,10 +339,19 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
+    src/common/cuml_api.cpp
+    src/common/cuML_comms_impl.cpp
+    src/comms/cuML_comms_test.cpp
+    src/common/nvtx.cu
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/fil/batch_tree_reorg.cu
+    src/fil/fil.cu
+    src/fil/naive.cu
+    src/fil/tree_reorg.cu
     src/glm/glm.cu
+    src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -313,6 +361,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
     src/ts/batched_kalman.cu
@@ -326,12 +375,20 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    treelitelib
+    dmlclib
     gpufaisslib
     faisslib)
 
   if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+  
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
+
+  if(NVTX)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+  endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
   add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
@@ -346,7 +403,8 @@ if(BUILD_CUML_C_LIBRARY)
   add_library(${CUML_C_TARGET} SHARED
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
-    src/glm/glm_api.cpp)
+    src/glm/glm_api.cpp
+    src/holtwinters/holtwinters_api.cpp)
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
