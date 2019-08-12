@@ -15,3 +15,4 @@
 #
 
 from cuml.manifold.umap import UMAP
+from cuml.manifold.t_sne import TSNE

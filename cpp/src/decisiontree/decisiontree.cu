@@ -70,6 +70,11 @@ void validity_check(const DecisionTreeParams params) {
   ASSERT((params.min_rows_per_node >= 2),
          "Invalid min # rows per node value %d. Should be >= 2.",
          params.min_rows_per_node);
+  if (params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    ASSERT((params.max_depth <= 32),
+           "For GLOBAL_QUANTILE algorithm, only max depth of 32 is currently "
+           "supported");
+  }
 }
 
 /**
