@@ -19,7 +19,11 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <treelite/tree.h>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <utility>
 
 #include "common.cuh"
 #include "fil.h"
@@ -28,6 +32,7 @@ namespace ML {
 namespace fil {
 
 using namespace MLCommon;
+namespace tl = treelite;
 
 void naive(const predict_params& ps, cudaStream_t stream);
 void tree_reorg(const predict_params& ps, cudaStream_t stream);
@@ -52,14 +57,23 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-__global__ void transform_k(float* preds, size_t n, bool output_class,
-                            float threshold) {
+/** performs additional transformations on the array of forest predictions
+    (preds) of size n; the transformations are defined by output, and include
+    averaging (multiplying by inv_num_trees), adding global_bias (always done),
+    sigmoid and applying threshold */
+__global__ void transform_k(float* preds, size_t n, output_t output,
+                            float inv_num_trees, float threshold,
+                            float global_bias) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  float out = preds[i];
-  out = sigmoid(out);
-  if (output_class) out = out > threshold ? 1.0f : 0.0f;
-  preds[i] = out;
+  float result = preds[i];
+  if ((output & output_t::AVG) != 0) result *= inv_num_trees;
+  result += global_bias;
+  if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
+  if ((output & output_t::THRESHOLD) != 0) {
+    result = result > threshold ? 1.0f : 0.0f;
+  }
+  preds[i] = result;
 }
 
 struct forest {
@@ -69,7 +83,8 @@ struct forest {
       cols_(0),
       algo_(algo_t::NAIVE),
       output_(output_t::RAW),
-      threshold_(0.5) {}
+      threshold_(0.5),
+      global_bias_(0) {}
 
   void transform_trees(const dense_node_t* nodes) {
     // populate node information
@@ -100,6 +115,7 @@ struct forest {
     algo_ = params->algo;
     output_ = params->output;
     threshold_ = params->threshold;
+    global_bias_ = params->global_bias;
     init_max_shm();
 
     int nnodes = forest_num_nodes(ntrees_, depth_);
@@ -146,10 +162,11 @@ struct forest {
         ASSERT(false, "internal error: invalid algorithm");
     }
 
-    // Transform the output if necessary (sigmoid + thresholding if necessary).
-    if (output_ != output_t::RAW) {
+    // Transform the output if necessary.
+    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
       transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_ == output_t::CLASS, threshold_);
+        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f, threshold_,
+        global_bias_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -167,6 +184,7 @@ struct forest {
   int max_shm_;
   output_t output_;
   float threshold_;
+  float global_bias_;
   dense_node* nodes_ = nullptr;
   thrust::host_vector<dense_node> h_nodes_;
 };
@@ -183,14 +201,145 @@ void check_params(const forest_params_t* params) {
     default:
       ASSERT(false, "aglo should be NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
-  switch (params->output) {
-    case output_t::RAW:
-    case output_t::PROB:
-    case output_t::CLASS:
+  // output_t::RAW == 0, and doesn't have a separate flag
+  output_t all_set =
+    output_t(output_t::AVG | output_t::SIGMOID | output_t::THRESHOLD);
+  if ((params->output & ~all_set) != 0) {
+    ASSERT(false,
+           "output should be a combination of RAW, AVG, SIGMOID and THRESHOLD");
+  }
+}
+
+// tl_node_at is a checked version of tree[i]
+const tl::Tree::Node& tl_node_at(const tl::Tree& tree, size_t i) {
+  ASSERT(i < tree.num_nodes, "node index out of range");
+  return tree[i];
+}
+
+int tree_root(const tl::Tree& tree) {
+  // find the root
+  int root = -1;
+  for (int i = 0; i < tree.num_nodes; ++i) {
+    if (tl_node_at(tree, i).is_root()) {
+      ASSERT(root == -1, "multi-root trees not supported");
+      root = i;
+    }
+  }
+  ASSERT(root != -1, "a tree must have a root");
+  return root;
+}
+
+int max_depth_helper(const tl::Tree& tree, const tl::Tree::Node& node,
+                     int limit) {
+  if (node.is_leaf()) return 0;
+  ASSERT(limit > 0,
+         "recursion depth limit reached, might be a cycle in the tree");
+  return 1 +
+         std::max(
+           max_depth_helper(tree, tl_node_at(tree, node.cleft()), limit - 1),
+           max_depth_helper(tree, tl_node_at(tree, node.cright()), limit - 1));
+}
+
+int max_depth(const tl::Tree& tree) {
+  // trees of this depth aren't used, so it most likely means bad input data,
+  // e.g. cycles in the forest
+  const int RECURSION_LIMIT = 500;
+  return max_depth_helper(tree, tl_node_at(tree, tree_root(tree)),
+                          RECURSION_LIMIT);
+}
+
+void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
+              const tl::Tree& tree, const tl::Tree::Node& node) {
+  std::vector<dense_node_t>& nodes = *pnodes;
+  if (node.is_leaf()) {
+    dense_node_init(&nodes[root + cur], node.leaf_value(), 0, 0, false, true);
+    return;
+  }
+
+  // inner node
+  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
+         "only numerical split nodes are supported");
+  int left = node.cleft(), right = node.cright();
+  bool default_left = node.default_left();
+  float threshold = node.threshold();
+  // in treelite (take left node if val [op] threshold),
+  // the meaning of the condition is reversed compared to FIL;
+  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
+  switch (node.comparison_op()) {
+    case tl::Operator::kLT:
+      break;
+    case tl::Operator::kLE:
+      // x <= y is equivalent to x < y', where y' is the next representable float
+      threshold =
+        std::nextafterf(threshold, std::numeric_limits<float>::infinity());
+      break;
+    case tl::Operator::kGT:
+      // x > y is equivalent to x >= y', where y' is the next representable float
+      // left and right still need to be swapped
+      threshold =
+        std::nextafterf(threshold, std::numeric_limits<float>::infinity());
+    case tl::Operator::kGE:
+      // swap left and right
+      std::swap(left, right);
+      default_left = !default_left;
       break;
     default:
-      ASSERT(false, "output should be RAW, PROB or CLASS");
+      ASSERT(false, "only <, >, <= and >= comparisons are supported");
   }
+  dense_node_init(&nodes[root + cur], 0, threshold, node.split_index(),
+                  default_left, false);
+  node2fil(pnodes, root, 2 * cur + 1, tree, tl_node_at(tree, left));
+  node2fil(pnodes, root, 2 * cur + 2, tree, tl_node_at(tree, right));
+}
+
+void tree2fil(std::vector<dense_node_t>* pnodes, int root,
+              const tl::Tree& tree) {
+  node2fil(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+}
+
+// uses treelite model with additional tl_params to initialize FIL params
+// and nodes (stored in *pnodes)
+void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
+            const tl::Model& model, const treelite_params_t* tl_params) {
+  // fill in forest-indendent params
+  params->algo = tl_params->algo;
+  params->threshold = tl_params->threshold;
+
+  // fill in forest-dependent params
+  params->cols = model.num_feature;
+  ASSERT(model.num_output_group == 1,
+         "multi-class classification not supported");
+  const tl::ModelParam& param = model.param;
+  ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
+  params->global_bias = param.global_bias;
+  params->output = output_t::RAW;
+  if (tl_params->output_class) {
+    params->output = output_t(params->output | output_t::THRESHOLD);
+  }
+  // "random forest" in treelite means tree output averaging
+  if (model.random_forest_flag) {
+    params->output = output_t(params->output | output_t::AVG);
+  }
+  if (param.pred_transform == "sigmoid") {
+    params->output = output_t(params->output | output_t::SIGMOID);
+  } else if (param.pred_transform != "identity") {
+    ASSERT(false, "%s: unsupported treelite prediction transform",
+           param.pred_transform.c_str());
+  }
+  params->ntrees = model.trees.size();
+
+  int depth = 0;
+  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
+  params->depth = depth;
+
+  // convert the nodes
+  int num_nodes = forest_num_nodes(params->ntrees, params->depth);
+  pnodes->resize(num_nodes, dense_node_t{0, 0});
+  for (int i = 0; i < model.trees.size(); ++i) {
+    tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
+  }
+  params->nodes = pnodes->data();
 }
 
 void init_dense(const cumlHandle& h, forest_t* pf,
@@ -199,6 +348,17 @@ void init_dense(const cumlHandle& h, forest_t* pf,
   forest* f = new forest;
   f->init(h, params);
   *pf = f;
+}
+
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model, const treelite_params_t* tl_params) {
+  forest_params_t params;
+  std::vector<dense_node_t> nodes;
+  tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
+  init_dense(handle, pforest, &params);
+  // sync is necessary as nodes is used in init_dense(),
+  // but destructed at the end of this function
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void free(const cumlHandle& h, forest_t f) {
