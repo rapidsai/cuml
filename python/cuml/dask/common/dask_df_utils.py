@@ -18,8 +18,6 @@ from dask.distributed import default_client
 from toolz import first
 import dask.dataframe as dd
 
-from cuml.dask.common.utils import parse_host_port
-
 from dask.distributed import wait
 
 
@@ -41,10 +39,12 @@ def extract_ddf_partitions(ddf):
 
     worker_map = []
     for key, workers in who_has.items():
-        worker = parse_host_port(first(workers))
-        worker_map.append((worker, key_to_part_dict[key]))
+        worker = first(workers)
+        worker_map.append((key_to_part_dict[key], worker))
 
-    gpu_data = [(worker, part) for worker, part in worker_map]
+    worker_map = dict(worker_map)
+
+    gpu_data = [(worker_map[part], part) for part in parts]
 
     yield wait(gpu_data)
 
