@@ -19,5 +19,6 @@ dependencies:
 - scikit-learn>=0.21
 - dask
 - distributed
+- dask-ml
 - dask-cuda=0.8*
 - dask-cudf=0.8*
