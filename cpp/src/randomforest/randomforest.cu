@@ -325,9 +325,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, int>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfClassifier<float>> rf_classifier =
@@ -342,9 +339,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, int>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfClassifier<double>> rf_classifier =
@@ -501,9 +495,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, float>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfRegressor<float>> rf_regressor =
@@ -517,9 +508,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, double>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfRegressor<double>> rf_regressor =
