@@ -33,7 +33,16 @@ def concat(dfs):
 
 class KMeans(object):
     """
-    Multi-Node Multi-GPU implementation of KMeans
+    Multi-Node Multi-GPU implementation of KMeans.
+
+    This version minimizes data transfer by sharing only
+    the centroids between workers in each iteration.
+
+    Predictions are done embarrassingly parallel, using cuML's
+    single-GPU version.
+
+    For more information on this implementation, refer to the
+    documentation for single-GPU K-Means.
     """
 
     def __init__(self, n_clusters=8, max_iter=300, tol=1e-4,
