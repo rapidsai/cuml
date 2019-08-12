@@ -340,8 +340,12 @@ class TSNE(Base):
             (n, self.n_components),
             order="F",
             dtype=np.float32)
+        if Y is None:
+            raise MemoryError("Out of GPU Memory")
 
         cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
+        if <float*> embed_ptr == NULL:
+            raise MemoryError("Out of GPU Memory")
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
@@ -374,30 +378,30 @@ class TSNE(Base):
         self._assure_clean_memory(True)
         try:
             TSNE_fit(handle_[0],
-                 <float*> X_ptr,
-                 <float*> embed_ptr,
-                 <int> n,
-                 <int> p,
-                 <int> self.n_components,
-                 <int> self.n_neighbors,
-                 <float> self.angle,
-                 <float> self.epssq,
-                 <float> self.perplexity,
-                 <int> self.perplexity_max_iter,
-                 <float> self.perplexity_tol,
-                 <float> self.early_exaggeration,
-                 <int> self.exaggeration_iter,
-                 <float> self.min_gain,
-                 <float> self.pre_learning_rate,
-                 <float> self.post_learning_rate,
-                 <int> self.n_iter,
-                 <float> self.min_grad_norm,
-                 <float> self.pre_momentum,
-                 <float> self.post_momentum,
-                 <long long> seed,
-                 <bool> self.verbose,
-                 <bool> True,
-                 <bool> True)
+                     <float*> X_ptr,
+                     <float*> embed_ptr,
+                     <int> n,
+                     <int> p,
+                     <int> self.n_components,
+                     <int> self.n_neighbors,
+                     <float> self.angle,
+                     <float> self.epssq,
+                     <float> self.perplexity,
+                     <int> self.perplexity_max_iter,
+                     <float> self.perplexity_tol,
+                     <float> self.early_exaggeration,
+                     <int> self.exaggeration_iter,
+                     <float> self.min_gain,
+                     <float> self.pre_learning_rate,
+                     <float> self.post_learning_rate,
+                     <int> self.n_iter,
+                     <float> self.min_grad_norm,
+                     <float> self.pre_momentum,
+                     <float> self.post_momentum,
+                     <long long> seed,
+                     <bool> self.verbose,
+                     <bool> True,
+                     <bool> True)
         except cuda.cudadrv.driver.CudaAPIError:
             cuda.current_context.reset()
             raise MemoryError("Out of GPU Memory")
