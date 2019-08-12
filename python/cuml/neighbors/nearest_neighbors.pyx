@@ -338,7 +338,7 @@ class NearestNeighbors(Base):
             self.n_indices = len(final_devices)
 
         else:
-            X_m, X_ctype, n_rows, n_cols, dtype = \
+            self.X_m, X_ctype, n_rows, n_cols, dtype = \
                 input_to_dev_array(X, order='C', check_dtype=np.float32,
                                    convert_to_dtype=(np.float32
                                                      if convert_dtype
