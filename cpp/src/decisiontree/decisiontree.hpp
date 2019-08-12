@@ -95,7 +95,6 @@ struct TreeMetaDataNode {
   int leaf_counter;
   double prepare_time;
   double train_time;
-  TreeNode<T, L> *root;
   std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 

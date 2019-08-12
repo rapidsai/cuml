@@ -122,8 +122,10 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
 
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
-  tree_ptr->root = go_recursive_sparse(tree_ptr->sparsetree);
-  cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->root, 0));
+
+  ML::DecisionTree::TreeNode<T, L> *root =
+    go_recursive_sparse(tree_ptr->sparsetree);
+  cur_level_queue.push(Node_ID_info<T, L>(root, 0));
   node_id = -1;
 
   while (!cur_level_queue.empty()) {
