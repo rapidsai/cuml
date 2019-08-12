@@ -288,8 +288,8 @@ void build_treelite_forest(ModelHandle* model,
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
-    if (tree_ptr->root != nullptr) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr->root,
+    if (tree_ptr->sparsetree.size() != 0) {
+      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
                                               num_output_group);
 
       // The third argument -1 means append to the end of the tree list.

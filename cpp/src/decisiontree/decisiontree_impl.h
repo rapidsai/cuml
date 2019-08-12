@@ -55,7 +55,7 @@ void print_node(const std::string &prefix,
 
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         const DecisionTree::TreeNode<T, L> *root,
+                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_output_group);
 
 struct DataInfo {
