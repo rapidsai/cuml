@@ -412,9 +412,14 @@ class TSNE(Base):
         return self
 
     def __del__(self):
-        for item in self.__dict__:
-            del self.__dict__[item]
-        self._assure_clean_memory(True)
+        try:
+            for item in self.__dict__:
+                del self.__dict__[item]
+            self._assure_clean_memory(True)
+        except RuntimeError:
+            # Possible out of memory
+            cuda.current_context.reset()
+            raise MemoryError("Out of GPU Memory")
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
