@@ -74,21 +74,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
 void validity_check(const DecisionTreeParams params);
 void print(const DecisionTreeParams params);
 
-template <class T>
-struct Question {
-  int column;
-  T value;
-};
-
-template <class T, class L>
-struct TreeNode {
-  TreeNode<T, L> *left;
-  TreeNode<T, L> *right;
-  L prediction;
-  Question<T> question;
-  T split_metric_val;
-};
-
 template <class T, class L>
 struct TreeMetaDataNode {
   int depth_counter;
