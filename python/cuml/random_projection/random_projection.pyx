@@ -191,7 +191,7 @@ cdef class BaseRandomProjection():
         """
 
         _, _, n_samples, n_features, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
@@ -206,7 +206,7 @@ cdef class BaseRandomProjection():
 
         return self
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -230,7 +230,9 @@ cdef class BaseRandomProjection():
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, n_samples, n_features, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None))
 
         X_new = cuda.device_array((n_samples, self.params.n_components),
                                   dtype=self.dtype,
@@ -273,8 +275,6 @@ cdef class BaseRandomProjection():
 
         else:
             return X_new
-
-        del X_m
 
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
