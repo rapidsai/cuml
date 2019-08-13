@@ -291,8 +291,6 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self._assure_clean_memory()
-        return
 
     def fit(self, X):
         """Fit X into an embedded space.
@@ -334,12 +332,13 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = cuda.device_array(
+        self.Y = cuda.device_array(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
+
+        cdef uintptr_t embed_ptr = self.Y.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
@@ -398,15 +397,8 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        self._assure_clean_memory()
-        self.Y = Y
-        return self
 
-    def __del__(self):
-        if "Y" in self.__dict__:
-            del self.Y
-            self.Y = None
-        self._assure_clean_memory()
+        return self
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -425,18 +417,17 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
-                self._assure_clean_memory()
+                # self._assure_clean_memory()
                 return self.Y
             else:
                 data = cudf.DataFrame.from_gpu_matrix(self.Y)
-                self._assure_clean_memory()
+                # self._assure_clean_memory()
                 return data
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
-            del self.Y
-            self._assure_clean_memory()
             return data
-        return None  # is this even possible?
+
+        raise Exception("Input type %s not supported" % type(X))
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -446,27 +437,11 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        self._assure_clean_memory()
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        self._assure_clean_memory()
+        # self._assure_clean_memory()
         return state
-
-    def _assure_clean_memory(self):
-        """
-        TSNE is sensitive to what is currently in memory.
-        Use Numba's garbabge collector to clean up already removed
-        GPU memory.
-        """
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
-        # Run again to be 100% sure all memory is freed.
-        # This is very very conservative.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
