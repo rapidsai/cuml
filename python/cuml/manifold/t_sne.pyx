@@ -18,7 +18,6 @@
 # distutils: language = c++
 # distutils: extra_compile_args = -O2
 # cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False, initializedcheck = False
 
 import cudf
 import cuml
@@ -28,6 +27,7 @@ import inspect
 import pandas as pd
 import warnings
 import gc
+from copy import copy
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -340,11 +340,11 @@ class TSNE(Base):
             (n, self.n_components),
             order="F",
             dtype=np.float32)
-        if Y is None:
+        if Y is None or Y.shape[0] != n or Y.shape[1] != self.n_components:
             raise MemoryError("Out of GPU Memory")
 
         cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
-        if <float*> embed_ptr == NULL:
+        if embed_ptr == NULL:
             raise MemoryError("Out of GPU Memory")
 
         # Find best params if learning rate method is adaptive
@@ -403,7 +403,6 @@ class TSNE(Base):
                      <bool> True,
                      <bool> True)
         except cuda.cudadrv.driver.CudaAPIError:
-            cuda.current_context.reset()
             raise MemoryError("Out of GPU Memory")
         # Clean up memory
         del _X
@@ -413,12 +412,13 @@ class TSNE(Base):
 
     def __del__(self):
         try:
-            for item in self.__dict__:
-                del self.__dict__[item]
+            keys = copy(list(self.__dict__.keys()))
+            for item in keys:
+                if type(item) is str:
+                    del self.__dict__[item]
             self._assure_clean_memory(True)
         except RuntimeError:
             # Possible out of memory
-            cuda.current_context().reset()
             raise MemoryError("Out of GPU Memory")
 
     def fit_transform(self, X):
@@ -441,21 +441,29 @@ class TSNE(Base):
                 self._assure_clean_memory()
                 return self.Y
             else:
-                data = cudf.DataFrame.from_gpu_matrix(self.Y)
+                data = self.Y.copy_to_host()
+                del self.Y
+                self._assure_clean_memory()
+                out = cudf.from_pandas(pd.DataFrame(data))
+                return out
+        elif isinstance(X, np.ndarray):
+            if isinstance(self.Y, np.ndarray):
+                return self.Y
+            else:
+                data = self.Y.copy_to_host()
+                del self.Y
                 self._assure_clean_memory()
                 return data
-        elif isinstance(X, np.ndarray):
-            data = self.Y.copy_to_host()
-            del self.Y
-            self._assure_clean_memory()
-            return data
         return None  # is this even possible?
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
         if "Y" in state:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
+            data = state["Y"].copy_to_host()
+            del state["Y"]
+            self._assure_clean_memory()
+            state["Y"] = data
 
         if "handle" in state:
             del state["handle"]
