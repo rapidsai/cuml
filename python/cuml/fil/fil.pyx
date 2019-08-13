@@ -56,7 +56,7 @@ cdef class TreeliteModel():
     """
     Wrapper for Treelite-loaded forest
 
-    This is only used for loading saved models into ForestInference,
+    Note: This is only used for loading saved models into ForestInference,
     it does not actually perform inference. Users typically do
     not need to access TreeliteModel instances directly.
 
@@ -280,7 +280,7 @@ class ForestInference(Base):
     For additional usage examples, see the sample notebook at
     https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/fil_demo.ipynb
 
-    In the example beloe, synthetic data is copied to the host before
+    In the example below, synthetic data is copied to the host before
     infererence. ForestInference can also accept a numpy array directly at the
     cost of a slight performance overhead.
 
