@@ -203,7 +203,7 @@ class RandomForestRegressor(Base):
                          If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth : int (default = 16)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
                 if -1. Unlimited depth is not supported with split_algo=1.
                 *Note that this default differs from scikit-learn's
@@ -243,7 +243,7 @@ class RandomForestRegressor(Base):
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
-    def __init__(self, n_estimators=10, max_depth=15, handle=None,
+    def __init__(self, n_estimators=10, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=4,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
@@ -276,7 +276,7 @@ class RandomForestRegressor(Base):
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0 and split_algo == 1:
-            raise ValueError("Must specify max_depth >0 with quantile split algo")
+            raise ValueError("Must specify max_depth >0 with split_algo=1")
 
         self.split_algo = split_algo
         criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,

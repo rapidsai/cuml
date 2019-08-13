@@ -48,7 +48,7 @@ def stress_param(*args, **kwargs):
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_depth', [-1, 1, 15])
+@pytest.mark.parametrize('max_depth', [-1, 1, 16])
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols, max_depth):
     use_handle = True
@@ -80,7 +80,8 @@ def test_rf_classification(datatype, split_algo,
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfc(n_estimators=40, max_depth=None,
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=(max_depth if max_depth > 0 else None),
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
@@ -131,7 +132,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=50, accuracy_metric='mse')
+                       max_depth=25, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     cu_mse = cuml_model.score(X_test, y_test)
     if mode != 'stress':
