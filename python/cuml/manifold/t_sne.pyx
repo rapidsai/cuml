@@ -417,11 +417,9 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
-                # self._assure_clean_memory()
                 return self.Y
             else:
                 data = cudf.DataFrame.from_gpu_matrix(self.Y)
-                # self._assure_clean_memory()
                 return data
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
@@ -443,5 +441,4 @@ class TSNE(Base):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        # self._assure_clean_memory()
         return state

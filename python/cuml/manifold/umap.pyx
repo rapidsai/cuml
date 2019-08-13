@@ -411,6 +411,8 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
+            del y_m
+
         else:
 
             fit(handle_[0],
