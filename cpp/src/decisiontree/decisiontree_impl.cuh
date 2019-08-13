@@ -40,12 +40,6 @@ bool is_dev_ptr(const void *p) {
 namespace DecisionTree {
 
 template <class T, class L>
-void null_tree_node_child_ptrs(TreeNode<T, L> &node) {
-  node.left = nullptr;
-  node.right = nullptr;
-}
-
-template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
     os << "(leaf, " << node.prediction << ", " << node.best_metric_val << ")";
