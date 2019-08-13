@@ -80,10 +80,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                   stepd, radiusd);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  register const int FOUR_NNODES = 4 * nnodes;
-  register const int FOUR_N = 4 * n;
-  register const float theta_squared = theta * theta;
-  register const int NNODES = nnodes;
+   const int FOUR_NNODES = 4 * nnodes;
+   const int FOUR_N = 4 * n;
+   const float theta_squared = theta * theta;
+   const int NNODES = nnodes;
 
   // Actual mallocs
   int *startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
@@ -136,18 +136,18 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
   random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
   ASSERT(YY != NULL && rep_forces != NULL, "[ERROR] Possibly no more memory");
-
-  // Set cache levels for faster algorithm execution
-  //---------------------------------------------------
-  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
+//
+//  // Set cache levels for faster algorithm execution
+//  //---------------------------------------------------
+//  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared);
+//  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
+//  cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
+//  cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
 
   // Do gradient updates
   //---------------------------------------------------
@@ -171,90 +171,76 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
     }
 
-    START_TIMER;
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl, childl, massl, YY, YY + nnodes + 1, maxxl, maxyl, minxl, minyl,
       FOUR_NNODES, NNODES, n, limiter, stepd, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(BoundingBoxKernel_time);
-
-    START_TIMER;
     TSNE::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl, FOUR_NNODES,
                                                     FOUR_N);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(ClearKernel1_time);
-
-    START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
       errl, childl, YY, YY + nnodes + 1, NNODES, n, maxdepthd, bottomd,
       radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(TreeBuildingKernel_time);
-
-    START_TIMER;
     TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(startl, massl, NNODES,
                                                         bottomd);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(ClearKernel2_time);
-
-    START_TIMER;
     TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl, childl, massl, YY, YY + nnodes + 1, NNODES, n, bottomd);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(SummarizationKernel_time);
-
-    START_TIMER;
     TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
       sortl, countl, startl, childl, NNODES, n, bottomd);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(SortKernel_time);
-
-    START_TIMER;
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
       errl, theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
       rep_forces + nnodes + 1, Z_norm, theta_squared, FOUR_NNODES, n,
       radiusd_squared, maxdepthd, stepd);
     CUDA_CHECK(cudaPeekAtLastError());
-    END_TIMER(RepulsionTime);
 
-    START_TIMER;
     TSNE::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm, (float)n);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    END_TIMER(Reduction_time);
+//    END_TIMER(Reduction_time);
 
-    START_TIMER;
+//    START_TIMER;
     TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
       YY, YY + nnodes + 1, norm, norm_add1, n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
+
     TSNE::
       attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY, YY + nnodes + 1, norm, norm_add1, attr_forces,
         attr_forces + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
-    END_TIMER(attractive_time);
+//    END_TIMER(attractive_time);
 
-    START_TIMER;
+//    START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
       learning_rate, momentum, early_exaggeration, YY, YY + nnodes + 1,
       attr_forces, attr_forces + n, rep_forces, rep_forces + nnodes + 1,
       gains_bh, gains_bh + n, old_forces, old_forces + n, Z_norm, n);
     CUDA_CHECK(cudaPeekAtLastError());
-    END_TIMER(IntegrationKernel_time);
+//    END_TIMER(IntegrationKernel_time);
   }
-  PRINT_TIMES;
+//  PRINT_TIMES;
 
   // Copy final YY into true output Y
+
+//  MLCommon::copy(Y, YY+nnodes+1, n)
+
   thrust::device_ptr<float> Y_begin = thrust::device_pointer_cast(Y);
+
+
+
   thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
   thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
                YY + nnodes + 1 + n, Y_begin + n);

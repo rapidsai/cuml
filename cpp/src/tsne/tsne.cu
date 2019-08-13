@@ -96,7 +96,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  START_TIMER;
+  //  START_TIMER;
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
@@ -106,18 +106,18 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
   TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
   //---------------------------------------------------
-  END_TIMER(DistancesTime);
+  //  END_TIMER(DistancesTime);
 
-  START_TIMER;
+  //  START_TIMER;
   //---------------------------------------------------
   // Normalize distances
   if (verbose)
     printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
-  END_TIMER(NormalizeTime);
+  //  END_TIMER(NormalizeTime);
 
-  START_TIMER;
+  //  START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
   if (verbose)
@@ -131,9 +131,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   CUDA_CHECK(cudaPeekAtLastError());
   //---------------------------------------------------
-  END_TIMER(PerplexityTime);
+  //  END_TIMER(PerplexityTime);
 
-  START_TIMER;
+  //  START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix;
@@ -144,7 +144,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   const int *COL = COO_Matrix.cols;
   const int *ROW = COO_Matrix.rows;
   //---------------------------------------------------
-  END_TIMER(SymmetrizeTime);
+  //  END_TIMER(SymmetrizeTime);
 
   if (barnes_hut) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
@@ -159,6 +159,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_momentum, random_state, verbose,
                      intialize_embeddings);
   }
+
+  CUDA_CHECK(cudaPeekAtLastError());
 
   COO_Matrix.destroy();
 }

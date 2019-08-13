@@ -26,6 +26,7 @@ def test_tsne(name):
     """
     datasets
     X = eval("datasets.load_{}".format(name))().data
+    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
     total_trust = 0
     trials = 0
@@ -33,44 +34,16 @@ def test_tsne(name):
     for i in range(200):
         print("iteration = ", i)
 
-        X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
         tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
 
-        Y = tsne.fit_transform(X_cudf).to_pandas().values
-        del Y
+        tsne.fit(X_cudf)
 
         # Reuse
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         assert nans == 0
-
-        del Y
-        del tsne
-
-
-        # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
-
-        Y = tsne.fit_transform(X_cudf).to_pandas().values
-        nans = np.sum(np.isnan(Y))
-        assert nans == 0
-
-        del Y
-
-        # Reuse
-        Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        total_trust += trust
-
-        del Y
-        del tsne
-
 
         trials +=1
-
-        del X_cudf
 
     print("Total Trust %s" % (total_trust / trials))
     assert (total_trust / trials) >= 0.97
