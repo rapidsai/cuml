@@ -520,7 +520,8 @@ class RandomForestClassifier(Base):
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = np.zeros(n_rows, dtype=np.int32)
+        preds = cuda.device_array(n_rows,
+                                  dtype=np.float32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -555,8 +556,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
         del(X_m)
         del(preds_m)
         return preds
@@ -585,8 +584,8 @@ class RandomForestClassifier(Base):
             raise ValueError("The datatype of the training data is different"
                              " from the datatype of the testing data")
 
-        preds = np.zeros(n_rows * self.n_estimators,
-                         dtype=np.int32)
+        preds = cuda.device_array(n_rows * self.n_estimators,
+                                  dtype=np.int32)
 
         cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle* handle_ =\
@@ -649,8 +648,8 @@ class RandomForestClassifier(Base):
         if y.dtype != np.int32:
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
+        preds = cuda.device_array(n_rows,
+                                  dtype=np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
