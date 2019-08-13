@@ -110,7 +110,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
-  distances = d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  distances = (float*)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
   if (distances == NULL or indices == NULL)
     goto ERROR;
