@@ -337,7 +337,6 @@ class TSNE(Base):
             order="F",
             dtype=np.float32)
 
-
         cdef uintptr_t embed_ptr = self.Y.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
