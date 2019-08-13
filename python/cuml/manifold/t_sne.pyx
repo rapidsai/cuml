@@ -344,7 +344,7 @@ class TSNE(Base):
             raise MemoryError("Out of GPU Memory")
 
         cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
-        if embed_ptr == NULL:
+        if (<void*>embed_ptr) == NULL or embed_ptr == 0:
             raise MemoryError("Out of GPU Memory")
 
         # Find best params if learning rate method is adaptive
