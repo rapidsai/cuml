@@ -23,6 +23,7 @@ import warnings
 from .import_utils import has_cupy
 
 from collections import namedtuple
+from collections.abc import Collection
 from numba import cuda
 
 from librmm_cffi import librmm as rmm
@@ -132,10 +133,16 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     dtype = X_m.dtype
 
     if check_dtype:
-        if dtype != check_dtype:
-            del X_m
-            raise TypeError("Expected " + str(check_dtype) + "input but got "
-                            + str(dtype) + " instead.")
+        if isinstance(check_dtype, type):
+            if dtype != check_dtype:
+                del X_m
+                raise TypeError("Expected " + str(check_dtype) + "input but" +
+                                " got " + str(dtype) + " instead.")
+        elif isinstance(check_dtype, Collection):
+            if dtype not in check_dtype:
+                del X_m
+                raise TypeError("Expected input to be of type in " +
+                                str(check_dtype) + " but got " + str(dtype))
 
     n_rows = X_m.shape[0]
     if len(X_m.shape) > 1:
