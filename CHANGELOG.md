@@ -57,7 +57,6 @@
 - PR #928: TSNE Stability Adjustments
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
-- PR #954: TSNE stability fixes
 
 # cuML 0.8.0 (27 June 2019)
 
