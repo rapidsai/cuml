@@ -59,7 +59,7 @@ int main_no_catch(int argc, char** argv) {
   CUDA_CHECK(cudaStreamCreate(&stream));
   handle.setStream(stream);
   ///@todo: set custom allocator
-  Dataset data = {0, 0, nullptr, nullptr};
+  Dataset data = {0, 0, 0, nullptr, nullptr};
   if (loadDataset(data, handle, algoStart - genStart, argv + genStart)) {
     runAlgo(data, handle, argc - algoStart, argv + algoStart);
   }
