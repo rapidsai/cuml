@@ -56,6 +56,9 @@
 - PR #918: Streamline CUDA_REL environment variable
 - PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
 - PR #950: global_bias support in FIL
+- PR #773: Significant improvements to input checking of all classes and common input API for Python
+- PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
+- PR #965: Making dask-ml a hard dependency
 
 ## Bug Fixes
 
@@ -68,6 +71,7 @@
 - PR #896: Fix typo in comms build instructions
 - PR #921: Fix build scripts using incorrect cudf version
 - PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 - PR #908: Fix local build generated file ownerships

@@ -327,7 +327,8 @@ class KMeans(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -407,7 +408,7 @@ class KMeans(Base):
         """
         return self.fit(X).labels_
 
-    def __predict_labels_inertia(self, X):
+    def __predict_labels_inertia(self, X, convert_dtype=False):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -417,6 +418,11 @@ class KMeans(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
 
         Returns
         -------
@@ -428,14 +434,17 @@ class KMeans(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+        X_m, input_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         # Sum of squared distances of samples to their closest cluster center.
@@ -448,7 +457,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int*> labels_ptr,
                 inertiaf)
@@ -460,7 +469,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int*> labels_ptr,
                 inertiad)
@@ -476,7 +485,7 @@ class KMeans(Base):
         del(clust_mat)
         return self.labels_, inertia
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -493,9 +502,9 @@ class KMeans(Base):
         Which cluster each datapoint belongs to.
         """
 
-        return self.__predict_labels_inertia(X)[0]
+        return self.__predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Transform X to a cluster-distance space.
 
@@ -506,17 +515,26 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
+
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype)
+        X_m, input_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(zeros(self.n_clusters*self.n_rows,
+        preds_data = cuda.to_device(zeros(self.n_clusters*n_rows,
                                     dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
@@ -530,7 +548,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int> distance_metric,
                 <float*> preds_ptr)
@@ -540,7 +558,7 @@ class KMeans(Base):
                 <KMeansParams> self._params,
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <int> distance_metric,
                 <double*> preds_ptr)
@@ -552,7 +570,7 @@ class KMeans(Base):
         self.handle.sync()
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
+            preds_gdf[str(i)] = preds_data[i:n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
         del(clust_mat)
@@ -576,7 +594,7 @@ class KMeans(Base):
         """
         return -1 * self.__predict_labels_inertia(X)[1]
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, convert_dtype=False):
         """
         Compute clustering and transform X to cluster-distance space.
 
@@ -587,8 +605,13 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         """
-        return self.fit(X).transform(X)
+        return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """
