@@ -139,7 +139,7 @@ class WorkingSet {
 
     cub::DeviceRadixSort::SortPairs(
       (void *)cub_storage.data(), cub_bytes, f, f_sorted.data(), f_idx.data(),
-      f_idx_sorted.data(), n_rows, 0, (int)8 * sizeof(int), stream);
+      f_idx_sorted.data(), n_rows, 0, (int)8 * sizeof(math_t), stream);
 
     if (verbose && n_rows < 20) {
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_rows,
