@@ -159,8 +159,8 @@ Kalman Filter
 .. autoclass:: cuml.KalmanFilter
     :members:
 
-Multi-Node MultiGPU
-===================
+Multi-Node, Multi-GPU Algorithms
+================================
 
 K-Means Clustering
 --------------------
