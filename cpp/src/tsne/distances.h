@@ -70,6 +70,7 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
   const float div = 1.0f / maxNorm;  // Mult faster than div
   MLCommon::LinAlg::scalarMultiply(distances, distances, div, n * n_neighbors,
                                    stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
@@ -100,6 +101,7 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
   handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
   handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
                                           stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace TSNE

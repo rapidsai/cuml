@@ -221,7 +221,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       rep_forces + nnodes + 1, Z_norm, theta_squared, FOUR_NNODES, n,
       radiusd_squared, maxdepthd, stepd);
     CUDA_CHECK(cudaPeekAtLastError());
-
     END_TIMER(RepulsionTime);
 
     START_TIMER;
@@ -250,7 +249,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       attr_forces, attr_forces + n, rep_forces, rep_forces + nnodes + 1,
       gains_bh, gains_bh + n, old_forces, old_forces + n, Z_norm, n);
     CUDA_CHECK(cudaPeekAtLastError());
-
     END_TIMER(IntegrationKernel_time);
   }
   PRINT_TIMES;
@@ -260,6 +258,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
   thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
                YY + nnodes + 1 + n, Y_begin + n);
+
+  CUDA_CHECK(cudaPeekAtLastError());
 
   // Deallocate everything
   d_alloc->deallocate(errl, sizeof(int), stream);
@@ -293,6 +293,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
 
   d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
+
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace TSNE

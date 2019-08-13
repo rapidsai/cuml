@@ -495,9 +495,11 @@ class UMAP(Base):
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
+
         embedding = cuda.to_device(zeros((X_m.shape[0],
                                           umap_params.n_components),
                                          order="C", dtype=np.float32))
+
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \

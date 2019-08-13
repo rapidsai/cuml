@@ -129,6 +129,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                             perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
+  CUDA_CHECK(cudaPeekAtLastError());
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 

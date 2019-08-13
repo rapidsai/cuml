@@ -255,7 +255,7 @@ class COO {
         vals = nullptr;
 
       } catch (Exception &e) {
-        std::cout << "An exception occurred freeing COO memory" << std::endl;
+        std::cout << "An exception occurred freeing COO memory: " << e.what() << std::endl;
       }
     }
   }
@@ -966,6 +966,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);
   d_alloc->deallocate(row_sizes2, sizeof(int) * n, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // namespace Sparse

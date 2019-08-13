@@ -32,6 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
 from cuml.utils import input_to_dev_array as to_cuda
+from cuml.utils import zeros
 from numba import cuda
 
 from libcpp cimport bool
@@ -307,18 +308,16 @@ class TSNE(Base):
         """
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if handle_ == NULL:
-            raise ValueError("cuML Handle is Null! Terminating TSNE.")
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
         if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            X_m, X_ptr, n, p, dtype = to_cuda(X, order='C',
                                              convert_to_dtype=np.float32)
         else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            X_m, X_ptr, n, p, dtype = to_cuda(X, order='C',
                                              check_dtype=np.float32)
 
         if n <= 1:
@@ -332,12 +331,10 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        self.Y = cuda.device_array(
-            (n, self.n_components),
-            order="F",
-            dtype=np.float32)
+        self.Y_m = cuda.to_device(
+            zeros((n, self.n_components), order="F", dtype=np.float32))
 
-        cdef uintptr_t embed_ptr = self.Y.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = self.Y_m.device_ctypes_pointer.value
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
@@ -395,7 +392,9 @@ class TSNE(Base):
                  <bool> True)
 
         # Clean up memory
-        del _X
+        del X_m
+
+        self.handle.sync()
 
         return self
 
@@ -415,16 +414,17 @@ class TSNE(Base):
         self.fit(X)
 
         if isinstance(X, cudf.DataFrame):
-            if isinstance(self.Y, cudf.DataFrame):
-                return self.Y
+            if isinstance(self.Y_m, cudf.DataFrame):
+                return self.Y_m
             else:
-                data = cudf.DataFrame.from_gpu_matrix(self.Y)
+                data = cudf.DataFrame.from_gpu_matrix(self.Y_m)
                 return data
         elif isinstance(X, np.ndarray):
-            data = self.Y.copy_to_host()
+            data = self.Y_m.copy_to_host()
             return data
 
         raise Exception("Input type %s not supported" % type(X))
+
 
     def __getstate__(self):
         state = self.__dict__.copy()
