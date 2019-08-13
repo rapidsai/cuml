@@ -27,13 +27,18 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   //Assign Stream from cumlHandle
   stream = handle.getStream();
   splitalgo = split_algo;
-  cudaDeviceProp prop;
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
-  max_shared_mem = prop.sharedMemPerBlock;
-  num_sms = prop.multiProcessorCount;
+
+  max_shared_mem = MLCommon::getSharedMemPerBlock();
+  num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = handle.getDeviceAllocator();
   host_allocator = handle.getHostAllocator();
   LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
+
+  if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
+    LevelMemAllocator(N, Ncols, n_unique, n_bins, depth);
+  } else {
+    NodeMemAllocator(N, Ncols, n_unique, n_bins, split_algo);
+  }
 }
 
 template <class T, class L>
