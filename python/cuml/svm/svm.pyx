@@ -76,7 +76,7 @@ class SVC(Base):
     Currently only binary classification is supported.
 
     The solver uses the SMO method to fit the classifier. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2].
+    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
 
     References
     ----------
