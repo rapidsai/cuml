@@ -69,7 +69,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Get device properites
   //---------------------------------------------------
-  const int blocks = MLCommon::getMultiProcessorCount();
+  int blocks = MLCommon::getMultiProcessorCount();
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
