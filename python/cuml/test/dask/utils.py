@@ -20,7 +20,8 @@ import cudf
 
 import dask_cudf
 
-from dask.distributed import default_client, wait
+from dask.distributed import default_client
+from dask.distributed import wait as dask_wait
 
 from sklearn.datasets import make_blobs
 
@@ -49,6 +50,29 @@ def to_cudf(df, r):
 def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
                     center_box=(-10, 10), random_state=None, verbose=False):
 
+    """
+    Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    for a randomly generated set of centroids.
+
+    This function calls `make_blobs` from Scikitlearn on each Dask worker
+    and aggregates them into a single Dask Dataframe.
+
+    For more information on Scikit-learn's `make_blobs:
+    <https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html>`_.
+
+    :param nrows: number of rows
+    :param ncols: number of features
+    :param n_centers: number of centers to generate
+    :param n_parts: number of partitions to generate (this can be greater
+    than the number of workers)
+    :param cluster_std: how far can each generated point deviate from its
+    closest centroid?
+    :param center_box: the bounding box which constrains all the centroids
+    :param random_state: sets random seed
+    :param verbose: enables / disables verbose printing.
+    :return: dask.Dataframe & dask_cudf.Dataframe
+    """
+
     client = default_client()
 
     workers = list(client.has_what().keys())
@@ -61,7 +85,8 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
                                 size=(n_centers, ncols)).astype(np.float32)
 
     if verbose:
-        print("Generating %d samples across %d partitions on %d workers (total=%d samples)" %
+        print("Generating %d samples across %d partitions on "
+              "%d workers (total=%d samples)" %
               (math.ceil(nrows/len(workers)), len(parts), len(workers), nrows))
 
     # Create dfs on each worker (gpu)
@@ -70,11 +95,11 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
                          random_state, random.random(), workers=[worker])
            for worker, n in list(zip(parts, list(range(len(workers)))))]
     # Wait for completion
-    wait(dfs)
+    dask_wait(dfs)
 
     ddfs = [client.submit(to_cudf, df, random.random()) for df in dfs]
     # Wait for completion
-    wait(ddfs)
+    dask_wait(ddfs)
 
     meta_ddf = client.submit(get_meta, dfs[0]).result()
     meta_cudf = client.submit(get_meta, ddfs[0]).result()

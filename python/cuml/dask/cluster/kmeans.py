@@ -94,7 +94,6 @@ class KMeans(object):
         self.init = init
         self.verbose = verbose
 
-
     @staticmethod
     def func_fit(sessionId, n_clusters, max_iter, tol, verbose, random_state,
                  precompute_distances, init, n_init, algorithm, dfs, r):
@@ -102,7 +101,7 @@ class KMeans(object):
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
         :param model: Local KMeans instance
-        :param df: List of cudf.Dataframes to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
@@ -127,7 +126,7 @@ class KMeans(object):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
@@ -140,7 +139,7 @@ class KMeans(object):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """
@@ -152,7 +151,7 @@ class KMeans(object):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """

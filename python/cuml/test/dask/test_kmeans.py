@@ -16,9 +16,7 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from cuml.dask.common import extract_ddf_partitions
-
-from dask.distributed import Client
+from dask.distributed import Client, wait
 
 
 @pytest.mark.mg
@@ -34,7 +32,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
 
-    from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
+    from cuml.dask.cluster import KMeans as cumlKMeans
     from dask_ml.cluster import KMeans as dmlKMeans
 
     from cuml.test.dask.utils import dask_make_blobs
@@ -42,11 +40,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
                                    cluster_std=0.1, verbose=True)
 
-    X_df = X_df.persist()
-    X_cudf = X_cudf.persist()
-
-    # Wait for data persist before moving on
-    client.sync(extract_ddf_partitions, X_cudf)
+    wait(X_cudf)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters)
     daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters)
