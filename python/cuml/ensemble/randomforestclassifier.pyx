@@ -554,8 +554,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        # synchronous w/o a stream
-        # preds = preds_m.copy_to_host()
         del(X_m)
         return preds
 
