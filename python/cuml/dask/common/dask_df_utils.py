@@ -40,7 +40,7 @@ def extract_ddf_partitions(ddf):
     key_to_part_dict = dict([(str(part.key), part) for part in parts])
     who_has = yield client.who_has(parts)
 
-    worker_map = {} # Map from part -> worker
+    worker_map = {}  # Map from part -> worker
     for key, workers in who_has.items():
         worker = first(workers)
         worker_map[key_to_part_dict[key]] = worker
