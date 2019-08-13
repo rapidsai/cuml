@@ -63,8 +63,11 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const float post_momentum, const long long random_state,
               const bool verbose, const bool intialize_embeddings,
               bool barnes_hut) {
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
-         "Wrong input args");
+  if (n <= 0 or p <= 0 or dim <= 0 or n_neighbors <= 0 or X == NULL or Y == NULL) {
+    printf("Wrong input arguments!");
+    return;
+  }
+  
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
     printf(
@@ -112,8 +115,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   if (verbose) printf("[Info] Getting distances.\n");
   distances = (float*)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-  if (distances == NULL or indices == NULL)
+  if (distances == NULL or indices == NULL) {
+    printf("Out Of memory!");
     goto ERROR;
+  }
   
   TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
   //---------------------------------------------------
@@ -134,8 +139,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   if (verbose)
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  if (P == NULL)
+  if (P == NULL) {
+    printf("Out Of memory!");
     goto ERROR;
+  }
   
   P_sum = TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                                   perplexity_tol, n, n_neighbors, handle);
@@ -161,8 +168,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   VAL = COO_Matrix.vals;
   COL = COO_Matrix.cols;
   ROW = COO_Matrix.rows;
-  if (VAL == NULL or COL == NULL || ROW == NULL)
+  if (VAL == NULL or COL == NULL || ROW == NULL) {
+    printf("Out Of memory!");
     goto ERROR;
+  }
   
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
