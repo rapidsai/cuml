@@ -33,12 +33,6 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   device_allocator = handle.getDeviceAllocator();
   host_allocator = handle.getHostAllocator();
   LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
-
-  if (splitalgo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-    LevelMemAllocator(N, Ncols, n_unique, n_bins, depth);
-  } else {
-    NodeMemAllocator(N, Ncols, n_unique, n_bins, split_algo);
-  }
 }
 
 template <class T, class L>
