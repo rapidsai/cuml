@@ -182,7 +182,8 @@ class DBSCAN(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
