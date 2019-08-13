@@ -465,10 +465,9 @@ class RandomForestRegressor(Base):
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = np.zeros(n_rows, dtype=self.dtype)
+        preds = cuda.device_array(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds_ptr = get_dev_array_ptr(preds)
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -500,10 +499,7 @@ class RandomForestRegressor(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
         del(X_m)
-        del(preds_m)
         return preds
 
     def score(self, X, y):
@@ -531,11 +527,10 @@ class RandomForestRegressor(Base):
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        preds = np.zeros(n_rows,
-                         dtype=self.dtype)
+        preds = cuda.device_array(n_rows,
+                                  dtype=self.dtype)
         cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds_ptr = get_dev_array_ptr(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -576,7 +571,6 @@ class RandomForestRegressor(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
-        del(preds_m)
         return stats
 
     def get_params(self, deep=True):
