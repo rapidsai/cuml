@@ -50,6 +50,7 @@
 - PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
 - PR #965: Making dask-ml a hard dependency
 - PR #976: Update api.rst for new 0.9 classes
+- PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 
 ## Bug Fixes
 
