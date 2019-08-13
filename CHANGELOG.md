@@ -46,6 +46,7 @@
 - PR #918: Streamline CUDA_REL environment variable
 - PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
 - PR #950: global_bias support in FIL
+- PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
 - PR #965: Making dask-ml a hard dependency
 
 ## Bug Fixes
