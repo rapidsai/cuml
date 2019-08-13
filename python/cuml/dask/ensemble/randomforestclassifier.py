@@ -57,7 +57,7 @@ class RandomForestClassifier:
     Parameters
     -----------
     n_estimators : int (default = 10)
-                   number of trees in the forest (total, not per-worker)
+                   total number of trees in the forest (not per-worker)
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
@@ -100,10 +100,14 @@ class RandomForestClassifier:
                         Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
-    workers : list of strings
+    workers : optional, list of strings
               Dask addresses of workers to use for computation.
               If None, all available Dask workers will be used.
 
+    Examples
+    ---------
+    For usage examples, please see the RAPIDS notebookss repository:
+    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
     """
 
     def __init__(
@@ -268,7 +272,9 @@ class RandomForestClassifier:
 
     @staticmethod
     def _fit(model, X_df_list, y_df_list, r):
-        assert len(X_df_list) == len(y_df_list)
+        if len(X_df_list) != len(y_df_list):
+            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
+                             len(X_df_list), len(y_df_list))
         if len(X_df_list) == 1:
             X_df = X_df_list[0]
             y_df = y_df_list[0]
@@ -318,7 +324,7 @@ class RandomForestClassifier:
         y : dask_cudf.Dataframe
             Dense  matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
-            y must be partitioned the same way as X
+            **y must be partitioned the same way as X**
 
         """
         c = default_client()

@@ -60,7 +60,7 @@ class RandomForestRegressor:
      Parameters
     -----------
     n_estimators : int (default = 10)
-                   number of trees in the forest (total, not per-worker)
+                   total number of trees in the forest (not per-worker)
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
@@ -111,7 +111,7 @@ class RandomForestRegressor:
                       for mean square error' : 'mse'
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
-    workers : list of strings
+    workers : optional, list of strings
               Dask addresses of workers to use for computation.
               If None, all available Dask workers will be used.
     """
@@ -272,7 +272,9 @@ class RandomForestRegressor:
 
     @staticmethod
     def _fit(model, X_df_list, y_df_list, r):
-        assert len(X_df_list) == len(y_df_list)
+        if len(X_df_list) != len(y_df_list):
+            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
+                             len(X_df_list), len(y_df_list))
         if len(X_df_list) == 1:
             X_df = X_df_list[0]
             y_df = y_df_list[0]
