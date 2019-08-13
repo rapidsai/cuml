@@ -72,7 +72,7 @@ Random Forest
 .. autoclass:: cuml.ensemble.RandomForestRegressor
     :members:
 
-Random Forest Inferencing
+Forest Inferencing
 -------------------------
 
 .. autoclass:: cuml.ForestInference
