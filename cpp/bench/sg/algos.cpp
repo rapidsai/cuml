@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cuML.hpp>
 #include <dbscan/dbscan.hpp>
+#include <kmeans/kmeans.hpp>
 #include <map>
 #include <randomforest/randomforest.hpp>
 #include "argparse.hpp"
@@ -67,6 +68,80 @@ bool dbscan(const Dataset& ret, const cumlHandle& handle, int argc,
   }
   ///@todo: add some clustering metrics for verification
   allocator->deallocate(labels, ret.nrows * sizeof(int), stream);
+  return true;
+}
+
+bool kmeans(const Dataset& ret, const cumlHandle& handle, int argc,
+            char** argv) {
+  bool help = get_argval(argv, argv + argc, "-h");
+  if (help) {
+    printf(
+      "USAGE:\n"
+      "bench kmeans [options]\n"
+      "  Run kmeans clustering algo on the input dataset.\n"
+      "OPTIONS:\n"
+      "  -init <i>        Kmeans initialization method. [0]\n"
+      "                     0 = kmeans++\n"
+      "                     1 = Random\n"
+      "  -max-iter <mi>   Max Llyod iterations. [300]\n"
+      "  -tol <tol>       Tolerance criteria for convergence. [1e-4]\n"
+      "  -v               Enable verbose output.\n"
+      "  -seed <s>        Seed for RNG.\n"
+      "  -metric <m>      Distance to use. [0]\n"
+      "                     0 = L2\n"
+      "  -oversample <o>  Oversampling factor in kmeans||. [2]\n"
+      "  -batch-size <b>  batch size. [2^15]\n"
+      "  -inertia-check   Check inertia.\n");
+    return false;
+  }
+  printf("Running kmeans...\n");
+  kmeans::KMeansParams params;
+  params.n_clusters = ret.nclasses;
+  params.init =
+    (kmeans::KMeansParams::InitMethod)get_argval(argv, argv + argc, "-init", 0);
+  params.max_iter = get_argval(argv, argv + argc, "-max-iter", 300);
+  params.tol = get_argval(argv, argv + argc, "-tol", 1e-4);
+  params.verbose = get_argval(argv, argv + argc, "-v");
+  params.seed = get_argval(argv, argv + argc, "-seed", 0);
+  params.metric = get_argval(argv, argv + argc, "-metric", 0);
+  params.oversampling_factor = get_argval(argv, argv + argc, "-oversample", 2);
+  params.batch_size = get_argval(argv, argv + argc, "-batch-size", 1 << 15);
+  params.inertia_check = get_argval(argv, argv + argc, "-inertia-check");
+  printf(
+    "With params:\n"
+    "  nclusters          = %d\n"
+    "  initMethod         = %d\n"
+    "  maxIter            = %d\n"
+    "  tolerance          = %lf\n"
+    "  verbose            = %d\n"
+    "  seed               = %d\n"
+    "  metric             = %d\n"
+    "  oversample         = %d\n"
+    "  batchSize          = %d\n"
+    "  inertia-check      = %d\n",
+    params.n_clusters, params.init, params.max_iter, params.tol, params.verbose,
+    params.seed, params.metric, params.oversampling_factor, params.batch_size,
+    params.inertia_check);
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  int* labels = (int*)allocator->allocate(ret.nrows * sizeof(int), stream);
+  float* centroids = (float*)allocator->allocate(
+    ret.nclasses * ret.ncols * sizeof(float), stream);
+  {
+    struct timeval start;
+    TIC(start);
+    int nIter;
+    float inertia;
+    kmeans::fit_predict(handle, params, ret.X, ret.nrows, ret.ncols, centroids,
+                        labels, inertia, nIter);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    printf("TotalIter=%d Inertia=%f\n", nIter, inertia);
+    TOC(start, "kmeansFitPredict");
+  }
+  ///@todo: add some metrics for verification
+  allocator->deallocate(labels, ret.nrows * sizeof(int), stream);
+  allocator->deallocate(centroids, ret.nclasses * ret.ncols * sizeof(float),
+                        stream);
   return true;
 }
 
@@ -149,6 +224,7 @@ class Runner : public std::map<std::string, algoRunner> {
  public:
   Runner() : std::map<std::string, algoRunner>() {
     (*this)["dbscan"] = dbscan;
+    (*this)["kmeans"] = kmeans;
     (*this)["rfClassifier"] = rfClassifier;
   }
 };
