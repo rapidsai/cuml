@@ -47,10 +47,13 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
-def test_rf_classification(datatype, use_handle, split_algo,
-                           n_info, nrows, ncols):
+@pytest.mark.parametrize('max_depth', [-1, 1, 15])
+def test_rf_classification(datatype, split_algo,
+                           n_info, nrows, ncols, max_depth):
+    use_handle = True
+    if split_algo == 1 and max_depth < 0:
+        pytest.xfail("Unlimited depth not supported with quantile")
 
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -66,10 +69,10 @@ def test_rf_classification(datatype, use_handle, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=8, split_algo=0, split_criterion=0,
+                       n_bins=8, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1)
+                       max_depth=max_depth)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
@@ -85,7 +88,8 @@ def test_rf_classification(datatype, use_handle, split_algo,
         sk_acc = accuracy_score(y_test, sk_predict)
 
         # compare the accuracy of the two models
-        assert cu_acc >= (sk_acc - 0.07)
+        if max_depth > 1:
+            assert cu_acc >= (sk_acc - 0.07)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
@@ -124,7 +128,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=8, split_algo=0, split_criterion=2,
+                       n_bins=8, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=50, accuracy_metric='mse')
