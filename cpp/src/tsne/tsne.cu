@@ -95,15 +95,26 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
 
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
-
+  float *distances = NULL;
+  long *indices = NULL;
+  float *P = NULL;
+  
+  float P_sum = 0;
+  MLCommon::Sparse::COO<float> COO_Matrix;
+  int NNZ = 0;
+  float *VAL = NULL;
+  int *COL = NULL;
+  int *ROW = NULL;
+  
   START_TIMER;
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
-  float *distances =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  long *indices =
-    (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
+  distances = d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
+  if (distances == NULL or indices == NULL)
+    goto ERROR;
+  
   TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
@@ -122,12 +133,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Optimal perplexity
   if (verbose)
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
-  float *P =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  const float P_sum =
-    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                            perplexity_tol, n, n_neighbors, handle);
+  P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  if (P == NULL)
+    goto ERROR;
+  
+  P_sum = TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
+                                  perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
+  distances = NULL;
+  
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
@@ -135,16 +149,21 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix;
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   d_alloc->deallocate(P, sizeof(float) * n * n_neighbors, stream);
-  d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+  P = NULL;
   
-  const int NNZ = COO_Matrix.nnz;
-  float *VAL = COO_Matrix.vals;
-  const int *COL = COO_Matrix.cols;
-  const int *ROW = COO_Matrix.rows;
+  d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+  indices = NULL;
+  
+  NNZ = COO_Matrix.nnz;
+  VAL = COO_Matrix.vals;
+  COL = COO_Matrix.cols;
+  ROW = COO_Matrix.rows;
+  if (VAL == NULL or COL == NULL || ROW == NULL)
+    goto ERROR;
+  
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
@@ -161,8 +180,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_momentum, random_state, verbose,
                      intialize_embeddings);
   }
-
+  
+ERROR:
   COO_Matrix.destroy();
+  if (indices != NULL)
+    d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+  if (distances != NULL)
+    d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
+  if (P != NULL)
+    d_alloc->deallocate(P, sizeof(float) * n * n_neighbors, stream);
 }
 
 }  // namespace ML
