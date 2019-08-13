@@ -466,8 +466,7 @@ class RandomForestRegressor(Base):
                              " and test data should be the same ")
 
         preds = cuda.device_array(n_rows, dtype=self.dtype)
-        cdef uintptr_t preds_ptr
-        preds_ptr = get_dev_array_ptr(preds)
+        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds)
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -529,8 +528,7 @@ class RandomForestRegressor(Base):
                              " and test data should be the same ")
         preds = cuda.device_array(n_rows,
                                   dtype=self.dtype)
-        cdef uintptr_t preds_ptr
-        preds_ptr = get_dev_array_ptr(preds)
+        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
