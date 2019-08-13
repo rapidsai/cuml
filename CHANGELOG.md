@@ -49,6 +49,7 @@
 - PR #773: Significant improvements to input checking of all classes and common input API for Python
 - PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
 - PR #965: Making dask-ml a hard dependency
+- PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 
 ## Bug Fixes
 
