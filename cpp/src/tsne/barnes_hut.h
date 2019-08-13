@@ -79,11 +79,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   nnodes--;
   if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
   
-  
-  const int FOUR_NNODES = 4 * nnodes;
+  const int NNODES = nnodes;
+  const int FOUR_NNODES = 4 * NNODES;
   const int FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
-  const int NNODES = nnodes;
   
   thrust::device_ptr<float> begin_massl;
   thrust::device_ptr<float> begin_gains_bh;
@@ -140,9 +139,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   CUDA_CHECK_GOTO(cudaPeekAtLastError());
 
   // Actual mallocs
-  startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
-  childl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1) * 4, stream);
-  massl = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1), stream);
+  startl = (int *)d_alloc->allocate(sizeof(int) * (NNODES + 1), stream);
+  childl = (int *)d_alloc->allocate(sizeof(int) * (NNODES + 1) * 4, stream);
+  massl = (float *)d_alloc->allocate(sizeof(float) * (NNODES + 1), stream);
   
   if (startl == NULL || childl == NULL || massl == NULL) {
     printf("[Error] Out of Memory");
@@ -163,10 +162,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   }
 
   // SummarizationKernel
-  countl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
+  countl = (int *)d_alloc->allocate(sizeof(int) * (NNODES + 1), stream);
 
   // SortKernel
-  sortl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
+  sortl = (int *)d_alloc->allocate(sizeof(int) * (NNODES + 1), stream);
   
   if (countl == NULL || sortl == NULL) {
     printf("[Error] Out of Memory");
@@ -174,7 +173,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   }
 
   // RepulsionKernel
-  rep_forces = (float *)d_alloc->allocate(sizeof(float)*(nnodes + 1)*2, stream);
+  rep_forces = (float *)d_alloc->allocate(sizeof(float)*(NNODES + 1)*2, stream);
   attr_forces = (float *)d_alloc->allocate(sizeof(float)*n*2, stream);
   
   if (rep_forces == NULL || attr_forces == NULL) {
@@ -203,13 +202,13 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                begin_gains_bh + (n * 2), 1.0f);
 
   old_forces = (float *)d_alloc->allocate(sizeof(float) * n * 2, stream);
-  YY = (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
+  YY = (float *)d_alloc->allocate(sizeof(float) * (NNODES + 1) * 2, stream);
   
   if (old_forces == NULL || YY == NULL) {
     printf("[Error] Out of Memory");
     goto ERROR;
   }
-  random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
+  random_vector(YY, -100.0f, 100.0f, (NNODES + 1) * 2, stream, random_state);
   CUDA_CHECK_GOTO(cudaMemsetAsync(old_forces, 0, sizeof(float) * n * 2, stream));
   
 
