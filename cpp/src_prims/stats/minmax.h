@@ -35,34 +35,34 @@ struct encode_traits<double> {
   using E = long long;
 };
 
-__host__ __device__ int encode(float val) {
+__host__ DI int encode(float val) {
   int i = *(int*)&val;
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
-__host__ __device__ long long encode(double val) {
+__host__ DI long long encode(double val) {
   long long i = *(long long*)&val;
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
-__host__ __device__ float decode(int val) {
+__host__ DI float decode(int val) {
   if (val < 0) val = (1 << 31) | ~val;
   return *(float*)&val;
 }
 
-__host__ __device__ double decode(long long val) {
+__host__ DI double decode(long long val) {
   if (val < 0) val = (1ULL << 63) | ~val;
   return *(double*)&val;
 }
 
 template <typename T, typename E>
-__device__ __forceinline__ T atomicMaxBits(T* address, T val) {
+DI T atomicMaxBits(T* address, T val) {
   E old = atomicMax((E*)address, encode(val));
   return decode(old);
 }
 
 template <typename T, typename E>
-__device__ __forceinline__ T atomicMinBits(T* address, T val) {
+DI T atomicMinBits(T* address, T val) {
   E old = atomicMin((E*)address, encode(val));
   return decode(old);
 }
