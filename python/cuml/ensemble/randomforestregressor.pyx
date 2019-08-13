@@ -530,7 +530,7 @@ class RandomForestRegressor(Base):
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
         preds = cuda.device_array(n_rows,
-                         dtype=self.dtype)
+                                  dtype=self.dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
