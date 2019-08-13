@@ -120,7 +120,7 @@ class Exception : public std::exception {
   } while (0)
 
 /** helper method to get max usable shared mem per block parameter */
-int getSharedMemPerBlock() {
+inline int getSharedMemPerBlock() {
   int devId;
   CUDA_CHECK(cudaGetDevice(&devId));
   int smemPerBlk;
