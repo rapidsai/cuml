@@ -134,7 +134,7 @@ bool rfClassifier(const Dataset& ret, const cumlHandle& handle, int argc,
     RF_params params = {nTrees,   bootstrap,    rowSample,     nStreams,
                         maxDepth, maxLeaves,    maxFeatures,   nBins,
                         algo,     minRowsSplit, bootstrapCols, quantilePerTree};
-    fit(handle, mPtr, ret.X, ret.nrows, ret.ncols, labels, 2, /*todo*/
+    fit(handle, mPtr, ret.X, ret.nrows, ret.ncols, labels, ret.nclasses,
         params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     TOC(start, "rfClassifierFit");

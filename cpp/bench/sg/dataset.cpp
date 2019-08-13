@@ -55,7 +55,7 @@ void dumpDataset(const cumlHandle& handle, const Dataset& dataset,
                        stream);
   MLCommon::updateHost(y.data(), dataset.y, dataset.nrows, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  fprintf(fp, "%d %d\n", dataset.nrows, dataset.ncols);
+  fprintf(fp, "%d %d %d\n", dataset.nrows, dataset.ncols, dataset.nclasses);
   for (int i = 0, k = 0; i < dataset.nrows; ++i) {
     for (int j = 0; j < dataset.ncols; ++j, ++k) fprintf(fp, "%f ", X[k]);
     fprintf(fp, "%d\n", y[i]);
@@ -90,7 +90,7 @@ bool blobs(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   float centerBoxMin = get_argval(argv, argv + argc, "-center-box-min", -10.f);
   float clusterStd = get_argval(argv, argv + argc, "-cluster-std", 1.f);
   std::string dump = get_argval(argv, argv + argc, "-dump", std::string());
-  int nclusters = get_argval(argv, argv + argc, "-nclusters", 2);
+  ret.nclasses = get_argval(argv, argv + argc, "-nclusters", 2);
   ret.ncols = get_argval(argv, argv + argc, "-ncols", 81);
   ret.nrows = get_argval(argv, argv + argc, "-nrows", 10001);
   ret.allocate(handle);
@@ -104,9 +104,9 @@ bool blobs(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
     "  num-clusters = %d\n"
     "  seed         = %lu\n"
     "  shuffle      = %d\n",
-    ret.nrows, ret.ncols, centerBoxMin, centerBoxMax, clusterStd, nclusters,
+    ret.nrows, ret.ncols, centerBoxMin, centerBoxMax, clusterStd, ret.nclasses,
     seed, shuffle);
-  Datasets::make_blobs(handle, ret.X, ret.y, ret.nrows, ret.ncols, nclusters,
+  Datasets::make_blobs(handle, ret.X, ret.y, ret.nrows, ret.ncols, ret.nclasses,
                        nullptr, nullptr, clusterStd, shuffle, centerBoxMin,
                        centerBoxMax, seed);
   if (dump != "") dumpDataset(handle, ret, dump);
@@ -130,8 +130,8 @@ bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   ASSERT(!file.empty(), "'-file' is a mandatory option");
   printf("Loading dataset from file '%s'...\n", file.c_str());
   FILE* fp = fopen(file.c_str(), "r");
-  ASSERT(fscanf(fp, "%d%d", &(ret.nrows), &(ret.ncols)) == 2,
-         "Input dataset file is not correct! No 'rows cols' info found");
+  ASSERT(fscanf(fp, "%d%d%d", &(ret.nrows), &(ret.ncols), &(ret.nclasses)) == 3,
+         "Input dataset file is incorrect! No 'rows cols classes' info found");
   std::vector<float> X(ret.nrows * ret.ncols);
   std::vector<int> y(ret.nrows);
   for (int i = 0, k = 0; i < ret.nrows; ++i) {

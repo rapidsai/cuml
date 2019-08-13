@@ -24,8 +24,11 @@
 namespace ML {
 namespace Bench {
 
+/** A simple object to hold the loaded dataset for benchmarking */
 struct Dataset {
   int nrows, ncols;
+  // This is useless in the case of regression
+  int nclasses;
   float* X;
   int* y;
 
