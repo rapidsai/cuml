@@ -260,11 +260,11 @@ class ForestInference(Base):
     provides a `predict` method for carrying out inference.
 
     **Known limitations**:
-     * Trees are represented in a dense format, so a tree of depth k
+     * Trees are represented as complete binary trees, so a tree of depth k
        will be stored in (2**k) - 1 nodes. This will be less space-efficient
        for sparse trees.
      * While treelite supports additional formats, only XGBoost and LightGBM
-       are tested
+       are tested in FIL currently.
      * LightGBM categorical features are not supported
      * Inference uses a dense matrix format, which is efficient for many
        problems but will be suboptimal for sparse datasets.
