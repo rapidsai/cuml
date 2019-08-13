@@ -52,6 +52,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       nccl>=2.4 \
       dask \
       distributed \
+      dask-ml \
       dask-cudf \
       dask-cuda
 

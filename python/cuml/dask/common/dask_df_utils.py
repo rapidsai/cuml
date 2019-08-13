@@ -17,6 +17,7 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 import dask.dataframe as dd
+from collections import OrderedDict
 
 from dask.distributed import wait
 
@@ -24,7 +25,9 @@ from dask.distributed import wait
 @gen.coroutine
 def extract_ddf_partitions(ddf):
     """
-    Given a Dask cuDF, return a tuple with (worker, future) for each partition
+    Given a Dask cuDF, return an OrderedDict mapping
+    'worker -> [list of futures]' for each partition in ddf.
+
     :param ddf: Dask.dataframe split dataframe partitions into a list of
                futures.
     """
@@ -37,18 +40,22 @@ def extract_ddf_partitions(ddf):
     key_to_part_dict = dict([(str(part.key), part) for part in parts])
     who_has = yield client.who_has(parts)
 
-    worker_map = []
+    worker_map = {}  # Map from part -> worker
     for key, workers in who_has.items():
         worker = first(workers)
-        worker_map.append((key_to_part_dict[key], worker))
+        worker_map[key_to_part_dict[key]] = worker
 
-    worker_map = dict(worker_map)
+    # Ensure that partitions in each list have the
+    # same order as the input 'parts' list
+    worker_to_parts = OrderedDict()
+    for part in parts:
+        worker = worker_map[part]
+        if worker not in worker_to_parts:
+            worker_to_parts[worker] = []
+        worker_to_parts[worker].append(part)
 
-    gpu_data = [(worker_map[part], part) for part in parts]
-
-    yield wait(gpu_data)
-
-    raise gen.Return(gpu_data)
+    yield wait(worker_to_parts)
+    raise gen.Return(worker_to_parts)
 
 
 def get_meta(df):
