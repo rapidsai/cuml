@@ -238,9 +238,11 @@ class RandomForestClassifier(Base):
                          If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth : int (default = 16)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+                if -1. Unlimited depth is not supported with split_algo=1.
+                *Note that this default differs from scikit-learn's
+                random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
@@ -267,7 +269,7 @@ class RandomForestClassifier(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
-    def __init__(self, n_estimators=10, max_depth=-1, handle=None,
+    def __init__(self, n_estimators=10, max_depth=16, handle=None,
                  max_features=1.0, n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
@@ -296,6 +298,9 @@ class RandomForestClassifier(Base):
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
+
+        if max_depth < 0:
+            raise ValueError("Must specify max_depth >0")
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
