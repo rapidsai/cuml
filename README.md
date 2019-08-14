@@ -1,13 +1,12 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
-
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
 cuML enables data scientists, researchers, and software engineers to run
 traditional tabular ML tasks on GPUs without going into the details of CUDA
 programming. In most cases, cuML's Python API matches the API from
 [scikit-learn](https://scikit-learn.org).
+
 
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
@@ -82,13 +81,15 @@ repo](https://github.com/rapidsai/notebooks-extended).
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
-| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Initial preview version in cuML 0.8 | 
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node, multi-GPU version available via Dask integration |
+| | Random Forest (RF) Regression | Experimental multi-node, multi-GPU version available via Dask integration |
 |  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
 | **Time Series** | Linear Kalman Filter | |
+|  | Holt-Winters Exponential Smoothing | |
 ---
 
 More ML algorithms in cuML and more ML primitives in ml-prims are planned for
-future releases, including: T-SNE, spectral embedding, spectral clustering,
+future releases, including: spectral embedding, spectral clustering,
 support vector machines, and additional time series methods. Future releases
 will also expand support for multi-node, multi-GPU algorithms.
 
