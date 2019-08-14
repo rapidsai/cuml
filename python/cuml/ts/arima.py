@@ -8,6 +8,7 @@ import statsmodels.tsa.arima_model as sm_arima
 from .batched_kalman import batched_kfilter, init_kalman_matrices, init_batched_kalman_matrices
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 from .batched_kalman import batched_transform as batched_trans_cuda
+from .batched_kalman import pack, unpack
 from .batched_lbfgs import batched_fmin_lbfgs_b
 
 
@@ -339,46 +340,22 @@ def forecast(model, nsteps: int) -> np.ndarray:
 
     return y_fc_b
 
-def unpack(p, q, nb, x):
-    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    num_parameters = 1 + p + q
-    mu = np.zeros(nb)
-    ar = []
-    ma = []
-    for i in range(nb):
-        xi = x[i*num_parameters:(i+1)*num_parameters]
-        mu[i] = xi[0]
-        ar.append(xi[1:p+1])
-        ma.append(xi[p+1:])
-
-    return (mu, ar, ma)
-
-
-def pack(p, q, nb, mu, ar, ma):
-    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    num_parameters = 1 + p + q
-    x = np.zeros(num_parameters*nb)
-    for i in range(nb):
-        xi = np.array([mu[i]])
-        xi = np.r_[xi, ar[i]]
-        xi = np.r_[xi, ma[i]]
-        x[i*num_parameters:(i+1)*num_parameters] = xi
-    return x
-
 
 def batch_trans_cuda(p, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
+    pynvtx_range_push("jones trans")
     mu, ar, ma = unpack(p, q, nb, x)
 
     (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, False)
     
     Tx = pack(p, q, nb, mu, ar2, ma2)
+    pynvtx_range_pop()
     return Tx
 
 
 def batch_trans(p, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
-    # return batch_trans_cuda(p, q, nb, x)
+    return batch_trans_cuda(p, q, nb, x)
     mu, ar, ma = unpack(p, q, nb, x)
     ar2 = []
     ma2 = []
@@ -400,11 +377,13 @@ def batch_invtrans_cuda(p, q, nb, x):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
+    pynvtx_range_push("jones inv-trans")
     mu, ar, ma = unpack(p, q, nb, x)
 
     (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, True)
 
     Tx = pack(p, q, nb, mu, ar2, ma2)
+    pynvtx_range_pop()
     return Tx
 
 
@@ -412,7 +391,7 @@ def batch_invtrans(p, q, nb, x):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
-    # return batch_invtrans_cuda(p, q, nb, x)
+    return batch_invtrans_cuda(p, q, nb, x)
     mu, ar, ma = unpack(p, q, nb, x)
     ar2 = []
     ma2 = []
