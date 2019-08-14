@@ -53,6 +53,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       nccl>=2.4 \
       dask \
       distributed \
+      dask-ml \
       dask-cudf=${MINOR_VERSION} \
       dask-cuda=${MINOR_VERSION} \
       statsmodels \

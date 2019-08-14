@@ -244,9 +244,7 @@ void DecisionTreeBase<T, L>::plant(
   feature_selector.resize((int)(colper * dinfo.Ncols));
 
   if (split_algo == SPLIT_ALGO::HIST) {
-    cudaDeviceProp prop;
-    CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
-    max_shared_mem = prop.sharedMemPerBlock;
+    max_shared_mem = MLCommon::getSharedMemPerBlock();
     shmem_used += 2 * sizeof(T);
 
     if (typeid(L) == typeid(int)) {  // Classification
