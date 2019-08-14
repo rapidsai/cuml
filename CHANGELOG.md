@@ -29,6 +29,7 @@
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #926: Wrapper for FIL
+- PR #994: Adding MPI comm impl for testing / benchmarking MNMG CUDA
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
