@@ -69,6 +69,7 @@
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 - PR #908: Fix local build generated file ownerships
 - PR #983: Change RF max_depth default to 16
+- PR #988: Switch to exact tsne
 
 # cuML 0.8.0 (27 June 2019)
 
