@@ -625,7 +625,7 @@ SortKernel(int *restrict sortd,
           else {
             // child is a body
             BOUNDSCHECK(start, (NNODES + 1));
-            atomicExch(&sortd[start], ch
+            atomicExch(&sortd[start], ch);
             start++;
           }
           if (start >= NNODES + 1)
