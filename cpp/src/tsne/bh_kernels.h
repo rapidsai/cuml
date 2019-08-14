@@ -412,7 +412,7 @@ ClearKernel2(int *restrict startd,
 __global__ __launch_bounds__(THREADS3, FACTOR3) void
 SummarizationKernel(int *restrict countd,
                     const int *restrict childd,
-                    float *restrict massd,
+                    volatile float *restrict massd,
                     float *restrict posxd,
                     float *restrict posyd,
                     const int NNODES,
@@ -480,7 +480,7 @@ SummarizationKernel(int *restrict countd,
         posxd[k] = px * m;
         posyd[k] = py * m;
         __threadfence();  // make sure data are visible before setting mass
-        atomicExch(&massd[k], cm);
+        massd[k] = cm;
       }
     CONTINUE_LOOP:
       k += inc;  // move on to next cell
@@ -569,7 +569,7 @@ SummarizationKernel(int *restrict countd,
     }
     __syncthreads();
     if (flag != 0) {
-      atomicExch(&massd[k], cm);
+      massd[k] = cm;
       k += inc;
       flag = 0;
     }
@@ -582,7 +582,7 @@ SummarizationKernel(int *restrict countd,
 __global__ __launch_bounds__(THREADS4, FACTOR4) void
 SortKernel(int *restrict sortd,
            const int *restrict countd,
-           int *restrict startd,
+           volatile int *restrict startd,
            int *restrict childd,
            const int NNODES,
            const int N,
@@ -597,11 +597,12 @@ SortKernel(int *restrict sortd,
 
     BOUNDSCHECK(k, (NNODES + 1));
     int start = startd[k];
-    if (start >= NNODES + 1) {
-      k -= dec;
-      continue;
-    }
+
     if (start >= 0) {
+      if (start >= NNODES + 1) {
+        k -= dec;
+        continue;
+      }
       int j = 0;
 
       for (int i = 0; i < 4; i++) {
@@ -619,13 +620,13 @@ SortKernel(int *restrict sortd,
           if (ch >= N) {
             // child is a cell
             BOUNDSCHECK(ch, (NNODES + 1));
-            atomicExch(&startd[ch], start);
+            startd[ch] = start;
             start += countd[ch];  // add #bodies in subtree
           }
           else {
             // child is a body
             BOUNDSCHECK(start, (NNODES + 1));
-            atomicExch(&sortd[start], ch);
+            sortd[start] = ch;
             start++;
           }
           if (start >= NNODES + 1)
@@ -677,7 +678,7 @@ RepulsionKernel(int *restrict errd,
     dq[max_depth - 1] += epssqd;
 
     if (max_depth > 32)
-      *errd = max_depth;
+      atomicExch(errd, max_depth);
   }
   __syncthreads();
 
