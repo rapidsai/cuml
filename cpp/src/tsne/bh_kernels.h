@@ -649,7 +649,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
     for (int k = threadIdx.x + blockIdx.x * blockDim.x; k < N; k += blockDim.x * gridDim.x) {
       const int i = sortd[k];  // get permuted/sorted index
       // cache position info
-
+      if (i > FOUR_NNODES/4+1) continue;
       BOUNDSCHECK(i, FOUR_NNODES/4+1);
       const float px = posxd[i];
       const float py = posyd[i];
@@ -678,7 +678,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
           const int n = childd[nd + pd];  // load child pointer
           pd++;
 
-          if (n >= 0 and n < FOUR_NNODES/4+1) {
+          if (n >= 0) {
 
             BOUNDSCHECK(n, (FOUR_NNODES/4+1));
             const float dx = px - posxd[n];
