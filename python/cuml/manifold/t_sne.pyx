@@ -401,7 +401,7 @@ class TSNE(Base):
                      <long long> seed,
                      <bool> self.verbose,
                      <bool> True,
-                     <bool> True)
+                     <bool> (self.method == "barnes_hut"))
         except cuda.cudadrv.driver.CudaAPIError:
             raise MemoryError("Out of GPU Memory")
         # Clean up memory
