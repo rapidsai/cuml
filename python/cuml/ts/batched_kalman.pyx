@@ -29,6 +29,47 @@ cdef extern from "ts/batched_kalman.h":
 
   void nvtx_range_pop()
 
+  void batched_jones_transform(int p, int q,
+                               int batchSize,
+                               bool isInv,
+                               const vector[double]& ar,
+                               const vector[double]& ma,
+                               vector[double]& Tar,
+                               vector[double]& Tma)
+
+
+def batched_transform(p, q, nb, ar, ma, isInv):
+    cdef vector[double] vec_ar
+    cdef vector[double] vec_ma
+    cdef vector[double] vec_Tar
+    cdef vector[double] vec_Tma
+
+    # pack ar & ma into C++ vectors
+    for ib in range(nb):
+        for ip in range(p):
+            vec_ar.push_back(ar[ib][ip])
+        for iq in range(q):
+            vec_ma.push_back(ma[ib][ip])
+
+    batched_jones_transform(p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
+
+    # unpack Tar & Tma results into [np.ndarray]
+    Tar = []
+    Tma = []
+    for ib in range(nb):
+        Tar_i = np.zeros(p)
+        for ip in range(p):
+            Tar_i[ip] = vec_Tar[ib*p + ip]
+
+        Tar.append(Tar_i)
+
+        Tma_i = np.zeros(q)
+        for iq in range(q):
+            Tma_i[iq] = vec_Tma[ib*q + iq]
+
+        Tma.append(Tma_i)
+
+    return (Tar, Tma)
 
 def pynvtx_range_push(msg):
     cdef string s = msg.encode("UTF-8")

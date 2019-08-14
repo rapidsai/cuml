@@ -17,6 +17,8 @@
 #include <chrono>
 #include <ratio>
 
+#include <timeSeries/jones_transform.h>
+
 // #include <thrust/lo
 
 using std::vector;
@@ -532,4 +534,50 @@ void batched_kalman_filter(
   CUDA_CHECK(cudaFree(d_sigma2));
   CUDA_CHECK(cudaFree(d_loglike));
   ML::POP_RANGE();
+}
+
+void batched_jones_transform(int p, int q, int batchSize, bool isInv,
+                             const std::vector<double>& ar,
+                             const std::vector<double>& ma,
+                             std::vector<double>& Tar,
+                             std::vector<double>& Tma) {
+  std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    new MLCommon::defaultDeviceAllocator());
+  cudaStream_t stream = 0;
+
+  if (p > 0) {
+    Tar.resize(p * batchSize);
+    double* d_ar =
+      (double*)allocator->allocate(p * batchSize * sizeof(double), stream);
+    double* d_Tar =
+      (double*)allocator->allocate(p * batchSize * sizeof(double), stream);
+
+    MLCommon::updateDevice(d_ar, ar.data(), p * batchSize, stream);
+
+    MLCommon::TimeSeries::jones_transform(d_ar, batchSize, p, d_Tar, true,
+                                          isInv, allocator, stream);
+
+    MLCommon::updateHost(Tar.data(), d_Tar, p * batchSize, stream);
+
+    allocator->deallocate(d_ar, p * batchSize * sizeof(double), stream);
+    allocator->deallocate(d_Tar, p * batchSize * sizeof(double), stream);
+  }
+  if (q > 0) {
+    Tma.resize(q * batchSize);
+
+    double* d_ma =
+      (double*)allocator->allocate(q * batchSize * sizeof(double), stream);
+    double* d_Tma =
+      (double*)allocator->allocate(q * batchSize * sizeof(double), stream);
+
+    MLCommon::updateDevice(d_ma, ma.data(), q * batchSize, stream);
+
+    MLCommon::TimeSeries::jones_transform(d_ma, batchSize, q, d_Tma, false,
+                                          isInv, allocator, stream);
+
+    MLCommon::updateHost(Tma.data(), d_Tma, q * batchSize, stream);
+
+    allocator->deallocate(d_ma, q * batchSize * sizeof(double), stream);
+    allocator->deallocate(d_Tma, q * batchSize * sizeof(double), stream);
+  }
 }
