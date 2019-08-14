@@ -81,6 +81,15 @@ __global__ void Find_Normalization(float *restrict Z_norm, const float N) {
   Z_norm[0] = __fdividef(1.0f, Z_norm[0] - N);
 }
 
+
+#define BOUNDSCHECK(x, max) \
+  if (x >= max || x < 0) { \
+    while (1) \
+      printf("Bounds over at line %d = [%d,%d]", __LINE__, x, max); \
+    return; \
+  }
+
+
 /**
  * Figures the bounding boxes for every point in the embedding.
  */
@@ -160,8 +169,8 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
     posxd[NNODES] = (minx + maxx) * 0.5f;
     posyd[NNODES] = (miny + maxy) * 0.5f;
 
-#pragma unroll(4)
-    for (int a = 0; a < 4; a++) childd[FOUR_NNODES + a] = -1;
+    for (int a = 0; a < 4; a++)
+      childd[FOUR_NNODES + a] = -1;
 
     atomicAdd(stepd, 1);
   }
@@ -174,20 +183,18 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd,
                                                         const int FOUR_NNODES,
                                                         const int FOUR_N) {
   const int inc = blockDim.x * gridDim.x;
-  int k = (FOUR_N & -32) + threadIdx.x +
-          blockIdx.x * blockDim.x;  // align to warp size
+  int k = (FOUR_N & -32) + threadIdx.x + blockIdx.x * blockDim.x; 
   if (k < FOUR_N) k += inc;
 
   // iterate over all cells assigned to thread
-  while (k < FOUR_NNODES) {
+  for (; k < FOUR_NNODES; k += inc)
     childd[k] = -1;
-    k += inc;
-  }
 }
 
 /**
  * Build the actual KD Tree.
  */
+
 __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   volatile int *restrict errd, int *restrict childd,
   const float *restrict posxd, const float *restrict posyd, const int NNODES,
@@ -267,10 +274,10 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
           skip = 1;
         }
       }
-      else {  // there already is a body in this position
+      else {
         if (ch == atomicCAS(&childd[locked], ch, -2)) {  // try to lock
           patch = -1;
-          
+
           while (ch >= 0) {
             depth++;
 
@@ -280,19 +287,18 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
               atomicExch(bottomd, NNODES);
             }
 
-            if (patch != -1)
+            if (patch != -1) {
               childd[n * 4 + j] = cell;
+            }
 
             if (cell > patch)
               patch = cell;
 
             j = 0;
-            if (x < posxd[ch])
-              j = 1;
-            if (y < posyd[ch])
-              j |= 2;
+            if (x < posxd[ch]) j = 1;
+            if (y < posyd[ch]) j |= 2;
+
             childd[cell * 4 + j] = ch;
-            
             n = cell;
             r *= 0.5f;
             dx = dy = -r;
@@ -307,10 +313,11 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
             }
             x += dx;
             y += dy;
+
             ch = childd[n * 4 + j];
             if (r <= 1e-10) break;
           }
-          
+
           childd[n * 4 + j] = i;
 
           if (depth > localmaxdepth)
@@ -323,10 +330,13 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     }
     __threadfence();
 
-    if (skip == 2)
+    if (skip == 2) {
       childd[locked] = patch;
+    }
   }
   // record maximum tree depth
+  if (localmaxdepth > 32 * THREADS5 / 32)
+    localmaxdepth = 32 * THREADS5 / 32;
   atomicMax(maxdepthd, localmaxdepth);
 }
 
@@ -340,15 +350,13 @@ __global__ __launch_bounds__(1024,
                                                   const int *restrict bottomd) {
   const int bottom = bottomd[0];
   const int inc = blockDim.x * gridDim.x;
-  int k = (bottom & -32) + threadIdx.x +
-          blockIdx.x * blockDim.x;  // align to warp size
+  int k = (bottom & -32) + threadIdx.x + blockIdx.x * blockDim.x;
   if (k < bottom) k += inc;
 
   // iterate over all cells assigned to thread
-  while (k < NNODES) {
+  for (; k < NNODES; k++) {
     massd[k] = -1.0f;
     startd[k] = -1;
-    k += inc;
   }
 }
 
@@ -359,7 +367,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   int *restrict countd, const int *restrict childd,
   volatile float *restrict massd, float *restrict posxd, float *restrict posyd,
   const int NNODES, const int N, const int *restrict bottomd) {
-  register int k;
+
   register bool flag = 0;
   register float cm, px, py;
   __shared__ int child[THREADS3 * 4];
@@ -367,21 +375,25 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
   const int bottom = bottomd[0];
   const int inc = blockDim.x * gridDim.x;
-  k = (bottom & -32) + threadIdx.x +
-      blockIdx.x * blockDim.x;  // align to warp size
+  int k = (bottom & -32) + threadIdx.x + blockIdx.x * blockDim.x;
   if (k < bottom) k += inc;
 
   const int restart = k;
   for (int j = 0; j < 5; j++) {  // wait-free pre-passes
     // iterate over all cells assigned to thread
     while (k <= NNODES) {
+
       if (massd[k] < 0.0f) {
         for (int i = 0; i < 4; i++) {
+
           const int ch = childd[k * 4 + i];
-          child[i * THREADS3 + threadIdx.x] = ch;  // cache children
-          if ((ch >= N) and
-              ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) < 0.0f))
-            goto CONTINUE_LOOP;
+
+          child[i * THREADS3 + threadIdx.x] = ch;
+
+          if (ch >= N) {
+            if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) < 0)
+              goto CONTINUE_LOOP;
+          }
         }
 
         // all children are ready
@@ -391,8 +403,10 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
         int cnt = 0;
 
         for (int i = 0; i < 4; i++) {
+
           const int ch = child[i * THREADS3 + threadIdx.x];
           if (ch >= 0) {
+
             const float m =
               (ch >= N) ? (cnt += countd[ch], mass[i * THREADS3 + threadIdx.x])
                         : (cnt++, massd[ch]);
@@ -419,27 +433,43 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   int j = 0;
   // iterate over all cells assigned to thread
   while (k <= NNODES) {
-    if (massd[k] >= 0.0f) {
+
+    if (massd[k] >= 0.0f)
       k += inc;
-    } else {
+
+    else {
       if (j == 0) {
         j = 4;
-        //#pragma unroll (4)
+
         for (int i = 0; i < 4; i++) {
+
           const int ch = childd[k * 4 + i];
-          child[i * THREADS3 + threadIdx.x] = ch;  // cache children
-          if ((ch < N) or
-              ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0.0f))
+
+          child[i * THREADS3 + threadIdx.x] = ch;
+          if (ch < N) {
+            j--;
+            continue;
+          }
+
+          if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
             j--;
         }
-      } else {
+      }
+      else {
         j = 4;
-        //#pragma unroll (4)
+
         for (int i = 0; i < 4; i++) {
+
           const int ch = child[i * THREADS3 + threadIdx.x];
-          if ((ch < N) or (mass[i * THREADS3 + threadIdx.x] >= 0.0f) or
-              ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0.0f))
+
+          if ((ch < N) or (mass[i * THREADS3 + threadIdx.x] >= 0)) {
             j--;
+            continue;
+          }
+
+          if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
+            j--;
+
         }
       }
 
@@ -451,8 +481,10 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
         int cnt = 0;
 
         for (int i = 0; i < 4; i++) {
+
           const int ch = child[i * THREADS3 + threadIdx.x];
           if (ch >= 0) {
+
             const float m =
               (ch >= N) ? (cnt += countd[ch], mass[i * THREADS3 + threadIdx.x])
                         : (cnt++, massd[ch]);
@@ -491,11 +523,13 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
 
   // iterate over all cells assigned to thread
   while (k >= bottom) {
-    register int start = startd[k];
+
+    int start = startd[k];
     if (start >= 0) {
       int j = 0;
 
       for (int i = 0; i < 4; i++) {
+
         const int ch = childd[k * 4 + i];
         if (ch >= 0) {
           if (i != j) {
@@ -508,7 +542,8 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
             // child is a cell
             startd[ch] = start;   // set start ID of child
             start += countd[ch];  // add #bodies in subtree
-          } else {
+          }
+          else {
             // child is a body
             sortd[start] = ch;  // record body in 'sorted' array
             start++;
@@ -542,14 +577,13 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
     dq[0] = __fdividef(radiusd_squared[0], theta_squared);
 
     for (int i = 1; i < max_depth; i++) {
-      dq[i] =
-        dq[i - 1] *
-        0.25f;  // radius is halved every level of tree so squared radius is quartered
+      dq[i] = dq[i - 1] * 0.25f;
       dq[i - 1] += epssqd;
     }
     dq[max_depth - 1] += epssqd;
 
-    if (max_depth > 32) *errd = max_depth;
+    if (max_depth > 32)
+      *errd = max_depth;
   }
   __syncthreads();
 
@@ -557,22 +591,24 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
     // figure out first thread in each warp (lane 0)
     const int base = threadIdx.x / 32;
     const int sbase = base * 32;
-    const int j = sbase;
+    const int jj = sbase;
     const int stepd_ = stepd[0];
 
     const int diff = threadIdx.x - sbase;
     // make multiple copies to avoid index calculations later
 
-    if (diff < 32) dq[diff + j] = dq[diff];
+    if (diff < 32) {
+      dq[diff + jj] = dq[diff];
+    }
 
     __syncthreads();
     __threadfence_block();
 
     // iterate over all bodies assigned to thread
-    for (int k = threadIdx.x + blockIdx.x * blockDim.x; k < N;
-         k += blockDim.x * gridDim.x) {
+    for (int k = threadIdx.x + blockIdx.x * blockDim.x; k < N; k += blockDim.x * gridDim.x) {
       const int i = sortd[k];  // get permuted/sorted index
       // cache position info
+
       const float px = posxd[i];
       const float py = posyd[i];
 
@@ -581,11 +617,11 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
       normsum = 0;
 
       // initialize iteration stack, i.e., push root node onto stack
-      depth = j;
+      depth = jj;
 
       if (sbase == threadIdx.x) {
-        pos[j] = 0;
-        node[j] = FOUR_NNODES;
+        pos[jj] = 0;
+        node[jj] = FOUR_NNODES;
       }
 
       do {
@@ -593,41 +629,31 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
         pd = pos[depth];
         nd = node[depth];
         while (pd < 4) {
-          // node on top of stack has more children to process
+
           const int n = childd[nd + pd];  // load child pointer
           pd++;
 
           if (n >= 0) {
+
             const float dx = px - posxd[n];
             const float dy = py - posyd[n];
-            register float tmp =
-              dx * dx + dy * dy +
-              epssqd;  // distance squared plus small constant to prevent zeros
+            float dxy = dx * dx + dy * dy + epssqd; 
+
 #if (CUDART_VERSION >= 9000)
-            if (
-              (n < N) or
-              __all_sync(
-                __activemask(),
-                tmp >=
-                  dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
+            if ((n < N) or __all_sync(__activemask(), dxy >= dq[depth])) {
 #else
-            if (
-              (n < N) or
-              __all(
-                tmp >=
-                dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
+            if ((n < N) or __all(dxy >= dq[depth])) { 
 #endif
-              // from bhtsne - sptree.cpp
-              tmp = __fdividef(1.0f, (1.0f + tmp));
-              register float mult = massd[n] * tmp;
+              dxy = __fdividef(1.0f, (1.0f + dxy));
+              float mult = massd[n] * dxy;
               normsum += mult;
-              mult *= tmp;
+              mult *= dxy;
               vx += dx * mult;
               vy += dy * mult;
-            } else {
+            }
+            else {
               // push cell onto stack
-              if (sbase ==
-                  threadIdx.x) {  // maybe don't push and inc if last child
+              if (sbase == threadIdx.x) {
                 pos[depth] = pd;
                 node[depth] = nd;
               }
@@ -635,17 +661,18 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
               pd = 0;
               nd = n * 4;
             }
-          } else
+          }
+          else
             pd = 4;  // early out because all remaining children are also zero
         }
         depth--;  // done with this level
-      } while (depth >= j);
+      } while (depth >= jj);
 
       if (stepd_ >= 0) {
         // update velocity
         velxd[i] += vx;
         velyd[i] += vy;
-        atomicAdd(&Z_norm[0], normsum);
+        atomicAdd(Z_norm, normsum);
       }
     }
   }
