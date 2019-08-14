@@ -428,23 +428,13 @@ void holtwinters_optim_gpu(
   int total_blocks = (batch_size - 1) / 128 + 1;
   int threads_per_block = 128;
 
-  // Get shared memory size //
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-  struct cudaDeviceProp prop;
-  memset(&prop, 0, sizeof(cudaDeviceProp));
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
-
   // How much sm needed for shared kernel
   size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
   bool single_param =
     (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
-  if (
-    sm_needed >
-    prop
-      .sharedMemPerBlock) {  // Global memory // 
+  if (sm_needed > MLCommon::getSharedMemPerBlock()) {  // Global memory //
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_optim_gpu_global_kernel<Dtype>
