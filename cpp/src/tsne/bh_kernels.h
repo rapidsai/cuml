@@ -678,7 +678,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
           const int n = childd[nd + pd];  // load child pointer
           pd++;
 
-          if (n >= 0) {
+          if (n >= 0 and n < FOUR_NNODES/4+1) {
 
             BOUNDSCHECK(n, (FOUR_NNODES/4+1));
             const float dx = px - posxd[n];
