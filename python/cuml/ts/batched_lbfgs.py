@@ -52,6 +52,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
             u = 1
         nbd[i] = bounds_map[l, u]
 
+    # working arrays needed by L-BFGS-B implementation in SciPy. One for each series
     x = [np.copy(np.array(x0[ib*n:(ib+1)*n], np.float64)) for ib in range(num_batches)]
     f = [np.copy(np.array(0.0, np.float64)) for ib in range(num_batches)]
     g = [np.copy(np.zeros((n,), np.float64)) for ib in range(num_batches)]

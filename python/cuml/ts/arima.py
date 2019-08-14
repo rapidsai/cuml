@@ -7,6 +7,7 @@ import statsmodels.tsa.arima_model as sm_arima
 
 from .batched_kalman import batched_kfilter, init_kalman_matrices, init_batched_kalman_matrices
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
+from .batched_kalman import batched_transform as batched_trans_cuda
 from .batched_lbfgs import batched_fmin_lbfgs_b
 
 
@@ -352,6 +353,7 @@ def unpack(p, q, nb, x):
 
     return (mu, ar, ma)
 
+
 def pack(p, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
     num_parameters = 1 + p + q
@@ -363,8 +365,20 @@ def pack(p, q, nb, mu, ar, ma):
         x[i*num_parameters:(i+1)*num_parameters] = xi
     return x
 
+
+def batch_trans_cuda(p, q, nb, x):
+    """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
+    mu, ar, ma = unpack(p, q, nb, x)
+
+    (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, False)
+    
+    Tx = pack(p, q, nb, mu, ar2, ma2)
+    return Tx
+
+
 def batch_trans(p, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
+    # return batch_trans_cuda(p, q, nb, x)
     mu, ar, ma = unpack(p, q, nb, x)
     ar2 = []
     ma2 = []
@@ -381,10 +395,24 @@ def batch_trans(p, q, nb, x):
     Tx = pack(p, q, nb, mu, ar2, ma2)
     return Tx
 
+
+def batch_invtrans_cuda(p, q, nb, x):
+    """Apply the *inverse* stationarity/invertibility guaranteeing transform to
+       batched-parameter vector x.
+    """
+    mu, ar, ma = unpack(p, q, nb, x)
+
+    (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, True)
+
+    Tx = pack(p, q, nb, mu, ar2, ma2)
+    return Tx
+
+
 def batch_invtrans(p, q, nb, x):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
+    # return batch_invtrans_cuda(p, q, nb, x)
     mu, ar, ma = unpack(p, q, nb, x)
     ar2 = []
     ma2 = []
@@ -396,18 +424,22 @@ def batch_invtrans(p, q, nb, x):
         assert ((not np.isnan(ari)) and (not np.isnan(mai)))
         ar2.append(ari)
         ma2.append(mai)
+
     Tx = pack(p, q, nb, mu, ar2, ma2)
     return Tx
+
 
 def undifference(x, x0):
     # set_trace()
     xi = np.append(x0, x)
     return np.cumsum(xi)
 
+
 def assert_same_d(b_order):
     """Checks that all values of d in batched order are same"""
     b_d = [d for _, d, _ in b_order]
     assert (np.array(b_d) == b_d[0]).all()
+
 
 def init_x0(order, y):
     (p, d, q) = order
