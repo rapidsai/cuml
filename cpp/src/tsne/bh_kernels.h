@@ -192,7 +192,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   volatile int *restrict errd, int *restrict childd,
   const float *restrict posxd, const float *restrict posyd, const int NNODES,
   const int N, int *restrict maxdepthd, int *restrict bottomd,
-  const float *restrict radiusd) {
+  volatile float *restrict radiusd) {
   register int i, j, depth, localmaxdepth, skip;
   register float x, y, r;
   register float px, py;
@@ -258,21 +258,20 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     if (ch != -2) {  // skip if child pointer is locked and try again later
       locked = n * 4 + j;
       if (ch == -1) {
-        if (-1 == atomicCAS(&childd[locked], -1,
-                            i)) {  // if null, just insert the new body
+        if (-1 == atomicCAS(&childd[locked], -1, i)) {
 
           if (depth > localmaxdepth)
-            localmaxdepth =
-              depth;  // localmaxdepth = max(depth, localmaxdepth);
+            localmaxdepth = depth;
 
           i += inc;  // move on to next body
           skip = 1;
         }
-      } else {  // there already is a body in this position
+      }
+      else {  // there already is a body in this position
         if (ch == atomicCAS(&childd[locked], ch, -2)) {  // try to lock
           patch = -1;
-          // create new cell(s) and insert the old and new body
-          do {
+          
+          while (ch >= 0) {
             depth++;
 
             const int cell = atomicSub(bottomd, 1) - 1;
@@ -281,14 +280,19 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
               atomicExch(bottomd, NNODES);
             }
 
-            if (patch != -1) childd[n * 4 + j] = cell;
+            if (patch != -1)
+              childd[n * 4 + j] = cell;
 
-            if (cell > patch) patch = cell;
+            if (cell > patch)
+              patch = cell;
 
             j = 0;
-            if (x < posxd[ch]) j = 1;
-            if (y < posyd[ch]) j |= 2;
+            if (x < posxd[ch])
+              j = 1;
+            if (y < posyd[ch])
+              j |= 2;
             childd[cell * 4 + j] = ch;
+            
             n = cell;
             r *= 0.5f;
             dx = dy = -r;
@@ -304,14 +308,13 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
             x += dx;
             y += dy;
             ch = childd[n * 4 + j];
-            // repeat until the two bodies are different children
-          } while (
-            ch >= 0 and
-            r >
-              1e-10);  // add radius check because bodies that are very close together can cause this to fail... there is some error condition here that I'm not entirely sure of (not just when two bodies are equal)
+            if (r <= 1e-10) break;
+          }
+          
           childd[n * 4 + j] = i;
 
-          if (depth > localmaxdepth) localmaxdepth = depth;
+          if (depth > localmaxdepth)
+            localmaxdepth = depth;
 
           i += inc;  // move on to next body
           skip = 2;
@@ -320,7 +323,8 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     }
     __threadfence();
 
-    if (skip == 2) childd[locked] = patch;
+    if (skip == 2)
+      childd[locked] = patch;
   }
   // record maximum tree depth
   atomicMax(maxdepthd, localmaxdepth);
