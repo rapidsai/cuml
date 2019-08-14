@@ -89,7 +89,8 @@ class NearestNeighbors(Base):
     from a given set of datapoints. Currently, cuML supports k-NN queries,
     which define the neighborhood as the closest `k` neighbors to each query
     point.
-
+    Note: Should_downcast will be deprecated in 0.10, please use the
+        convert_dtypes variable
     Examples
     ---------
     .. code-block:: python
@@ -264,7 +265,8 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-
+            Note: Convert dtype will be set to False once should_downcast is
+                deprecated in 0.10
         """
 
         if self._should_downcast:
@@ -272,9 +274,6 @@ class NearestNeighbors(Base):
                           "convert_dtype in fit and kneighbors "
                           " methods instead. ")
             convert_dtype = True
-
-        if self._should_downcast is None:
-            self._should_downcast = True
 
         self.__del__()
 
@@ -416,7 +415,8 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
-
+            Note: Convert dtype will be set to False once should_downcast is
+                deprecated in 0.10
         Returns
         ----------
         distances: cuDF DataFrame or numpy ndarray
@@ -434,10 +434,8 @@ class NearestNeighbors(Base):
             warnings.warn("Parameter should_downcast is deprecated, use "
                           "convert_dtype in fit and kneighbors"
                           " methods instead. ")
-            convert_dtype = True
 
-        if self._should_downcast is None:
-            self._should_downcast = True
+            convert_dtype = True
 
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
