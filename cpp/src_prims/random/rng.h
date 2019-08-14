@@ -178,11 +178,7 @@ class Rng {
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
     // and also not too many initialization calls will be made by each thread
-    int dev;
-    CUDA_CHECK(cudaGetDevice(&dev));
-    cudaDeviceProp props;
-    CUDA_CHECK(cudaGetDeviceProperties(&props, dev));
-    nBlocks = 4 * props.multiProcessorCount;
+    nBlocks = 4 * getMultiProcessorCount();
   }
 
   /**

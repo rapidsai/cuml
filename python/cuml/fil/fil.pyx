@@ -56,8 +56,9 @@ cdef class TreeliteModel():
     """
     Wrapper for Treelite-loaded forest
 
-    This is only used for loading saved models into FIL, it is
-    not used directly for inference.
+    Note: This is only used for loading saved models into ForestInference,
+    it does not actually perform inference. Users typically do
+    not need to access TreeliteModel instances directly.
 
     Attributes
     ----------
@@ -245,10 +246,56 @@ cdef class ForestInference_impl():
 
 class ForestInference(Base):
     """
+    ForestInference provides GPU-accelerated inference (prediction)
+    for random forest and boosted decision tree models.
+
+    This module does not support training models. Rather, users should
+    train a model in another package and save it in a
+    treelite-compatible format. (See https://github.com/dmlc/treelite)
+    Currently, LightGBM and XGBoost GBDT and random forest models are
+    supported.
+
+    Users typically create a ForestInference object by loading a
+    saved model file with ForestInference.load. The resulting object
+    provides a `predict` method for carrying out inference.
+
+    **Known limitations**:
+     * Trees are represented as complete binary trees, so a tree of depth k
+       will be stored in (2**k) - 1 nodes. This will be less space-efficient
+       for sparse trees.
+     * While treelite supports additional formats, only XGBoost and LightGBM
+       are tested in FIL currently.
+     * LightGBM categorical features are not supported
+     * Inference uses a dense matrix format, which is efficient for many
+       problems but will be suboptimal for sparse datasets.
+     * Only binary classification and regression are supported.
+
     Parameters
     ----------
     handle : cuml.Handle
        If it is None, a new one is created just for this class.
+
+    Examples
+    --------
+    For additional usage examples, see the sample notebook at
+    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/fil_demo.ipynb
+
+    In the example below, synthetic data is copied to the host before
+    infererence. ForestInference can also accept a numpy array directly at the
+    cost of a slight performance overhead.
+
+    >>> # Assume that the file 'xgb.model' contains a classifier model that was
+    >>> # previously saved by XGBoost's save_model function.
+    >>>
+    >>> import sklearn
+    >>> from numba import cuda
+    >>> X_test, y_test = sklearn.datasets.make_classification()
+    >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
+    >>> fm = ForestInference.load(model_path, output_class=True)
+    >>> fil_preds_gpu = fm.predict(X_gpu)
+    >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
+    >>>						     np.asarray(fil_preds_gpu))
+
     """
     def __init__(self,
                  handle=None):
@@ -257,7 +304,12 @@ class ForestInference(Base):
 
     def predict(self, X, preds=None):
         """
-        Predicts the labels for X with the loaded forest model
+        Predicts the labels for X with the loaded forest model.
+        By default, the result is the raw floating point output
+        from the model, unless output_class was set to True
+        during model loading.
+
+        See the documentation of ForestInference.load for details.
 
         Parameters
         ----------
@@ -285,7 +337,7 @@ class ForestInference(Base):
 
         Parameters
         ----------
-        model : the model information in the treelite format
+        model : the trained model information in the treelite format
            loaded from a saved model using the treelite API
            https://treelite.readthedocs.io/en/latest/treelite-api.html
         output_class: boolean
