@@ -462,6 +462,7 @@ class TSNE(Base):
         Use Numba's garbabge collector to clean up already removed
         GPU memory.
         """
+        return
         context = cuda.current_context().deallocations
         if context is not None:
             context.clear()
