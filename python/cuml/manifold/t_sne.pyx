@@ -291,7 +291,7 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        # self._assure_clean_memory()
+        self._assure_clean_memory()
         return
 
     def fit(self, X):
@@ -398,7 +398,7 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        # self._assure_clean_memory()
+        self._assure_clean_memory()
         self.Y = Y
         return self
 
@@ -406,7 +406,7 @@ class TSNE(Base):
         if "Y" in self.__dict__:
             del self.Y
             self.Y = None
-        # self._assure_clean_memory()
+        self._assure_clean_memory()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -425,16 +425,16 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
-                # self._assure_clean_memory()
+                self._assure_clean_memory()
                 return self.Y
             else:
                 data = cudf.DataFrame.from_gpu_matrix(self.Y)
-                # self._assure_clean_memory()
+                self._assure_clean_memory()
                 return data
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
             del self.Y
-            # self._assure_clean_memory()
+            self._assure_clean_memory()
             return data
         return None  # is this even possible?
 
@@ -446,14 +446,14 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        # self._assure_clean_memory()
+        self._assure_clean_memory()
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        # self._assure_clean_memory()
+        self._assure_clean_memory()
         return state
 
     def _assure_clean_memory(self):
