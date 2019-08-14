@@ -77,7 +77,7 @@
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 - PR #908: Fix local build generated file ownerships
-
+- PR #983: Change RF max_depth default to 16
 
 # cuML 0.8.0 (27 June 2019)
 
