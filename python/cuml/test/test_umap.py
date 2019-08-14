@@ -53,7 +53,7 @@ def stress_param(*args, **kwargs):
 def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
-    embedding = cuUMAP(verbose=False).fit_transform(data)
+    embedding = cuUMAP(verbose=False).fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels,
@@ -77,7 +77,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
 
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data)
+    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
         cuml_score = adjusted_rand_score(labels,
@@ -97,7 +97,8 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, iris.target)
+                       verbose=False).fit_transform(data, iris.target,
+                                                    convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
@@ -108,7 +109,8 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target = iris.target.copy()
     target[25:75] = -1
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, target)
+                       verbose=False).fit_transform(data, target,
+                                                    convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
@@ -118,7 +120,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data)
+                       verbose=False).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -135,9 +137,9 @@ def test_umap_transform_on_iris():
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
-    fitter.fit(data)
+    fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
-    embedding = fitter.transform(new_data)
+    embedding = fitter.transform(new_data, convert_dtype=True)
 
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.89
@@ -167,7 +169,7 @@ def test_umap_fit_transform_trust(name):
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data)
+    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
     trust = trustworthiness(data, embedding, 10)
     cuml_trust = trustworthiness(data, cuml_embedding, 10)
@@ -198,14 +200,13 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
 
-    umap = cuUMAP(n_neighbors=3, n_components=2,
-                  should_downcast=should_downcast, verbose=False)
+    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False)
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame(
                {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        embeds = umap.fit_transform(X_cudf)
+        embeds = umap.fit_transform(X_cudf, convert_dtype=True)
         assert type(embeds) == cudf.DataFrame
 
     else:
@@ -231,7 +232,7 @@ def test_umap_downcast_fails(input_type, nrows, n_feats):
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
     with pytest.raises(Exception):
-        umap.fit(X, should_downcast=False)
+        umap.fit(X, should_downcast=False, convert_dtype=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
@@ -241,4 +242,4 @@ def test_umap_downcast_fails(input_type, nrows, n_feats):
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
     with pytest.raises(Exception):
-        umap.fit(X, should_downcast=True)
+        umap.fit(X, convert_dtype=True)

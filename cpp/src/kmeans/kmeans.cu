@@ -14,162 +14,89 @@
  * limitations under the License.
  */
 
-#include "kmeans.cuh"
+#include "sg_impl.cuh"
 
 namespace ML {
 namespace kmeans {
 
-void fit_predict(const ML::cumlHandle &handle, int n_clusters, int metric,
-                 kmeans::InitMethod init, int max_iter, double tol, int seed,
+// -------------------------- fit_predict --------------------------------//
+void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
-                 float *centroids, int *labels, int verbose) {
+                 float *centroids, int *labels, float &inertia, int &n_iter) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<float> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric), init,
-    max_iter, tol, seed, verbose);
-
-  if (kmeans::InitMethod::Array == init) {
-    ASSERT(centroids != nullptr,
-           "centroids array is null (require a valid array of centroids for "
-           "the requested initialization method)");
-    kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-  }
-
-  kmeans_obj.fit(X, n_samples, n_features);
-  if (labels) {
-    kmeans_obj.predict(X, n_samples, n_features, labels);
-  }
-
-  MLCommon::copy(centroids, kmeans_obj.centroids(), n_clusters * n_features,
-                 stream);
+  fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
+  predict(h, params, centroids, X, n_samples, n_features, labels, inertia);
 }
 
-void fit_predict(const ML::cumlHandle &handle, int n_clusters, int metric,
-                 kmeans::InitMethod init, int max_iter, double tol, int seed,
+void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
                  const double *X, int n_samples, int n_features,
-                 double *centroids, int *labels, int verbose) {
+                 double *centroids, int *labels, double &inertia, int &n_iter) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<double> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric), init,
-    max_iter, tol, seed, verbose);
-
-  if (kmeans::InitMethod::Array == init) {
-    ASSERT(centroids != nullptr,
-           "centroids array is null (require a valid array of centroids for "
-           "the requested initialization method)");
-    kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-  }
-
-  kmeans_obj.fit(X, n_samples, n_features);
-  if (labels) {
-    kmeans_obj.predict(X, n_samples, n_features, labels);
-  }
-
-  MLCommon::copy(centroids, kmeans_obj.centroids(), n_clusters * n_features,
-                 stream);
+  fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
+  predict(h, params, centroids, X, n_samples, n_features, labels, inertia);
 }
 
-void fit(const ML::cumlHandle &handle, int n_clusters, int metric,
-         kmeans::InitMethod init, int max_iter, double tol, int seed,
+// ----------------------------- fit ---------------------------------//
+
+void fit(const ML::cumlHandle &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features, float *centroids,
-         int verbose) {
-  fit_predict(handle, n_clusters, metric, init, max_iter, tol, seed, X,
-              n_samples, n_features, centroids, nullptr, verbose);
+         float &inertia, int &n_iter) {
+  const ML::cumlHandle_impl &h = handle.getImpl();
+  ML::detail::streamSyncer _(h);
+
+  fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
 }
 
-void fit(const ML::cumlHandle &handle, int n_clusters, int metric,
-         kmeans::InitMethod init, int max_iter, double tol, int seed,
+void fit(const ML::cumlHandle &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features, double *centroids,
-         int verbose) {
-  fit_predict(handle, n_clusters, metric, init, max_iter, tol, seed, X,
-              n_samples, n_features, centroids, nullptr, verbose);
-}
-
-void predict(const ML::cumlHandle &handle, float *centroids, int n_clusters,
-             const float *X, int n_samples, int n_features, int metric,
-             int *labels, double *inertia, int verbose) {
+         double &inertia, int &n_iter) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<float> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));
-
-  kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-
-  kmeans_obj.predict(X, n_samples, n_features, labels);
-
-  const double obj_inertia = -1 * kmeans_obj.getInertia();
-  std::memcpy(inertia, &obj_inertia, sizeof(double));
+  fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
 }
 
-void predict(const ML::cumlHandle &handle, double *centroids, int n_clusters,
-             const double *X, int n_samples, int n_features, int metric,
-             int *labels, double *inertia, int verbose) {
+// ----------------------------- predict ---------------------------------//
+
+void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+             const float *centroids, const float *X, int n_samples,
+             int n_features, int *labels, float &inertia) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<double> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));
-  kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-
-  kmeans_obj.predict(X, n_samples, n_features, labels);
-
-  const double obj_inertia = -1 * kmeans_obj.getInertia();
-  std::memcpy(inertia, &obj_inertia, sizeof(double));
+  predict(h, params, centroids, X, n_samples, n_features, labels, inertia);
 }
 
-void transform(const ML::cumlHandle &handle, const float *centroids,
-               int n_clusters, const float *X, int n_samples, int n_features,
-               int metric, float *X_new, double *inertia, int verbose) {
+void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+             const double *centroids, const double *X, int n_samples,
+             int n_features, int *labels, double &inertia) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<float> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));
-  kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-  kmeans_obj.transform(X, n_samples, n_features, X_new);
-
-  const double obj_inertia = -1 * kmeans_obj.getInertia();
-  std::memcpy(inertia, &obj_inertia, sizeof(double));
+  predict(h, params, centroids, X, n_samples, n_features, labels, inertia);
 }
 
-void transform(const ML::cumlHandle &handle, const double *centroids,
-               int n_clusters, const double *X, int n_samples, int n_features,
-               int metric, double *X_new, double *inertia, int verbose) {
+// ----------------------------- transform ---------------------------------//
+void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+               const float *centroids, const float *X, int n_samples,
+               int n_features, int metric, float *X_new) {
   const ML::cumlHandle_impl &h = handle.getImpl();
   ML::detail::streamSyncer _(h);
-  cudaStream_t stream = h.getStream();
 
-  ML::KMeans<double> kmeans_obj(
-    h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));
-  kmeans_obj.setCentroids(centroids, n_clusters, n_features);
-  kmeans_obj.transform(X, n_samples, n_features, X_new);
-
-  const double obj_inertia = -1 * kmeans_obj.getInertia();
-  std::memcpy(inertia, &obj_inertia, sizeof(double));
+  transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
 }
 
-void score(const ML::cumlHandle &handle, float *centroids, int n_clusters,
-           const float *X, int n_samples, int n_features, int metric,
-           int *labels, double *inertia, int verbose) {
-  predict(handle, centroids, n_clusters, X, n_samples, n_features, metric,
-          labels, inertia, verbose);
-}
+void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+               const double *centroids, const double *X, int n_samples,
+               int n_features, int metric, double *X_new) {
+  const ML::cumlHandle_impl &h = handle.getImpl();
+  ML::detail::streamSyncer _(h);
 
-void score(const ML::cumlHandle &handle, double *centroids, int n_clusters,
-           const double *X, int n_samples, int n_features, int metric,
-           int *labels, double *inertia, int verbose) {
-  predict(handle, centroids, n_clusters, X, n_samples, n_features, metric,
-          labels, inertia, verbose);
+  transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
 }
 
 };  // end namespace kmeans

@@ -24,6 +24,7 @@ import pandas as pd
 import cudf
 import ctypes
 import cuml
+import warnings
 
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -84,16 +85,10 @@ cdef extern from "knn/knn.hpp" namespace "ML":
 
 class NearestNeighbors(Base):
     """
-    NearestNeighbors is a unsupervised algorithm where if one wants to find the
-    "closest" datapoint(s) to new unseen data, one can calculate a suitable
-    "distance" between each and every point, and return the top K datapoints
-    which have the smallest distance to it.
-
-    cuML's KNN an array-like object or cuDF DataFrame (where automatic
-    chunking will be done in to a Numpy Array in a future release), and fits a
-    special data structure first to approximate the distance calculations,
-    allowing our querying times to be O(plogn) and not the brute force O(np)
-    [where p = no(features)]:
+    NearestNeighbors is an unsupervised algorithm for querying neighborhoods
+    from a given set of datapoints. Currently, cuML supports k-NN queries,
+    which define the neighborhood as the closest `k` neighbors to each query
+    point.
 
     Examples
     ---------
@@ -160,7 +155,7 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors: int (default = 5)
         The top K closest datapoints you want the algorithm to return.
-        If this number is large, then expect the algorithm to run slower.
+        Currently, this value must be < 1024.
     should_downcast : bool (default = False)
         Currently only single precision is supported in the underlying undex.
         Setting this to true will allow single-precision input arrays to be
@@ -168,15 +163,6 @@ class NearestNeighbors(Base):
 
     Notes
     ------
-    NearestNeighbors is a generative model. This means the data X has to be
-    stored in order for inference to occur.
-
-    **Applications of NearestNeighbors**
-
-        Applications of NearestNeighbors include recommendation systems where
-        content or colloborative filtering is used. Since NearestNeighbors is a
-        relatively simple generative model, it is also used in data
-        visualization and regression / classification tasks.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
@@ -264,7 +250,7 @@ class NearestNeighbors(Base):
 
         self.__dict__.update(state)
 
-    def fit(self, X):
+    def fit(self, X, convert_dtype=False):
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -274,7 +260,15 @@ class NearestNeighbors(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+
         """
+
+        if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
 
         self.__del__()
 
@@ -294,7 +288,7 @@ class NearestNeighbors(Base):
         if isinstance(X, np.ndarray) and self.n_gpus > 1:
 
             if X.dtype != np.float32:
-                if self._should_downcast:
+                if self._should_downcast or convert_dtype:
                     X = np.ascontiguousarray(X, np.float32)
                     if len(X[X == np.inf]) > 0:
                         raise ValueError("Downcast to single-precision "
@@ -344,13 +338,11 @@ class NearestNeighbors(Base):
             self.n_indices = len(final_devices)
 
         else:
-            if self._should_downcast:
-                self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_dev_array(X, order='C',
-                                       convert_to_dtype=np.float32)
-            else:
-                self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_dev_array(X, order='C')
+            self.X_m, X_ctype, n_rows, n_cols, dtype = \
+                input_to_dev_array(X, order='C', check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
 
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
@@ -400,7 +392,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = n_dims
 
-    def kneighbors(self, X, k=None):
+    def kneighbors(self, X, k=None, convert_dtype=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -428,10 +420,15 @@ class NearestNeighbors(Base):
             k = self.n_neighbors
 
         if self._should_downcast:
-            X_m, X_ctype, N, _, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, X_ctype, N, _, dtype = input_to_dev_array(X, order='C')
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
+        X_m, X_ctype, N, _, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)

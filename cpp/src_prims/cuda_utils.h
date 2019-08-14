@@ -422,6 +422,38 @@ HDI double myPow(double x, double power) {
 /** @} */
 
 /**
+ * @defgroup myTanh tanh function
+ * @{
+ */
+template <typename T>
+HDI T myTanh(T x);
+template <>
+HDI float myTanh(float x) {
+  return tanhf(x);
+}
+template <>
+HDI double myTanh(double x) {
+  return tanh(x);
+}
+/** @} */
+
+/**
+ * @defgroup myATanh arctanh function
+ * @{
+ */
+template <typename T>
+HDI T myATanh(T x);
+template <>
+HDI float myATanh(float x) {
+  return atanhf(x);
+}
+template <>
+HDI double myATanh(double x) {
+  return atanh(x);
+}
+/** @} */
+
+/**
  * @defgroup LambdaOps Lambda operations in reduction kernels
  * @{
  */

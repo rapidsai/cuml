@@ -16,70 +16,50 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from cuml.dask.common.comms import default_comms
-
 from dask.distributed import Client, wait
 
 
-@pytest.mark.skip
-def test_end_to_end():
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [5, 10])
+@pytest.mark.parametrize("n_parts", [None, 50])
+def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
-    client = Client(cluster)
+    owns_cluster = False
+    if client is None:
+        owns_cluster = True
+        cluster = LocalCUDACluster(threads_per_worker=1)
+        client = Client(cluster)
 
-    # NOTE: The LocalCUDACluster needs to be started before any imports that
-    # could potentially create a CUDA context.
+    from cuml.dask.cluster import KMeans as cumlKMeans
+    from dask_ml.cluster import KMeans as dmlKMeans
 
-    import dask_cudf
+    from cuml.test.dask.utils import dask_make_blobs
 
-    import cudf
-    import numpy as np
+    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
+                                   cluster_std=0.1, verbose=True)
 
-    from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
+    wait(X_cudf)
 
-    def create_df(f, m, n):
-        X = np.random.uniform(-1, 1, (m, n))
-        ret = cudf.DataFrame([(i,
-                               X[:, i].astype(np.float32)) for i in range(n)],
-                             index=cudf.dataframe.RangeIndex(f * m,
-                                                             f * m + m, 1))
-        return ret
+    cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters)
+    daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters)
 
-    def get_meta(df):
-        ret = df.iloc[:0]
-        return ret
+    cumlModel.fit(X_cudf)
+    daskmlModel1.fit(X_df)
 
-    def build_dask_df(nrows, ncols):
-        workers = client.has_what().keys()
+    cumlLabels = cumlModel.predict(X_cudf)
+    daskmlLabels1 = daskmlModel1.predict(X_df)
 
-        # Create dfs on each worker (gpu)
-        dfs = [client.submit(create_df, n, nrows, ncols, workers=[worker])
-               for worker, n in list(zip(workers, list(range(len(workers)))))]
-        # Wait for completion
-        wait(dfs)
-        meta = client.submit(get_meta, dfs[0]).result()
-        return dask_cudf.from_delayed(dfs, meta=meta)
+    from sklearn.metrics import adjusted_rand_score
 
-    # Per gpu/worker
-    train_m = 500
-    train_n = 25
+    cumlPred = cumlLabels.compute().to_pandas().values
+    daskmlPred1 = daskmlLabels1.compute()
 
-    print("Building dask df")
-    X_df = build_dask_df(train_m, train_n)
+    score = adjusted_rand_score(cumlPred, daskmlPred1)
 
-    print("Building model")
-    cumlModel = cumlKMeans()
+    if owns_cluster:
+        client.close()
+        cluster.close()
 
-    print("Fitting model")
-    cumlModel.fit(X_df)
-
-    print("Predicting model")
-    cumlLabels = cumlModel.predict(X_df)
-
-    print(str(cumlLabels.compute()))
-
-    assert False
-
-    default_comms().destroy()
-    client.close()
-    cluster.close()
+    assert 1.0 == score
