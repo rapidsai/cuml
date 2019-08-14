@@ -16,6 +16,8 @@
 
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions
+import cudf
+import numpy as np
 
 from dask.distributed import default_client, wait
 
@@ -25,20 +27,44 @@ import random
 
 class RandomForestRegressor:
     """
-    Implements a multi-GPU Random Forest regressor model which
-    fits multiple decision tree classifiers in an ensemble.
+    Experimental API implementing a multi-GPU Random Forest classifier
+    model which fits multiple decision tree classifiers in an
+    ensemble. This uses Dask to partition data over multiple GPUs
+    (possibly on different nodes).
+
+    Currently, this API makes the following assumptions:
+     * The set of Dask workers used between instantiation, fit,
+       and predict are all consistent
+     * Training data is comes in the form of cuDF dataframes,
+       distributed so that each worker has at least one partition.
+
+    Future versions of the API will support more flexible data
+    distribution and additional input types. User-facing APIs are
+    expected to change in upcoming versions.
+
+    The distributed algorithm uses an embarrassingly-parallel
+    approach. For a forest with N trees being built on w workers, each
+    worker simply builds N/w trees on the data it has available
+    locally. In many cases, partitioning the data so that each worker
+    builds trees on a subset of the total dataset works well, but
+    it generally requires the data to be well-shuffled in advance.
+    Alternatively, callers can replicate all of the data across
+    workers so that rf.fit receives w partitions, each containing the
+    same data. This would produce results approximately identical to
+    single-GPU fitting.
 
     Please check the single-GPU implementation of Random Forest
-    regressor for more information about the algorithm.
+    classifier for more information about the underlying algorithm.
+
 
      Parameters
     -----------
     n_estimators : int (default = 10)
-                   number of trees in the forest.
+                   total number of trees in the forest (not per-worker)
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+                 0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
@@ -85,6 +111,9 @@ class RandomForestRegressor:
                       for mean square error' : 'mse'
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
+    workers : optional, list of strings
+              Dask addresses of workers to use for computation.
+              If None, all available Dask workers will be used.
     """
 
     def __init__(
@@ -116,6 +145,7 @@ class RandomForestRegressor:
         class_weight=None,
         quantile_per_tree=False,
         criterion=None,
+        workers=None
     ):
 
         unsupported_sklearn_params = {
@@ -146,8 +176,9 @@ class RandomForestRegressor:
         self.n_estimators_per_worker = list()
 
         c = default_client()
-        workers = c.has_what().keys()
-
+        if workers is None:
+            workers = c.has_what().keys()
+        self.workers = workers
         n_workers = len(workers)
         if n_estimators < n_workers:
             raise ValueError(
@@ -165,8 +196,6 @@ class RandomForestRegressor:
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
             )
-
-        ws = list(zip(workers, list(range(len(workers)))))
 
         self.rfs = {
             worker: c.submit(
@@ -191,7 +220,7 @@ class RandomForestRegressor:
                 random.random(),
                 workers=[worker],
             )
-            for worker, n in ws
+            for n, worker in enumerate(workers)
         }
 
         rfs_wait = list()
@@ -242,7 +271,16 @@ class RandomForestRegressor:
         )
 
     @staticmethod
-    def _fit(model, X_df, y_df, r):
+    def _fit(model, X_df_list, y_df_list, r):
+        if len(X_df_list) != len(y_df_list):
+            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
+                             len(X_df_list), len(y_df_list))
+        if len(X_df_list) == 1:
+            X_df = X_df_list[0]
+            y_df = y_df_list[0]
+        else:
+            X_df = cudf.concat(X_df_list)
+            y_df = cudf.concat(y_df_list)
         return model.fit(X_df, y_df)
 
     @staticmethod
@@ -251,24 +289,59 @@ class RandomForestRegressor:
 
     def fit(self, X, y):
         """
-        Fit the input data to Random Forest classifier
+        Fit the input data with a Random Forest regression model
 
+        IMPORTANT: X is expected to be partitioned with at least one partition
+        on each Dask worker being used by the forest (self.workers).
+
+        When persisting data, you can use
+        cuml.dask.common.utils.persist_across_workers to simplify this::
+
+            X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
+            y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
+            X_dask_cudf, y_dask_cudf = persist_across_workers(dask_client,
+                                                              [X_dask_cudf,
+                                                               y_dask_cudf])
+
+        (this is equivalent to calling `persist` with the data and workers)::
+            X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
+                                                            y_dask_cudf],
+                                                           workers={
+                                                           X_dask_cudf=workers,
+                                                           y_dask_cudf=workers
+                                                           })
         Parameters
         ----------
         X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Features of training examples.
+
         y : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
+            y must be partitioned the same way as X
         """
         c = default_client()
 
         X_futures = c.sync(extract_ddf_partitions, X)
-        y_futures = dict(c.sync(extract_ddf_partitions, y))
+        y_futures = c.sync(extract_ddf_partitions, y)
+
+        X_partition_workers = [w for w, xc in X_futures.items()]
+        y_partition_workers = [w for w, xc in y_futures.items()]
+
+        if set(X_partition_workers) != set(self.workers) or \
+           set(y_partition_workers) != set(self.workers):
+            raise ValueError("""
+              X is not partitioned on the same workers expected by RF\n
+              X workers: %s\n
+              y workers: %s\n
+              RF workers: %s
+            """ % (str(X_partition_workers),
+                   str(y_partition_workers),
+                   str(self.workers)))
 
         f = list()
-        for w, xc in X_futures:
+        for w, xc in X_futures.items():
             f.append(
                 c.submit(
                     RandomForestRegressor._fit,
@@ -286,27 +359,28 @@ class RandomForestRegressor:
 
     def predict(self, X):
         """
-        Predicts the labels for X.
+        Predicts the regressor outputs for X.
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         Returns
         ----------
         y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
+           Dense vector (float) of shape (n_samples, 1)
 
         """
         c = default_client()
-        workers = c.has_what().keys()
-        ws = list(zip(workers, list(range(len(workers)))))
+        workers = self.workers
+
+        if not isinstance(X, np.ndarray):
+            raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
 
         f = list()
-        for w, n in ws:
+        for n, w in enumerate(workers):
             f.append(
                 c.submit(
                     RandomForestRegressor._predict,

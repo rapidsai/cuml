@@ -179,7 +179,7 @@ class LogisticRegression(Base):
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
@@ -195,10 +195,16 @@ class LogisticRegression(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
+
         """
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
+        # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
         try:
@@ -238,7 +244,7 @@ class LogisticRegression(Base):
                      max_iter=self.max_iter, tol=self.tol,
                      verbose=self.verbose, handle=self.handle)
 
-        self.qn.fit(X, y_m)
+        self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if self.fit_intercept:
@@ -249,7 +255,7 @@ class LogisticRegression(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
@@ -260,10 +266,15 @@ class LogisticRegression(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        return self.qn.predict(X)
+        return self.qn.predict(X, convert_dtype=convert_dtype)
