@@ -38,6 +38,45 @@ cdef extern from "ts/batched_kalman.h":
                                vector[double]& Tma)
 
 
+def unpack(p, q, nb, np.ndarray[double, ndim=1] x):
+    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
+    pynvtx_range_push("unpack(x) -> (ar,ma,mu)")
+    num_parameters = 1 + p + q
+    mu = np.zeros(nb)
+    ar = []
+    ma = []
+    for i in range(nb):
+        xi = x[i*num_parameters:(i+1)*num_parameters]
+        mu[i] = xi[0]
+        ar.append(xi[1:p+1])
+        ma.append(xi[p+1:])
+
+    pynvtx_range_pop()
+    return (mu, ar, ma)
+
+
+def pack(p, q, nb, mu, ar, ma):
+    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
+    pynvtx_range_push("pack(ar,ma,mu) -> x")
+    num_parameters = 1 + p + q
+    x = np.zeros(num_parameters*nb)
+    for i in range(nb):
+        xi = np.zeros(num_parameters)
+        if mu[i]:
+            xi[0] = mu[i]
+        
+        for j in range(p):
+            xi[j+1] = ar[i][j]
+        for j in range(q):
+            xi[j+p+1] = ma[i][j]
+        # xi = np.array([mu[i]])
+        # xi = np.r_[xi, ar[i]]
+        # xi = np.r_[xi, ma[i]]
+        x[i*num_parameters:(i+1)*num_parameters] = xi
+
+    pynvtx_range_pop()
+    return x
+
 def batched_transform(p, q, nb, ar, ma, isInv):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
