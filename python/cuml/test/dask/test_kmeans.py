@@ -20,7 +20,6 @@ from dask.distributed import Client, wait
 
 
 @pytest.mark.mg
-
 @pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [5, 10])
