@@ -58,7 +58,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Get device properites
   //---------------------------------------------------
-  int blocks = MLCommon::getMultiProcessorCount();
+  const int blocks = MLCommon::getMultiProcessorCount();
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -134,7 +134,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   float *YY =
     (float *)d_alloc->allocate(sizeof(float) * (nnodes + 1) * 2, stream);
-  random_vector(YY, -100.0f, 100.0f, (nnodes + 1) * 2, stream, random_state);
+  random_vector(YY, -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, random_state);
   ASSERT(YY != NULL && rep_forces != NULL, "[ERROR] Possibly no more memory");
 
   // Set cache levels for faster algorithm execution
@@ -260,6 +260,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
   thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
                YY + nnodes + 1 + n, Y_begin + n);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   // Deallocate everything
   d_alloc->deallocate(errl, sizeof(int), stream);
@@ -293,6 +294,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
 
   d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace TSNE
