@@ -43,7 +43,6 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c nvidia nccl
 
 logger "Check versions..."
 python --version
@@ -74,6 +73,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 ################################################################################
 
 logger "Build conda pkg for libcuml..."
+conda install -c nvidia nccl
 source ci/cpu/libcuml/build_libcuml.sh
 
 logger "Build conda pkg for cuml..."
