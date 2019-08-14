@@ -89,8 +89,8 @@ class NearestNeighbors(Base):
     from a given set of datapoints. Currently, cuML supports k-NN queries,
     which define the neighborhood as the closest `k` neighbors to each query
     point.
-    Note: Should_downcast will be deprecated in 0.10, please use the
-        convert_dtypes variable
+    Note: Should_downcast is deprecated and will be removed in 0.10,
+        please use the convert_dtypes variable instead.
     Examples
     ---------
     .. code-block:: python
