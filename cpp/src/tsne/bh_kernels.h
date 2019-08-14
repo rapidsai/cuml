@@ -84,9 +84,11 @@ __global__ void Find_Normalization(float *restrict Z_norm, const float N) {
 
 #define BOUNDSCHECK(x, max) \
   if (x >= max || x < 0) { \
-    while (1) \
+    /*while (1)*/ \
       printf("Bounds over at line %d = [%d,%d]", __LINE__, x, max); \
-    return; \
+      printf("Bounds over at line %d = [%d,%d]", __LINE__, x, max); \
+      printf("Bounds over at line %d = [%d,%d]", __LINE__, x, max); \
+    /* return; \ */ \
   }
 
 
@@ -112,6 +114,7 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
   const int i = threadIdx.x;
   const int inc = THREADS1 * gridDim.x;
   for (int j = i + blockIdx.x * THREADS1; j < N; j += inc) {
+    BOUNDSCHECK(j, NNODES + 1);
     val = posxd[j];
     if (val < minx)
       minx = val;
@@ -126,6 +129,7 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
   }
 
   // reduction in shared memory
+  BOUNDSCHECK(i, THREADS1);
   sminx[i] = minx;
   smaxx[i] = maxx;
   sminy[i] = miny;
@@ -135,6 +139,7 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
     __syncthreads();
     if (i >= j) break;
     const int k = i + j;
+    BOUNDSCHECK(k, THREADS1);
     sminx[i] = minx = fminf(minx, sminx[k]);
     smaxx[i] = maxx = fmaxf(maxx, smaxx[k]);
     sminy[i] = miny = fminf(miny, sminy[k]);
@@ -144,6 +149,7 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
   // write block result to global memory
   if (i == 0) {
     const int k = blockIdx.x;
+    BOUNDSCHECK(k, THREADS1);
     minxd[k] = minx;
     maxxd[k] = maxx;
     minyd[k] = miny;
@@ -155,6 +161,7 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
 
     // I'm the last block, so combine all block results
     for (int j = 0; j <= inc; j++) {
+      BOUNDSCHECK(j, THREADS1);
       minx = fminf(minx, minxd[j]);
       maxx = fmaxf(maxx, maxxd[j]);
       miny = fminf(miny, minyd[j]);
@@ -169,8 +176,10 @@ __global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
     posxd[NNODES] = (minx + maxx) * 0.5f;
     posyd[NNODES] = (miny + maxy) * 0.5f;
 
-    for (int a = 0; a < 4; a++)
+    for (int a = 0; a < 4; a++) {
+      BOUNDSCHECK(FOUR_NNODES + a, (NNODES + 1) * 4);
       childd[FOUR_NNODES + a] = -1;
+    }
 
     atomicAdd(stepd, 1);
   }
@@ -242,6 +251,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     }
 
     // follow path to leaf cell
+    BOUNDSCHECK(n*4 + j, (NNODES + 1) * 4);
     ch = childd[n * 4 + j];
     while (ch >= N) {
       n = ch;
@@ -260,10 +270,12 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
       }
       x += dx;
       y += dy;
+      BOUNDSCHECK(n*4 + j, (NNODES + 1) * 4);
       ch = childd[n * 4 + j];
     }
     if (ch != -2) {  // skip if child pointer is locked and try again later
       locked = n * 4 + j;
+      BOUNDSCHECK(locked, (NNODES + 1) * 4);
       if (ch == -1) {
         if (-1 == atomicCAS(&childd[locked], -1, i)) {
 
@@ -275,6 +287,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
         }
       }
       else {
+        BOUNDSCHECK(locked, (NNODES + 1) * 4);
         if (ch == atomicCAS(&childd[locked], ch, -2)) {  // try to lock
           patch = -1;
 
@@ -288,6 +301,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
             }
 
             if (patch != -1) {
+              BOUNDSCHECK(n * 4 + j, (NNODES + 1) * 4);
               childd[n * 4 + j] = cell;
             }
 
@@ -295,9 +309,11 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
               patch = cell;
 
             j = 0;
+            BOUNDSCHECK(ch, (NNODES + 1));
             if (x < posxd[ch]) j = 1;
             if (y < posyd[ch]) j |= 2;
 
+            BOUNDSCHECK(cell * 4 + j, (NNODES + 1) * 4);
             childd[cell * 4 + j] = ch;
             n = cell;
             r *= 0.5f;
@@ -314,10 +330,12 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
             x += dx;
             y += dy;
 
+            BOUNDSCHECK(n * 4 + j, (NNODES + 1) * 4);
             ch = childd[n * 4 + j];
             if (r <= 1e-10) break;
           }
 
+          BOUNDSCHECK(n * 4 + j, (NNODES + 1) * 4);
           childd[n * 4 + j] = i;
 
           if (depth > localmaxdepth)
@@ -331,6 +349,7 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
     __threadfence();
 
     if (skip == 2) {
+      BOUNDSCHECK(locked, (NNODES + 1) * 4);
       childd[locked] = patch;
     }
   }
@@ -382,15 +401,20 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   for (int j = 0; j < 5; j++) {  // wait-free pre-passes
     // iterate over all cells assigned to thread
     while (k <= NNODES) {
+      BOUNDSCHECK(k, (NNODES + 1));
 
       if (massd[k] < 0.0f) {
         for (int i = 0; i < 4; i++) {
 
+          BOUNDSCHECK(k * 4 + i, (NNODES + 1) * 4);
           const int ch = childd[k * 4 + i];
 
+          BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
           child[i * THREADS3 + threadIdx.x] = ch;
 
           if (ch >= N) {
+            BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
+            BOUNDSCHECK(ch, (NNODES + 1));
             if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) < 0)
               goto CONTINUE_LOOP;
           }
@@ -404,9 +428,11 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
         for (int i = 0; i < 4; i++) {
 
+          BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
           const int ch = child[i * THREADS3 + threadIdx.x];
           if (ch >= 0) {
 
+            BOUNDSCHECK(ch, (NNODES + 1));
             const float m =
               (ch >= N) ? (cnt += countd[ch], mass[i * THREADS3 + threadIdx.x])
                         : (cnt++, massd[ch]);
@@ -434,6 +460,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   // iterate over all cells assigned to thread
   while (k <= NNODES) {
 
+    BOUNDSCHECK(k, (NNODES + 1));
     if (massd[k] >= 0.0f)
       k += inc;
 
@@ -443,14 +470,17 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
         for (int i = 0; i < 4; i++) {
 
+          BOUNDSCHECK(k * 4 + i, (NNODES + 1)*4);
           const int ch = childd[k * 4 + i];
 
+          BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
           child[i * THREADS3 + threadIdx.x] = ch;
           if (ch < N) {
             j--;
             continue;
           }
 
+          BOUNDSCHECK(ch, (NNODES + 1));
           if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
             j--;
         }
@@ -460,6 +490,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
         for (int i = 0; i < 4; i++) {
 
+          BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
           const int ch = child[i * THREADS3 + threadIdx.x];
 
           if ((ch < N) or (mass[i * THREADS3 + threadIdx.x] >= 0)) {
@@ -467,6 +498,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
             continue;
           }
 
+          BOUNDSCHECK(ch, (NNODES + 1));
           if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
             j--;
 
@@ -482,9 +514,11 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
         for (int i = 0; i < 4; i++) {
 
+          BOUNDSCHECK(i * THREADS3 + threadIdx.x, THREADS3 * 4);
           const int ch = child[i * THREADS3 + threadIdx.x];
           if (ch >= 0) {
 
+            BOUNDSCHECK(ch, (NNODES + 1));
             const float m =
               (ch >= N) ? (cnt += countd[ch], mass[i * THREADS3 + threadIdx.x])
                         : (cnt++, massd[ch]);
@@ -524,15 +558,18 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
   // iterate over all cells assigned to thread
   while (k >= bottom) {
 
+    BOUNDSCHECK(k, (NNODES + 1));
     int start = startd[k];
     if (start >= 0) {
       int j = 0;
 
       for (int i = 0; i < 4; i++) {
 
+        BOUNDSCHECK(k * 4 + i, (NNODES + 1)*4);
         const int ch = childd[k * 4 + i];
         if (ch >= 0) {
           if (i != j) {
+            BOUNDSCHECK(k * 4 + j, (NNODES + 1)*4);
             // move children to front (needed later for speed)
             childd[k * 4 + i] = -1;
             childd[k * 4 + j] = ch;
@@ -540,11 +577,13 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
           j++;
           if (ch >= N) {
             // child is a cell
+            BOUNDSCHECK(ch, (NNODES + 1));
             startd[ch] = start;   // set start ID of child
             start += countd[ch];  // add #bodies in subtree
           }
           else {
             // child is a body
+            BOUNDSCHECK(start, (NNODES + 1));
             sortd[start] = ch;  // record body in 'sorted' array
             start++;
           }
@@ -576,6 +615,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
   if (threadIdx.x == 0) {
     dq[0] = __fdividef(radiusd_squared[0], theta_squared);
 
+    BOUNDSCHECK(max_depth - 1, 32 * THREADS5 / 32);
     for (int i = 1; i < max_depth; i++) {
       dq[i] = dq[i - 1] * 0.25f;
       dq[i - 1] += epssqd;
@@ -598,6 +638,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
     // make multiple copies to avoid index calculations later
 
     if (diff < 32) {
+      BOUNDSCHECK(diff + jj, 32 * THREADS5 / 32);
       dq[diff + jj] = dq[diff];
     }
 
@@ -609,6 +650,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
       const int i = sortd[k];  // get permuted/sorted index
       // cache position info
 
+      BOUNDSCHECK(i, FOUR_NNODES/4+1);
       const float px = posxd[i];
       const float py = posyd[i];
 
@@ -620,21 +662,25 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
       depth = jj;
 
       if (sbase == threadIdx.x) {
+        BOUNDSCHECK(jj, 32 * THREADS5 / 32);
         pos[jj] = 0;
         node[jj] = FOUR_NNODES;
       }
 
       do {
         // stack is not empty
+        BOUNDSCHECK(depth, 32 * THREADS5 / 32);
         pd = pos[depth];
         nd = node[depth];
         while (pd < 4) {
 
+          BOUNDSCHECK(nd + pd, (FOUR_NNODES/4+1)*4);
           const int n = childd[nd + pd];  // load child pointer
           pd++;
 
           if (n >= 0) {
 
+            BOUNDSCHECK(n, (FOUR_NNODES/4+1));
             const float dx = px - posxd[n];
             const float dy = py - posyd[n];
             float dxy = dx * dx + dy * dy + epssqd; 
@@ -669,6 +715,7 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void RepulsionKernel(
       } while (depth >= jj);
 
       if (stepd_ >= 0) {
+        BOUNDSCHECK(i, FOUR_NNODES/4+1);
         // update velocity
         velxd[i] += vx;
         velyd[i] += vy;
