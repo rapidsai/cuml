@@ -10,8 +10,8 @@ dependencies:
 - cmake=3.14.5
 - numba=0.44*
 # - cupy>=6*
-- cudf=0.8*
-- rmm=0.8*
+- cudf=0.10*
+- rmm=0.10*
 - cython>=0.29,<0.30
 - pytest>=4.6
 - scikit-learn>=0.21
@@ -20,5 +20,5 @@ dependencies:
 - dask
 - distributed
 - dask-ml
-- dask-cuda=0.8*
-- dask-cudf=0.8*
+- dask-cuda=0.10*
+- dask-cudf=0.10*
