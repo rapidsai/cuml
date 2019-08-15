@@ -7,6 +7,7 @@ if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
   CUDA_REL=${CUDA_VERSION%.*}
 
   conda clean -i
+  conda search --info nccl=2.4
 
   if [ "$BUILD_ABI" == "1" ]; then
     conda build conda/recipes/libcuml --python=${PYTHON}
