@@ -42,6 +42,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
     else:
         print('use random data')
         X = np.random.rand(nrows, ncols)
+        y = np.random.rand(nrows, 1)
 
     df_X = pd.DataFrame({'fea%d' % i: X[:, i] for i in range(X.shape[1])})
     df_y = pd.DataFrame({'fea%d' % i: y[:, i] for i in range(y.shape[1])})
