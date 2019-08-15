@@ -109,8 +109,8 @@ class KMeans(object):
             from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         except ImportError:
             raise Exception("cuML has not been built with multiGPU support "
-                        "enabled. Build with the --multigpu flag to enable"
-                        " multiGPU support.")
+                            "enabled. Build with the --multigpu flag to"
+                            " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
 
