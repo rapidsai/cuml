@@ -41,6 +41,20 @@ def test_comms_init_no_p2p():
     assert cb.nccl_initialized is True
     assert cb.ucx_initialized is False
 
+    cb.destroy()
+
+
+def test_comms_init_p2p_no_ucx():
+
+    cluster = LocalCUDACluster()
+    client = Client(cluster)   # noqa
+
+    cb = CommsContext(comms_p2p=True)
+    cb.init()
+
+    assert cb.nccl_initialized is True
+    assert cb.ucx_initialized is False
+
 
 def func_test_allreduce(sessionId, r):
     handle = worker_state(sessionId)["handle"]
@@ -52,6 +66,7 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
+@pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
@@ -64,6 +79,7 @@ def test_default_comms_no_exist():
     cluster.close()
 
 
+@pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
