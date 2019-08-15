@@ -185,9 +185,9 @@ class TSNE(Base):
                  str init='random',
                  int verbose=0,
                  random_state=None,
-                 str method='barnes_hut',
+                 str method='exact',
                  float angle=0.5,
-                 str learning_rate_method='adaptive',
+                 str learning_rate_method='None',
                  int n_neighbors=90,
                  int perplexity_max_iter=100,
                  int exaggeration_iter=250,
@@ -394,7 +394,7 @@ class TSNE(Base):
                  <long long> seed,
                  <bool> self.verbose,
                  <bool> True,
-                 <bool> True)
+                 <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
         del _X

@@ -89,7 +89,8 @@ class NearestNeighbors(Base):
     from a given set of datapoints. Currently, cuML supports k-NN queries,
     which define the neighborhood as the closest `k` neighbors to each query
     point.
-
+    Note: Should_downcast is deprecated and will be removed in 0.10,
+        please use the convert_dtypes variable instead.
     Examples
     ---------
     .. code-block:: python
@@ -156,7 +157,7 @@ class NearestNeighbors(Base):
     n_neighbors: int (default = 5)
         The top K closest datapoints you want the algorithm to return.
         Currently, this value must be < 1024.
-    should_downcast : bool (default = False)
+    should_downcast : bool (default = None)
         Currently only single precision is supported in the underlying undex.
         Setting this to true will allow single-precision input arrays to be
         automatically downcasted to single precision.
@@ -171,13 +172,13 @@ class NearestNeighbors(Base):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     def __init__(self, n_neighbors=5, n_gpus=1, devices=None,
-                 verbose=False, should_downcast=True, handle=None):
+                 verbose=False, should_downcast=None, handle=None):
         """
         Construct the NearestNeighbors object for training and querying.
 
         Parameters
         ----------
-        should_downcast: bool (default = False)
+        should_downcast: bool (default = None)
             Currently only single precision is supported in the underlying
             index. Setting this to true will allow single-precision input
             arrays to be automatically downcasted to single precision.
@@ -250,7 +251,7 @@ class NearestNeighbors(Base):
 
         self.__dict__.update(state)
 
-    def fit(self, X, convert_dtype=False):
+    def fit(self, X, convert_dtype=True):
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -261,12 +262,16 @@ class NearestNeighbors(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+            Note: Convert dtype will be set to False once should_downcast is
+                deprecated in 0.10
         """
 
         if self._should_downcast:
             warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
+                          "convert_dtype in fit and kneighbors "
                           " methods instead. ")
             convert_dtype = True
 
@@ -296,7 +301,7 @@ class NearestNeighbors(Base):
                 else:
                     raise TypeError("Only single precision floating point is"
                                     " supported for this algorithm. Use "
-                                    "'should_downcast=True' if you'd like it "
+                                    "'convert_dtype=True' if you'd like it "
                                     "to be automatically casted to single "
                                     "precision.")
 
@@ -392,7 +397,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = n_dims
 
-    def kneighbors(self, X, k=None, convert_dtype=False):
+    def kneighbors(self, X, k=None, convert_dtype=True):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -406,6 +411,12 @@ class NearestNeighbors(Base):
         k: Integer
             Number of neighbors to search
 
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the kneighbors method will automatically
+            convert the inputs to np.float32.
+            Note: Convert dtype will be set to False once should_downcast is
+                deprecated in 0.10
         Returns
         ----------
         distances: cuDF DataFrame or numpy ndarray
@@ -421,8 +432,9 @@ class NearestNeighbors(Base):
 
         if self._should_downcast:
             warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
+                          "convert_dtype in fit and kneighbors"
                           " methods instead. ")
+
             convert_dtype = True
 
         X_m, X_ctype, N, _, dtype = \
