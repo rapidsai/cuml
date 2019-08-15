@@ -73,6 +73,7 @@
 - PR #988: Switch to exact tsne
 - PR #991: Cleanup python code in cuml.dask.cluster
 - PR #996: ucx_initialized being properly set in CommsContext
+- PR #1007: Throws a well defined error when mutigpu is not enabled
 
 # cuML 0.8.0 (27 June 2019)
 
