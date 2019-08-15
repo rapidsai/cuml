@@ -68,6 +68,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 ################################################################################
 
 logger "Build conda pkg for libcuml..."
+conda clean -i
 source ci/cpu/libcuml/build_libcuml.sh
 
 logger "Build conda pkg for cuml..."
