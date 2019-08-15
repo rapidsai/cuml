@@ -404,11 +404,9 @@ SummarizationKernel(int *restrict countd,
         for (int i = 0; i < 4; i++) {
 
           const int ch = childd[k * 4 + i];
-
           child[i * THREADS3 + threadIdx.x] = ch;
 
-          if (ch >= N) {
-            if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) < 0)
+          if ((ch >= N) and ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) < 0)) {
               goto CONTINUE_LOOP;
           }
         }
@@ -467,13 +465,10 @@ SummarizationKernel(int *restrict countd,
         const int ch = childd[k * 4 + i];
 
         child[i * THREADS3 + threadIdx.x] = ch;
-        if (ch < N) {
+        if ((ch < N) or \
+           ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)) {
           j--;
-          continue;
         }
-
-        if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
-          j--;
       }
     }
     else {
@@ -483,13 +478,11 @@ SummarizationKernel(int *restrict countd,
 
         const int ch = child[i * THREADS3 + threadIdx.x];
 
-        if ((ch < N) or (mass[i * THREADS3 + threadIdx.x] >= 0)) {
+        if ((ch < N) or \
+           (mass[i * THREADS3 + threadIdx.x] >= 0) or \
+           ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)) {
           j--;
-          continue;
         }
-
-        if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
-          j--;
 
       }
     }
