@@ -93,30 +93,26 @@ def test_rf_classification(datatype, split_algo,
             assert cu_acc >= (sk_acc - 0.07)
 
 
-@pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
-                         stress_param('stress')])
+@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+                         stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
-def test_rf_regression(datatype, use_handle, split_algo,
-                       n_info, mode, ncols):
-
-    if mode == 'unit':
-        X, y = make_regression(n_samples=30, n_features=ncols,
+@pytest.mark.parametrize('max_depth', [-1, 1, 16])
+def test_rf_regression(datatype, nrows, split_algo,
+                       n_info, max_depth, ncols):
+    use_handle = True
+    if max_depth < 0:
+        pytest.xfail("Unlimited depth not supported")
+ 
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
-    elif mode == 'quality':
-        X, y = fetch_california_housing(return_X_y=True)
-
-    else:
-        X, y = make_regression(n_samples=100000, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
-
+       
     train_rows = np.int32(X.shape[0]*0.8)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(datatype)
@@ -132,13 +128,13 @@ def test_rf_regression(datatype, use_handle, split_algo,
                        n_bins=8, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=25, accuracy_metric='mse')
+                       max_depth=max_depth, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     cu_mse = cuml_model.score(X_test, y_test)
-    if mode != 'stress':
+    if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, max_depth=10,
+        sk_model = skrfr(n_estimators=50, max_depth=(max_depth if max_depth > 0 else None),
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
@@ -146,4 +142,5 @@ def test_rf_regression(datatype, use_handle, split_algo,
         sk_mse = mean_squared_error(y_test, sk_predict)
 
         # compare the accuracy of the two models
-        assert cu_mse <= (sk_mse + 0.07)
+        if max_depth > 1:
+            assert cu_mse <= (sk_mse + 0.07)
