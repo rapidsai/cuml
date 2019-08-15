@@ -79,13 +79,13 @@ class TSNE(Base):
     music analysis and neural network weight visualizations.
 
     The current cuML TSNE implementation is a first experimental release. It
-    defaults to use the 'exact' fitting algorithm, which is signficantly slower
-    then the Barnes-Hut algorithm as data sizes grow. A preview implementation
-    of Barnes-Hut (derived from CannyLabs' BH open source CUDA code) is also
-    available for problems with n_components = 2, though this implementation
-    currently has outstanding issues that can lead to crashes in rare scenarios.
-    Future releases of TSNE will fix these issues (tracked as cuML Issue #1002)
-    and switch Barnes-Hut to be the default.
+    defaults to use the 'exact' fitting algorithm, which is signficantly
+    slower then the Barnes-Hut algorithm as data sizes grow. A preview
+    implementation of Barnes-Hut (derived from CannyLabs' BH open source CUDA
+    code) is also available for problems with n_components = 2, though this
+    implementation currently has outstanding issues that can lead to crashes
+    in rare scenarios. Future releases of TSNE will fix these issues (tracked
+    as cuML Issue #1002) and switch Barnes-Hut to be the default.
 
     Parameters
     ----------
