@@ -34,6 +34,7 @@ requirements:
     - libclang
   run:
     - cudf {{ minor_version }}
+    - nccl >=2,<3
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
