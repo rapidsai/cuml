@@ -70,7 +70,6 @@
 - PR #908: Fix local build generated file ownerships
 - PR #983: Change RF max_depth default to 16
 - PR #988: Switch to exact tsne
-- PR #990: Fix Barnes Hut Memory Issues
 
 # cuML 0.8.0 (27 June 2019)
 
