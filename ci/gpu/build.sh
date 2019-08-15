@@ -22,13 +22,13 @@ export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
 
-# Set versions of packages needed to be grabbed
-export CUDF_VERSION=0.8.*
-export NVSTRINGS_VERSION=0.8.*
-export RMM_VERSION=0.8.*
-
 # Set home to the job's workspace
 export HOME=$WORKSPACE
+
+# Parse git describei
+cd $WORKSPACE
+export GIT_DESCRIBE_TAG=`git describe --tags`
+export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 ################################################################################
 # SETUP - Check environment
@@ -42,18 +42,26 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      cudf=${CUDF_VERSION} \
-      rmm=${RMM_VERSION} \
-      nvstrings=${NVSTRINGS_VERSION} \
-      lapack cmake==3.14.3 \
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+      cudf=${MINOR_VERSION} \
+      rmm=${MINOR_VERSION} \
+      nvstrings=${MINOR_VERSION} \
+      libcumlprims=${MINOR_VERSION} \
+      lapack \
+      cmake==3.14.3 \
       umap-learn \
-      libclang \
       nccl>=2.4 \
       dask \
       distributed \
-      dask-cudf \
-      dask-cuda
+      dask-ml \
+      dask-cudf=${MINOR_VERSION} \
+      dask-cuda=${MINOR_VERSION} \
+      statsmodels \
+      xgboost=0.90.rapidsdev1
+
+# installing libclang separately so it doesn't get installed from conda-forge
+conda install -c rapidsai \
+      libclang
 
 logger "Check versions..."
 python --version
@@ -66,7 +74,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims -v
+$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -83,11 +91,6 @@ nvidia-smi
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
-
-# Disabled while CI/the test become compatible
-# logger "GoogleTest for libcuml mg..."
-# cd $WORKSPACE/cpp/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
