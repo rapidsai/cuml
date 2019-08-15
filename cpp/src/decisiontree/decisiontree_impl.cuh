@@ -231,7 +231,6 @@ void DecisionTreeBase<T, L>::plant(
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
   total_temp_mem = tempmem->totalmem;
-  MetricInfo<T> split_info;
   MLCommon::TimerCPU timer;
   grow_deep_tree(data, labels, rowids, feature_selector, n_sampled_rows, ncols,
                  dinfo.NLocalrows, sparsetree, tempmem);

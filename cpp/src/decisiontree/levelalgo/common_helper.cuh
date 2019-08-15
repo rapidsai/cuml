@@ -25,7 +25,6 @@ void get_minmax(const T *data, const unsigned int *flags,
                 T *h_minmax, cudaStream_t &stream) {
   using E = typename MLCommon::Stats::encode_traits<T>::E;
   T init_val = std::numeric_limits<T>::max();
-  init_val = 100;
   int threads = 128;
   int nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
   minmax_init_kernel<T, E><<<nblocks, threads, 0, stream>>>(

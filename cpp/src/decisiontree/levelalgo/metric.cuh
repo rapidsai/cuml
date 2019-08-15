@@ -19,12 +19,12 @@
 #include "metric_def.h"
 
 template <class T>
-__device__ __forceinline__ T SquareFunctor::exec(T x) {
+DI T SquareFunctor::exec(T x) {
   return MLCommon::myPow(x, (T)2);
 }
 
 template <class T>
-__device__ __forceinline__ T AbsFunctor::exec(T x) {
+DI T AbsFunctor::exec(T x) {
   return MLCommon::myAbs(x);
 }
 
@@ -53,4 +53,3 @@ float EntropyFunctor::exec(std::vector<int> &hist, int nrows) {
   }
   return (-1 * eval);
 }
-
