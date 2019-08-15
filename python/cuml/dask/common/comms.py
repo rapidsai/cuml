@@ -417,7 +417,9 @@ class CommsContext:
                         wait=True)
 
         self.nccl_initialized = True
-        self.ucx_initialized = True
+
+        if self.comms_p2p:
+            self.ucx_initialized = True
 
     def destroy(self):
         """
