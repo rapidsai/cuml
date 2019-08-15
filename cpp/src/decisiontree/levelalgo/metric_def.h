@@ -19,50 +19,16 @@
 #include <utils.h>
 #include <vector>
 #include "../memory.h"
-
-template <class T>
-struct MetricQuestion {
-  int bootstrapped_column;
-  int original_column;
-  T value;
-
-  /*
-	   delta = (max - min) /nbins
-	   base_ques_val = min + delta
-	   value = base_ques_val + batch_id * delta.
-
-	We need to ensure the question value is always computed on the GPU. Otherwise, the flag_kernel
-	called via make_split would make a split that'd be inconsistent with the one that
-	produced the histograms during the gini computation. This issue arises when there is
-	a data value close to the question that gets split differently in gini than in
-	flag_kernel.
-	*/
-  int batch_id;
-  T min, max;
-  int nbins;
-  int ncols;
-
-  void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id,
-                           int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max,
-                           T cfg_value);
-};
-
-template <class T>
-struct MetricInfo {
-  float best_metric = -1.0f;
-  T predict = 0;
-  std::vector<int>
-    hist;  //Element hist[i] stores # labels with label i for a given node. for classification
-};
+#include "cuda_utils.h"
 
 struct SquareFunctor {
   template <typename T>
-  static __device__ __forceinline__ T exec(T x);
+  static DI T exec(T x);
 };
 
 struct AbsFunctor {
   template <typename T>
-  static __device__ __forceinline__ T exec(T x);
+  static DI T exec(T x);
 };
 
 struct GiniFunctor {

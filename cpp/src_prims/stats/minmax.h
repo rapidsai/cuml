@@ -35,22 +35,22 @@ struct encode_traits<double> {
   using E = long long;
 };
 
-__host__ DI int encode(float val) {
+HDI int encode(float val) {
   int i = *(int*)&val;
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
-__host__ DI long long encode(double val) {
+HDI long long encode(double val) {
   long long i = *(long long*)&val;
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
-__host__ DI float decode(int val) {
+HDI float decode(int val) {
   if (val < 0) val = (1 << 31) | ~val;
   return *(float*)&val;
 }
 
-__host__ DI double decode(long long val) {
+HDI double decode(long long val) {
   if (val < 0) val = (1ULL << 63) | ~val;
   return *(double*)&val;
 }
