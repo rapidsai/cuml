@@ -30,13 +30,13 @@ requirements:
     - cmake>=3.14
     - cudf {{ version }}
     - libcuml={{ version }}
-    - libcumlprims {{ version }}
+    - libcumlprims=0.9
     - cudatoolkit {{ cuda_version }}.*
   run:
     - python x.x
     - cudf {{ version }}
     - libcuml={{ version }}
-    - libcumlprims {{ version }}
+    - libcumlprims=0.9
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
