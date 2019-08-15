@@ -18,7 +18,7 @@
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
 # cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False, initializedcheck = False
+# cython: boundscheck = False, wraparound = False
 
 import cudf
 import cuml
@@ -118,7 +118,7 @@ class TSNE(Base):
     angle : float (default 0.5)
         Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
         closer to one indicates full accuracy but slower speeds.
-    learning_rate_method : str 'adaptive' or 'none' or None (default 'adaptive')
+    learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. Uses a special adpative method that tunes
         the learning rate, early exaggeration and perplexity automatically
         based on input size.
