@@ -43,9 +43,6 @@
 #include <math.h>
 #include "utils.h"
 
-#define __greaterzero(x)  signbit(x) == 0
-#define __lesszero(x)     signbit(x) != 0
-
 namespace ML {
 namespace TSNE {
 
@@ -250,7 +247,6 @@ TreeBuildingKernel(int *restrict errd,
   register int i, j, depth, localmaxdepth, skip;
   register float x, y, r;
   register float px, py;
-  register float dx, dy;
   register int ch, n, locked, patch;
   int counter = 0;
 
@@ -269,50 +265,44 @@ TreeBuildingKernel(int *restrict errd,
     if (skip != 0) {
       // new body, so start traversing at root
       skip = 0;
-      px = posxd[i];
-      py = posyd[i];
       n = NNODES;
       depth = 1;
-      r = radius * 0.5f;
-      dx = dy = -r;
-      j = 0;
-      // determine which child to follow
-      if (rootx < px) {
-        j = 1;
-        dx = r;
-      }
-      if (rooty < py) {
-        j |= 2;
-        dy = r;
-      }
-      x = rootx + dx;
-      y = rooty + dy;
+      r = radius * 0.5f; 
+
+      x = rootx + (
+            (rootx < (px = posxd[i])) ? \
+            (j = 1, r) : (j = 0, -r)
+          );
+      
+      y = rooty + (
+            (rooty < (py = posyd[i])) ? \
+            (j |= 2, r) : (-r)
+          );
     }
 
     // follow path to leaf cell
     BOUNDSCHECK(n*4 + j, (NNODES + 1) * 4);
-    ch = childd[n * 4 + j];
-    while (ch >= N) {
+    while ((ch = childd[n * 4 + j]) >= N) {
       n = ch;
       depth++;
       r *= 0.5f;
-      dx = dy = -r;
-      j = 0;
+
       // determine which child to follow
-      if (x < px) {
-        j = 1;
-        dx = r;
-      }
-      if (y < py) {
-        j |= 2;
-        dy = r;
-      }
-      x += dx;
-      y += dy;
+      x += (
+            (x < px) ? \
+            (j = 1, r) : (j = 0, -r)
+          );
+
+      y += (
+            (y < py) ? \
+            (j |= 2, r) : (-r)
+        );
+
       BOUNDSCHECK(n*4 + j, (NNODES + 1) * 4);
-      ch = childd[n * 4 + j];
     }
+
     if (ch != -2) {  // skip if child pointer is locked and try again later
+
       locked = n * 4 + j;
       BOUNDSCHECK(locked, (NNODES + 1) * 4);
       if (ch == -1) {
@@ -347,27 +337,24 @@ TreeBuildingKernel(int *restrict errd,
             if (cell > patch)
               patch = cell;
 
-            j = 0;
             BOUNDSCHECK(ch, (NNODES + 1));
-            if (x < posxd[ch]) j = 1;
+            j = (x < posxd[ch]) ? 1 : 0;
             if (y < posyd[ch]) j |= 2;
 
             BOUNDSCHECK(cell * 4 + j, (NNODES + 1) * 4);
             childd[cell * 4 + j] = ch;
             n = cell;
             r *= 0.5f;
-            dx = dy = -r;
-            j = 0;
-            if (x < px) {
-              j = 1;
-              dx = r;
-            }
-            if (y < py) {
-              j |= 2;
-              dy = r;
-            }
-            x += dx;
-            y += dy;
+
+            x += (
+                (x < px) ? \
+                (j = 1, r) : (j = 0, -r)
+              );
+
+            y += (
+                (y < py) ? \
+                (j |= 2, r) : (-r)
+              );
 
             BOUNDSCHECK(n * 4 + j, (NNODES + 1) * 4);
             ch = childd[n * 4 + j];
@@ -415,7 +402,7 @@ ClearKernel2(int *restrict startd,
 
   // iterate over all cells assigned to thread
   #pragma unroll
-  for (; k < NNODES; k++) {
+  for (; k < NNODES; k+= inc) {
     massd[k] = -1.0f;
     startd[k] = -1;
   }
@@ -447,13 +434,12 @@ SummarizationKernel(int *restrict countd,
 
   const int restart = k;
 
-  #pragma unroll
   for (int j = 0; j < 5; j++) {  // wait-free pre-passes
     // iterate over all cells assigned to thread
     while (k <= NNODES) {
       BOUNDSCHECK(k, (NNODES + 1));
 
-      if (__lesszero(massd[k])) { // massd[k] < 0
+      if (massd[k] < 0) {
         for (int i = 0; i < 4; i++) {
 
           BOUNDSCHECK(k * 4 + i, (NNODES + 1) * 4);
@@ -513,7 +499,7 @@ SummarizationKernel(int *restrict countd,
   while (k <= NNODES) {
 
     BOUNDSCHECK(k, (NNODES + 1));
-    if (__greaterzero(massd[k])) { // massd[k] >= 0
+    if (massd[k] >= 0) {
       k += inc;
       goto SKIP_LOOP;
     }
@@ -623,7 +609,7 @@ SortKernel(int *restrict sortd,
   while (k >= bottom) {
 
     // To control possible infinite loops
-    if (++limiter >= NNODES + 1)
+    if (++limiter > NNODES)
       break;
 
     BOUNDSCHECK(k, (NNODES + 1));
@@ -651,7 +637,7 @@ SortKernel(int *restrict sortd,
           startd[ch] = start;
           start += countd[ch];  // add #bodies in subtree
         }
-        else if (start < NNODES + 1) {
+        else if (start <= NNODES and start >= 0) {
           // child is a body
           BOUNDSCHECK(start, (NNODES + 1));
           sortd[start++] = ch;
@@ -685,6 +671,7 @@ RepulsionKernel(int *restrict errd,
                 const int *restrict maxdepthd,
                 const int *restrict stepd)
 {
+  const int NNODES = FOUR_NNODES/4;
   __shared__ int pos[32 * THREADS5 / 32], node[32 * THREADS5 / 32];
   __shared__ float dq[32 * THREADS5 / 32];
   int counter = 0;
@@ -768,7 +755,7 @@ RepulsionKernel(int *restrict errd,
         const int n = childd[index];  // load child pointer
 
         // Non child
-        if (n < 0)
+        if (n < 0 or n > NNODES)
           break;
 
         BOUNDSCHECK(n, (FOUR_NNODES/4+1));
