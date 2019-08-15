@@ -30,13 +30,13 @@ requirements:
     - cmake>=3.14
     - libclang
   host:
-    - nccl=2.4.*
+    - nvidia::nccl
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - lapack
   run:
     - cudf {{ minor_version }}
-    - nccl=2.4.*
+    - nvidia::nccl
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
