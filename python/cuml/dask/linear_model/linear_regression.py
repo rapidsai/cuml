@@ -370,6 +370,8 @@ def _fit_on_worker(data, params):
         raise Exception("cuML has not been built with multiGPU support "
                         "enabled. Build with the --multigpu flag to enable"
                         " multiGPU support.")
+    except Exception as e:
+        print("Failure in predict(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
@@ -419,6 +421,8 @@ def _predict_on_worker(data, intercept, params):
         raise Exception("cuML has not been built with multiGPU support "
                         "enabled. Build with the --multigpu flag to enable"
                         " multiGPU support.")
+    except Exception as e:
+        print("Failure in predict(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
