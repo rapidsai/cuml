@@ -81,6 +81,7 @@
 - PR #987: Change default values for knn
 - PR #988: Switch to exact tsne
 - PR #991: Cleanup python code in cuml.dask.cluster
+- PR #996: ucx_initialized being properly set in CommsContext
 
 # cuML 0.8.0 (27 June 2019)
 
