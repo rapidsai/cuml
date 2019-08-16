@@ -63,6 +63,7 @@
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
+- PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
 
 ## Bug Fixes
 
