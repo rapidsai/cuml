@@ -6,6 +6,8 @@
 
 ## Bug Fixes
 
+- PR #1016: Use correct libcumlprims version in GPU CI
+
 
 # cuML 0.9.0 (Date TBD)
 
@@ -63,6 +65,7 @@
 - PR #976: Update api.rst for new 0.9 classes
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
+- PR #1009: Fix references to notebooks-contrib
 
 ## Bug Fixes
 
@@ -84,6 +87,8 @@
 - PR #988: Switch to exact tsne
 - PR #991: Cleanup python code in cuml.dask.cluster
 - PR #996: ucx_initialized being properly set in CommsContext
+- PR #1007: Throws a well defined error when mutigpu is not enabled
+- PR #1022: Using random_state to make K-Means MNMG tests deterministic
 
 # cuML 0.8.0 (27 June 2019)
 
