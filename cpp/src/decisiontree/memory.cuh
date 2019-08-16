@@ -21,6 +21,22 @@
 #include "memory.h"
 
 template <class T, class L>
+TemporaryMemory<T, L>::TemporaryMemory(
+  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const cudaStream_t stream_in, int N, int Ncols, int n_unique, int n_bins,
+  const int split_algo, int depth) {
+  stream = stream_in;
+  splitalgo = split_algo;
+
+  max_shared_mem = MLCommon::getSharedMemPerBlock();
+  num_sms = MLCommon::getMultiProcessorCount();
+  device_allocator = device_allocator_in;
+  host_allocator = host_allocator_in;
+  LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
+}
+
+template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
                                        int Ncols, int n_unique, int n_bins,
                                        const int split_algo, int depth) {

@@ -92,6 +92,11 @@ struct TemporaryMemory {
   int max_nodes_mse = 0;
   int max_nodes_per_level = 0;
   int max_nodes_minmax = 0;
+  TemporaryMemory(
+    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const cudaStream_t stream_in, int N, int Ncols, int n_unique, int n_bins,
+    const int split_algo, int depth);
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   int n_unique, int n_bins, const int split_algo, int depth);
   ~TemporaryMemory();
