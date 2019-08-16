@@ -370,6 +370,22 @@ void DecisionTreeClassifier<T>::fit(
 }
 
 template <typename T>
+
+void DecisionTreeClassifier<T>::fit(
+  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
+  const int *labels, unsigned int *rowids, const int n_sampled_rows,
+  const int unique_labels, TreeMetaDataNode<T, int> *&tree,
+  DecisionTreeParams tree_params,
+  std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
+  this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
+                 nrows, labels, rowids, n_sampled_rows, unique_labels,
+                 tree->sparsetree, tree_params, true, in_tempmem);
+  this->set_metadata(tree);
+}
+
+template <typename T>
 void DecisionTreeRegressor<T>::fit(
   const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
@@ -381,6 +397,21 @@ void DecisionTreeRegressor<T>::fit(
     n_sampled_rows, 1, tree->sparsetree, tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
+
+template <typename T>
+void DecisionTreeRegressor<T>::fit(
+  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
+  const T *labels, unsigned int *rowids, const int n_sampled_rows,
+  TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_params,
+  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
+                 nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,
+                 tree_params, false, in_tempmem);
+  this->set_metadata(tree);
+}
+
 template <typename T>
 void DecisionTreeClassifier<T>::grow_deep_tree(
   const T *data, const int *labels, unsigned int *rowids,
