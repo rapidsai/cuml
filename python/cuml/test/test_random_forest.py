@@ -23,7 +23,7 @@ from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
 from sklearn.metrics import accuracy_score
-from sklearn.datasets import make_classification 
+from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
 from sklearn.metrics import mean_squared_error
 
@@ -109,7 +109,7 @@ def test_rf_regression(datatype, nrows, split_algo,
         pytest.xfail("Unlimited depth not supported")
 
     train_rows = np.int32(nrows*0.8)
-    X, y = make_regression(n_samples=nrows, n_features=ncols, 
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info,
                            random_state=123)
 
@@ -134,7 +134,7 @@ def test_rf_regression(datatype, nrows, split_algo,
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, 
+        sk_model = skrfr(n_estimators=50,
                          max_depth=(max_depth if max_depth > 0 else None),
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
