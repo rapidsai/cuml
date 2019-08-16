@@ -19,7 +19,10 @@
 #include <cstring>
 #include <cuML.hpp>
 #include <datasets/make_blobs.hpp>
+#include <fstream>
+#include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "argparse.hpp"
@@ -151,12 +154,92 @@ bool load(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   return true;
 }
 
+bool rf_csv(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
+  bool help = get_argval(argv, argv + argc, "-h");
+  if (help) {
+    printf(
+      "USAGE:\n"
+      "bench rf_csv [options]\n"
+      "  Load the dataset from the input csv file.\n"
+      "  The current implementation only supports datasets used in random "
+      "forest.\n"
+      "OPTIONS:\n"
+      "  -file <file>     file containing the dataset. Mandatory.\n"
+      "  -dataset <name>  must be one of the following: higgs, year, airline,"
+      "                   airline_regression,"
+      "                   or walmart.Mandatory.\n"
+      "  -row             number of rows to read. Mandatory.\n"
+      "  -col             number of cols to read. Default to the cols in "
+      "                   the dataset.\n"
+      "  -h               print this help and exit.\n");
+    return false;
+  }
+  std::string file = get_argval(argv, argv + argc, "-file", std::string());
+  ASSERT(!file.empty(), "'-file' is a mandatory option");
+  std::string dataset =
+    get_argval(argv, argv + argc, "-dataset", std::string());
+  ASSERT(!dataset.empty(), "'-dataset' is a mandatory option");
+  ret.ncols = get_argval(argv, argv + argc, "-col", -1);
+  ret.nrows = get_argval(argv, argv + argc, "-row", -1);
+  ASSERT(ret.nrows != -1, "'-row' is a mandatory option");
+  int col_offset = 0;
+  int label_id = 0;  // column that is the label (i.e., target feature)
+  if (dataset == "higgs") {
+    if (ret.ncols == -1) ret.ncols = 28;
+    col_offset = 1;  // because the first column in higgs is the label
+  } else if (dataset == "year") {
+    if (ret.ncols == -1) ret.ncols = 90;
+    col_offset = 1;  // because the first column in year is the label
+    label_id = 0;
+  } else if ((dataset == "airline_regression") || (dataset == "airline")) {
+    if (ret.ncols == -1) ret.ncols = 13;
+    label_id = 13;
+  } else if (dataset == "walmart") {
+    if (ret.ncols == -1) ret.ncols = 321;
+    label_id = 321;
+  }
+  printf("Loading %s dataset from file '%s'...\n", dataset.c_str(),
+         file.c_str());
+  std::vector<float> X(ret.nrows * ret.ncols);
+  std::vector<int> y(ret.nrows);
+  std::ifstream myfile;
+  myfile.open(file);
+  std::string line;
+  int counter = 0;
+  int break_cnt = ret.nrows;
+  while (getline(myfile, line) && (counter < ret.nrows)) {
+    std::stringstream str(line);
+    std::vector<float> row;
+    float i;
+    while (str >> i) {
+      row.push_back(i);
+      if (str.peek() == ',') str.ignore();
+    }
+    for (int col = 0; col < ret.ncols; col++) {
+      X[counter + col * ret.nrows] =
+        row[col + col_offset];  //train data should be col major
+    }
+    y[counter] =
+      (dataset == "airline") ? (int)(row[label_id] > 0) : row[label_id];
+    counter++;
+  }
+  std::cout << "Lines processed " << counter << std::endl;
+  myfile.close();
+  ret.allocate(handle);
+  auto stream = handle.getStream();
+  MLCommon::copy(ret.X, &(X[0]), ret.nrows * ret.ncols, stream);
+  MLCommon::copy(ret.y, &(y[0]), ret.nrows, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  return true;
+}
+
 typedef bool (*dataGenerator)(Dataset&, const cumlHandle&, int, char**);
 class Generator : public std::map<std::string, dataGenerator> {
  public:
   Generator() : std::map<std::string, dataGenerator>() {
     (*this)["blobs"] = blobs;
     (*this)["load"] = load;
+    (*this)["rf_csv"] = rf_csv;
   }
 };
 
