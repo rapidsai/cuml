@@ -53,6 +53,7 @@
 - PR #976: Update api.rst for new 0.9 classes
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
+- PR #1009: Fix references to notebooks-contrib
 
 ## Bug Fixes
 
