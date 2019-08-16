@@ -273,8 +273,8 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
             print("Building endpoint for " + str("%s:%s" % (ip, port)))
 
             ep = await ucp.get_endpoint(ip.encode(),
-                                  worker_info[k]["p"],
-                                  timeout=1)
+                                        worker_info[k]["p"],
+                                        timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
 
@@ -374,8 +374,11 @@ class CommsContext:
         way to do this.
         Ref: https://github.com/rapidsai/cuml/issues/841
         """
-        self.client.run(_func_ucp_create_listener, self.sessionId,
-                         random.random(), workers=self.worker_addresses, wait=False)
+        self.client.run(_func_ucp_create_listener,
+                        self.sessionId,
+                        random.random(),
+                        workers=self.worker_addresses,
+                        wait=False)
 
         self.block_for_init("ucp_listener")
 
