@@ -102,8 +102,7 @@ class cumlHandle {
   static int getDefaultNumInternalStreams();
 
  private:
-  //TODO: What is the right number?
-  static constexpr int _default_num_internal_streams = 3;
+  static constexpr int _default_num_internal_streams = 0;
   std::unique_ptr<cumlHandle_impl> _impl;
 };
 
