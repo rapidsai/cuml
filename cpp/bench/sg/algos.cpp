@@ -161,11 +161,12 @@ bool rfClassifier(const Dataset& ret, const cumlHandle& handle, int argc,
       "  -max-depth <md>    Max tree depth. [8]\n"
       "  -max-leaves <ml>   Max leaves in each trees. [-1]\n"
       "  -max-features <mf> Max features to consider per split. [1.f]\n"
-      "  -nbins <nb>        Number of bins used by split algo. [256]\n"
-      "  -split-algo <algo> Split algo. 0 = HIST, 1 = GLOBAL_QUANTILE [0]\n"
+      "  -nbins <nb>        Number of bins used by split algo. [8]\n"
+      "  -split-algo <algo> Split algo. 0 = HIST, 1 = GLOBAL_QUANTILE [1]\n"
       "  -min-rows-split <mrs>  Min number of rows needed for split. [2]\n"
       "  -bootstrap-features    Whether to bootstrap features of input data.\n"
-      "  -quantile-per-tree     Compute quantile per tree. (default per RF)\n");
+      "  -quantile-per-tree     Compute quantile per tree. (default per RF)\n"
+      "  -nclasses              Number of unique classes. [2]\n");
     return false;
   }
   printf("Running RF...\n");
@@ -176,11 +177,12 @@ bool rfClassifier(const Dataset& ret, const cumlHandle& handle, int argc,
   int maxDepth = get_argval(argv, argv + argc, "-max-depth", 8);
   int maxLeaves = get_argval(argv, argv + argc, "-max-leaves", -1);
   float maxFeatures = get_argval(argv, argv + argc, "-max-features", 1.f);
-  int nBins = get_argval(argv, argv + argc, "-nbins", 256);
-  int algo = get_argval(argv, argv + argc, "-split-algo", 0);
+  int nBins = get_argval(argv, argv + argc, "-nbins", 8);
+  int algo = get_argval(argv, argv + argc, "-split-algo", 1);
   int minRowsSplit = get_argval(argv, argv + argc, "-min-rows-split", 2);
   bool bootstrapCols = get_argval(argv, argv + argc, "-bootstrap-features");
   bool quantilePerTree = get_argval(argv, argv + argc, "-quantile-per-tree");
+  int nClasses = get_argval(argv, argv + argc, "-nclasses", 2);
   printf(
     "With params:\n"
     "  num-trees          = %d\n"
@@ -209,8 +211,7 @@ bool rfClassifier(const Dataset& ret, const cumlHandle& handle, int argc,
     RF_params params = {nTrees,   bootstrap,    rowSample,     nStreams,
                         maxDepth, maxLeaves,    maxFeatures,   nBins,
                         algo,     minRowsSplit, bootstrapCols, quantilePerTree};
-    fit(handle, mPtr, ret.X, ret.nrows, ret.ncols, labels, ret.nclasses,
-        params);
+    fit(handle, mPtr, ret.X, ret.nrows, ret.ncols, labels, nClasses, params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     TOC(start, "rfClassifierFit");
   }
