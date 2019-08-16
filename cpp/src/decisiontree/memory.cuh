@@ -23,10 +23,10 @@
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
                                        int Ncols, int n_unique, int n_bins,
-                                       const int split_algo, int depth)
+                                       const int split_algo, int depth,
+                                       cudaStream_t _stream)
   : ml_handle(handle) {
-  //Assign Stream from cumlHandle
-  stream = ml_handle.getStream();
+  stream = _stream;
   splitalgo = split_algo;
 
   max_shared_mem = MLCommon::getSharedMemPerBlock();

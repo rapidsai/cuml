@@ -108,7 +108,8 @@ struct TemporaryMemory {
   int max_nodes_per_level = 0;
 
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
-                  int n_unique, int n_bins, const int split_algo, int depth);
+                  int n_unique, int n_bins, const int split_algo, int depth,
+                  cudaStream_t _stream);
   ~TemporaryMemory();
   void NodeMemAllocator(int N, int Ncols, int n_unique, int n_bins,
                         const int split_algo);
