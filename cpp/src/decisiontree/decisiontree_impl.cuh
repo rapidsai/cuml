@@ -262,7 +262,8 @@ void DecisionTreeBase<T, L>::plant(
     tempmem = in_tempmem;
   } else {
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
-      handle, nrows, ncols, unique_labels, n_bins, split_algo, maxdepth);
+      handle, nrows, ncols, unique_labels, n_bins, split_algo, maxdepth,
+      handle.getStream());
     quantile_per_tree = true;
   }
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
