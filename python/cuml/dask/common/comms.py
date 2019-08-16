@@ -128,7 +128,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
         print("NCCL Initialization took: %f seconds." % end)
 
     if comms_p2p:
-        _func_ucp_create_endpoints(sessionId, worker_info)
+        await _func_ucp_create_endpoints(sessionId, worker_info)
         _func_build_handle_p2p(sessionId)
     else:
         _func_build_handle(sessionId)
@@ -203,6 +203,8 @@ def _func_build_handle_p2p(sessionId):
     """
     ucp_worker = ucp.get_ucp_worker()
 
+    print("WORKER: " + str(ucp_worker))
+
     session_state = worker_state(sessionId)
 
     handle = Handle()
@@ -263,14 +265,20 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
     count = 1
 
+    print("Building endpoints")
+
     for k in worker_info:
         if k != local_address:
             ip, port = parse_host_port(k)
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
-                                        timeout=1)
+            print("Building endpoint for " + str("%s:%s" % (ip, port)))
+
+            ep = await ucp.get_endpoint(ip.encode(),
+                                  worker_info[k]["p"],
+                                  timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
 
+    print("Done")
     worker_state(sessionId)["ucp_eps"] = eps
 
 
@@ -288,10 +296,11 @@ def _func_destroy_all(sessionId, comms_p2p):
 
 
 def _func_ucp_ports(sessionId, client, workers):
+    print(str(workers))
     return client.run(_func_ucp_listener_port,
                       sessionId,
                       random.random(),
-                      workers=[workers])
+                      workers=workers)
 
 
 def _func_worker_ranks(workers):
@@ -365,9 +374,8 @@ class CommsContext:
         way to do this.
         Ref: https://github.com/rapidsai/cuml/issues/841
         """
-        [self.client.run(_func_ucp_create_listener, self.sessionId,
-                         random.random(), workers=[w], wait=False)
-         for w in self.worker_addresses]
+        self.client.run(_func_ucp_create_listener, self.sessionId,
+                         random.random(), workers=self.worker_addresses, wait=False)
 
         self.block_for_init("ucp_listener")
 
@@ -414,12 +422,14 @@ class CommsContext:
                         worker_info,
                         verbose,
                         workers=workers,
-                        wait=True)
-
-        self.nccl_initialized = True
+                        wait=False)
 
         if self.comms_p2p:
             self.ucx_initialized = True
+
+        self.nccl_initialized = True
+
+        self.block_for_init("handle")
 
     def destroy(self):
         """
