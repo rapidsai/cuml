@@ -234,9 +234,12 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
          Expectation: Each tree node will contain (a) # n_sampled_rows and
          (b) a pointer to a list of row numbers w.r.t original data.
     */
+    cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
-    trees[i].fit(local_handle[stream_id], input, n_cols, n_rows, labels, rowids,
-                 n_sampled_rows, n_unique_labels, tree_ptr,
+    trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
+                 myhandle.getImpl().getHostAllocator(),
+                 myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
+                 rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, tempmem[stream_id]);
   }
   //Cleanup
@@ -499,9 +502,12 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
          used to build the bootstrapped sample. Expectation: Each tree node will contain
          (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
     */
+    cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
-    trees[i].fit(local_handle[stream_id], input, n_cols, n_rows, labels, rowids,
-                 n_sampled_rows, tree_ptr, this->rf_params.tree_params,
+    trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
+                 myhandle.getImpl().getHostAllocator(),
+                 myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
+                 rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  tempmem[stream_id]);
   }
   //Cleanup
