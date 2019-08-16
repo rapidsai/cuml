@@ -100,12 +100,15 @@ class DecisionTreeBase {
     std::vector<SparseTreeNode<T, L>> &sparsetree,
     std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
-  void base_fit(const ML::cumlHandle &handle, const T *data, const int ncols,
-                const int nrows, const L *labels, unsigned int *rowids,
-                const int n_sampled_rows, int unique_labels,
-                std::vector<SparseTreeNode<T, L>> &sparsetree,
-                DecisionTreeParams &tree_params, bool is_classifier,
-                std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
+  void base_fit(
+    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const cudaStream_t stream_in, const T *data, const int ncols,
+    const int nrows, const L *labels, unsigned int *rowids,
+    const int n_sampled_rows, int unique_labels,
+    std::vector<SparseTreeNode<T, L>> &sparsetree,
+    DecisionTreeParams &tree_params, bool is_classifier,
+    std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
   // Printing utility for high level tree info.

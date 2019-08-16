@@ -305,7 +305,9 @@ void DecisionTreeBase<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(
-  const ML::cumlHandle &handle, const T *data, const int ncols, const int nrows,
+  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
   int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
   DecisionTreeParams &tree_params, bool is_classifier,
@@ -339,8 +341,9 @@ void DecisionTreeBase<T, L>::base_fit(
     tempmem = in_tempmem;
   } else {
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
-      handle.getImpl(), nrows, ncols, unique_labels, tree_params.n_bins,
-      tree_params.split_algo, tree_params.max_depth);
+      device_allocator_in, host_allocator_in, stream_in, nrows, ncols,
+      unique_labels, tree_params.n_bins, tree_params.split_algo,
+      tree_params.max_depth);
     tree_params.quantile_per_tree = true;
   }
 
@@ -358,9 +361,11 @@ void DecisionTreeClassifier<T>::fit(
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
   DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
-  this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                 unique_labels, tree->sparsetree, tree_params, true,
-                 in_tempmem);
+  this->base_fit(handle.getImpl().getDeviceAllocator(),
+                 handle.getImpl().getHostAllocator(),
+                 handle.getImpl().getStream(), data, ncols, nrows, labels,
+                 rowids, n_sampled_rows, unique_labels, tree->sparsetree,
+                 tree_params, true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -370,8 +375,10 @@ void DecisionTreeRegressor<T>::fit(
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
-  this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1,
-                 tree->sparsetree, tree_params, false, in_tempmem);
+  this->base_fit(
+    handle.getImpl().getDeviceAllocator(), handle.getImpl().getHostAllocator(),
+    handle.getImpl().getStream(), data, ncols, nrows, labels, rowids,
+    n_sampled_rows, 1, tree->sparsetree, tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
 template <typename T>
