@@ -27,7 +27,7 @@ if(NOT NCCL_PATH)
 else()
     set(NCCL_INCLUDE_DIRS ${NCCL_PATH}/include)
     set(NCCL_LIBRARIES ${NCCL_PATH}/lib/libnccl.so)
-endif(NOT NCCL_PATH))
+endif(NOT NCCL_PATH)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
