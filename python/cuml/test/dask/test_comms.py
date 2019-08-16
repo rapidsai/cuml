@@ -96,6 +96,7 @@ def test_default_comms():
     cluster.close()
 
 
+@pytest.mark.nccl
 def test_allreduce():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -113,8 +114,6 @@ def test_allreduce():
 
     print("Time: " + str(time.time() - start))
 
-    print(str(list(map(lambda x: x.result(), dfs))))
-
     assert all(list(map(lambda x: x.result(), dfs)))
 
     cb.destroy()
@@ -122,7 +121,7 @@ def test_allreduce():
     cluster.close()
 
 
-@pytest.mark.skip(reason="UCX support not enabled in CI")
+@pytest.mark.ucx
 def test_send_recv(n_trials):
 
     cluster = LocalCUDACluster(threads_per_worker=1)
