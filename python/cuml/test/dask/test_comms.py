@@ -131,8 +131,6 @@ def test_send_recv(n_trials):
     cb = CommsContext(comms_p2p=True)
     cb.init()
 
-    cb = default_comms()
-
     start = time.time()
     dfs = [client.submit(func_test_send_recv,
                          cb.sessionId,
