@@ -366,8 +366,12 @@ def _fit_on_worker(data, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         intercept = ols._fit_mg(alloc_info, params)
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
-        print("FAILURE in FIT: " + str(e))
+        print("Failure in Fit(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
@@ -413,7 +417,10 @@ def _predict_on_worker(data, intercept, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         ols._predict_mg(alloc_info, intercept, params)
-
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
         print("Failure in predict(): " + str(e))
 

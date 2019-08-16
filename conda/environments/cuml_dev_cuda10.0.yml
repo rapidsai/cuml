@@ -14,7 +14,7 @@ dependencies:
 - rmm=0.10*
 - cython>=0.29,<0.30
 - pytest>=4.6
-- scikit-learn=0.21
+- scikit-learn>=0.21
 - umap-learn>=0.3.9
 - scikit-learn>=0.21
 - dask
@@ -22,3 +22,5 @@ dependencies:
 - dask-ml
 - dask-cuda=0.10*
 - dask-cudf=0.10*
+- nccl>=2.4
+- libcumlprims=0.9*
