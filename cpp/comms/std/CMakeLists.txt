@@ -22,7 +22,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
 option(WITH_UCX "Uses UCX for p2p comms" OFF)
 
-find_package(NCCL REQUIRED)
+if(NOT NCCL_PATH)
+    find_package(NCCL REQUIRED)
+else()
+    set(NCCL_INCLUDE_DIRS ${NCCL_PATH}/include)
+    set(NCCL_LIBRARIES ${NCCL_PATH}/lib/libnccl.so)
+endif(NOT NCCL_PATH))
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,10 +46,10 @@ set(CUML_LIBRARY ${_CUML_LIBRARY} CACHE STRING "Path to the cuML lib")
 unset(_CUML_LIBRARY)
 unset(_CUML_LIBRARY_HINTS)
 
-include_directories( include 
-	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} 
-	${CUML_DIR}/src 
-	${CUML_DIR}/src_prims 
+include_directories( include
+	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+	${CUML_DIR}/src
+	${CUML_DIR}/src_prims
 )
 
 set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})

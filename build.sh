@@ -150,7 +150,7 @@ if (( ${NUMARGS} == 0 )) || hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
 
-# Build and (optionally) install libcuml + tests
+# build cumlcomms library
 if [ "${MAKE_TARGETS}" != "" ]; then
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
@@ -161,7 +161,7 @@ if [ "${MAKE_TARGETS}" != "" ]; then
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DWITH_UCX=OFF \
           -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
-          -DNCCL_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
+          -DNCCL_PATH=${INSTALL_PREFIX} ..
 
     cd ${CUML_COMMS_BUILD_DIR}
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
