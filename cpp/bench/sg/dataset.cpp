@@ -166,8 +166,7 @@ bool rf_csv(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
       "OPTIONS:\n"
       "  -file <file>     file containing the dataset. Mandatory.\n"
       "  -dataset <name>  must be one of the following: higgs, year, airline,"
-      "                   airline_regression,"
-      "                   or walmart.Mandatory.\n"
+      "                   airline_regression\n"
       "  -row             number of rows to read. Mandatory.\n"
       "  -col             number of cols to read. Default to the cols in "
       "                   the dataset.\n"
@@ -194,9 +193,6 @@ bool rf_csv(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   } else if ((dataset == "airline_regression") || (dataset == "airline")) {
     if (ret.ncols == -1) ret.ncols = 13;
     label_id = 13;
-  } else if (dataset == "walmart") {
-    if (ret.ncols == -1) ret.ncols = 321;
-    label_id = 321;
   }
   printf("Loading %s dataset from file '%s'...\n", dataset.c_str(),
          file.c_str());
