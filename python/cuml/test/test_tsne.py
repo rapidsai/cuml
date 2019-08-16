@@ -28,7 +28,7 @@ def test_tsne(name):
     X = eval("datasets.load_{}".format(name))().data
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
-    for i in range(5):
+    for i in range(100):
         print("iteration = ", i)
 
         tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
