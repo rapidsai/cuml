@@ -52,11 +52,11 @@ def stress_param(*args, **kwargs):
 ])
 # @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris')])
 def test_svm_fit_predict(params, name='iris'):
-    if name=='iris':
+    if name == 'iris':
         iris = load_iris()
         X = iris.data
         y = iris.target
-        y = (y>0).astype(X.dtype)
+        y = (y > 0).astype(X.dtype)
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
     else:
@@ -85,7 +85,7 @@ def test_svm_fit_predict(params, name='iris'):
 
     assert abs(sklSVC.intercept_-cuSVC.intercept_) <= 10*sklSVC.tol
 
-    if params['kernel']=='linear':
+    if params['kernel'] == 'linear':
         assert np.all(np.abs(sklSVC.coef_-cuSVC.coef_) <= sklSVC.tol)
 
     assert cu_n_wrong == skl_n_wrong
