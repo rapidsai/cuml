@@ -371,7 +371,7 @@ def _fit_on_worker(data, params):
                         "enabled. Build with the --multigpu flag to enable"
                         " multiGPU support.")
     except Exception as e:
-        print("Failure in predict(): " + str(e))
+        print("Failure in Fit(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
