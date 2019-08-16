@@ -144,6 +144,15 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
+  //This fit fucntion does not take handle , used by RF
+  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+           const cudaStream_t stream_in, const T *data, const int ncols,
+           const int nrows, const int *labels, unsigned int *rowids,
+           const int n_sampled_rows, const int unique_labels,
+           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
+
  private:
   void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
                       const std::vector<unsigned int> &feature_selector,
@@ -162,6 +171,15 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
            DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
+
+  //This fit function does not take handle. Used by RF
+  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+           const cudaStream_t stream_in, const T *data, const int ncols,
+           const int nrows, const T *labels, unsigned int *rowids,
+           const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
+           DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
 
  private:
   void grow_deep_tree(const T *data, const T *labels, unsigned int *rowids,
