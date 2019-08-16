@@ -68,22 +68,20 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate more space
   //---------------------------------------------------
-  int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
-  unsigned int *limiter =
-    (unsigned int *)d_alloc->allocate(sizeof(unsigned int), stream);
+  //int *errl = (int *)d_alloc->allocate(sizeof(int), stream);
+  unsigned *limiter = (unsigned *)d_alloc->allocate(sizeof(unsigned), stream);
   int *maxdepthd = (int *)d_alloc->allocate(sizeof(int), stream);
-  int *stepd = (int *)d_alloc->allocate(sizeof(int), stream);
   int *bottomd = (int *)d_alloc->allocate(sizeof(int), stream);
   float *radiusd = (float *)d_alloc->allocate(sizeof(float), stream);
 
-  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(errl, limiter, maxdepthd,
-                                                  stepd, radiusd);
+  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl,*/ limiter, maxdepthd,
+                                                  radiusd);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  register const int FOUR_NNODES = 4 * nnodes;
-  register const int FOUR_N = 4 * n;
-  register const float theta_squared = theta * theta;
-  register const int NNODES = nnodes;
+  const int FOUR_NNODES = 4 * nnodes;
+  const int FOUR_N = 4 * n;
+  const float theta_squared = theta * theta;
+  const int NNODES = nnodes;
 
   // Actual mallocs
   int *startl = (int *)d_alloc->allocate(sizeof(int) * (nnodes + 1), stream);
@@ -174,7 +172,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl, childl, massl, YY, YY + nnodes + 1, maxxl, maxyl, minxl, minyl,
-      FOUR_NNODES, NNODES, n, limiter, stepd, radiusd);
+      FOUR_NNODES, NNODES, n, limiter, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(BoundingBoxKernel_time);
@@ -188,7 +186,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
-      errl, childl, YY, YY + nnodes + 1, NNODES, n, maxdepthd, bottomd,
+      /*errl,*/ childl, YY, YY + nnodes + 1, NNODES, n, maxdepthd, bottomd,
       radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -217,15 +215,15 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      errl, theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
-      rep_forces + nnodes + 1, Z_norm, theta_squared, FOUR_NNODES, n,
-      radiusd_squared, maxdepthd, stepd);
+      /*errl,*/ theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
+      rep_forces + nnodes + 1, Z_norm, theta_squared, NNODES, FOUR_NNODES, n,
+      radiusd_squared, maxdepthd);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(RepulsionTime);
 
     START_TIMER;
-    TSNE::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm, (float)n);
+    TSNE::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm, n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(Reduction_time);
@@ -258,15 +256,16 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Copy final YY into true output Y
   thrust::device_ptr<float> Y_begin = thrust::device_pointer_cast(Y);
   thrust::copy(thrust::cuda::par.on(stream), YY, YY + n, Y_begin);
+  CUDA_CHECK(cudaPeekAtLastError());
+
   thrust::copy(thrust::cuda::par.on(stream), YY + nnodes + 1,
                YY + nnodes + 1 + n, Y_begin + n);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Deallocate everything
-  d_alloc->deallocate(errl, sizeof(int), stream);
-  d_alloc->deallocate(limiter, sizeof(unsigned int), stream);
+  //d_alloc->deallocate(errl, sizeof(int), stream);
+  d_alloc->deallocate(limiter, sizeof(unsigned), stream);
   d_alloc->deallocate(maxdepthd, sizeof(int), stream);
-  d_alloc->deallocate(stepd, sizeof(int), stream);
   d_alloc->deallocate(bottomd, sizeof(int), stream);
   d_alloc->deallocate(radiusd, sizeof(float), stream);
 
@@ -294,7 +293,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   d_alloc->deallocate(old_forces, sizeof(float) * n * 2, stream);
 
   d_alloc->deallocate(YY, sizeof(float) * (nnodes + 1) * 2, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace TSNE
