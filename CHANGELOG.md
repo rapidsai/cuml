@@ -5,7 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
-
+- PR #990: Fix Barnes Hut Memory Issues
 
 # cuML 0.9.0 (Date TBD)
 
