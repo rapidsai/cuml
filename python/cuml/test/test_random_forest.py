@@ -23,8 +23,8 @@ from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
 from sklearn.metrics import accuracy_score
-from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression
+from sklearn.datasets import make_classification 
+from sklearn.datasets import make_regression
 from sklearn.metrics import mean_squared_error
 
 
@@ -107,12 +107,12 @@ def test_rf_regression(datatype, nrows, split_algo,
     use_handle = True
     if max_depth < 0:
         pytest.xfail("Unlimited depth not supported")
- 
+
     train_rows = np.int32(nrows*0.8)
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
-       
+    X, y = make_regression(n_samples=nrows, n_features=ncols, 
+                           n_informative=n_info,
+                           random_state=123)
+
     train_rows = np.int32(X.shape[0]*0.8)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(datatype)
@@ -134,7 +134,8 @@ def test_rf_regression(datatype, nrows, split_algo,
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, max_depth=(max_depth if max_depth > 0 else None),
+        sk_model = skrfr(n_estimators=50, 
+                         max_depth=(max_depth if max_depth > 0 else None),
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
