@@ -136,7 +136,11 @@
 
 namespace ML {
 
-cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
+int cumlHandle::getDefaultNumInternalStreams() {
+  return _default_num_internal_streams;
+}
+
+cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
@@ -171,12 +175,13 @@ cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
-cumlHandle_impl::cumlHandle_impl()
+cumlHandle_impl::cumlHandle_impl(int n_streams)
   : _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));
       return cur_dev;
     }()),
+    _num_streams(n_streams),
     _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
     _userStream(NULL) {
