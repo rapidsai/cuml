@@ -178,7 +178,7 @@ bool rf_csv(Dataset& ret, const cumlHandle& handle, int argc, char** argv) {
   ASSERT(!file.empty(), "'-file' is a mandatory option");
   std::string dataset =
     get_argval(argv, argv + argc, "-dataset", std::string());
-  ASSERT(!file.empty(), "'-dataset' is a mandatory option");
+  ASSERT(!dataset.empty(), "'-dataset' is a mandatory option");
   ret.ncols = get_argval(argv, argv + argc, "-col", -1);
   ret.nrows = get_argval(argv, argv + argc, "-row", -1);
   ASSERT(ret.nrows != -1, "'-row' is a mandatory option");
