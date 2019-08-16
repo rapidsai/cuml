@@ -122,6 +122,7 @@ def test_allreduce():
 
 
 @pytest.mark.ucx
+@pytest.mark.skip(reason="UCX integration officially release in 0.10")
 def test_send_recv(n_trials):
 
     cluster = LocalCUDACluster(threads_per_worker=1)
