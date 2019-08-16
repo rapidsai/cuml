@@ -2,7 +2,6 @@ from typing import List, Tuple
 import numpy as np
 from IPython.core.debugger import set_trace
 import pandas as pd
-import statsmodels.tsa.tsatools as sm_tools
 
 from .batched_kalman import batched_kfilter, init_kalman_matrices, init_batched_kalman_matrices
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
@@ -131,8 +130,8 @@ def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=Fals
 def fit(y: np.ndarray,
         order: Tuple[int, int, int],
         mu0: np.ndarray,
-        ar_params0: [np.ndarray],
-        ma_params0: [np.ndarray],
+        ar_params0: List[np.ndarray],
+        ma_params0: List[np.ndarray],
         opt_disp=-1, h=1e-9, gpu=True, alpha_max=1000):
     """
     Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
@@ -164,18 +163,8 @@ def fit(y: np.ndarray,
         n_gllf = -ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
         return n_gllf/(num_samples-1)
 
-
-    # setup initial parameter array `x0`
-    if not isinstance(mu0, np.ndarray):
-        ar0_2 = sm_tools._ar_invtransparams(np.copy(ar_params0))
-        ma0_2 = sm_tools._ma_invtransparams(np.copy(ma_params0))
-
-        x0 = np.r_[mu0, ar0_2, ma0_2]
-        x0 = np.tile(x0, num_batches)
-
-    else:
-        x0 = pack(p, q, num_batches, mu0, ar_params0, ma_params0)
-        x0 = batch_invtrans(p, q, num_batches, x0)
+    x0 = pack(p, q, num_batches, mu0, ar_params0, ma_params0)
+    x0 = batch_invtrans(p, q, num_batches, x0)
         
     # check initial parameter sanity
     if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
@@ -340,7 +329,7 @@ def forecast(model, nsteps: int) -> np.ndarray:
     return y_fc_b
 
 
-def batch_trans_cuda(p, q, nb, x):
+def batch_trans(p, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
     pynvtx_range_push("jones trans")
     mu, ar, ma = unpack(p, q, nb, x)
@@ -352,27 +341,7 @@ def batch_trans_cuda(p, q, nb, x):
     return Tx
 
 
-def batch_trans(p, q, nb, x):
-    """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
-    return batch_trans_cuda(p, q, nb, x)
-    mu, ar, ma = unpack(p, q, nb, x)
-    ar2 = []
-    ma2 = []
-    np.seterr(all='raise')
-
-    for ib in range(nb):
-        ari = sm_tools._ar_transparams(np.copy(ar[ib]))
-        mai = sm_tools._ma_transparams(np.copy(ma[ib]))
-        ar2.append(ari)
-        ma2.append(mai)
-
-    np.seterr(all='warn')
-
-    Tx = pack(p, q, nb, mu, ar2, ma2)
-    return Tx
-
-
-def batch_invtrans_cuda(p, q, nb, x):
+def batch_invtrans(p, q, nb, x):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
@@ -383,27 +352,6 @@ def batch_invtrans_cuda(p, q, nb, x):
 
     Tx = pack(p, q, nb, mu, ar2, ma2)
     pynvtx_range_pop()
-    return Tx
-
-
-def batch_invtrans(p, q, nb, x):
-    """Apply the *inverse* stationarity/invertibility guaranteeing transform to
-       batched-parameter vector x.
-    """
-    return batch_invtrans_cuda(p, q, nb, x)
-    mu, ar, ma = unpack(p, q, nb, x)
-    ar2 = []
-    ma2 = []
-    for ib in range(nb):
-        # print("invT: {},{}".format(ar[ib], ma[ib]))
-        ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
-        mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
-        assert ((not np.isinf(ari)) and (not np.isinf(mai)))
-        assert ((not np.isnan(ari)) and (not np.isnan(mai)))
-        ar2.append(ari)
-        ma2.append(mai)
-
-    Tx = pack(p, q, nb, mu, ar2, ma2)
     return Tx
 
 
