@@ -141,6 +141,7 @@ int cumlHandle::getDefaultNumInternalStreams() {
 }
 
 cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
+cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }

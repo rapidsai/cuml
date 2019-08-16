@@ -33,10 +33,6 @@ class cumlHandle_impl;
  * @brief Handle to manage resources needed by cuML algorithms.
  */
 class cumlHandle {
- private:
-  //TODO: What is the right number?
-  static constexpr int _default_num_internal_streams = 3;
-
  public:
   /**
      * @brief construct a cumlHandle with default paramters.
@@ -46,8 +42,11 @@ class cumlHandle {
      *   - stream: default or NULL stream
      *   - DeviceAllocator: cudaMalloc
      *   - HostAllocator: cudaMallocHost
+     * @{
      */
-  cumlHandle(int n_streams = _default_num_internal_streams);
+  cumlHandle(int n_streams);
+  cumlHandle();
+  /** @} */
   /**
      * @brief releases all resources internally manged by cumlHandle.
      */
@@ -103,6 +102,8 @@ class cumlHandle {
   static int getDefaultNumInternalStreams();
 
  private:
+  //TODO: What is the right number?
+  static constexpr int _default_num_internal_streams = 3;
   std::unique_ptr<cumlHandle_impl> _impl;
 };
 
