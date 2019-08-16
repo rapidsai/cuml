@@ -259,6 +259,8 @@ void foo(const ML::cumlHandle_impl& h, ...)
 }
 ```
 
+An example of how to use internal streams to schedule work on a single GPU can be found in [here](https://github.com/rapidsai/cuml/pull/1015). This PR uses the internal streams inside `cumlHandle_impl` to schedule more work onto the GPU for Random Forest building.
+
 ### `ML::cumlHandle` and `ML::cumlHandle_impl`
 
 The purpose of `ML::cumlHandle` is to be the public interface of cuML, i.e. it is meant to be used by developers using cuML in their application. This is differentiated from `ML::cumlHandle_impl` to avoid that the public interface of cuML depends on cuML internals, such as CUDA library handles, e.g. for cuBLAS. This is implemented via the "Pointer to implementation" or [pImpl](https://en.cppreference.com/w/cpp/language/pimpl) idiom. From a `ML::cumlHandle` the implementation `ML::cumlHandle_impl` can be obtained by calling `ML::cumlHandle::getImpl()`. The implementation of cuML should use `ML::cumlHandle_impl` and not `ML::cumlHandle`. E.g. for the function `ml_algo` from the public cuML interface an implementation calling the internal functions `foo` and `bar` could look like this:
