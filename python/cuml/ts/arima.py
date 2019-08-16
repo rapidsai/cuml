@@ -3,7 +3,6 @@ import numpy as np
 from IPython.core.debugger import set_trace
 import pandas as pd
 import statsmodels.tsa.tsatools as sm_tools
-import statsmodels.tsa.arima_model as sm_arima
 
 from .batched_kalman import batched_kfilter, init_kalman_matrices, init_batched_kalman_matrices
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
@@ -420,18 +419,73 @@ def assert_same_d(b_order):
     assert (np.array(b_d) == b_d[0]).all()
 
 
+def start_params(order, y_diff):
+    """A quick approach to determine reasonable starting mu (trend), AR, and MA parameters"""
+
+    # y is mutated so we need a copy
+    y = np.copy(y_diff)
+    nobs = len(y)
+
+    p, q, d = order
+    params_init = np.zeros(p+q+d)
+    if d > 0:
+        # center y (in `statsmodels`, this is result when exog = [1, 1, 1...])
+        mean_y = np.mean(y)
+        params_init[0] = mean_y
+        y -= mean_y
+
+    if p == 0 and q == 0:
+        return params_init
+
+    if p != 0:
+
+        x = np.zeros((len(y) - p, p))
+
+        # create lagged series set
+        for lag in range(1, p+1):
+            # create lag and trim appropriately from front so they are all the same size
+            x[:, lag-1] = y[p-lag:-lag].T
+
+        # LS fit a*X - Y
+        y_ar = y[p:]
+        (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
+
+        if q == 0:
+            params_init[d:] = ar_fit
+        else:
+            residual = y[p:] - np.dot(x, ar_fit)
+
+            x_resid = np.zeros((len(residual) - q, q))
+            x_ar2 = np.zeros((len(residual) - q, p))
+
+            # create lagged residual and ar term
+            for lag in range(1, q+1):
+                x_resid[:, lag-1] = residual[q-lag:-lag].T
+            for lag in range(1, p+1):
+                x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
+
+            X = np.column_stack((x_ar2, x_resid))
+            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[q:].T, rcond=None)
+
+            params_init[d:] = arma_fit
+
+    else:
+        # case when p == 0 and q>0
+
+        # when p==0, MA params are often -1
+        # TODO: See how `statsmodels` handles this case
+        params_init[d:] = -1*np.ones(q)
+
+    return params_init
+
 def init_x0(order, y):
     (p, d, q) = order
     if d == 1:
         yd = np.diff(y)
     else:
         yd = np.copy(y)
-    arma = sm_arima.ARMA(yd, order)
-    arma.exog = np.ones((len(yd),1))
-    arma.transparams = True
-    arma.k_trend = 1
-    arma.nobs = len(yd)
-    x0 = arma._fit_start_params((p,q,d), "css-mle")
+    
+    x0 = start_params((p, q, d), yd)
 
     mu, ar, ma = unpack(p, q, 1, x0)
     # fix ma to avoid bad values in inverse invertibility transform
