@@ -70,10 +70,10 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     for a in ${ARGS}; do
-	if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-	    echo "Invalid option: ${a}"
-	    exit 1
-	fi
+  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+      echo "Invalid option: ${a}"
+      exit 1
+  fi
     done
 fi
 
@@ -104,10 +104,10 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-	if [ -d ${bd} ]; then
-	    find ${bd} -mindepth 1 -delete
-	    rmdir ${bd} || true
-	fi
+  if [ -d ${bd} ]; then
+      find ${bd} -mindepth 1 -delete
+      rmdir ${bd} || true
+  fi
     done
 fi
 
@@ -160,7 +160,8 @@ if [ "${MAKE_TARGETS}" != "" ]; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
+          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
+          -DNCCL_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
 
     cd ${CUML_COMMS_BUILD_DIR}
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
@@ -171,9 +172,9 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-	python setup.py build_ext --inplace ${MULTIGPU}
-	python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
+  python setup.py build_ext --inplace ${MULTIGPU}
+  python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
     else
-	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
+  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
     fi
 fi
