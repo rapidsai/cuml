@@ -76,7 +76,7 @@
 - PR #991: Cleanup python code in cuml.dask.cluster
 - PR #996: ucx_initialized being properly set in CommsContext
 - PR #1007: Throws a well defined error when mutigpu is not enabled
-- PR #1019: Using random_state to make K-Means MNMG tests deterministic
+- PR #1022: Using random_state to make K-Means MNMG tests deterministic
 
 # cuML 0.8.0 (27 June 2019)
 
