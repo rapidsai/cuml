@@ -615,6 +615,7 @@ RepulsionKernel( /* int *restrict errd, */
   //   atomicExch(errd, max_depth);
   //   return;
   // }
+  const float EPS_PLUS_1 = epssqd + 1.0f;
 
   __shared__ int pos[THREADS5], node[THREADS5];
   __shared__ float dq[THREADS5];
@@ -630,6 +631,10 @@ RepulsionKernel( /* int *restrict errd, */
       dq[i - 1] += epssqd;
     }
     dq[max_depth - 1] += epssqd;
+
+    // Add one so EPS_PLUS_1 can be compared
+    for (int i = 0; i < max_depth; i++)
+      dq[i] += 1.0f;
   }
 
 
@@ -677,6 +682,7 @@ RepulsionKernel( /* int *restrict errd, */
     }
 
     do {
+
       // stack is not empty
       int pd = pos[depth];
       int nd = node[depth];
@@ -696,17 +702,15 @@ RepulsionKernel( /* int *restrict errd, */
 
         const float dx = px - posxd[n];
         const float dy = py - posyd[n];
-        const float dxy = dx*dx + dy*dy + epssqd; 
+        const float dxy1 = dx*dx + dy*dy + EPS_PLUS_1; 
 
 
-        if ((n < N) or __all_sync(__activemask(), dxy >= dq[depth]))
+        if ((n < N) or __all_sync(__activemask(), dxy1 >= dq[depth]))
         {
-          const float tdist = __fdividef(1.0f, (1.0f + dxy));
-          float mult = massd[n] * tdist;
-          normsum += mult;
-          mult *= tdist;
-          vx += dx * mult;
-          vy += dy * mult;
+          const float tdist_2 = __fdividef(massd[n], dxy1 * dxy1);
+          normsum += tdist_2 * dxy1;
+          vx += dx * tdist_2;
+          vy += dy * tdist_2;
         }
         else
         {
@@ -807,7 +811,8 @@ IntegrationKernel(const float eta,
   const int inc = blockDim.x * gridDim.x;
   const float Z_norm = Z[0];
 
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc) {
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc)
+  {
     const float dx = attract1[i] - Z_norm * repel1[i];
     const float dy = attract2[i] - Z_norm * repel2[i];
 
