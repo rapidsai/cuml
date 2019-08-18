@@ -46,7 +46,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       cudf=${MINOR_VERSION} \
       rmm=${MINOR_VERSION} \
       nvstrings=${MINOR_VERSION} \
-      libcumlprims=${MINOR_VERSION} \
+      libcumlprims=0.9 \
       lapack \
       cmake==3.14.3 \
       umap-learn \
