@@ -49,8 +49,8 @@ template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename OutputTile_, typename FinalLambda,
           typename Index_>
 struct DistanceImpl {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {}
 };
 
@@ -58,8 +58,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucExpandedL2, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     euclideanAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
@@ -71,8 +71,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucExpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     euclideanAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op, stream,
@@ -84,8 +84,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucExpandedCosine, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     cosineAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, (AccType *)workspace, worksize, fin_op, stream,
@@ -97,8 +97,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucUnexpandedL2, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, false, fin_op, stream, isRowMajor);
@@ -109,8 +109,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, true, fin_op, stream, isRowMajor);
@@ -121,8 +121,8 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
 struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
                     FinalLambda, Index_> {
-  void run(InType *x, InType *y, OutType *dist, Index_ m, Index_ n, Index_ k,
-           void *workspace, size_t worksize, FinalLambda fin_op,
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     l1Impl<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, fin_op, stream, isRowMajor);
@@ -149,7 +149,7 @@ struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
  */
 template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename Index_ = int>
-size_t getWorkspaceSize(InType *const x, InType *const y, Index_ m, Index_ n,
+size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
   constexpr bool is_allocated = distanceType <= EucExpandedCosine;
@@ -188,7 +188,7 @@ size_t getWorkspaceSize(InType *const x, InType *const y, Index_ m, Index_ n,
 template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename OutputTile_, typename FinalLambda,
           typename Index_ = int>
-void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
+void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
@@ -222,7 +222,7 @@ void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
  */
 template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename OutputTile_, typename Index_ = int>
-void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
+void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               cudaStream_t stream, bool isRowMajor = true) {
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
@@ -255,7 +255,7 @@ void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
  * @param isRowMajor whether the matrices are row-major or col-major
  */
 template <typename Type, typename Index_, DistanceType DistType>
-void pairwiseDistanceImpl(Type *const x, Type *const y, Type *dist, Index_ m,
+void pairwiseDistanceImpl(const Type *x, const Type *y, Type *dist, Index_ m,
                           Index_ n, Index_ k, device_buffer<char> &workspace,
                           cudaStream_t stream, bool isRowMajor) {
   auto worksize =
@@ -266,7 +266,7 @@ void pairwiseDistanceImpl(Type *const x, Type *const y, Type *dist, Index_ m,
 }
 
 template <typename Type, typename Index_ = int>
-void pairwiseDistance(Type *const x, Type *const y, Type *dist, Index_ m,
+void pairwiseDistance(const Type *x, const Type *y, Type *dist, Index_ m,
                       Index_ n, Index_ k, device_buffer<char> &workspace,
                       DistanceType metric, cudaStream_t stream,
                       bool isRowMajor = true) {
@@ -327,7 +327,7 @@ void pairwiseDistance(Type *const x, Type *const y, Type *dist, Index_ m,
  */
 template <DistanceType distanceType, typename T, typename Lambda,
           typename Index_ = int, typename OutputTile_ = OutputTile_8x128x128>
-size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
+size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                             Index_ n, Index_ k, T eps, void *workspace,
                             size_t worksize, cudaStream_t stream,
                             Lambda fused_op) {
@@ -365,7 +365,7 @@ size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
  */
 template <DistanceType distanceType, typename T, typename Index_ = int,
           typename OutputTile_ = OutputTile_8x128x128>
-size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
+size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                             Index_ n, Index_ k, T eps, void *workspace,
                             size_t worksize, cudaStream_t stream) {
   auto lambda = [] __device__(Index_ c_idx, bool acc) {};

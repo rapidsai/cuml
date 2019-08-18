@@ -4,6 +4,9 @@ This document summarizes rules and best practices for contributions to the cuML 
 ## General
 Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
+## Performance
+1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See PR [#973](https://github.com/rapidsai/cuml/pull/973) for more details.
+
 ## Thread safety
 cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
 

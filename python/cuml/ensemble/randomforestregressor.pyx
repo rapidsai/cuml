@@ -147,7 +147,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int,
                                     float,
                                     CRITERION,
-                                    bool) except +
+                                    bool,
+                                    int) except +
 
 
 class RandomForestRegressor(Base):
@@ -202,9 +203,11 @@ class RandomForestRegressor(Base):
                          If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth : int (default = 16)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+                if -1. Unlimited depth is not supported with split_algo=1.
+                *Note that this default differs from scikit-learn's
+                random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
@@ -240,8 +243,8 @@ class RandomForestRegressor(Base):
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
-    def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features='auto', n_bins=8,
+    def __init__(self, n_estimators=10, max_depth=16, handle=None,
+                 max_features='auto', n_bins=8, n_streams=4,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
@@ -272,6 +275,9 @@ class RandomForestRegressor(Base):
                                 " more information")
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
+        if max_depth < 0 and split_algo == 1:
+            raise ValueError("Must specify max_depth >0 with split_algo=1")
+
         self.split_algo = split_algo
         criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                           '3': MAE, '4': CRITERION_END}
@@ -296,6 +302,7 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.n_streams = n_streams
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -414,7 +421,8 @@ class RandomForestRegressor(Base):
                                      <int> self.n_estimators,
                                      <int> self.rows_sample,
                                      <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree)
+                                     <bool> self.quantile_per_tree,
+                                     <int> self.n_streams)
 
         if self.dtype == np.float32:
             fit(handle_[0],
