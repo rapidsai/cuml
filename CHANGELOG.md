@@ -6,6 +6,8 @@
 
 ## Bug Fixes
 
+- PR #1016: Use correct libcumlprims version in GPU CI
+
 
 # cuML 0.9.0 (Date TBD)
 
