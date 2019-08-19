@@ -259,7 +259,15 @@ void foo(const ML::cumlHandle_impl& h, ...)
 }
 ```
 
-An example of how to use internal streams to schedule work on a single GPU can be found in [here](https://github.com/rapidsai/cuml/pull/1015). This PR uses the internal streams inside `cumlHandle_impl` to schedule more work onto the GPU for Random Forest building.
+The example below shows one way to create `nStreams` number of internal cuda streams which can later be used by the algos inside cuML. For a full working example of how to use internal streams to schedule work on a single GPU, the reader is further referred to [this PR](https://github.com/rapidsai/cuml/pull/1015). In this PR, the internal streams inside `cumlHandle_impl` are used to schedule more work onto a GPU for Random Forest building.
+```cpp
+int main(int argc, char** argv)
+{
+    int nStreams = argc > 1 ? atoi(argv[1]) : 0;
+    ML::cumlHandle handle(nStreams);
+    foo(handle.getImpl(), ...);
+}
+```
 
 ### `ML::cumlHandle` and `ML::cumlHandle_impl`
 
