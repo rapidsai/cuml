@@ -102,7 +102,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
 
     cdef cumlHandle* handle_ = <cumlHandle*>0
     if handle is None:
-        handle_ = <cumlHandle*><size_t>(new cumlHandle(3))
+        handle_ = <cumlHandle*><size_t>(new cumlHandle())
     else:
         handle_ = <cumlHandle*><size_t>handle.getHandle()
 
