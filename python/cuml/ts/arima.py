@@ -74,15 +74,7 @@ def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gp
         pynvtx_range_pop()
 
     p, _, q = order
-    mu, arparams, maparams = unpack(p, q, num_batches, x)
-    
-    b_model = ARIMAModel([order]*num_batches,
-                         mu,
-                         arparams,
-                         maparams,
-                         y)
-
-    ll_b = loglike(b_model)
+    ll_b, _ = run_kalman(y, order, num_batches, x)
     pynvtx_range_pop()
     if return_negative_sum:
         return -ll_b.sum()
@@ -187,45 +179,36 @@ def fit(y: np.ndarray,
     return fit_model
 
 
-def diffAndCenter(y: np.ndarray, num_batches: int,
-                  mu: np.ndarray, ar_params: np.ndarray):
+def diffAndCenter(y: np.ndarray,
+                  p, q,
+                  mu_ar_ma_params_x: np.ndarray):
     """Diff and center batched series `y`"""
+    pynvtx_range_push("diffAndCenter")
     y_diff = np.diff(y, axis=0)
 
-    B0 = np.zeros(num_batches)
-    for (i, (mu, ar)) in enumerate(zip(mu, ar_params)):
-        # B0[i] = mu/(1-np.sum(ar))
-        B0[i] = mu
-
-    return np.asfortranarray(y_diff-B0)
+    pynvtx_range_pop()
+    return np.asfortranarray(y_diff-mu_ar_ma_params_x[::(1+p+q)])
 
 
-def run_kalman(model, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
+def run_kalman(y, order, num_batches, mu_ar_ma_params_x, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
     """Run the (batched) kalman filter for the given model (and contained batched
     series). `initP_kalman_iterations, if true uses kalman iterations, and if false
     uses an analytical approximation (Durbin Koopman pg 138).`"""
-    b_ar_params = model.ar_params
-    b_ma_params = model.ma_params
-
-    assert_same_d(model.order) # We currently assume the same d for all series
-    p, d, q = model.order[0]
+    
+    p, d, q = order
 
     if d == 0:
 
-        ll_b, vs = batched_kfilter(np.asfortranarray(model.y), # numpy
-                                   b_ar_params,
-                                   b_ma_params,
+        ll_b, vs = batched_kfilter(np.asfortranarray(y), # numpy
+                                   mu_ar_ma_params_x,
                                    p, q,
                                    initP_kalman_iterations)
     elif d == 1:
 
-        y_diff_centered = diffAndCenter(model.y, model.num_batches,
-                                                          model.mu, model.ar_params)
-
+        y_diff_centered = diffAndCenter(y, p, q, mu_ar_ma_params_x)
 
         ll_b, vs = batched_kfilter(y_diff_centered, # numpy
-                                   b_ar_params,
-                                   b_ma_params,
+                                   mu_ar_ma_params_x,
                                    p, q,
                                    initP_kalman_iterations)
     else:
@@ -234,15 +217,12 @@ def run_kalman(model, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.nda
     return ll_b, vs
 
 
-def loglike(model) -> np.ndarray:
-    """Compute the batched loglikelihood (return a LL for each batch)"""
-    ll_b, _ = run_kalman(model)
-    return ll_b
-
-
 def predict_in_sample(model):
     """Return in-sample prediction on batched series given batched model"""
-    _, vs = run_kalman(model)
+
+    p, d, q = model.order[0]
+    x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
+    _, vs = run_kalman(model.y, model.order, model.num_batches, x)
 
     assert_same_d(model.order) # We currently assume the same d for all series
     _, d, _ = model.order[0]
@@ -311,7 +291,10 @@ def forecast(model, nsteps: int) -> np.ndarray:
     """Forecast the given model `nsteps` into the future."""
     y_fc_b = np.zeros((nsteps, model.num_batches))
 
-    _, vs = run_kalman(model)
+    p, d, q = model.order[0]
+    x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
+
+    _, vs = run_kalman(model.y, model.order, model.num_batches, x)
 
     for i in range(model.num_batches):
         p, d, q = model.order[i]
@@ -332,11 +315,9 @@ def forecast(model, nsteps: int) -> np.ndarray:
 def batch_trans(p, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
     pynvtx_range_push("jones trans")
-    mu, ar, ma = unpack(p, q, nb, x)
 
-    (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, False)
+    Tx = batched_trans_cuda(p, q, nb, x, False)
     
-    Tx = pack(p, q, nb, mu, ar2, ma2)
     pynvtx_range_pop()
     return Tx
 
@@ -346,11 +327,9 @@ def batch_invtrans(p, q, nb, x):
        batched-parameter vector x.
     """
     pynvtx_range_push("jones inv-trans")
-    mu, ar, ma = unpack(p, q, nb, x)
 
-    (ar2, ma2) = batched_trans_cuda(p, q, nb, ar, ma, True)
+    Tx = batched_trans_cuda(p, q, nb, x, True)
 
-    Tx = pack(p, q, nb, mu, ar2, ma2)
     pynvtx_range_pop()
     return Tx
 
