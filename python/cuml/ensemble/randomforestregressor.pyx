@@ -160,7 +160,16 @@ class RandomForestRegressor(Base):
     used in scikit-learn. By default, the cuML Random Forest uses a
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
-    The instances of RandomForestRegressor cannot be pickled currently.
+
+    **Known Limitations**: This is an initial release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+       * Inference/prediction takes place on the CPU. A GPU-based inference
+         solution based on the forest inference library is planned for a
+         near-future release.
+
+       * Instances of RandomForestRegressor cannot be pickled currently.
+
     Examples
     ---------
     .. code-block:: python
@@ -186,12 +195,14 @@ class RandomForestRegressor(Base):
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+                 0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
+                 HIST curently uses a slower tree-building algorithm
+                 so GLOBAL_QUANTILE is recommended for most cases.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
                      0 for GINI, 1 for ENTROPY,
-                     2 for MSE, 3 for MAE and 4 for CRITERION_END.
+                     2 for MSE, or 3 for MAE
                      0 and 1 not valid for regression
     bootstrap : boolean (default = True)
                 Control bootstrapping.
