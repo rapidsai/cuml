@@ -192,13 +192,9 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  if (n_streams > handle.getNumInternalStreams()) {
-    std::cerr << "Warning: rf_params.n_streams=" << n_streams
-              << " cumlHandle.n_streams=" << handle.getNumInternalStreams()
-              << " limiting num-streams to the one from cumlHandle!"
-              << std::endl;
-    n_streams = handle.getNumInternalStreams();
-  }
+  ASSERT(n_streams <= handle.getNumInternalStreams(),
+         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         n_streams, handle.getNumInternalStreams());
 
   cudaStream_t stream = handle.getStream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
@@ -495,13 +491,9 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  if (n_streams > handle.getNumInternalStreams()) {
-    std::cerr << "Warning: rf_params.n_streams=" << n_streams
-              << " cumlHandle.n_streams=" << handle.getNumInternalStreams()
-              << " limiting num-streams to the one from cumlHandle!"
-              << std::endl;
-    n_streams = handle.getNumInternalStreams();
-  }
+  ASSERT(n_streams <= handle.getNumInternalStreams(),
+         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         n_streams, handle.getNumInternalStreams());
 
   cudaStream_t stream = user_handle.getStream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
