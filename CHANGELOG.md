@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #1035: Updating RF wrappers to include the RF to treelite function
+
 ## Improvements
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 
