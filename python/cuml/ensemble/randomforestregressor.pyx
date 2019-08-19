@@ -170,7 +170,6 @@ class RandomForestRegressor(Base):
 
        * Instances of RandomForestRegressor cannot be pickled currently.
 
-
     Examples
     ---------
     .. code-block:: python
