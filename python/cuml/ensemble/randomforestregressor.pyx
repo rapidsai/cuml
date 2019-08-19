@@ -37,6 +37,9 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+cdef extern from "treelite/c_api.h":
+    ctypedef void* ModelHandle
+
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
@@ -111,6 +114,15 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                       int,
                       double*,
                       bool) except +
+
+    cdef void build_treelite_forest(ModelHandle*,
+                                    RandomForestMetaData[float, float]*,
+                                    int,
+                                    int)
+    cdef void build_treelite_forest(ModelHandle*,
+                                    RandomForestMetaData[double, double]*,
+                                    int,
+                                    int)
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
@@ -649,3 +661,24 @@ class RandomForestRegressor(Base):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def build_treelite_forest(self, model, num_features, task_category=1):
+
+        cdef uintptr_t treelite_model = <uintptr_t> model.handle.getHandle()
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+
+        if self.dtype == np.float32:
+            build_treelite_forest(<ModelHandle*> treelite_model,
+                                  rf_forest,
+                                  <int> num_features,
+                                  <int> task_category)
+
+        else:
+            build_treelite_forest(<ModelHandle*> treelite_model,
+                                  rf_forest64,
+                                  <int> num_features,
+                                  <int> task_category)
