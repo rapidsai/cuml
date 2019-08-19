@@ -458,6 +458,8 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   using thrust::fill;
   using thrust::host_vector;
 
+  ML::PUSH_RANGE("init_batched_kalman_matrices");
+
   device_vector<double> d_b_ar_params = b_ar_params;
   device_vector<double> d_b_ma_params = b_ma_params;
   const int nb = num_batches;
@@ -515,6 +517,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
       }
     }
   });
+  ML::POP_RANGE();
 }
 
 void batched_kalman_filter(double* h_ys, int nobs,

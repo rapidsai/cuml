@@ -73,7 +73,7 @@ def pack(p, q, nb, mu, ar, ma):
     pynvtx_range_pop()
     return x
 
-def batched_transform(p, q, nb, ar, ma, isInv):
+def batched_transform(p, q, nb, np.ndarray[double] x, isInv):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
@@ -82,29 +82,28 @@ def batched_transform(p, q, nb, ar, ma, isInv):
     # pack ar & ma into C++ vectors
     for ib in range(nb):
         for ip in range(p):
-            vec_ar.push_back(ar[ib][ip])
+            vec_ar.push_back(x[(1+p+q)*ib + 1 + ip])
         for iq in range(q):
-            vec_ma.push_back(ma[ib][ip])
+            vec_ma.push_back(x[(1+p+q)*ib + 1 + p + iq])
 
     batched_jones_transform(p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
 
     # unpack Tar & Tma results into [np.ndarray]
-    Tar = []
-    Tma = []
+    Tx = np.zeros(nb*(1+p+q))
     for ib in range(nb):
-        Tar_i = np.zeros(p)
+
+        # copy mu
+        Tx[(1+p+q)*ib] = x[(1+p+q)*ib]
+
+        # copy ar
         for ip in range(p):
-            Tar_i[ip] = vec_Tar[ib*p + ip]
+            Tx[(1+p+q)*ib + 1 + ip] = vec_Tar[ib*p + ip]
 
-        Tar.append(Tar_i)
-
-        Tma_i = np.zeros(q)
+        # copy ma
         for iq in range(q):
-            Tma_i[iq] = vec_Tma[ib*q + iq]
+            Tx[(1+p+q)*ib + 1 + p + iq] = vec_Tma[ib*q + iq]
 
-        Tma.append(Tma_i)
-
-    return (Tar, Tma)
+    return (Tx)
 
 def pynvtx_range_push(msg):
     cdef string s = msg.encode("UTF-8")
@@ -114,8 +113,7 @@ def pynvtx_range_pop():
     nvtx_range_pop()
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
-                    b_ar_params, # list of numpy arrays
-                    b_ma_params, # list of numpy arrays
+                    np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
                     int p, int q,
                     initP_with_kalman_iterations=False):
 
@@ -144,9 +142,9 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     for i in range(num_batches):
         for ip in range(p):
-            vec_b_ar_params[i*p + ip] = b_ar_params[i][ip]
+            vec_b_ar_params[i*p + ip] = mu_ar_ma_params_x[i*(1+p+q) + 1 + ip]
         for iq in range(q):
-            vec_b_ma_params[i*q + iq] = b_ma_params[i][iq]
+            vec_b_ma_params[i*q + iq] = mu_ar_ma_params_x[i*(1+p+q) + 1 + p + iq]
 
     ll_b = np.zeros(num_batches)
     vs = np.zeros((nobs, num_batches))
