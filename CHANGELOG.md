@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 
 ## Bug Fixes
 
