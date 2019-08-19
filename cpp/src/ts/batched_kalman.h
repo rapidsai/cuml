@@ -19,17 +19,12 @@ void batched_kalman_filter_cpu(
   std::vector<std::vector<double>>& h_vs_b,
   bool initP_with_kalman_iterations = false);
 
-void batched_kalman_filter(
-  double* d_ys_b, int nobs,
-  const std::vector<double*>&
-    h_Zb,  // { vector size batches, each item size Zb }
-  const std::vector<double*>&
-    h_Rb,  // { vector size batches, each item size Rb }
-  const std::vector<double*>&
-    h_Tb,  // { vector size batches, each item size Tb }
-  int r, int num_batches, std::vector<double>& loglike_b,
-  std::vector<std::vector<double>>& h_vs_b,
-  bool initP_with_kalman_iterations = false);
+void batched_kalman_filter(double* d_ys_b, int nobs,
+                           const std::vector<double>& b_ar_params,
+                           const std::vector<double>& b_ma_params, int p, int q,
+                           int num_batches, std::vector<double>& loglike_b,
+                           std::vector<std::vector<double>>& h_vs_b,
+                           bool initP_with_kalman_iterations = false);
 
 void nvtx_range_push(std::string msg);
 

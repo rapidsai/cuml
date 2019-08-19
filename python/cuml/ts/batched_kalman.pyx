@@ -13,13 +13,9 @@ cdef extern from "ts/batched_kalman.h":
 
   void batched_kalman_filter(double* ptr_ys_b,
                              int nobs,
-                             # double* h_Zb,
-                             # double* h_Rb,
-                             # double* h_Tb,
-                             const vector[double*]& ptr_Zb,
-                             const vector[double*]& ptr_Rb,
-                             const vector[double*]& ptr_Tb,
-                             int r,
+                             const vector[double]& b_ar_params,
+                             const vector[double]& b_ma_params,
+                             int p, int q,
                              int num_batches,
                              vector[double]& vec_loglike_b,
                              vector[vector[double]]& vec_vs_b,
@@ -118,11 +114,9 @@ def pynvtx_range_pop():
     nvtx_range_pop()
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
-                    Z_b, # list of numpy arrays
-                    R_b,
-                    T_b,
-                    int r,
-                    gpu=True,
+                    b_ar_params, # list of numpy arrays
+                    b_ma_params, # list of numpy arrays
+                    int p, int q,
                     initP_with_kalman_iterations=False):
 
     cdef vector[double] vec_loglike_b
@@ -138,169 +132,109 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
     # cdef unsigned long long ytmp = y_mat.gpu_data.device_pointer.value
     # cdef double* y_ptr = <double*>ytmp
 
-    cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] P0_bi
-    cdef vector[double*] vec_Zb
-    cdef vector[double*] vec_Rb
-    cdef vector[double*] vec_Tb
-    cdef vector[double*] vec_P0
+    cdef vector[double] vec_b_ar_params
+    cdef vector[double] vec_b_ma_params
 
     cdef vector[double*] vec_ys_b
 
     cdef vector[vector[double]] vec_vs_b
 
+    vec_b_ar_params.resize(p * num_batches)
+    vec_b_ma_params.resize(q * num_batches)
+
     for i in range(num_batches):
-        Z_bi = Z_b[i]
-        R_bi = R_b[i]
-        T_bi = T_b[i]
-        vec_Zb.push_back(&Z_bi[0,0])
-        vec_Rb.push_back(&R_bi[0,0])
-        vec_Tb.push_back(&T_bi[0,0])
+        for ip in range(p):
+            vec_b_ar_params[i*p + ip] = b_ar_params[i][ip]
+        for iq in range(q):
+            vec_b_ma_params[i*q + iq] = b_ma_params[i][iq]
 
     ll_b = np.zeros(num_batches)
     vs = np.zeros((nobs, num_batches))
 
-    if gpu:
-        batched_kalman_filter(&y[0,0],
-                              nobs,
-                              # &Z_dense[0], &R_dense[0], &T_dense[0],
-                              vec_Zb, vec_Rb, vec_Tb,
-                              r,
-                              num_batches,
-                              vec_loglike_b,
-                              vec_vs_b,
-                              initP_with_kalman_iterations)
-        # convert C++-results to numpy arrays    
-        for i in range(num_batches):
-            ll_b[i] = vec_loglike_b[i]
-            for j in range(nobs):
-                vs[j,i] = vec_vs_b[i][j]
-
-    else:
-        # CPU reference version
-        for i in range(num_batches):
-            ysi = np.copy(y[:, i])
-            vsi, _, loglike_i, _ = kfilter_reference(ysi, Z_b[i], R_b[i], T_b[i], r)
-            ll_b[i] = loglike_i
-            vs[:, i] = np.copy(vsi)
+    batched_kalman_filter(&y[0,0],
+                          nobs,
+                          vec_b_ar_params,
+                          vec_b_ma_params,
+                          p, q,
+                          num_batches,
+                          vec_loglike_b,
+                          vec_vs_b,
+                          initP_with_kalman_iterations)
+    # convert C++-results to numpy arrays    
+    for i in range(num_batches):
+        ll_b[i] = vec_loglike_b[i]
+        for j in range(nobs):
+            vs[j,i] = vec_vs_b[i][j]
 
     return ll_b, vs
 
 
-def init_batched_kalman_matrices(b_ar_params, b_ma_params):
-    """Builds batched-versions of the kalman matrices given batched AR and MA parameters"""
-    pynvtx_range_push("init_batched_kalman_matrices")
 
-    Zb = []
-    Rb = []
-    Tb = []
+# def kfilter_reference(ys, Z, R, T, r):
+#     """Reference kalman filter implementation"""
+#     loglikelihood = 0
+#     alpha = np.zeros((r, 1))
 
-    # find maximum 'r' across batches; see (3.18) in TSA by D&K for definition of 'r'
-    r_max = np.max([max(len(ar), len(ma)+1) for (ar, ma) in zip(b_ar_params, b_ma_params)])
+#     # see D&K's TSA 5.6.2 for this formula
+#     # TODO: Why use psuedo-inverse (seems to be just regular inverse in book)
 
-    for (ari, mai) in zip(b_ar_params, b_ma_params):
-        Z, R, T, r = init_kalman_matrices(ari, mai, r_max)
-        Zb.append(Z)
-        Rb.append(R)
-        Tb.append(T)
+#     invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T, T))
+#     P0 = np.reshape(invImTT @ (R @ R.T).ravel(), (r, r))
 
-    pynvtx_range_pop()
-    return Zb, Rb, Tb, r_max
+#     # original:
+#     #  P0 = np.reshape(np.dot(np.linalg.pinv(np.eye(r**2) - np.kron(T, T)),
+#     #                         np.dot(R, R.T).ravel()), (r, r))
 
+#     # if P0[0, 0] < 0.0:
+#     #     print("WARNING: Proposed initial covariance P has negative diagonal entry, switching to P0=I")
+#     #     P = P0
+#     # else:
 
-def init_kalman_matrices(ar_params, ma_params, r=None):
-    p = len(ar_params)
-    q = len(ma_params)
+#     # use a single kalman iteration as covariance (P) initialization
+#     P = np.copy(P0)
 
-    # for batched case, we input the maximum `r` to zero-pad some matrices.
-    if r is None:
-        r = max(p, q+1)  # see (3.18) in TSA by D&K
+#     nobs = len(ys)
+#     Fs = np.ones(nobs)
+#     vs = np.zeros(nobs)
+#     it = 0
+#     F = 0
 
-    Z = np.zeros((1, r), order="F")
-    Z[0, 0] = 1.0
+#     Ptm1 = np.copy(P)
 
-    R = np.zeros((r, 1), order="F")
-    # for (i, ma_i) in enumerate(ma_params):
-    R[1:q + 1, 0] = ma_params[:]
+#     # TODO: Why stop at F==1.0? (and it's basically never exactly 1.0)
+#     while F != 1.0 and it < nobs:
+#         v = ys[it] - alpha[0, 0]
+#         F = P[0, 0]
 
-    R[0] = 1.0
+#         if F < 0:
+#             raise AssertionError("ERROR: F must be > 0. Possible non-positive definite covariance P: {}".format(P))
 
-    T = np.zeros((r, r), order="F")
-    params_padded = np.zeros(r)
-    # handle zero coefficients if necessary
-    params_padded[:p] = ar_params[:]
-    T[:, 0] = params_padded
-    T[:-1, 1:] = np.eye(r - 1)
+#         Fs[it] = F
+#         vs[it] = v
 
-    return Z, R, T, r
+#         # Recall: '@' is Python3 matrix multiplication operator
+#         # set_trace()
+#         K = 1.0/Fs[it] * (T @ P @ Z.T)
+#         alpha = T*alpha + K*vs[it]
+#         L = T - K @ Z
+#         P = T @ P @ L.T + R @ R.T
 
-def kfilter_reference(ys, Z, R, T, r):
-    """Reference kalman filter implementation"""
-    loglikelihood = 0
-    alpha = np.zeros((r, 1))
+#         # print("||P-Pm||=", np.linalg.norm(P-Ptm1))()
+#         # print("P=\n{}\nPm1=\n{}\n--------------".format(P, Ptm1))
+#         # set_trace()
+#         Ptm1 = np.copy(P)
 
-    # see D&K's TSA 5.6.2 for this formula
-    # TODO: Why use psuedo-inverse (seems to be just regular inverse in book)
+#         loglikelihood += np.log(F)
+#         it += 1
 
-    invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T, T))
-    P0 = np.reshape(invImTT @ (R @ R.T).ravel(), (r, r))
+#     for i in range(it, nobs):
+#         v = ys[i] - alpha[0, 0]
+#         vs[i] = v
+#         alpha = T @ alpha + K * v
 
-    # original:
-    #  P0 = np.reshape(np.dot(np.linalg.pinv(np.eye(r**2) - np.kron(T, T)),
-    #                         np.dot(R, R.T).ravel()), (r, r))
-
-    # if P0[0, 0] < 0.0:
-    #     print("WARNING: Proposed initial covariance P has negative diagonal entry, switching to P0=I")
-    #     P = P0
-    # else:
-
-    # use a single kalman iteration as covariance (P) initialization
-    P = np.copy(P0)
-
-    nobs = len(ys)
-    Fs = np.ones(nobs)
-    vs = np.zeros(nobs)
-    it = 0
-    F = 0
-
-    Ptm1 = np.copy(P)
-
-    # TODO: Why stop at F==1.0? (and it's basically never exactly 1.0)
-    while F != 1.0 and it < nobs:
-        v = ys[it] - alpha[0, 0]
-        F = P[0, 0]
-
-        if F < 0:
-            raise AssertionError("ERROR: F must be > 0. Possible non-positive definite covariance P: {}".format(P))
-
-        Fs[it] = F
-        vs[it] = v
-
-        # Recall: '@' is Python3 matrix multiplication operator
-        # set_trace()
-        K = 1.0/Fs[it] * (T @ P @ Z.T)
-        alpha = T*alpha + K*vs[it]
-        L = T - K @ Z
-        P = T @ P @ L.T + R @ R.T
-
-        # print("||P-Pm||=", np.linalg.norm(P-Ptm1))()
-        # print("P=\n{}\nPm1=\n{}\n--------------".format(P, Ptm1))
-        # set_trace()
-        Ptm1 = np.copy(P)
-
-        loglikelihood += np.log(F)
-        it += 1
-
-    for i in range(it, nobs):
-        v = ys[i] - alpha[0, 0]
-        vs[i] = v
-        alpha = T @ alpha + K * v
-
-    sigma2 = np.mean(vs**2 / Fs)
-    assert(sigma2 > 0)
-    loglike = -.5 * (loglikelihood + nobs * np.log(sigma2))
-    loglike -= nobs / 2. * (np.log(2 * np.pi) + 1)
-    # print("P vs P0 ||P-P0||", P, P0, np.linalg.norm(P-P0))
-    return vs, Fs, loglike, sigma2
+#     sigma2 = np.mean(vs**2 / Fs)
+#     assert(sigma2 > 0)
+#     loglike = -.5 * (loglikelihood + nobs * np.log(sigma2))
+#     loglike -= nobs / 2. * (np.log(2 * np.pi) + 1)
+#     # print("P vs P0 ||P-P0||", P, P0, np.linalg.norm(P-P0))
+#     return vs, Fs, loglike, sigma2
