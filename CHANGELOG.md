@@ -40,6 +40,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
 - PR #960: Enable using libcumlprims for MG algorithms/prims
 
