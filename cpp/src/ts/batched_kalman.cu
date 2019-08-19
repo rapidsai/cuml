@@ -1,5 +1,8 @@
 #include <matrix/batched_matrix.h>
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
+#include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <utils.h>
 #include <cstdio>
@@ -444,22 +447,98 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
                          d_loglike);
 }
 
-void batched_kalman_filter(
-  double* h_ys, int nobs,
-  const vector<double*>& h_Zb,  // { vector size batches, each item size Zb }
-  const vector<double*>& h_Rb,  // { vector size batches, each item size Rb }
-  const vector<double*>& h_Tb,  // { vector size batches, each item size Tb }
-  int r, int num_batches, std::vector<double>& h_loglike_b,
-  std::vector<vector<double>>& h_vs_b, bool initP_with_kalman_iterations) {
+void init_batched_kalman_matrices(const vector<double>& b_ar_params,
+                                  const vector<double>& b_ma_params,
+                                  const int num_batches, const int p,
+                                  const int q, int& r,
+                                  thrust::device_vector<double>& d_Z_b,
+                                  thrust::device_vector<double>& d_R_b,
+                                  thrust::device_vector<double>& d_T_b) {
+  using thrust::device_vector;
+  using thrust::fill;
+  using thrust::host_vector;
+
+  device_vector<double> d_b_ar_params = b_ar_params;
+  device_vector<double> d_b_ma_params = b_ma_params;
+  const int nb = num_batches;
+  // see (3.18) in TSA by D&K
+  r = std::max(p, q + 1);
+
+  d_Z_b.resize(r * nb);      // Z has shape (1, r)
+  d_R_b.resize(r * nb);      // R has shape (r, 1)
+  d_T_b.resize(r * r * nb);  // T has shape (r, r)
+
+  fill(d_Z_b.begin(), d_Z_b.end(), 0.0);
+  fill(d_R_b.begin(), d_R_b.end(), 0.0);
+  fill(d_T_b.begin(), d_T_b.end(), 0.0);
+
+  // ugh
+  double* d_b_ar_params_data = thrust::raw_pointer_cast(d_b_ar_params.data());
+  double* d_b_ma_params_data = thrust::raw_pointer_cast(d_b_ma_params.data());
+  double* d_Z_b_data = thrust::raw_pointer_cast(d_Z_b.data());
+  double* d_R_b_data = thrust::raw_pointer_cast(d_R_b.data());
+  double* d_T_b_data = thrust::raw_pointer_cast(d_T_b.data());
+
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + nb, [=] __device__(int bid) {
+    // See TSA pg. 54 for Z,R,T matrices
+    // Z = [1 0 0 0 ... 0]
+    d_Z_b_data[bid * r] = 1.0;
+
+    /*
+        |1.0   |
+    R = |ma_1  |
+        |ma_r-1|
+     */
+    d_R_b_data[bid * r] = 1.0;
+    for (int i = 0; i < q; i++) {
+      d_R_b_data[bid * r + i + 1] = d_b_ma_params_data[bid * q + i];
+    }
+
+    /*
+           |ar_1  1.0  0.0  ...  0.0|
+           | .         1.0          |
+           | .             .        |
+       T = | .               .   0.0|
+           | .                 .    |
+           | .                      |
+           |ar_r  0.0  0.0  ...  1.0|
+    */
+    for (int i = 0; i < r; i++) {
+      // ar_i is zero if (i > p)
+      if (i < p) {
+        d_T_b_data[bid * r * r + i] = d_b_ar_params_data[bid * p + i];
+      }
+
+      if (i < r - 1) {
+        d_T_b_data[bid * r * r + (i + 1) * r + i] = 1.0;
+      }
+    }
+  });
+}
+
+void batched_kalman_filter(double* h_ys, int nobs,
+                           const vector<double>& b_ar_params,
+                           const vector<double>& b_ma_params, int p, int q,
+                           int num_batches, std::vector<double>& h_loglike_b,
+                           std::vector<vector<double>>& h_vs_b,
+                           bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE(__FUNCTION__);
 
   const size_t ys_len = nobs;
-
   ////////////////////////////////////////////////////////////
-  // xfer from host to device
+  // xfer batched series from host to device
   double* d_ys;
   allocate(d_ys, nobs * num_batches);
   updateDevice(d_ys, h_ys, nobs * num_batches, 0);
+
+  int r;
+  thrust::device_vector<double> d_Z_b;
+  thrust::device_vector<double> d_R_b;
+  thrust::device_vector<double> d_T_b;
+
+  init_batched_kalman_matrices(b_ar_params, b_ma_params, num_batches, p, q, r,
+                               d_Z_b, d_R_b, d_T_b);
 
   auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
 
@@ -468,33 +547,22 @@ void batched_kalman_filter(
   BatchedMatrix Rb(r, 1, num_batches, memory_pool);
 
   ////////////////////////////////////////////////////////////
-  // Copy matrices to device
-  {
-    //Tb
-    std::vector<double> matrix_copy(r * r * num_batches);
-    for (int bi = 0; bi < num_batches; bi++) {
-      for (int i = 0; i < r * r; i++) {
-        matrix_copy[i + bi * r * r] = h_Tb[bi][i];
-      }
-    }
-    updateDevice(Tb[0], matrix_copy.data(), r * r * num_batches, 0);
+  // Copy matrix raw data into `BatchedMatrix` memory
 
-    //Zb
-    for (int bi = 0; bi < num_batches; bi++) {
-      for (int i = 0; i < r; i++) {
-        matrix_copy[i + bi * r] = h_Zb[bi][i];
-      }
-    }
-    updateDevice(Zb[0], matrix_copy.data(), r * num_batches, 0);
+  //Zb
+  double* d_Z_data = thrust::raw_pointer_cast(d_Z_b.data());
+  CUDA_CHECK(cudaMemcpy(Zb[0], d_Z_data, sizeof(double) * r * num_batches,
+                        cudaMemcpyDeviceToDevice));
 
-    // Rb
-    for (int bi = 0; bi < num_batches; bi++) {
-      for (int i = 0; i < r; i++) {
-        matrix_copy[i + bi * r] = h_Rb[bi][i];
-      }
-    }
-    updateDevice(Rb[0], matrix_copy.data(), r * num_batches, 0);
-  }
+  // Rb
+  double* d_R_data = thrust::raw_pointer_cast(d_R_b.data());
+  CUDA_CHECK(cudaMemcpy(Rb[0], d_R_data, sizeof(double) * r * num_batches,
+                        cudaMemcpyDeviceToDevice));
+
+  //Tb
+  double* d_T_data = thrust::raw_pointer_cast(d_T_b.data());
+  CUDA_CHECK(cudaMemcpy(Tb[0], d_T_data, sizeof(double) * r * r * num_batches,
+                        cudaMemcpyDeviceToDevice));
 
   ////////////////////////////////////////////////////////////
   // Computation
@@ -537,10 +605,8 @@ void batched_kalman_filter(
 }
 
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
-                             const std::vector<double>& ar,
-                             const std::vector<double>& ma,
-                             std::vector<double>& Tar,
-                             std::vector<double>& Tma) {
+                             const vector<double>& ar, const vector<double>& ma,
+                             vector<double>& Tar, vector<double>& Tma) {
   std::shared_ptr<MLCommon::deviceAllocator> allocator(
     new MLCommon::defaultDeviceAllocator());
   cudaStream_t stream = 0;

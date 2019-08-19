@@ -3,7 +3,7 @@ import numpy as np
 from IPython.core.debugger import set_trace
 import pandas as pd
 
-from .batched_kalman import batched_kfilter, init_kalman_matrices, init_batched_kalman_matrices
+from .batched_kalman import batched_kfilter
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 from .batched_kalman import batched_transform as batched_trans_cuda
 from .batched_kalman import pack, unpack
@@ -82,7 +82,7 @@ def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gp
                          maparams,
                          y)
 
-    ll_b = loglike(b_model, gpu)
+    ll_b = loglike(b_model)
     pynvtx_range_pop()
     if return_negative_sum:
         return -ll_b.sum()
@@ -200,24 +200,23 @@ def diffAndCenter(y: np.ndarray, num_batches: int,
     return np.asfortranarray(y_diff-B0)
 
 
-def run_kalman(model,
-               gpu=True, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
+def run_kalman(model, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
     """Run the (batched) kalman filter for the given model (and contained batched
     series). `initP_kalman_iterations, if true uses kalman iterations, and if false
     uses an analytical approximation (Durbin Koopman pg 138).`"""
     b_ar_params = model.ar_params
     b_ma_params = model.ma_params
-    Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
 
     assert_same_d(model.order) # We currently assume the same d for all series
-    _, d, _ = model.order[0]
+    p, d, q = model.order[0]
 
     if d == 0:
 
         ll_b, vs = batched_kfilter(np.asfortranarray(model.y), # numpy
-                                   Zb, Rb, Tb,
-                                   r,
-                                   gpu, initP_kalman_iterations)
+                                   b_ar_params,
+                                   b_ma_params,
+                                   p, q,
+                                   initP_kalman_iterations)
     elif d == 1:
 
         y_diff_centered = diffAndCenter(model.y, model.num_batches,
@@ -225,24 +224,25 @@ def run_kalman(model,
 
 
         ll_b, vs = batched_kfilter(y_diff_centered, # numpy
-                                   Zb, Rb, Tb,
-                                   r,
-                                   gpu, initP_kalman_iterations)
+                                   b_ar_params,
+                                   b_ma_params,
+                                   p, q,
+                                   initP_kalman_iterations)
     else:
         raise NotImplementedError("ARIMA only support d==0,1")
 
     return ll_b, vs
 
 
-def loglike(model, gpu=True) -> np.ndarray:
+def loglike(model) -> np.ndarray:
     """Compute the batched loglikelihood (return a LL for each batch)"""
-    ll_b, _ = run_kalman(model, gpu=gpu)
+    ll_b, _ = run_kalman(model)
     return ll_b
 
 
-def predict_in_sample(model, gpu=True):
+def predict_in_sample(model):
     """Return in-sample prediction on batched series given batched model"""
-    _, vs = run_kalman(model, gpu=gpu)
+    _, vs = run_kalman(model)
 
     assert_same_d(model.order) # We currently assume the same d for all series
     _, d, _ = model.order[0]
@@ -427,6 +427,7 @@ def start_params(order, y_diff):
     return params_init
 
 def init_x0(order, y):
+    pynvtx_range_push("init x0")
     (p, d, q) = order
     if d == 1:
         yd = np.diff(y)
@@ -442,8 +443,8 @@ def init_x0(order, y):
         # if ma >= 1, then we get "inf" results from inverse transform
         ma[0][i] = np.sign(mai)*min(np.abs(mai), 1-1e-14)
     x0 = pack(p, q, 1, mu, ar, ma)
+    pynvtx_range_pop()
     return x0
-
 
 def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
     """Grid search to find optimal (lowest `ic`) (p,_,q) values for each
