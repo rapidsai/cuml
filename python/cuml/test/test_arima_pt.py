@@ -24,7 +24,7 @@ def paperTowelNoBatch(plot=False):
     np.set_printoptions(precision=6)
 
     ns = 44
-    nb = 240
+    nb = 50
     yb = np.zeros((ns, 1), order="F")
 
     # for (i, si) in enumerate(s[:nb]):
@@ -43,7 +43,9 @@ def paperTowelNoBatch(plot=False):
         sm_model_fit = sm_model.fit(disp=101)
         print("sm results: ", sm_model_fit.params)
 
-def paperTowelBatch(plot=False):
+
+def test_paperTowel_param_init():
+
     data = pd.read_csv("/home/max/dev/arima-experiments/data/data_paper_towel.csv",
                        names=["store", "week", "sold"])
 
@@ -52,7 +54,7 @@ def paperTowelBatch(plot=False):
     np.set_printoptions(precision=6)
 
     ns = 44
-    nb = 24
+    nb = 5
     yb = np.zeros((ns, nb), order="F")
 
     num_parameters = 3
@@ -65,47 +67,49 @@ def paperTowelBatch(plot=False):
         # np.seterr(all='warn')
         x0[i*num_parameters:(i+1)*num_parameters] = x0i
 
+
+
+def paperTowelBatch(plot=False):
+    data = pd.read_csv("/home/max/dev/arima-experiments/data/data_paper_towel.csv",
+                       names=["store", "week", "sold"])
+
+    w = data.groupby("store")["week"].apply(np.array)
+    s = data.groupby("store")["sold"].apply(np.array)
+    np.set_printoptions(precision=6)
+
+    ns = 44
+    nb = 10
+    yb = np.zeros((ns, nb), order="F")
+
+    start = timer()
+    num_parameters = 3
+    x0 = np.zeros(nb*num_parameters)
+    np.seterr(all='warn')
+    for (i, si) in enumerate(s[:nb]):
+        yb[:, i] = si[0:ns]
+        # np.seterr(all='raise')
+        x0i = batched_arima.init_x0((1,1,1), yb[:,i])
+        # np.seterr(all='warn')
+        x0[i*num_parameters:(i+1)*num_parameters] = x0i
+
     mu0, ar0, ma0 = batched_arima.unpack(1, 1, nb, x0)
+    
     batched_model = batched_arima.fit(yb, (1, 1, 1),
                                       mu0,
                                       ar0,
                                       ma0,
-                                      opt_disp=-1, h=1e-9, gpu=False)
+                                      opt_disp=-1, h=1e-9, gpu=True)
+    end = timer()
+
+    print("time: {}s, iterations (max/min/avg): ".format(end-start),
+          np.max(batched_model.niter), np.min(batched_model.niter),
+          np.mean(batched_model.niter))
 
     # the gpu version achieves these iteration counts
     if nb == 240:
-        niter_ref = [30, 21, 19, 17, 17, 14, 15, 15, 10, 12, 15, 14, 14,
-                     13, 14, 13, 8, 12, 10, 14, 10, 15, 13, 15, 21, 18,
-                     13, 16, 15, 14, 17, 12, 12, 12, 10, 8, 13, 16, 13,
-                     18, 7, 12, 13, 9, 13, 13, 21, 20, 11, 16, 13, 16, 5,
-                     14, 15, 14, 13, 13, 13, 13, 9, 13, 13, 10, 11, 14,
-                     14, 12, 16, 14, 14, 11, 8, 16, 8, 11, 11, 16, 11,
-                     8, 12, 16, 19, 16, 10, 8, 15, 13, 8, 8, 34, 13, 13,
-                     9, 11, 13, 12, 14, 14, 15, 13, 15, 13, 11, 13, 11,
-                     8, 10, 12, 10, 13, 14, 15, 15, 13, 14, 10, 13, 15,
-                     15, 15, 15, 13, 14, 13, 6, 8, 13, 12, 9, 13, 14,
-                     16, 16, 15, 10, 14, 14, 17, 10, 15, 14, 16, 13,
-                     12, 14, 13, 12, 14, 12, 11, 11, 13, 9, 13, 14, 12,
-                     12, 11, 11, 15, 12, 15, 16, 14, 2, 12, 12, 2, 13,
-                     14, 14, 10, 16, 18, 13, 12, 8, 14, 8, 8, 10, 17,
-                     33, 17, 20, 17, 28, 14, 13, 15, 15, 17, 2, 14, 14,
-                     19, 15, 15, 14, 17, 16, 14, 13, 13, 15, 15, 15, 15,
-                     19, 16, 14, 14, 14, 15, 17, 12, 16, 2, 12, 15, 17,
-                     15, 15, 14, 16, 17, 13, 13, 12, 17, 16, 12, 16, 16,
-                     17, 37, 17, 20, 15]
-        assert batched_model.niter == niter_ref
-    elif nb == 24:
-        np.testing.assert_array_almost_equal(batched_model.mu/1000,
-                                             np.array([-243.229039, -234.696535, -210.458314, -220.966423,
-                                                       -286.719963, -257.444149,
-                                                       -251.914561, -243.925907, -242.242119, -268.597857,
-                                                       -277.2744,   -262.303526,
-                                                       -255.062956, -251.819174, -250.417383,
-                                                       -246.469768, -235.482114, -243.779316,
-                                                       -233.669211, -252.49633,  -248.048226,
-                                                       -241.581377, -234.26256,  -236.004749])/1000,
-                                             decimal=3)
-
+        np.testing.assert_almost_equal(45, np.max(batched_model.niter))
+        np.testing.assert_almost_equal(16, np.min(batched_model.niter))
+        np.testing.assert_almost_equal(33.416666666666664, np.mean(batched_model.niter))
     else:
         print("batched_model.niter=", batched_model.niter)
         print("batched_model.mu=", batched_model.mu)
@@ -122,7 +126,7 @@ def paperTowels(plot=False):
     
     print("Total number of series:", len(w))
     # nb = len(w)
-    nb = 20
+    nb = 10
     ns_all = np.zeros(nb, dtype=np.int32)
     for (i, si) in enumerate(s[:nb]):
         ns_all[i-1] = len(si)
@@ -149,6 +153,10 @@ def paperTowels(plot=False):
 
     for i in range(nb):
     # for i in [29]:
+
+        # 29 fails in `statsmodels`
+        if i == 29 or i == 111:
+            continue
         y = yb[:, i]
         sm_model = sm.ARIMA(y, (1, 1, 1))
         sm_model_fit = sm_model.fit(disp=-1, epsilon=1e-9)
@@ -175,6 +183,7 @@ def paperTowels(plot=False):
     # x0 = np.array([0, -0.25, -0.2])
     # print("i=", i)
     #i=1 my x0= [-3.83534884e+02 -9.18237006e-02 -6.63006374e-01]
+    start = timer()
 
     x0 = np.array([])
     for i in range(nb):
@@ -185,7 +194,7 @@ def paperTowels(plot=False):
     # x0 =
     # x0 = np.array([-2.08696500e+02, -2.00178809e-01, -8.15867515e-01])
     mu0, ar0, ma0 = batched_arima.unpack(1, 1, nb, x0)
-    start = timer()
+    
     batched_model = batched_arima.fit(yb4, (1, 1, 1),
                                       mu0,
                                       ar0,
@@ -206,6 +215,7 @@ def paperTowels(plot=False):
     print("mu_vs=", mu_vs)
     print("ar_vs=", ar_vs)
     print("ma_vs=", ma_vs)
+    print("batched_model.niter=", batched_model.niter)
 
     # x0 = np.array([-220.35376519, -0.26170006, -2.18930038], dtype=np.float64)
     # x0 = np.array([-220.35376518754148, -0.26170006272244173, -2.1893003751753457], dtype=np.float64)
@@ -225,17 +235,32 @@ def paperTowels(plot=False):
     # print("llf=", llf)
     # print("gllf=", gllf)
     # set_trace()
+
+    sqn_errors = np.zeros(nb)
+    for i in range(nb):
+        # statsmodels struggles with series 29
+        if i == 29 or i == 111:
+            continue
+        y_sm = s[s.keys()[i]][:ns] + y_sm_p_all[:, i]
+        y_i = y_b[:, i]
+        sqn_errors[i] = np.sum((y_sm - y_i)**2/np.abs(y_sm))
+
+    largest_error_indices = np.argsort(sqn_errors)
+
     if plot:
 
-        # nb = 2
-        fig, axes = plt.subplots(nb, 1)
+        nb_plot = 5
+        fig, axes = plt.subplots(nb_plot, 1)
         # axes[0].plot(w[1][:-1], s[1][:-1] + y_sm_p_all[:, 0], "b-")
         # axes[0].plot(w[1], s[1], "k", w[1][:ns], y_b[:, 0], "r--")
-        for (i, (wi, si)) in enumerate(zip(w, s)):
+        for i in range(nb_plot):
             if i >= nb:
                 break
-            axes[i].plot(wi[:ns], si[:ns] + y_sm_p_all[:, i], "b-")
-            axes[i].plot(wi, si, "k", wi[:ns], y_b[:, i], "r--")
+            idx = largest_error_indices[-(i+1)]
+            idxp = s.keys()[idx]
+            axes[i].plot(w[idxp][:ns], s[idxp][:ns] + y_sm_p_all[:, idx], "b-")
+            axes[i].plot(w[idxp], s[idxp], "k-", w[idxp][:ns], y_b[:, idx], "r--")
+            axes[i].set_title("series {}".format(idx))
 
         plt.show()
 
@@ -248,4 +273,5 @@ def analyze_profile():
     p.sort_stats(SortKey.TIME).print_stats(20)
 
 if __name__ == "__main__":
-    paperTowelBatch(False)
+    paperTowels(True)
+    # paperTowelBatch(False)
