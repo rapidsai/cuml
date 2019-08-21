@@ -1,3 +1,5 @@
+#define THRUST_DEBUG 1
+
 #include <matrix/batched_matrix.h>
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
@@ -447,6 +449,67 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
                          d_loglike);
 }
 
+class GPUContext {
+ public:
+  double* d_ys = 0;
+  double* d_vs = 0;
+  double* d_Fs = 0;
+  double* d_loglike = 0;
+  double* d_sigma2 = 0;
+  std::shared_ptr<BatchedMatrixMemoryPool> pool = 0;
+
+  // // batched_jones
+  double* d_ar = 0;
+  double* d_Tar = 0;
+  double* d_ma = 0;
+  double* d_Tma = 0;
+
+  GPUContext() {
+    d_ys = nullptr;
+    d_vs = nullptr;
+    d_Fs = nullptr;
+    d_loglike = nullptr;
+    d_sigma2 = nullptr;
+    pool = nullptr;
+    d_ar = nullptr;
+    d_Tar = nullptr;
+    d_ma = nullptr;
+    d_Tma = nullptr;
+  }
+
+  // thrust::device_vector<double> d_Z_b;
+  // thrust::device_vector<double> d_R_b;
+  // thrust::device_vector<double> d_T_b;
+
+  static void allocate_if_zero(double*& ptr, size_t size) {
+    if (ptr == 0) {
+      MLCommon::allocate(ptr, size);
+    }
+  }
+
+  // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
+  //   if (v.size() == 0) {
+  //     v.resize(size);
+  //   }
+  // }
+
+  ~GPUContext() {
+    std::printf("Deleting GPUContext\n");
+    ////////////////////////////////////////////////////////////
+    // free memory
+    CUDA_CHECK(cudaFree(d_ys));
+    CUDA_CHECK(cudaFree(d_vs));
+    CUDA_CHECK(cudaFree(d_Fs));
+    CUDA_CHECK(cudaFree(d_sigma2));
+    CUDA_CHECK(cudaFree(d_loglike));
+
+    CUDA_CHECK(cudaFree(d_ar));
+    CUDA_CHECK(cudaFree(d_Tar));
+    CUDA_CHECK(cudaFree(d_ma));
+    CUDA_CHECK(cudaFree(d_Tma));
+  }
+};
+
 void init_batched_kalman_matrices(const vector<double>& b_ar_params,
                                   const vector<double>& b_ma_params,
                                   const int num_batches, const int p,
@@ -466,13 +529,13 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   // see (3.18) in TSA by D&K
   r = std::max(p, q + 1);
 
-  d_Z_b.resize(r * nb);      // Z has shape (1, r)
-  d_R_b.resize(r * nb);      // R has shape (r, 1)
-  d_T_b.resize(r * r * nb);  // T has shape (r, r)
+  d_Z_b.resize(r * nb);
+  d_R_b.resize(r * nb);
+  d_T_b.resize(r * r * nb);
 
-  fill(d_Z_b.begin(), d_Z_b.end(), 0.0);
-  fill(d_R_b.begin(), d_R_b.end(), 0.0);
-  fill(d_T_b.begin(), d_T_b.end(), 0.0);
+  thrust::fill(d_Z_b.begin(), d_Z_b.end(), 0.0);
+  thrust::fill(d_R_b.begin(), d_R_b.end(), 0.0);
+  thrust::fill(d_T_b.begin(), d_T_b.end(), 0.0);
 
   // ugh
   double* d_b_ar_params_data = thrust::raw_pointer_cast(d_b_ar_params.data());
@@ -486,6 +549,9 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
     // See TSA pg. 54 for Z,R,T matrices
     // Z = [1 0 0 0 ... 0]
     d_Z_b_data[bid * r] = 1.0;
+    // for (int i = 1; i < r; i++) {
+    //   d_Z_b_data[bid * r + i] = 0.0;
+    // }
 
     /*
         |1.0   |
@@ -503,15 +569,22 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
            | .             .        |
        T = | .               .   0.0|
            | .                 .    |
-           | .                      |
-           |ar_r  0.0  0.0  ...  1.0|
+           | .                   1.0|
+           |ar_r  0.0  0.0  ...  0.0|
     */
+
+    // set zero
+    // for (int i = 0; i < r * r; i++) {
+    //   d_T_b_data[bid * r * r + i] = 0.0;
+    // }
+
     for (int i = 0; i < r; i++) {
-      // ar_i is zero if (i > p)
+      // note: ar_i is zero if (i > p)
       if (i < p) {
         d_T_b_data[bid * r * r + i] = d_b_ar_params_data[bid * p + i];
       }
 
+      // shifted identity
       if (i < r - 1) {
         d_T_b_data[bid * r * r + (i + 1) * r + i] = 1.0;
       }
@@ -519,6 +592,8 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   });
   ML::POP_RANGE();
 }
+
+GPUContext* GPU_CTX = nullptr;
 
 void batched_kalman_filter(double* h_ys, int nobs,
                            const vector<double>& b_ar_params,
@@ -528,14 +603,17 @@ void batched_kalman_filter(double* h_ys, int nobs,
                            bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE(__FUNCTION__);
 
+  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
+
   const size_t ys_len = nobs;
   ////////////////////////////////////////////////////////////
   // xfer batched series from host to device
-  double* d_ys;
-  allocate(d_ys, nobs * num_batches);
+  GPUContext::allocate_if_zero(GPU_CTX->d_ys, nobs * num_batches);
+  double* d_ys = GPU_CTX->d_ys;
   updateDevice(d_ys, h_ys, nobs * num_batches, 0);
 
   int r;
+
   thrust::device_vector<double> d_Z_b;
   thrust::device_vector<double> d_R_b;
   thrust::device_vector<double> d_T_b;
@@ -543,7 +621,10 @@ void batched_kalman_filter(double* h_ys, int nobs,
   init_batched_kalman_matrices(b_ar_params, b_ma_params, num_batches, p, q, r,
                                d_Z_b, d_R_b, d_T_b);
 
-  auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+  if (GPU_CTX->pool == nullptr) {
+    GPU_CTX->pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+  }
+  auto memory_pool = GPU_CTX->pool;
 
   BatchedMatrix Zb(1, r, num_batches, memory_pool);
   BatchedMatrix Tb(r, r, num_batches, memory_pool);
@@ -569,26 +650,23 @@ void batched_kalman_filter(double* h_ys, int nobs,
 
   ////////////////////////////////////////////////////////////
   // Computation
-  double* d_vs;  // time-major order
-  double* d_Fs;  // time-major order
-  allocate(d_vs, ys_len * num_batches);
-  allocate(d_Fs, ys_len * num_batches);
+  GPUContext::allocate_if_zero(GPU_CTX->d_vs, ys_len * num_batches);
+  GPUContext::allocate_if_zero(GPU_CTX->d_Fs, ys_len * num_batches);
 
-  double* d_loglike;
-  double* d_sigma2;
-  allocate(d_sigma2, num_batches);
-  allocate(d_loglike, num_batches);
+  GPUContext::allocate_if_zero(GPU_CTX->d_sigma2, num_batches);
+  GPUContext::allocate_if_zero(GPU_CTX->d_loglike, num_batches);
 
-  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike,
-                         d_sigma2, initP_with_kalman_iterations);
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, GPU_CTX->d_vs,
+                         GPU_CTX->d_Fs, GPU_CTX->d_loglike, GPU_CTX->d_sigma2,
+                         initP_with_kalman_iterations);
 
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
   h_loglike_b.resize(num_batches);
-  updateHost(h_loglike_b.data(), d_loglike, num_batches, 0);
+  updateHost(h_loglike_b.data(), GPU_CTX->d_loglike, num_batches, 0);
 
   vector<double> h_vs(ys_len * num_batches);
-  updateHost(h_vs.data(), d_vs, ys_len * num_batches, 0);
+  updateHost(h_vs.data(), GPU_CTX->d_vs, ys_len * num_batches, 0);
 
   h_vs_b.resize(num_batches);
   for (int i = 0; i < num_batches; i++) {
@@ -597,56 +675,42 @@ void batched_kalman_filter(double* h_ys, int nobs,
       h_vs_b[i][j] = h_vs[j + i * ys_len];  // vs is in time-major order
     }
   }
-
-  ////////////////////////////////////////////////////////////
-  // free memory
-  CUDA_CHECK(cudaFree(d_vs));
-  CUDA_CHECK(cudaFree(d_Fs));
-  CUDA_CHECK(cudaFree(d_sigma2));
-  CUDA_CHECK(cudaFree(d_loglike));
   ML::POP_RANGE();
 }
 
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              const vector<double>& ar, const vector<double>& ma,
                              vector<double>& Tar, vector<double>& Tma) {
+  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
+
   std::shared_ptr<MLCommon::deviceAllocator> allocator(
     new MLCommon::defaultDeviceAllocator());
   cudaStream_t stream = 0;
 
   if (p > 0) {
     Tar.resize(p * batchSize);
-    double* d_ar =
-      (double*)allocator->allocate(p * batchSize * sizeof(double), stream);
-    double* d_Tar =
-      (double*)allocator->allocate(p * batchSize * sizeof(double), stream);
+    GPUContext::allocate_if_zero(GPU_CTX->d_ar, p * batchSize);
+    GPUContext::allocate_if_zero(GPU_CTX->d_Tar, p * batchSize);
 
-    MLCommon::updateDevice(d_ar, ar.data(), p * batchSize, stream);
+    MLCommon::updateDevice(GPU_CTX->d_ar, ar.data(), p * batchSize, stream);
 
-    MLCommon::TimeSeries::jones_transform(d_ar, batchSize, p, d_Tar, true,
-                                          isInv, allocator, stream);
+    MLCommon::TimeSeries::jones_transform(GPU_CTX->d_ar, batchSize, p,
+                                          GPU_CTX->d_Tar, true, isInv,
+                                          allocator, stream);
 
-    MLCommon::updateHost(Tar.data(), d_Tar, p * batchSize, stream);
-
-    allocator->deallocate(d_ar, p * batchSize * sizeof(double), stream);
-    allocator->deallocate(d_Tar, p * batchSize * sizeof(double), stream);
+    MLCommon::updateHost(Tar.data(), GPU_CTX->d_Tar, p * batchSize, stream);
   }
   if (q > 0) {
     Tma.resize(q * batchSize);
 
-    double* d_ma =
-      (double*)allocator->allocate(q * batchSize * sizeof(double), stream);
-    double* d_Tma =
-      (double*)allocator->allocate(q * batchSize * sizeof(double), stream);
+    GPUContext::allocate_if_zero(GPU_CTX->d_ma, q * batchSize);
+    GPUContext::allocate_if_zero(GPU_CTX->d_Tma, q * batchSize);
 
-    MLCommon::updateDevice(d_ma, ma.data(), q * batchSize, stream);
+    MLCommon::updateDevice(GPU_CTX->d_ma, ma.data(), q * batchSize, stream);
 
-    MLCommon::TimeSeries::jones_transform(d_ma, batchSize, q, d_Tma, false,
-                                          isInv, allocator, stream);
-
-    MLCommon::updateHost(Tma.data(), d_Tma, q * batchSize, stream);
-
-    allocator->deallocate(d_ma, q * batchSize * sizeof(double), stream);
-    allocator->deallocate(d_Tma, q * batchSize * sizeof(double), stream);
+    MLCommon::TimeSeries::jones_transform(GPU_CTX->d_ma, batchSize, q,
+                                          GPU_CTX->d_Tma, false, isInv,
+                                          allocator, stream);
+    MLCommon::updateHost(Tma.data(), GPU_CTX->d_Tma, q * batchSize, stream);
   }
 }
