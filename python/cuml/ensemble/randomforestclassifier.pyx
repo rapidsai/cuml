@@ -178,18 +178,15 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial preview release of the cuML
-    Random Forest code. It contains a number of known
-    limitations:
+    **Known Limitations**: This is an initial release of the cuML
+    Random Forest code. It contains a few known limitations:
 
        * Inference/prediction takes place on the CPU. A GPU-based inference
-         solution is planned for a near-future release release.
+         solution based on the forest inference library is planned for a
+         near-future release.
 
        * Instances of RandomForestClassifier cannot be pickled currently.
 
-    The code is under heavy development, so users who need these features may
-    wish to pull from nightly builds of cuML. (See https://rapids.ai/start.html
-    for instructions to download nightly packages via conda.)
 
     Examples
     ---------
@@ -222,12 +219,14 @@ class RandomForestClassifier(Base):
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+                     0 for GINI, 1 for ENTROPY
                      2 and 3 not valid for classification
                      (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 1)
                  the algorithm to determine how nodes are split in the tree.
+                 HIST curently uses a slower tree-building algorithm
+                 so GLOBAL_QUANTILE is recommended for most cases.
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built

@@ -34,7 +34,7 @@ class RandomForestClassifier:
     Currently, this API makes the following assumptions:
      * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
-     * Training data is comes in the form of cuDF dataframes,
+     * Training data comes in the form of cuDF dataframes,
        distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
