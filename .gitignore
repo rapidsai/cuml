@@ -21,7 +21,7 @@ python/cuml/**/*.cpp
 log
 .ipynb_checkpoints
 .DS_Store
-
+dask-worker-space/
 ## eclipse
 .project
 .cproject

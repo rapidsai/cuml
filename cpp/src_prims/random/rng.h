@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-19, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
+#include "common/cub_wrappers.h"
+#include "common/cuml_allocator.hpp"
+#include "common/scatter.h"
 #include "cuda_utils.h"
 #include "rng_impl.h"
 
@@ -175,11 +178,7 @@ class Rng {
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
     // and also not too many initialization calls will be made by each thread
-    int dev;
-    CUDA_CHECK(cudaGetDevice(&dev));
-    cudaDeviceProp props;
-    CUDA_CHECK(cudaGetDeviceProperties(&props, dev));
-    nBlocks = 4 * props.multiProcessorCount;
+    nBlocks = 4 * getMultiProcessorCount();
   }
 
   /**
@@ -489,6 +488,72 @@ class Rng {
         return out;
       },
       NumThreads, nBlocks, type, stream);
+  }
+
+  /**
+   * @brief Sample the input array without replacement, optionally based on the
+   * input weight vector for each element in the array
+   *
+   * Implementation here is based on the `one-pass sampling` algo described here:
+   * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+   *
+   * @note In the sampled array the elements which are picked will always appear
+   * in the increasing order of their weights as computed using the exponential
+   * distribution. So, if you're particular about the order (for eg. array
+   * permutations), then this might not be the right choice!
+   *
+   * @tparam DataT data type
+   * @tparam WeightsT weights type
+   * @tparam IdxT index type
+   * @param out output sampled array (of length 'sampledLen')
+   * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
+   * a nullptr if this is not required.
+   * @param in input array to be sampled (of length 'len')
+   * @param wts weights array (of length 'len'). Pass a nullptr if uniform
+   * sampling is desired
+   * @param sampledLen output sampled array length
+   * @param len input array length
+   * @param allocator device allocator for allocating any workspace required
+   * @param stream cuda stream
+   */
+  template <typename DataT, typename WeightsT, typename IdxT = int>
+  void sampleWithoutReplacement(DataT *out, IdxT *outIdx, const DataT *in,
+                                const WeightsT *wts, IdxT sampledLen, IdxT len,
+                                std::shared_ptr<deviceAllocator> allocator,
+                                cudaStream_t stream) {
+    ASSERT(sampledLen <= len,
+           "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+    device_buffer<WeightsT> expWts(allocator, stream, len);
+    device_buffer<WeightsT> sortedWts(allocator, stream, len);
+    device_buffer<IdxT> inIdx(allocator, stream, len);
+    device_buffer<IdxT> outIdxBuff(allocator, stream);
+    auto *inIdxPtr = inIdx.data();
+    // generate modified weights
+    randImpl(
+      offset, expWts.data(), len,
+      [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
+        inIdxPtr[idx] = idx;
+        constexpr WeightsT one = (WeightsT)1.0;
+        auto exp = -myLog(one - val);
+        if (wts != nullptr) {
+          return exp / wts[idx];
+        }
+        return exp;
+      },
+      NumThreads, nBlocks, type, stream);
+    ///@todo: use a more efficient partitioning scheme instead of full sort
+    // sort the array and pick the top sampledLen items
+    IdxT *outIdxPtr;
+    if (outIdx == nullptr) {
+      outIdxBuff.resize(len, stream);
+      outIdxPtr = outIdxBuff.data();
+    } else {
+      outIdxPtr = outIdx;
+    }
+    device_buffer<char> workspace(allocator, stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+              (int)len, stream);
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
  private:

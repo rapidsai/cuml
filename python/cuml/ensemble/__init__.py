@@ -14,4 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.ensemble.randomforest import RandomForestClassifier
+
+from cuml.ensemble.randomforestclassifier import RandomForestClassifier
+from cuml.ensemble.randomforestregressor import RandomForestRegressor
