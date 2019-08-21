@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
+#include <utils.h>
 #include "harness.h"
 
 namespace ML {
 namespace Bench {
 
-void RunInfo::printInfo() const {
+void RunInfo::printRunInfo() const {
   printf("%s,\"%s\",%s,%f,%f,%f,%f,\"%s\"\n", name.c_str(),
-         params.c_str(), passed ? "OK" : "FAIL", runtimes["setup"],
-         runtimes["teardown"], runtimes["run"], runtimes["metrics"],
+         params.c_str(), passed ? "OK" : "FAIL", runtimes.at("setup"),
+         runtimes.at("teardown"), runtimes.at("run"), runtimes.at("metrics"),
          errMsg.c_str());
 }
 
@@ -67,7 +67,7 @@ void Harness::RunAll() {
   RunInfo::printHeader();
   for (const auto &itr : b.info)
     for (const auto &ritr : itr)
-      ritr.printInfo();
+      ritr.printRunInfo();
 }
 
 void Harness::RegisterRunner(const std::string &name,
