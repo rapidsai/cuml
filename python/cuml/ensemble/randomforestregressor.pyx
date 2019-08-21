@@ -173,6 +173,7 @@ class RandomForestRegressor(Base):
     Examples
     ---------
     .. code-block:: python
+
             import numpy as np
             from cuml.test.utils import get_handle
             from cuml.ensemble import RandomForestRegressor as curfc
@@ -185,9 +186,13 @@ class RandomForestRegressor(Base):
             cuml_model.fit(X,y)
             cuml_score = cuml_model.score(X,y)
             print("MSE score of cuml : ", cuml_score)
+
     Output:
+
     .. code-block:: python
+
             MSE score of cuml :  0.1123437201231765
+
     Parameters
     -----------
     n_estimators : int (default = 10)
