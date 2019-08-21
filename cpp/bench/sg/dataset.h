@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-#include <common/device_buffer.hpp>
+#include <cuda_utils.h>
 #include <cuML.hpp>
 #include <fstream>
 #include <iostream>
@@ -114,11 +113,9 @@ struct Dataset {
     auto stream = handle.getStream();
     MLCommon::copy(X, &(_X[0]), nrows * ncols, stream);
     MLCommon::copy(y, &(_y[0]), nrows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  private:
-  /** allocate the buffers to fill in the dataset */
   void allocate(const cumlHandle& handle, int rows, int cols) {
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
