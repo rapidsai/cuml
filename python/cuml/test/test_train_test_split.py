@@ -32,7 +32,7 @@ def test_split(n_rows, train_size):
         len(X_test) == len(y_test) == pytest.approx((1 - train_size) * len(X))
     )
 
-    X_reconstructed = cudf.multi.concat([X_train, X_test]).sort_values(
+    X_reconstructed = cudf.concat([X_train, X_test]).sort_values(
         by=["x"]
     )
     y_reconstructed = y_train.append(y_test).sort_values()
@@ -64,7 +64,7 @@ def test_split_column(n_rows):
         == pytest.approx((1 - train_size) * len(data))
     )
 
-    X_reconstructed = cudf.multi.concat([X_train, X_test]).sort_values(
+    X_reconstructed = cudf.concat([X_train, X_test]).sort_values(
         by=["x"]
     )
     y_reconstructed = y_train.append(y_test).sort_values()
