@@ -16,14 +16,13 @@
 
 #pragma once
 
-#include <chrono>
 #include <stdio.h>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
-
 
 namespace ML {
 namespace Bench {
@@ -43,9 +42,13 @@ struct RunInfo {
   /** runtimes (in ms) */
   std::unordered_map<std::string, float> runtimes;
 
-  RunInfo() : name(), params(), passed(false), errMsg("Not run"), metrics(),
-              runtimes() {
-  }
+  RunInfo()
+    : name(),
+      params(),
+      passed(false),
+      errMsg("Not run"),
+      metrics(),
+      runtimes() {}
 
   /** prints the current bench's runtime info */
   void printRunInfo() const;
@@ -55,16 +58,15 @@ struct RunInfo {
 };
 typedef std::vector<RunInfo> RunInfos;
 
-
 /**
  * @brief The base benchmark class
  * @tparam Params the parameters for this run
  */
 template <typename Params>
 struct Benchmark {
-public:
+ public:
   /** params to be used for this run */
-  void setParams(const Params& _p) { params = _p; }
+  void setParams(const Params &_p) { params = _p; }
 
   /** setup method. To be typically used to set the current run */
   void setup() {}
@@ -73,25 +75,24 @@ public:
   void teardown() {}
 
   /** running the main test */
-  void run(RunInfo& ri) {}
+  void run(RunInfo &ri) {}
 
   /** compute any metrics after the training is over */
-  void metrics(RunInfo& ri) {}
+  void metrics(RunInfo &ri) {}
 
-protected:
+ protected:
   /** params for this benchmark run */
   Params params;
 };
 
-
 /** Helper class to run the benchmark with all params */
 class Runner {
-public:
+ public:
   virtual ~Runner() {}
   virtual RunInfos run(const std::string &name,
-                       const std::vector<std::string>& toRun) = 0;
+                       const std::vector<std::string> &toRun) = 0;
 
-protected:
+ protected:
   /**
    * @brief Main function to run a benchmark with different params
    * @tparam BenchType benchmark to be run
@@ -102,9 +103,8 @@ protected:
    * @return list of perf numbers for each test run
    */
   template <typename BenchType, typename Params>
-  RunInfos runImpl(const std::string &name,
-                   const std::vector<Params> &all,
-                   const std::vector<std::string>& toRun) const {
+  RunInfos runImpl(const std::string &name, const std::vector<Params> &all,
+                   const std::vector<std::string> &toRun) const {
     RunInfos ret;
     int idx = 0;
     for (const auto &p : all) {
@@ -113,14 +113,17 @@ protected:
       ++idx;
       auto tName = oss.str();
       bool match = toRun.empty();
-      for (const auto& name : toRun) {
-          if(tName.find(name) != std::string::npos) {
-              match = true;
-              break;
-          }
+      for (const auto &name : toRun) {
+        if (tName.find(name) != std::string::npos) {
+          match = true;
+          break;
+        }
       }
-      if(!match) continue;
+      if (!match) continue;
       std::shared_ptr<BenchType> test(new BenchType);
+      RunInfo ri;
+      ri.name = tName;
+      ri.params = p.str();
       // setup
       {
         auto start = std::chrono::high_resolution_clock::now();
@@ -133,9 +136,6 @@ protected:
       }
       printf("%s: ", tName.c_str());
       fflush(stdout);
-      RunInfo ri;
-      ri.name = tName;
-      ri.params = p.str();
       // main training run
       try {
         auto start = std::chrono::high_resolution_clock::now();
@@ -181,10 +181,9 @@ protected:
   }
 };
 
-
 /** Main Harnessing suite */
 class Harness {
-public:
+ public:
   /** singleton-like getter interface */
   static Harness &get();
 
@@ -198,7 +197,7 @@ public:
   static void RegisterRunner(const std::string &name,
                              std::shared_ptr<Runner> r);
 
-private:
+ private:
   Harness() : initialized(false), info(), runners(), toRun() {}
   ~Harness() {}
 
@@ -212,34 +211,31 @@ private:
   std::vector<std::string> toRun;
 };
 
-
 template <typename BType, typename PType>
 class RunnerImpl : public Runner {
-public:
+ public:
   RunnerImpl(const std::vector<PType> &a) : allP(a) {}
 
-  RunInfos run(const std::string &n, const std::vector<std::string>& toRun) {
+  RunInfos run(const std::string &n, const std::vector<std::string> &toRun) {
     return runImpl<BType, PType>(n, allP, toRun);
   }
 
-private:
+ private:
   std::vector<PType> allP;
 };
 
-
 template <typename BType, typename PType>
 class Registrar {
-public:
+ public:
   Registrar(const std::string &n, const std::vector<PType> &a) {
     auto *r = new RunnerImpl<BType, PType>(a);
     Harness::RegisterRunner(n, std::shared_ptr<Runner>(r));
   }
 };
 
-
 /** helper macro for registering a runner into the Harness */
-#define REGISTER_BENCH(Bench, Params, name, allPs)              \
+#define REGISTER_BENCH(Bench, Params, name, allPs) \
   static Registrar<Bench, Params> tmpvar_##name(#name, allPs)
 
-}; // end namespace Bench
-}; // end namespace ML
+};  // end namespace Bench
+};  // end namespace ML
