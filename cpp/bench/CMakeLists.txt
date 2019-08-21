@@ -27,8 +27,8 @@ if(BUILD_CUML_BENCH)
 
   # (please keep the filenames in alphabetical order)
   add_executable(bench
+    sg/harness.cu
     sg/algos.cpp
-    sg/dataset.cpp
     sg/main.cpp
   )
 
