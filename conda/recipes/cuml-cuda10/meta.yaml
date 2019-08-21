@@ -27,16 +27,17 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - cmake>=3.12.4
-    - cudf 0.8*
+    - cmake>=3.14
+    - cudf 0.9*
     - libcuml={{ version }}
-    - libcumlMG
+    - libcumlprims=0.9
     - cudatoolkit {{ cuda_version }}.*
   run:
     - python x.x
-    - cudf 0.8*
+    - cudf 0.9*
     - libcuml={{ version }}
-    - libcumlMG
+    - libcumlprims=0.9
+    - nccl 2.4.*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:

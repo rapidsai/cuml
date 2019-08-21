@@ -24,11 +24,12 @@ import cuml
 import ctypes
 import numpy as np
 import pandas as pd
+import warnings
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, row_matrix
 
 from numba import cuda
 
@@ -269,15 +270,81 @@ class UMAP(Base):
             raise Exception("Invalid target metric: {}" % target_metric)
 
         self._should_downcast = should_downcast
+        if should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
 
-        self.umap_params = <size_t > umap_params
+        self.umap_params = <size_t> umap_params
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        cdef size_t params_t = <size_t>self.umap_params
+        cdef UMAPParams* umap_params = <UMAPParams*>params_t
+
+        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+        state["n_neighbors"] = umap_params.n_neighbors
+        state["n_components"] = umap_params.n_components
+        state["n_epochs"] = umap_params.n_epochs
+        state["learning_rate"] = umap_params.learning_rate
+        state["min_dist"] = umap_params.min_dist
+        state["spread"] = umap_params.spread
+        state["set_op_mix_ratio"] = umap_params.set_op_mix_ratio
+        state["local_connectivity"] = umap_params.local_connectivity
+        state["repulsion_strength"] = umap_params.repulsion_strength
+        state["negative_sample_rate"] = umap_params.negative_sample_rate
+        state["transform_queue_size"] = umap_params.transform_queue_size
+        state["init"] = umap_params.init
+        state["a"] = umap_params.a
+        state["b"] = umap_params.b
+        state["target_n_neighbors"] = umap_params.target_n_neighbors
+        state["target_weights"] = umap_params.target_weights
+        state["target_metric"] = umap_params.target_metric
+
+        del state["umap_params"]
+
+        return state
 
     def __del__(self):
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
-        del umap_params
+        cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
+        free(umap_params)
 
-    def fit(self, X, y=None):
+    def __setstate__(self, state):
+        super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['X_m'] = row_matrix(state['X_m'])
+        state["arr_embed"] = row_matrix(state["arr_embed"])
+
+        cdef UMAPParams *umap_params = new UMAPParams()
+
+        self.X_m = None
+        umap_params.n_neighbors = state["n_neighbors"]
+        umap_params.n_components = state["n_components"]
+        umap_params.n_epochs = state["n_epochs"]
+        umap_params.learning_rate = state["learning_rate"]
+        umap_params.min_dist = state["min_dist"]
+        umap_params.spread = state["spread"]
+        umap_params.set_op_mix_ratio = state["set_op_mix_ratio"]
+        umap_params.local_connectivity = state["local_connectivity"]
+        umap_params.repulsion_strength = state["repulsion_strength"]
+        umap_params.negative_sample_rate = state["negative_sample_rate"]
+        umap_params.transform_queue_size = state["transform_queue_size"]
+        umap_params.init = state["init"]
+        umap_params.a = state["a"]
+        umap_params.b = state["b"]
+        umap_params.target_n_neighbors = state["target_n_neighbors"]
+        umap_params.target_weights = state["target_weights"]
+        umap_params.target_metric = state["target_metric"]
+
+        state["umap_params"] = <size_t>umap_params
+
+        self.__dict__.update(state)
+
+    def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
         Parameters
         ----------
@@ -290,15 +357,20 @@ class UMAP(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+
+        if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        if self._should_downcast:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
+        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -327,7 +399,10 @@ class UMAP(Base):
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
-                input_to_dev_array(y)
+                input_to_dev_array(y, check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
             fit(handle_[0],
                 < float*> x_raw,
                 < float*> y_raw,
@@ -347,7 +422,7 @@ class UMAP(Base):
 
         return self
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space and return that transformed
         output.
         Parameters
@@ -361,8 +436,7 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, y)
-
+        self.fit(X, y, convert_dtype=convert_dtype)
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, self.arr_embed.shape[1]):
@@ -372,7 +446,7 @@ class UMAP(Base):
 
         return ret
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """Transform X into the existing embedded space and return that
         transformed output.
 
@@ -397,13 +471,17 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        cdef uintptr_t x_ptr
         if self._should_downcast:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
+        cdef uintptr_t x_ptr
+        X_m, x_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
