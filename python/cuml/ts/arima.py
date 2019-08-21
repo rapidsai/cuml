@@ -190,7 +190,9 @@ def diffAndCenter(y: np.ndarray,
     return np.asfortranarray(y_diff-mu_ar_ma_params_x[::(1+p+q)])
 
 
-def run_kalman(y, order, num_batches, mu_ar_ma_params_x, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
+def run_kalman(y, order: Tuple[int, int, int],
+               num_batches, mu_ar_ma_params_x,
+               initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
     """Run the (batched) kalman filter for the given model (and contained batched
     series). `initP_kalman_iterations, if true uses kalman iterations, and if false
     uses an analytical approximation (Durbin Koopman pg 138).`"""
@@ -222,7 +224,7 @@ def predict_in_sample(model):
 
     p, d, q = model.order[0]
     x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
-    _, vs = run_kalman(model.y, model.order, model.num_batches, x)
+    _, vs = run_kalman(model.y, (p, d, q), model.num_batches, x)
 
     assert_same_d(model.order) # We currently assume the same d for all series
     _, d, _ = model.order[0]
