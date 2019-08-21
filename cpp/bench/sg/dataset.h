@@ -18,6 +18,7 @@
 
 #include <cuda_utils.h>
 #include <cuML.hpp>
+#include <datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -27,24 +28,31 @@ namespace ML {
 namespace Bench {
 
 /**
- * @brief A simple object to hold the loaded dataset for benchmarking
- * @tparam D type of the dataset (type of X)
- * @tparam L type of the labels/output (type of y)
+ * Indicates the dataset size. This is supposed to be used as the base class
+ * by every Benchmark's Params structure.
  */
-template <typename D, typename L>
-struct Dataset {
+struct DatasetParams {
   /** number of rows in the datset */
   int nrows;
   /** number of cols in the dataset */
   int ncols;
   /** number of classes in the dataset (useless for regression cases) */
   int nclasses;
+  /** input dataset is stored row or col major? */
+  bool rowMajor;
+};
+
+/**
+ * @brief A simple object to hold the loaded dataset for benchmarking
+ * @tparam D type of the dataset (type of X)
+ * @tparam L type of the labels/output (type of y)
+ */
+template <typename D, typename L>
+struct Dataset : public DatasetParams {
   /** input data */
   D* X;
   /** labels or output associated with each row of input data */
   L* y;
-  /** input dataset is stored row or col major? */
-  bool rowMajor;
 
   /** free-up the buffers */
   void deallocate(const cumlHandle& handle) {
@@ -65,8 +73,9 @@ struct Dataset {
            "make_blobs: is only for classification/clustering problems!");
     allocate(handle, rows, cols);
     nclasses = nclass;
-    Datasets::make_blobs(handle, X, y, nrows, ncols, nclasses, nullptr, nullptr,
-                         clusterStd, shuffle, centerBoxMin, centerBoxMax, seed);
+    ML::Datasets::make_blobs(handle, X, y, nrows, ncols, nclasses,
+                             (const D*)nullptr, (const D*)nullptr, clusterStd,
+                             shuffle, centerBoxMin, centerBoxMax, seed);
     rowMajor = true;
   }
 
@@ -80,6 +89,7 @@ struct Dataset {
    * @param isRowMajor whether to store the input in row or col major
    * @param nclass number of classes (meaningful only for classification)
    */
+  template <typename Lambda>
   void read_csv(const cumlHandle& handle, const std::string& csvfile, int rows,
                 int cols, bool isRowMajor, int nclass, Lambda readOp) {
     if (isClassification() && nclass <= 0) {

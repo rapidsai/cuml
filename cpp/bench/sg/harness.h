@@ -64,7 +64,6 @@ typedef std::vector<RunInfo> RunInfos;
  */
 template <typename Params>
 struct Benchmark {
- public:
   /** params to be used for this run */
   void setParams(const Params &_p) { params = _p; }
 
