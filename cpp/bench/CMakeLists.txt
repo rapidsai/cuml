@@ -27,6 +27,7 @@ if(BUILD_CUML_BENCH)
 
   # (please keep the filenames in alphabetical order)
   add_executable(bench
+    sg/dbscan.cu
     sg/harness.cpp
     sg/main.cpp
   )
