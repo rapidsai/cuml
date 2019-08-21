@@ -17,8 +17,6 @@
 #pragma once
 
 #include <chrono>
-#include <cuda_utils.h>
-#include <cuML.hpp>
 #include <stdio.h>
 #include <map>
 #include <memory>
@@ -65,8 +63,6 @@ typedef std::vector<RunInfo> RunInfos;
 template <typename Params>
 struct Benchmark {
 public:
-  Benchmark(const cumlHandle& h): handle(h), params() {}
-
   /** params to be used for this run */
   void setParams(const Params& _p) { params = _p; }
 
@@ -83,8 +79,6 @@ public:
   void metrics(RunInfo& ri) {}
 
 protected:
-  /** cuml handle */
-  const cumlHandle& handle;
   /** params for this benchmark run */
   Params params;
 };
@@ -102,14 +96,13 @@ protected:
    * @brief Main function to run a benchmark with different params
    * @tparam BenchType benchmark to be run
    * @tparam Params params struct used by this benchmark
-   * @param handle cuml handle
    * @param name name of the benchmark to be run
    * @param all list of all params to be benchmarked
    * @param toRun list of strings, only those test names matching, will be run
    * @return list of perf numbers for each test run
    */
   template <typename BenchType, typename Params>
-  RunInfos runImpl(const cumlHandle& handle, const std::string &name,
+  RunInfos runImpl(const std::string &name,
                    const std::vector<Params> &all,
                    const std::vector<std::string>& toRun) const {
     RunInfos ret;
@@ -127,13 +120,12 @@ protected:
           }
       }
       if(!match) continue;
-      std::shared_ptr<BenchType> test(new BenchType(handle));
+      std::shared_ptr<BenchType> test(new BenchType);
       // setup
       {
         auto start = std::chrono::high_resolution_clock::now();
         test->setParams(p);
         test->setup();
-        CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["setup"] =
@@ -148,7 +140,6 @@ protected:
       try {
         auto start = std::chrono::high_resolution_clock::now();
         test->run(ri);
-        CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["run"] =
@@ -164,7 +155,6 @@ protected:
       {
         auto start = std::chrono::high_resolution_clock::now();
         test->metrics();
-        CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["metrics"] =
@@ -174,7 +164,6 @@ protected:
       {
         auto start = std::chrono::high_resolution_clock::now();
         test->teardown();
-        CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["teardown"] =
@@ -229,9 +218,8 @@ class RunnerImpl : public Runner {
 public:
   RunnerImpl(const std::vector<PType> &a) : allP(a) {}
 
-  RunInfos run(const cumlHandle& handle, const std::string &n,
-               const std::vector<std::string>& toRun) {
-    return runImpl<BType, PType>(handle, n, allP, toRun);
+  RunInfos run(const std::string &n, const std::vector<std::string>& toRun) {
+    return runImpl<BType, PType>(n, allP, toRun);
   }
 
 private:
