@@ -29,7 +29,7 @@ if(BUILD_CUML_BENCH)
   add_executable(bench
     sg/harness.cu
     sg/algos.cpp
-    sg/main.cpp
+    sg/main.cu
   )
 
   add_dependencies(bench ${ClangFormat_TARGET})
