@@ -365,6 +365,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsvd/tsvd.cu
     src/umap/umap.cu
     src/ts/batched_kalman.cu
+    src/ts/batched_arima.cu
     )
 
   set(CUML_LINK_LIBRARIES

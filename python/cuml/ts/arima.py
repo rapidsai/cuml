@@ -8,7 +8,7 @@ from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 from .batched_kalman import batched_transform as batched_trans_cuda
 from .batched_kalman import pack, unpack
 from .batched_lbfgs import batched_fmin_lbfgs_b
-
+from .batched_arima import batched_loglike_cuda
 
 class ARIMAModel:
     r"""
@@ -62,26 +62,18 @@ def _model_complexity(order):
     return 1 + p + q
 
 
-def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gpu=True, trans=False):
+def ll_f(num_batches, num_parameters, order, y, x, trans=True):
     """Computes batched loglikelihood given parameters stored in `x`."""
     pynvtx_range_push("ll_f")
 
-    # Apply stationarity-inducing transform.
-    if trans:
-        pynvtx_range_push("ll_f_trans")
-        p, _, q = order
-        x = batch_trans(p, q, num_batches, np.copy(x))
-        pynvtx_range_pop()
-
-    p, _, q = order
-    ll_b, _ = run_kalman(y, order, num_batches, x)
+    p, d, q = order
+    nobs = len(y)
+    llb = batched_loglike_cuda(y, num_batches, nobs, p, d, q, x, trans)
+    
     pynvtx_range_pop()
-    if return_negative_sum:
-        return -ll_b.sum()
-    else:
-        return ll_b
+    return llb
 
-def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=False):
+def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, trans=True):
     """Computes fd-gradient of batched loglikelihood given parameters stored in
     `x`. Because batches are independent, it only compute the function for the
     single-batch number of parameters."""
@@ -91,6 +83,8 @@ def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=Fals
 
     grad = np.zeros(len(x))
 
+    # 1st order FD saves 20% runtime.
+    # ll_b0 = ll_f(num_batches, num_parameters, order, y, x, trans=trans)
     assert (len(x) / num_parameters) == float(num_batches)
     for i in range(num_parameters):
         fd[i] = h
@@ -101,9 +95,9 @@ def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=Fals
         # reset perturbation
         fd[i] = 0.0
 
-        ll_b_ph = ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu, trans=trans)
-        ll_b_mh = ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu, trans=trans)
-        # ll_b0 = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=trans)
+        ll_b_ph = ll_f(num_batches, num_parameters, order, y, x+fdph, trans=trans)
+        ll_b_mh = ll_f(num_batches, num_parameters, order, y, x-fdph, trans=trans)
+        
         np.seterr(all='raise')
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
         # grad_i_b = (ll_b_ph - ll_b0)/(h)
@@ -144,7 +138,7 @@ def fit(y: np.ndarray,
         """The (batched) energy functional returning the negative loglikelihood (for each series)."""
 
         # Recall: Maximimize LL means minimize negative
-        n_llf = -(ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
+        n_llf = -(ll_f(num_batches, num_parameters, order, y, x, trans=True))
         return n_llf/(num_samples-1)
 
 
@@ -152,7 +146,7 @@ def fit(y: np.ndarray,
     def gf(x):
         """The gradient of the (batched) energy functional."""
         # Recall: We maximize LL by minimizing -LL
-        n_gllf = -ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
+        n_gllf = -ll_gf(num_batches, num_parameters, order, y, x, h, trans=True)
         return n_gllf/(num_samples-1)
 
     x0 = pack(p, q, num_batches, mu0, ar_params0, ma_params0)
@@ -196,7 +190,7 @@ def run_kalman(y, order: Tuple[int, int, int],
     """Run the (batched) kalman filter for the given model (and contained batched
     series). `initP_kalman_iterations, if true uses kalman iterations, and if false
     uses an analytical approximation (Durbin Koopman pg 138).`"""
-    
+    pynvtx_range_push("run_kalman")
     p, d, q = order
 
     if d == 0:
@@ -208,7 +202,7 @@ def run_kalman(y, order: Tuple[int, int, int],
     elif d == 1:
 
         y_diff_centered = diffAndCenter(y, p, q, mu_ar_ma_params_x)
-
+        # print("ydiff:", y_diff_centered)
         ll_b, vs = batched_kfilter(y_diff_centered, # numpy
                                    mu_ar_ma_params_x,
                                    p, q,
@@ -216,6 +210,7 @@ def run_kalman(y, order: Tuple[int, int, int],
     else:
         raise NotImplementedError("ARIMA only support d==0,1")
 
+    pynvtx_range_pop()
     return ll_b, vs
 
 
