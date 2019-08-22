@@ -23,8 +23,8 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "smosolver.h"
-#include "svc.h"
 #include "svc.hpp"
+#include "svc_impl.h"
 
 namespace ML {
 namespace SVM {
