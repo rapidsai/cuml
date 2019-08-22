@@ -24,39 +24,17 @@ namespace Bench {
 namespace dbscan {
 
 template <typename D>
-struct Params : public DatasetParams {
-  // dataset generation related
-  D cluster_std;
-  bool shuffle;
-  D center_box_min, center_box_max;
-  uint64_t seed;
+struct Params : public BlobsParams<D> {
   // algo related
   int min_pts;
   D eps;
   size_t max_bytes_per_batch;
 
-  Params() : DatasetParams() {}
-
-  Params(int nr, int nc, int ncl, bool row, D std, bool shfl, D cmin, D cmax,
-         uint64_t s, int minP, D _eps, size_t maxBytes)
-    : DatasetParams(nr, nc, ncl, row),
-      cluster_std(std),
-      shuffle(shfl),
-      center_box_min(cmin),
-      center_box_max(cmax),
-      seed(s),
-      min_pts(minP),
-      eps(_eps),
-      max_bytes_per_batch(maxBytes) {}
-
   std::string str() const {
     std::ostringstream oss;
-    oss << ";cluster_std=" << cluster_std << ";shuffle=" << shuffle
-        << ";center_box_min=" << center_box_min
-        << ";center_box_max=" << center_box_max << ";seed=" << seed
-        << ";min_pts=" << min_pts << ";eps=" << eps
+    oss << ";min_pts=" << min_pts << ";eps=" << eps
         << ";max_bytes_per_batch=" << max_bytes_per_batch;
-    return DatasetParams::str() + oss.str();
+    return BlobsParams<D>::str() + oss.str();
   }
 };
 

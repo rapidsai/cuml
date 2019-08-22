@@ -44,16 +44,28 @@ struct DatasetParams {
   /** input dataset is stored row or col major? */
   bool rowMajor;
 
-  DatasetParams() {}
-
-  DatasetParams(int nr, int nc, int ncl, int row)
-    : nrows(nr), ncols(nc), nclasses(ncl), rowMajor(row) {}
-
   std::string str() const {
     std::ostringstream oss;
     oss << "nrows=" << nrows << ";ncols=" << ncols << ";nclasses=" << nclasses
         << ";rowMajor=" << rowMajor;
     return oss.str();
+  }
+};
+
+/** Holds params needed to generate blobs dataset */
+template <typename D>
+struct BlobsParams : public DatasetParams {
+  D cluster_std;
+  bool shuffle;
+  D center_box_min, center_box_max;
+  uint64_t seed;
+
+  std::string str() const {
+    std::ostringstream oss;
+    oss << ";cluster_std=" << cluster_std << ";shuffle=" << shuffle
+        << ";center_box_min=" << center_box_min
+        << ";center_box_max=" << center_box_max << ";seed=" << seed;
+    return DatasetParams::str() + oss.str();
   }
 };
 

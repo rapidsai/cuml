@@ -35,10 +35,7 @@ struct Params : public DatasetParams {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << ";cluster_std=" << cluster_std << ";shuffle=" << shuffle
-        << ";center_box_min=" << center_box_min
-        << ";center_box_max=" << center_box_max << ";seed=" << seed
-        << ";init=" << p.init << ";max_iter=" << p.max_iter << ";tol=" << p.tol
+    oss << ";init=" << p.init << ";max_iter=" << p.max_iter << ";tol=" << p.tol
         << ";verbose=" << p.verbose << ";metric=" << p.metric
         << ";oversampling_factor=" << p.oversampling_factor
         << ";batch_size=" << p.batch_size
