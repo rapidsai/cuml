@@ -111,9 +111,9 @@ std::vector<Params<D>> getInputs() {
   p.p.metric = 0;  // L2
   p.p.inertia_check = true;
   std::vector<std::pair<int, int>> rowcols = {
-    {40000, 128},
-    {80000, 128},
-    {160000, 128},
+    {160000, 64},
+    {320000, 64},
+    {640000, 64},
   };
   for (auto& rc : rowcols) {
     p.nrows = rc.first;
@@ -121,7 +121,7 @@ std::vector<Params<D>> getInputs() {
     for (auto nclass : std::vector<int>({8, 16, 32})) {
       p.nclasses = nclass;
       p.p.n_clusters = p.nclasses;
-      for (auto bs_shift : std::vector<int>({16, 18, 20})) {
+      for (auto bs_shift : std::vector<int>({16, 18})) {
         p.p.batch_size = 1 << bs_shift;
         out.push_back(p);
       }
