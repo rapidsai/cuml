@@ -29,6 +29,7 @@ if(BUILD_CUML_BENCH)
   add_executable(bench
     sg/dbscan.cu
     sg/harness.cpp
+    sg/kmeans.cu
     sg/main.cpp
   )
 
