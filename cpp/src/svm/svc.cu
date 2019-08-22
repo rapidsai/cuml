@@ -31,6 +31,44 @@ namespace SVM {
 
 using namespace MLCommon;
 
+void svcFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+            float *labels, float C, float tol,
+            MLCommon::GramMatrix::KernelParams &kernel_params, float cache_size,
+            int max_iter, float **dual_coefs, int *n_support, float *b,
+            float **x_support, int **support_idx, float **unique_labels,
+            int *n_classes, bool verbose) {
+  svcFit_impl(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
+              cache_size, max_iter, dual_coefs, n_support, b, x_support,
+              support_idx, unique_labels, n_classes, verbose);
+}
+
+void svcFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+            double *labels, double C, double tol,
+            MLCommon::GramMatrix::KernelParams &kernel_params,
+            double cache_size, int max_iter, double **dual_coefs,
+            int *n_support, double *b, double **x_support, int **support_idx,
+            double **unique_labels, int *n_classes, bool verbose) {
+  svcFit_impl(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
+              cache_size, max_iter, dual_coefs, n_support, b, x_support,
+              support_idx, unique_labels, n_classes, verbose);
+}
+
+void svcPredict(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+                MLCommon::GramMatrix::KernelParams &kernel_params,
+                float *dual_coefs, int n_support, float b, float *x_support,
+                float *unique_labels, int n_classes, float *preds) {
+  svcPredict_impl(handle, input, n_rows, n_cols, kernel_params, dual_coefs,
+                  n_support, b, x_support, unique_labels, n_classes, preds);
+}
+
+void svcPredict(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+                MLCommon::GramMatrix::KernelParams &kernel_params,
+                double *dual_coefs, int n_support, double b, double *x_support,
+                double *unique_labels, int n_classes, double *preds) {
+  svcPredict_impl(handle, input, n_rows, n_cols, kernel_params, dual_coefs,
+                  n_support, b, x_support, unique_labels, n_classes, preds);
+}
+
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
                  GramMatrix::KernelParams kernel_params, math_t cache_size,
@@ -71,9 +109,9 @@ template <typename math_t>
 void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
   this->n_cols = n_cols;
   if (dual_coefs) free_buffers();
-  svcFit(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
-         cache_size, max_iter, &dual_coefs, &n_support, &b, &x_support,
-         &support_idx, &unique_labels, &n_classes, verbose);
+  svcFit_impl(handle, input, n_rows, n_cols, labels, C, tol, kernel_params,
+              cache_size, max_iter, &dual_coefs, &n_support, &b, &x_support,
+              &support_idx, &unique_labels, &n_classes, verbose);
 }
 
 template <typename math_t>
@@ -81,13 +119,13 @@ void SVC<math_t>::predict(math_t *input, int n_rows, int n_cols,
                           math_t *preds) {
   ASSERT(n_cols == this->n_cols,
          "Parameter n_cols: shall be the same that was used for fitting");
-  svcPredict(handle, input, n_rows, n_cols, kernel_params, dual_coefs,
-             n_support, b, x_support, unique_labels, n_classes, preds);
+  svcPredict_impl(handle, input, n_rows, n_cols, kernel_params, dual_coefs,
+                  n_support, b, x_support, unique_labels, n_classes, preds);
 }
 
 // Instantiate templates for the shared library
 template class SVC<float>;
 template class SVC<double>;
 
-};  // end namespace SVM
+};  // namespace SVM
 };  // end namespace ML

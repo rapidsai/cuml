@@ -69,12 +69,13 @@ namespace SVM {
  * @param [out] n_classes number of unique labels
  */
 template <typename math_t>
-void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-            math_t *labels, math_t C, math_t tol,
-            MLCommon::GramMatrix::KernelParams &kernel_params,
-            math_t cache_size, int max_iter, math_t **dual_coefs,
-            int *n_support, math_t *b, math_t **x_support, int **support_idx,
-            math_t **unique_labels, int *n_classes, bool verbose) {
+void svcFit_impl(const cumlHandle &handle, math_t *input, int n_rows,
+                 int n_cols, math_t *labels, math_t C, math_t tol,
+                 MLCommon::GramMatrix::KernelParams &kernel_params,
+                 math_t cache_size, int max_iter, math_t **dual_coefs,
+                 int *n_support, math_t *b, math_t **x_support,
+                 int **support_idx, math_t **unique_labels, int *n_classes,
+                 bool verbose) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
@@ -136,10 +137,12 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  *    Size [n_rows]. Should be allocated on entry.
  */
 template <typename math_t>
-void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::GramMatrix::KernelParams &kernel_params,
-                math_t *dual_coefs, int n_support, math_t b, math_t *x_support,
-                math_t *unique_labels, int n_classes, math_t *preds) {
+void svcPredict_impl(const cumlHandle &handle, math_t *input, int n_rows,
+                     int n_cols,
+                     MLCommon::GramMatrix::KernelParams &kernel_params,
+                     math_t *dual_coefs, int n_support, math_t b,
+                     math_t *x_support, math_t *unique_labels, int n_classes,
+                     math_t *preds) {
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
 #define N_PRED_BATCH 4096
