@@ -119,6 +119,25 @@ class Exception : public std::exception {
     }                                                                          \
   } while (0)
 
+/** helper method to get max usable shared mem per block parameter */
+inline int getSharedMemPerBlock() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int smemPerBlk;
+  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
+                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
+  return smemPerBlk;
+}
+/** helper method to get multi-processor count parameter */
+inline int getMultiProcessorCount() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int mpCount;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
+  return mpCount;
+}
+
 /**
  * @brief Generic copy method for all kinds of transfers
  * @tparam Type data type

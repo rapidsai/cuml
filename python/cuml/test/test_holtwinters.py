@@ -171,6 +171,10 @@ def test_series_holtwinters(idx, h):
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(h, idx)
+    cu_hw.score(idx)
+    cu_hw.get_level(idx)
+    cu_hw.get_trend(idx)
+    cu_hw.get_season(idx)
 
 
 @pytest.mark.parametrize('frequency', [7, 12])
@@ -209,3 +213,36 @@ def test_inputs_holtwinters(datatype, input_type):
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)
+    cu_hw.score()
+    cu_hw.get_level(0)
+    cu_hw.get_trend(1)
+    cu_hw.get_season(2)
+
+
+@pytest.mark.parametrize('level', [1, 3, 5, 10])
+def test_get_level(level):
+    data = np.array([level]*100, dtype=np.float64)
+    cu_hw = cuml_ES(data)
+    cu_hw.fit()
+    assert pytest.approx(cu_hw.get_level().to_array(), 1e-4) == level
+
+
+@pytest.mark.parametrize('slope', [1, 2, -2, 0.5])
+def test_get_trend(slope):
+    data = np.arange(0, 100*slope, slope, dtype=np.float64)
+    cu_hw = cuml_ES(data)
+    cu_hw.fit()
+    assert pytest.approx(cu_hw.get_trend().to_array(), 1e-4) == slope
+
+
+@pytest.mark.parametrize('freq', [1, 0.5, 5])
+def test_get_season(freq):
+    data = np.sin(np.arange(0, 100)*freq)
+    cu_hw = cuml_ES(data)
+    cu_hw.fit()
+    evens = np.arange(0, 98, 2)
+    odds = evens+1
+    seasons = cu_hw.get_season().to_array()
+    base = seasons[0]
+    assert pytest.approx(seasons[evens], 1e-4) == base
+    assert pytest.approx(seasons[odds], 1e-4) == -1*base
