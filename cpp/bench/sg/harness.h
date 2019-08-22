@@ -67,6 +67,8 @@ struct Benchmark {
   /** params to be used for this run */
   void setParams(const Params &_p) { params = _p; }
 
+  const Params &getParams() const { return params; }
+
   /** setup method. To be typically used to set the current run */
   void setup() {}
 
@@ -74,7 +76,7 @@ struct Benchmark {
   void teardown() {}
 
   /** running the main test */
-  void run(RunInfo &ri) {}
+  void run() {}
 
   /** compute any metrics after the training is over */
   void metrics(RunInfo &ri) {}
@@ -138,7 +140,7 @@ class Runner {
       // main training run
       try {
         auto start = std::chrono::high_resolution_clock::now();
-        test->run(ri);
+        test->run();
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["run"] =
@@ -153,7 +155,7 @@ class Runner {
       // compute trained model metrics
       {
         auto start = std::chrono::high_resolution_clock::now();
-        test->metrics();
+        test->metrics(ri);
         auto end = std::chrono::high_resolution_clock::now();
         auto diff = end - start;
         ri.runtimes["metrics"] =
