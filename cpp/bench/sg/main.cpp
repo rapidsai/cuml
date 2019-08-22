@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include <cuda_runtime.h>
 #include <utils.h>
 #include "harness.h"
 
 int main(int argc, char **argv) {
   try {
     using namespace ML::Bench;
+    cudaFree(nullptr);  // just to create context!
     Harness::Init(argc, argv);
     Harness::RunAll();
     return 0;
