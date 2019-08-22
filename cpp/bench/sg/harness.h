@@ -110,6 +110,7 @@ class Runner {
     RunInfos ret;
     int idx = 0;
     for (const auto &p : all) {
+      auto totalStart = std::chrono::high_resolution_clock::now();
       std::ostringstream oss;
       oss << name << "/" << idx;
       ++idx;
@@ -174,7 +175,11 @@ class Runner {
           std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
       }
       ret.push_back(ri);
-      printf("%s", ri.passed ? "OK" : "FAIL");
+      auto totalEnd = std::chrono::high_resolution_clock::now();
+      auto totalD = totalEnd - totalStart;
+      double totalTime =
+        std::chrono::duration_cast<std::chrono::milliseconds>(totalD).count();
+      printf("%s [in %lf ms]", ri.passed ? "OK" : "FAIL", totalTime);
       if (!ri.passed && !ri.errMsg.empty()) {
         printf(" (%s)", ri.errMsg.c_str());
       }
@@ -196,6 +201,12 @@ class Harness {
 
   /** run the benchmarking tests */
   static void RunAll();
+
+  /** print csv formatted output */
+  static void PrintResultsInCsv();
+
+  /** total benchmark tests run */
+  static size_t TotalTestsRun();
 
   /** register a benchmark runner to be run later */
   static void RegisterRunner(const std::string &name,
