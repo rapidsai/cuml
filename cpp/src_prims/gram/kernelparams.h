@@ -29,16 +29,12 @@ enum KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
  * - RBF \f[ K(x_1, x_2) = \exp(- \gamma |x_1-x_2|^2) \f]
  * - TANH \f[ K(x_1, x_2) = \tanh(\gamma <x_1,x_2> + \mathrm{coef0}) \f]
  */
-class KernelParams {
- public:
+struct KernelParams {
   // Kernel function parameters
   KernelType kernel;  //!< Type of the kernel function
   int degree;         //!< Degree of polynomial kernel (ignored by others)
   double gamma;       //!< multiplier in the
   double coef0;       //!< additive constant in poly and tanh kernels
-  KernelParams(KernelType kernel=RBF, int degree=3, double gamma=1,
-    double coef0=0)
-    : kernel(kernel), degree(degree), gamma(gamma), coef0(coef0) {}
 };
 
 };  //end namespace GramMatrix

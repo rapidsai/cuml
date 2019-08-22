@@ -629,7 +629,8 @@ TEST_F(SmoSolverTestF, SmoSolvePolynomial) {
 
 TEST_F(SmoSolverTestF, SvcTest) {
   float epsilon = 0.001;
-  SVC<float> svc(handle, 1.0f, epsilon, KernelParams(LINEAR));
+  KernelParams kernel_params{LINEAR, 3, 1, 0};
+  SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
   n_coefs = svc.n_support;
   b = svc.b;
@@ -650,8 +651,8 @@ TEST_F(SmoSolverTestF, SvcTest) {
 
 TEST_F(SmoSolverTestF, SvcTestPoly) {
   float epsilon = 1.0e-6;
-  SVC<float> svc(handle, 1.0f, epsilon,
-                 GramMatrix::KernelParams(GramMatrix::POLYNOMIAL));
+  KernelParams kernel_params{POLYNOMIAL, 3, 1, 0};
+  SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
   n_coefs = svc.n_support;
   b = svc.b;
@@ -666,8 +667,8 @@ TEST_F(SmoSolverTestF, SvcTestPoly) {
 
 TEST_F(SmoSolverTestF, SvcTestTanh) {
   float epsilon = 1.0e-6;
-  SVC<float> svc(handle, 10.0f, epsilon,
-                 GramMatrix::KernelParams(GramMatrix::TANH, 3, 0.3, 1.0));
+  KernelParams kernel_params{TANH, 3, 0.3, 1.0};
+  SVC<float> svc(handle, 10.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
   n_coefs = svc.n_support;
   b = svc.b;
@@ -682,8 +683,8 @@ TEST_F(SmoSolverTestF, SvcTestTanh) {
 
 TEST_F(SmoSolverTestF, SvcTestRBF) {
   float epsilon = 1.0e-6;
-  SVC<float> svc(handle, 1.0f, epsilon,
-                 GramMatrix::KernelParams(GramMatrix::RBF, 0, 0.15));
+  KernelParams kernel_params{RBF, 0, 0.15, 0};
+  SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
   n_coefs = svc.n_support;
   b = svc.b;
@@ -727,8 +728,8 @@ TEST(SvcSolverTest, SvcTestLargeNonlin) {
   CUDA_CHECK(cudaPeekAtLastError());
 
   float epsilon = 0.001;
-
-  SVC<float> svc(handle, 1.0f, epsilon, KernelParams(RBF), 200, 1);
+  KernelParams kernel_params{RBF, 0, 1.0, 0};
+  SVC<float> svc(handle, 1.0f, epsilon, kernel_params, 200, 1);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
 
   ASSERT_LE(svc.n_support, n_rows);
@@ -770,8 +771,9 @@ TEST(SvcSolverTest, SvcTestLarge) {
   CUDA_CHECK(cudaPeekAtLastError());
 
   float epsilon = 0.001;
+  KernelParams kernel_params{LINEAR, 3, 1, 0};
 
-  SVC<float> svc(handle, 1.0f, epsilon, KernelParams(), 200, 200);
+  SVC<float> svc(handle, 1.0f, epsilon, kernel_params, 200, 200);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
 
   ASSERT_LE(svc.n_support, n_rows);

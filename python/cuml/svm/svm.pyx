@@ -38,12 +38,11 @@ cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
-    cdef cppclass KernelParams:
+    cdef struct KernelParams:
         KernelType kernel
         int degree
         double gamma
         double coef0
-        KernelParams(KernelType kernel, int degree, double gamma, double coef0)
 
 cdef extern from "svm/svc.h" namespace "ML::SVM":
 
@@ -175,7 +174,6 @@ class SVC(Base):
         # deallocate CppSVC
         cdef CppSVC[float]* svc_f
         cdef CppSVC[double]* svc_d
-        cdef KernelParams *_kernel_params
         if self._svcHandle is not None:
             if self.dtype == np.float32:
                 svc_f = <CppSVC[float]*><size_t> self._svcHandle
@@ -185,9 +183,6 @@ class SVC(Base):
                 del svc_d
             else:
                 raise TypeError("Unknown type for SVC class")
-        if self._kernel_params is not None:
-            _kernel_params = <KernelParams*><size_t> self._kernel_params
-            del _kernel_params
         self._svcHandle = None
         self._kernel_params = None
 
@@ -272,17 +267,18 @@ class SVC(Base):
 
         cdef CppSVC[float]* svc_f = NULL
         cdef CppSVC[double]* svc_d = NULL
-        cdef KernelParams *_kernel_params
+        cdef KernelParams _kernel_params
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        _kernel_params = new KernelParams(
-            <KernelType>self._c_kernel, <int>self.degree,
-            <double> self._gamma_val(X), <double>self.coef0)
-        self._kernel_params = <size_t> _kernel_params
+        _kernel_params.kernel = self._c_kernel
+        _kernel_params.degree = self.degree
+        _kernel_params.gamma = self._gamma_val(X)
+        _kernel_params.coef0 = self.coef0
+        self._kernel_params = _kernel_params
 
         if self.dtype == np.float32:
             svc_f = new CppSVC[float](
-                handle_[0], self.C, self.tol, deref(_kernel_params),
+                handle_[0], self.C, self.tol, _kernel_params,
                 self.cache_size, self.max_iter, self.verbose)
             self._svcHandle = <size_t> svc_f
             svc_f.fit(<float*>X_ptr, <int>self.n_rows,
@@ -299,7 +295,7 @@ class SVC(Base):
             self.fit_status_ = 0
         elif self.dtype == np.float64:
             svc_d = new CppSVC[double](
-                handle_[0], self.C, self.tol, deref(_kernel_params),
+                handle_[0], self.C, self.tol, _kernel_params,
                 self.cache_size, self.max_iter, self.verbose)
             self._svcHandle = <size_t> svc_d
             svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
