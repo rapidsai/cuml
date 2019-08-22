@@ -38,12 +38,12 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cuml.cluster import KMeans
 
 
-cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace \
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams" nogil:
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
 
     cdef struct KMeansParams:
         int n_clusters,
@@ -57,23 +57,23 @@ cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
         int batch_size,
         bool inertia_check
 
-    cdef void fit_mnmg(cumlHandle& handle,
-                       KMeansParams& params,
-                       const float *X,
-                       int n_samples,
-                       int n_features,
-                       float *centroids,
-                       float &inertia,
-                       int &n_iter)
+    cdef void fit(cumlHandle& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int n_samples,
+                  int n_features,
+                  float *centroids,
+                  float &inertia,
+                  int &n_iter)
 
-    cdef void fit_mnmg(cumlHandle& handle,
-                       KMeansParams& params,
-                       const double *X,
-                       int n_samples,
-                       int n_features,
-                       double *centroids,
-                       double &inertia,
-                       int &n_iter)
+    cdef void fit(cumlHandle& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int n_samples,
+                  int n_features,
+                  double *centroids,
+                  double &inertia,
+                  int &n_iter)
 
 
 class KMeansMG(KMeans):
@@ -134,7 +134,7 @@ class KMeansMG(KMeans):
 
         if self.dtype == np.float32:
             with nogil:
-                fit_mnmg(
+                fit(
                     handle_[0],
                     <KMeansParams> params,
                     <const float*> input_ptr,
@@ -148,7 +148,7 @@ class KMeansMG(KMeans):
             self.n_iter_ = n_iter
         elif self.dtype == np.float64:
             with nogil:
-                fit_mnmg(
+                fit(
                     handle_[0],
                     <KMeansParams> params,
                     <const double*> input_ptr,
