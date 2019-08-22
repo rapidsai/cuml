@@ -23,7 +23,7 @@
 #include "gram/grammatrix.h"
 #include "gram/kernelmatrices.h"
 #include "svm/smosolver.h"
-#include "svm/svc.h"
+#include "svm/svc.hpp"
 #include "svm/workingset.h"
 #include "test_utils.h"
 

@@ -44,7 +44,7 @@ cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
         double gamma
         double coef0
 
-cdef extern from "svm/svc.h" namespace "ML::SVM":
+cdef extern from "svm/svc.hpp" namespace "ML::SVM":
 
     cdef cppclass CppSVC "ML::SVM::SVC" [math_t]:
         # The CppSVC class manages the memory of the parameters that are found

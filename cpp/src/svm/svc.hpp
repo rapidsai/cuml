@@ -14,177 +14,112 @@
  * limitations under the License.
  */
 
-/** @file svc.hpp
- * @brief Stateless C++ functions to fit an SVM classifier, and predict with it.
- */
-
-#include <iostream>
+#pragma once
 
 #include <cublas_v2.h>
 #include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "gram/kernelfactory.h"
-#include "kernelcache.h"
-#include "label/classlabels.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.h"
-#include "smosolver.h"
+#include "gram/kernelparams.h"
 
 namespace ML {
 namespace SVM {
 
 /**
- * @brief Fit a support vector classifier to the training data.
+ * @brief C-Support Vector Classification
  *
- * Each row of the input data stores a feature vector.
- * We use the SMO method to fit the SVM.
+ * This is an Scikit-Learn like wrapper around the stateless C++ functions.
  *
- * The output dbuffers shall be unallocated on entry.
- * Note that n_support, n_classes and b are host scalars, all other output
- * pointers are device pointers.
+ * The classifier will be fitted using the SMO algorithm in dual space.
  *
- * @tparam math_t floating point type
- * @param [in] handle the cuML handle
- * @param [in] input device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
- * @param [in] labels device pointer for the labels. Size n_rows.
- * @param [in] C the penalty term
- * @param [in] tol tolerance, fitting stops when the duality gap is smaller
- *   than the tolerance
- * @param [in] kernel_params parameters for the kernel function
- * @param [in] cache_size in MiB
- * @param [in] max_iter maximum number of outer SMO iterations (use -1 to let
- *   the SMO solver set a default value)
- * @param [out] dual_coefs device buffer for the dual coefficients of the
- *   support vectors, on exit size is [n_support]
- * @param [out] n_support number of support vectors
- * @param [out] b scalar constant for the decision function
- * @param [out] x_support support vectors in column major format,
- *   size [n_support, n_cols]
- * @param [out] support_idx the original training set indices of the support
- *    vectors, size [n_support]
- * @param [out] unique_labels device buffer of enique labels, size [n_classes]
- * @param [out] n_classes number of unique labels
+ * The decision function takes the following form
+ * \f[
+ *    sign\left( \sum_{i=1}^{N_{support}} y_i \alpha_i K(x_i,x) + b \right),
+ * \f]
+ * where \f$x_i\f$ are the support vectors, and \f$ y_i \alpha_i \f$ are the dual
+ * coordinates.
+ *
+ * The penalty parameter C limits the values of the dual coefficients
+ * \f[ 0 <= \alpha <= C \f]
+ *
  */
 template <typename math_t>
-void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-            math_t *labels, math_t C, math_t tol,
-            MLCommon::GramMatrix::KernelParams &kernel_params,
-            math_t cache_size, int max_iter, math_t **dual_coefs,
-            int *n_support, math_t *b, math_t **x_support, int **support_idx,
-            math_t **unique_labels, int *n_classes, bool verbose) {
-  ASSERT(n_cols > 0,
-         "Parameter n_cols: number of columns cannot be less than one");
-  ASSERT(n_rows > 0,
-         "Parameter n_rows: number of rows cannot be less than one");
+class SVC {
+ public:
+  // Public members for easier access during testing (and for Python).
+  // TODO Think over how to hide most of this.
 
-  // KernelCache could use multiple streams, not implemented currently
-  // See Issue #948.
-  //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  math_t C;      //!< Penalty term C
+  math_t tol;    //!< Tolerance used to stop fitting.
+  bool verbose;  //!< Print information about traning
 
-  cudaStream_t stream = handle_impl.getStream();
-  MLCommon::Label::getUniqueLabels(labels, n_rows, unique_labels, n_classes,
-                                   stream, handle_impl.getDeviceAllocator());
+  MLCommon::GramMatrix::KernelParams kernel_params;
+  math_t cache_size;  //!< kernel cache size in MiB
+  int max_iter;  //!< maximum number of outer iterations (default 100 * n_rows)
 
-  ASSERT(*n_classes == 2,
-         "Only binary classification is implemented at the moment");
+  int n_support = 0;  //!< Number of non-zero dual coefficients
+  math_t b;           //!< Constant used in the decision function
 
-  MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
-                                    n_rows);
-  MLCommon::Label::getOvrLabels(labels, n_rows, *unique_labels, *n_classes,
-                                y.data(), 1, stream);
+  // Three device pointers to store the parameters for the classifier
+  //! Non-zero dual coefficients ( dual_coef[i] = \f$ y_i \alpha_i \f$).
+  //! Size [n_support].
+  math_t *dual_coefs = nullptr;
+  //! Support vectors in column major format. Size [n_support x n_cols].
+  math_t *x_support = nullptr;
+  //! Indices (from the traning set) of the non-zero support vectors. Size [n_support].
+  int *support_idx = nullptr;
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
-    MLCommon::GramMatrix::KernelFactory<math_t>::create(
-      kernel_params, handle_impl.getCublasHandle());
-  SmoSolver<math_t> smo(handle_impl, C, tol, kernel, cache_size);
-  smo.verbose = verbose;
-  smo.Solve(input, n_rows, n_cols, y.data(), dual_coefs, n_support, x_support,
-            support_idx, b, max_iter);
-  delete kernel;
-}
+  /**
+   * @brief Constructs a support vector classifier
+   * @param handle cuML handle
+   * @param C penalty term
+   * @param tol tolerance to stop fitting
+   * @param kernel_params parameters for kernels
+   * @param cache_size size of kernel cache in device memory (MiB)
+   * @param max_iter maximum number of outer iterations in SmoSolver
+   * @param verbose enable verbose output
+   */
+  SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
+      MLCommon::GramMatrix::KernelParams kernel_params =
+        MLCommon::GramMatrix::KernelParams(),
+      math_t cache_size = 200, int max_iter = -1, bool verbose = false);
 
-/**
- * @brief Predict classes for samples in input.
- *
- * The predictions are calculated according to the following formula:
- * pred(x_i) = sign(f(x_i)) where
- * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
- *
- * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
- * we map it to the original labels, and return those.
- *
- * @tparam math_t floating point type
- * @param handle the cuML handle
- * @param [in] input device pointer for the input data in column major format,
- *   size [n_rows x n_cols].
- * @param [in] n_rows number of rows (input vectors)
- * @param [in] n_cols number of colums (features)
- * @param [in] kernel_params parameters for the kernel function
- * @param [in] dual_coefs device buffer for the dual coefficients of the
- *   support vectors, size [n_support]
- * @param [in] n_support number of support vectors
- * @param [in] b scalar constant for the decision function
- * @param [in] x_support support vectors in column major format,
- *   size [n_support, n_cols]
- * @param [in] unique_labels device buffer of enique labels, size [n_classes]
- * @param [in] n_classes number of unique label
- * @param [out] preds device pointer to store the predicted class labels.
- *    Size [n_rows]. Should be allocated on entry.
- */
-template <typename math_t>
-void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::GramMatrix::KernelParams &kernel_params,
-                math_t *dual_coefs, int n_support, math_t b, math_t *x_support,
-                math_t *unique_labels, int n_classes, math_t *preds) {
-  // We might want to query the available memory before selecting the batch size.
-  // We will need n_batch * n_support floats for the kernel matrix K.
-#define N_PRED_BATCH 4096
-  int n_batch = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
+  ~SVC();
 
-  const cumlHandle_impl &handle_impl = handle.getImpl();
-  cudaStream_t stream = handle_impl.getStream();
+  /**
+   * @brief Fit a support vector classifier to the training data.
+   *
+   * Each row of the input data stores a feature vector.
+   * We use the SMO method to fit the SVM.
+   *
+   * @param input device pointer for the input data in column major format. Size n_rows x n_cols.
+   * @param n_rows number of rows
+   * @param n_cols number of colums
+   * @param labels device pointer for the labels. Size n_rows.
+   */
+  void fit(math_t *input, int n_rows, int n_cols, math_t *labels);
 
-  MLCommon::device_buffer<math_t> K(handle_impl.getDeviceAllocator(), stream,
-                                    n_batch * n_support);
-  MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
-                                    n_rows);
+  /**
+   * @brief Predict classes for samples in input.
+   * @param [in]  input device pointer for the input data in column major format,
+   *   size [n_rows x n_cols].
+   * @param [in] n_rows, number of vectors
+   * @param [in] n_cols number of featurs
+   * @param [out] preds device pointer to store the predicted class labels.
+   *    Size [n_rows]. Should be allocated on entry.
+   */
+  void predict(math_t *input, int n_rows, int n_cols, math_t *preds);
 
-  cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+ private:
+  //! Number of columns that was used for fitting the classifier
+  int n_cols = 0;
+  int n_classes;  //!< Number of classes found in the input labels
+  //! Device pointer for the unique classes. Size [n_classes]
+  math_t *unique_labels = nullptr;
+  bool need_kernel_dealloc = false;
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
-    MLCommon::GramMatrix::KernelFactory<math_t>::create(kernel_params,
-                                                        cublas_handle);
+  const cumlHandle &handle;
 
-  // We process the input data batchwise:
-  //  - calculate the kernel values K[x_batch, x_support]
-  //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
-  for (int i = 0; i < n_rows; i += n_batch) {
-    if (i + n_batch >= n_rows) {
-      n_batch = n_rows - i;
-    }
-    kernel->evaluate(input + i, n_batch, n_cols, x_support, n_support, K.data(),
-                     stream, n_rows, n_support, n_batch);
-    math_t one = 1;
-    math_t null = 0;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-      cublas_handle, CUBLAS_OP_N, n_batch, n_support, &one, K.data(), n_batch,
-      dual_coefs, 1, &null, y.data() + i, 1, stream));
-  }
-  // Look up the label based on the value of the decision function:
-  // f(x) = sign(y(x) + b)
-  math_t *labels = unique_labels;
-  MLCommon::LinAlg::unaryOp(
-    preds, y.data(), n_rows,
-    [labels, b] __device__(math_t y) {
-      return y + b < 0 ? labels[0] : labels[1];
-    },
-    stream);
-  delete kernel;
-}
+  void free_buffers();
+};
 
 };  // end namespace SVM
 };  // end namespace ML
