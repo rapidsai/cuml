@@ -14,30 +14,30 @@
  * limitations under the License.
  */
 
-#include <utils.h>
 #include "harness.h"
+#include <utils.h>
 
 namespace ML {
 namespace Bench {
 
 void RunInfo::printRunInfo() const {
-  printf("%s,\"%s\",%s,%f,%f,%f,%f,\"%s\"\n", name.c_str(),
-         params.c_str(), passed ? "OK" : "FAIL", runtimes.at("setup"),
-         runtimes.at("teardown"), runtimes.at("run"), runtimes.at("metrics"),
-         errMsg.c_str());
+  printf("%s,%s,%f,%f,%f,%f,\"%s\",\"%s\"\n", name.c_str(),
+         passed ? "OK" : "FAIL", runtimes.at("run"), runtimes.at("setup"),
+         runtimes.at("teardown"), runtimes.at("metrics"), errMsg.c_str(),
+         params.c_str());
 }
 
 void RunInfo::printHeader() {
-  printf("name,"
-         "params,"
-         "status,"
-         "setup time (ms),"
-         "teardown time (ms),"
-         "run time (ms),"
-         "metrics time (ms),"
-         "error\n");
+  printf(
+    "name,"
+    "status,"
+    "run time (ms),"
+    "setup time (ms),"
+    "teardown time (ms),"
+    "metrics time (ms),"
+    "error,"
+    "params\n");
 }
-
 
 Harness &Harness::get() {
   static Harness bench;
@@ -66,8 +66,7 @@ void Harness::RunAll() {
   }
   RunInfo::printHeader();
   for (const auto &itr : b.info)
-    for (const auto &ritr : itr)
-      ritr.printRunInfo();
+    for (const auto &ritr : itr) ritr.printRunInfo();
 }
 
 void Harness::RegisterRunner(const std::string &name,
@@ -80,5 +79,5 @@ void Harness::RegisterRunner(const std::string &name,
   b.runners[name] = r;
 }
 
-} // end namespace Bench
-} // end namespace ML
+}  // end namespace Bench
+}  // end namespace ML

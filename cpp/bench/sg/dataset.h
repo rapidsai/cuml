@@ -17,10 +17,13 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <linalg/cublas_wrappers.h>
+#include <random/make_blobs.h>
+#include <common/cumlHandle.hpp>
 #include <cuML.hpp>
-#include <datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -40,6 +43,18 @@ struct DatasetParams {
   int nclasses;
   /** input dataset is stored row or col major? */
   bool rowMajor;
+
+  DatasetParams() {}
+
+  DatasetParams(int nr, int nc, int ncl, int row)
+    : nrows(nr), ncols(nc), nclasses(ncl), rowMajor(row) {}
+
+  std::string str() const {
+    std::ostringstream oss;
+    oss << "nrows=" << nrows << ";ncols=" << ncols << ";nclasses=" << nclasses
+        << ";rowMajor=" << rowMajor;
+    return oss.str();
+  }
 };
 
 /**
@@ -66,17 +81,32 @@ struct Dataset : public DatasetParams {
   bool isClassification() const { return typeid(D) != typeid(L); }
 
   /** generate random blobs data. Args meaning is the same as in make_blobs */
-  void blobs(const cumlHandle& handle, int rows, int cols, int nclass,
-             D clusterStd, bool shuffle, D centerBoxMin, D centerBoxMax,
-             uint64_t seed) {
+  void blobs(const cumlHandle& handle, int rows, int cols, bool isRowMajor,
+             int nclass, D cluster_std, bool shuffle, D center_box_min,
+             D center_box_max, uint64_t seed) {
     ASSERT(isClassification(),
            "make_blobs: is only for classification/clustering problems!");
     allocate(handle, rows, cols);
+    rowMajor = isRowMajor;
     nclasses = nclass;
-    ML::Datasets::make_blobs(handle, X, y, nrows, ncols, nclasses,
-                             (const D*)nullptr, (const D*)nullptr, clusterStd,
-                             shuffle, centerBoxMin, centerBoxMax, seed);
-    rowMajor = true;
+    D* tmpX;
+    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.getStream();
+    if (!isRowMajor) {
+      tmpX = (D*)allocator->allocate(nrows * ncols * sizeof(D), stream);
+    } else {
+      tmpX = X;
+    }
+    MLCommon::Random::make_blobs<D, int>(
+      tmpX, y, nrows, ncols, nclasses, allocator, stream, nullptr, nullptr,
+      cluster_std, shuffle, center_box_min, center_box_max, seed);
+    if (!isRowMajor) {
+      D alpha = (D)1.0, beta = (D)0.0;
+      MLCommon::LinAlg::cublasgeam<D>(
+        handle.getImpl().getCublasHandle(), CUBLAS_OP_T, CUBLAS_OP_N, nrows,
+        ncols, &alpha, tmpX, ncols, &beta, X, nrows, X, nrows, stream);
+      allocator->deallocate(tmpX, nrows * ncols * sizeof(D), stream);
+    }
   }
 
   /**
