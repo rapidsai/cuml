@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <utils.h>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -149,6 +150,8 @@ class Runner {
         ri.errMsg.clear();
       } catch (const std::runtime_error &re) {
         ri.errMsg = re.what();
+      } catch (const MLCommon::Exception &mle) {
+        ri.errMsg = mle.what();
       } catch (...) {
         ri.errMsg = "Unknown exception!";
       }

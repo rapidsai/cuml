@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <utils.h>
 #include "harness.h"
-
 
 int main(int argc, char **argv) {
   try {
@@ -26,8 +26,11 @@ int main(int argc, char **argv) {
   } catch (const std::runtime_error &re) {
     printf("Benchmarking failed! Reason: %s\n", re.what());
     return 1;
+  } catch (const MLCommon::Exception &mle) {
+    printf("Benchmarking failed! Reason: %s\n", mle.what());
+    return 2;
   } catch (...) {
     printf("Benchmarking failed!\n");
-    return 2;
+    return 3;
   }
 }
