@@ -1,4 +1,16 @@
-# cuML 0.9.0 (Date TBD)
+# cuML 0.10.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+
+## Bug Fixes
+
+- PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
+
+# cuML 0.9.0 (21 Aug 2019)
 
 ## New Features
 
@@ -28,7 +40,9 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
+- PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -49,6 +63,10 @@
 - PR #773: Significant improvements to input checking of all classes and common input API for Python
 - PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
 - PR #965: Making dask-ml a hard dependency
+- PR #976: Update api.rst for new 0.9 classes
+- PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
+- PR #978: Update README for 0.9
+- PR #1009: Fix references to notebooks-contrib
 
 ## Bug Fixes
 
@@ -65,7 +83,15 @@
 - PR #932: Change default param value for RF classifier
 - PR #949: Fix dtype conversion tests for unsupported cudf dtypes
 - PR #908: Fix local build generated file ownerships
-
+- PR #983: Change RF max_depth default to 16
+- PR #987: Change default values for knn
+- PR #988: Switch to exact tsne
+- PR #991: Cleanup python code in cuml.dask.cluster
+- PR #996: ucx_initialized being properly set in CommsContext
+- PR #1007: Throws a well defined error when mutigpu is not enabled
+- PR #1018: Hint location of nccl in build.sh for CI
+- PR #1022: Using random_state to make K-Means MNMG tests deterministic
+- PR #1034: Fix typos and formatting issues in RF docs
 
 # cuML 0.8.0 (27 June 2019)
 

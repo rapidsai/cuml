@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.dask.cluster.kmeans import KMeans
+from cuml.internals.internals import GraphBasedDimRedCallback
