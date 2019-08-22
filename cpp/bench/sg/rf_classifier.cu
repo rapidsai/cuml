@@ -142,7 +142,7 @@ std::vector<Params<D>> getInputs() {
     p.ncols = rc.second;
     for (auto nclass : std::vector<int>({2, 8})) {
       p.nclasses = nclass;
-      for (auto trees : std::vector<int>({500, 1000})) {
+      for (auto trees : std::vector<int>({250, 500})) {
         p.p.n_trees = trees;
         for (auto max_depth : std::vector<int>({8, 10})) {
           p.p.tree_params.max_depth = max_depth;
