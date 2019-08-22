@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #1047: Consistent OPG interface for kmeans, based on internal libcumlprims update
 
 ## Bug Fixes
 
