@@ -31,41 +31,18 @@ struct Params : public DatasetParams {
   D center_box_min, center_box_max;
   uint64_t seed;
   // algo related
-  kmeans::KMeansParams p;
-
-  Params() : DatasetParams() {}
-
-  Params(int nr, int nc, int ncl, bool row, D std, bool shfl, D cmin, D cmax,
-         uint64_t s, int ini, int mi, double tol, bool ver, int mt, int of,
-         int bs, bool ic)
-    : DatasetParams(nr, nc, ncl, row),
-      cluster_std(std),
-      shuffle(shfl),
-      center_box_min(cmin),
-      center_box_max(cmax),
-      seed(s),
-      p() {
-    p.n_clusters = nclasses;
-    p.init = (kmeans::KMeansParams::InitMethod)ini;
-    p.max_iter = mi;
-    p.tol = tol;
-    p.verbose = ver;
-    p.seed = seed;
-    p.metric = mt;
-    p.oversampling_factor = of;
-    p.batch_size = bs;
-    p.interia_check = ic;
-  }
+  ML::kmeans::KMeansParams p;
 
   std::string str() const {
     std::ostringstream oss;
     oss << ";cluster_std=" << cluster_std << ";shuffle=" << shuffle
         << ";center_box_min=" << center_box_min
         << ";center_box_max=" << center_box_max << ";seed=" << seed
-        << ";init=" << p.init << ";max_iter=" << p.max_iter
-        << ";tol=" << p.tol << ";verbose=" << verbose << ";metric=" << p.metric
-        << ";oversampling_factor=" << p.oversampling_factor << ";batch_size="
-        << p.batch_size << ";inertia-check=" << p.inertia_check;
+        << ";init=" << p.init << ";max_iter=" << p.max_iter << ";tol=" << p.tol
+        << ";verbose=" << p.verbose << ";metric=" << p.metric
+        << ";oversampling_factor=" << p.oversampling_factor
+        << ";batch_size=" << p.batch_size
+        << ";inertia-check=" << p.inertia_check;
     return DatasetParams::str() + oss.str();
   }
 };
@@ -79,7 +56,8 @@ struct Run : public Benchmark<Params<D>> {
     handle->setStream(stream);
     auto allocator = handle->getDeviceAllocator();
     labels = (int*)allocator->allocate(p.nrows * sizeof(int), stream);
-    centroids = (D*)allocator->allocate(p.nclasses * p.ncols * sizeof(D), stream);
+    centroids =
+      (D*)allocator->allocate(p.nclasses * p.ncols * sizeof(D), stream);
     dataset.blobs(*handle, p.nrows, p.ncols, p.rowMajor, p.nclasses,
                   p.cluster_std, p.shuffle, p.center_box_min, p.center_box_max,
                   p.seed);
@@ -103,8 +81,8 @@ struct Run : public Benchmark<Params<D>> {
   void run() {
     const auto& p = this->getParams();
     ASSERT(p.rowMajor, "Kmeans only supports row-major inputs");
-    kmeans::fit_predict(*handle, p.p, dataset.X, p.nrows, p.ncols, centroids,
-                        labels, inertia, nIter);
+    ML::kmeans::fit_predict(*handle, p.p, dataset.X, p.nrows, p.ncols,
+                            centroids, labels, inertia, nIter);
     CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
   }
 
@@ -128,23 +106,27 @@ std::vector<Params<D>> getInputs() {
   p.center_box_min = (D)-10.0;
   p.center_box_max = (D)10.0;
   p.seed = 12345ULL;
-  p.max_bytes_per_batch = 0;
+  p.p.init = (ML::kmeans::KMeansParams::InitMethod)0;
+  p.p.max_iter = 300;
+  p.p.tol = (D)1e-4;
+  p.p.verbose = false;
+  p.p.seed = p.seed;
+  p.p.metric = 0;  // L2
+  p.p.inertia_check = true;
   std::vector<std::pair<int, int>> rowcols = {
-    {10000, 81},
-    {20000, 128},
     {40000, 128},
+    {80000, 128},
+    {160000, 128},
   };
   for (auto& rc : rowcols) {
     p.nrows = rc.first;
     p.ncols = rc.second;
-    for (auto nclass : std::vector<int>({2, 4, 8})) {
+    for (auto nclass : std::vector<int>({8, 16, 32})) {
       p.nclasses = nclass;
-      for (auto ep : std::vector<D>({0.1, 1.0})) {
-        p.eps = ep;
-        for (auto mp : std::vector<int>({3, 10})) {
-          p.min_pts = mp;
-          out.push_back(p);
-        }
+      p.p.n_clusters = p.nclasses;
+      for (auto bs_shift : std::vector<int>({16, 18, 20})) {
+        p.p.batch_size = 1 << bs_shift;
+        out.push_back(p);
       }
     }
   }
