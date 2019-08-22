@@ -16,14 +16,23 @@
 
 #include <cuda_runtime.h>
 #include <utils.h>
+#include <chrono>
 #include "harness.h"
 
 int main(int argc, char **argv) {
   try {
     using namespace ML::Bench;
+    auto start = std::chrono::high_resolution_clock::now();
     cudaFree(nullptr);  // just to create context!
     Harness::Init(argc, argv);
     Harness::RunAll();
+    Harness::PrintResultsInCsv();
+    auto end = std::chrono::high_resolution_clock::now();
+    auto diff = end - start;
+    double total =
+      std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    printf("Total Time (in ms)  : %lf\n", total);
+    printf("Total Benchmarks run: %d\n", (int)Harness::TotalTestsRun());
     return 0;
   } catch (const std::runtime_error &re) {
     printf("Benchmarking failed! Reason: %s\n", re.what());

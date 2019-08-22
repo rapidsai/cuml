@@ -60,13 +60,22 @@ void Harness::RunAll() {
     auto ret = itr.second->run(itr.first, b.toRun);
     b.info.push_back(ret);
   }
-  if (b.info.empty()) {
-    printf("No benchmarks ran!\n");
-    return;
-  }
+  if (b.info.empty()) printf("No benchmarks ran!\n");
+}
+
+void Harness::PrintResultsInCsv() {
+  auto &b = get();
+  ASSERT(b.initialized, "Harness::RunAll: Not yet initialized!");
+  if (b.info.empty()) return;
   RunInfo::printHeader();
   for (const auto &itr : b.info)
     for (const auto &ritr : itr) ritr.printRunInfo();
+}
+
+size_t Harness::TotalTestsRun() {
+  auto &b = get();
+  ASSERT(b.initialized, "Harness::RunAll: Not yet initialized!");
+  return b.info.size();
 }
 
 void Harness::RegisterRunner(const std::string &name,
