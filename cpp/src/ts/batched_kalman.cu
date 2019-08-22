@@ -493,7 +493,7 @@ class GPUContext {
   //   }
   // }
 
-  ~GPUContext() {
+  ~GPUContext() noexcept(false) {
     std::printf("Deleting GPUContext\n");
     ////////////////////////////////////////////////////////////
     // free memory
@@ -601,7 +601,7 @@ void batched_kalman_filter(double* h_ys, int nobs,
                            int num_batches, std::vector<double>& h_loglike_b,
                            std::vector<vector<double>>& h_vs_b,
                            bool initP_with_kalman_iterations) {
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE("batched_akalman_filter");
 
   if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
 
@@ -681,6 +681,8 @@ void batched_kalman_filter(double* h_ys, int nobs,
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              const vector<double>& ar, const vector<double>& ma,
                              vector<double>& Tar, vector<double>& Tma) {
+  ML::PUSH_RANGE("batched_jones_transform");
+
   if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
 
   std::shared_ptr<MLCommon::deviceAllocator> allocator(
@@ -713,4 +715,5 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                                           allocator, stream);
     MLCommon::updateHost(Tma.data(), GPU_CTX->d_Tma, q * batchSize, stream);
   }
+  ML::POP_RANGE();
 }

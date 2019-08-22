@@ -8,6 +8,7 @@ from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
 from libcpp cimport bool
 from libcpp.string cimport string
+cimport cython
 
 cdef extern from "ts/batched_kalman.h":
 
@@ -79,6 +80,7 @@ def batched_transform(p, q, nb, np.ndarray[double] x, isInv):
     cdef vector[double] vec_Tar
     cdef vector[double] vec_Tma
 
+    pynvtx_range_push("batched_transform")
     # pack ar & ma into C++ vectors
     for ib in range(nb):
         for ip in range(p):
@@ -103,6 +105,7 @@ def batched_transform(p, q, nb, np.ndarray[double] x, isInv):
         for iq in range(q):
             Tx[(1+p+q)*ib + 1 + p + iq] = vec_Tma[ib*q + iq]
 
+    pynvtx_range_pop()
     return (Tx)
 
 def pynvtx_range_push(msg):
@@ -111,6 +114,7 @@ def pynvtx_range_push(msg):
 
 def pynvtx_range_pop():
     nvtx_range_pop()
+
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
                     np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
@@ -137,6 +141,9 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     cdef vector[vector[double]] vec_vs_b
 
+    pynvtx_range_push("batched_kfilter")
+
+    pynvtx_range_push("batched_kfilter_copy_input")
     vec_b_ar_params.resize(p * num_batches)
     vec_b_ma_params.resize(q * num_batches)
 
@@ -148,6 +155,7 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     ll_b = np.zeros(num_batches)
     vs = np.zeros((nobs, num_batches))
+    pynvtx_range_pop()
 
     batched_kalman_filter(&y[0,0],
                           nobs,
@@ -158,12 +166,16 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                           vec_loglike_b,
                           vec_vs_b,
                           initP_with_kalman_iterations)
-    # convert C++-results to numpy arrays    
+
+    # convert C++-results to numpy arrays
+    pynvtx_range_push("batched_kfilter_copy_results")
     for i in range(num_batches):
         ll_b[i] = vec_loglike_b[i]
         for j in range(nobs):
             vs[j,i] = vec_vs_b[i][j]
+    pynvtx_range_pop()
 
+    pynvtx_range_pop()
     return ll_b, vs
 
 
