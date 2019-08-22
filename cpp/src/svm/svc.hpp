@@ -23,6 +23,31 @@
 namespace ML {
 namespace SVM {
 
+// Explicit interface for the stateless API
+void svcFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+            float *labels, float C, float tol,
+            MLCommon::GramMatrix::KernelParams &kernel_params, float cache_size,
+            int max_iter, float **dual_coefs, int *n_support, float *b,
+            float **x_support, int **support_idx, float **unique_labels,
+            int *n_classes, bool verbose);
+
+void svcFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+            double *labels, double C, double tol,
+            MLCommon::GramMatrix::KernelParams &kernel_params,
+            double cache_size, int max_iter, double **dual_coefs,
+            int *n_support, double *b, double **x_support, int **support_idx,
+            double **unique_labels, int *n_classes, bool verbose);
+
+void svcPredict(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+                MLCommon::GramMatrix::KernelParams &kernel_params,
+                float *dual_coefs, int n_support, float b, float *x_support,
+                float *unique_labels, int n_classes, float *preds);
+
+void svcPredict(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+                MLCommon::GramMatrix::KernelParams &kernel_params,
+                double *dual_coefs, int n_support, double b, double *x_support,
+                double *unique_labels, int n_classes, double *preds);
+
 /**
  * @brief C-Support Vector Classification
  *
