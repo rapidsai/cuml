@@ -160,10 +160,20 @@ class RandomForestRegressor(Base):
     used in scikit-learn. By default, the cuML Random Forest uses a
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
-    The instances of RandomForestRegressor cannot be pickled currently.
+
+    **Known Limitations**: This is an initial release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+       * Inference/prediction takes place on the CPU. A GPU-based inference
+         solution based on the forest inference library is planned for a
+         near-future release.
+
+       * Instances of RandomForestRegressor cannot be pickled currently.
+
     Examples
     ---------
     .. code-block:: python
+
             import numpy as np
             from cuml.test.utils import get_handle
             from cuml.ensemble import RandomForestRegressor as curfc
@@ -176,9 +186,13 @@ class RandomForestRegressor(Base):
             cuml_model.fit(X,y)
             cuml_score = cuml_model.score(X,y)
             print("MSE score of cuml : ", cuml_score)
+
     Output:
+
     .. code-block:: python
+
             MSE score of cuml :  0.1123437201231765
+
     Parameters
     -----------
     n_estimators : int (default = 10)
@@ -186,12 +200,14 @@ class RandomForestRegressor(Base):
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 2 for SPLIT_ALGO_END
+                 0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
+                 HIST curently uses a slower tree-building algorithm
+                 so GLOBAL_QUANTILE is recommended for most cases.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
                      0 for GINI, 1 for ENTROPY,
-                     2 for MSE, 3 for MAE and 4 for CRITERION_END.
+                     2 for MSE, or 3 for MAE
                      0 and 1 not valid for regression
     bootstrap : boolean (default = True)
                 Control bootstrapping.
@@ -203,9 +219,11 @@ class RandomForestRegressor(Base):
                          If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth : int (default = 16)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+                if -1. Unlimited depth is not supported with split_algo=1.
+                *Note that this default differs from scikit-learn's
+                random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
@@ -241,7 +259,7 @@ class RandomForestRegressor(Base):
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
-    def __init__(self, n_estimators=10, max_depth=-1, handle=None,
+    def __init__(self, n_estimators=10, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=4,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
@@ -272,6 +290,9 @@ class RandomForestRegressor(Base):
                                 " please read the cuML documentation for"
                                 " more information")
         super(RandomForestRegressor, self).__init__(handle, verbose)
+
+        if max_depth < 0 and split_algo == 1:
+            raise ValueError("Must specify max_depth >0 with split_algo=1")
 
         self.split_algo = split_algo
         criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
