@@ -24,12 +24,7 @@ namespace Bench {
 namespace kmeans {
 
 template <typename D>
-struct Params : public DatasetParams {
-  // dataset generation related
-  D cluster_std;
-  bool shuffle;
-  D center_box_min, center_box_max;
-  uint64_t seed;
+struct Params : public BlobsParams<D> {
   // algo related
   ML::kmeans::KMeansParams p;
 
@@ -40,7 +35,7 @@ struct Params : public DatasetParams {
         << ";oversampling_factor=" << p.oversampling_factor
         << ";batch_size=" << p.batch_size
         << ";inertia-check=" << p.inertia_check;
-    return DatasetParams::str() + oss.str();
+    return BlobsParams<D>::str() + oss.str();
   }
 };
 
