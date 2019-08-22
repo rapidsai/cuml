@@ -8,6 +8,7 @@
 ## Bug Fixes
 
 - PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
 
 # cuML 0.9.0 (21 Aug 2019)
 
