@@ -50,7 +50,9 @@ struct Run : public Benchmark<Params<D>> {
   void setup() {
     const auto& p = this->getParams();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle(p.p.n_streams));
+    ///@todo: enable this after PR: https://github.com/rapidsai/cuml/pull/1015
+    // handle.reset(new cumlHandle(p.p.n_streams));
+    handle.reset(new cumlHandle);
     handle->setStream(stream);
     auto allocator = handle->getDeviceAllocator();
     labels = (int*)allocator->allocate(p.nrows * sizeof(int), stream);
@@ -81,27 +83,31 @@ struct Run : public Benchmark<Params<D>> {
 };
 
 struct RunF : public Run<float> {
-  void run () {
+  void run() {
     const auto& p = this->getParams();
     const auto& h = *handle;
     auto* mPtr = &model;
+    mPtr->trees = nullptr;
     ASSERT(!p.rowMajor, "RF only supports col-major inputs");
     fit(h, mPtr, dataset.X, p.nrows, p.ncols, labels, p.nclasses, p.p);
     CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
   }
+
  private:
   ML::RandomForestClassifierF model;
 };
 
 struct RunD : public Run<double> {
-  void run () {
+  void run() {
     const auto& p = this->getParams();
     const auto& h = *handle;
     auto* mPtr = &model;
+    mPtr->trees = nullptr;
     ASSERT(!p.rowMajor, "RF only supports col-major inputs");
     fit(h, mPtr, dataset.X, p.nrows, p.ncols, labels, p.nclasses, p.p);
     CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
   }
+
  private:
   ML::RandomForestClassifierD model;
 };
@@ -134,11 +140,11 @@ std::vector<Params<D>> getInputs() {
   for (auto& rc : rowcols) {
     p.nrows = rc.first;
     p.ncols = rc.second;
-    for (auto nclass : std::vector<int>({2, 4, 8})) {
+    for (auto nclass : std::vector<int>({2, 8})) {
       p.nclasses = nclass;
-      for (auto trees : std::vector<int>({250, 500, 1000})) {
+      for (auto trees : std::vector<int>({500, 1000})) {
         p.p.n_trees = trees;
-        for (auto max_depth : std::vector<int>({6, 8, 10})) {
+        for (auto max_depth : std::vector<int>({8, 10})) {
           p.p.tree_params.max_depth = max_depth;
           for (auto streams : std::vector<int>({4, 8})) {
             p.p.n_streams = streams;
