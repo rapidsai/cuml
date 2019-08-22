@@ -32,6 +32,8 @@
 #include <sys/time.h>
 #include <string>
 
+#include <internals/internals.h>
+
 #pragma once
 
 namespace UMAPAlgo {
@@ -263,6 +265,9 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       epochs_per_sample, n_vertices, move_other, epochs_per_negative_sample,
       epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
       seed, *params);
+
+    if (params->callback)
+        params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
   }
