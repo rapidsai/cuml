@@ -31,6 +31,7 @@ if(BUILD_CUML_BENCH)
     sg/harness.cpp
     sg/kmeans.cu
     sg/main.cpp
+    sg/rf_classifier.cu
   )
 
   add_dependencies(bench ${ClangFormat_TARGET})
