@@ -79,6 +79,7 @@
 - PR #1018: Hint location of nccl in build.sh for CI
 - PR #1022: Using random_state to make K-Means MNMG tests deterministic
 - PR #1034: Fix typos and formatting issues in RF docs
+- PR #1052: Fix the rows_sample dtype to float
 
 # cuML 0.8.0 (27 June 2019)
 
