@@ -5,7 +5,7 @@ To use cuML, it must be cloned and built in an environment that already has the 
 List of dependencies:
 
 1. zlib
-2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
+2. cmake (>= 3.14)
 3. CUDA SDK (>= 9.2)
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)

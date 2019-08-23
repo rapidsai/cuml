@@ -33,7 +33,7 @@ __global__ void naiveSubtractElemKernel(Type *out, const Type *in1,
 
 template <typename Type>
 void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len,
-                        cudaStream_t stream) {
+                       cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
@@ -51,10 +51,11 @@ __global__ void naiveSubtractScalarKernel(Type *out, const Type *in1,
 
 template <typename Type>
 void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len,
-                          cudaStream_t stream) {
+                         cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveSubtractScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
+  naiveSubtractScalarKernel<Type>
+    <<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -72,7 +73,7 @@ template <typename T>
 
 template <typename T>
 class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SubtractInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -103,7 +104,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   SubtractInputs<T> params;
   T *in1, *in2, *out_ref, *out;
 };
@@ -138,5 +139,5 @@ INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestF,
 INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestD,
                         ::testing::ValuesIn(inputsd2));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

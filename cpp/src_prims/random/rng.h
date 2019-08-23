@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-19, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@
 #include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
+#include <type_traits>
+#include "common/cub_wrappers.h"
+#include "common/cuml_allocator.hpp"
+#include "common/scatter.h"
 #include "cuda_utils.h"
 #include "rng_impl.h"
-#include <type_traits>
-
 
 namespace MLCommon {
 namespace Random {
@@ -36,7 +38,6 @@ enum GeneratorType {
   /** kiss99 generator (currently the fastest) */
   GenKiss99
 };
-
 
 inline uint64_t _nextSeed() {
   // because rand() has poor randomness in lower 16b
@@ -73,26 +74,23 @@ __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
     MathType val1, val2;
     gen.next(val1);
     gen.next(val2);
-    rand2Op(val1, val2, idx);
-    if (idx < len)
-      ptr[idx] = (OutType)val1;
+    rand2Op(val1, val2, idx, idx + stride);
+    if (idx < len) ptr[idx] = (OutType)val1;
     idx += stride;
-    if (idx < len)
-      ptr[idx] = (OutType)val2;
+    if (idx < len) ptr[idx] = (OutType)val2;
   }
 }
 
 template <bool IsNormal, typename Type, typename LenType>
-uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len, int nThreads,
-                     int nBlocks) {
+uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
+                     int nThreads, int nBlocks) {
   LenType itemsPerThread = ceildiv(len, LenType(nBlocks * nThreads));
   if (IsNormal && itemsPerThread % 2 == 1) {
     ++itemsPerThread;
   }
   // curand uses 2 32b uint's to generate one double
   uint64_t factor = sizeof(Type) / sizeof(float);
-  if (factor == 0)
-    ++factor;
+  if (factor == 0) ++factor;
   // Check if there are enough random numbers left in sequence
   // If not, then generate new seed and start from zero offset
   uint64_t newOffset = offset + LenType(itemsPerThread) * factor;
@@ -109,8 +107,7 @@ template <typename OutType, typename MathType = OutType, typename LenType = int,
 void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
               int nThreads, int nBlocks, GeneratorType type,
               cudaStream_t stream) {
-  if (len <= 0)
-    return;
+  if (len <= 0) return;
   uint64_t seed = _nextSeed();
   auto newOffset =
     _setupSeeds<false, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
@@ -139,8 +136,7 @@ template <typename OutType, typename MathType = OutType, typename LenType = int,
 void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
                int nThreads, int nBlocks, GeneratorType type,
                cudaStream_t stream) {
-  if (len <= 0)
-    return;
+  if (len <= 0) return;
   uint64_t seed = _nextSeed();
   auto newOffset =
     _setupSeeds<true, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
@@ -173,21 +169,16 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
   }
 }
 
-
 /** The main random number generator class, fully on GPUs */
 class Rng {
-public:
+ public:
   /** ctor */
   Rng(uint64_t _s, GeneratorType _t = GenPhilox) : type(_t) {
     srand(_s);
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
     // and also not too many initialization calls will be made by each thread
-    int dev;
-    CUDA_CHECK(cudaGetDevice(&dev));
-    cudaDeviceProp props;
-    CUDA_CHECK(cudaGetDeviceProperties(&props, dev));
-    nBlocks = 4 * props.multiProcessorCount;
+    nBlocks = 4 * getMultiProcessorCount();
   }
 
   /**
@@ -206,22 +197,24 @@ public:
                cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point type!");
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               return (val * (end - start)) + start;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        return (val * (end - start)) + start;
+      },
+      NumThreads, nBlocks, type, stream);
   }
   template <typename IntType, typename LenType = int>
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
                   cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer type!");
-    randImpl(offset, ptr, len,
-             [=] __device__(IntType val, LenType idx) {
-               return (val % (end - start)) + start;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(IntType val, LenType idx) {
+        return (val % (end - start)) + start;
+      },
+      NumThreads, nBlocks, type, stream);
   }
   /** @} */
 
@@ -238,18 +231,64 @@ public:
   template <typename Type, typename LenType = int>
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
               cudaStream_t stream) {
-    rand2Impl(offset, ptr, len,
-              [=] __device__(Type & val1, Type & val2, LenType idx) {
-                constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-                constexpr Type minus2 = -Type(2.0);
-                Type R = mySqrt(minus2 * myLog(val1));
-                Type theta = twoPi * val2;
-                Type s, c;
-                mySinCos(theta, s, c);
-                val1 = R * c * sigma + mu;
-                val2 = R * s * sigma + mu;
-              },
-              NumThreads, nBlocks, type, stream);
+    rand2Impl(
+      offset, ptr, len,
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
+        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+        constexpr Type minus2 = -Type(2.0);
+        Type R = mySqrt(minus2 * myLog(val1));
+        Type theta = twoPi * val2;
+        Type s, c;
+        mySinCos(theta, s, c);
+        val1 = R * c * sigma + mu;
+        val2 = R * s * sigma + mu;
+      },
+      NumThreads, nBlocks, type, stream);
+  }
+
+  /**
+   * @brief Generate normal distributed table according to the given set of
+   * means and scalar standard deviations.
+   *
+   * Each row in this table conforms to a normally distributed n-dim vector
+   * whose mean is the input vector and standard deviation is the corresponding
+   * vector or scalar. Correlations among the dimensions itself is assumed to
+   * be absent.
+   *
+   * @tparam Type data type of output random number
+   * @tparam LenType data type used to represent length of the arrays
+   * @param ptr the output table (dim = n_rows x n_cols)
+   * @param n_rows number of rows in the table
+   * @param n_cols number of columns in the table
+   * @param mu mean vector (dim = n_cols x 1).
+   * @param sigma_vec std-dev vector of each component (dim = n_cols x 1). Pass
+   * a nullptr to use the same scalar 'sigma' across all components
+   * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr
+   * @param stream stream where to launch the kernel
+   */
+  template <typename Type, typename LenType = int>
+  void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
+                   const Type *sigma_vec, Type sigma, cudaStream_t stream) {
+    rand2Impl(
+      offset, ptr, n_rows * n_cols,
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
+        // yikes! use fast-int-div
+        auto col1 = idx1 % n_cols;
+        auto col2 = idx2 % n_cols;
+        auto mean1 = mu[col1];
+        auto mean2 = mu[col2];
+        auto sig1 = sigma_vec == nullptr ? sigma : sigma_vec[col1];
+        auto sig2 = sigma_vec == nullptr ? sigma : sigma_vec[col2];
+        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+        constexpr Type minus2 = -Type(2.0);
+        Type R = mySqrt(minus2 * myLog(val1));
+        Type theta = twoPi * val2;
+        Type s, c;
+        mySinCos(theta, s, c);
+        val1 = R * c * sig1 + mean1;
+        val2 = R * s * sig2 + mean2;
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -278,9 +317,10 @@ public:
    */
   template <typename Type, typename LenType = int>
   void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) { return val > prob; },
-             NumThreads, nBlocks, type, stream);
+    randImpl<bool, Type>(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) { return val > prob; }, NumThreads,
+      nBlocks, type, stream);
   }
 
   /**
@@ -295,13 +335,15 @@ public:
    */
   template <typename Type, typename LenType = int>
   void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
-                          cudaStream_t stream)
-  {
-      static_assert(std::is_floating_point<Type>::value,
+                        cudaStream_t stream) {
+    static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point type!");
-      randImpl(offset, ptr, len,
-              [=] __device__(Type val, LenType idx) { return val > prob ? -scale : scale; },
-              NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        return val > prob ? -scale : scale;
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -316,13 +358,13 @@ public:
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
   template <typename Type, typename LenType = int>
-  void gumbel(Type *ptr, LenType len, Type mu, Type beta,
-              cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               return mu - beta * myLog(-myLog(val));
-             },
-             NumThreads, nBlocks, type, stream);
+  void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        return mu - beta * myLog(-myLog(val));
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -338,20 +380,21 @@ public:
   template <typename Type, typename LenType = int>
   void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
                  cudaStream_t stream) {
-    rand2Impl(offset, ptr, len,
-              [=] __device__(Type & val1, Type & val2, LenType idx) {
-                constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-                constexpr Type minus2 = -Type(2.0);
-                Type R = mySqrt(minus2 * myLog(val1));
-                Type theta = twoPi * val2;
-                Type s, c;
-                mySinCos(theta, s, c);
-                val1 = R * c * sigma + mu;
-                val2 = R * s * sigma + mu;
-                val1 = myExp(val1);
-                val2 = myExp(val2);
-              },
-              NumThreads, nBlocks, type, stream);
+    rand2Impl(
+      offset, ptr, len,
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
+        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+        constexpr Type minus2 = -Type(2.0);
+        Type R = mySqrt(minus2 * myLog(val1));
+        Type theta = twoPi * val2;
+        Type s, c;
+        mySinCos(theta, s, c);
+        val1 = R * c * sigma + mu;
+        val2 = R * s * sigma + mu;
+        val1 = myExp(val1);
+        val2 = myExp(val2);
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -367,12 +410,13 @@ public:
   template <typename Type, typename LenType = int>
   void logistic(Type *ptr, LenType len, Type mu, Type scale,
                 cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               return mu - scale * myLog(one / val - one);
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        constexpr Type one = (Type)1.0;
+        return mu - scale * myLog(one / val - one);
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -386,12 +430,13 @@ public:
    */
   template <typename Type, typename LenType = int>
   void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               return -myLog(one - val) / lambda;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        constexpr Type one = (Type)1.0;
+        return -myLog(one - val) / lambda;
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -405,13 +450,14 @@ public:
    */
   template <typename Type, typename LenType = int>
   void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               constexpr Type two = (Type)2.0;
-               return mySqrt(-two * myLog(one - val)) * sigma;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        constexpr Type one = (Type)1.0;
+        constexpr Type two = (Type)2.0;
+        return mySqrt(-two * myLog(one - val)) * sigma;
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -427,23 +473,90 @@ public:
   template <typename Type, typename LenType = int>
   void laplace(Type *ptr, LenType len, Type mu, Type scale,
                cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               constexpr Type two = (Type)2.0;
-               constexpr Type oneHalf = (Type)0.5;
-               Type out;
-               if (val <= oneHalf) {
-                 out = mu + scale * myLog(two * val);
-               } else {
-                 out = mu - scale * myLog(two * (one - val));
-               }
-               return out;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+      offset, ptr, len,
+      [=] __device__(Type val, LenType idx) {
+        constexpr Type one = (Type)1.0;
+        constexpr Type two = (Type)2.0;
+        constexpr Type oneHalf = (Type)0.5;
+        Type out;
+        if (val <= oneHalf) {
+          out = mu + scale * myLog(two * val);
+        } else {
+          out = mu - scale * myLog(two * (one - val));
+        }
+        return out;
+      },
+      NumThreads, nBlocks, type, stream);
   }
 
-private:
+  /**
+   * @brief Sample the input array without replacement, optionally based on the
+   * input weight vector for each element in the array
+   *
+   * Implementation here is based on the `one-pass sampling` algo described here:
+   * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+   *
+   * @note In the sampled array the elements which are picked will always appear
+   * in the increasing order of their weights as computed using the exponential
+   * distribution. So, if you're particular about the order (for eg. array
+   * permutations), then this might not be the right choice!
+   *
+   * @tparam DataT data type
+   * @tparam WeightsT weights type
+   * @tparam IdxT index type
+   * @param out output sampled array (of length 'sampledLen')
+   * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
+   * a nullptr if this is not required.
+   * @param in input array to be sampled (of length 'len')
+   * @param wts weights array (of length 'len'). Pass a nullptr if uniform
+   * sampling is desired
+   * @param sampledLen output sampled array length
+   * @param len input array length
+   * @param allocator device allocator for allocating any workspace required
+   * @param stream cuda stream
+   */
+  template <typename DataT, typename WeightsT, typename IdxT = int>
+  void sampleWithoutReplacement(DataT *out, IdxT *outIdx, const DataT *in,
+                                const WeightsT *wts, IdxT sampledLen, IdxT len,
+                                std::shared_ptr<deviceAllocator> allocator,
+                                cudaStream_t stream) {
+    ASSERT(sampledLen <= len,
+           "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+    device_buffer<WeightsT> expWts(allocator, stream, len);
+    device_buffer<WeightsT> sortedWts(allocator, stream, len);
+    device_buffer<IdxT> inIdx(allocator, stream, len);
+    device_buffer<IdxT> outIdxBuff(allocator, stream);
+    auto *inIdxPtr = inIdx.data();
+    // generate modified weights
+    randImpl(
+      offset, expWts.data(), len,
+      [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
+        inIdxPtr[idx] = idx;
+        constexpr WeightsT one = (WeightsT)1.0;
+        auto exp = -myLog(one - val);
+        if (wts != nullptr) {
+          return exp / wts[idx];
+        }
+        return exp;
+      },
+      NumThreads, nBlocks, type, stream);
+    ///@todo: use a more efficient partitioning scheme instead of full sort
+    // sort the array and pick the top sampledLen items
+    IdxT *outIdxPtr;
+    if (outIdx == nullptr) {
+      outIdxBuff.resize(len, stream);
+      outIdxPtr = outIdxBuff.data();
+    } else {
+      outIdxPtr = outIdx;
+    }
+    device_buffer<char> workspace(allocator, stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+              (int)len, stream);
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+  }
+
+ private:
   /** generator type */
   GeneratorType type;
   /**
@@ -458,5 +571,5 @@ private:
   static const int NumThreads = 256;
 };
 
-}; // end namespace Random
-}; // end namespace MLCommon
+};  // end namespace Random
+};  // end namespace MLCommon

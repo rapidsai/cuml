@@ -16,19 +16,20 @@
 
 #pragma once
 
+#include <glm/qn/simple_mat.h>
 #include "cuda_utils.h"
 #include "glm/qn/glm_base.h"
 #include "linalg/binary_op.h"
-#include <glm/qn/simple_mat.h>
 
 namespace ML {
 namespace GLM {
 
-template <typename T> struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
+template <typename T>
+struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   typedef GLMBase<T, LogisticLoss<T>> Super;
 
   LogisticLoss(const cumlHandle_impl &handle, int D, bool has_bias)
-      : Super(handle, D, 1, has_bias) {}
+    : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
     T m = MLCommon::myMax<T>(T(0), x);
@@ -44,5 +45,5 @@ template <typename T> struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     return T(1.0) / (T(1.0) + MLCommon::myExp(-z)) - y;
   }
 };
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML

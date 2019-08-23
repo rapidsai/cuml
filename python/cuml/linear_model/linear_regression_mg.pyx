@@ -29,8 +29,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.utils import zeros
 
-cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
+
+cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
 
     cdef void olsFitSPMG(float *h_input,
                          int n_rows,
@@ -72,7 +74,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                              int *gpu_ids,
                              int n_gpus)
 
-    cdef void spmgOlsFit(float **input,
+    cdef void olsFitSPMG(float **input,
                          int *input_cols,
                          int n_rows,
                          int n_cols,
@@ -85,7 +87,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                          bool normalize,
                          int n_gpus)
 
-    cdef void spmgOlsFit(double **input,
+    cdef void olsFitSPMG(double **input,
                          int *input_cols,
                          int n_rows,
                          int n_cols,
@@ -98,7 +100,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                          bool normalize,
                          int n_gpus)
 
-    cdef void spmgOlsPredict(float **input,
+    cdef void olsPredictSPMG(float **input,
                              int *input_cols,
                              int n_rows,
                              int n_cols,
@@ -109,7 +111,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                              int *pred_cols,
                              int n_gpus)
 
-    cdef void spmgOlsPredict(double **input,
+    cdef void olsPredictSPMG(double **input,
                              int *input_cols,
                              int n_rows,
                              int n_cols,
@@ -130,7 +132,7 @@ class LinearRegressionMG:
 
     .. code-block:: python
 
-        from cuml import LinearRegression
+        from cuml import LinearRegressionMG
         import numpy as np
 
 
@@ -159,7 +161,7 @@ class LinearRegressionMG:
                       61.0, 62.0, 63.0, 60.0, 61.0, 62.0, 63.0],
                      dtype=np.float32)
 
-        lr = LinearRegression()
+        lr = LinearRegressionMG()
 
         res = lr.fit(X, y, gpu_ids=[0,1])
 
@@ -379,7 +381,7 @@ class LinearRegressionMG:
             msg = "X must have a column."
             raise TypeError(msg)
 
-        pred = np.zeros(n_rows, dtype=X.dtype)
+        pred = zeros(n_rows, dtype=X.dtype)
 
         cdef uintptr_t X_ptr, pred_ptr, gpu_ids_ptr, coef_ptr
 
@@ -474,7 +476,7 @@ class LinearRegressionMG:
 
                 idx = idx + 1
 
-            spmgOlsFit(<float**> input32,
+            olsFitSPMG(<float**> input32,
                        <int*> input_cols,
                        <int> n_rows,
                        <int> n_cols,
@@ -512,7 +514,7 @@ class LinearRegressionMG:
 
                 idx = idx + 1
 
-            spmgOlsFit(<double**> input64,
+            olsFitSPMG(<double**> input64,
                        <int*> input_cols,
                        <int> n_rows,
                        <int> n_cols,
@@ -584,7 +586,7 @@ class LinearRegressionMG:
 
                 idx = idx + 1
 
-            spmgOlsPredict(<float**>input32,
+            olsPredictSPMG(<float**>input32,
                            <int*>input_cols,
                            <int> n_rows,
                            <int> n_cols,
@@ -618,7 +620,7 @@ class LinearRegressionMG:
 
                 idx = idx + 1
 
-            spmgOlsPredict(<double**>input64,
+            olsPredictSPMG(<double**>input64,
                            <int*>input_cols,
                            <int> n_rows,
                            <int> n_cols,

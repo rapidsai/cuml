@@ -33,8 +33,9 @@ struct ThreadDiffSquaredAdd {
   /// The number of threads per warp.
   typedef ThreadsPerWarp_ ThreadsPerWarp;
   /// The number of accumulators per warp.
-  typedef typename cutlass::ShapeMul<AccumulatorsPerThread,
-                                     ThreadsPerWarp>::Shape AccumulatorsPerWarp;
+  typedef
+    typename cutlass::ShapeMul<AccumulatorsPerThread, ThreadsPerWarp>::Shape
+      AccumulatorsPerWarp;
   /// The type for A.
   typedef ScalarA_ ScalarA;
   /// The fragment for A.
@@ -66,7 +67,6 @@ struct ThreadDiffSquaredAdd {
   }
 };
 
-
 /// Template performing matrix L1-norm operation within a thread
 template <typename AccumulatorsPerThread_, typename ThreadsPerWarp_,
           typename ScalarA_, typename ScalarB_, typename ScalarC_>
@@ -78,8 +78,9 @@ struct ThreadL1NormAdd {
   /// The number of threads per warp.
   typedef ThreadsPerWarp_ ThreadsPerWarp;
   /// The number of accumulators per warp.
-  typedef typename cutlass::ShapeMul<AccumulatorsPerThread,
-                                     ThreadsPerWarp>::Shape AccumulatorsPerWarp;
+  typedef
+    typename cutlass::ShapeMul<AccumulatorsPerThread, ThreadsPerWarp>::Shape
+      AccumulatorsPerWarp;
   /// The type for A.
   typedef ScalarA_ ScalarA;
   /// The fragment for A.
@@ -111,5 +112,5 @@ struct ThreadL1NormAdd {
   }
 };
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

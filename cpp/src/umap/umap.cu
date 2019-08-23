@@ -14,25 +14,48 @@
  * limitations under the License.
  */
 
-#include "umap.h"
 #include "runner.h"
+#include "umap.hpp"
 #include "umapparams.h"
 
 #include <iostream>
 
 namespace ML {
 
-    static const int TPB_X = 32;
+static const int TPB_X = 32;
 
-    UMAP_API::UMAP_API(UMAPParams *params): params(params){
-        knn = nullptr;
-    };
+void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+               int orig_n, float *embedding, int embedding_n,
+               UMAPParams *params, float *transformed) {
+  UMAPAlgo::_transform<float, TPB_X>(handle, X, n, d, orig_X, orig_n, embedding,
+                                     embedding_n, params, transformed);
+}
 
-    UMAP_API::~UMAP_API() {
-        delete knn;
-    }
+void fit(const cumlHandle &handle,
+         float *X,  // input matrix
+         float *y,  // labels
+         int n, int d, UMAPParams *params, float *embeddings) {
+  UMAPAlgo::_fit<float, TPB_X>(handle, X, y, n, d, params, embeddings);
+}
 
-    /**
+void fit(const cumlHandle &handle,
+         float *X,  // input matrix
+         int n,     // rows
+         int d,     // cols
+         UMAPParams *params, float *embeddings) {
+  UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
+}
+
+UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
+  : params(params) {
+  this->handle = const_cast<cumlHandle *>(&handle);
+  orig_X = nullptr;
+  orig_n = 0;
+};
+
+UMAP_API::~UMAP_API() {}
+
+/**
      * Fits a UMAP model
      * @param X
      *        pointer to an array in row-major format (note: this will be col-major soon)
@@ -43,18 +66,21 @@ namespace ML {
      * @param embeddings
      *        an array to return the output embeddings of size (n_samples, n_components)
      */
-    void UMAP_API::fit(cumlHandle &handle, float *X, int n, int d, float *embeddings) {
-        this->knn = new kNN(handle, d);
-        UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, knn, get_params(), embeddings, handle.getStream());
-    }
+void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
+  this->orig_X = X;
+  this->orig_n = n;
+  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, n, d, get_params(),
+                               embeddings);
+}
 
+void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
+  this->orig_X = X;
+  this->orig_n = n;
+  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, y, n, d, get_params(),
+                               embeddings);
+}
 
-    void UMAP_API::fit(cumlHandle &handle, float *X, float *y, int n, int d, float *embeddings) {
-        this->knn = new kNN(handle, d);
-        UMAPAlgo::_fit<float, TPB_X>(handle, X, y, n, d, knn, get_params(), embeddings, handle.getStream());
-    }
-
-    /**
+/**
      * Project a set of X vectors into the embedding space.
      * @param X
      *        pointer to an array in row-major format (note: this will be col-major soon)
@@ -69,14 +95,15 @@ namespace ML {
      * @param out
      *        pointer to array for storing output embeddings (n, n_components)
      */
-    void UMAP_API::transform(cumlHandle &handle, float *X, int n, int d,
-            float *embedding, int embedding_n, float *out) {
-        UMAPAlgo::_transform<float, TPB_X>(handle, X, n, d, embedding, embedding_n, knn,
-                get_params(), out, handle.getStream());
-    }
+void UMAP_API::transform(float *X, int n, int d, float *embedding,
+                         int embedding_n, float *out) {
+  UMAPAlgo::_transform<float, TPB_X>(*this->handle, X, n, d, this->orig_X,
+                                     this->orig_n, embedding, embedding_n,
+                                     get_params(), out);
+}
 
-    /**
+/**
      * Get the UMAPParams instance
      */
-    UMAPParams* UMAP_API::get_params()  { return this->params; }
-}
+UMAPParams *UMAP_API::get_params() { return this->params; }
+}  // namespace ML

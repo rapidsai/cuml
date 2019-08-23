@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
- #include <gtest/gtest.h>
- #include "test_utils.h"
- #include <iostream>
- #include <random>
- #include <algorithm>
- #include "metrics/contingencyMatrix.h"
- 
+#include <gtest/gtest.h>
+#include <algorithm>
+#include <iostream>
+#include <random>
+#include "metrics/contingencyMatrix.h"
+#include "test_utils.h"
+
 namespace MLCommon {
 namespace Metrics {
 
@@ -34,28 +34,31 @@ struct contingencyMatrixParam {
 };
 
 template <typename T>
-class ContingencyMatrixTestImpl : public ::testing::TestWithParam<contingencyMatrixParam> {
-protected:
+class ContingencyMatrixTestImpl
+  : public ::testing::TestWithParam<contingencyMatrixParam> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<contingencyMatrixParam>::GetParam();
 
     int numElements = params.nElements;
     int lowerLabelRange = params.minClass;
     int upperLabelRange = params.maxClass;
-    
+
     std::vector<int> y(numElements, 0);
     std::vector<int> y_hat(numElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
+                                                    upperLabelRange);
 
-    std::generate(y.begin(), y.end(), [&](){return intGenerator(dre); });
-    std::generate(y_hat.begin(), y_hat.end(), [&](){return intGenerator(dre); });
+    std::generate(y.begin(), y.end(), [&]() { return intGenerator(dre); });
+    std::generate(y_hat.begin(), y_hat.end(),
+                  [&]() { return intGenerator(dre); });
 
     if (params.skipLabels) {
       // remove two label value from input arrays
       int y1 = (upperLabelRange - lowerLabelRange) / 2;
-      int y2 = y1  + (upperLabelRange - lowerLabelRange) / 4;
+      int y2 = y1 + (upperLabelRange - lowerLabelRange) / 4;
 
       // replacement values
       int y1_R = y1 + 1;
@@ -70,7 +73,7 @@ protected:
     numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
     // generate golden output on CPU
-    size_t sizeOfMat = numUniqueClasses*numUniqueClasses * sizeof(int);
+    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
     int *hGoldenOutput = (int *)malloc(sizeOfMat);
     memset(hGoldenOutput, 0, sizeOfMat);
 
@@ -80,36 +83,35 @@ protected:
 
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
-    
+
     CUDA_CHECK(cudaStreamCreate(&stream));
     MLCommon::allocate(dY, numElements);
     MLCommon::allocate(dYHat, numElements);
-    MLCommon::allocate(dComputedOutput, numUniqueClasses*numUniqueClasses);
-    MLCommon::allocate(dGoldenOutput, numUniqueClasses*numUniqueClasses);
+    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
+    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
 
-    size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(numElements, dY,
-                                                      stream, lowerLabelRange, upperLabelRange);
-    
-    if (workspaceSz != 0)
-      MLCommon::allocate(pWorkspace, workspaceSz);
+    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+      numElements, dY, stream, lowerLabelRange, upperLabelRange);
+
+    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
     MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
     MLCommon::updateDevice(dY, &y[0], numElements, stream);
-    MLCommon::updateDevice(dGoldenOutput, hGoldenOutput, 
-                                  numUniqueClasses*numUniqueClasses, stream);
+    MLCommon::updateDevice(dGoldenOutput, hGoldenOutput,
+                           numUniqueClasses * numUniqueClasses, stream);
 
     if (params.calcCardinality) {
       T minLabel, maxLabel;
-      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream, minLabel, maxLabel);
+      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
+                                                  minLabel, maxLabel);
       // allocate dComputedOutput using minLabel, maxLabel count - already done above
-      MLCommon::Metrics::contingencyMatrix(dY, dYHat, numElements, dComputedOutput,
-                                            stream, (void*)pWorkspace, workspaceSz,
-                                            minLabel, maxLabel);
-    }
-    else
-      MLCommon::Metrics::contingencyMatrix(dY, dYHat, numElements, dComputedOutput,
-                                            stream, (void*)pWorkspace, workspaceSz, 
-                                            lowerLabelRange, upperLabelRange);
+      MLCommon::Metrics::contingencyMatrix(
+        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
+        workspaceSz, minLabel, maxLabel);
+    } else
+      MLCommon::Metrics::contingencyMatrix(
+        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
+        workspaceSz, lowerLabelRange, upperLabelRange);
   }
 
   void TearDown() override {
@@ -119,14 +121,13 @@ protected:
     CUDA_CHECK(cudaFree(dYHat));
     CUDA_CHECK(cudaFree(dComputedOutput));
     CUDA_CHECK(cudaFree(dGoldenOutput));
-    if (pWorkspace)
-      CUDA_CHECK(cudaFree(pWorkspace));
+    if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   }
 
   contingencyMatrixParam params;
   int numUniqueClasses = -1;
-  T* dY=nullptr;
-  T* dYHat=nullptr;
+  T *dY = nullptr;
+  T *dYHat = nullptr;
   int *dComputedOutput = nullptr;
   int *dGoldenOutput = nullptr;
   int *hGoldenOutput = nullptr;
@@ -139,18 +140,16 @@ const std::vector<contingencyMatrixParam> inputs = {
   {100000, 1, 100, false, false, 0.000001},
   {1000000, 1, 1200, true, false, 0.000001},
   {1000000, 1, 10000, false, false, 0.000001},
-  {100000, 1, 100, false, true, 0.000001}
-};
+  {100000, 1, 100, false, true, 0.000001}};
 
-typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS; 
+typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS;
 TEST_P(ContingencyMatrixTestImplS, Result) {
-  ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput, numUniqueClasses * numUniqueClasses,
-                  CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
+                          numUniqueClasses * numUniqueClasses,
+                          CompareApprox<float>(params.tolerance)));
 }
-  
+
 INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestImplS,
-                ::testing::ValuesIn(inputs));
-}
-}
- 
- 
+                        ::testing::ValuesIn(inputs));
+}  // namespace Metrics
+}  // namespace MLCommon

@@ -14,5 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.solvers.sgd import SGD
 from cuml.solvers.cd import CD
+from cuml.solvers.sgd import SGD
+from cuml.solvers.qn import QN

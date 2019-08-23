@@ -40,7 +40,7 @@ template <typename T>
 
 template <typename T>
 class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -69,7 +69,7 @@ protected:
     CUDA_CHECK(cudaFree(mean_act));
   }
 
-protected:
+ protected:
   MeanInputs<T> params;
   T *data, *mean_act;
 };
@@ -129,5 +129,5 @@ INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestD, ::testing::ValuesIn(inputsd));
 
-} // end namespace Stats
-} // end namespace MLCommon
+}  // end namespace Stats
+}  // end namespace MLCommon

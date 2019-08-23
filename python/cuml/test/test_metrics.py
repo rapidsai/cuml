@@ -17,9 +17,18 @@ import cuml
 import numpy as np
 import pytest
 
-from cuml.test.utils import get_handle
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.metrics.cluster import adjusted_rand_score as cu_ars
+from cuml.metrics import accuracy_score as cu_acc_score
+from cuml.test.utils import get_handle, \
+    fit_predict, get_pattern, array_equal
 
 from numba import cuda
+
+from sklearn.datasets import make_classification
+from sklearn.metrics import accuracy_score as sk_acc_score
+from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
+from sklearn.preprocessing import StandardScaler
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -38,7 +47,6 @@ def test_r2_score(datatype, use_handle):
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
 
 
-@pytest.mark.skip(reason="Debugging NN test core dump")
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery
     """
@@ -72,3 +80,88 @@ def test_sklearn_search():
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)
     assert sk_cu_grid.best_params_ == {'alpha': 0.1}
+
+
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
+                         stress_param(200)])
+@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
+                         stress_param(100)])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+def test_accuracy(nrows, ncols, n_info, datatype):
+
+    use_handle = True
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=5)
+    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=1.0,
+                       n_bins=8, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=-1)
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test)
+    cu_acc = cu_acc_score(y_test, cu_predict)
+    cu_acc_using_sk = sk_acc_score(y_test, cu_predict)
+    # compare the accuracy of the two models
+    assert array_equal(cu_acc, cu_acc_using_sk)
+
+
+dataset_names = ['noisy_circles', 'noisy_moons', 'aniso'] + \
+                [pytest.param(ds, marks=pytest.mark.xfail)
+                 for ds in ['blobs', 'varied']]
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+def test_rand_index_score(name, nrows):
+
+    default_base = {'quantile': .3,
+                    'eps': .3,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 3}
+
+    pat = get_pattern(name, nrows)
+
+    params = default_base.copy()
+    params.update(pat[1])
+
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    cu_y_pred, _ = fit_predict(cuml_kmeans,
+                               'cuml_Kmeans', X)
+
+    cu_score = cu_ars(y, cu_y_pred)
+    cu_score_using_sk = sk_ars(y, cu_y_pred)
+
+    assert array_equal(cu_score, cu_score_using_sk)

@@ -37,7 +37,7 @@ template <typename T>
 
 template <typename T>
 class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
     int rows = params.rows, cols = params.cols;
@@ -63,7 +63,7 @@ protected:
     CUDA_CHECK(cudaFree(sum_act));
   }
 
-protected:
+ protected:
   SumInputs<T> params;
   T *data, *sum_act;
 };
@@ -90,5 +90,5 @@ INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestD, ::testing::ValuesIn(inputsd));
 
-} // end namespace Stats
-} // end namespace MLCommon
+}  // end namespace Stats
+}  // end namespace MLCommon

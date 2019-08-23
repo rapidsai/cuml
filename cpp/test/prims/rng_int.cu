@@ -20,13 +20,10 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace Random {
 
-enum RandomType {
-  RNG_Uniform
-};
+enum RandomType { RNG_Uniform };
 
 template <typename T, int TPB>
 __global__ void meanKernel(float *out, const T *data, int len) {
@@ -67,7 +64,7 @@ template <typename T>
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
@@ -81,8 +78,9 @@ protected:
         break;
     };
     static const int threads = 128;
-    meanKernel<T, threads><<<ceildiv(params.len, threads), threads, 0, stream>>>(
-      stats, data, params.len);
+    meanKernel<T, threads>
+      <<<ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
+                                                             params.len);
     updateHost<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
@@ -105,11 +103,11 @@ protected:
     };
   }
 
-protected:
+ protected:
   RngInputs<T> params;
   T *data;
   float *stats;
-  float h_stats[2]; // mean, var
+  float h_stats[2];  // mean, var
 };
 
 typedef RngTest<uint32_t> RngTestU32;
@@ -184,5 +182,5 @@ TEST_P(RngTestS64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 
-} // end namespace Random
-} // end namespace MLCommon
+}  // end namespace Random
+}  // end namespace MLCommon

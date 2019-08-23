@@ -21,7 +21,6 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -40,16 +39,16 @@ struct DevScalarInputs {
 template <typename T, typename IdxType = int>
 void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, bool add,
                    cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [scalar, add] __device__(T in) {
-              return add? in + scalar : in - scalar;
-          }, stream);
+  unaryOp(
+    out, in, len,
+    [scalar, add] __device__(T in) { return add ? in + scalar : in - scalar; },
+    stream);
 }
 
-
 template <typename T, typename IdxType>
-class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType>> {
-protected:
+class DevScalarTest
+  : public ::testing::TestWithParam<DevScalarInputs<T, IdxType>> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
@@ -65,7 +64,7 @@ protected:
     updateDevice(scalar, &params.scalar, 1, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     unaryOpLaunch(out_ref, in, params.scalar, len, params.add, stream);
-    if(params.add) {
+    if (params.add) {
       addDevScalar(out, in, scalar, len, stream);
     } else {
       subtractDevScalar(out, in, scalar, len, stream);
@@ -80,7 +79,7 @@ protected:
     CUDA_CHECK(cudaFree(scalar));
   }
 
-protected:
+ protected:
   DevScalarInputs<T, IdxType> params;
   T *in, *out_ref, *out, *scalar;
 };
@@ -129,5 +128,5 @@ TEST_P(DevScalarTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

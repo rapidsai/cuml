@@ -18,17 +18,15 @@
 
 #include "linalg/unary_op.h"
 
-
 namespace MLCommon {
 namespace Functions {
 
 template <typename T, typename IdxType = int>
 void f_log(T *out, T *in, T scalar, IdxType len, cudaStream_t stream) {
-    LinAlg::unaryOp(out, in, len, [scalar] __device__ (T in) {
-                                      return myLog(in) * scalar;
-                                  },
-                                  stream);
+  LinAlg::unaryOp(
+    out, in, len, [scalar] __device__(T in) { return myLog(in) * scalar; },
+    stream);
 }
 
-}; // end namespace Functions
-}; // end namespace MLCommon
+};  // end namespace Functions
+};  // end namespace MLCommon

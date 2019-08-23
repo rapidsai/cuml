@@ -20,7 +20,6 @@
 #include <limits>
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
 namespace Selection {
 
@@ -34,7 +33,6 @@ struct Compare {
   /** compare the two input operands */
   static DI bool op(T a, T b) { return Greater ? a > b : a < b; }
 };
-
 
 /**
  * @brief Struct to abstract compare-and-swap operation
@@ -58,8 +56,7 @@ struct KVPair {
   template <bool Greater>
   DI void cas(Pair &other, bool reverse) {
     bool swap_ = compare<Greater>(other, reverse);
-    if (swap_)
-      swap(other);
+    if (swap_) swap(other);
   }
 
   /** assign the contents of other pair to the current */
@@ -116,13 +113,11 @@ struct KVPair {
 
   /** store the data to global memory */
   DI void store(TypeV *vptr, TypeK *kptr) const {
-    if (vptr != nullptr)
-      *vptr = val;
-    if (kptr != nullptr)
-      *kptr = key;
+    if (vptr != nullptr) *vptr = val;
+    if (kptr != nullptr) *kptr = key;
   }
 
-private:
+ private:
   template <bool Greater>
   DI bool compare(const Pair &other, bool reverse) {
     return reverse ? Compare<!Greater, TypeV>::op(val, other.val)
@@ -135,7 +130,6 @@ private:
     other = tmp;
   }
 };
-
 
 /**
  * @brief perform a warp-wide parallel one-pass bitonic sort stage
@@ -177,7 +171,6 @@ DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
   bitonicSortStage<TypeV, TypeK, Greater, 4>(current);
 }
 
-
 /**
  * @brief perform a warp-wide parallel one-pass bitonic kind of network
  * traversal
@@ -196,7 +189,6 @@ DI void warpSort(KVPair<TypeV, TypeK> &current) {
     current.cas<Greater>(other, small);
   }
 }
-
 
 /**
  * @brief Struct to abstract an array of key-val pairs.
@@ -250,8 +242,7 @@ struct KVArray {
     for (int stride = 1; stride < N; stride *= 2) {
       const int s2 = 2 * stride;
 #pragma unroll
-      for (int start = 0; start < N; start += s2)
-        mergeHalves(stride, start);
+      for (int start = 0; start < N; start += s2) mergeHalves(stride, start);
 #pragma unroll
       for (int start = 0; start < N; start += stride)
         postMergeSort(stride, start);
@@ -259,8 +250,7 @@ struct KVArray {
     }
   }
 
-
-private:
+ private:
   DI void mergeHalves(int stride, int start) {
     const int mask = 2 * stride - 1;
 #pragma unroll
@@ -287,8 +277,7 @@ private:
 
   DI void warpWideSort() {
 #pragma unroll
-    for (int i = 0; i < N; ++i)
-      warpSort<TypeV, TypeK, Greater>(arr[i]);
+    for (int i = 0; i < N; ++i) warpSort<TypeV, TypeK, Greater>(arr[i]);
   }
 };
 
@@ -303,8 +292,7 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
     constexpr int RowsPerBlk = TPB / WarpSize;
     const int warpId = threadIdx.x / WarpSize;
     const int rowId = blockIdx.x * RowsPerBlk + warpId;
-    if (rowId >= rows)
-      return;
+    if (rowId >= rows) return;
     const int maxCols = alignTo(cols, WarpSize);
     KVArray<TypeV, TypeK, N, Greater> topk;
     KVPair<TypeV, TypeK> other;
@@ -321,21 +309,18 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
 #pragma unroll
     for (int i = 0; i < N; ++i) {
       int col = i * WarpSize + lid;
-      if (outV != nullptr && col < k)
-        outV[rowId * k + col] = topk.arr[i].val;
-      if (outK != nullptr && col < k)
-        outK[rowId * k + col] = topk.arr[i].key;
-    } // end for outV and outK
-  }   // end for Sort = false
+      if (outV != nullptr && col < k) outV[rowId * k + col] = topk.arr[i].val;
+      if (outK != nullptr && col < k) outK[rowId * k + col] = topk.arr[i].key;
+    }  // end for outV and outK
+  }    // end for Sort = false
   else {
   }
 }
 
-#define CASE_K(kval)                                                           \
-  case kval:                                                                   \
-    warpTopKkernel<TypeV, TypeK, kval, TPB, Greater,                           \
-                   Sort><<<nblks, TPB, 0, stream>>>(outV, outK, arr, k, rows,  \
-                                                    cols, iV, iK);             \
+#define CASE_K(kval)                                                       \
+  case kval:                                                               \
+    warpTopKkernel<TypeV, TypeK, kval, TPB, Greater, Sort>                 \
+      <<<nblks, TPB, 0, stream>>>(outV, outK, arr, k, rows, cols, iV, iK); \
     break
 /**
  * @brief Perform warp-wide top-k selection on the input matrix
@@ -349,9 +334,9 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
 template <typename TypeV, typename TypeK, bool Greater, bool Sort>
 void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
               TypeK cols, cudaStream_t stream) {
-  static_assert(std::is_same<TypeV, float>::value &&
-                  (std::is_same<TypeK, int>::value),
-                "type not support");
+  static_assert(
+    std::is_same<TypeV, float>::value && (std::is_same<TypeK, int>::value),
+    "type not support");
   constexpr int TPB = 256;
   constexpr int RowsPerBlk = TPB / WarpSize;
   const int nblks = ceildiv(rows, RowsPerBlk);
@@ -399,5 +384,5 @@ void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
 }
 #undef CASE_K
 
-}; // end namespace Selection
-}; // end namespace MLCommon
+};  // end namespace Selection
+};  // end namespace MLCommon

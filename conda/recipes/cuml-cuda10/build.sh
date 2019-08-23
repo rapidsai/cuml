@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-cd python
-$PYTHON setup.py build_ext --inplace --multigpu
-$PYTHON setup.py install --multigpu
+
+# This assumes the script is executed from the root of the repo directory
+./build.sh cuml --multigpu

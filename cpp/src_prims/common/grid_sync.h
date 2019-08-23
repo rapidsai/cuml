@@ -18,7 +18,6 @@
 
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
 
 /**
@@ -26,12 +25,11 @@ namespace MLCommon {
  */
 enum SyncType {
   /** sync across all the blocks */
-  ACROSS_ALL= 0,
+  ACROSS_ALL = 0,
   /** sync across all the locks along a given blockIdx.y and blockIdx.z */
   ACROSS_X
   ///@todo: ACROSS_Y, ACROSS_Z
 };
-
 
 /**
  * @brief A device-side structure to provide inter-block synchronization
@@ -100,7 +98,7 @@ enum SyncType {
  * Probably cleaner to implement this as a separate class?
  */
 struct GridSync {
-    /**
+  /**
      * @brief ctor
      * @param _workspace workspace needed for providing synchronization
      * @param _type synchronization type
@@ -117,39 +115,40 @@ struct GridSync {
      * <li>This workspace must not be used elsewhere concurrently</li>
      * </ol>
      */
-    DI GridSync(void* _workspace, SyncType _type, bool _multiSync = false):
-        workspace((int*)_workspace), syncType(_type), multiSync(_multiSync) {
-        if(syncType == ACROSS_X) {
-            offset = blockIdx.y + blockIdx.z * gridDim.y;
-            stride = gridDim.y * gridDim.z;
-            int nBlksToArrive = gridDim.x;
-            updateValue = blockIdx.x == 0? -(nBlksToArrive - 1) : 1;
-        } else {
-            offset = 0;
-            stride = 1;
-            int nBlksToArrive = gridDim.x * gridDim.y * gridDim.z;
-            updateValue = blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0?
-                -(nBlksToArrive - 1) : 1;
-        }
+  DI GridSync(void* _workspace, SyncType _type, bool _multiSync = false)
+    : workspace((int*)_workspace), syncType(_type), multiSync(_multiSync) {
+    if (syncType == ACROSS_X) {
+      offset = blockIdx.y + blockIdx.z * gridDim.y;
+      stride = gridDim.y * gridDim.z;
+      int nBlksToArrive = gridDim.x;
+      updateValue = blockIdx.x == 0 ? -(nBlksToArrive - 1) : 1;
+    } else {
+      offset = 0;
+      stride = 1;
+      int nBlksToArrive = gridDim.x * gridDim.y * gridDim.z;
+      updateValue = blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0
+                      ? -(nBlksToArrive - 1)
+                      : 1;
     }
+  }
 
-    /**
+  /**
      * @brief Perform the synchronization
      *
      * @note All threads of all threadblocks must call this unconditionally!
      * There's no need to wrap this call between __syncthreads. That is taken
      * care of internally.
      */
-    DI void sync() {
-        int* arrivalTracker = workspace + offset;
-        markArrived(arrivalTracker);
-        waitForOthers((volatile int*)arrivalTracker);
-        if(multiSync) {
-            offset = offset < stride? offset + stride : offset - stride;
-        }
+  DI void sync() {
+    int* arrivalTracker = workspace + offset;
+    markArrived(arrivalTracker);
+    waitForOthers((volatile int*)arrivalTracker);
+    if (multiSync) {
+      offset = offset < stride ? offset + stride : offset - stride;
     }
+  }
 
-    /**
+  /**
      * @brief Computes workspace needed (in B) for the grid-sync
      * @param gridDim grid dimensions for the kernel to be launched
      * @param type synchronization type (this must the same as will be passed
@@ -158,47 +157,47 @@ struct GridSync {
      * @param _multiSync whether we need this object to perform multiple
      *  synchronizations in the same kernel call
      */
-    static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
-                                       bool multiSync = false) {
-        int nblks = type == ACROSS_X? gridDim.y * gridDim.z : 1;
-        size_t size = sizeof(int) * nblks;
-        if(multiSync) {
-            size *= 2;
-        }
-        return size;
+  static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
+                                     bool multiSync = false) {
+    int nblks = type == ACROSS_X ? gridDim.y * gridDim.z : 1;
+    size_t size = sizeof(int) * nblks;
+    if (multiSync) {
+      size *= 2;
     }
+    return size;
+  }
 
-private:
-    /** workspace buffer */
-    int* workspace;
-    /** synchronization type */
-    SyncType syncType;
-    /** whether we need to perform multiple syncs in the same kernel call */
-    bool multiSync;
-    /** update value to be atomically updated by each arriving block */
-    int updateValue;
-    /** stride between 2 half of the workspace to ping-pong between */
-    int stride;
-    /** offset for the set of threadblocks in the current workspace */
-    int offset;
+ private:
+  /** workspace buffer */
+  int* workspace;
+  /** synchronization type */
+  SyncType syncType;
+  /** whether we need to perform multiple syncs in the same kernel call */
+  bool multiSync;
+  /** update value to be atomically updated by each arriving block */
+  int updateValue;
+  /** stride between 2 half of the workspace to ping-pong between */
+  int stride;
+  /** offset for the set of threadblocks in the current workspace */
+  int offset;
 
-    /**
+  /**
      * @brief Register your threadblock to have arrived at the sync point
      * @param arrivalTracker the location that'll be atomically updated by all
      *  arriving threadblocks
      *
      * @note All threads of this threadblock must call this unconditionally!
      */
-    DI void markArrived(int* arrivalTracker) {
-        __syncthreads();
-        if(masterThread()) {
-            __threadfence();
-            atomicAdd(arrivalTracker, updateValue);
-            __threadfence();
-        }
+  DI void markArrived(int* arrivalTracker) {
+    __syncthreads();
+    if (masterThread()) {
+      __threadfence();
+      atomicAdd(arrivalTracker, updateValue);
+      __threadfence();
     }
+  }
 
-    /**
+  /**
      * @brief Perform a wait until all the required threadblocks have arrived
      * at the sync point by calling the 'arrived' method.
      * @param gmemArrivedBlks the location that'd have been atomically updated
@@ -206,20 +205,20 @@ private:
      *
      * @note All threads of all threadblocks must call this unconditionally!
      */
-    DI void waitForOthers(volatile int* gmemArrivedBlks) {
-        if(masterThread()) {
-            int arrivedBlks = -1;
-            do {
-                arrivedBlks = *gmemArrivedBlks;
-            } while(arrivedBlks != 0);
-            __threadfence();
-        }
-        __syncthreads();
+  DI void waitForOthers(volatile int* gmemArrivedBlks) {
+    if (masterThread()) {
+      int arrivedBlks = -1;
+      do {
+        arrivedBlks = *gmemArrivedBlks;
+      } while (arrivedBlks != 0);
+      __threadfence();
     }
+    __syncthreads();
+  }
 
-    DI bool masterThread() const {
-        return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0;
-    }
+  DI bool masterThread() const {
+    return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0;
+  }
 };
 
-}; // end namespace MLCommon
+};  // end namespace MLCommon

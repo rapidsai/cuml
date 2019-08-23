@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ namespace Distance {
  * @tparam OType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ Index type
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -41,19 +42,22 @@ namespace Distance {
  * @param worksize number of bytes of the workspace
  * @param fin_op the final gemm epilogue lambda
  * @param stream cuda stream where to launch work
- * @{
+ * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
-void cosineAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
-                 OutType *pD, AccType *workspace, size_t worksize,
-                 FinalLambda fin_op, cudaStream_t stream) {
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
+                 const InType *pB, OutType *pD, AccType *workspace,
+                 size_t worksize, FinalLambda fin_op, cudaStream_t stream,
+                 bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
-  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_>(
-    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
+  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
+                FinalLambda, decltype(norm_op), Index_>(
+    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream,
+    isRowMajor);
 }
 
-}; // end namespace Distance
-}; // end namespace MLCommon
+};  // end namespace Distance
+};  // end namespace MLCommon

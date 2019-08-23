@@ -19,7 +19,6 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -35,13 +34,13 @@ __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
+void naiveScale(Type *out, const Type *in, Type scalar, int len,
+                cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
-
 
 template <typename T>
 struct ScalarMultiplyInputs {
@@ -60,7 +59,7 @@ template <typename T>
 template <typename T>
 class ScalarMultiplyTest
   : public ::testing::TestWithParam<ScalarMultiplyInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -83,7 +82,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   ScalarMultiplyInputs<T> params;
   T *in, *out_ref, *out;
 };
@@ -112,7 +111,6 @@ INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
 INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestD,
                         ::testing::ValuesIn(inputsd1));
 
-
 //// Testing binary ops
 
 template <typename Type>
@@ -125,13 +123,13 @@ __global__ void naiveAddKernel(Type *out, const Type *in1, const Type *in2,
 }
 
 template <typename Type>
-void naiveAdd(Type *out, const Type *in1, const Type *in2, int len, cudaStream_t stream) {
+void naiveAdd(Type *out, const Type *in1, const Type *in2, int len,
+              cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
-
 
 template <typename T>
 struct EltwiseAddInputs {
@@ -148,7 +146,7 @@ template <typename T>
 
 template <typename T>
 class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -173,7 +171,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   EltwiseAddInputs<T> params;
   T *in1, *in2, *out_ref, *out;
 };
@@ -202,5 +200,5 @@ INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestF,
 INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestD,
                         ::testing::ValuesIn(inputsd2));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

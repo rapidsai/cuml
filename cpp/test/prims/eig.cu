@@ -20,10 +20,8 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
-
 
 template <typename T>
 struct EigInputs {
@@ -42,7 +40,7 @@ template <typename T>
 
 template <typename T>
 class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -67,7 +65,6 @@ protected:
                              0.4874, -0.5123, 0.6498, 0.2789,  -0.2789, -0.6498,
                              0.4874, 0.5123,  0.5123, 0.4874};
     T eig_vals_ref_h[] = {0.0614, 0.1024, 0.3096, 3.5266};
-
 
     allocate(eig_vectors_ref, len);
     allocate(eig_vals_ref, params.n_col);
@@ -111,7 +108,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   EigInputs<T> params;
   T *cov_matrix, *eig_vectors, *eig_vectors_jacobi, *eig_vectors_ref, *eig_vals,
     *eig_vals_jacobi, *eig_vals_ref;
@@ -195,7 +192,6 @@ INSTANTIATE_TEST_CASE_P(EigTests, EigTestValF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestValD, ::testing::ValuesIn(inputsd2));
 
-
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecD, ::testing::ValuesIn(inputsd2));
@@ -206,13 +202,11 @@ INSTANTIATE_TEST_CASE_P(EigTests, EigTestValJacobiF,
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestValJacobiD,
                         ::testing::ValuesIn(inputsd2));
 
-
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecJacobiF,
                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecJacobiD,
                         ::testing::ValuesIn(inputsd2));
 
-
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

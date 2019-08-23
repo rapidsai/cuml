@@ -20,69 +20,62 @@
 
 #include "random/rng.h"
 
-#include <vector>
-#include <gtest/gtest.h>
 #include <cuda_utils.h>
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <iostream>
+#include <vector>
 
 namespace ML {
 
 using namespace MLCommon;
 
-template<typename T>
-class SpectralTest: public ::testing::Test {
-protected:
-    void SetUp() override {}
+template <typename T>
+class SpectralTest : public ::testing::Test {
+ protected:
+  void SetUp() override {}
 
-    void TearDown() override {}
+  void TearDown() override {}
 
-protected:
-
+ protected:
 };
-
 
 typedef SpectralTest<float> TestSpectralClustering;
 TEST_F(TestSpectralClustering, Fit) {
+  int n = 500;
+  int d = 30;
+  int k = 3;
 
-    int n = 500;
-    int d = 30;
-    int k = 3;
+  float *X;
+  MLCommon::allocate(X, n * d);
+  cumlHandle handle;
 
-    float *X;
-    MLCommon::allocate(X, n*d);
-    cumlHandle handle;
+  Random::Rng r(150, MLCommon::Random::GenTaps);
+  r.uniform(X, n * d, -1.0f, 1.0f, handle.getStream());
 
+  int *out;
+  MLCommon::allocate(out, n, true);
 
-    Random::Rng r(150, MLCommon::Random::GenTaps);
-    r.uniform(X, n*d, -1.0f, 1.0f, handle.getStream());
-
-    int *out;
-    MLCommon::allocate(out, n, true);
-
-
-    ML::Spectral::fit_clusters(handle, X, n, d, k, 10, 1e-3f, out);
+  ML::Spectral::fit_clusters(handle, X, n, d, k, 10, 1e-3f, out);
 }
 
 typedef SpectralTest<float> TestSpectralEmbedding;
 TEST_F(TestSpectralEmbedding, Fit) {
+  int n = 500;
+  int d = 30;
+  int k = 3;
 
-    int n = 500;
-    int d = 30;
-    int k = 3;
+  float *X;
+  cumlHandle handle;
+  MLCommon::allocate(X, n * d);
 
-    float *X;
-    cumlHandle handle;
-    MLCommon::allocate(X, n*d);
+  Random::Rng r(150, MLCommon::Random::GenTaps);
+  r.uniform(X, n * d, -1.0f, 1.0f, handle.getStream());
 
-    Random::Rng r(150, MLCommon::Random::GenTaps);
-    r.uniform(X, n*d, -1.0f, 1.0f, handle.getStream());
+  float *out;
+  MLCommon::allocate(out, n * 2, true);
 
-    float *out;
-    MLCommon::allocate(out, n*2, true);
-
-    ML::Spectral::fit_embedding(handle, X, n, d, k, 2, out);
+  ML::Spectral::fit_embedding(handle, X, n, d, k, 2, out);
 }
 
-
-} // end namespace ML
+}  // end namespace ML

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "umap/umapparams.h"
 #include "naive.h"
+#include "umap/umapparams.h"
 
 #include "sparse/coo.h"
 
@@ -25,9 +25,9 @@ namespace UMAPAlgo {
 
 namespace FuzzySimplSet {
 
-	using namespace ML;
+using namespace ML;
 
-	/**
+/**
 	 * Calculates a fuzzy simplicial set of the input X and kNN results
 	 * @param n: number of rows in X
 	 * @param knn_indices: matrix of kNN indices size (nxn)
@@ -36,24 +36,16 @@ namespace FuzzySimplSet {
 	 * @param rhos: output rho params
 	 * @param algorithm: the algorithm to use (allows easy comparisons)
 	 */
-	template<int TPB_X, typename T>
-	void run(int n,
-			 const long *knn_indices, const T *knn_dists,
-			 int n_neighbors,
-			 MLCommon::Sparse::COO<T> *coo,
-			 UMAPParams *params,
-             cudaStream_t stream,
-			 int algorithm = 0) {
-
-		switch(algorithm) {
-		case 0:
-			Naive::launcher<TPB_X, T>(n,
-			               knn_indices, knn_dists,
-			               n_neighbors,
-					       coo,
-					       params, stream);
-			break;
-		}
-	}
+template <int TPB_X, typename T>
+void run(int n, const long *knn_indices, const T *knn_dists, int n_neighbors,
+         MLCommon::Sparse::COO<T> *coo, UMAPParams *params, cudaStream_t stream,
+         int algorithm = 0) {
+  switch (algorithm) {
+    case 0:
+      Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists, n_neighbors, coo,
+                                params, stream);
+      break;
+  }
 }
-};
+}  // namespace FuzzySimplSet
+};  // namespace UMAPAlgo

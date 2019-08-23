@@ -16,19 +16,20 @@
 
 #pragma once
 
+#include <glm/qn/simple_mat.h>
 #include "cuda_utils.h"
 #include "glm/qn/glm_base.h"
 #include "linalg/binary_op.h"
-#include <glm/qn/simple_mat.h>
 
 namespace ML {
 namespace GLM {
 
-template <typename T> struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
+template <typename T>
+struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   typedef GLMBase<T, SquaredLoss<T>> Super;
 
   SquaredLoss(const cumlHandle_impl &handle, int D, bool has_bias)
-      : Super(handle, D, 1, has_bias) {}
+    : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T lz(const T y, const T z) const {
     T diff = y - z;
@@ -38,5 +39,5 @@ template <typename T> struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   inline __device__ T dlz(const T y, const T z) const { return z - y; }
 };
 
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML

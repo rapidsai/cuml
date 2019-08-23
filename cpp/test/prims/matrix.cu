@@ -37,7 +37,7 @@ template <typename T>
 
 template <typename T>
 class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -65,7 +65,7 @@ protected:
     // CUDA_CHECK(cudaFree(in1_revr));
   }
 
-protected:
+ protected:
   MatrixInputs<T> params;
   T *in1, *in2, *in1_revr;
 };
@@ -93,5 +93,5 @@ INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestF,
 INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestD,
                         ::testing::ValuesIn(inputsd2));
 
-} // end namespace Matrix
-} // end namespace MLCommon
+}  // end namespace Matrix
+}  // end namespace MLCommon

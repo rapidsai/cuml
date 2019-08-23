@@ -32,11 +32,12 @@ namespace GLM {
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  * @{
  */
-void olsFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, float *labels, float *coef,
-            float *intercept, bool fit_intercept, bool normalize, int algo = 0);
-void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, double *labels, double *coef,
-            double *intercept, bool fit_intercept, bool normalize,
-            int algo = 0);
+void olsFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+            float *labels, float *coef, float *intercept, bool fit_intercept,
+            bool normalize, int algo = 0);
+void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+            double *labels, double *coef, double *intercept, bool fit_intercept,
+            bool normalize, int algo = 0);
 /** @} */
 
 /**
@@ -54,13 +55,15 @@ void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, dou
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @{
  */
-void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, float *labels, float *alpha,
-              int n_alpha, float *coef, float *intercept, bool fit_intercept,
-              bool normalize, int algo = 0);
+void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+              float *labels, float *alpha, int n_alpha, float *coef,
+              float *intercept, bool fit_intercept, bool normalize,
+              int algo = 0);
 
-void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, double *labels,
-              double *alpha, int n_alpha, double *coef, double *intercept,
-              bool fit_intercept, bool normalize, int algo = 0);
+void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+              double *labels, double *alpha, int n_alpha, double *coef,
+              double *intercept, bool fit_intercept, bool normalize,
+              int algo = 0);
 /** @} */
 
 /**
@@ -73,16 +76,18 @@ void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, d
  * @param preds         device pointer to store predictions of size n_rows
  * @{
  */
-void olsPredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
-                float intercept, float *preds);
-void olsPredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols, const double *coef,
-                double intercept, double *preds);
+void olsPredict(const cumlHandle &handle, const float *input, int n_rows,
+                int n_cols, const float *coef, float intercept, float *preds);
+void olsPredict(const cumlHandle &handle, const double *input, int n_rows,
+                int n_cols, const double *coef, double intercept,
+                double *preds);
 
-void ridgePredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
-                  float intercept, float *preds);
+void ridgePredict(const cumlHandle &handle, const float *input, int n_rows,
+                  int n_cols, const float *coef, float intercept, float *preds);
 
-void ridgePredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols,
-                  const double *coef, double intercept, double *preds);
+void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
+                  int n_cols, const double *coef, double intercept,
+                  double *preds);
 /** @} */
 
 /**
@@ -119,7 +124,7 @@ void ridgePredict(const cumlHandle &handle, const double *input, int n_rows, int
  * @param X_col_major           true if X is stored column-major, i.e. feature
  * columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
- * multinomial/softmax, 2: normal/squared)
+ * normal/squared, 2: multinomial/softmax)
  * @{
  */
 void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
@@ -157,5 +162,5 @@ void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
                int loss_type, double *preds);
 /** @} */
 
-} // namespace GLM
-} // namespace ML
+}  // namespace GLM
+}  // namespace ML

@@ -16,26 +16,26 @@
 
 #pragma once
 
-#include "ml_utils.h"
 #include <cuda_utils.h>
-#include <linalg/gemv.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
-#include <linalg/add.h>
-#include <linalg/subtract.h>
-#include <linalg/norm.h>
-#include <linalg/eltwise.h>
-#include <linalg/unary_op.h>
-#include <linalg/cublas_wrappers.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
-#include "glm/preprocess.h"
-#include "shuffle.h"
+#include <functions/hinge.h>
 #include <functions/linearReg.h>
 #include <functions/logisticReg.h>
-#include <functions/hinge.h>
-#include "learning_rate.h"
+#include <linalg/add.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/eltwise.h>
+#include <linalg/gemv.h>
+#include <linalg/norm.h>
+#include <linalg/subtract.h>
+#include <linalg/unary_op.h>
+#include <matrix/math.h>
+#include <matrix/matrix.h>
+#include <stats/mean.h>
+#include <stats/mean_center.h>
 #include "common/cumlHandle.hpp"
+#include "glm/preprocess.h"
+#include "learning_rate.h"
+#include "ml_utils.h"
+#include "shuffle.h"
 
 namespace ML {
 namespace Solver {
@@ -89,158 +89,158 @@ using namespace MLCommon;
  * @param stream
  *        cuda stream
  */
-template<typename math_t>
-void sgdFit(const cumlHandle_impl& handle, math_t *input, int n_rows,
-		int n_cols, math_t *labels, math_t *coef, math_t *intercept,
-		bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
-		math_t eta0, math_t power_t, ML::loss_funct loss,
-		Functions::penalty penalty, math_t alpha, math_t l1_ratio, bool shuffle,
-		math_t tol, int n_iter_no_change, cudaStream_t stream) {
+template <typename math_t>
+void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
+            int n_cols, math_t *labels, math_t *coef, math_t *intercept,
+            bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
+            math_t eta0, math_t power_t, ML::loss_funct loss,
+            Functions::penalty penalty, math_t alpha, math_t l1_ratio,
+            bool shuffle, math_t tol, int n_iter_no_change,
+            cudaStream_t stream) {
+  ASSERT(n_cols > 0,
+         "Parameter n_cols: number of columns cannot be less than one");
+  ASSERT(n_rows > 1,
+         "Parameter n_rows: number of rows cannot be less than two");
 
-	ASSERT(n_cols > 0,
-			"Parameter n_cols: number of columns cannot be less than one");
-	ASSERT(n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
+  cublasHandle_t cublas_handle = handle.getCublasHandle();
 
-	cublasHandle_t cublas_handle = handle.getCublasHandle();
+  auto allocator = handle.getDeviceAllocator();
+  device_buffer<math_t> mu_input(allocator, stream, 0);
+  device_buffer<math_t> mu_labels(allocator, stream, 0);
+  device_buffer<math_t> norm2_input(allocator, stream, 0);
 
-	auto allocator = handle.getDeviceAllocator();
-	device_buffer<math_t> mu_input(allocator, stream, 0);
-	device_buffer<math_t> mu_labels(allocator, stream, 0);
-	device_buffer<math_t> norm2_input(allocator, stream, 0);
+  if (fit_intercept) {
+    mu_input.resize(n_cols, stream);
+    mu_labels.resize(1, stream);
 
-	if (fit_intercept) {
-		mu_input.resize(n_cols, stream);
-		mu_labels.resize(1, stream);
+    GLM::preProcessData(handle, input, n_rows, n_cols, labels, intercept,
+                        mu_input.data(), mu_labels.data(), norm2_input.data(),
+                        fit_intercept, false, stream);
+  }
 
-		GLM::preProcessData(handle, input, n_rows, n_cols, labels, intercept,
-				mu_input.data(), mu_labels.data(), norm2_input.data(),
-				fit_intercept, false, stream);
-	}
+  device_buffer<math_t> grads(allocator, stream, n_cols);
+  device_buffer<int> indices(allocator, stream, batch_size);
+  device_buffer<math_t> input_batch(allocator, stream, batch_size * n_cols);
+  device_buffer<math_t> labels_batch(allocator, stream, batch_size);
+  device_buffer<math_t> loss_value(allocator, stream, 1);
 
-	device_buffer<math_t> grads(allocator, stream, n_cols);
-	device_buffer<int> indices(allocator, stream, batch_size);
-	device_buffer<math_t> input_batch(allocator, stream, batch_size * n_cols);
-	device_buffer<math_t> labels_batch(allocator, stream, batch_size);
-	device_buffer<math_t> loss_value(allocator, stream, 1);
+  math_t prev_loss_value = math_t(0);
+  math_t curr_loss_value = math_t(0);
 
-	math_t prev_loss_value = math_t(0);
-	math_t curr_loss_value = math_t(0);
+  std::vector<int> rand_indices(n_rows);
+  std::mt19937 g(rand());
+  initShuffle(rand_indices, g);
 
-	std::vector<int> rand_indices(n_rows);
-	std::mt19937 g(rand());
-	initShuffle(rand_indices, g);
+  math_t t = math_t(1);
+  math_t learning_rate = math_t(0);
+  if (lr_type == ML::lr_type::ADAPTIVE) {
+    learning_rate = eta0;
+  } else if (lr_type == ML::lr_type::OPTIMAL) {
+    eta0 = calOptimalInit(alpha);
+  }
 
-	math_t t = math_t(1);
-	math_t learning_rate = math_t(0);
-	if (lr_type == ML::lr_type::ADAPTIVE) {
-		learning_rate = eta0;
-	} else if (lr_type == ML::lr_type::OPTIMAL) {
-		eta0 = calOptimalInit(alpha);
-	}
+  int n_iter_no_change_curr = 0;
 
-	int n_iter_no_change_curr = 0;
+  for (int i = 0; i < epochs; i++) {
+    int cbs = 0;
+    int j = 0;
 
-	for (int i = 0; i < epochs; i++) {
-		int cbs = 0;
-		int j = 0;
+    if (i > 0 && shuffle) {
+      Solver::shuffle(rand_indices, g);
+    }
 
-		if (i > 0 && shuffle) {
-			Solver::shuffle(rand_indices, g);
-		}
+    while (j < n_rows) {
+      if ((j + batch_size) > n_rows) {
+        cbs = n_rows - j;
+      } else {
+        cbs = batch_size;
+      }
 
-		while (j < n_rows) {
-			if ((j + batch_size) > n_rows) {
-				cbs = n_rows - j;
-			} else {
-				cbs = batch_size;
-			}
+      if (cbs == 0) break;
 
-			if (cbs == 0)
-				break;
+      updateDevice(indices.data(), &rand_indices[j], cbs, stream);
+      Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
+                       indices.data(), cbs, stream);
+      Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
+                       cbs, stream);
 
-			updateDevice(indices.data(), &rand_indices[j], cbs, stream);
-			Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
-					indices.data(), cbs, stream);
-			Matrix::copyRows(labels, n_rows, 1, labels_batch.data(),
-					indices.data(), cbs, stream);
+      if (loss == ML::loss_funct::SQRD_LOSS) {
+        Functions::linearRegLossGrads(input_batch.data(), cbs, n_cols,
+                                      labels_batch.data(), coef, grads.data(),
+                                      penalty, alpha, l1_ratio, cublas_handle,
+                                      allocator, stream);
+      } else if (loss == ML::loss_funct::LOG) {
+        Functions::logisticRegLossGrads(input_batch.data(), cbs, n_cols,
+                                        labels_batch.data(), coef, grads.data(),
+                                        penalty, alpha, l1_ratio, cublas_handle,
+                                        allocator, stream);
+      } else if (loss == ML::loss_funct::HINGE) {
+        Functions::hingeLossGrads(input_batch.data(), cbs, n_cols,
+                                  labels_batch.data(), coef, grads.data(),
+                                  penalty, alpha, l1_ratio, cublas_handle,
+                                  allocator, stream);
+      } else {
+        ASSERT(false,
+               "sgd.h: Other loss functions have not been implemented yet!");
+      }
 
-			if (loss == ML::loss_funct::SQRD_LOSS) {
-				Functions::linearRegLossGrads(input_batch.data(), cbs, n_cols,
-						labels_batch.data(), coef, grads.data(), penalty, alpha,
-						l1_ratio, cublas_handle, allocator, stream);
-			} else if (loss == ML::loss_funct::LOG) {
-				Functions::logisticRegLossGrads(input_batch.data(), cbs, n_cols,
-						labels_batch.data(), coef, grads.data(), penalty, alpha,
-						l1_ratio, cublas_handle, allocator, stream);
-			} else if (loss == ML::loss_funct::HINGE) {
-				Functions::hingeLossGrads(input_batch.data(), cbs, n_cols,
-						labels_batch.data(), coef, grads.data(), penalty, alpha,
-						l1_ratio, cublas_handle, allocator, stream);
-			} else {
-				ASSERT(false,
-						"sgd.h: Other loss functions have not been implemented yet!");
-			}
+      if (lr_type != ML::lr_type::ADAPTIVE)
+        learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-			if (lr_type != ML::lr_type::ADAPTIVE)
-				learning_rate = calLearningRate(lr_type, eta0, power_t, alpha,
-						t);
+      LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
+                             stream);
+      LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
-			LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate,
-					n_cols, stream);
-			LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
+      j = j + cbs;
+      t = t + 1;
+    }
 
-			j = j + cbs;
-			t = t + 1;
-		}
+    if (tol > math_t(0)) {
+      if (loss == ML::loss_funct::SQRD_LOSS) {
+        Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
+                                 loss_value.data(), penalty, alpha, l1_ratio,
+                                 cublas_handle, allocator, stream);
+      } else if (loss == ML::loss_funct::LOG) {
+        Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef,
+                                   loss_value.data(), penalty, alpha, l1_ratio,
+                                   cublas_handle, allocator, stream);
+      } else if (loss == ML::loss_funct::HINGE) {
+        Functions::hingeLoss(input, n_rows, n_cols, labels, coef,
+                             loss_value.data(), penalty, alpha, l1_ratio,
+                             cublas_handle, allocator, stream);
+      }
 
-		if (tol > math_t(0)) {
-			if (loss == ML::loss_funct::SQRD_LOSS) {
-				Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
-						loss_value.data(), penalty, alpha, l1_ratio,
-						cublas_handle, allocator, stream);
-			} else if (loss == ML::loss_funct::LOG) {
-				Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef,
-						loss_value.data(), penalty, alpha, l1_ratio,
-						cublas_handle, allocator, stream);
-			} else if (loss == ML::loss_funct::HINGE) {
-				Functions::hingeLoss(input, n_rows, n_cols, labels, coef,
-						loss_value.data(), penalty, alpha, l1_ratio,
-						cublas_handle, allocator, stream);
-			}
+      updateHost(&curr_loss_value, loss_value.data(), 1, stream);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
 
-			updateHost(&curr_loss_value, loss_value.data(), 1, stream);
-			CUDA_CHECK(cudaStreamSynchronize(stream));
+      if (i > 0) {
+        if (curr_loss_value > (prev_loss_value - tol)) {
+          n_iter_no_change_curr = n_iter_no_change_curr + 1;
+          if (n_iter_no_change_curr > n_iter_no_change) {
+            if (lr_type == ML::lr_type::ADAPTIVE &&
+                learning_rate > math_t(1e-6)) {
+              learning_rate = learning_rate / math_t(5);
+              n_iter_no_change_curr = 0;
+            } else {
+              break;
+            }
+          }
+        } else {
+          n_iter_no_change_curr = 0;
+        }
+      }
 
-			if (i > 0) {
-				if (curr_loss_value > (prev_loss_value - tol)) {
-					n_iter_no_change_curr = n_iter_no_change_curr + 1;
-					if (n_iter_no_change_curr > n_iter_no_change) {
-						if (lr_type == ML::lr_type::ADAPTIVE
-								&& learning_rate > math_t(1e-6)) {
-							learning_rate = learning_rate / math_t(5);
-							n_iter_no_change_curr = 0;
-						} else {
-							break;
-						}
-					}
-				} else {
-					n_iter_no_change_curr = 0;
-				}
-			}
+      prev_loss_value = curr_loss_value;
+    }
+  }
 
-			prev_loss_value = curr_loss_value;
-		}
-	}
-
-	if (fit_intercept) {
-		GLM::postProcessData(handle, input, n_rows, n_cols, labels, coef,
-				intercept, mu_input.data(), mu_labels.data(),
-				norm2_input.data(), fit_intercept, false, stream);
-	} else {
-		*intercept = math_t(0);
-	}
-
+  if (fit_intercept) {
+    GLM::postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept,
+                         mu_input.data(), mu_labels.data(), norm2_input.data(),
+                         fit_intercept, false, stream);
+  } else {
+    *intercept = math_t(0);
+  }
 }
 
 /**
@@ -264,28 +264,27 @@ void sgdFit(const cumlHandle_impl& handle, math_t *input, int n_rows,
  * @param stream
  *        cuda stream
  */
-template<typename math_t>
-void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
-		int n_cols, const math_t *coef, math_t intercept, math_t *preds,
-		ML::loss_funct loss, cudaStream_t stream) {
+template <typename math_t>
+void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+                int n_cols, const math_t *coef, math_t intercept, math_t *preds,
+                ML::loss_funct loss, cudaStream_t stream) {
+  ASSERT(n_cols > 0,
+         "Parameter n_cols: number of columns cannot be less than one");
+  ASSERT(n_rows > 1,
+         "Parameter n_rows: number of rows cannot be less than two");
 
-	ASSERT(n_cols > 0,
-			"Parameter n_cols: number of columns cannot be less than one");
-	ASSERT(n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
+  cublasHandle_t cublas_handle = handle.getCublasHandle();
 
-	cublasHandle_t cublas_handle = handle.getCublasHandle();
-
-	if (loss == ML::loss_funct::SQRD_LOSS) {
-		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
-				cublas_handle, stream);
-	} else if (loss == ML::loss_funct::LOG) {
-		Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept,
-				cublas_handle, stream);
-	} else if (loss == ML::loss_funct::HINGE) {
-		Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept,
-				cublas_handle, stream);
-	}
+  if (loss == ML::loss_funct::SQRD_LOSS) {
+    Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
+                          cublas_handle, stream);
+  } else if (loss == ML::loss_funct::LOG) {
+    Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept,
+                            cublas_handle, stream);
+  } else if (loss == ML::loss_funct::HINGE) {
+    Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept,
+                      cublas_handle, stream);
+  }
 }
 
 /**
@@ -309,38 +308,39 @@ void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
  * @param stream
  *        cuda stream
  */
-template<typename math_t>
-void sgdPredictBinaryClass(const cumlHandle_impl& handle, const math_t *input,
-		int n_rows, int n_cols, const math_t *coef, math_t intercept,
-		math_t *preds, ML::loss_funct loss, cudaStream_t stream) {
+template <typename math_t>
+void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
+                           int n_rows, int n_cols, const math_t *coef,
+                           math_t intercept, math_t *preds, ML::loss_funct loss,
+                           cudaStream_t stream) {
+  sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss,
+             stream);
 
-	sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss,
-			stream);
-
-	math_t scalar = math_t(1);
-	if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-	    LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
-				if (in >= math_t(0.5))
-				return math_t(1);
-				else
-				return math_t(0);
-			},
-			stream);
-    } else if (loss == ML::loss_funct::HINGE) {
-        LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
-			if (in >= math_t(0.0))
-			return math_t(1);
-			else
-			return math_t(0);
-		},
-		stream);
-}
-
+  math_t scalar = math_t(1);
+  if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
+    LinAlg::unaryOp(
+      preds, preds, n_rows,
+      [scalar] __device__(math_t in) {
+        if (in >= math_t(0.5))
+          return math_t(1);
+        else
+          return math_t(0);
+      },
+      stream);
+  } else if (loss == ML::loss_funct::HINGE) {
+    LinAlg::unaryOp(
+      preds, preds, n_rows,
+      [scalar] __device__(math_t in) {
+        if (in >= math_t(0.0))
+          return math_t(1);
+        else
+          return math_t(0);
+      },
+      stream);
+  }
 }
 
 /** @} */
-}
-;
-}
-;
+};  // namespace Solver
+};  // namespace ML
 // end namespace ML

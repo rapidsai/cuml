@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include "linalg/strided_reduction.h"
-#include "reduce.h"
 #include "random/rng.h"
+#include "reduce.h"
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -25,9 +25,9 @@ namespace LinAlg {
 
 template <typename T>
 struct stridedReductionInputs {
-    T tolerance;
-    int rows, cols;
-    unsigned long long int seed;
+  T tolerance;
+  int rows, cols;
+  unsigned long long int seed;
 };
 
 template <typename T>
@@ -38,19 +38,21 @@ void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
 }
 
 template <typename T>
-class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInputs<T>> {
-protected:
+class stridedReductionTest
+  : public ::testing::TestWithParam<stridedReductionInputs<T>> {
+ protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
-    int len = rows*cols;
+    int len = rows * cols;
 
     allocate(data, len);
-    allocate(dots_exp, cols); //expected dot products (from test)
-    allocate(dots_act, cols); //actual dot products (from prim)
-    r.uniform(data, len, T(-1.0), T(1.0), stream); //initialize matrix to random
+    allocate(dots_exp, cols);  //expected dot products (from test)
+    allocate(dots_act, cols);  //actual dot products (from prim)
+    r.uniform(data, len, T(-1.0), T(1.0),
+              stream);  //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);
@@ -63,22 +65,21 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   stridedReductionInputs<T> params;
   T *data, *dots_exp, *dots_act;
   cudaStream_t stream;
 };
 
-
 const std::vector<stridedReductionInputs<float>> inputsf = {
-  {0.00001f, 1024,  32, 1234ULL},
-  {0.00001f, 1024,  64, 1234ULL},
+  {0.00001f, 1024, 32, 1234ULL},
+  {0.00001f, 1024, 64, 1234ULL},
   {0.00001f, 1024, 128, 1234ULL},
   {0.00001f, 1024, 256, 1234ULL}};
 
 const std::vector<stridedReductionInputs<double>> inputsd = {
-  {0.000000001, 1024,  32, 1234ULL},
-  {0.000000001, 1024,  64, 1234ULL},
+  {0.000000001, 1024, 32, 1234ULL},
+  {0.000000001, 1024, 64, 1234ULL},
   {0.000000001, 1024, 128, 1234ULL},
   {0.000000001, 1024, 256, 1234ULL}};
 
@@ -94,9 +95,11 @@ TEST_P(stridedReductionTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF,
+                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestD,
+                        ::testing::ValuesIn(inputsd));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

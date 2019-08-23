@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 #include "distance/distance_fragment_multiply_add.h"
 #include "distance/distance_tile_traits.h"
 
@@ -34,8 +33,8 @@ namespace Distance {
  * @tparam OutputScalar_ output scalar type
  * @tparam FragmentMultiplyAdd_ fragment-level epilogue function
  */
-template <typename InputScalar_, typename OutputScalar_,
-          typename GemmConfig_, typename FragmentMultiplyAdd_>
+template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
+          typename FragmentMultiplyAdd_>
 struct DistanceEpilogueFunctor {
   // The input scalar
   typedef InputScalar_ InputScalar;
@@ -65,9 +64,9 @@ struct DistanceEpilogueFunctor {
   /// AA
   typedef DistanceGlobalTileAATraits<
     InputScalar const,
-    cutlass::Shape<1, GemmConfig_::OutputTile::kH /
-                        cutlass::ShapeCount<Iterations>::kCount,
-                   GemmConfig_::OutputTile::kW>,
+    cutlass::Shape<
+      1, GemmConfig_::OutputTile::kH / cutlass::ShapeCount<Iterations>::kCount,
+      GemmConfig_::OutputTile::kW>,
     cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
                    GemmConfig_::kWarpSize>,
     // How many elements do we jump over at each iteration?
@@ -81,9 +80,9 @@ struct DistanceEpilogueFunctor {
   /// BB
   typedef DistanceGlobalTileBBTraits<
     InputScalar const,
-    cutlass::Shape<1, GemmConfig_::OutputTile::kH /
-                        cutlass::ShapeCount<Iterations>::kCount,
-                   GemmConfig_::OutputTile::kW>,
+    cutlass::Shape<
+      1, GemmConfig_::OutputTile::kH / cutlass::ShapeCount<Iterations>::kCount,
+      GemmConfig_::OutputTile::kW>,
     cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
                    GemmConfig_::kWarpSize>,
     GemmConfig_::kScalarsPerLdgB>
@@ -124,15 +123,14 @@ struct DistanceEpilogueFunctor {
       error_code = iterator_bb.initialize(row_vec, ldd, 1, 0, 0);
       return error_code;
     }
-  }; // end struct Params
+  };  // end struct Params
 
   /// Ctor.
   CUTLASS_DEVICE DistanceEpilogueFunctor(Params const &p) : params(p) {}
 
   /// params
   Params params;
-}; // end struct DistanceEpilogueFunctor
-
+};  // end struct DistanceEpilogueFunctor
 
 /**
  * @brief EpilogueFunctor to work with expanded cases (eg: expanded L2 metric)
@@ -147,24 +145,24 @@ template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
 struct ExpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
   CUTLASS_DEVICE ExpandedDistanceEpilogueFunctor(
-    typename BaseClass::Params const &params): BaseClass(params) {}
+    typename BaseClass::Params const &params)
+    : BaseClass(params) {}
 
   /// Evaluate the functor.
-  template <typename FragmentA_, typename FragmentB_,
-            typename FragmentCol_, typename FragmentRow_, typename FinalLambda>
+  template <typename FragmentA_, typename FragmentB_, typename FragmentCol_,
+            typename FragmentRow_, typename FinalLambda>
   CUTLASS_DEVICE void evaluate(FragmentA_ const &accum, FragmentB_ &output,
                                const int index[FragmentB_::kElements],
-                               FragmentCol_ const &col,
-                               FragmentRow_ const &row, FinalLambda fin_op) {
+                               FragmentCol_ const &col, FragmentRow_ const &row,
+                               FinalLambda fin_op) {
     FragmentMultiplyAdd_ mad;
-    if(this->params.enable_sqrt) {
+    if (this->params.enable_sqrt) {
       mad.multiply<true>(accum, output, index, col, row, fin_op);
     } else {
       mad.multiply<false>(accum, output, index, col, row, fin_op);
     }
   }
 };
-
 
 /**
  * @brief EpilogueFunctor for L1 and unexpanded L2 distance
@@ -177,7 +175,8 @@ template <typename Scalar_, typename GemmConfig_, typename FragmentMultiplyAdd_,
 struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
   CUTLASS_DEVICE UnexpandedDistanceEpilogueFunctor(
-    typename BaseClass::Params const &params): BaseClass(params) {}
+    typename BaseClass::Params const &params)
+    : BaseClass(params) {}
 
   /// Evaluate the functor.
   template <typename FragmentA_, typename FragmentB_, typename FinalLambda>
@@ -185,7 +184,7 @@ struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
                                const int index[FragmentB_::kElements],
                                FinalLambda fin_op) {
     FragmentMultiplyAdd_ mad;
-    if(this->params.enable_sqrt) {
+    if (this->params.enable_sqrt) {
       mad.multiply<true>(accum, output, index, fin_op);
     } else {
       mad.multiply<false>(accum, output, index, fin_op);
@@ -193,5 +192,5 @@ struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
   }
 };
 
-} // end namespace Distance
-} // end namespace MLCommon
+}  // end namespace Distance
+}  // end namespace MLCommon

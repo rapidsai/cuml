@@ -1,15 +1,21 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
-
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
-cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
+cuML enables data scientists, researchers, and software engineers to run
+traditional tabular ML tasks on GPUs without going into the details of CUDA
+programming. In most cases, cuML's Python API matches the API from
+[scikit-learn](https://scikit-learn.org).
+
+
+For large datasets, these GPU-based implementations can complete 10-50x faster
+than their CPU equivalents. For details on performance, see the [cuML Benchmarks
+Notebook](https://github.com/rapidsai/notebooks-contrib/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```python
 import cudf
-from cuml import DBSCAN
+from cuml.cluster import DBSCAN
 
 # Create and populate a GPU DataFrame
 gdf_float = cudf.DataFrame()
@@ -32,51 +38,67 @@ Output:
 dtype: int32
 ```
 
-For additional examples, browse our complete [API documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
+cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a 
+growing list of algorithms. The following Python snippet reads input from a CSV file and performs 
+a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
+```python
+# Create a Dask CUDA cluster w/ one worker per device
+from dask_cuda import LocalCUDACluster
+cluster = LocalCUDACluster()
 
-### Supported Algorithms:
+# Read CSV file in parallel across workers
+import dask_cudf
+df = dask_cudf.read_csv("/path/to/csv")
 
-| Algorithm | Scale | Notes |
+# Fit a NearestNeighbors model and query it
+from cuml.dask.neighbors import NearestNeighbors
+nn = NearestNeighbors(n_neighbors = 10)
+nn.fit(df)
+neighbors = nn.kneighbors(df)
+```
+
+
+For additional examples, browse our complete [API
+documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
+introductory [walkthrough
+notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml). Finally, you
+can find complete end-to-end examples in the [notebooks-contrib
+repo](https://github.com/rapidsai/notebooks-contrib).
+
+
+### Supported Algorithms
+| Category | Algorithm | Notes |
 | --- | --- | --- |
-| Coordinate Descent | Single-GPU | |
-| Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
-| K-Means Clustering | Single-GPU |
-| K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
-| Linear Kalman Filter | Single-GPU |
-| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
-| Linear Regression with Lasso Regularization | Single-GPU |
-| Linear Regression with Elastic-Net Regularization | Single-GPU |
-| Principal Component Analysis (PCA) | Single GPU |
-| Ridge Regression | Single-GPU |
-| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
-| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
-| UMAP | Single-GPU |
-
+| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
+|  | K-Means | Multi-Node Multi-GPU |
+| **Dimensionality Reduction** | Principal Components Analysis (PCA) | |
+| | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
+| | Uniform Manifold Approximation and Projection (UMAP) | |
+| | Random Projection | |
+| | t-Distributed Stochastic Neighbor Embedding (TSNE) | (Experimental) |
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
+| | Linear Regression with Lasso or Ridge Regularization | |
+| | ElasticNet Regression | |
+| | Logistic Regression | |
+| | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node, multi-GPU version available via Dask integration |
+| | Random Forest (RF) Regression | Experimental multi-node, multi-GPU version available via Dask integration |
+|  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| **Time Series** | Linear Kalman Filter | |
+|  | Holt-Winters Exponential Smoothing | |
 ---
 
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them: t-sne, random forests, spectral embedding, spectral clustering, random projections, support vector machine and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are planned for
+future releases, including: spectral embedding, spectral clustering,
+support vector machines, and additional time series methods. Future releases
+will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
-1. Install NVIDIA drivers with CUDA 9.2 or 10.0
-2. Ensure `libomp` and `libopenblas` are installed, for example via apt:
-```bash
-sudo apt install libopenblas-base libomp-dev
-```
-
-#### Conda
-cuML can be installed using the `rapidsai` conda channel:
-
-CUDA 9.2
-```bash
-
-conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=9.2
-```
-
-CUDA 10.0
-```bash
-conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=10.0
-```
+See [the RAPIDS Release
+Selector](https://rapids.ai/start.html#rapids-release-selector) for the command
+line to install either nightly or official release cuML packages via Conda or
+Docker.
 
 ## Build/Install from Source
 See the build [guide](BUILD.md).

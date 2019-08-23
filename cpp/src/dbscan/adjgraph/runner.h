@@ -16,30 +16,31 @@
 
 #pragma once
 
-#include "algo.h"
-#include "pack.h"
-#include "naive.h"
 #include <common/cumlHandle.hpp>
+#include "algo.h"
+#include "naive.h"
+#include "pack.h"
 
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type>
-void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type adjnnz, Type* ex_scan, Type N,
-         Type minpts, bool* core_pts, int algo, Type batchSize, cudaStream_t stream) {
-    Pack<Type> data = {vd, adj, adj_graph, adjnnz, ex_scan, core_pts, N, minpts};
-    switch(algo) {
+template <typename Type, typename Index_ = int>
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph,
+         Type adjnnz, Type* ex_scan, Index_ N, Type minpts, bool* core_pts,
+         int algo, Index_ batchSize, cudaStream_t stream) {
+  Pack<Type, Index_> data = {vd,      adj,      adj_graph, adjnnz,
+                             ex_scan, core_pts, N,         minpts};
+  switch (algo) {
     case 0:
-        Naive::launcher<Type>(handle, data, batchSize, stream);
-        break;
+      Naive::launcher<Type, Index_>(handle, data, batchSize, stream);
+      break;
     case 1:
-        Algo::launcher<Type>(handle, data, batchSize, stream);
-        break;
+      Algo::launcher<Type, Index_>(handle, data, batchSize, stream);
+      break;
     default:
-        ASSERT(false, "Incorrect algo passed! '%d'", algo);
-    }
+      ASSERT(false, "Incorrect algo passed! '%d'", algo);
+  }
 }
 
-
-} // namespace AdjGraph
-} // namespace Dbscan
+}  // namespace AdjGraph
+}  // namespace Dbscan

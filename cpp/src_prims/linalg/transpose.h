@@ -69,5 +69,5 @@ void transpose(math_t *inout, int n, cudaStream_t stream) {
   });
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

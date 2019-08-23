@@ -18,14 +18,18 @@
 
 #include "rproj_c.h"
 #include <random/rng.h>
+#include <cuda_utils.h>
+#include <common/cumlHandle.hpp>
+#include "sys/time.h"
 
-using namespace MLCommon::Random;
+const int TPB_X = 256;
 
 inline void sample_without_replacement(size_t n_population, size_t n_samples,
 											int* indices, size_t& indices_idx)
 {
     std::random_device dev;
     std::mt19937 gen(dev());
+
     std::uniform_int_distribution<int> uni_dist(0, n_population-1);
 
     std::unordered_set<int> s;
@@ -33,6 +37,7 @@ inline void sample_without_replacement(size_t n_population, size_t n_samples,
     for (size_t i = 0; i < n_samples; i++)
     {
         int rand_idx = uni_dist(gen);
+
         while (s.find(rand_idx) != s.end())
         {
             rand_idx = uni_dist(gen);
@@ -43,12 +48,49 @@ inline void sample_without_replacement(size_t n_population, size_t n_samples,
     }
 }
 
-inline size_t binomial(size_t n, double p)
+
+__global__ void sum_bools(bool *in_bools,int n, int *out_val) {
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  if(row < n) {
+    bool v = in_bools[row];
+    if(v)
+      atomicAdd(out_val, (int)in_bools[row]);
+  }
+}
+
+inline size_t binomial(const ML::cumlHandle& h, size_t n, double p, int random_state)
 {
-    std::random_device dev;
-    std::mt19937 gen(dev());
-    std::binomial_distribution<size_t> bin_dist(n, p);
-    return bin_dist(gen);
+
+    auto alloc = h.getDeviceAllocator();
+
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+
+    auto rng = MLCommon::Random::Rng(random_state+seed);
+
+    bool *rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.getStream());
+    int *successes = (int*)alloc->allocate(sizeof(int), h.getStream());
+
+    rng.bernoulli(rand_array, n, p, h.getStream());
+
+    cudaMemsetAsync(successes, 0, sizeof(int), h.getStream());
+
+    dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+
+    sum_bools<<<grid_n, blk, 0, h.getStream()>>>(rand_array, n, successes);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    int ret = 0;
+    MLCommon::updateHost(&ret, successes,1,  h.getStream());
+    cudaStreamSynchronize(h.getStream());
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    alloc->deallocate(rand_array, n*sizeof(bool), h.getStream());
+    alloc->deallocate(successes, sizeof(int), h.getStream());
+
+    return n -ret;
 }
 
 inline double check_density(double density, size_t n_features)
