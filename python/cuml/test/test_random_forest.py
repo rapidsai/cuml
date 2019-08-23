@@ -50,7 +50,8 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_depth', [-1, 1, 16])
 def test_rf_classification(datatype, split_algo,
-                           n_info, nrows, ncols, max_depth):
+                           n_info, nrows, ncols,
+                           max_depth):
     use_handle = True
     if split_algo == 1 and max_depth < 0:
         pytest.xfail("Unlimited depth not supported with quantile")
@@ -147,3 +148,54 @@ def test_rf_regression(datatype, use_handle, split_algo,
 
         # compare the accuracy of the two models
         assert cu_mse <= (sk_mse + 0.07)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(30)])
+@pytest.mark.parametrize('ncols', [unit_param(10)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+@pytest.mark.parametrize('rows_sample', [unit_param(0.9)])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('max_depth', [-1, 1, 16])
+def test_rf_rows_sample(datatype, split_algo,
+                        n_info, nrows, ncols,
+                        max_depth, rows_sample):
+    use_handle = True
+    if split_algo == 1 and max_depth < 0:
+        pytest.xfail("Unlimited depth not supported with quantile")
+
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=5)
+    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=1.0, rows_sample = rows_sample,
+                       n_bins=8, split_algo=split_algo, split_criterion=0,
+                       min_rows_per_node=2,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=max_depth)
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test)
+    cu_acc = accuracy_score(y_test, cu_predict)
+
+    # sklearn random forest classification model
+    # initialization, fit and predict
+    sk_model = skrfc(n_estimators=40,
+                     max_depth=(max_depth if max_depth > 0 else None),
+                     min_samples_split=2, max_features=1.0,
+                     random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_predict)
+
+    # compare the accuracy of the two models
+    if max_depth > 1:
+        assert cu_acc >= (sk_acc - 0.07)

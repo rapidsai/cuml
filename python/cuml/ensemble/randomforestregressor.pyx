@@ -435,7 +435,7 @@ class RandomForestRegressor(Base):
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
-                                     <int> self.rows_sample,
+                                     <float> self.rows_sample,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
