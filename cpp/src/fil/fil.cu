@@ -305,9 +305,26 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
+  std::cout << "params->algo : " << params->algo << std::endl << std::flush;
+  std::cout << "params->threshold : " << params->threshold << std::endl
+            << std::flush;
+  std::cout << "model.num_output_group : " << model.num_output_group
+            << std::endl
+            << std::flush;
+  std::cout << "model.num_feature : " << model.num_feature << std::endl
+            << std::flush;
 
-  // fill in forest-dependent params
   params->cols = model.num_feature;
+  std::cout << "model.param.sigmoid_alpha : " << model.param.sigmoid_alpha
+            << std::endl
+            << std::flush;
+  std::cout << "model.random_forest_flag : " << model.random_forest_flag
+            << std::endl
+            << std::flush;
+  std::cout << "model.param.pred_transform : " << model.param.pred_transform
+            << std::endl
+            << std::flush;
+  // fill in forest-dependent params
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -354,6 +371,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   forest_params_t params;
   std::vector<dense_node_t> nodes;
+  std::cout << "just before the tl2fil" << std::endl << std::flush;
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
   init_dense(handle, pforest, &params);
   // sync is necessary as nodes is used in init_dense(),

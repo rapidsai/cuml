@@ -110,9 +110,9 @@ template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model,
-                           const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category);
+ModelHandle* build_treelite_forest(ModelHandle* model,
+                                   const RandomForestMetaData<T, L>* forest,
+                                   int num_features, int task_category);
 
 // ----------------------------- Classification ----------------------------------- //
 
