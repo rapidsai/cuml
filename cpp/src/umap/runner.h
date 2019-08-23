@@ -137,11 +137,19 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
                  embeddings, stream, params->init);
 
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings);
+  }
+
   /**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                stream);
+
+  if (params->callback)
+    params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
@@ -225,10 +233,16 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
 
+  if (params->callback)
+    params->callback->on_preprocess_end(embeddings);
+
   /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, stream);
+
+  if (params->callback)
+    params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaPeekAtLastError());
 

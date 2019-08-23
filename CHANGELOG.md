@@ -4,12 +4,15 @@
 
 ## Improvements
 
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+
 ## Bug Fixes
 
 - PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
+- PR #1043: Updates to accomodate cuDF python code reorganization
 
-
-# cuML 0.9.0 (Date TBD)
+# cuML 0.9.0 (21 Aug 2019)
 
 ## New Features
 
@@ -39,6 +42,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
 - PR #960: Enable using libcumlprims for MG algorithms/prims
 
@@ -89,6 +93,7 @@
 - PR #1007: Throws a well defined error when mutigpu is not enabled
 - PR #1018: Hint location of nccl in build.sh for CI
 - PR #1022: Using random_state to make K-Means MNMG tests deterministic
+- PR #1034: Fix typos and formatting issues in RF docs
 
 # cuML 0.8.0 (27 June 2019)
 
