@@ -159,7 +159,7 @@ def fit(y: np.ndarray,
 
     # Optimize parameters by minimizing log likelihood.
     x, niter, flags = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
-                                          iprint=opt_disp, factr=1000)
+                                           iprint=opt_disp, factr=1000)
 
     # TODO: Better Handle non-zero `flag` array values: 0 -> ok, 1,2 -> optimizer had trouble
     if (flags != 0).any():
@@ -363,33 +363,40 @@ def start_params(order, y_diff):
 
     if p != 0:
 
-        x = np.zeros((len(y) - p, p))
-
+        # TODO: `statsmodels` uses BIC to pick the "best" `p` for this initial
+        # fit. The "best" model is probably a p=1, so we will assume that for now.
+        p_best = 1
+        x = np.zeros((len(y) - p_best, p_best))
         # create lagged series set
-        for lag in range(1, p+1):
+        for lag in range(1, p_best+1):
             # create lag and trim appropriately from front so they are all the same size
-            x[:, lag-1] = y[p-lag:-lag].T
+            x[:, lag-1] = y[p_best-lag:-lag].T
 
         # LS fit a*X - Y
-        y_ar = y[p:]
+        y_ar = y[p_best:]
+        
         (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
-
+        # print("initial_ar_fit:", ar_fit)
+        # set_trace()
         if q == 0:
             params_init[d:] = ar_fit
         else:
-            residual = y[p:] - np.dot(x, ar_fit)
+            residual = y[p_best:] - np.dot(x, ar_fit)
 
-            x_resid = np.zeros((len(residual) - q, q))
-            x_ar2 = np.zeros((len(residual) - q, p))
+            assert p >= p_best
+            p_diff = p - p_best
 
+            x_resid = np.zeros((len(residual) - q - p_diff, q))
+            x_ar2 = np.zeros((len(residual) - q - p_diff, p))
+ 
             # create lagged residual and ar term
             for lag in range(1, q+1):
-                x_resid[:, lag-1] = residual[q-lag:-lag].T
+                x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
             for lag in range(1, p+1):
                 x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
 
             X = np.column_stack((x_ar2, x_resid))
-            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[q:].T, rcond=None)
+            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T, rcond=None)
 
             params_init[d:] = arma_fit
 
@@ -418,7 +425,9 @@ def init_x0(order, y):
         mai = ma[0][i]
         # if ma >= 1, then we get "inf" results from inverse transform
         ma[0][i] = np.sign(mai)*min(np.abs(mai), 1-1e-14)
+
     x0 = pack(p, q, 1, mu, ar, ma)
+
     pynvtx_range_pop()
     return x0
 
