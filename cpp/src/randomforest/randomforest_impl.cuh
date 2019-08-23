@@ -72,7 +72,7 @@ void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
-  srand(treeid * 1000);
+  srand(tree_id * 1000);
   if (rf_params.bootstrap) {
     random_uniformInt(tree_id, selected_rows, n_sampled_rows, n_rows, num_sms,
                       stream);
