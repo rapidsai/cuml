@@ -39,6 +39,7 @@ cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
+    ctypedef void* ModelBuilderHandle;
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -133,14 +134,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float, int]*,
-                                    int,
-                                    int)
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double, int]*,
-                                    int,
-                                    int)
+    cdef ModelHandle build_treelite_forest(ModelHandle*,
+                                                  RandomForestMetaData[float, int]*,
+                                                  int,
+                                                  int)
+    cdef ModelHandle build_treelite_forest(ModelHandle*,
+                                                  RandomForestMetaData[double, int]*,
+                                                  int,
+                                                  int)
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -775,23 +776,28 @@ class RandomForestClassifier(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def build_treelite_forest(self, model, num_features, task_category=1):
+    def build_treelite_forest(self, num_features, task_category=1, model=None):
 
-        cdef uintptr_t treelite_model = <uintptr_t> model.handle.getHandle()
+        cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
+        cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
-            build_treelite_forest(<ModelHandle*> treelite_model,
+            tl_model_ptr = build_treelite_forest(&cuml_model_ptr,
                                   rf_forest,
                                   <int> num_features,
                                   <int> task_category)
 
         else:
-            build_treelite_forest(<ModelHandle*> treelite_model,
+            tl_model_ptr = build_treelite_forest(&cuml_model_ptr,
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
+        self.mod_ptr = <size_t> tl_model_ptr
+        print(" model handle  : ", self.mod_ptr)
+
+        return ctypes.c_void_p(self.mod_ptr)
