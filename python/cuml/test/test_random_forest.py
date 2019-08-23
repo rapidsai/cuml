@@ -46,11 +46,14 @@ def stress_param(*args, **kwargs):
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
+@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+                         stress_param(0.9)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_depth', [-1, 1, 16])
 def test_rf_classification(datatype, split_algo,
-                           n_info, nrows, ncols, max_depth):
+                           n_info, nrows, ncols,
+                           max_depth, rows_sample):
     use_handle = True
     if split_algo == 1 and max_depth < 0:
         pytest.xfail("Unlimited depth not supported with quantile")
@@ -68,7 +71,7 @@ def test_rf_classification(datatype, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=1.0,
+    cuml_model = curfc(max_features=1.0, rows_sample=rows_sample,
                        n_bins=8, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
@@ -99,11 +102,14 @@ def test_rf_classification(datatype, split_algo,
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
+@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+                         stress_param(0.9)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
-                       n_info, mode, ncols):
+                       n_info, mode, ncols,
+                       rows_sample):
 
     if mode == 'unit':
         X, y = make_regression(n_samples=30, n_features=ncols,
@@ -128,7 +134,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfr(max_features=1.0, rows_sample=1.0,
+    cuml_model = curfr(max_features=1.0, rows_sample=rows_sample,
                        n_bins=8, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
