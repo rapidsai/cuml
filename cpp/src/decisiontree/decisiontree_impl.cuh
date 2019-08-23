@@ -210,8 +210,8 @@ void DecisionTreeBase<T, L>::plant(
   split_criterion = cfg_split_criterion;
   //Bootstrap features
   feature_selector.resize(dinfo.Ncols);
+  srand(treeid * 1000);
   if (bootstrap_features) {
-    srand(treeid * 1000);
     for (int i = 0; i < dinfo.Ncols; i++) {
       feature_selector.push_back(rand() % dinfo.Ncols);
     }
