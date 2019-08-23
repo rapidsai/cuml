@@ -20,7 +20,6 @@
 #include "cuda_utils.h"
 #include "unary_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -37,10 +36,10 @@ namespace LinAlg {
  */
 template <typename math_t, typename IdxType = int>
 void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
-               cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [scalar] __device__(math_t in) { return myPow(in, scalar); },
-          stream);
+                 cudaStream_t stream) {
+  unaryOp(
+    out, in, len, [scalar] __device__(math_t in) { return myPow(in, scalar); },
+    stream);
 }
 /** @} */
 
@@ -57,11 +56,12 @@ void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
  */
 template <typename math_t, typename IdxType = int>
 void power(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
-         cudaStream_t stream) {
-  binaryOp(out, in1, in2, len,
-           [] __device__(math_t a, math_t b) { return myPow(a, b); }, stream);
+           cudaStream_t stream) {
+  binaryOp(
+    out, in1, in2, len,
+    [] __device__(math_t a, math_t b) { return myPow(a, b); }, stream);
 }
 /** @} */
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

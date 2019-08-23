@@ -23,15 +23,14 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-from cuml import numba_utils
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 from collections import defaultdict
 
@@ -64,8 +63,9 @@ class DBSCAN(Base):
     where data is concentrated. This allows DBSCAN to generalize to many
     problems if the datapoints tend to congregate in larger groups.
 
-    cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph
-    to compute the distances between close neighbours.
+    cuML's DBSCAN expects an array-like object or cuDF DataFrame, and
+    constructs an adjacency graph to compute the distances between close
+    neighbours.
 
     Examples
     ---------
@@ -166,46 +166,34 @@ class DBSCAN(Base):
 
     def fit(self, X):
         """
-            Perform DBSCAN clustering from features.
+        Perform DBSCAN clustering from features.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame
-               Dense matrix (floats or doubles) of shape (n_samples,
-               n_features)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
         """
 
         if self.labels_ is not None:
             del self.labels_
 
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, n_rows, n_cols, self.dtype = \
+            input_to_dev_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
-                      <int> self.n_rows,
-                      <int> self.n_cols,
+                      <int> n_rows,
+                      <int> n_cols,
                       <float> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
@@ -214,8 +202,8 @@ class DBSCAN(Base):
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <int> self.n_rows,
-                      <int> self.n_cols,
+                      <int> n_rows,
+                      <int> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
@@ -229,17 +217,19 @@ class DBSCAN(Base):
 
     def fit_predict(self, X):
         """
-            Performs clustering on input_gdf and returns cluster labels.
+        Performs clustering on input_gdf and returns cluster labels.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame
-              Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+          Dense matrix (floats or doubles) of shape (n_samples, n_features)
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            -------
-            y : cuDF Series, shape (n_samples)
-              cluster labels
+        Returns
+        -------
+        y : cuDF Series, shape (n_samples)
+          cluster labels
         """
         self.fit(X)
         return self.labels_

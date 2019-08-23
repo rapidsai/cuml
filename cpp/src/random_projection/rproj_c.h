@@ -17,9 +17,9 @@
 #pragma once
 #include <common/cumlHandle.hpp>
 
-namespace ML{
+namespace ML {
 
-    /**
+/**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
      * @param n_samples: Number of samples
      * @param n_features: Number of features (original dimension)
@@ -31,52 +31,49 @@ namespace ML{
      * @param random_state: seed used by random generator
      * @{
      */
-    struct paramsRPROJ
-    {
-        int n_samples;
-        int n_features;
-        int n_components;
-        double eps;
-        bool gaussian_method;
-        double density;
-        bool dense_output;
-        int random_state;
-    };
+struct paramsRPROJ {
+  int n_samples;
+  int n_features;
+  int n_components;
+  double eps;
+  bool gaussian_method;
+  double density;
+  bool dense_output;
+  int random_state;
+};
 
-    template<typename math_t>
-    struct rand_mat
-    {
-        rand_mat()
-        : dense_data(nullptr), indices(nullptr), indptr(nullptr),
-            sparse_data(nullptr), sparse_data_size(0)
-        {}
+template <typename math_t>
+struct rand_mat {
+  rand_mat()
+    : dense_data(nullptr),
+      indices(nullptr),
+      indptr(nullptr),
+      sparse_data(nullptr),
+      sparse_data_size(0) {}
 
-        ~rand_mat()
-        {
-            this->reset();
-        }
+  ~rand_mat() { this->reset(); }
 
-        // For dense matrices
-        math_t *dense_data;
+  // For dense matrices
+  math_t *dense_data;
 
-        // For sparse CSC matrices
-        int *indices;
-        int *indptr;
-        math_t *sparse_data;
-        size_t sparse_data_size;
+  // For sparse CSC matrices
+  int *indices;
+  int *indptr;
+  math_t *sparse_data;
+  size_t sparse_data_size;
 
-        void reset();
-    };
+  void reset();
+};
 
-    template<typename math_t>
-    void RPROJfit(const cumlHandle& handle, rand_mat<math_t> *random_matrix,
-                    paramsRPROJ* params);
+template <typename math_t>
+void RPROJfit(const cumlHandle &handle, rand_mat<math_t> *random_matrix,
+              paramsRPROJ *params);
 
-    template<typename math_t>
-    void RPROJtransform(const cumlHandle& handle, math_t *input,
-                            rand_mat<math_t> *random_matrix,
-                            math_t *output, paramsRPROJ* params);
+template <typename math_t>
+void RPROJtransform(const cumlHandle &handle, math_t *input,
+                    rand_mat<math_t> *random_matrix, math_t *output,
+                    paramsRPROJ *params);
 
-    size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps);
-    
-}
+size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps);
+
+}  // namespace ML

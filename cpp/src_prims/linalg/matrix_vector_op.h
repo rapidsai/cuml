@@ -19,23 +19,20 @@
 #include "cuda_utils.h"
 #include "vectorized.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
-
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void
-  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector,
-                       IdxType D, IdxType N, bool rowMajor, bool bcastAlongRows,
-                       Lambda op) {
+__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
+                                     const Type *vector, IdxType D, IdxType N,
+                                     bool rowMajor, bool bcastAlongRows,
+                                     Lambda op) {
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = threadIdx.x;
   idx += (IdxType)blockIdx.x * (IdxType)blockDim.x;
   idx *= VecType::Ratio;
-  if (idx >= len)
-    return;
+  if (idx >= len) return;
   IdxType vIdx;
   VecType mat, vec;
   ///@todo: yikes! use fast-int-div here.
@@ -64,10 +61,9 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
           int TPB>
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream) {
+                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType len = N * D;
-  IdxType nblks = ceildiv(veclen_? len / veclen_ : veclen_, (IdxType)TPB);
+  IdxType nblks = ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
                                 bcastAlongRows, op);
@@ -118,19 +114,17 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
   }
 }
 
-
 ///@todo: come up with a cleaner interface to support these cases in future!
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void
-  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector1,
-                       const Type *vector2, IdxType D, IdxType N, bool rowMajor,
-                       bool bcastAlongRows, Lambda op) {
+__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
+                                     const Type *vector1, const Type *vector2,
+                                     IdxType D, IdxType N, bool rowMajor,
+                                     bool bcastAlongRows, Lambda op) {
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
-  if (idx >= len)
-    return;
+  if (idx >= len) return;
   IdxType vIdx;
   VecType mat, vec1, vec2;
   ///@todo: yikes! use fast-int-div here.
@@ -163,8 +157,7 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
           int TPB>
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
                         const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream) {
+                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType nblks = ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
@@ -217,5 +210,5 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   }
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

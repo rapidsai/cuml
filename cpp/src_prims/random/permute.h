@@ -24,90 +24,95 @@
 namespace MLCommon {
 namespace Random {
 
-template <typename Type, typename IntType, typename IdxType, int TPB, bool rowMajor>
+template <typename Type, typename IntType, typename IdxType, int TPB,
+          bool rowMajor>
 __global__ void permuteKernel(IntType* perms, Type* out, const Type* in,
                               IdxType a, IdxType b, IdxType N, IdxType D) {
-    namespace cg = cooperative_groups;
-    const int WARP_SIZE = 32;
+  namespace cg = cooperative_groups;
+  const int WARP_SIZE = 32;
 
-    int tid = threadIdx.x + blockIdx.x*blockDim.x;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    // having shuffled input indices and coalesced output indices appears
-    // to be preferrable to the reverse, especially for column major
-    IntType inIdx = ((a * int64_t(tid)) + b) % N;
-    IntType outIdx = tid;
+  // having shuffled input indices and coalesced output indices appears
+  // to be preferrable to the reverse, especially for column major
+  IntType inIdx = ((a * int64_t(tid)) + b) % N;
+  IntType outIdx = tid;
 
-    if(perms != nullptr && tid < N) {
-        perms[outIdx] = inIdx;
-    }
+  if (perms != nullptr && tid < N) {
+    perms[outIdx] = inIdx;
+  }
 
-    if(out == nullptr || in == nullptr) {
-        return;
-    }
+  if (out == nullptr || in == nullptr) {
+    return;
+  }
 
-    if(rowMajor) {
-        cg::thread_block_tile<WARP_SIZE> warp =
-            cg::tiled_partition<WARP_SIZE>(cg::this_thread_block());
+  if (rowMajor) {
+    cg::thread_block_tile<WARP_SIZE> warp =
+      cg::tiled_partition<WARP_SIZE>(cg::this_thread_block());
 
-        __shared__ IntType inIdxShm[TPB];
-        __shared__ IntType outIdxShm[TPB];
-        inIdxShm[threadIdx.x] = inIdx;
-        outIdxShm[threadIdx.x] = outIdx;
-        warp.sync();
+    __shared__ IntType inIdxShm[TPB];
+    __shared__ IntType outIdxShm[TPB];
+    inIdxShm[threadIdx.x] = inIdx;
+    outIdxShm[threadIdx.x] = outIdx;
+    warp.sync();
 
-        int warpID = threadIdx.x/WARP_SIZE;
-        int laneID = threadIdx.x%WARP_SIZE;
-        for(int i = warpID*WARP_SIZE;i<warpID*WARP_SIZE+WARP_SIZE;++i) {
-            if(outIdxShm[i] < N) {
-                #pragma unroll
-                for(int j = laneID;j<D;j+=WARP_SIZE) {
-                    out[outIdxShm[i]*D + j] = in[inIdxShm[i]*D + j];
-                }
-            }
+    int warpID = threadIdx.x / WARP_SIZE;
+    int laneID = threadIdx.x % WARP_SIZE;
+    for (int i = warpID * WARP_SIZE; i < warpID * WARP_SIZE + WARP_SIZE; ++i) {
+      if (outIdxShm[i] < N) {
+#pragma unroll
+        for (int j = laneID; j < D; j += WARP_SIZE) {
+          out[outIdxShm[i] * D + j] = in[inIdxShm[i] * D + j];
         }
-    } else {
-        #pragma unroll
-        for(int j = 0;j<D;++j) {
-            if(tid < N) {
-                out[outIdx + j*N] = in[inIdx + j*N];
-            }
-        }
+      }
     }
+  } else {
+#pragma unroll
+    for (int j = 0; j < D; ++j) {
+      if (tid < N) {
+        out[outIdx + j * N] = in[inIdx + j * N];
+      }
+    }
+  }
 }
 
 //This is wrapped in a type to allow for partial template specialization
-template <typename Type, typename IntType, typename IdxType, int TPB, bool rowMajor, int VLen>
+template <typename Type, typename IntType, typename IdxType, int TPB,
+          bool rowMajor, int VLen>
 struct permute_impl_t {
-    static void permuteImpl(IntType* perms, Type* out, const Type* in, IdxType N,
-                     IdxType D, int nblks, IdxType a, IdxType b,
-                     cudaStream_t stream) {
+  static void permuteImpl(IntType* perms, Type* out, const Type* in, IdxType N,
+                          IdxType D, int nblks, IdxType a, IdxType b,
+                          cudaStream_t stream) {
+    //determine vector type and set new pointers
+    typedef typename MLCommon::IOType<Type, VLen>::Type VType;
+    VType* vout = reinterpret_cast<VType*>(out);
+    const VType* vin = reinterpret_cast<const VType*>(in);
 
-        //determine vector type and set new pointers
-        typedef typename MLCommon::IOType<Type, VLen>::Type VType;
-        VType *vout = reinterpret_cast<VType*>(out);
-        const VType *vin = reinterpret_cast<const VType*>(in);
-
-        // check if we can execute at this vector length
-        if(D%VLen == 0 && is_aligned(vout, sizeof(VType)) && is_aligned(vin, sizeof(VType))) {
-            permuteKernel<VType, IntType, IdxType, TPB, rowMajor>
-                <<<nblks, TPB, 0, stream>>>(perms, vout, vin, a, b, N, D/VLen);
-            CUDA_CHECK(cudaPeekAtLastError());
-        } else { // otherwise try the next lower vector length
-            permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, VLen/2>::permuteImpl(perms, out, in, N, D, nblks, a, b, stream);
-        }
+    // check if we can execute at this vector length
+    if (D % VLen == 0 && is_aligned(vout, sizeof(VType)) &&
+        is_aligned(vin, sizeof(VType))) {
+      permuteKernel<VType, IntType, IdxType, TPB, rowMajor>
+        <<<nblks, TPB, 0, stream>>>(perms, vout, vin, a, b, N, D / VLen);
+      CUDA_CHECK(cudaPeekAtLastError());
+    } else {  // otherwise try the next lower vector length
+      permute_impl_t<Type, IntType, IdxType, TPB, rowMajor,
+                     VLen / 2>::permuteImpl(perms, out, in, N, D, nblks, a, b,
+                                            stream);
     }
+  }
 };
 
 // at vector length 1 we just execute a scalar version to break the recursion
-template <typename Type, typename IntType, typename IdxType, int TPB, bool rowMajor>
+template <typename Type, typename IntType, typename IdxType, int TPB,
+          bool rowMajor>
 struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
-    static void permuteImpl(IntType* perms, Type* out, const Type* in, IdxType N,
-                     IdxType D, int nblks, IdxType a, IdxType b,
-                     cudaStream_t stream) {
-        permuteKernel<Type, IntType, IdxType, TPB, rowMajor>
-            <<<nblks, TPB, 0, stream>>>(perms, out, in, a, b, N, D);
-        CUDA_CHECK(cudaPeekAtLastError());
-    }
+  static void permuteImpl(IntType* perms, Type* out, const Type* in, IdxType N,
+                          IdxType D, int nblks, IdxType a, IdxType b,
+                          cudaStream_t stream) {
+    permuteKernel<Type, IntType, IdxType, TPB, rowMajor>
+      <<<nblks, TPB, 0, stream>>>(perms, out, in, a, b, N, D);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 };
 
 /**
@@ -133,23 +138,28 @@ struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
  * high quality permutation generator, it is recommended that you pick
  * Knuth Shuffle.
  */
-template <typename Type, typename IntType = int, typename IdxType = int, int TPB = 256>
+template <typename Type, typename IntType = int, typename IdxType = int,
+          int TPB = 256>
 void permute(IntType* perms, Type* out, const Type* in, IntType D, IntType N,
-             bool rowMajor, cudaStream_t stream = 0) {
-    auto nblks = ceildiv(N, TPB);
+             bool rowMajor, cudaStream_t stream) {
+  auto nblks = ceildiv(N, TPB);
 
-    // always keep 'a' to be coprime to N
-    IdxType a = rand() % N;
-    while(gcd(a, N) != 1)
-        a = (a + 1) % N;
-    IdxType b = rand() % N;
+  // always keep 'a' to be coprime to N
+  IdxType a = rand() % N;
+  while (gcd(a, N) != 1) a = (a + 1) % N;
+  IdxType b = rand() % N;
 
-    if(rowMajor) {
-        permute_impl_t<Type, IntType, IdxType, TPB, true, (16/sizeof(Type)>0)?16/sizeof(Type):1>::permuteImpl(perms, out, in, N, D, nblks, a, b, stream);
-    } else {
-        permute_impl_t<Type, IntType, IdxType, TPB, false, 1>::permuteImpl(perms, out, in, N, D, nblks, a, b, stream);
-    }
+  if (rowMajor) {
+    permute_impl_t<Type, IntType, IdxType, TPB, true,
+                   (16 / sizeof(Type) > 0) ? 16 / sizeof(Type)
+                                           : 1>::permuteImpl(perms, out, in, N,
+                                                             D, nblks, a, b,
+                                                             stream);
+  } else {
+    permute_impl_t<Type, IntType, IdxType, TPB, false, 1>::permuteImpl(
+      perms, out, in, N, D, nblks, a, b, stream);
+  }
 }
 
-}; // end namespace Random
-}; // end namespace MLCommon
+};  // end namespace Random
+};  // end namespace MLCommon

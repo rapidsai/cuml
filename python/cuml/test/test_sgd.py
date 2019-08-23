@@ -21,7 +21,7 @@ def stress_param(*args, **kwargs):
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
@@ -54,7 +54,7 @@ def test_svd(datatype, lrate, input_type, penalty,
         X_test = np.array([[3.0, 5.0], [2.0, 5.0]]).astype(datatype)
 
     cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
-                     fit_intercept=True, batch_size=2,
+                     fit_intercept=True, batch_size=4096,
                      tol=0.0, penalty=penalty, loss=loss)
 
     if input_type == 'dataframe':

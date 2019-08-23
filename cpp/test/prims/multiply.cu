@@ -15,17 +15,17 @@
  */
 
 #include <gtest/gtest.h>
-#include "test_utils.h"
 #include "linalg/multiply.h"
 #include "random/rng.h"
+#include "test_utils.h"
 #include "unary_op.h"
 
 namespace MLCommon {
 namespace LinAlg {
 
-template<typename T>
+template <typename T>
 class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -48,7 +48,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
 };
@@ -61,7 +61,7 @@ TEST_P(MultiplyTestF, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestF,
-                    ::testing::ValuesIn(inputsf));
+                        ::testing::ValuesIn(inputsf));
 
 typedef MultiplyTest<double> MultiplyTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
@@ -71,7 +71,7 @@ TEST_P(MultiplyTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestD,
-                    ::testing::ValuesIn(inputsd));
+                        ::testing::ValuesIn(inputsd));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

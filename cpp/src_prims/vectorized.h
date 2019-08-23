@@ -19,9 +19,7 @@
 #include <cuda_fp16.h>
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
-
 
 template <typename math_, int VecLen>
 struct IOType {};
@@ -198,7 +196,6 @@ struct IOType<double, 2> {
   typedef double2 Type;
 };
 
-
 // template <int Size> struct Cases {};
 
 // template <> struct Cases<1> {
@@ -213,7 +210,6 @@ struct IOType<double, 2> {
 // template <> struct Cases<8> {
 //     static const int arr[2] = {1, 2};
 // };
-
 
 /**
  * @struct TxN_t
@@ -319,7 +315,6 @@ struct TxN_t {
   /** @} */
 };
 
-
 /** this is just to keep the compiler happy! */
 template <typename math_>
 struct TxN_t<math_, 0> {
@@ -339,4 +334,4 @@ struct TxN_t<math_, 0> {
   DI void store(math_t *ptr, idx_t idx) {}
 };
 
-}; // namespace MLCommon
+};  // namespace MLCommon

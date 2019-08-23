@@ -25,8 +25,8 @@ namespace Stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
-__global__ void meanKernelRowMajor(Type *mu, const Type *data,
-                                   IdxType D, IdxType N) {
+__global__ void meanKernelRowMajor(Type *mu, const Type *data, IdxType D,
+                                   IdxType N) {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
   IdxType thisColId = threadIdx.x % ColsPerBlk;
   IdxType thisRowId = threadIdx.x / ColsPerBlk;
@@ -37,18 +37,16 @@ __global__ void meanKernelRowMajor(Type *mu, const Type *data,
   for (IdxType i = rowId; i < N; i += stride)
     thread_data += (colId < D) ? data[i * D + colId] : Type(0);
   __shared__ Type smu[ColsPerBlk];
-  if (threadIdx.x < ColsPerBlk)
-    smu[threadIdx.x] = Type(0);
+  if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
   __syncthreads();
   myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk)
-    myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>
-__global__ void meanKernelColMajor(Type *mu, const Type *data,
-                                   IdxType D, IdxType N) {
+__global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
+                                   IdxType N) {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type thread_data = Type(0);
@@ -90,16 +88,17 @@ void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
-    meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
-      mu, data, D, N);
+    meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+      <<<grid, TPB, 0, stream>>>(mu, data, D, N);
     CUDA_CHECK(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     LinAlg::scalarMultiply(mu, mu, ratio, D, stream);
   } else {
-    meanKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
+    meanKernelColMajor<Type, IdxType, TPB>
+      <<<D, TPB, 0, stream>>>(mu, data, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}; // end namespace Stats
-}; // end namespace MLCommon
+};  // end namespace Stats
+};  // end namespace MLCommon

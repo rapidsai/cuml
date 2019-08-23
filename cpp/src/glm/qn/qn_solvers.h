@@ -68,13 +68,12 @@ inline size_t owlqn_workspace_size(const LBFGSParam<T> &param, const int n) {
 
 template <typename T, typename Function>
 inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
-                             Function &f,     // function to minimize
-                             SimpleVec<T> &x, // initial point, holds result
-                             T &fx,           // output function value
-                             int *k,          // output iterations
-                             SimpleVec<T> &workspace, // scratch space
+                             Function &f,      // function to minimize
+                             SimpleVec<T> &x,  // initial point, holds result
+                             T &fx,            // output function value
+                             int *k,           // output iterations
+                             SimpleVec<T> &workspace,  // scratch space
                              cudaStream_t stream, int verbosity = 0) {
-
   int n = x.len;
   const int workspace_size = lbfgs_workspace_size(param, n);
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
@@ -97,7 +96,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   p_ws += vec_size;
   T *dev_scalar = p_ws;
 
-  SimpleVec<T> svec, yvec; // mask vectors
+  SimpleVec<T> svec, yvec;  // mask vectors
 
   std::vector<T> ys(param.m);
   std::vector<T> alpha(param.m);
@@ -114,8 +113,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
 
-  if (param.past > 0)
-    fx_hist[0] = fx;
+  if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
@@ -142,15 +140,14 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
     // Line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
-        ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
+      ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
 
     bool isLsSuccess = lsret == LS_SUCCESS;
     if (!isLsSuccess || isnan(fx) || isinf(fx)) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
-      if (!isLsSuccess)
-        return OPT_LS_FAILED;
+      if (!isLsSuccess) return OPT_LS_FAILED;
       return OPT_NUMERIC_ERROR;
     }
 
@@ -194,9 +191,8 @@ template <typename T, typename Function>
 inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
                              const T l1_penalty, const int pg_limit,
                              SimpleVec<T> &x, T &fx, int *k,
-                             SimpleVec<T> &workspace, // scratch space
+                             SimpleVec<T> &workspace,  // scratch space
                              cudaStream_t stream, const int verbosity = 0) {
-
   int n = x.len;
   const int workspace_size = owlqn_workspace_size(param, n);
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
@@ -223,7 +219,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   p_ws += vec_size;
   T *dev_scalar = p_ws;
 
-  SimpleVec<T> svec, yvec; // mask vectors
+  SimpleVec<T> svec, yvec;  // mask vectors
 
   std::vector<T> ys(param.m);
   std::vector<T> alpha(param.m);
@@ -231,9 +227,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, &pg_limit,
-                 &stream](SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
-                          cudaStream_t stream) {
+  auto f_wrap = [&f, &l1_penalty, &pg_limit, &stream](
+                  SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
+                  cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
@@ -248,7 +244,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
 
   fx = f_wrap(x, grad, dev_scalar,
-              stream); // fx is loss+regularizer, grad is grad of loss only
+              stream);  // fx is loss+regularizer, grad is grad of loss only
 
   // compute pseudo grad, but don't overwrite grad: used to build H
   // pseudo.assign_binary(x, grad, pseudo_grad);
@@ -257,8 +253,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(pseudo, dev_scalar, stream);
 
-  if (param.past > 0)
-    fx_hist[0] = fx;
+  if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
@@ -269,7 +264,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   }
 
   // Initial direction
-  drt.ax(-1.0, pseudo, stream); // using Pseudo gradient here
+  drt.ax(-1.0, pseudo, stream);  // using Pseudo gradient here
   // below should be done for consistency but seems unnecessary
   // drt.assign_k_ary(project, pseudo, x);
 
@@ -286,16 +281,15 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
     // Projected line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
-        ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt,
-                               xp, l1_penalty, dev_scalar, stream);
+      ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt, xp,
+                             l1_penalty, dev_scalar, stream);
 
     bool isLsSuccess = lsret == LS_SUCCESS;
     if (!isLsSuccess || isnan(fx) || isinf(fx)) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
-      if (!isLsSuccess)
-        return OPT_LS_FAILED;
+      if (!isLsSuccess) return OPT_LS_FAILED;
       return OPT_NUMERIC_ERROR;
     }
     // recompute pseudo
@@ -332,25 +326,22 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
                        int *num_iters, LossFunction &loss, const T l1,
                        const LBFGSParam<T> &opt_param, cudaStream_t stream,
                        const int verbosity = 0) {
-
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-
     MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
                                    lbfgs_workspace_size(opt_param, x.len));
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_lbfgs(opt_param,
-                    loss,      // function to minimize
-                    x,         // initial point, holds result
-                    *fx,       // output function value
-                    num_iters, // output iterations
-                    workspace, // scratch space
+                    loss,       // function to minimize
+                    x,          // initial point, holds result
+                    *fx,        // output function value
+                    num_iters,  // output iterations
+                    workspace,  // scratch space
                     stream, verbosity);
 
-    if (verbosity > 0)
-      printf("L-BFGS Done\n");
+    if (verbosity > 0) printf("L-BFGS Done\n");
   } else {
     // There might not be a better way to deal with dispatching
     // for the l1 case:
@@ -364,19 +355,18 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_owlqn(opt_param,
-                    loss, // function to minimize
+                    loss,  // function to minimize
                     l1, loss.D * loss.C,
-                    x,         // initial point, holds result
-                    *fx,       // output function value
-                    num_iters, // output iterations
-                    workspace, // scratch space
+                    x,          // initial point, holds result
+                    *fx,        // output function value
+                    num_iters,  // output iterations
+                    workspace,  // scratch space
                     stream, verbosity);
 
-    if (verbosity > 0)
-      printf("OWL-QN Done\n");
+    if (verbosity > 0) printf("OWL-QN Done\n");
   }
   return ret;
 }
 
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML

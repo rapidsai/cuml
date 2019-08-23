@@ -31,8 +31,8 @@ class ElasticNet:
     some coefficients to be smaell, and improves the conditioning of the
     problem.
 
-    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit
-    a linear model.
+    cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
+    descent to fit a linear model.
 
     Examples
     ---------
@@ -174,17 +174,26 @@ class ElasticNet:
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert y to be the same data type as X if they differ. This
+            will increase memory used for the method.
 
         """
 
@@ -196,21 +205,28 @@ class ElasticNet:
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
                                max_iter=self.max_iter)
-        self.cuElasticNet.fit(X, y)
+        self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.cuElasticNet.coef_
         self.intercept_ = self.cuElasticNet.intercept_
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
 
         Returns
         ----------

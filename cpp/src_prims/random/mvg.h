@@ -31,9 +31,9 @@ namespace MLCommon {
 namespace Random {
 
 enum Filler : unsigned char {
-  LOWER, // = 0
-  UPPER  // = 1
-};       // used in memseting upper/lower matrix
+  LOWER,  // = 0
+  UPPER   // = 1
+};        // used in memseting upper/lower matrix
 
 /**
  * @brief Reset values within the epsilon absolute range to zero
@@ -44,10 +44,12 @@ enum Filler : unsigned char {
  */
 template <typename T>
 void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
-  LinAlg::unaryOp(eig, eig, size, [epsilon] __device__(T in) {
-    return (in < epsilon && in > -epsilon) ? T(0.0) : in;
-  },
-  stream);
+  LinAlg::unaryOp(
+    eig, eig, size,
+    [epsilon] __device__(T in) {
+      return (in < epsilon && in > -epsilon) ? T(0.0) : in;
+    },
+    stream);
 }
 
 /**
@@ -77,11 +79,11 @@ __global__ void combined_dot_product(int rows, int cols, const T *W, T *matrix,
     if (W[Wi] >= 0.0)
       matrix[m_i] = pow(W[Wi], 0.5) * (matrix[m_i]);
     else
-      check[0] = Wi; // reports Wi'th eigen values is negative.
+      check[0] = Wi;  // reports Wi'th eigen values is negative.
   }
 }
 
-template <typename T> // if uplo = 0, lower part of dim x dim matrix set to
+template <typename T>  // if uplo = 0, lower part of dim x dim matrix set to
 // value
 __global__ void fill_uplo(int dim, Filler uplo, T value, T *A) {
   int j = threadIdx.x + blockDim.x * blockIdx.x;
@@ -89,22 +91,19 @@ __global__ void fill_uplo(int dim, Filler uplo, T value, T *A) {
   if (i < dim && j < dim) {
     // making off-diagonals == value
     if (i < j) {
-      if (uplo == 1)
-        A[IDX2C(i, j, dim)] = value;
+      if (uplo == 1) A[IDX2C(i, j, dim)] = value;
     } else if (i > j) {
-      if (uplo == 0)
-        A[IDX2C(i, j, dim)] = value;
+      if (uplo == 0) A[IDX2C(i, j, dim)] = value;
     }
   }
 }
 
-
 template <typename T>
 class MultiVarGaussian {
-public:
+ public:
   enum Decomposer : unsigned char { chol_decomp, jacobi, qr };
 
-private:
+ private:
   // adjustable stuff
   const int dim;
   const int nPoints = 1;
@@ -137,28 +136,28 @@ private:
     return offset;
   }
 
-public: // functions
+ public:  // functions
   MultiVarGaussian() = delete;
   MultiVarGaussian(const int dim, Decomposer method)
     : dim(dim), method(method) {}
 
   size_t init(cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-                cudaStream_t stream) {
+              cudaStream_t stream) {
     cublasHandle = cublasH;
     cusolverHandle = cusolverH;
     cudaStream = stream;
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
-    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28)); // SEED
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
     if (method == chol_decomp) {
       CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo,
                                                         dim, P, dim, &Lwork));
-    } else if (method == jacobi) { // jacobi init
+    } else if (method == jacobi) {  // jacobi init
       CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
       CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
       CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevj_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork, syevj_params));
-    } else { // method == qr
+    } else {  // method == qr
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevd_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork));
     }
@@ -175,12 +174,14 @@ public: // functions
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
       CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(cusolverHandle, uplo, dim, P, dim,
-                                             workspace_decomp, Lwork, info, cudaStream));
+                                             workspace_decomp, Lwork, info,
+                                             cudaStream));
     } else if (method == jacobi) {
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevj(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
-        info, syevj_params, cudaStream)); // vectors stored as cols. & col major
-    } else {                  // qr
+        info, syevj_params,
+        cudaStream));  // vectors stored as cols. & col major
+    } else {           // qr
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevd(cusolverHandle, jobz, uplo, dim, P,
                                              dim, eig, workspace_decomp, Lwork,
                                              info, cudaStream));
@@ -211,7 +212,8 @@ public: // functions
       dim3 grid(ceildiv(dim, (int)block.x));
       CUDA_CHECK(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
       grid.x = ceildiv(dim * dim, (int)block.x);
-      combined_dot_product<T><<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
+      combined_dot_product<T>
+        <<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
@@ -226,20 +228,18 @@ public: // functions
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped
-    if (x != NULL)
-      matVecAdd(X, X, x, T(1.0), nPoints, dim, cudaStream);
+    if (x != NULL) matVecAdd(X, X, x, T(1.0), nPoints, dim, cudaStream);
   }
 
   void deinit() {
-    if (deinitilized)
-      return;
+    if (deinitilized) return;
     CURAND_CHECK(curandDestroyGenerator(gen));
     CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
     deinitilized = true;
   }
 
   ~MultiVarGaussian() { deinit(); }
-}; // end of MultiVarGaussian
+};  // end of MultiVarGaussian
 
-}; // end of namespace Random
-}; // end of namespace MLCommon
+};  // end of namespace Random
+};  // end of namespace MLCommon

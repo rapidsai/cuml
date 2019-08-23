@@ -19,7 +19,6 @@
 #include "binary_op.h"
 #include "unary_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -36,9 +35,9 @@ namespace LinAlg {
 template <typename math_t, typename IdxType = int>
 void addScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
                cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [scalar] __device__(math_t in) { return in + scalar; },
-          stream);
+  unaryOp(
+    out, in, len, [scalar] __device__(math_t in) { return in + scalar; },
+    stream);
 }
 
 /**
@@ -54,18 +53,19 @@ void addScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
 template <typename math_t, typename IdxType = int>
 void add(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
          cudaStream_t stream) {
-  binaryOp(out, in1, in2, len,
-           [] __device__(math_t a, math_t b) { return a + b; }, stream);
+  binaryOp(
+    out, in1, in2, len, [] __device__(math_t a, math_t b) { return a + b; },
+    stream);
 }
 
-
-template<class math_t, typename IdxType>
-__global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev,
-                                      const math_t *singleScalarDev, IdxType len) {
-    IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-    if (i < len) {
-        outDev[i] = inDev[i] + *singleScalarDev;
-    }
+template <class math_t, typename IdxType>
+__global__ void add_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
+                                      const math_t *singleScalarDev,
+                                      IdxType len) {
+  IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
+  if (i < len) {
+    outDev[i] = inDev[i] + *singleScalarDev;
+  }
 }
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
@@ -78,15 +78,16 @@ __global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev,
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev,
-                  IdxType len, cudaStream_t stream)
-{
-    // TODO: block dimension has not been tuned
-    dim3 block (256);
-    dim3 grid(ceildiv(len, (IdxType)block.x));
-    add_dev_scalar_kernel<math_t> <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-    CUDA_CHECK(cudaPeekAtLastError());
+void addDevScalar(math_t *outDev, const math_t *inDev,
+                  const math_t *singleScalarDev, IdxType len,
+                  cudaStream_t stream) {
+  // TODO: block dimension has not been tuned
+  dim3 block(256);
+  dim3 grid(ceildiv(len, (IdxType)block.x));
+  add_dev_scalar_kernel<math_t>
+    <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

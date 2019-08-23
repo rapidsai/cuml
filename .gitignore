@@ -1,6 +1,9 @@
 ## common
 __pycache__
 *.pyc
+*~
+\#*
+.#*
 *.o
 *.so
 *.dylib
@@ -11,13 +14,14 @@ __pycache__
 *.pytest_cache
 htmlcov
 build/
+build_prims/
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
 log
 .ipynb_checkpoints
 .DS_Store
-
+dask-worker-space/
 ## eclipse
 .project
 .cproject

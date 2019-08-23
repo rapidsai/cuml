@@ -18,17 +18,17 @@
 
 namespace MLCommon {
 
-    namespace Sparse {
+namespace Sparse {
 
-        template <typename T>
-        struct CSRInputs {
-          int m, n, nnz;
-          unsigned long long int seed;
-        };
+template <typename T>
+struct CSRInputs {
+  int m, n, nnz;
+  unsigned long long int seed;
+};
 
-        template <typename T>
-        ::std::ostream &operator<<(::std::ostream &os, const CSRInputs<T> &dims) {
-          return os;
-        }
-    }
+template <typename T>
+::std::ostream &operator<<(::std::ostream &os, const CSRInputs<T> &dims) {
+  return os;
 }
+}  // namespace Sparse
+}  // namespace MLCommon

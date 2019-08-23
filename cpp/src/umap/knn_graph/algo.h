@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "umap/umapparams.h"
-#include "knn/knn.h"
-#include "linalg/unary_op.h"
-#include <iostream>
 #include <cuda_utils.h>
+#include <iostream>
+#include "linalg/unary_op.h"
+#include "selection/knn.h"
+#include "umap/umapparams.h"
 
 #pragma once
 
@@ -26,41 +26,40 @@ namespace UMAPAlgo {
 
 namespace kNNGraph {
 
-	namespace Algo {
+namespace Algo {
 
-		using namespace ML;
+using namespace ML;
 
-		/**
+/**
 		 * Initial implementation calls out to FAISS to do its work.
 		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
-		template<typename T>
-		void launcher(
-		              float *X, int x_n, int d,
-					  long *knn_indices, T *knn_dists,
-					  kNN *knn,
-					  int n_neighbors,
-					  UMAPParams *params, cudaStream_t stream) {
 
-		    kNNParams *p = new kNNParams[1];
-			p[0].ptr = X;
-			p[0].N = x_n;
+/**
+ * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
+                     float *search_items, IntType n, long *res_I, float *res_D,
+                     IntType k, cudaStream_t s)
+ */
+template <typename T>
+void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
+              long *knn_indices, T *knn_dists, int n_neighbors,
+              UMAPParams *params, cudaStream_t stream) {
+  float **p = new float *[1];
+  int *sizes = new int[1];
+  p[0] = X;
+  sizes[0] = x_n;
 
-			knn->fit(p, 1);
-			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+  MLCommon::Selection::brute_force_knn(p, sizes, 1, d, X_query, x_q_n,
+                                       knn_indices, knn_dists, n_neighbors,
+                                       stream);
 
-			CUDA_CHECK(cudaDeviceSynchronize());
+  MLCommon::LinAlg::unaryOp<T>(
+    knn_dists, knn_dists, x_n * n_neighbors,
+    [] __device__(T input) { return sqrt(input); }, stream);
 
-            auto adjust_vals_op = [] __device__(T input) {
-                return sqrt(input);
-            };
-
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*n_neighbors,
-                                          adjust_vals_op, stream);
-
-			delete p;
-		}
-	}
+  delete p;
+  delete sizes;
 }
-};
-
+}  // namespace Algo
+}  // namespace kNNGraph
+};  // namespace UMAPAlgo

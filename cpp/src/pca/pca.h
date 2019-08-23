@@ -16,46 +16,47 @@
 
 #pragma once
 
-#include <linalg/eltwise.h>
-#include <linalg/eig.h>
+#include <cuda_utils.h>
 #include <linalg/cublas_wrappers.h>
+#include <linalg/eig.h>
+#include <linalg/eltwise.h>
 #include <linalg/transpose.h>
+#include <matrix/math.h>
+#include <matrix/matrix.h>
 #include <stats/cov.h>
 #include <stats/mean.h>
 #include <stats/mean_center.h>
-#include <cuda_utils.h>
-#include <matrix/matrix.h>
-#include <matrix/math.h>
-#include "ml_utils.h"
-#include "tsvd/tsvd.h"
-#include "cuML.hpp"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-
+#include "cuML.hpp"
+#include "ml_utils.h"
+#include "tsvd/tsvd.h"
 
 namespace ML {
 
 using namespace MLCommon;
 
-template<typename math_t>
-void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *components,
-                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms,
+template <typename math_t>
+void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
+                      math_t *components, math_t *explained_var,
+                      math_t *explained_var_ratio, paramsTSVD prms,
                       cudaStream_t stream) {
-    int len = prms.n_cols * prms.n_cols;
-    auto allocator = handle.getDeviceAllocator();
-    device_buffer<math_t> components_all(allocator, stream, len);
-    device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
-    device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
+  int len = prms.n_cols * prms.n_cols;
+  auto allocator = handle.getDeviceAllocator();
+  device_buffer<math_t> components_all(allocator, stream, len);
+  device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
+  device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-    calEig(handle, in, components_all.data(), explained_var_all.data(), prms, stream);
-    Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                            prms.n_components, prms.n_cols, stream);
-    Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
-                  prms.n_cols, allocator, stream);
-    Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
-                            explained_var, prms.n_components, 1, stream);
-    Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                            explained_var_ratio, prms.n_components, 1, stream);
+  calEig(handle, in, components_all.data(), explained_var_all.data(), prms,
+         stream);
+  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                          prms.n_components, prms.n_cols, stream);
+  Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
+                prms.n_cols, allocator, stream);
+  Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols, explained_var,
+                          prms.n_components, 1, stream);
+  Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
+                          explained_var_ratio, prms.n_components, 1, stream);
 }
 
 /**
@@ -71,36 +72,39 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *compone
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
  * @input param stream cuda stream
  */
-template<typename math_t>
-void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *explained_var,
-            math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
-            math_t *noise_vars, paramsPCA prms, cudaStream_t stream) {
-    auto cublas_handle = handle.getCublasHandle();
+template <typename math_t>
+void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
+            math_t *explained_var, math_t *explained_var_ratio,
+            math_t *singular_vals, math_t *mu, math_t *noise_vars,
+            paramsPCA prms, cudaStream_t stream) {
+  auto cublas_handle = handle.getCublasHandle();
 
-	ASSERT(prms.n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(prms.n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
-	ASSERT(prms.n_components > 0,
-			"Parameter n_components: number of components cannot be less than one");
+  ASSERT(prms.n_cols > 1,
+         "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(prms.n_rows > 1,
+         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(
+    prms.n_components > 0,
+    "Parameter n_components: number of components cannot be less than one");
 
-	if (prms.n_components > prms.n_cols)
-		prms.n_components = prms.n_cols;
+  if (prms.n_components > prms.n_cols) prms.n_components = prms.n_cols;
 
-	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
+  Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-	int len = prms.n_cols * prms.n_cols;
-        device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
+  int len = prms.n_cols * prms.n_cols;
+  device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
 
-	Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
-                   cublas_handle, stream);
-	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms,
-                         stream);
+  Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
+             cublas_handle, stream);
+  truncCompExpVars(handle, cov.data(), components, explained_var,
+                   explained_var_ratio, prms, stream);
 
-	math_t scalar = (prms.n_rows - 1);
-	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, stream, true);
+  math_t scalar = (prms.n_rows - 1);
+  Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
+                  stream, true);
 
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                 stream);
 }
 
 /**
@@ -117,28 +121,30 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
  * @input param stream cuda stream
  */
-template<typename math_t>
-void pcaFitTransform(const cumlHandle_impl& handle, math_t *input, math_t *trans_input, math_t *components,
+template <typename math_t>
+void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
+                     math_t *trans_input, math_t *components,
                      math_t *explained_var, math_t *explained_var_ratio,
-                     math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
-                     cudaStream_t stream) {
-    pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
-           mu, noise_vars, prms, stream);
-    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-    signFlip(trans_input, prms.n_rows, prms.n_components, components,
-             prms.n_cols, handle.getDeviceAllocator(), stream);
+                     math_t *singular_vals, math_t *mu, math_t *noise_vars,
+                     paramsPCA prms, cudaStream_t stream) {
+  pcaFit(handle, input, components, explained_var, explained_var_ratio,
+         singular_vals, mu, noise_vars, prms, stream);
+  pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
+               stream);
+  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
+           handle.getDeviceAllocator(), stream);
 }
 
 // TODO: implement pcaGetCovariance function
-template<typename math_t>
+template <typename math_t>
 void pcaGetCovariance() {
-	ASSERT(false, "pcaGetCovariance: will be implemented!");
+  ASSERT(false, "pcaGetCovariance: will be implemented!");
 }
 
 // TODO: implement pcaGetPrecision function
-template<typename math_t>
+template <typename math_t>
 void pcaGetPrecision() {
-	ASSERT(false, "pcaGetPrecision: will be implemented!");
+  ASSERT(false, "pcaGetPrecision: will be implemented!");
 }
 
 /**
@@ -152,47 +158,51 @@ void pcaGetPrecision() {
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
  * @input param stream cuda stream
  */
-template<typename math_t>
-void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
-                         math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms,
-                         cudaStream_t stream) {
-	ASSERT(prms.n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(prms.n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
-	ASSERT(prms.n_components > 0,
-			"Parameter n_components: number of components cannot be less than one");
+template <typename math_t>
+void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
+                         math_t *components, math_t *singular_vals, math_t *mu,
+                         math_t *input, paramsPCA prms, cudaStream_t stream) {
+  ASSERT(prms.n_cols > 1,
+         "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(prms.n_rows > 1,
+         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(
+    prms.n_components > 0,
+    "Parameter n_components: number of components cannot be less than one");
 
-	if (prms.whiten) {
-		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components, stream);
-		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                                       prms.n_rows, prms.n_components, true, true, stream);
-	}
+  if (prms.whiten) {
+    math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
+    LinAlg::scalarMultiply(components, components, scalar,
+                           prms.n_rows * prms.n_components, stream);
+    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                           prms.n_rows, prms.n_components, true,
+                                           true, stream);
+  }
 
-	tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
+  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                 stream);
 
-	if (prms.whiten) {
-		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true, stream);
-		math_t scalar = math_t(sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components, stream);
-	}
+  if (prms.whiten) {
+    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                          prms.n_rows, prms.n_components, true,
+                                          true, stream);
+    math_t scalar = math_t(sqrt(prms.n_rows - 1));
+    LinAlg::scalarMultiply(components, components, scalar,
+                           prms.n_rows * prms.n_components, stream);
+  }
 }
 
 // TODO: implement pcaScore function
-template<typename math_t>
+template <typename math_t>
 void pcaScore() {
-	ASSERT(false, "pcaScore: will be implemented!");
+  ASSERT(false, "pcaScore: will be implemented!");
 }
 
 // TODO: implement pcaScoreSamples function
-template<typename math_t>
+template <typename math_t>
 void pcaScoreSamples() {
-	ASSERT(false, "pcaScoreSamples: will be implemented!");
+  ASSERT(false, "pcaScoreSamples: will be implemented!");
 }
 
 /**
@@ -205,35 +215,42 @@ void pcaScoreSamples() {
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
  * @input param stream cuda stream
  */
-template<typename math_t>
-void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
-                  math_t *singular_vals, math_t *mu, paramsPCA prms, cudaStream_t stream) {
-	ASSERT(prms.n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(prms.n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
-	ASSERT(prms.n_components > 0,
-			"Parameter n_components: number of components cannot be less than one");
+template <typename math_t>
+void pcaTransform(const cumlHandle_impl &handle, math_t *input,
+                  math_t *components, math_t *trans_input,
+                  math_t *singular_vals, math_t *mu, paramsPCA prms,
+                  cudaStream_t stream) {
+  ASSERT(prms.n_cols > 1,
+         "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(prms.n_rows > 1,
+         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(
+    prms.n_components > 0,
+    "Parameter n_components: number of components cannot be less than one");
 
-	if (prms.whiten) {
-		math_t scalar = math_t(sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components, stream);
-		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true, stream);
-	}
+  if (prms.whiten) {
+    math_t scalar = math_t(sqrt(prms.n_rows - 1));
+    LinAlg::scalarMultiply(components, components, scalar,
+                           prms.n_rows * prms.n_components, stream);
+    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                          prms.n_rows, prms.n_components, true,
+                                          true, stream);
+  }
 
-	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-	tsvdTransform(handle, input, components, trans_input, prms, stream);
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+  Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                    stream);
+  tsvdTransform(handle, input, components, trans_input, prms, stream);
+  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                 stream);
 
-	if (prms.whiten) {
-		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                                       prms.n_rows, prms.n_components, true, true, stream);
-		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components, stream);
-	}
+  if (prms.whiten) {
+    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                           prms.n_rows, prms.n_components, true,
+                                           true, stream);
+    math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
+    LinAlg::scalarMultiply(components, components, scalar,
+                           prms.n_rows * prms.n_components, stream);
+  }
 }
 
-}; // end namespace ML
+};  // end namespace ML

@@ -1,13 +1,13 @@
-#include "test_utils.h"
-#include "utils.h"
-#include <glm/glm.hpp>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
+#include <glm/glm.hpp>
 #include <vector>
+#include "test_utils.h"
+#include "utils.h"
 
 namespace ML {
 namespace GLM {
@@ -36,7 +36,7 @@ struct QuasiNewtonTest : ::testing::Test {
     updateDevice(Xdev->data, &X[0][0], Xdev->len, stream);
 
     ydev.reset(
-        new SimpleVecOwning<double>(handle.getDeviceAllocator(), N, stream));
+      new SimpleVecOwning<double>(handle.getDeviceAllocator(), N, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     allocator = handle.getDeviceAllocator();
@@ -47,22 +47,23 @@ struct QuasiNewtonTest : ::testing::Test {
 const double *QuasiNewtonTest::nobptr = 0;
 const double QuasiNewtonTest::tol = 5e-6;
 const double QuasiNewtonTest::X[QuasiNewtonTest::N][QuasiNewtonTest::D] = {
-    {-0.2047076594847130, 0.4789433380575482},
-    {-0.5194387150567381, -0.5557303043474900},
-    {1.9657805725027142, 1.3934058329729904},
-    {0.0929078767437177, 0.2817461528302025},
-    {0.7690225676118387, 1.2464347363862822},
-    {1.0071893575830049, -1.2962211091122635},
-    {0.2749916334321240, 0.2289128789353159},
-    {1.3529168351654497, 0.8864293405915888},
-    {-2.0016373096603974, -0.3718425371402544},
-    {1.6690253095248706, -0.4385697358355719}};
+  {-0.2047076594847130, 0.4789433380575482},
+  {-0.5194387150567381, -0.5557303043474900},
+  {1.9657805725027142, 1.3934058329729904},
+  {0.0929078767437177, 0.2817461528302025},
+  {0.7690225676118387, 1.2464347363862822},
+  {1.0071893575830049, -1.2962211091122635},
+  {0.2749916334321240, 0.2289128789353159},
+  {1.3529168351654497, 0.8864293405915888},
+  {-2.0016373096603974, -0.3718425371402544},
+  {1.6690253095248706, -0.4385697358355719}};
 
 template <typename T, class Comp>
-::testing::AssertionResult
-checkParamsEqual(const cumlHandle_impl &handle, const T *host_weights,
-                 const T *host_bias, const T *w, const GLMDims &dims,
-                 Comp &comp, cudaStream_t stream) {
+::testing::AssertionResult checkParamsEqual(const cumlHandle_impl &handle,
+                                            const T *host_weights,
+                                            const T *host_bias, const T *w,
+                                            const GLMDims &dims, Comp &comp,
+                                            cudaStream_t stream) {
   int C = dims.C;
   int D = dims.D;
   bool fit_intercept = dims.fit_intercept;
@@ -86,7 +87,6 @@ template <typename T, class LossFunction>
 T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
       const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
       cudaStream_t stream) {
-
   int max_iter = 100;
   T grad_tol = 1e-16;
   int linesearch_max_iter = 50;
@@ -108,7 +108,6 @@ T run_api(const cumlHandle &cuml_handle, int loss_type, int C,
           bool fit_intercept, const SimpleMat<T> &X, const SimpleVec<T> &y,
           T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
           cudaStream_t stream) {
-
   int max_iter = 100;
   T grad_tol = 1e-8;
   int linesearch_max_iter = 50;
@@ -372,7 +371,6 @@ TEST_F(QuasiNewtonTest, predict) {
   for (int it = 0; it < N; it++) {
     ASSERT_TRUE(compApprox(X[it][0], preds_host[it]));
   }
-
 }
 
 TEST_F(QuasiNewtonTest, predict_softmax) {
@@ -404,5 +402,5 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
   }
 }
 
-} // namespace GLM
-} // end namespace ML
+}  // namespace GLM
+}  // end namespace ML

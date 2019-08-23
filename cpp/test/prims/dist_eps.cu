@@ -21,78 +21,70 @@
 #include <cuda_utils.h>
 #include "test_utils.h"
 
-#include <vector>
 #include <iostream>
-
+#include <vector>
 
 namespace MLCommon {
 namespace Distance {
 
-
-class EpsilonNeighborhoodTest: public ::testing::Test {
-
-protected:
-    void SetUp() override {}
-    void TearDown() override {}
+class EpsilonNeighborhoodTest : public ::testing::Test {
+ protected:
+  void SetUp() override {}
+  void TearDown() override {}
 };
-
 
 typedef EpsilonNeighborhoodTest TestNeighborhoodsNoFunctor;
 TEST_F(TestNeighborhoodsNoFunctor, Result) {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
-    cudaStream_t stream;
-    CUDA_CHECK( cudaStreamCreate(&stream) );
+  int m = 6;
+  int k = 2;
 
-    int m = 6;
-    int k = 2;
+  float *data;
+  bool *adj, *expected;
 
-    float *data;
-    bool *adj, *expected;
+  allocate(data, m * k, true);
+  allocate(adj, m * m, true);
+  allocate(expected, m * m, true);
 
-    allocate(data, m*k, true);
-    allocate(adj, m*m, true);
-    allocate(expected, m*m, true);
+  std::vector<float> data_h = {1.0, 2.0, 2.0, 2.0, 2.0,  3.0,
+                               8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
+  data_h.resize(m * k);
 
-    std::vector<float> data_h = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
-    data_h.resize(m*k);
+  bool *expected_h =
+    new bool[m * m]{1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+                    0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1};
 
-    bool *expected_h = new bool[m*m]{
-            1,    1,    1,    0,    0,    0,
-            1,    1,    1,    0,    0,    0,
-            1,    1,    1,    0,    0,    0,
-            0,    0,    0,    1,    1,    0,
-            0,    0,    0,    1,    1,    0,
-            0,    0,    0,    0,    0,    1
-    };
+  updateDevice(data, data_h.data(), m * k, stream);
+  updateDevice(expected, expected_h, m * m, stream);
 
-    updateDevice(data, data_h.data(), m*k, stream);
-    updateDevice(expected, expected_h, m*m, stream);
+  float eps = 3.0;
 
-    float eps = 3.0;
+  char *workspace;
+  size_t workspaceSize = 0;
 
-    char* workspace;
-    size_t workspaceSize = 0;
+  constexpr auto distance_type =
+    MLCommon::Distance::DistanceType::EucExpandedL2Sqrt;
 
-    constexpr auto distance_type = MLCommon::Distance::DistanceType::EucExpandedL2Sqrt;
+  workspaceSize =
+    MLCommon::Distance::getWorkspaceSize<distance_type, float, float, bool>(
+      data, data, m, m, k);
 
-    workspaceSize =  MLCommon::Distance::getWorkspaceSize
-            <distance_type, float, float, bool>(data, data, m, m, k);
+  if (workspaceSize != 0) allocate(workspace, workspaceSize, true);
 
-    if (workspaceSize != 0)
-        allocate(workspace, workspaceSize, true);
+  epsilon_neighborhood<distance_type, float>(
+    data, data, adj, m, m, k, eps, (void *)workspace, workspaceSize, stream);
 
-    epsilon_neighborhood<distance_type, float>
-        (data, data, adj, m, m, k, eps, (void*)workspace, workspaceSize, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
+  ASSERT_TRUE(devArrMatch(adj, expected, m * m, Compare<bool>(), stream));
 
-    ASSERT_TRUE(devArrMatch(adj, expected, m*m, Compare<bool>(), stream));
+  CUDA_CHECK(cudaStreamDestroy(stream));
+  CUDA_CHECK(cudaFree(data));
+  CUDA_CHECK(cudaFree(adj));
 
-    CUDA_CHECK( cudaStreamDestroy(stream) );
-    CUDA_CHECK( cudaFree(data) );
-    CUDA_CHECK( cudaFree(adj) );
-
-    delete expected_h;
+  delete expected_h;
 }
-};
-};
+};  // namespace Distance
+};  // namespace MLCommon

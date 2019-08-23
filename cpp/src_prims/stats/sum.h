@@ -20,14 +20,13 @@
 #include "cuda_utils.h"
 #include "linalg/eltwise.h"
 
-
 namespace MLCommon {
 namespace Stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
-__global__ void sumKernelRowMajor(Type *mu, const Type *data,
-                                  IdxType D, IdxType N) {
+__global__ void sumKernelRowMajor(Type *mu, const Type *data, IdxType D,
+                                  IdxType N) {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
   IdxType thisColId = threadIdx.x % ColsPerBlk;
   IdxType thisRowId = threadIdx.x / ColsPerBlk;
@@ -38,18 +37,16 @@ __global__ void sumKernelRowMajor(Type *mu, const Type *data,
   for (IdxType i = rowId; i < N; i += stride)
     thread_data += (colId < D) ? data[i * D + colId] : Type(0);
   __shared__ Type smu[ColsPerBlk];
-  if (threadIdx.x < ColsPerBlk)
-    smu[threadIdx.x] = Type(0);
+  if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
   __syncthreads();
   myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk)
-    myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>
-__global__ void sumKernelColMajor(Type *mu, const Type *data,
-                                  IdxType D, IdxType N) {
+__global__ void sumKernelColMajor(Type *mu, const Type *data, IdxType D,
+                                  IdxType N) {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type thread_data = Type(0);
@@ -88,13 +85,14 @@ void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
-    sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
-      output, input, D, N);
+    sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+      <<<grid, TPB, 0, stream>>>(output, input, D, N);
   } else {
-    sumKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(output, input, D, N);
+    sumKernelColMajor<Type, IdxType, TPB>
+      <<<D, TPB, 0, stream>>>(output, input, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}; // end namespace Stats
-}; // end namespace MLCommon
+};  // end namespace Stats
+};  // end namespace MLCommon

@@ -37,7 +37,7 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
@@ -86,7 +86,7 @@ def test_tsvd_fit(datatype, input_type,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
@@ -130,7 +130,7 @@ def test_tsvd_fit_transform(datatype, input_type,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])

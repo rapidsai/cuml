@@ -20,7 +20,6 @@
 #include "test_utils.h"
 #include "unary_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -28,15 +27,15 @@ namespace LinAlg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType = int>
-void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [scalar] __device__(T in) { return in * scalar; },
-          stream);
+void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len,
+                   cudaStream_t stream) {
+  unaryOp(
+    out, in, len, [scalar] __device__(T in) { return in * scalar; }, stream);
 }
 
 template <typename T, typename IdxType>
 class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<T, IdxType>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<UnaryOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
@@ -61,7 +60,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   UnaryOpInputs<T, IdxType> params;
   T *in, *out_ref, *out;
 };
@@ -106,5 +105,5 @@ TEST_P(UnaryOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

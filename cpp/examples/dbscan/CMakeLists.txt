@@ -17,4 +17,5 @@
 include_directories(${CUDA_INCLUDE_DIRS})
 
 add_executable(dbscan_example dbscan_example.cpp)
+add_dependencies(dbscan_example ${ClangFormat_TARGET})
 target_link_libraries(dbscan_example cuml++)

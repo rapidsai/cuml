@@ -30,8 +30,8 @@ class Lasso:
     predictors in X. It can zero some of the coefficients for feature
     selection, and improves the conditioning of the problem.
 
-    cuML's Lasso expects a cuDF DataFrame or NumPy matrix, and uses coordinate
-    descent to fit a linear model.
+    cuML's Lasso an array-like object or cuDF DataFrame, and
+    uses coordinate descent to fit a linear model.
 
     Examples
     ---------
@@ -159,17 +159,26 @@ class Lasso:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert y to be the same data type as X if they differ. This
+            will increase memory used for the method.
 
         """
 
@@ -181,21 +190,23 @@ class Lasso:
                           normalize=self.normalize, alpha=self.alpha,
                           l1_ratio=1.0, shuffle=shuffle,
                           max_iter=self.max_iter)
-        self.culasso.fit(X, y)
+        self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.culasso.coef_
         self.intercept_ = self.culasso.intercept_
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
@@ -204,7 +215,7 @@ class Lasso:
 
         """
 
-        return self.culasso.predict(X)
+        return self.culasso.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

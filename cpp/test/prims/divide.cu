@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include "test_utils.h"
 #include "linalg/divide.h"
 #include "random/rng.h"
+#include "test_utils.h"
 #include "unary_op.h"
 
 namespace MLCommon {
@@ -33,16 +33,17 @@ __global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveDivide(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
+void naiveDivide(Type *out, const Type *in, Type scalar, int len,
+                 cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveDivideKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template<typename T>
+template <typename T>
 class DivideTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -65,7 +66,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
 };
@@ -77,8 +78,7 @@ TEST_P(DivideTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestF,
-                    ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestF, ::testing::ValuesIn(inputsf));
 
 typedef DivideTest<double> DivideTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
@@ -87,8 +87,7 @@ TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestD,
-                    ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestD, ::testing::ValuesIn(inputsd));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

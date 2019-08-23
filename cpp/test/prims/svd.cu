@@ -21,10 +21,8 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
-
 
 template <typename T>
 struct SvdInputs {
@@ -42,7 +40,7 @@ template <typename T>
 
 template <typename T>
 class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
@@ -82,8 +80,10 @@ protected:
     allocate(right_eig_vectors_ref, right_evl);
     allocate(sing_vals_ref, params.n_col);
 
-    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl, stream);
-    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl, stream);
+    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
+                 stream);
+    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl,
+                 stream);
     updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
 
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
@@ -104,7 +104,7 @@ protected:
     CUBLAS_CHECK(cublasDestroy(cublasH));
   }
 
-protected:
+ protected:
   SvdInputs<T> params;
   T *data, *left_eig_vectors_qr, *right_eig_vectors_trans_qr, *sing_vals_qr,
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
@@ -145,7 +145,6 @@ TEST_P(SvdTestLeftVecD, Result) {
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
-
 typedef SvdTest<float> SvdTestRightVecF;
 TEST_P(SvdTestRightVecF, Result) {
   ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
@@ -159,7 +158,6 @@ TEST_P(SvdTestRightVecD, Result) {
                           params.n_col * params.n_col,
                           CompareApproxAbs<double>(params.tolerance)));
 }
-
 
 INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestValF, ::testing::ValuesIn(inputsf2));
 
@@ -177,6 +175,5 @@ INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestLeftVecD,
 // INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestRightVecD,
 //::testing::ValuesIn(inputsd2));
 
-
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

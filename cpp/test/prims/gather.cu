@@ -14,62 +14,40 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <cuda_utils.h>
-#include <random/rng.h>
+#include <gtest/gtest.h>
 #include <matrix/gather.h>
+#include <random/rng.h>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Matrix {
 
-template <typename MatrixIteratorT,
-	  typename MapIteratorT>
-void naiveGatherImpl(MatrixIteratorT in,
-		     int D,
-		     int N,
-		     MapIteratorT map,
-		     int map_length,
-		     MatrixIteratorT out){
-  for(int outRow = 0; outRow < map_length; ++outRow){
-    typename std::iterator_traits<MapIteratorT>::value_type map_val = map[outRow];
-    int inRowStart =  map_val * D;
-    int outRowStart =  outRow * D;
+template <typename MatrixIteratorT, typename MapIteratorT>
+void naiveGatherImpl(MatrixIteratorT in, int D, int N, MapIteratorT map,
+                     int map_length, MatrixIteratorT out) {
+  for (int outRow = 0; outRow < map_length; ++outRow) {
+    typename std::iterator_traits<MapIteratorT>::value_type map_val =
+      map[outRow];
+    int inRowStart = map_val * D;
+    int outRowStart = outRow * D;
     for (int i = 0; i < D; ++i) {
       out[outRowStart + i] = in[inRowStart + i];
     }
   }
 }
 
-
-template <typename MatrixIteratorT,
-	  typename MapIteratorT>
-void
-naiveGather(MatrixIteratorT in,
-	    int D,
-	    int N,
-	    MapIteratorT map,
-	    int map_length,
-	    MatrixIteratorT out){
+template <typename MatrixIteratorT, typename MapIteratorT>
+void naiveGather(MatrixIteratorT in, int D, int N, MapIteratorT map,
+                 int map_length, MatrixIteratorT out) {
   naiveGatherImpl(in, D, N, map, map_length, out);
 }
 
-template <typename MatrixIteratorT,
-	  typename MapIteratorT>
-void
-gatherLaunch(MatrixIteratorT in,
-	     int D,
-	     int N,
-	     MapIteratorT map,
-	     int map_length,
-	     MatrixIteratorT out,
-	     cudaStream_t stream){
+template <typename MatrixIteratorT, typename MapIteratorT>
+void gatherLaunch(MatrixIteratorT in, int D, int N, MapIteratorT map,
+                  int map_length, MatrixIteratorT out, cudaStream_t stream) {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  Matrix::gather(in, D, N,
-		 map,
-		 map_length,
-		 out,
-		 stream);
+  Matrix::gather(in, D, N, map, map_length, out, stream);
 }
 
 struct GatherInputs {
@@ -79,11 +57,9 @@ struct GatherInputs {
   unsigned long long int seed;
 };
 
-template <typename MatrixT,
-	  typename MapT>
-class GatherTest:public ::testing::TestWithParam<GatherInputs> {
-protected:
-
+template <typename MatrixT, typename MapT>
+class GatherTest : public ::testing::TestWithParam<GatherInputs> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
     Random::Rng r(params.seed);
@@ -119,7 +95,6 @@ protected:
     // launch device version of the kernel
     gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);
 
-
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   void TearDown() override {
@@ -133,45 +108,36 @@ protected:
     free(h_out);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
-protected:
+
+ protected:
   cudaStream_t stream;
   GatherInputs params;
   MatrixT *d_in, *h_in, *d_out_exp, *d_out_act, *h_out;
   MapT *d_map, *h_map;
 };
 
-
 const std::vector<GatherInputs> inputs = {
-  {1024, 32, 128, 1234ULL},
-  {1024, 32, 256, 1234ULL},
-  {1024, 32, 512, 1234ULL},
-  {1024, 32, 1024, 1234ULL},
-  {1024, 64, 128, 1234ULL},
-  {1024, 64, 256, 1234ULL},
-  {1024, 64, 512, 1234ULL},
-  {1024, 64, 1024, 1234ULL},
-  {1024, 128, 128, 1234ULL},
-  {1024, 128, 256, 1234ULL},
-  {1024, 128, 512, 1234ULL},
-  {1024, 128, 1024, 1234ULL}
-};
+  {1024, 32, 128, 1234ULL},  {1024, 32, 256, 1234ULL},
+  {1024, 32, 512, 1234ULL},  {1024, 32, 1024, 1234ULL},
+  {1024, 64, 128, 1234ULL},  {1024, 64, 256, 1234ULL},
+  {1024, 64, 512, 1234ULL},  {1024, 64, 1024, 1234ULL},
+  {1024, 128, 128, 1234ULL}, {1024, 128, 256, 1234ULL},
+  {1024, 128, 512, 1234ULL}, {1024, 128, 1024, 1234ULL}};
 
 typedef GatherTest<float, uint32_t> GatherTestF;
 TEST_P(GatherTestF, Result) {
-  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols,
-			  Compare<float>()));
+  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
+                          params.map_length * params.ncols, Compare<float>()));
 }
 
 typedef GatherTest<double, uint32_t> GatherTestD;
 TEST_P(GatherTestD, Result) {
-  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols,
-			  Compare<double>()));
+  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
+                          params.map_length * params.ncols, Compare<double>()));
 }
-
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestD, ::testing::ValuesIn(inputs));
 
-} // end namespace Matrix
-} // end namespace MLCommon
-
+}  // end namespace Matrix
+}  // end namespace MLCommon

@@ -16,42 +16,41 @@
 
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
-#include "test_utils.h"
 #include "decoupled_lookback.h"
+#include "test_utils.h"
 
 namespace MLCommon {
 
 template <int TPB>
-__global__ void dlbTestKernel(void* workspace, int len, int* out) {
-    DecoupledLookBack<int> dlb(workspace);
-    int count = threadIdx.x == blockDim.x - 1? 1 : 0;
-    auto prefix = dlb(count);
-    if(threadIdx.x == blockDim.x - 1)
-        out[blockIdx.x] = prefix;
+__global__ void dlbTestKernel(void *workspace, int len, int *out) {
+  DecoupledLookBack<int> dlb(workspace);
+  int count = threadIdx.x == blockDim.x - 1 ? 1 : 0;
+  auto prefix = dlb(count);
+  if (threadIdx.x == blockDim.x - 1) out[blockIdx.x] = prefix;
 }
 
-void dlbTest(int len, int* out) {
-    constexpr int TPB = 256;
-    int nblks = len;
-    size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
-    char* workspace;
-    allocate(workspace, workspaceSize);
-    CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-    dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaFree(workspace));
+void dlbTest(int len, int *out) {
+  constexpr int TPB = 256;
+  int nblks = len;
+  size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
+  char *workspace;
+  allocate(workspace, workspaceSize);
+  CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
+  dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaFree(workspace));
 }
 
 struct DlbInputs {
-    int len;
+  int len;
 };
 
 ::std::ostream &operator<<(::std::ostream &os, const DlbInputs &dims) {
-    return os;
+  return os;
 }
 
 class DlbTest : public ::testing::TestWithParam<DlbInputs> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
@@ -59,19 +58,17 @@ protected:
     dlbTest(len, out);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(out));
-  }
+  void TearDown() override { CUDA_CHECK(cudaFree(out)); }
 
-protected:
+ protected:
   DlbInputs params;
   int *out;
 };
 
-
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatchCustom(const T *actual, size_t size,
-                                             L eq_compare, cudaStream_t stream = 0) {
+                                             L eq_compare,
+                                             cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
   updateHost<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -86,11 +83,10 @@ template <typename T, typename L>
   return ::testing::AssertionSuccess();
 }
 
-
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
 TEST_P(DlbTest, Result) {
   ASSERT_TRUE(devArrMatchCustom(out, params.len, Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 
-} // end namespace MLCommon
+}  // end namespace MLCommon

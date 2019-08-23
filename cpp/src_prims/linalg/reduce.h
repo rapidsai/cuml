@@ -16,14 +16,12 @@
 
 #pragma once
 
-#include "cuda_utils.h"
 #include "coalesced_reduction.h"
+#include "cuda_utils.h"
 #include "strided_reduction.h"
-
 
 namespace MLCommon {
 namespace LinAlg {
-
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
@@ -60,25 +58,23 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename FinalLambda = Nop<OutType>>
 void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
             bool rowMajor, bool alongRows, cudaStream_t stream,
-            bool inplace = false,
-            MainLambda main_op = Nop<InType, IdxType>(),
+            bool inplace = false, MainLambda main_op = Nop<InType, IdxType>(),
             ReduceLambda reduce_op = Sum<OutType>(),
             FinalLambda final_op = Nop<OutType>()) {
-  if(rowMajor && alongRows) {
-    coalescedReduction(dots, data, D, N, init, stream, inplace,
-                       main_op, reduce_op, final_op);
-  } else if(rowMajor && !alongRows) {
-    stridedReduction(dots, data, D, N, init, stream, inplace,
-                     main_op, reduce_op, final_op);
-  } else if(!rowMajor && alongRows) {
-    stridedReduction(dots, data, N, D, init, stream, inplace,
-                     main_op, reduce_op, final_op);
+  if (rowMajor && alongRows) {
+    coalescedReduction(dots, data, D, N, init, stream, inplace, main_op,
+                       reduce_op, final_op);
+  } else if (rowMajor && !alongRows) {
+    stridedReduction(dots, data, D, N, init, stream, inplace, main_op,
+                     reduce_op, final_op);
+  } else if (!rowMajor && alongRows) {
+    stridedReduction(dots, data, N, D, init, stream, inplace, main_op,
+                     reduce_op, final_op);
   } else {
-    coalescedReduction(dots, data, N, D, init, stream, inplace,
-                       main_op, reduce_op, final_op);
+    coalescedReduction(dots, data, N, D, init, stream, inplace, main_op,
+                       reduce_op, final_op);
   }
 }
 
-
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

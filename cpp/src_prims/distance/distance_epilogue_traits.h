@@ -22,13 +22,10 @@
 namespace MLCommon {
 namespace Distance {
 
-template <
-    typename GemmConfig_,
-    typename EpilogueFunctor_,
-    typename Index_ = int,
-    typename BaseClass =
-      cutlass::gemm::GemmEpilogueTraitsHelper<
-          GemmConfig_, EpilogueFunctor_, Index_>>
+template <typename GemmConfig_, typename EpilogueFunctor_,
+          typename Index_ = int,
+          typename BaseClass = cutlass::gemm::GemmEpilogueTraitsHelper<
+            GemmConfig_, EpilogueFunctor_, Index_>>
 struct BoolEpilogueTraitsHelper : public BaseClass {
   typedef typename BaseClass::Scalar Scalar;
   typedef typename BaseClass::OutputTile OutputTile;
@@ -47,27 +44,30 @@ struct BoolEpilogueTraitsHelper : public BaseClass {
 
   /// The traits class to build the iterator to store data to global memory for D^N.
   typedef cutlass::gemm::GemmGlobalTileCdTraits<
-      bool,
-      // The tile has size (N / Iterations)xM in GEMM's terminology.
-      cutlass::Shape<1,
-            GemmConfig_::OutputTile::kH / cutlass::ShapeCount<Iterations>::kCount,
-            GemmConfig_::OutputTile::kW>,
-      // The threads are distributed as warps x 32 (the traits may reorganize).
-      cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount, GemmConfig_::kWarpSize>,
-      // How many elements do we jump over at each iteration?
-      Iterations::kW,
-      // The number of scalars per LDG (LDG.32 or LDG.128, etc).
-      GemmConfig_::kScalarsPerStgD>
-      GlobalStoreTileTraits;
+    bool,
+    // The tile has size (N / Iterations)xM in GEMM's terminology.
+    cutlass::Shape<
+      1, GemmConfig_::OutputTile::kH / cutlass::ShapeCount<Iterations>::kCount,
+      GemmConfig_::OutputTile::kW>,
+    // The threads are distributed as warps x 32 (the traits may reorganize).
+    cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
+                   GemmConfig_::kWarpSize>,
+    // How many elements do we jump over at each iteration?
+    Iterations::kW,
+    // The number of scalars per LDG (LDG.32 or LDG.128, etc).
+    GemmConfig_::kScalarsPerStgD>
+    GlobalStoreTileTraits;
 
   /// The iterator to store D.
-  typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalStoreTileTraits, Index_> GlobalStoreIteratorD;
+  typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalStoreTileTraits, Index_>
+    GlobalStoreIteratorD;
   /// The transformer for D.
   typedef cutlass::Convert<
-      cutlass::Fragment<typename GemmConfig_::ScalarD, GlobalStoreIteratorD::Fragment::kElements>,
-      typename GlobalStoreIteratorD::Fragment
-  > GlobalTransformerD;
-      // cutlass::ShapeCount<GlobalStoreIteratorD::Iterations>::kCount * GlobalStoreIteratorD::Tile::kC> lobalTransformerD;
+    cutlass::Fragment<typename GemmConfig_::ScalarD,
+                      GlobalStoreIteratorD::Fragment::kElements>,
+    typename GlobalStoreIteratorD::Fragment>
+    GlobalTransformerD;
+  // cutlass::ShapeCount<GlobalStoreIteratorD::Iterations>::kCount * GlobalStoreIteratorD::Tile::kC> lobalTransformerD;
 };
 
 }  // namespace Distance

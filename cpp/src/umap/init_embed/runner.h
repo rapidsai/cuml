@@ -25,34 +25,29 @@
 
 namespace UMAPAlgo {
 
-    namespace InitEmbed {
+namespace InitEmbed {
 
-        using namespace ML;
+using namespace ML;
 
-        template<typename T>
-        void run(const cumlHandle &handle,
-                 const T *X, int n, int d,
-                 const long *knn_indices, const T *knn_dists,
-                 MLCommon::Sparse::COO<float> *coo,
-                 UMAPParams *params, T* embedding, cudaStream_t stream,
-                 int algo = 0) {
-            switch(algo) {
-
-            /**
+template <typename T>
+void run(const cumlHandle &handle, const T *X, int n, int d,
+         const long *knn_indices, const T *knn_dists,
+         MLCommon::Sparse::COO<float> *coo, UMAPParams *params, T *embedding,
+         cudaStream_t stream, int algo = 0) {
+  switch (algo) {
+    /**
              * Initial algo uses FAISS indices
              */
-            case 0:
-                RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding,
-                                      handle.getStream());
-                break;
+    case 0:
+      RandomInit::launcher(X, n, d, knn_indices, knn_dists, params, embedding,
+                           handle.getStream());
+      break;
 
-            case 1:
-                SpectralInit::launcher(handle, X, n, d,
-                        knn_indices, knn_dists,
-                        coo,
-                        params, embedding);
-                break;
-            }
-        }
-    }
-};
+    case 1:
+      SpectralInit::launcher(handle, X, n, d, knn_indices, knn_dists, coo,
+                             params, embedding);
+      break;
+  }
+}
+}  // namespace InitEmbed
+};  // namespace UMAPAlgo

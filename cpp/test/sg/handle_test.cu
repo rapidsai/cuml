@@ -18,8 +18,7 @@
 
 #include "cuML_api.h"
 
-TEST(HandleTest, CreateHandleAndDestroy)
-{
+TEST(HandleTest, CreateHandleAndDestroy) {
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -28,8 +27,7 @@ TEST(HandleTest, CreateHandleAndDestroy)
   EXPECT_EQ(CUML_SUCCESS, status);
 }
 
-TEST(HandleTest, DoubleDestoryFails)
-{
+TEST(HandleTest, DoubleDestoryFails) {
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -41,8 +39,7 @@ TEST(HandleTest, DoubleDestoryFails)
   EXPECT_EQ(CUML_INVALID_HANDLE, status);
 }
 
-TEST(HandleTest, SetStream)
-{
+TEST(HandleTest, SetStream) {
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -54,8 +51,7 @@ TEST(HandleTest, SetStream)
   EXPECT_EQ(CUML_SUCCESS, status);
 }
 
-TEST(HandleTest, SetStreamInvalidHandle)
-{
+TEST(HandleTest, SetStreamInvalidHandle) {
   cumlHandle_t handle = 12346;
   EXPECT_EQ(CUML_INVALID_HANDLE, cumlSetStream(handle, 0));
 }

@@ -28,7 +28,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('method', ['gaussian', 'sparse'])
 def test_random_projection_fit(datatype, input_type, method):
     # dataset generation
