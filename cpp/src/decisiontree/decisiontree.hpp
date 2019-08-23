@@ -76,6 +76,7 @@ void print(const DecisionTreeParams params);
 
 template <class T, class L>
 struct TreeMetaDataNode {
+  int treeid;
   int depth_counter;
   int leaf_counter;
   double prepare_time;

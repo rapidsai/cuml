@@ -193,8 +193,8 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
   std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
   const int nrows, const L *labels, unsigned int *rowids,
-  const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes,
-  const float colper, int n_bins, int split_algo_flag,
+  const int n_sampled_rows, int unique_labels, const int treeid, int maxdepth,
+  int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag,
   int cfg_min_rows_per_node, bool cfg_bootstrap_features,
   CRITERION cfg_split_criterion, bool quantile_per_tree) {
   split_algo = split_algo_flag;
@@ -211,7 +211,7 @@ void DecisionTreeBase<T, L>::plant(
   //Bootstrap features
   feature_selector.resize(dinfo.Ncols);
   if (bootstrap_features) {
-    srand(n_bins);
+    srand(treeid * 1000);
     for (int i = 0; i < dinfo.Ncols; i++) {
       feature_selector.push_back(rand() % dinfo.Ncols);
     }
@@ -310,7 +310,7 @@ void DecisionTreeBase<T, L>::base_fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
   int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
-  DecisionTreeParams &tree_params, bool is_classifier,
+  const int treeid, DecisionTreeParams &tree_params, bool is_classifier,
   std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
@@ -348,7 +348,7 @@ void DecisionTreeBase<T, L>::base_fit(
   }
 
   plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
-        unique_labels, tree_params.max_depth, tree_params.max_leaves,
+        unique_labels, treeid, tree_params.max_depth, tree_params.max_leaves,
         tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
         tree_params.min_rows_per_node, tree_params.bootstrap_features,
         tree_params.split_criterion, tree_params.quantile_per_tree);
@@ -365,7 +365,7 @@ void DecisionTreeClassifier<T>::fit(
                  handle.getImpl().getHostAllocator(),
                  handle.getImpl().getStream(), data, ncols, nrows, labels,
                  rowids, n_sampled_rows, unique_labels, tree->sparsetree,
-                 tree_params, true, in_tempmem);
+                 tree->treeid, tree_params, true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -381,7 +381,7 @@ void DecisionTreeClassifier<T>::fit(
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, unique_labels,
-                 tree->sparsetree, tree_params, true, in_tempmem);
+                 tree->sparsetree, tree->treeid, tree_params, true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -391,10 +391,11 @@ void DecisionTreeRegressor<T>::fit(
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_params,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
-  this->base_fit(
-    handle.getImpl().getDeviceAllocator(), handle.getImpl().getHostAllocator(),
-    handle.getImpl().getStream(), data, ncols, nrows, labels, rowids,
-    n_sampled_rows, 1, tree->sparsetree, tree_params, false, in_tempmem);
+  this->base_fit(handle.getImpl().getDeviceAllocator(),
+                 handle.getImpl().getHostAllocator(),
+                 handle.getImpl().getStream(), data, ncols, nrows, labels,
+                 rowids, n_sampled_rows, 1, tree->sparsetree, tree->treeid,
+                 tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -408,7 +409,7 @@ void DecisionTreeRegressor<T>::fit(
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,
-                 tree_params, false, in_tempmem);
+                 tree->treeid, tree_params, false, in_tempmem);
   this->set_metadata(tree);
 }
 

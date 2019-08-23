@@ -236,6 +236,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
+    tree_ptr->treeid = i;
     trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
                  myhandle.getImpl().getHostAllocator(),
                  myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
@@ -504,6 +505,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
+    tree_ptr->treeid = i;
     trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
                  myhandle.getImpl().getHostAllocator(),
                  myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
