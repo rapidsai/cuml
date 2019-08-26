@@ -40,7 +40,7 @@ def get_cudf_column_ptr(col):
     """
     Returns ctype pointer of a cudf column
     """
-    return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
+    return cudf._lib.cudf.get_column_data_ptr(col._column)
 
 
 def get_dtype(X):
