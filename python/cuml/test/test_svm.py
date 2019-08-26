@@ -17,10 +17,12 @@ import pytest
 import numpy as np
 import cuml
 import cuml.svm
+from numba import cuda
 from sklearn import svm
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import to_nparray
+from cuml.test.utils import to_nparray, np_to_cudf
+import cudf
 
 
 def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
@@ -92,6 +94,16 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
+def get_binary_iris_dataset():
+    iris = load_iris()
+    X = iris.data
+    y = iris.target
+    y = (y > 0).astype(X.dtype)
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    return X, y
+
+
 @pytest.mark.parametrize('params', [
     {'kernel': 'linear', 'C': 1},
     {'kernel': 'linear', 'C': 10},
@@ -111,12 +123,7 @@ def stress_param(*args, **kwargs):
 # @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris')])
 def test_svm_fit_predict(params, name='iris'):
     if name == 'iris':
-        iris = load_iris()
-        X = iris.data
-        y = iris.target
-        y = (y > 0).astype(X.dtype)
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
+        X, y = get_binary_iris_dataset()
     else:
         # we create 40 separable points
         # TODO: tune the sensitivity of the test for this
@@ -134,6 +141,43 @@ def test_svm_fit_predict(params, name='iris'):
 
     compare_svm(cuSVC, sklSVC, X, y)
 
-# TODO test different input types
-# @pytest.mark.parametrize('x_datatype', [np.float32, np.float64])
-# @pytest.mark.parametrize('y_datatype', [np.float32, np.float64, np.int32])
+
+@pytest.mark.parametrize('x_floattype', [np.float32, np.float64])
+@pytest.mark.parametrize('y_floattype', [np.float32, np.float64, np.int32])
+def test_svm_numeric_floattype(x_floattype, y_floattype):
+    X, y = get_binary_iris_dataset()
+    X = X.astype(x_floattype)
+    y = y.astype(y_floattype)
+    params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
+    cuSVC = cuml.svm.SVC(**params)
+    cuSVC.fit(X, y)
+    intercept_exp = 23468959692060373
+    n_sv_exp = 15
+    assert (cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-7
+    assert cuSVC.n_support_ == n_sv_exp
+    n_pred_wrong = np.sum(cuSVC.predict(X).to_array()-y)
+    assert n_pred_wrong == 0
+
+
+@pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
+@pytest.mark.parametrize('y_arraytype', ['numpy', 'series', 'numba'])
+def test_svm_numeric_arraytype(x_arraytype, y_arraytype):
+    X, y = get_binary_iris_dataset()
+    X = X.astype(X.dtype, order="F")
+    if x_arraytype == 'dataframe':
+        X = np_to_cudf(X)
+    elif x_arraytype == 'numba':
+        X = cuda.to_device(X)
+    if y_arraytype == 'numba':
+        y = cuda.to_device(y)
+    elif y_arraytype == 'series':
+        y = cudf.Series(y)
+    params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
+    cuSVC = cuml.svm.SVC(**params)
+    cuSVC.fit(X, y)
+    intercept_exp = 23468959692060373
+    n_sv_exp = 15
+    assert (cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-7
+    assert cuSVC.n_support_ == n_sv_exp
+    n_pred_wrong = np.sum(cuSVC.predict(X).to_array()-y)
+    assert n_pred_wrong == 0
