@@ -1,60 +1,62 @@
 #pragma once
 
-#include <tuple>
-#include <vector>
-#include <unordered_map>
-#include <stdexcept>
 #include <functional>
+#include <stdexcept>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
-#include <linalg/cublas_wrappers.h>
 #include <linalg/binary_op.h>
+#include <linalg/cublas_wrappers.h>
 #include <memory>
 
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace MLCommon {
 namespace Matrix {
 
-std::shared_ptr<double*>
-init(double* A, std::pair<int, int> shape, int num_batches, bool gpu=true);
+std::shared_ptr<double*> init(double* A, std::pair<int, int> shape,
+                              int num_batches, bool gpu = true);
 
 __global__ void identity_matrix_kernel(double** I, int r);
 
-template<typename T>
-void cudaFreeT(T *ptr) { CUDA_CHECK(cudaFree(ptr)); }
+template <typename T>
+void cudaFreeT(T* ptr) {
+  CUDA_CHECK(cudaFree(ptr));
+}
 
-void BMM_Allocate(std::pair<int, int> shape, int num_batches,
-                  double* &A_dense, double** &A_array, bool setZero) {
+void BMM_Allocate(std::pair<int, int> shape, int num_batches, double*& A_dense,
+                  double**& A_array, bool setZero) {
   int m = shape.first;
   int n = shape.second;
-  
-  allocate(A_dense, m*n*num_batches, setZero);
+
+  allocate(A_dense, m * n * num_batches, setZero);
   allocate(A_array, num_batches);
 
   // fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(counting, counting + num_batches,
-                   [=]__device__(int bid){
-                     A_array[bid] = &(A_dense[bid*m*n]);
-                   });
+  thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+    A_array[bid] = &(A_dense[bid * m * n]);
+  });
 }
 
 // https://stackoverflow.com/questions/32685540/why-cant-i-compile-an-unordered-map-with-a-pair-as-key
 struct pair_hash {
   template <class T1, class T2>
-  std::size_t operator () (const std::pair<T1,T2> &p) const {
+  std::size_t operator()(const std::pair<T1, T2>& p) const {
     auto h1 = std::hash<T1>{}(p.first);
     auto h2 = std::hash<T2>{}(p.second);
 
     // Mainly for demonstration purposes, i.e. works but is overly simple
     // In the real world, use sth. like boost.hash_combine
-    return 100*h1 + h2;
+    return 100 * h1 + h2;
   }
 };
 
 struct BatchedMatrixMemory {
-  BatchedMatrixMemory(std::pair<int, int> shape, int num_batches, bool setZero) {
+  BatchedMatrixMemory(std::pair<int, int> shape, int num_batches,
+                      bool setZero) {
     BMM_Allocate(shape, num_batches, A_dense, A_array, setZero);
     // std::cout << "Allocate (" << shape.first << "," << shape.second << "):" << A_array << "\n";
     in_use = true;
@@ -66,15 +68,15 @@ struct BatchedMatrixMemory {
 };
 
 class BatchedMatrixMemoryPool {
-public:
+ public:
   BatchedMatrixMemoryPool(int num_batches) : m_num_batches(num_batches) {
     // std::cout << "Memory Pool Init\n";
     CUBLAS_CHECK(cublasCreate(&m_handle));
   }
 
   ~BatchedMatrixMemoryPool() {
-    for(auto& kv : m_pool) {
-      for(auto& v : kv.second) {
+    for (auto& kv : m_pool) {
+      for (auto& v : kv.second) {
         // std::cout << "cudaFree Deallocating\n";
         cudaFreeT(v.A_array);
         cudaFreeT(v.A_dense);
@@ -83,31 +85,31 @@ public:
     CUBLAS_CHECK(cublasDestroy(m_handle));
   }
 
-  std::pair<double*, double**> get(std::pair<int, int> shape, bool setZero=false) {
-
+  std::pair<double*, double**> get(std::pair<int, int> shape,
+                                   bool setZero = false) {
     auto mempool_for_shape = m_pool.find(shape);
     // if mempool empty for this shape, create first entry
-    if(mempool_for_shape == m_pool.end()) {
+    if (mempool_for_shape == m_pool.end()) {
       BatchedMatrixMemory mem(shape, m_num_batches, setZero);
       m_pool[shape] = {mem};
       return std::make_pair(mem.A_dense, mem.A_array);
-    }
-    else {
+    } else {
       // Look for an empty (in_use==false) slot for this shape.
       auto& shape_pool = m_pool[shape];
       bool found_ununsed_entry = false;
-      for(auto& m : shape_pool) {
-        if(m.in_use == false) {
+      for (auto& m : shape_pool) {
+        if (m.in_use == false) {
           // std::cout << "Re-Use("  << shape.first << "," << shape.second << "):" << m.A_array << "\n";
           found_ununsed_entry = true;
           m.in_use = true;
-          if(setZero) {
-            CUDA_CHECK(cudaMemset(m.A_dense, 0.0, shape.first*shape.second*m_num_batches));
+          if (setZero) {
+            CUDA_CHECK(cudaMemset(m.A_dense, 0.0,
+                                  shape.first * shape.second * m_num_batches));
           }
           return std::make_pair(m.A_dense, m.A_array);
         }
       }
-      if(!found_ununsed_entry) {
+      if (!found_ununsed_entry) {
         // Create a new memory slot because no entries are free.
         BatchedMatrixMemory mem(shape, m_num_batches, setZero);
         shape_pool.push_back(mem);
@@ -121,42 +123,40 @@ public:
   void remove(std::pair<int, int> shape, double** A_array) {
     auto& shape_pool = m_pool.at(shape);
     bool found_array = false;
-    for(auto& m : shape_pool) {
-      if(m.A_array == A_array) {
+    for (auto& m : shape_pool) {
+      if (m.A_array == A_array) {
         found_array = true;
         m.in_use = false;
         break;
       }
     }
-    if(!found_array) {
-      std::cout << "ERROR, Couldnt find:(" << shape.first << "," << shape.second << "): " << A_array << ")\n";
+    if (!found_array) {
+      std::cout << "ERROR, Couldnt find:(" << shape.first << "," << shape.second
+                << "): " << A_array << ")\n";
       throw std::runtime_error("ERROR: Tried to remove an array not in pool");
     }
   }
 
   const cublasHandle_t& cublasHandle() const { return m_handle; }
 
-private:
-  std::unordered_map<std::pair<int,int>, std::vector<BatchedMatrixMemory>, pair_hash> m_pool;
+ private:
+  std::unordered_map<std::pair<int, int>, std::vector<BatchedMatrixMemory>,
+                     pair_hash>
+    m_pool;
   int m_num_batches;
   cublasHandle_t m_handle;
 };
 
 class BatchedMatrix {
-public:
-
-  void remove(double** A) {
-    m_pool->remove(m_shape, A);
-  }
+ public:
+  void remove(double** A) { m_pool->remove(m_shape, A); }
 
   //! Constructor that allocates memory using the memory pool.
   BatchedMatrix(int m, int n, int num_batches,
                 std::shared_ptr<BatchedMatrixMemoryPool> pool,
-                bool setZero=false, bool gpu=true) : m_gpu(gpu),
-                                                     m_num_batches(num_batches),
-                                                     m_pool(pool)
-  {
-    if(!gpu) {
+                bool setZero = false, bool gpu = true)
+    : m_gpu(gpu), m_num_batches(num_batches), m_pool(pool) {
+    if (!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
     m_shape = std::make_pair(m, n);
@@ -172,46 +172,60 @@ public:
 
     // note: we create this "free" function with explicit copies to ensure that the
     // pool-removal function gets called with the correct values.
-    auto f = [shape, this_pool](double** A){
-               this_pool->remove(shape, A);
-             };
+    auto f = [shape, this_pool](double** A) { this_pool->remove(shape, A); };
 
     // When this shared pointer count goes to 0, `f` is called which set this
     // pointer to "unused" in the memory pool.
     m_A_batches = std::shared_ptr<double*>(memory.second, f);
-    
   }
-  
+
   bool onGPU() const { return m_gpu; }
   size_t batches() const { return m_num_batches; }
   const std::pair<int, int>& shape() const { return m_shape; }
 
   // TODO: probably should add a const on returned type
-  double** data() const {return m_A_batches.get();}
+  double** data() const { return m_A_batches.get(); }
 
   double* operator[](int id) const {
-    return &(m_A_dense[id*m_shape.first*m_shape.second]);
+    return &(m_A_dense[id * m_shape.first * m_shape.second]);
   }
 
   BatchedMatrix vec() const {
     int m = m_shape.first;
     int n = m_shape.second;
-    int r = m*n;
+    int r = m * n;
     BatchedMatrix toVec(r, 1, m_num_batches, m_pool);
-    cudaMemcpy(toVec[0], this->operator[](0), m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(toVec[0], this->operator[](0),
+               m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
     return toVec;
   }
 
   BatchedMatrix mat(int m, int n) const {
     int r = m_shape.first * m_shape.second;
     BatchedMatrix toMat(m, n, m_num_batches, m_pool);
-    cudaMemcpy(toMat[0], this->operator[](0), m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(toMat[0], this->operator[](0),
+               m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
     return toMat;
   }
 
   std::shared_ptr<BatchedMatrixMemoryPool> pool() const { return m_pool; }
 
-  static BatchedMatrix Identity(int m, int num_batches, std::shared_ptr<BatchedMatrixMemoryPool> pool) {
+  void print(std::string name) const {
+    size_t len = m_shape.first * m_shape.second * m_num_batches;
+    std::vector<double> A(len);
+    updateHost(A.data(), m_A_dense, len, 0);
+    std::cout << name << "=\n";
+    for (int i = 0; i < m_shape.first; i++) {
+      for (int j = 0; j < m_shape.second; j++) {
+        // column major
+        std::cout << std::setprecision(10) << A[j * m_shape.first + i] << ",";
+      }
+      std::cout << "\n";
+    }
+  }
+
+  static BatchedMatrix Identity(int m, int num_batches,
+                                std::shared_ptr<BatchedMatrixMemoryPool> pool) {
     BatchedMatrix I(m, m, num_batches, pool, true);
 
     identity_matrix_kernel<<<num_batches, std::min(1024, m)>>>(I.data(), m);
@@ -219,8 +233,7 @@ public:
     return I;
   }
 
-private:
-
+ private:
   // decides where data is stored and where operations are computed.
   bool m_gpu;
 
@@ -238,7 +251,6 @@ private:
 
   // memory pool allocator
   std::shared_ptr<BatchedMatrixMemoryPool> m_pool;
-
 };
 
 // extern __shared__ double s_array[]; // size = 3 (m x n) (one for each matrix
@@ -248,7 +260,7 @@ private:
 //                                       double** AkB,
 //                                       int km, int kn
 //                                 ) {
-  
+
 //   double* s_A = &s_array[0];
 //   double* s_B = &s_array[m*n];
 //   double* s_AkB_ij = &s_array[2*m*n];
@@ -270,60 +282,53 @@ private:
 // }
 
 //! Computes kronecker prodcut between AkB <- A (x) B
-__global__ void kronecker_product_kernel(double** A,
-                                         int m, int n,
-                                         double** B,
-                                         int p, int q,
-                                         double** AkB,
-                                         int k_m, int k_n) {
-
+__global__ void kronecker_product_kernel(double** A, int m, int n, double** B,
+                                         int p, int q, double** AkB, int k_m,
+                                         int k_n) {
   int bid = blockIdx.x;
 
-  for(int ia=0;ia<n;ia++) {
-    for(int ja=0;ja<m;ja++) {
+  for (int ia = 0; ia < n; ia++) {
+    for (int ja = 0; ja < m; ja++) {
       double A_ia_ja = A[bid][ia + ja * m];
 
-      for(int iblock=0; iblock < p; iblock += blockDim.x) {        
-        int ib = threadIdx.x + iblock*blockDim.x;
-        if(ib < p) {
+      for (int iblock = 0; iblock < p; iblock += blockDim.x) {
+        int ib = threadIdx.x + iblock * blockDim.x;
+        if (ib < p) {
           for (int jblock = 0; jblock < q; jblock += blockDim.y) {
             int jb = threadIdx.y + jblock * blockDim.y;
             if (jb < q) {
               int i_ab = ia * p + ib;
               int j_ab = ja * q + jb;
-              AkB[bid][i_ab + j_ab * k_m] =
-                   A_ia_ja * B[bid][ib + jb * p];
+              AkB[bid][i_ab + j_ab * k_m] = A_ia_ja * B[bid][ib + jb * p];
             }
           }
         }
       }
     }
   }
-
 }
 
 //! Kernel to creates an Identity matrix
 __global__ void identity_matrix_kernel(double** I, int r) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
-  for(int b=0;b<r;b+=blockDim.x) {
+  for (int b = 0; b < r; b += blockDim.x) {
     int idx = tid + b;
-    if(idx < r) {
-      I[bid][idx + r*idx] = 1;  
+    if (idx < r) {
+      I[bid][idx + r * idx] = 1;
     }
   }
 }
 
-
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
 // return [A1*B1, A2*B2, A3*B3]
-BatchedMatrix b_gemm(const BatchedMatrix& A,
-                     const BatchedMatrix& B, bool aT=false, bool bT=false) {
-  if(!(A.onGPU() && B.onGPU())) {
+BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
+                     bool aT = false, bool bT = false) {
+  if (!(A.onGPU() && B.onGPU())) {
     throw std::runtime_error("CPU not currently supported");
   }
-  if(A.batches() != B.batches()) {
+  if (A.batches() != B.batches()) {
     throw std::runtime_error("A & B must have same number of batches");
   }
 
@@ -338,13 +343,13 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
   int k = !aT ? A.shape().second : A.shape().first;
   int kB = !bT ? B.shape().first : B.shape().second;
 
-  if(k != kB) {
+  if (k != kB) {
     throw std::runtime_error("Matrix-Multiplication dimensions don't match!");
   }
 
   auto num_batches = A.batches();
   auto& handle = A.pool()->cublasHandle();
-  
+
   // set transpose
   cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
@@ -357,30 +362,32 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
 
   // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
   CUBLAS_CHECK(cublasDgemmBatched(handle,
-                                  opA, // A.T?
-                                  opB, // B.T?
-                                  m, // rows op(A), C
-                                  n, // cols of op(B), C
-                                  k, // cols of op(A), rows of op(B)
-                                  &alpha, // alpha * A * B
+                                  opA,     // A.T?
+                                  opB,     // B.T?
+                                  m,       // rows op(A), C
+                                  n,       // cols of op(B), C
+                                  k,       // cols of op(A), rows of op(B)
+                                  &alpha,  // alpha * A * B
                                   A.data(),
-                                  A.shape().first, // rows of A
+                                  A.shape().first,  // rows of A
                                   B.data(),
-                                  B.shape().first, // rows of B
-                                  &beta, // + beta * C
+                                  B.shape().first,  // rows of B
+                                  &beta,            // + beta * C
                                   C.data(),
-                                  C.shape().first, // rows of C
+                                  C.shape().first,  // rows of C
                                   num_batches));
   return C;
 }
 
 template <typename F>
-BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
+BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
                         F binary_op) {
-  if(A.shape().first != B.shape().first && A.shape().second != B.shape().second) {
-    throw std::runtime_error("Batched Matrix Addition ERROR: Matrices must be same size");
+  if (A.shape().first != B.shape().first &&
+      A.shape().second != B.shape().second) {
+    throw std::runtime_error(
+      "Batched Matrix Addition ERROR: Matrices must be same size");
   }
-  if(A.batches() != B.batches()) {
+  if (A.batches() != B.batches()) {
     throw std::runtime_error("A & B must have same number of batches");
   }
 
@@ -390,52 +397,50 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
 
   BatchedMatrix C(m, n, num_batches, A.pool());
 
-  LinAlg::binaryOp(C[0], A[0], B[0], m*n*num_batches, binary_op, 0);
-  
+  LinAlg::binaryOp(C[0], A[0], B[0], m * n * num_batches, binary_op, 0);
+
   return C;
 }
 
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
 // return [A1*B1, A2*B2, A3*B3]
-BatchedMatrix
-operator*(const BatchedMatrix &A, const BatchedMatrix &B) {
-  return b_gemm(A,B);
+BatchedMatrix operator*(const BatchedMatrix& A, const BatchedMatrix& B) {
+  return b_gemm(A, B);
 }
 
 BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
-  return b_aA_op_B(A, B, [] __device__ (double a, double b) {return a + b;});
+  return b_aA_op_B(A, B, [] __device__(double a, double b) { return a + b; });
 }
 
 BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
-  return b_aA_op_B(A, B,  [] __device__ (double a, double b) {return a - b;});
+  return b_aA_op_B(A, B, [] __device__(double a, double b) { return a - b; });
 }
 
 //! Solve Ax = b for given batched matrix A and batched vector b
-BatchedMatrix b_solve(const BatchedMatrix& A,
-                      const BatchedMatrix& b) {
+BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   auto num_batches = A.batches();
   auto& handle = A.pool()->cublasHandle();
 
   int n = A.shape().first;
   int* P;
-  allocate(P, n*num_batches);
+  allocate(P, n * num_batches);
   int* info;
   allocate(info, num_batches);
 
   BatchedMatrix Ainv(n, n, num_batches, A.pool());
 
-  CUBLAS_CHECK(cublasDgetrfBatched(handle, n, A.data(), n, P, info, num_batches));
-  CUBLAS_CHECK(cublasDgetriBatched(handle, n, A.data(), n, P, Ainv.data(), n, info, num_batches));
+  CUBLAS_CHECK(
+    cublasDgetrfBatched(handle, n, A.data(), n, P, info, num_batches));
+  CUBLAS_CHECK(cublasDgetriBatched(handle, n, A.data(), n, P, Ainv.data(), n,
+                                   info, num_batches));
 
-  BatchedMatrix x = Ainv*b;
+  BatchedMatrix x = Ainv * b;
 
   return x;
 }
 
-BatchedMatrix b_kron(const BatchedMatrix& A,
-                     const BatchedMatrix& B) {
-
+BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int m = A.shape().first;
   int n = A.shape().second;
 
@@ -443,21 +448,18 @@ BatchedMatrix b_kron(const BatchedMatrix& A,
   int q = B.shape().second;
 
   // resulting shape
-  int km = m*p;
-  int kn = n*q;
+  int km = m * p;
+  int kn = n * q;
 
   BatchedMatrix AkB(km, kn, A.batches(), A.pool());
 
   // run kronecker...
-  dim3 threads(std::min(p,32), std::min(q,32));
-  kronecker_product_kernel<<<A.batches(), threads>>>(A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
+  dim3 threads(std::min(p, 32), std::min(q, 32));
+  kronecker_product_kernel<<<A.batches(), threads>>>(A.data(), m, n, B.data(),
+                                                     p, q, AkB.data(), km, kn);
 
   return AkB;
-
 }
 
-
-
-
-}
-}
+}  // namespace Matrix
+}  // namespace MLCommon

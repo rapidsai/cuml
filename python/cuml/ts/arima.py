@@ -129,7 +129,7 @@ def fit(y: np.ndarray,
     np.seterr(all='raise')
 
     p, d, q = order
-    num_parameters = 1 + p + q
+    num_parameters = d + p + q
 
     num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
     num_batches = y.shape[1]
