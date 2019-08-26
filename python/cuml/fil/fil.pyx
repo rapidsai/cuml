@@ -226,6 +226,7 @@ cdef class ForestInference_impl():
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+        self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model.handle
@@ -244,12 +245,14 @@ cdef class ForestInference_impl():
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+        self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t model_ptr = <uintptr_t> model_handle
         print(" entering the c++ function in cython")
         from_treelite(handle_[0],
                       &self.forest_data,
-                      <ModelHandle> model_handle,
+                      <ModelHandle> model_ptr,
                       &treelite_params)
         return self
 
