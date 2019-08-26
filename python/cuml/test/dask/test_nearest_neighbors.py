@@ -44,8 +44,8 @@ def test_end_to_end():
         X = np.random.uniform(-1, 1, (m, n))
         ret = cudf.DataFrame([(i,
                                X[:, i].astype(np.float32)) for i in range(n)],
-                             index=cudf.dataframe.RangeIndex(f * m,
-                                                             f * m + m, 1))
+                             index=cudf.core.index.RangeIndex(f * m,
+                                                              f * m + m, 1))
         return ret
 
     def get_meta(df):
