@@ -632,15 +632,16 @@ TEST_F(SmoSolverTestF, SvcTest) {
   KernelParams kernel_params{LINEAR, 3, 1, 0};
   SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
-  n_coefs = svc.n_support;
-  b = svc.b;
+  n_coefs = svc.model.n_support;
+  b = svc.model.b;
   float dual_coefs_exp[] = {-0.6, 1, -1, 0.6};
   float w_exp[] = {-0.4, 1.2};
   float x_support_exp[] = {1, 1, 2, 2, 1, 2, 2, 3};
   int idx_exp[] = {0, 2, 3, 5};
   SCOPED_TRACE("SvcTest");
   checkResults(4, dual_coefs_exp, -1.8f, w_exp, x_support_exp, idx_exp,
-               svc.dual_coefs, svc.x_support, svc.support_idx);
+               svc.model.dual_coefs, svc.model.x_support,
+               svc.model.support_idx);
   // allocate a prediction buffer, then we can compare pred buffer to y_dev
   for (int i = 0; i < 3; i++) {
     svc.predict(x_dev, n_rows, n_cols, y_pred);
@@ -654,15 +655,16 @@ TEST_F(SmoSolverTestF, SvcTestPoly) {
   KernelParams kernel_params{POLYNOMIAL, 3, 1, 0};
   SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
-  n_coefs = svc.n_support;
-  b = svc.b;
+  n_coefs = svc.model.n_support;
+  b = svc.model.b;
   int n_coefs = 3;
   float dual_coefs_exp[] = {-0.03900895, 0.05904058, -0.02003163};
   float x_support_exp[] = {1, 1, 2, 1, 2, 2};
   int idx_exp[] = {0, 2, 3};
   SCOPED_TRACE("SvcTestPoly");
   checkResults(n_coefs, dual_coefs_exp, -0.99999959, nullptr, x_support_exp,
-               idx_exp, svc.dual_coefs, svc.x_support, svc.support_idx);
+               idx_exp, svc.model.dual_coefs, svc.model.x_support,
+               svc.model.support_idx);
 }
 
 TEST_F(SmoSolverTestF, SvcTestTanh) {
@@ -670,15 +672,16 @@ TEST_F(SmoSolverTestF, SvcTestTanh) {
   KernelParams kernel_params{TANH, 3, 0.3, 1.0};
   SVC<float> svc(handle, 10.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
-  n_coefs = svc.n_support;
-  b = svc.b;
+  n_coefs = svc.model.n_support;
+  b = svc.model.b;
   int n_coefs = 6;
   float dual_coefs_exp[] = {-10., -10., 10., -10., 10., 10.};
   // x_support_exp == x_host;
   int idx_exp[] = {0, 1, 2, 3, 4, 5};
   SCOPED_TRACE("SvcTestTanh");
   checkResults(n_coefs, dual_coefs_exp, -0.3927505, nullptr, x_host, idx_exp,
-               svc.dual_coefs, svc.x_support, svc.support_idx);
+               svc.model.dual_coefs, svc.model.x_support,
+               svc.model.support_idx);
 }
 
 TEST_F(SmoSolverTestF, SvcTestRBF) {
@@ -686,14 +689,15 @@ TEST_F(SmoSolverTestF, SvcTestRBF) {
   KernelParams kernel_params{RBF, 0, 0.15, 0};
   SVC<float> svc(handle, 1.0f, epsilon, kernel_params);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
-  n_coefs = svc.n_support;
-  b = svc.b;
+  n_coefs = svc.model.n_support;
+  b = svc.model.b;
   int n_coefs = 6;
   float dual_coefs_exp[] = {-1., -1, 1., -1., 1, 1.};
   int idx_exp[] = {0, 1, 2, 3, 4, 5};
   SCOPED_TRACE("SvcTestRBF");
   checkResults(n_coefs, dual_coefs_exp, -0.0f, nullptr, x_host, idx_exp,
-               svc.dual_coefs, svc.x_support, svc.support_idx);
+               svc.model.dual_coefs, svc.model.x_support,
+               svc.model.support_idx);
 }
 
 __global__ void init_training_vectors(float *x, int n_rows, int n_cols,
@@ -732,14 +736,15 @@ TEST(SvcSolverTest, SvcTestLargeNonlin) {
   SVC<float> svc(handle, 1.0f, epsilon, kernel_params, 200, 1);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
 
-  ASSERT_LE(svc.n_support, n_rows);
+  ASSERT_LE(svc.model.n_support, n_rows);
 
   float *dual_coefs_host = new float[n_rows];
-  updateHost(dual_coefs_host, svc.dual_coefs, svc.n_support, stream);
+  updateHost(dual_coefs_host, svc.model.dual_coefs, svc.model.n_support,
+             stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   float ay = 0;
-  for (int i = 0; i < svc.n_support; i++) {
+  for (int i = 0; i < svc.model.n_support; i++) {
     ay += dual_coefs_host[i];
   }
   // \sum \alpha_i y_i = 0
@@ -776,14 +781,15 @@ TEST(SvcSolverTest, SvcTestLarge) {
   SVC<float> svc(handle, 1.0f, epsilon, kernel_params, 200, 200);
   svc.fit(x_dev, n_rows, n_cols, y_dev);
 
-  ASSERT_LE(svc.n_support, n_rows);
+  ASSERT_LE(svc.model.n_support, n_rows);
 
   float *dual_coefs_host = new float[n_rows];
-  updateHost(dual_coefs_host, svc.dual_coefs, svc.n_support, stream);
+  updateHost(dual_coefs_host, svc.model.dual_coefs, svc.model.n_support,
+             stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   float ay = 0;
-  for (int i = 0; i < svc.n_support; i++) {
+  for (int i = 0; i < svc.model.n_support; i++) {
     ay += dual_coefs_host[i];
   }
   // \sum \alpha_i y_i = 0
@@ -791,14 +797,15 @@ TEST(SvcSolverTest, SvcTestLarge) {
 
   float *x_support_host = new float[n_rows * n_cols];
 
-  updateHost(x_support_host, svc.x_support, svc.n_support * n_cols, stream);
+  updateHost(x_support_host, svc.model.x_support, svc.model.n_support * n_cols,
+             stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   float *w = new float[n_cols];
   memset(w, 0, sizeof(float) * n_cols);
-  for (int i = 0; i < svc.n_support; i++) {
+  for (int i = 0; i < svc.model.n_support; i++) {
     for (int k = 0; k < n_cols; k++) {
-      w[k] += x_support_host[i + k * svc.n_support] * dual_coefs_host[i];
+      w[k] += x_support_host[i + k * svc.model.n_support] * dual_coefs_host[i];
     }
   }
 

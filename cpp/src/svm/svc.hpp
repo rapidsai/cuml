@@ -19,29 +19,30 @@
 #include <cublas_v2.h>
 #include "common/cumlHandle.hpp"
 #include "gram/kernelparams.h"
+#include "svm_model.h"
+#include "svm_parameter.h"
 
 namespace ML {
 namespace SVM {
 
-// Forward declarations for the stateless API
+// Forward declarations of the stateless API
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-            math_t *labels, math_t C, math_t tol,
+            math_t *labels, const svmParameter &param,
             MLCommon::GramMatrix::KernelParams &kernel_params,
-            math_t cache_size, int max_iter, math_t **dual_coefs,
-            int *n_support, math_t *b, math_t **x_support, int **support_idx,
-            math_t **unique_labels, int *n_classes, bool verbose);
+            svmModel<math_t> &model);
 
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::GramMatrix::KernelParams &kernel_params,
-                math_t *dual_coefs, int n_support, math_t b, math_t *x_support,
-                math_t *unique_labels, int n_classes, math_t *preds);
+                const svmModel<math_t> &model, math_t *preds);
 
+template <typename math_t>
+void svmFreeBuffers(const cumlHandle &handle, svmModel<math_t> &m);
 /**
  * @brief C-Support Vector Classification
  *
- * This is an Scikit-Learn like wrapper around the stateless C++ functions.
+ * This is a Scikit-Learn like wrapper around the stateless C++ functions.
  *
  * The classifier will be fitted using the SMO algorithm in dual space.
  *
@@ -59,29 +60,11 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
 template <typename math_t>
 class SVC {
  public:
-  // Public members for easier access during testing (and for Python).
-  // TODO Think over how to hide most of this.
-
-  math_t C;      //!< Penalty term C
-  math_t tol;    //!< Tolerance used to stop fitting.
-  bool verbose;  //!< Print information about traning
+  // Public members for easier access during testing from Python.
 
   MLCommon::GramMatrix::KernelParams kernel_params;
-  math_t cache_size;  //!< kernel cache size in MiB
-  int max_iter;  //!< maximum number of outer iterations (default 100 * n_rows)
-
-  int n_support = 0;  //!< Number of non-zero dual coefficients
-  math_t b;           //!< Constant used in the decision function
-
-  // Three device pointers to store the parameters for the classifier
-  //! Non-zero dual coefficients ( dual_coef[i] = \f$ y_i \alpha_i \f$).
-  //! Size [n_support].
-  math_t *dual_coefs = nullptr;
-  //! Support vectors in column major format. Size [n_support x n_cols].
-  math_t *x_support = nullptr;
-  //! Indices (from the traning set) of the non-zero support vectors. Size [n_support].
-  int *support_idx = nullptr;
-
+  svmParameter param;
+  svmModel<math_t> model;
   /**
    * @brief Constructs a support vector classifier
    * @param handle cuML handle
@@ -94,7 +77,8 @@ class SVC {
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::GramMatrix::KernelParams kernel_params =
-        MLCommon::GramMatrix::KernelParams(),
+        MLCommon::GramMatrix::KernelParams{MLCommon::GramMatrix::LINEAR, 3, 1,
+                                           0},
       math_t cache_size = 200, int max_iter = -1, bool verbose = false);
 
   ~SVC();
@@ -124,16 +108,7 @@ class SVC {
   void predict(math_t *input, int n_rows, int n_cols, math_t *preds);
 
  private:
-  //! Number of columns that was used for fitting the classifier
-  int n_cols = 0;
-  int n_classes;  //!< Number of classes found in the input labels
-  //! Device pointer for the unique classes. Size [n_classes]
-  math_t *unique_labels = nullptr;
-  bool need_kernel_dealloc = false;
-
   const cumlHandle &handle;
-
-  void free_buffers();
 };
 
 };  // end namespace SVM
