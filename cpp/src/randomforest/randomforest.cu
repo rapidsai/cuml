@@ -18,10 +18,14 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+#include <treelite/tree.h>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
+
+using namespace MLCommon;
+namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -270,13 +274,15 @@ ModelHandle* build_treelite_forest(ModelHandle* model,
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
-  std::cout << "model handle : " << model << std::endl << std::flush;
+  std::cout << "model forest : " << forest << std::endl << std::flush;
 
   ModelBuilderHandle model_builder;
   std::cout << "model_builder : " << model_builder << std::endl << std::flush;
   // num_output_group is 1 for binary classification and regression
   // num_output_group is #class for multiclass classification which is the same as task_category
   int num_output_group = task_category > 2 ? task_category : 1;
+  std::cout << "num_output_group : " << num_output_group << std::endl
+            << std::flush;
   TREELITE_CHECK(TreeliteCreateModelBuilder(
     num_features, num_output_group, random_forest_flag, &model_builder));
 
@@ -287,9 +293,6 @@ ModelHandle* build_treelite_forest(ModelHandle* model,
   }
 
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    std::cout << " it enters the for loop in the built treelite func "
-              << std::endl
-              << std::flush;
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
 
@@ -307,8 +310,13 @@ ModelHandle* build_treelite_forest(ModelHandle* model,
   std::cout << "model_builder : " << model_builder << std::endl << std::flush;
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
-  // TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
   std::cout << "model_builder : " << model_builder << std::endl << std::flush;
+  tl::Model& temp = *(tl::Model*)model;
+  std::cout << "model.num_output_group : " << temp.num_output_group << std::endl
+            << std::flush;
+  std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
+            << std::flush;
   return model;
 }
 
