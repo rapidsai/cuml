@@ -296,7 +296,16 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
 
     // 6.
     // tmpB = tmpA.transpose()
-    tmpB[tid] = tmpA[tid * r + tid / r % r];
+    // tmpB[0] = tmpA[0]
+    // tmpB[1] = tmpA[2]
+    // tmpB[2] = tmpA[1]
+    // tmpB[3] = tmpA[3]
+    if (tid < r) {
+      // TODO: There is probably a clever way to make this work without a loop
+      for (int i = 0; i < r; i++) {
+        tmpB[tid + i * r] = tmpA[tid * r + i];
+      }
+    }
     // L.T = tmpB
     __syncthreads();
 
@@ -451,6 +460,8 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
 
 class GPUContext {
  public:
+  int p = 0;
+  int q = 0;
   double* d_ys = 0;
   double* d_vs = 0;
   double* d_Fs = 0;
@@ -464,7 +475,7 @@ class GPUContext {
   double* d_ma = 0;
   double* d_Tma = 0;
 
-  GPUContext() {
+  GPUContext(int p, int q) : p(p), q(q) {
     d_ys = nullptr;
     d_vs = nullptr;
     d_Fs = nullptr;
@@ -486,6 +497,8 @@ class GPUContext {
       MLCommon::allocate(ptr, size);
     }
   }
+
+  bool orderEquals(int pp, int qq) { return (p == pp) && (q = qq); }
 
   // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
   //   if (v.size() == 0) {
@@ -603,7 +616,13 @@ void batched_kalman_filter(double* h_ys, int nobs,
                            bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE("batched_akalman_filter");
 
-  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
+  if (GPU_CTX == nullptr) {
+    GPU_CTX = new GPUContext(p, q);
+  }
+  if (!GPU_CTX->orderEquals(p, q)) {
+    delete GPU_CTX;
+    GPU_CTX = new GPUContext(p, q);
+  }
 
   const size_t ys_len = nobs;
   ////////////////////////////////////////////////////////////
@@ -683,7 +702,11 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              vector<double>& Tar, vector<double>& Tma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
-  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext();
+  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext(p, q);
+  if (!GPU_CTX->orderEquals(p, q)) {
+    delete GPU_CTX;
+    GPU_CTX = new GPUContext(p, q);
+  }
 
   std::shared_ptr<MLCommon::deviceAllocator> allocator(
     new MLCommon::defaultDeviceAllocator());
