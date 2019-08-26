@@ -30,7 +30,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
-    device_array_from_ptr
+    device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
 
@@ -44,28 +44,54 @@ cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
         double gamma
         double coef0
 
+cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
+    cdef struct svmParameter:
+        # parameters for trainig
+        double C
+        double cache_size
+        int max_iter
+        double tol
+        int verbose
+
+cdef extern from "svm/svm_model.h" namespace "ML::SVM":
+    cdef cppclass svmModel[math_t]:
+        # parameters of a fitted model
+        int n_support
+        int n_cols
+        math_t b
+        math_t *dual_coefs
+        math_t *x_support
+        int *support_idx
+        int n_classes
+        math_t *unique_labels
+
 cdef extern from "svm/svc.hpp" namespace "ML::SVM":
 
     cdef cppclass CppSVC "ML::SVM::SVC" [math_t]:
         # The CppSVC class manages the memory of the parameters that are found
         # during fitting (the support vectors, and the dual_coefficients). The
         # number of these parameters are not known before fitting.
-        int n_support
-        math_t *dual_coefs
-        math_t *x_support
-        int *support_idx
-        math_t b
-        KernelParams _kernel_params
-        math_t C
-        math_t tol
-        bool verbose
 
-        CppSVC(cumlHandle& handle, math_t C, math_t tol,
-               KernelParams _kernel_params, float cache_size,
-               int max_iter, bool verbose) except+
+        svmModel[math_t] model
+        CppSVC(cumlHandle& handle, svmParameter param,
+               KernelParams _kernel_params) except+
         void fit(math_t *input, int n_rows, int n_cols, math_t *labels) except+
         void predict(math_t *input, int n_rows, int n_cols,
                      math_t *preds) except+
+
+    cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
+                             int n_rows, int n_cols, math_t *labels,
+                             const svmParameter &param,
+                             KernelParams &kernel_params,
+                             svmModel[math_t] &model) except+
+
+    cdef void svcPredict[math_t](
+        const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+        KernelParams &kernel_params, const svmModel[math_t] &model,
+        math_t *preds)
+
+    cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
+                                     svmModel[math_t] &m)
 
 
 class SVC(Base):
@@ -143,48 +169,50 @@ class SVC(Base):
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
         super(SVC, self).__init__(handle=handle, verbose=verbose)
+        # Input parameters for training
         self.tol = tol
         self.C = C
         self.kernel = kernel
-        self._c_kernel = self._get_c_kernel(kernel)
         self.degree = degree
         self.gamma = gamma
         self.coef0 = coef0
         self.cache_size = cache_size
         self.max_iter = max_iter
+        self.verbose = verbose
+
+        # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
         self.support_ = None
         self.support_vectors_ = None
         self.intercept_ = None
         self.n_support_ = None
-        self._coef_ = None
+
+        self._c_kernel = self._get_c_kernel(kernel)
+        self._gamma_val = None  # the actual numerical value used for training
+        self._coef_ = None  # value of the coef_ attribute, only for lin kernel
         self.dtype = None
-        self._kernel_params = None
-        self._svcHandle = None
-        self.verbose = verbose
-        # The current implementation stores the pointer to CppSVC in svcHandle.
-        # The pointer is stored with type size_t (see fit()), because we
-        # cannot have cdef CppSVC[float, float] *svc here.
-        #
-        # CppSVC is not yet created here because the data type will be only
-        # known when we call fit(). Similarily kernel_params is not yet
-        # initialized here, because gamma can depend on the input data.
+        self._model = None  # structure of the model parameters
+        self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
     def __dealloc__(self):
-        # deallocate CppSVC
-        cdef CppSVC[float]* svc_f
-        cdef CppSVC[double]* svc_d
-        if self._svcHandle is not None:
+        # deallocate model parameters
+        cdef svmModel[float] *model_f
+        cdef svmModel[double] *model_d
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        if self._model is not None:
             if self.dtype == np.float32:
-                svc_f = <CppSVC[float]*><size_t> self._svcHandle
-                del svc_f
+                model_f = <svmModel[float]*><uintptr_t> self._model
+                if self._freeSvmBuffers:
+                    svmFreeBuffers(handle_[0], model_f[0])
+                del model_f
             elif self.dtype == np.float64:
-                svc_d = <CppSVC[double]*><size_t> self._svcHandle
-                del svc_d
+                model_d = <svmModel[double]*><uintptr_t> self._model
+                if self._freeSvmBuffers:
+                    svmFreeBuffers(handle_[0], model_d[0])
+                del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
-        self._svcHandle = None
-        self._kernel_params = None
+        self._model = None
 
     def _get_c_kernel(self, kernel):
         """
@@ -201,7 +229,7 @@ class SVC(Base):
             'sigmoid': TANH
         }[kernel]
 
-    def _gamma_val(self, X):
+    def _calc_gamma_val(self, X):
         """
         Calculate the value for gamma kernel parameter.
 
@@ -236,6 +264,111 @@ class SVC(Base):
             self._coef_ = self._calc_coef()
         return self._coef_
 
+    def _get_kernel_params(self, X=None):
+        """ Wrap the kernel parameters in a KernelParams obtect """
+        cdef KernelParams _kernel_params
+        if X is not None:
+            self._gamma_val = self._calc_gamma_val(X)
+        _kernel_params.kernel = self._c_kernel
+        _kernel_params.degree = self.degree
+        _kernel_params.gamma = self._gamma_val
+        _kernel_params.coef0 = self.coef0
+        return _kernel_params
+
+    def _get_svm_params(self):
+        """ Wrap the training parameters in an svmParameter obtect """
+        cdef svmParameter param
+        param.C = self.C
+        param.cache_size = self.cache_size
+        param.max_iter = self.max_iter
+        param.tol = self.tol
+        param.verbose = self.verbose
+        return param
+
+    def _get_svm_model(self):
+        """ Wrap the fitted model parameters into an svmModel structure.
+        This is used if the model is loaded by pickle, the self._model struct
+        that we can pass to the predictor.
+        """
+        cdef svmModel[float] *model_f
+        cdef svmModel[double] *model_d
+        if self.dual_coef_ is None:
+            # the model is not fitted in this case
+            return None
+        if self.dtype == np.float32:
+            model_f = new svmModel[float]()
+            model_f.n_support = self.n_support_
+            model_f.n_cols = self.n_cols
+            model_f.b = self.intercept_
+            model_f.dual_coefs = \
+                <float*><size_t>get_dev_array_ptr(self.dual_coef_)
+            model_f.x_support = \
+                <float*><uintptr_t>get_dev_array_ptr(self.support_vectors_)
+            model_f.support_idx = \
+                <int*><uintptr_t>get_dev_array_ptr(self.support_)
+            model_f.n_classes = self._n_classes
+            model_f.unique_labels = \
+                <float*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            return <uintptr_t>model_f
+        else:
+            model_d = new svmModel[double]()
+            model_d.n_support = self.n_support_
+            model_d.n_cols = self.n_cols
+            model_d.b = self.intercept_
+            model_d.dual_coefs = \
+                <double*><size_t>get_dev_array_ptr(self.dual_coef_)
+            model_d.x_support = \
+                <double*><uintptr_t>get_dev_array_ptr(self.support_vectors_)
+            model_d.support_idx = \
+                <int*><uintptr_t>get_dev_array_ptr(self.support_)
+            model_d.n_classes = self._n_classes
+            model_d.unique_labels = \
+                <double*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            return <uintptr_t>model_d
+
+    def _unpack_model(self):
+        """ Expose the model parameters as attributes """
+        cdef svmModel[float] *model_f
+        cdef svmModel[double] *model_d
+
+        # Mark that the C++ layer should free the parameter vectors
+        # If we could pass the deviceArray deallocator as finalizer for the
+        # device_array_from_ptr function, then this would not be necessary.
+        self._freeSvmBuffers = True
+
+        if self.dtype == np.float32:
+            model_f = <svmModel[float]*><uintptr_t> self._model
+            self.intercept_ = model_f.b
+            self.n_support_ = model_f.n_support
+            self.dual_coef_ = device_array_from_ptr(
+                <uintptr_t>model_f.dual_coefs, (1, self.n_support_),
+                self.dtype)
+            self.support_ = device_array_from_ptr(
+                <uintptr_t>model_f.support_idx, (self.n_support_,), np.int32)
+            self.support_vectors_ = device_array_from_ptr(
+                <uintptr_t>model_f.x_support, (self.n_support_, self.n_cols),
+                self.dtype)
+            self._n_classes = model_f.n_classes
+            self._unique_labels = device_array_from_ptr(
+                <uintptr_t>model_f.unique_labels, (self._n_classes,),
+                self.dtype)
+        else:
+            model_d = <svmModel[double]*><uintptr_t> self._model
+            self.intercept_ = model_d.b
+            self.n_support_ = model_d.n_support
+            self.dual_coef_ = device_array_from_ptr(
+                <uintptr_t>model_d.dual_coefs, (1, self.n_support_),
+                self.dtype)
+            self.support_ = device_array_from_ptr(
+                <uintptr_t>model_d.support_idx, (self.n_support_,), np.int32)
+            self.support_vectors_ = device_array_from_ptr(
+                <uintptr_t>model_d.x_support, (self.n_support_, self.n_cols),
+                self.dtype)
+            self._n_classes = model_d.n_classes
+            self._unique_labels = device_array_from_ptr(
+                <uintptr_t>model_d.unique_labels, (self._n_classes,),
+                self.dtype)
+
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -262,57 +395,32 @@ class SVC(Base):
         y_m, y_ptr, _, _, _ = input_to_dev_array(y,
                                                  convert_to_dtype=self.dtype)
 
-        self.__dealloc__()  # delete any previously allocated CppSVC instance
+        self.__dealloc__()  # delete any previously fitted model
         self._coef_ = None
 
-        cdef CppSVC[float]* svc_f = NULL
-        cdef CppSVC[double]* svc_d = NULL
-        cdef KernelParams _kernel_params
+        cdef KernelParams _kernel_params = self._get_kernel_params(X)
+        cdef svmParameter param = self._get_svm_params()
+        cdef svmModel[float] *model_f
+        cdef svmModel[double] *model_d
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        _kernel_params.kernel = self._c_kernel
-        _kernel_params.degree = self.degree
-        _kernel_params.gamma = self._gamma_val(X)
-        _kernel_params.coef0 = self.coef0
-        self._kernel_params = _kernel_params
-
         if self.dtype == np.float32:
-            svc_f = new CppSVC[float](
-                handle_[0], self.C, self.tol, _kernel_params,
-                self.cache_size, self.max_iter, self.verbose)
-            self._svcHandle = <size_t> svc_f
-            svc_f.fit(<float*>X_ptr, <int>self.n_rows,
-                      <int>self.n_cols, <float*>y_ptr)
-            self.intercept_ = svc_f.b
-            self.n_support_ = svc_f.n_support
-            self.dual_coef_ = device_array_from_ptr(
-                <uintptr_t>svc_f.dual_coefs, (1, self.n_support_), self.dtype)
-            self.support_ = device_array_from_ptr(
-                <uintptr_t>svc_f.support_idx, (self.n_support_,), np.int32)
-            self.support_vectors_ = device_array_from_ptr(
-                <uintptr_t>svc_f.x_support, (self.n_support_, self.n_cols),
-                self.dtype)
-            self.fit_status_ = 0
+            model_f = new svmModel[float]()
+            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
+                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
+                   model_f[0])
+            self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
-            svc_d = new CppSVC[double](
-                handle_[0], self.C, self.tol, _kernel_params,
-                self.cache_size, self.max_iter, self.verbose)
-            self._svcHandle = <size_t> svc_d
-            svc_d.fit(<double*>X_ptr, <int>self.n_rows, <int>self.n_cols,
-                      <double*>y_ptr)
-            self.intercept_ = svc_d.b
-            self.n_support_ = svc_d.n_support
-            self.dual_coef_ = device_array_from_ptr(
-                <uintptr_t>svc_d.dual_coefs, (1, self.n_support_), self.dtype)
-            self.support_ = device_array_from_ptr(
-                <uintptr_t>svc_d.support_idx, (self.n_support_,), np.int32)
-            self.support_vectors_ = device_array_from_ptr(
-                <uintptr_t>svc_d.x_support, (self.n_support_, self.n_cols),
-                self.dtype)
-            self.fit_status_ = 0
+            model_d = new svmModel[double]()
+            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
+                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
+                   model_d[0])
+            self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
 
+        self._unpack_model()
+        self.fit_states_ = 0
         self.handle.sync()
 
         del X_m
@@ -336,7 +444,7 @@ class SVC(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        if self._svcHandle is None:
+        if not hasattr(self, '_model'):
             raise NotFittedError("Call fit before prediction")
 
         cdef uintptr_t X_ptr
@@ -345,25 +453,49 @@ class SVC(Base):
 
         preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
-
-        cdef CppSVC[float]* svc_f
-        cdef CppSVC[double]* svc_d
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef svmModel[float]* model_f
+        cdef svmModel[double]* model_d
 
         if self.dtype == np.float32:
-            svc_f = <CppSVC[float]*><size_t> self._svcHandle
-            svc_f.predict(<float*>X_ptr,
-                          <int>n_rows,
-                          <int>n_cols,
-                          <float*>preds_ptr)
+            model_f = <svmModel[float]*><size_t> self._model
+            svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
+                       self._get_kernel_params(), model_f[0],
+                       <float*>preds_ptr)
         else:
-            svc_d = <CppSVC[double]*><size_t> self._svcHandle
-            svc_d.predict(<double*>X_ptr,
-                          <int>n_rows,
-                          <int>n_cols,
-                          <double*>preds_ptr)
+            model_d = <svmModel[double]*><size_t> self._model
+            svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
+                       self._get_kernel_params(), model_d[0],
+                       <double*>preds_ptr)
 
         self.handle.sync()
 
         del(X_m)
 
         return preds
+
+    def get_param_names(self):
+        return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
+                "max_iter", "tol", "verbose"]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['model_']
+        state['dual_coef_'] = cudf.Series(self.dual_coef_)
+        state['support_'] = cudf.Series(self.support_)
+        state['support_vectors_'] = cudf.Series(self.support_vectors_)
+        state['_unique_labels'] = cudf.Series(self._unique_labels)
+
+        return state
+
+    def __setstate__(self, state):
+        super(SVC, self).__init__(handle=None, verbose=state['verbose'])
+
+        state['dual_coef_'] = state['dual_coef_'].to_gpu_array()
+        state['support_'] = state['support_'].to_gpu_array()
+        state['support_vectors_'] = state['support_vectors_'].to_gpu_array()
+        state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
+        self.__dict__.update(state)
+        self.model_ = self._get_svm_model()
+        self._freeSvmBuffers = False
