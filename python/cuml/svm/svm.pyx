@@ -258,7 +258,7 @@ class SVC(Base):
     def coef_(self):
         if self._c_kernel != LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
-        if self._svcHandle is None:
+        if self._model is None:
             raise NotFittedError("Call fit before prediction")
         if self._coef_ is None:
             self._coef_ = self._calc_coef()

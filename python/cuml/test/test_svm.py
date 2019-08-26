@@ -20,6 +20,64 @@ import cuml.svm
 from sklearn import svm
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import StandardScaler
+from cuml.test.utils import to_nparray
+
+
+def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
+                cmp_sv=False, dcoef_tol=None):
+    """ Compares two svm classifiers
+    Parameters:
+    -----------
+    svm1 : svm classifier
+    svm2 : svm classifier
+    n_sv_tol : float, default 1%
+        tolerance while comparing the number of support vectors
+    b_tol : float
+        tolerance while comparing the constant in the decision functions
+    coef_tol: float
+        tolerance used while comparing coef_ attribute for linear SVM
+    cmp_idx : boolean, default false
+        whether to compare SVs and their indices
+    dcoef_tol: float, default: do not compare dual coefficients
+        tolerance used to compare dual coefs
+    """
+    n_support1 = np.sum(svm1.n_support_)
+    n_support2 = np.sum(svm2.n_support_)
+    if n_sv_tol is None:
+        n_sv_tol = max(2, n_support1*0.01)
+    assert abs(n_support1-n_support2) <= n_sv_tol
+
+    if b_tol is None:
+        b_tol = 10*svm1.tol
+    assert abs(svm1.intercept_-svm2.intercept_) <= b_tol
+
+    if coef_tol is None:
+        coef_tol = svm1.tol
+    if svm1.kernel == 'linear':
+        assert np.all(np.abs(svm1.coef_-svm2.coef_) <= coef_tol)
+
+    svm1_y_hat = to_nparray(svm1.predict(X))
+    svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
+    svm2_y_hat = to_nparray(svm2.predict(X))
+    svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
+    assert svm1_n_wrong == svm2_n_wrong
+
+    if cmp_sv or (dcoef_tol is not None):
+        sidx1 = np.argsort(to_nparray(svm1.support_))
+        sidx2 = np.argsort(to_nparray(svm2.support_))
+
+    if cmp_sv:
+        support_idx1 = to_nparray(svm1.support_)[sidx1]
+        support_idx2 = to_nparray(svm2.support_)[sidx2]
+        assert np.all(support_idx1-support_idx2) == 0
+        sv1 = to_nparray(svm1.support_vectors_)[sidx1, :]
+        sv2 = to_nparray(svm2.support_vectors_)[sidx2, :]
+        assert np.all(sv1-sv2 == 0)
+
+    if dcoef_tol is not None:
+        dcoef1 = to_nparray(svm1.dual_coef_)[0, sidx1]
+        dcoef2 = to_nparray(svm2.dual_coef_)[0, sidx2]
+        assert np.all(np.abs(dcoef1-dcoef2) <= dcoef_tol)
 
 
 def unit_param(*args, **kwargs):
@@ -70,25 +128,11 @@ def test_svm_fit_predict(params, name='iris'):
 
     cuSVC = cuml.svm.SVC(**params)
     cuSVC.fit(X, y)
-    cu_y_hat = cuSVC.predict(X).to_array()
-    cu_n_wrong = np.sum(np.abs(y - cu_y_hat))
 
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X, y)
-    skl_y_hat = sklSVC.predict(X)
-    skl_n_wrong = np.sum(np.abs(y - skl_y_hat))
 
-    n_support1 = np.sum(sklSVC.n_support_)
-    n_support2 = np.sum(cuSVC.n_support_)
-    n_sv_eps = max(2, n_support1*0.01)
-    assert abs(n_support1-n_support2) <= n_sv_eps
-
-    assert abs(sklSVC.intercept_-cuSVC.intercept_) <= 10*sklSVC.tol
-
-    if params['kernel'] == 'linear':
-        assert np.all(np.abs(sklSVC.coef_-cuSVC.coef_) <= sklSVC.tol)
-
-    assert cu_n_wrong == skl_n_wrong
+    compare_svm(cuSVC, sklSVC, X, y)
 
 # TODO test different input types
 # @pytest.mark.parametrize('x_datatype', [np.float32, np.float64])
