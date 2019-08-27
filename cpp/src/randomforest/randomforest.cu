@@ -268,21 +268,16 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-ModelHandle* build_treelite_forest(ModelHandle* model,
-                                   const RandomForestMetaData<T, L>* forest,
-                                   int num_features, int task_category) {
+ModelHandle build_treelite_forest(ModelHandle* model,
+                                  const RandomForestMetaData<T, L>* forest,
+                                  int num_features, int task_category) {
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
-  std::cout << "model forest : " << forest << std::endl << std::flush;
-
   ModelBuilderHandle model_builder;
-  std::cout << "model_builder : " << model_builder << std::endl << std::flush;
   // num_output_group is 1 for binary classification and regression
   // num_output_group is #class for multiclass classification which is the same as task_category
   int num_output_group = task_category > 2 ? task_category : 1;
-  std::cout << "num_output_group : " << num_output_group << std::endl
-            << std::flush;
   TREELITE_CHECK(TreeliteCreateModelBuilder(
     num_features, num_output_group, random_forest_flag, &model_builder));
 
@@ -298,7 +293,6 @@ ModelHandle* build_treelite_forest(ModelHandle* model,
 
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
     if (tree_ptr->root != nullptr) {
-      std::cout << " code entered if statement" << std::endl << std::flush;
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr->root,
                                               num_output_group);
 
@@ -307,17 +301,10 @@ ModelHandle* build_treelite_forest(ModelHandle* model,
         TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
   }
-  std::cout << "model_builder : " << model_builder << std::endl << std::flush;
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
-  std::cout << "model_builder : " << model_builder << std::endl << std::flush;
-  tl::Model& temp = *(tl::Model*)model;
-  std::cout << "model.num_output_group : " << temp.num_output_group << std::endl
-            << std::flush;
-  std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
-            << std::flush;
-  return model;
+  return *model;
 }
 
 /**
@@ -647,16 +634,16 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
-template ModelHandle* build_treelite_forest<float, int>(
+template ModelHandle build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
   int num_features, int task_category);
-template ModelHandle* build_treelite_forest<double, int>(
+template ModelHandle build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
   int num_features, int task_category);
-template ModelHandle* build_treelite_forest<float, float>(
+template ModelHandle build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
   int num_features, int task_category);
-template ModelHandle* build_treelite_forest<double, double>(
+template ModelHandle build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
   int num_features, int task_category);
 }  // End namespace ML

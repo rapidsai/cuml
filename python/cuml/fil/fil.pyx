@@ -236,11 +236,11 @@ cdef class ForestInference_impl():
                       &treelite_params)
         return self
 
-    def load_from_rf_tl(self,
-                        model_handle,
-                        bool output_class,
-                        str algo,
-                        float threshold):
+    def load_from_randomforest(self,
+                               model_handle,
+                               bool output_class,
+                               str algo,
+                               float threshold):
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
@@ -249,7 +249,6 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t> model_handle
-        print(" entering the c++ function in cython")
         from_treelite(handle_[0],
                       &self.forest_data,
                       <ModelHandle> model_ptr,
@@ -412,11 +411,11 @@ class ForestInference(Base):
                                          threshold=threshold)
         return cuml_fm
 
-    def load_from_rf_tl(self,
-                        model_handle,
-                        output_class=False,
-                        algo='TREE_REORG',
-                        threshold=0.50):
+    def load_from_randomforest(self,
+                               model_handle,
+                               output_class=False,
+                               algo='TREE_REORG',
+                               threshold=0.50):
         
-        return self._impl.load_from_rf_tl(model_handle, output_class,
+        return self._impl.load_from_randomforest(model_handle, output_class,
                                           algo, threshold)
