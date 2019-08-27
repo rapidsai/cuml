@@ -39,7 +39,7 @@ cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle;
+    ctypedef void* ModelBuilderHandle
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -135,13 +135,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             bool) except +
 
     cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                                  RandomForestMetaData[float, int]*,
-                                                  int,
-                                                  int)
+                                           RandomForestMetaData[float, int]*,
+                                           int,
+                                           int)
+
     cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                                  RandomForestMetaData[double, int]*,
-                                                  int,
-                                                  int)
+                                           RandomForestMetaData[double, int]*,
+                                           int,
+                                           int)
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -787,17 +788,16 @@ class RandomForestClassifier(Base):
 
         cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
-            tl_model_ptr = build_treelite_forest(&cuml_model_ptr,
-                                  rf_forest,
-                                  <int> num_features,
-                                  <int> task_category)
+            tl_model_ptr = build_treelite_forest(& cuml_model_ptr,
+                                                 rf_forest,
+                                                 <int> num_features,
+                                                 <int> task_category)
 
         else:
-            tl_model_ptr = build_treelite_forest(&cuml_model_ptr,
-                                  rf_forest64,
-                                  <int> num_features,
-                                  <int> task_category)
+            tl_model_ptr = build_treelite_forest(& cuml_model_ptr,
+                                                 rf_forest64,
+                                                 <int> num_features,
+                                                 <int> task_category)
         self.mod_ptr = <size_t> tl_model_ptr
-        print(" model handle  : ", self.mod_ptr)
 
         return ctypes.c_void_p(self.mod_ptr)
