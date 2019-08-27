@@ -404,7 +404,8 @@ if(BUILD_CUML_C_LIBRARY)
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
-    src/holtwinters/holtwinters_api.cpp)
+    src/holtwinters/holtwinters_api.cpp
+    src/svm/svm_api.cpp)
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
