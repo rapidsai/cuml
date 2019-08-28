@@ -460,8 +460,8 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
 
 class GPUContext {
  public:
-  int p = 0;
-  int q = 0;
+  int m_p = 0;
+  int m_q = 0;
   double* d_ys = 0;
   double* d_vs = 0;
   double* d_Fs = 0;
@@ -475,7 +475,7 @@ class GPUContext {
   double* d_ma = 0;
   double* d_Tma = 0;
 
-  GPUContext(int p, int q) : p(p), q(q) {
+  GPUContext(int p, int q) : m_p(p), m_q(q) {
     d_ys = nullptr;
     d_vs = nullptr;
     d_Fs = nullptr;
@@ -498,7 +498,7 @@ class GPUContext {
     }
   }
 
-  bool orderEquals(int pp, int qq) { return (p == pp) && (q = qq); }
+  bool orderEquals(int p, int q) { return (m_p == p) && (m_q = q); }
 
   // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
   //   if (v.size() == 0) {
@@ -507,7 +507,6 @@ class GPUContext {
   // }
 
   ~GPUContext() noexcept(false) {
-    std::printf("Deleting GPUContext\n");
     ////////////////////////////////////////////////////////////
     // free memory
     CUDA_CHECK(cudaFree(d_ys));
