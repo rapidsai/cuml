@@ -42,14 +42,14 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('nrows', [unit_param(2000), quality_param(5000),
-                         stress_param(500000)])
+                         stress_param(100000)])
 @pytest.mark.parametrize('ncols', [unit_param(100), quality_param(100),
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(40), quality_param(60),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_depth', [-1, 16, 1])
+@pytest.mark.parametrize('max_depth', [16, 1])
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols, max_depth):
     use_handle = True
@@ -77,12 +77,13 @@ def test_rf_classification(datatype, split_algo,
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
-    tl_model = cuml_model.build_treelite_forest( num_features=ncols, task_category=2)
+    tl_model = cuml_model.build_treelite_forest(num_features=ncols, task_category=2)
     fm = ForestInference()
-    model = fm.load_from_randomforest(tl_model.value)
+    model = fm.load_from_randomforest(tl_model.value, output_class=True,
+                                      threshold=0.5, algo='BATCH_TREE_REORG')
     fil_preds = np.around(np.asarray(model.predict(X_test)))
     fil_acc = accuracy_score(y_test, fil_preds)
-    assert array_equal(fil_acc, cu_acc, 1e-2)
+    assert fil_acc >= cu_acc
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
