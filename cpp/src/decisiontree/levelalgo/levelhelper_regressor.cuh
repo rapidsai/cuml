@@ -191,6 +191,12 @@ void get_best_split_regression(
     //Here parent mean and count are already updated
     MLCommon::updateDevice(d_parentmetric, h_parentmetric, n_nodes,
                            tempmem->stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(d_outgain, 0, n_nodes * sizeof(float), tempmem->stream));
+    CUDA_CHECK(cudaMemsetAsync(d_split_binidx, 0, n_nodes * sizeof(int),
+                               tempmem->stream));
+    CUDA_CHECK(cudaMemsetAsync(d_split_colidx, 0, n_nodes * sizeof(int),
+                               tempmem->stream));
 
     get_best_split_regression_kernel<<<n_nodes, threads, 0, tempmem->stream>>>(
       d_mseout, d_predout, d_count, d_parentmean, d_parentcount, d_parentmetric,

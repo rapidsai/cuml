@@ -143,6 +143,13 @@ void get_best_split_classification(
                            n_nodes * n_unique_labels, tempmem->stream);
     MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
                            tempmem->stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(d_outgain, 0, n_nodes * sizeof(float), tempmem->stream));
+    CUDA_CHECK(cudaMemsetAsync(d_split_binidx, 0, n_nodes * sizeof(int),
+                               tempmem->stream));
+    CUDA_CHECK(cudaMemsetAsync(d_split_colidx, 0, n_nodes * sizeof(int),
+                               tempmem->stream));
+
     int threads = 64;
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
     get_best_split_classification_kernel<T, DF>

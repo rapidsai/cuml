@@ -332,7 +332,7 @@ __global__ void get_best_split_regression_kernel(
     int nodeoffset = nodeid * nbins;
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
-    tid_pair.idx = 0;
+    tid_pair.idx = -1;
     for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_nodes;
       int binoffset = id % nbins;
@@ -361,7 +361,7 @@ __global__ void get_best_split_regression_kernel(
     GainIdxPair ans =
       BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
 
-    if (threadIdx.x == 0) {
+    if (threadIdx.x == 0 && ans.idx != -1) {
       outgain[nodeid] = ans.gain;
       best_col_id[nodeid] = (int)(ans.idx / nbins);
       best_bin_id[nodeid] = ans.idx % nbins;
