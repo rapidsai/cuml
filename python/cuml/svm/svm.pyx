@@ -386,7 +386,7 @@ class SVC(Base):
             ndarray, cuda array interface compliant array like CuPy
 
         """
-        
+
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
