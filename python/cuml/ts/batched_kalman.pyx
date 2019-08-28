@@ -35,37 +35,39 @@ cdef extern from "ts/batched_kalman.h":
                                vector[double]& Tma)
 
 
-def unpack(p, q, nb, np.ndarray[double, ndim=1] x):
+def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
     pynvtx_range_push("unpack(x) -> (ar,ma,mu)")
-    num_parameters = 1 + p + q
+    num_parameters = d + p + q
     mu = np.zeros(nb)
     ar = []
     ma = []
     for i in range(nb):
         xi = x[i*num_parameters:(i+1)*num_parameters]
-        mu[i] = xi[0]
-        ar.append(xi[1:p+1])
-        ma.append(xi[p+1:])
+        if d>0:
+            mu[i] = xi[0]
+        if p>0:
+            ar.append(xi[d:(d+p)])
+        ma.append(xi[d+p:])
 
     pynvtx_range_pop()
     return (mu, ar, ma)
 
 
-def pack(p, q, nb, mu, ar, ma):
+def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
     pynvtx_range_push("pack(ar,ma,mu) -> x")
-    num_parameters = 1 + p + q
+    num_parameters = d + p + q
     x = np.zeros(num_parameters*nb)
     for i in range(nb):
         xi = np.zeros(num_parameters)
-        if mu[i]:
+        if d>0:
             xi[0] = mu[i]
         
         for j in range(p):
-            xi[j+1] = ar[i][j]
+            xi[j+d] = ar[i][j]
         for j in range(q):
-            xi[j+p+1] = ma[i][j]
+            xi[j+p+d] = ma[i][j]
         # xi = np.array([mu[i]])
         # xi = np.r_[xi, ar[i]]
         # xi = np.r_[xi, ma[i]]
@@ -74,7 +76,7 @@ def pack(p, q, nb, mu, ar, ma):
     pynvtx_range_pop()
     return x
 
-def batched_transform(p, q, nb, np.ndarray[double] x, isInv):
+def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
@@ -84,26 +86,26 @@ def batched_transform(p, q, nb, np.ndarray[double] x, isInv):
     # pack ar & ma into C++ vectors
     for ib in range(nb):
         for ip in range(p):
-            vec_ar.push_back(x[(1+p+q)*ib + 1 + ip])
+            vec_ar.push_back(x[(d+p+q)*ib + d + ip])
         for iq in range(q):
-            vec_ma.push_back(x[(1+p+q)*ib + 1 + p + iq])
+            vec_ma.push_back(x[(d+p+q)*ib + d + p + iq])
 
     batched_jones_transform(p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
 
     # unpack Tar & Tma results into [np.ndarray]
-    Tx = np.zeros(nb*(1+p+q))
+    Tx = np.zeros(nb*(d+p+q))
     for ib in range(nb):
 
         # copy mu
-        Tx[(1+p+q)*ib] = x[(1+p+q)*ib]
+        Tx[(d+p+q)*ib] = x[(d+p+q)*ib]
 
         # copy ar
         for ip in range(p):
-            Tx[(1+p+q)*ib + 1 + ip] = vec_Tar[ib*p + ip]
+            Tx[(d+p+q)*ib + d + ip] = vec_Tar[ib*p + ip]
 
         # copy ma
         for iq in range(q):
-            Tx[(1+p+q)*ib + 1 + p + iq] = vec_Tma[ib*q + iq]
+            Tx[(d+p+q)*ib + d + p + iq] = vec_Tma[ib*q + iq]
 
     pynvtx_range_pop()
     return (Tx)
@@ -118,7 +120,7 @@ def pynvtx_range_pop():
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
                     np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
-                    int p, int q,
+                    int p, int d, int q,
                     initP_with_kalman_iterations=False):
 
     cdef vector[double] vec_loglike_b
@@ -149,9 +151,9 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     for i in range(num_batches):
         for ip in range(p):
-            vec_b_ar_params[i*p + ip] = mu_ar_ma_params_x[i*(1+p+q) + 1 + ip]
+            vec_b_ar_params[i*p + ip] = mu_ar_ma_params_x[i*(d+p+q) + d + ip]
         for iq in range(q):
-            vec_b_ma_params[i*q + iq] = mu_ar_ma_params_x[i*(1+p+q) + 1 + p + iq]
+            vec_b_ma_params[i*q + iq] = mu_ar_ma_params_x[i*(d+p+q) + d + p + iq]
 
     ll_b = np.zeros(num_batches)
     vs = np.zeros((nobs, num_batches))

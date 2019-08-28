@@ -45,25 +45,25 @@ class ARIMAModel:
 
     @property
     def bic(self):
-        (p, _, q) = self.order[0]
-        x = pack(p, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        (p, d, q) = self.order[0]
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
         llb = ll_f(self.num_batches, self.order[0], self.y, x)
         return [-2 * lli + np.log(len(self.y)) * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
     @property
     def aic(self):
-        (p, _, q) = self.order[0]
-        x = pack(p, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        (p, d, q) = self.order[0]
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
         llb = ll_f(self.num_batches, self.order[0], self.y, x)
         return [-2 * lli + 2 * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
 
 def _model_complexity(order):
-    (p, _, q) = order
+    (p, d, q) = order
     # complexity is number of parameters: mu + ar + ma
-    return 1 + p + q
+    return d + p + q
 
 
 def ll_f(num_batches, order, y, x, trans=True):
@@ -153,8 +153,8 @@ def fit(y: np.ndarray,
         n_gllf = -ll_gf(num_batches, num_parameters, order, y, x, h, trans=True)
         return n_gllf/(num_samples-1)
 
-    x0 = pack(p, q, num_batches, mu0, ar_params0, ma_params0)
-    x0 = batch_invtrans(p, q, num_batches, x0)
+    x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
+    x0 = batch_invtrans(p, d, q, num_batches, x0)
         
     # check initial parameter sanity
     if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
@@ -169,8 +169,8 @@ def fit(y: np.ndarray,
     if (flags != 0).any():
         print("WARNING(`fit()`): Some batch members had optimizer problems.")
 
-    Tx = batch_trans(p, q, num_batches, x)
-    mu, ar, ma = unpack(p, q, num_batches, Tx)
+    Tx = batch_trans(p, d, q, num_batches, x)
+    mu, ar, ma = unpack(p, d, q, num_batches, Tx)
 
     fit_model = ARIMAModel(num_batches*[order], mu, ar, ma, y)
     fit_model.niter = niter
@@ -201,7 +201,7 @@ def run_kalman(y, order: Tuple[int, int, int],
 
         ll_b, vs = batched_kfilter(np.asfortranarray(y), # numpy
                                    mu_ar_ma_params_x,
-                                   p, q,
+                                   p, d, q,
                                    initP_kalman_iterations)
     elif d == 1:
 
@@ -209,7 +209,7 @@ def run_kalman(y, order: Tuple[int, int, int],
         # print("ydiff:", y_diff_centered)
         ll_b, vs = batched_kfilter(y_diff_centered, # numpy
                                    mu_ar_ma_params_x,
-                                   p, q,
+                                   p, d, q,
                                    initP_kalman_iterations)
     else:
         raise NotImplementedError("ARIMA only support d==0,1")
@@ -222,7 +222,7 @@ def predict_in_sample(model):
     """Return in-sample prediction on batched series given batched model"""
 
     p, d, q = model.order[0]
-    x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
+    x = pack(p, d, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
     _, vs = run_kalman(model.y, (p, d, q), model.num_batches, x)
 
     assert_same_d(model.order) # We currently assume the same d for all series
@@ -293,7 +293,7 @@ def forecast(model, nsteps: int) -> np.ndarray:
     y_fc_b = np.zeros((nsteps, model.num_batches))
 
     p, d, q = model.order[0]
-    x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
+    x = pack(p, d, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
 
     _, vs = run_kalman(model.y, model.order[0], model.num_batches, x)
 
@@ -313,23 +313,23 @@ def forecast(model, nsteps: int) -> np.ndarray:
     return y_fc_b
 
 
-def batch_trans(p, q, nb, x):
+def batch_trans(p, d, q, nb, x):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
     pynvtx_range_push("jones trans")
 
-    Tx = batched_trans_cuda(p, q, nb, x, False)
+    Tx = batched_trans_cuda(p, d, q, nb, x, False)
     
     pynvtx_range_pop()
     return Tx
 
 
-def batch_invtrans(p, q, nb, x):
+def batch_invtrans(p, d, q, nb, x):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
     pynvtx_range_push("jones inv-trans")
 
-    Tx = batched_trans_cuda(p, q, nb, x, True)
+    Tx = batched_trans_cuda(p, d, q, nb, x, True)
 
     pynvtx_range_pop()
     return Tx
@@ -423,14 +423,14 @@ def init_x0(order, y):
     
     x0 = start_params((p, q, d), yd)
 
-    mu, ar, ma = unpack(p, q, 1, x0)
+    mu, ar, ma = unpack(p, d, q, 1, x0)
     # fix ma to avoid bad values in inverse invertibility transform
     for i in range(len(ma[0])):
         mai = ma[0][i]
         # if ma >= 1, then we get "inf" results from inverse transform
         ma[0][i] = np.sign(mai)*min(np.abs(mai), 1-1e-14)
 
-    x0 = pack(p, q, 1, mu, ar, ma)
+    x0 = pack(p, d, q, 1, mu, ar, ma)
 
     pynvtx_range_pop()
     return x0
