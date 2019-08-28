@@ -386,7 +386,7 @@ class SVC(Base):
             ndarray, cuda array interface compliant array like CuPy
 
         """
-
+        
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
@@ -444,7 +444,7 @@ class SVC(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        if not hasattr(self, '_model'):
+        if self._model is None:
             raise NotFittedError("Call fit before prediction")
 
         cdef uintptr_t X_ptr
