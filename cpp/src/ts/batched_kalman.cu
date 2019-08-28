@@ -1,5 +1,3 @@
-#define THRUST_DEBUG 1
-
 #include <matrix/batched_matrix.h>
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
@@ -23,8 +21,6 @@
 #include <ratio>
 
 #include <timeSeries/jones_transform.h>
-
-// #include <thrust/lo
 
 using std::vector;
 
@@ -65,127 +61,8 @@ void process_mem_usage(double& vm_usage, double& resident_set) {
   vm_usage = vsize / 1024.0;
   resident_set = rss * page_size_kb;
 }
-////////////////////////////////////////////////////////////
 
-// __global__ void vs_eq_ys_m_alpha00_kernel(double* d_vs, int it,
-//                                           const double* ys_it,
-//                                           double** alpha, int r,
-//                                           int num_batches) {
-//   int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
-//   if(batch_id < num_batches) {
-//     d_vs[it*num_batches + batch_id] = ys_it[batch_id] - alpha[batch_id][0];
-//   }
-// }
-
-// void vs_eq_ys_m_alpha00(double* d_vs,int it,const vector<double*>& ptr_ys_b,const BatchedMatrix& alpha) {
-//   const int num_batches = alpha.batches();
-//   const int block_size = 16;
-//   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-
-//   vs_eq_ys_m_alpha00_kernel<<<num_blocks, block_size>>>(d_vs, it, ptr_ys_b[it],
-//                                                         alpha.data(), alpha.shape().first, num_batches);
-//   CUDA_CHECK(cudaPeekAtLastError());
-
-// }
-
-// __global__ void fs_it_P00_kernel(double* d_Fs, int it, double** P, int num_batches) {
-//   int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
-//   if(batch_id < num_batches) {
-//     d_Fs[it*num_batches + batch_id] = P[batch_id][0];
-//   }
-// }
-
-// void fs_it_P00(double* d_Fs, int it, const BatchedMatrix& P) {
-
-//   const int block_size = 16;
-//   const int num_batches = P.batches();
-//   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-
-//   fs_it_P00_kernel<<<num_blocks, block_size>>>(d_Fs, it, P.data(), num_batches);
-//   CUDA_CHECK(cudaPeekAtLastError());
-
-// }
-
-// __global__ void _1_Fsit_TPZt_kernel(double* d_Fs, int it, double** TPZt,
-//                                     int N_TPZt, // size of matrix TPZt
-//                                     int num_batches,
-//                                     double** K // output
-//                                     ) {
-
-//   int batch_id = blockIdx.x;
-//   for(int i=0;i<N_TPZt/blockDim.x;i++) {
-//     int ij = threadIdx.x + i*blockDim.x;
-//     if(ij < N_TPZt) {
-//       K[batch_id][ij] = 1.0/d_Fs[batch_id + num_batches * it] * TPZt[batch_id][ij];
-//     }
-//   }
-// }
-
-// BatchedMatrix _1_Fsit_TPZt(double* d_Fs, int it, const BatchedMatrix& TPZt) {
-//   BatchedMatrix K(TPZt.shape().first, TPZt.shape().second, TPZt.batches());
-
-//   const int TPZt_size = TPZt.shape().first * TPZt.shape().second;
-//   const int block_size = (TPZt_size) % 128;
-
-//   const int num_batches = TPZt.batches();
-//   const int num_blocks = num_batches;
-
-//   // call kernel
-//   _1_Fsit_TPZt_kernel<<<num_blocks,block_size>>>(d_Fs, it, TPZt.data(), TPZt_size, num_batches, K.data());
-//   CUDA_CHECK(cudaPeekAtLastError());
-
-//   return K;
-// }
-
-BatchedMatrix Kvs_it(const BatchedMatrix& K, double* d_vs, int it) {
-  BatchedMatrix Kvs(K.shape().first, K.shape().second, K.batches(), K.pool());
-  auto num_batches = K.batches();
-  auto counting = thrust::make_counting_iterator(0);
-  double** d_K = K.data();
-  double** d_Kvs = Kvs.data();
-  int m = K.shape().first;
-  int n = K.shape().second;
-  thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-    double vs = d_vs[bid + it * num_batches];
-    for (int ij = 0; ij < m * n; ij++) {
-      d_Kvs[bid][ij] = d_K[bid][ij] * vs;
-    }
-  });
-  return Kvs;
-}
-
-__global__ void sumLogFs_kernel(double* d_Fs, int num_batches, int nobs,
-                                double* d_sumLogFs) {
-  double sum = 0.0;
-  int bid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (bid < num_batches) {
-    for (int it = 0; it < nobs; it++) {
-      sum += log(d_Fs[bid]);
-    }
-    d_sumLogFs[bid] = sum;
-  }
-}
-
-double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
-  double* d_sumLogFs;
-  allocate(d_sumLogFs, num_batches);
-  // compute sum(log(Fs[0:nobs]))
-  // const int block_size = 32;
-  // const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-  // sumLogFs_kernel<<<num_blocks, block_size>>>(d_Fs, num_batches, nobs, d_sumLogFs);
-  // CUDA_CHECK(cudaPeekAtLastError());
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-    double sum = 0.0;
-    for (int it = 0; it < nobs; it++) {
-      sum += log(d_Fs[bid + it * num_batches]);
-    }
-    d_sumLogFs[bid] = sum;
-  });
-  CUDA_CHECK(cudaPeekAtLastError());
-  return d_sumLogFs;
-}
-
+//! Matrix-Vector multiplication
 __device__ void Mv(double* A, double* v, int r, int tid, double* out) {
   out[tid] = 0.0;
   if (tid < r) {
@@ -195,6 +72,7 @@ __device__ void Mv(double* A, double* v, int r, int tid, double* out) {
   }
 }
 
+//! Matrix-Matrix multiplication
 __device__ void MM(double* A, double* B, int r, int tid, double* out) {
   out[tid] = 0.0;
   for (int i = 0; i < r; i++) {
@@ -387,7 +265,7 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
                             const BatchedMatrix& Tb, const BatchedMatrix& Rb,
                             int r, double* d_vs, double* d_Fs,
                             double* d_loglike, double* d_sigma2,
-                            bool initP_with_kalman_iterations = true) {
+                            bool initP_with_kalman_iterations = false) {
   const size_t num_batches = Zb.batches();
 
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
@@ -458,6 +336,9 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
                          d_loglike);
 }
 
+// Because the kalman filter is typically called many times within the ARIMA
+// `fit()` method, allocations end up very costly. We avoid this by re-using the
+// variables stored in this global `GPUContext` object.
 class GPUContext {
  public:
   int m_p = 0;
@@ -488,10 +369,12 @@ class GPUContext {
     d_Tma = nullptr;
   }
 
+  // Note: Tried to re-use these device vectors, but it caused segfaults, so we ignore them for now.
   // thrust::device_vector<double> d_Z_b;
   // thrust::device_vector<double> d_R_b;
   // thrust::device_vector<double> d_T_b;
 
+  // Only allocates when the pointer is uninitialized.
   static void allocate_if_zero(double*& ptr, size_t size) {
     if (ptr == 0) {
       MLCommon::allocate(ptr, size);
@@ -549,7 +432,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   thrust::fill(d_R_b.begin(), d_R_b.end(), 0.0);
   thrust::fill(d_T_b.begin(), d_T_b.end(), 0.0);
 
-  // ugh
+  // wish we didn't have to do this casting dance...
   double* d_b_ar_params_data = thrust::raw_pointer_cast(d_b_ar_params.data());
   double* d_b_ma_params_data = thrust::raw_pointer_cast(d_b_ma_params.data());
   double* d_Z_b_data = thrust::raw_pointer_cast(d_Z_b.data());
@@ -585,11 +468,6 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
            |ar_r  0.0  0.0  ...  0.0|
     */
 
-    // set zero
-    // for (int i = 0; i < r * r; i++) {
-    //   d_T_b_data[bid * r * r + i] = 0.0;
-    // }
-
     for (int i = 0; i < r; i++) {
       // note: ar_i is zero if (i > p)
       if (i < p) {
@@ -607,6 +485,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
 
 GPUContext* GPU_CTX = nullptr;
 
+//! The public batched kalman filter.
 void batched_kalman_filter(double* h_ys, int nobs,
                            const vector<double>& b_ar_params,
                            const vector<double>& b_ma_params, int p, int q,
@@ -696,6 +575,8 @@ void batched_kalman_filter(double* h_ys, int nobs,
   ML::POP_RANGE();
 }
 
+//! Public interface to batched "jones transform" used in ARIMA to ensure
+//! certain properties of the AR and MA parameters.
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              const vector<double>& ar, const vector<double>& ma,
                              vector<double>& Tar, vector<double>& Tma) {
