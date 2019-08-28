@@ -94,16 +94,18 @@ __global__ void get_minmax_kernel_global(
   unsigned int local_flag = LEAF;
   if (tid < nrows) {
     local_flag = flags[tid];
-    for (int colcnt = 0; colcnt < ncols; colcnt++) {
-      int coloff = 2 * n_nodes * colcnt;
-      int col = colids[colcnt];
-      T local_data = data[col * nrows + tid];
-      if (!isnan(local_data)) {
-        //Min max values are saved in shared memory and global memory as per the shuffled colids.
-        MLCommon::Stats::atomicMinBits<T, E>(&minmax[coloff + local_flag],
-                                             local_data);
-        MLCommon::Stats::atomicMaxBits<T, E>(
-          &minmax[coloff + n_nodes + local_flag], local_data);
+    if (local_flag != LEAF) {
+      for (int colcnt = 0; colcnt < ncols; colcnt++) {
+        int coloff = 2 * n_nodes * colcnt;
+        int col = colids[colcnt];
+        T local_data = data[col * nrows + tid];
+        if (!isnan(local_data)) {
+          //Min max values are saved in shared memory and global memory as per the shuffled colids.
+          MLCommon::Stats::atomicMinBits<T, E>(&minmax[coloff + local_flag],
+                                               local_data);
+          MLCommon::Stats::atomicMaxBits<T, E>(
+            &minmax[coloff + n_nodes + local_flag], local_data);
+        }
       }
     }
   }
