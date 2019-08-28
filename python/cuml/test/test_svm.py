@@ -38,7 +38,7 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         idx = np.argsort(diff)
         print("Largest diffs")
         for i in idx[-5:]:
-            if (diff > tol):
+            if (diff[i] > tol):
                 print(diff[i], "at", i, "values", a[i], b[i])
         print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
               np.mean(b))
@@ -181,28 +181,28 @@ def test_svm_skl_cmp_kernels(params):
 
     compare_svm(cuSVC, sklSVC, X_train, y_train)
 
-#
-# @pytest.mark.parametrize('params', [
-#     {'kernel': 'linear', 'C': 1},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 1},
-#     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'auto'},
-# ])
-# @pytest.mark.parametrize('dataset', ['classification1', 'classification2',
-#                                      'gaussian', 'blobs'])
-# @pytest.mark.parametrize('n_rows', [3, 100, 1000])
-# @pytest.mark.parametrize('n_cols', [2, 100, 1000])
-# def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
-#     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
-#
-#     cuSVC = cuml.svm.SVC(**params)
-#     cuSVC.fit(X_train, y_train)
-#
-#     sklSVC = svm.SVC(**params)
-#     sklSVC.fit(X_train, y_train)
-#
-#     compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
-#                 coef_tol=0.01, report_summary=True)
+
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+])
+@pytest.mark.parametrize('dataset', ['classification2', 'gaussian', 'blobs'])
+@pytest.mark.parametrize('n_rows', [3, unit_param(100), quality_param(1000),
+                                    stress_param(10000)])
+@pytest.mark.parametrize('n_cols', [2, unit_param(100), quality_param(1000),
+                         stress_param(1000)])
+def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+
+    cuSVC = cuml.svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
+
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
+
+    compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
+                coef_tol=0.01, report_summary=True)
 
 
 @pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
@@ -228,9 +228,35 @@ def test_svm_numeric_arraytype(x_arraytype, y_arraytype, x_dtype, y_dtype):
     params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
     cuSVC = cuml.svm.SVC(**params)
     cuSVC.fit(X_in, y_in)
-    intercept_exp = 23468959692060373
+    intercept_exp = 0.23468959692060373
     n_sv_exp = 15
-    assert (cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-7
+    assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
     assert cuSVC.n_support_ == n_sv_exp
     n_pred_wrong = np.sum(cuSVC.predict(X).to_array()-y)
     assert n_pred_wrong == 0
+
+
+@pytest.mark.parametrize('params', [
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1}
+])
+@pytest.mark.parametrize('n_rows', [100])
+@pytest.mark.parametrize('n_iter', [100])
+def test_svm_loop(params, n_rows, n_iter, dataset='blobs', n_cols=10):
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+
+    free_mem = cuda.current_context().get_memory_info()[0]
+    for i in range(n_iter):
+        cuSVC = cuml.svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
+        cuSVC.predict(X_train)
+
+    # intercept_exp = 0.9557494777004518
+    # n_sv_exp = 6656
+    # assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
+    # assert cuSVC.n_support_ == n_sv_exp
+    del(cuSVC)
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    delta_mem /= (1024*1024.0)  # in MiB
+    # This does not work yet
+    # print("Delta mem", delta_mem)
+    # assert delta_mem < 1
