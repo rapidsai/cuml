@@ -154,7 +154,7 @@ def fit(y: np.ndarray,
         
     # check initial parameter sanity
     if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")    
+            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
 
 
     # Optimize parameters by minimizing log likelihood.
@@ -291,7 +291,7 @@ def forecast(model, nsteps: int) -> np.ndarray:
     p, d, q = model.order[0]
     x = pack(p, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
 
-    _, vs = run_kalman(model.y, model.order, model.num_batches, x)
+    _, vs = run_kalman(model.y, model.order[0], model.num_batches, x)
 
     for i in range(model.num_batches):
         p, d, q = model.order[i]
