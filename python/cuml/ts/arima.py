@@ -45,13 +45,17 @@ class ARIMAModel:
 
     @property
     def bic(self):
-        llb = loglike(self)
+        (p, _, q) = self.order[0]
+        x = pack(p, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        llb = ll_f(self.num_batches, self.order[0], self.y, x)
         return [-2 * lli + np.log(len(self.y)) * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
     @property
     def aic(self):
-        llb = loglike(self)
+        (p, _, q) = self.order[0]
+        x = pack(p, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        llb = ll_f(self.num_batches, self.order[0], self.y, x)
         return [-2 * lli + 2 * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
@@ -62,7 +66,7 @@ def _model_complexity(order):
     return 1 + p + q
 
 
-def ll_f(num_batches, num_parameters, order, y, x, trans=True):
+def ll_f(num_batches, order, y, x, trans=True):
     """Computes batched loglikelihood given parameters stored in `x`."""
     pynvtx_range_push("ll_f")
 
@@ -95,8 +99,8 @@ def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, trans=True):
         # reset perturbation
         fd[i] = 0.0
 
-        ll_b_ph = ll_f(num_batches, num_parameters, order, y, x+fdph, trans=trans)
-        ll_b_mh = ll_f(num_batches, num_parameters, order, y, x-fdph, trans=trans)
+        ll_b_ph = ll_f(num_batches, order, y, x+fdph, trans=trans)
+        ll_b_mh = ll_f(num_batches, order, y, x-fdph, trans=trans)
         
         np.seterr(all='raise')
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
@@ -138,7 +142,7 @@ def fit(y: np.ndarray,
         """The (batched) energy functional returning the negative loglikelihood (for each series)."""
 
         # Recall: Maximimize LL means minimize negative
-        n_llf = -(ll_f(num_batches, num_parameters, order, y, x, trans=True))
+        n_llf = -(ll_f(num_batches, order, y, x, trans=True))
         return n_llf/(num_samples-1)
 
 
