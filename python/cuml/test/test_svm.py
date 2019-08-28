@@ -19,14 +19,35 @@ import cuml
 import cuml.svm
 from numba import cuda
 from sklearn import svm
-from sklearn.datasets import load_iris
+from sklearn.datasets import load_iris, make_blobs
+from sklearn.datasets.samples_generator import make_classification, \
+    make_gaussian_quantiles
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from cuml.test.utils import to_nparray, np_to_cudf
 import cudf
 
 
+def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
+    diff = np.abs(a-b)
+    if relative_diff:
+        idx = np.nonzero(abs(b) > tol)
+        diff[idx] = diff[idx] / abs(b[idx])
+    equal = np.all(diff <= tol)
+    if not equal and report_summary:
+        idx = np.argsort(diff)
+        print("Largest diffs")
+        for i in idx[-5:]:
+            if (diff > tol):
+                print(diff[i], "at", i, "values", a[i], b[i])
+        print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
+              np.mean(b))
+    return equal
+
+
 def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
-                cmp_sv=False, dcoef_tol=None):
+                cmp_sv=False, dcoef_tol=None, n_wrong_tol=0,
+                report_summary=False):
     """ Compares two svm classifiers
     Parameters:
     -----------
@@ -46,23 +67,27 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     n_support1 = np.sum(svm1.n_support_)
     n_support2 = np.sum(svm2.n_support_)
     if n_sv_tol is None:
-        n_sv_tol = max(2, n_support1*0.01)
+        n_sv_tol = max(2, n_support1*0.02)
     assert abs(n_support1-n_support2) <= n_sv_tol
 
     if b_tol is None:
-        b_tol = 10*svm1.tol
-    assert abs(svm1.intercept_-svm2.intercept_) <= b_tol
+        b_tol = 30*svm1.tol
+    if abs(svm2.intercept_) > 1e-6:
+        assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
+    else:
+        assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
 
     if coef_tol is None:
-        coef_tol = svm1.tol
+        coef_tol = 20*svm1.tol
     if svm1.kernel == 'linear':
-        assert np.all(np.abs(svm1.coef_-svm2.coef_) <= coef_tol)
+        assert array_equal(svm1.coef_, svm2.coef_, coef_tol,
+                           report_summary=report_summary)
 
     svm1_y_hat = to_nparray(svm1.predict(X))
     svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
     svm2_y_hat = to_nparray(svm2.predict(X))
     svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
-    assert svm1_n_wrong == svm2_n_wrong
+    assert svm1_n_wrong - svm2_n_wrong <= n_wrong_tol
 
     if cmp_sv or (dcoef_tol is not None):
         sidx1 = np.argsort(to_nparray(svm1.support_))
@@ -94,6 +119,30 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
+def make_dataset(dataset, n_rows, n_cols, n_classes=2):
+    np.random.seed(137)
+    if dataset == 'classification1':
+        X, y = make_classification(
+            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_classes=n_classes, n_clusters_per_class=1)
+    elif dataset == 'classification2':
+        X, y = make_classification(
+            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_classes=n_classes, n_clusters_per_class=2)
+    elif dataset == 'gaussian':
+        X, y = make_gaussian_quantiles(n_samples=n_rows, n_features=n_cols,
+                                       n_classes=n_classes)
+    elif dataset == 'blobs':
+        X, y = make_blobs(n_samples=n_rows, n_features=n_cols,
+                          centers=n_classes)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    # correct case when not all classes made it into the training set
+    if np.unique(y_train).size < n_classes:
+        for i in range(n_classes):
+            y_train[i] = i
+    return X_train, X_test, y_train, y_test
+
+
 def get_binary_iris_dataset():
     iris = load_iris()
     X = iris.data
@@ -106,6 +155,7 @@ def get_binary_iris_dataset():
 
 @pytest.mark.parametrize('params', [
     {'kernel': 'linear', 'C': 1},
+    {'kernel': 'linear', 'C': 1, 'tol': 1e-6},
     {'kernel': 'linear', 'C': 10},
     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
     {'kernel': 'rbf', 'C': 1, 'gamma': 'auto'},
@@ -120,61 +170,64 @@ def get_binary_iris_dataset():
     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'auto'},
     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'scale', 'coef0': 0.42}
 ])
-# @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris')])
-def test_svm_fit_predict(params, name='iris'):
-    if name == 'iris':
-        X, y = get_binary_iris_dataset()
-    else:
-        # we create 40 separable points
-        # TODO: tune the sensitivity of the test for this
-        print('Unit test')
-        np.random.seed(0)
-        X = np.r_[np.random.randn(20, 2) - [2, 2],
-                  np.random.randn(20, 2) + [2, 2]]
-        y = np.array([0] * 20 + [1] * 20)
-
+def test_svm_skl_cmp_kernels(params):
+    # X_train, X_test, y_train, y_test = make_dataset('gaussian', 1000, 4)
+    X_train, y_train = get_binary_iris_dataset()
     cuSVC = cuml.svm.SVC(**params)
-    cuSVC.fit(X, y)
+    cuSVC.fit(X_train, y_train)
 
     sklSVC = svm.SVC(**params)
-    sklSVC.fit(X, y)
+    sklSVC.fit(X_train, y_train)
 
-    compare_svm(cuSVC, sklSVC, X, y)
+    compare_svm(cuSVC, sklSVC, X_train, y_train)
+
+#
+# @pytest.mark.parametrize('params', [
+#     {'kernel': 'linear', 'C': 1},
+#     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+#     {'kernel': 'poly', 'C': 1, 'gamma': 1},
+#     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'auto'},
+# ])
+# @pytest.mark.parametrize('dataset', ['classification1', 'classification2',
+#                                      'gaussian', 'blobs'])
+# @pytest.mark.parametrize('n_rows', [3, 100, 1000])
+# @pytest.mark.parametrize('n_cols', [2, 100, 1000])
+# def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
+#     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+#
+#     cuSVC = cuml.svm.SVC(**params)
+#     cuSVC.fit(X_train, y_train)
+#
+#     sklSVC = svm.SVC(**params)
+#     sklSVC.fit(X_train, y_train)
+#
+#     compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
+#                 coef_tol=0.01, report_summary=True)
 
 
-@pytest.mark.parametrize('x_floattype', [np.float32, np.float64])
-@pytest.mark.parametrize('y_floattype', [np.float32, np.float64, np.int32])
-def test_svm_numeric_floattype(x_floattype, y_floattype):
-    X, y = get_binary_iris_dataset()
-    X = X.astype(x_floattype)
-    y = y.astype(y_floattype)
-    params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
-    cuSVC = cuml.svm.SVC(**params)
-    cuSVC.fit(X, y)
-    intercept_exp = 23468959692060373
-    n_sv_exp = 15
-    assert (cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-7
-    assert cuSVC.n_support_ == n_sv_exp
-    n_pred_wrong = np.sum(cuSVC.predict(X).to_array()-y)
-    assert n_pred_wrong == 0
-
-
+@pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('y_dtype', [np.float32, np.float64, np.int32])
 @pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
 @pytest.mark.parametrize('y_arraytype', ['numpy', 'series', 'numba'])
-def test_svm_numeric_arraytype(x_arraytype, y_arraytype):
+def test_svm_numeric_arraytype(x_arraytype, y_arraytype, x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
-    X = X.astype(X.dtype, order="F")
+    X = X.astype(x_dtype, order="F")
+    y = y.astype(y_dtype)
     if x_arraytype == 'dataframe':
-        X = np_to_cudf(X)
+        X_in = np_to_cudf(X)
     elif x_arraytype == 'numba':
-        X = cuda.to_device(X)
+        X_in = cuda.to_device(X)
+    else:
+        X_in = X
     if y_arraytype == 'numba':
-        y = cuda.to_device(y)
+        y_in = cuda.to_device(y)
     elif y_arraytype == 'series':
-        y = cudf.Series(y)
+        y_in = cudf.Series(y)
+    else:
+        y_in = y
     params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
     cuSVC = cuml.svm.SVC(**params)
-    cuSVC.fit(X, y)
+    cuSVC.fit(X_in, y_in)
     intercept_exp = 23468959692060373
     n_sv_exp = 15
     assert (cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-7
