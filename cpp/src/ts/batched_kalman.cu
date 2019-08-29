@@ -486,6 +486,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
 GPUContext* GPU_CTX = nullptr;
 
 //! The public batched kalman filter.
+//! `h_ys`: (nobs, num_batches) in column-major (series-major) layout
 void batched_kalman_filter(double* h_ys, int nobs,
                            const vector<double>& b_ar_params,
                            const vector<double>& b_ma_params, int p, int q,
