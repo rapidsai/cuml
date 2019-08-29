@@ -39,10 +39,12 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
 
 template <typename math_t>
 void svmFreeBuffers(const cumlHandle &handle, svmModel<math_t> &m);
+
 /**
  * @brief C-Support Vector Classification
  *
  * This is a Scikit-Learn like wrapper around the stateless C++ functions.
+ * See Issue #456 for general discussion about stateful Sklearn like wrappers.
  *
  * The classifier will be fitted using the SMO algorithm in dual space.
  *
