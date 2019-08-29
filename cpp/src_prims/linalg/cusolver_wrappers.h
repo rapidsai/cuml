@@ -279,61 +279,58 @@ inline cusolverStatus_t cusolverDnsyevd(cusolverDnHandle_t handle,
  * @{
 */
 template <typename T>
-cusolverStatus_t cusolverDnsyevdx_bufferSize(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                             cusolverEigRange_t range, cublasFillMode_t uplo, int n,
-                                             const T *A, int lda, T vl, T vu, int il, int iu,
-                                             int *h_meig, const T *W, int *lwork);
+cusolverStatus_t cusolverDnsyevdx_bufferSize(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, const T *A, int lda, T vl, T vu, int il, int iu,
+  int *h_meig, const T *W, int *lwork);
 
 template <>
-inline cusolverStatus_t cusolverDnsyevdx_bufferSize(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                                    cusolverEigRange_t range, cublasFillMode_t uplo, int n,
-                                                    const float *A, int lda, float vl, float vu, int il, int iu,
-                                                    int *h_meig, const float *W, int *lwork) {
-  return cusolverDnSsyevdx_bufferSize(handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu,
-                                      h_meig, W, lwork);
+inline cusolverStatus_t cusolverDnsyevdx_bufferSize(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, const float *A, int lda, float vl, float vu,
+  int il, int iu, int *h_meig, const float *W, int *lwork) {
+  return cusolverDnSsyevdx_bufferSize(handle, jobz, range, uplo, n, A, lda, vl,
+                                      vu, il, iu, h_meig, W, lwork);
 }
 
 template <>
-inline cusolverStatus_t cusolverDnsyevdx_bufferSize(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                                    cusolverEigRange_t range, cublasFillMode_t uplo, int n,
-                                                    const double *A, int lda, double vl, double vu, int il, int iu,
-                                                    int *h_meig, const double *W, int *lwork) {
-  return cusolverDnDsyevdx_bufferSize(handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu,
-                                      h_meig, W, lwork);
+inline cusolverStatus_t cusolverDnsyevdx_bufferSize(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, const double *A, int lda, double vl, double vu,
+  int il, int iu, int *h_meig, const double *W, int *lwork) {
+  return cusolverDnDsyevdx_bufferSize(handle, jobz, range, uplo, n, A, lda, vl,
+                                      vu, il, iu, h_meig, W, lwork);
 }
-  
+
 template <typename T>
-cusolverStatus_t cusolverDnsyevdx(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                  cusolverEigRange_t range, cublasFillMode_t uplo, 
-                                  int n, T *A, int lda, T vl, T vu, int il, 
-                                  int iu, int *h_meig, T *W, T *work, int lwork, 
-                                  int *devInfo, cudaStream_t stream);
+cusolverStatus_t cusolverDnsyevdx(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, T *A, int lda, T vl, T vu, int il, int iu,
+  int *h_meig, T *W, T *work, int lwork, int *devInfo, cudaStream_t stream);
 
 template <>
-inline cusolverStatus_t cusolverDnsyevdx(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                  cusolverEigRange_t range, cublasFillMode_t uplo, 
-                                  int n, float *A, int lda, float vl, float vu, int il, 
-                                  int iu, int *h_meig, float *W, float *work, int lwork, 
-                                  int *devInfo, cudaStream_t stream) {
+inline cusolverStatus_t cusolverDnsyevdx(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, float *A, int lda, float vl, float vu, int il,
+  int iu, int *h_meig, float *W, float *work, int lwork, int *devInfo,
+  cudaStream_t stream) {
   CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
-  return cusolverDnSsyevdx(handle, jobz, range, uplo, n, A, lda, vl, vu, il, 
-                           iu, h_meig, W, work, lwork, 
-                           devInfo, stream);
+  return cusolverDnSsyevdx(handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu,
+                           h_meig, W, work, lwork, devInfo);
 }
 
 template <>
-inline cusolverStatus_t cusolverDnsyevdx(cusolverDnHandle_t handle, cusolverEigMode_t jobz, 
-                                  cusolverEigRange_t range, cublasFillMode_t uplo, 
-                                  int n, double *A, int lda, double vl, double vu, int il, 
-                                  int iu, int *h_meig, double *W, double *work, int lwork, 
-                                  int *devInfo, cudaStream_t stream) {
+inline cusolverStatus_t cusolverDnsyevdx(
+  cusolverDnHandle_t handle, cusolverEigMode_t jobz, cusolverEigRange_t range,
+  cublasFillMode_t uplo, int n, double *A, int lda, double vl, double vu,
+  int il, int iu, int *h_meig, double *W, double *work, int lwork, int *devInfo,
+  cudaStream_t stream) {
   CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
-  return cusolverDnDsyevdx(handle, jobz, range, uplo, n, A, lda, vl, vu, il, 
-                           iu, h_meig, W, work, lwork, 
-                           devInfo, stream);
+  return cusolverDnDsyevdx(handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu,
+                           h_meig, W, work, lwork, devInfo);
 }
 /** @} */
-  
+
 /**
  * @defgroup svd cusolver svd operations
  * @{
