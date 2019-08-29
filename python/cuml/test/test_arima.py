@@ -51,11 +51,11 @@ def test_arima_start_params():
     """
     _, ys = get_data()
     arma = arima.start_params((1, 1, 1), ys[:, 0])
-    print("arma=", arma)
+    # print("arma=", arma)
     arma_ref = np.array([1.306700000000000e+04, 8.578545193799022e-01, -6.241669663164802e-01])
     np.testing.assert_array_almost_equal(arma, arma_ref)
     arma = arima.start_params((2, 1, 1), ys[:, 0])
-    print("arma=", arma)
+    # print("arma=", arma)
     arma_ref = [1.3067000000000000e+04, 1.4359734767607857e-01, 1.9335180865645191e-01,
                 9.0764356294912391e-02]
     np.testing.assert_array_almost_equal(arma, arma_ref)
@@ -233,7 +233,8 @@ def bench_arima(num_batches=240, plot=False):
 
 
 if __name__ == "__main__":
-    # testBIC()
-    # testFit_Predict_Forecast()
-
-    bench_arima(num_batches=200)
+    testBIC()
+    testFit_Predict_Forecast()
+    test_arima_start_params()
+    test_log_likelihood()
+    # bench_arima(num_batches=200)
