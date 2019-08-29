@@ -366,8 +366,12 @@ def _fit_on_worker(data, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         intercept = ols._fit_mg(alloc_info, params)
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
-        print("FAILURE in FIT: " + str(e))
+        print("Failure in Fit(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
@@ -413,7 +417,10 @@ def _predict_on_worker(data, intercept, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         ols._predict_mg(alloc_info, intercept, params)
-
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
         print("Failure in predict(): " + str(e))
 
@@ -534,8 +541,8 @@ def series_on_worker(ary, worker, loc_dict, nparts, X):
     else:
         idx = (up_limit-len(ary[0][0][2]), up_limit)
 
-    ret = cudf.Series(ary[0][0][2], index=cudf.dataframe.RangeIndex(idx[0],
-                                                                    idx[1]))
+    ret = cudf.Series(ary[0][0][2], index=cudf.core.index.RangeIndex(idx[0],
+                                                                     idx[1]))
     return ret
 
 
@@ -548,6 +555,6 @@ def coef_on_worker(coef, part_number, ncols, nparts, worker):
     part_size = ceil(ncols / nparts)
     up_limit = min((part_number+1)*part_size, ncols)
     idx = (part_number*part_size, up_limit)
-    ret = cudf.Series(coef, index=cudf.dataframe.RangeIndex(idx[0],
-                                                            idx[1]))
+    ret = cudf.Series(coef, index=cudf.core.index.RangeIndex(idx[0],
+                                                             idx[1]))
     return ret

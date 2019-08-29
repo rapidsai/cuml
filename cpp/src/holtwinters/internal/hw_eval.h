@@ -168,19 +168,11 @@ void holtwinters_eval_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   int total_blocks = GET_NUM_BLOCKS(batch_size);
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
 
-  // Get shared memory size
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-  struct cudaDeviceProp prop;
-  memset(&prop, 0, sizeof(cudaDeviceProp));
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
-
   // How much sm needed for shared kernel
   size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
-  if (sm_needed >
-      prop.sharedMemPerBlock) {
+  if (sm_needed > MLCommon::getSharedMemPerBlock()) {
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_eval_gpu_global_kernel<Dtype>

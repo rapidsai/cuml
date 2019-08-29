@@ -178,18 +178,15 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial preview release of the cuML
-    Random Forest code. It contains a number of known
-    limitations:
+    **Known Limitations**: This is an initial release of the cuML
+    Random Forest code. It contains a few known limitations:
 
        * Inference/prediction takes place on the CPU. A GPU-based inference
-         solution is planned for a near-future release release.
+         solution based on the forest inference library is planned for a
+         near-future release.
 
        * Instances of RandomForestClassifier cannot be pickled currently.
 
-    The code is under heavy development, so users who need these features may
-    wish to pull from nightly builds of cuML. (See https://rapids.ai/start.html
-    for instructions to download nightly packages via conda.)
 
     Examples
     ---------
@@ -222,12 +219,14 @@ class RandomForestClassifier(Base):
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+                     0 for GINI, 1 for ENTROPY
                      2 and 3 not valid for classification
                      (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
                  (default = 1)
                  the algorithm to determine how nodes are split in the tree.
+                 HIST curently uses a slower tree-building algorithm
+                 so GLOBAL_QUANTILE is recommended for most cases.
     bootstrap : boolean (default = True)
                 Control bootstrapping.
                 If set, each tree in the forest is built
@@ -238,9 +237,11 @@ class RandomForestClassifier(Base):
                          If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
                   Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
+    max_depth : int (default = 16)
                 Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+                if -1. Unlimited depth is not supported with split_algo=1.
+                *Note that this default differs from scikit-learn's
+                random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
@@ -267,7 +268,7 @@ class RandomForestClassifier(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
-    def __init__(self, n_estimators=10, max_depth=-1, handle=None,
+    def __init__(self, n_estimators=10, max_depth=16, handle=None,
                  max_features=1.0, n_bins=8, n_streams=4,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
@@ -296,6 +297,9 @@ class RandomForestClassifier(Base):
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
+
+        if max_depth < 0 and split_algo == 1:
+            raise ValueError("Must specify max_depth >0 with split_algo=1")
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
