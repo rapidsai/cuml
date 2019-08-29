@@ -133,6 +133,7 @@ if(BUILD_PRIMS_TESTS)
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
       prims/binary_op.cu
+      prims/batched_matrix.cu
       prims/ternary_op.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
