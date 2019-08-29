@@ -22,6 +22,23 @@ data1 = np.array([16492, 12671, 13644, 18120, 11420, 10904, 20723, 17011, 15109,
                   20126, 16411, 2687, 9582, 8291, 7352, 14313, 10552, 14143,
                   2790, 12960, 7362, 4606, 6155, 158, 11435])
 
+# The ARIMA model of dataset 0. ("smoothed dataset 0")
+data_smooth = np.array([16236.380267964598, 14198.707110817017, 13994.129600585984,
+                        15705.975404284243, 14455.226246272636, 14114.076675764649,
+                        15033.216755054425, 15021.10438408751, 14954.822759706418,
+                        14904.042532492134, 14557.421649530697, 14347.41471896904,
+                        13877.476483976807, 14059.990544916833, 13888.386639087348,
+                        13665.988312305493, 13436.674608089721, 12979.25813798955,
+                        13199.416272194492, 13243.849692596767, 13157.053784142185,
+                        11904.470827085499, 12356.442250181439, 12279.590418507576,
+                        12401.153685335092, 12190.66504090282, 12122.442825730872,
+                        12444.119210649873, 12326.524612239178, 11276.55939500802,
+                        11278.522346300862, 10911.26233776968, 10575.493222628831,
+                        10692.727355175008, 10395.405550019213, 10480.90443078538,
+                        9652.114779061498, 9806.45087894164, 9401.00281392505,
+                        9019.688213508754, 8766.056499652503, 8158.794074075997,
+                        8294.86605488629])
+
 def get_data():
     d = np.zeros((len(t), 2))
     d[:, 0] = data0
@@ -95,7 +112,7 @@ def testBIC():
                                   opt_disp=-1, h=1e-9, gpu=True)
 
         # print("BIC({}, 1, 1): ".format(p), batched_model.bic)
-        np.testing.assert_array_almost_equal(batched_model.bic, bic_reference[p-1])
+        np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
 
 
 def testFit_Predict_Forecast(plot=False):
@@ -103,8 +120,6 @@ def testFit_Predict_Forecast(plot=False):
     Full integration test: Tests fit followed by in-sample prediction and out-of-sample forecast
     """
     np.set_printoptions(precision=16)
-
-    bic_reference = [[851.0904458614862, 842.6620993460326], [854.747970752074, 846.2220267762417]]
 
     t, y = get_data()
 
@@ -165,5 +180,60 @@ def testFit_Predict_Forecast(plot=False):
     l2_error_fc_ref0 = [2.783439226866143e+08, 2.400999999394908e+08]
     l2_error_fc_ref1 = [3.7288613986029667e+08, 3.0391497933745754e+08]
 
-    np.testing.assert_array_almost_equal(l2_error_forecast0, l2_error_fc_ref0)
-    np.testing.assert_array_almost_equal(l2_error_forecast1, l2_error_fc_ref1)
+    np.testing.assert_allclose(l2_error_predict0, l2_error_ref0, rtol=1e-3)
+    np.testing.assert_allclose(l2_error_predict1, l2_error_ref1, rtol=1e-3)
+    np.testing.assert_allclose(l2_error_forecast0, l2_error_fc_ref0, rtol=1e-3)
+    np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=1e-3)
+    
+
+
+def bench_arima(num_batches=240, plot=False):
+
+    ns = len(t)
+    y_b = np.zeros((ns, num_batches))
+
+    for i in range(num_batches):
+        y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
+
+    # if plot:
+    #     plt.plot(t, data_smooth, "r--", t, data0, "k-", t, y_b[:, 0], t, y_b[:, 1], t, y_b[:, 2])
+    #     plt.show()
+    # return
+
+    p, d, q = (1, 1, 1)
+    order = (p, d, q)
+
+    x0 = np.array([])
+
+    start = timer()
+
+    for i in range(num_batches):
+        x0i = arima.init_x0(order, y_b[:, i])
+        x0 = np.r_[x0, x0i]
+
+    mu0, ar0, ma0 = arima.unpack(p, d, q, num_batches, x0)
+
+    batched_model = arima.fit(y_b, order,
+                              mu0,
+                              ar0,
+                              ma0,
+                              opt_disp=-1, h=1e-9, gpu=True)
+
+    end = timer()
+
+    print("GPU Time ({} batches) = {} s".format(num_batches, end - start))
+    print("Solver iterations (max/min/avg): ", np.max(batched_model.niter), np.min(batched_model.niter),
+          np.mean(batched_model.niter))
+
+    yt_b = arima.predict_in_sample(batched_model)
+
+    if plot:
+        plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
+        plt.show()
+
+
+if __name__ == "__main__":
+    # testBIC()
+    # testFit_Predict_Forecast()
+
+    bench_arima(num_batches=200)

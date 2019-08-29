@@ -424,11 +424,9 @@ def init_x0(order, y):
     x0 = start_params((p, q, d), yd)
 
     mu, ar, ma = unpack(p, d, q, 1, x0)
-    # fix ma to avoid bad values in inverse invertibility transform
-    for i in range(len(ma[0])):
-        mai = ma[0][i]
-        # if ma >= 1, then we get "inf" results from inverse transform
-        ma[0][i] = np.sign(mai)*min(np.abs(mai), 1-1e-14)
+    # The inverse jones transform has domain [-1, 1]. Apply Tanh to ensure this range.
+    ar = [np.tanh(ar[0])]
+    ma = [np.tanh(ma[0])]
 
     x0 = pack(p, d, q, 1, mu, ar, ma)
 
