@@ -126,7 +126,7 @@ const std::vector<EigSelInputs<float>> inputsf2 = {
 const std::vector<EigSelInputs<double>> inputsd2 = {
   {0.001, 4 * 4, 4, 4, 1234ULL, 256}};
 
-typedef EigTSelTest<float> EigSelTestValF;
+typedef EigSelTest<float> EigSelTestValF;
 TEST_P(EigSelTestValF, Result) {
   ASSERT_TRUE(devArrMatch(eig_vals_ref, eig_vals, params.n_col,
                           CompareApproxAbs<float>(params.tolerance)));
