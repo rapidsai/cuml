@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #1061: Initial ARIMA time-series modeling support.
+
 ## Improvements
 
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
