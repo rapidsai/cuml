@@ -46,12 +46,14 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       cudf=${MINOR_VERSION} \
       rmm=${MINOR_VERSION} \
       nvstrings=${MINOR_VERSION} \
+      libcumlprims=0.9 \
       lapack \
       cmake==3.14.3 \
       umap-learn \
       nccl>=2.4 \
       dask \
       distributed \
+      dask-ml \
       dask-cudf=${MINOR_VERSION} \
       dask-cuda=${MINOR_VERSION} \
       statsmodels \
@@ -72,7 +74,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims -v
+$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -92,7 +94,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -m "not mg"
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

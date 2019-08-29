@@ -18,7 +18,7 @@
 # distutils: language = c++
 # distutils: extra_compile_args = -Ofast
 # cython: embedsignature = True, language_level = 3
-# cython: boundscheck = False, wraparound = False, initializedcheck = False
+# cython: boundscheck = False, wraparound = False
 
 import cudf
 import cuml
@@ -78,15 +78,20 @@ class TSNE(Base):
     dataset you give it, and is used in many areas including cancer research,
     music analysis and neural network weight visualizations.
 
-    cuML's TSNE implementation handles any # of n_components although
-    specifying n_components = 2 will use the Barnes Hut algorithm which scales
-    much better for large data since it is a O(NlogN) algorithm.
+    The current cuML TSNE implementation is a first experimental release. It
+    defaults to use the 'exact' fitting algorithm, which is signficantly slower
+    then the Barnes-Hut algorithm as data sizes grow. A preview implementation
+    of Barnes-Hut (derived from CannyLabs' BH open source CUDA code) is also
+    available for problems with n_components = 2, though this implementation
+    currently has outstanding issues that can lead to crashes in rare
+    scenarios. Future releases of TSNE will fix these issues (tracked as cuML
+    Issue #1002) and switch Barnes-Hut to be the default.
 
     Parameters
     ----------
     n_components : int (default 2)
-        The output dimensionality size. Can be any number, but with
-        n_components = 2 TSNE can run faster.
+        The output dimensionality size. Currently only size=2 is tested, but
+        the 'exact' algorithm will support greater dimensionality in future.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
@@ -118,7 +123,7 @@ class TSNE(Base):
     angle : float (default 0.5)
         Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
         closer to one indicates full accuracy but slower speeds.
-    learning_rate_method : str 'adaptive' or 'none' (default 'adaptive')
+    learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. Uses a special adpative method that tunes
         the learning rate, early exaggeration and perplexity automatically
         based on input size.
@@ -187,7 +192,7 @@ class TSNE(Base):
                  random_state=None,
                  str method='barnes_hut',
                  float angle=0.5,
-                 str learning_rate_method='adaptive',
+                 learning_rate_method='adaptive',
                  int n_neighbors=90,
                  int perplexity_max_iter=100,
                  int exaggeration_iter=250,
@@ -282,8 +287,10 @@ class TSNE(Base):
         self.exaggeration_iter = exaggeration_iter
         self.pre_momentum = pre_momentum
         self.post_momentum = post_momentum
-        self.learning_rate_method = learning_rate_method
-
+        if learning_rate_method is None:
+            self.learning_rate_method = 'none'
+        else:
+            self.learning_rate_method = learning_rate_method.lower()
         self.epssq = 0.0025
         self.perplexity_tol = 1e-5
         self.min_gain = 0.01
@@ -291,7 +298,6 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
         self._should_downcast = should_downcast
-        self._assure_clean_memory()
         return
 
     def fit(self, X):
@@ -394,11 +400,10 @@ class TSNE(Base):
                  <long long> seed,
                  <bool> self.verbose,
                  <bool> True,
-                 <bool> True)
+                 <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
         del _X
-        self._assure_clean_memory()
         self.Y = Y
         return self
 
@@ -406,7 +411,6 @@ class TSNE(Base):
         if "Y" in self.__dict__:
             del self.Y
             self.Y = None
-        self._assure_clean_memory()
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
@@ -425,16 +429,12 @@ class TSNE(Base):
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
-                self._assure_clean_memory()
                 return self.Y
             else:
-                data = cudf.DataFrame.from_gpu_matrix(self.Y)
-                self._assure_clean_memory()
-                return data
+                return cudf.DataFrame.from_gpu_matrix(self.Y)
         elif isinstance(X, np.ndarray):
             data = self.Y.copy_to_host()
             del self.Y
-            self._assure_clean_memory()
             return data
         return None  # is this even possible?
 
@@ -446,27 +446,10 @@ class TSNE(Base):
 
         if "handle" in state:
             del state["handle"]
-        self._assure_clean_memory()
         return state
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
                                    verbose=(state['verbose'] != 0))
         self.__dict__.update(state)
-        self._assure_clean_memory()
         return state
-
-    def _assure_clean_memory(self):
-        """
-        TSNE is sensitive to what is currently in memory.
-        Use Numba's garbabge collector to clean up already removed
-        GPU memory.
-        """
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
-        # Run again to be 100% sure all memory is freed.
-        # This is very very conservative.
-        context = cuda.current_context().deallocations
-        if context is not None:
-            context.clear()
