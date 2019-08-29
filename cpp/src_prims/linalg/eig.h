@@ -67,6 +67,49 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
          "This usually occurs when some of the features do not vary enough.");
 }
 
+
+/**
+ * @defgroup eig decomp with divide and conquer method for the column-major
+ * symmetric matrices
+ * @param in the input buffer (symmetric matrix that has real eig values and
+ * vectors.
+ * @param n_rows: number of rows of the input
+ * @param n_cols: number of cols of the input
+ * @param eig_vectors: eigenvectors
+ * @param eig_vals: eigen values
+ * @param cusolverH cusolver handle
+ * @param stream cuda stream
+ * @param allocator device allocator for temporary buffers during computation
+ * @{
+ */
+template <typename math_t>
+void eigSelDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
+           math_t *eig_vals, cusolverDnHandle_t cusolverH, cudaStream_t stream,
+           std::shared_ptr<deviceAllocator> allocator) {
+  int lwork;
+  CUSOLVER_CHECK(cusolverDnsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                            CUBLAS_FILL_MODE_UPPER, n_rows, in,
+                                            n_cols, eig_vals, &lwork));
+
+  device_buffer<math_t> d_work(allocator, stream, lwork);
+  device_buffer<int> d_dev_info(allocator, stream, 1);
+
+  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+
+  CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 d_dev_info.data(), stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  int dev_info;
+  updateHost(&dev_info, d_dev_info.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  ASSERT(dev_info == 0,
+         "eig.h: eigensolver couldn't converge to a solution. "
+         "This usually occurs when some of the features do not vary enough.");
+}
+
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the
  * column-major symmetric matrices (in parameter)
