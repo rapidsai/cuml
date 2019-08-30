@@ -45,7 +45,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
     std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
-    params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<EigSelInputs<T>>::GetParam();
     int len = params.len;
 
     allocate(cov_matrix, len);
@@ -68,8 +68,8 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     updateDevice(eig_vectors_ref, eig_vectors_ref_h, len, stream);
     updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col, stream);
 
-    eigSelDC(cov_matrix, params.n_row, params.n_col, params.n_col, eig_vectors, eig_vals,
-          cusolverH, stream, allocator);
+    eigSelDC(cov_matrix, params.n_row, params.n_col, params.n_col, eig_vectors,
+             eig_vals, cusolverH, stream, allocator);
   }
 
   void TearDown() override {
@@ -84,8 +84,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
  protected:
   EigSelInputs<T> params;
-  T *cov_matrix, *eig_vectors, *eig_vectors_ref, *eig_vals,
-    *eig_vals_ref;
+  T *cov_matrix, *eig_vectors, *eig_vectors_ref, *eig_vals, *eig_vals_ref;
 
   cusolverDnHandle_t cusolverH = NULL;
   cudaStream_t stream;
@@ -121,13 +120,17 @@ TEST_P(EigSelTestVecD, Result) {
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestValF, ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestValF,
+                        ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestValD, ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestValD,
+                        ::testing::ValuesIn(inputsd2));
 
-INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecF, ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecF,
+                        ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecD, ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecD,
+                        ::testing::ValuesIn(inputsd2));
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon
