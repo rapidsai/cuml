@@ -26,17 +26,63 @@ namespace ML {
 namespace SVM {
 
 // Forward declarations of the stateless API
+/**
+ * @brief Fit a support vector classifier to the training data.
+ *
+ * Each row of the input data stores a feature vector.
+ * We use the SMO method to fit the SVM.
+ *
+ * The output dbuffers in model shall be unallocated on entry.
+ *
+ * @tparam math_t floating point type
+ * @param [in] handle the cuML handle
+ * @param [in] input device pointer for the input data in column major format.
+ *   Size n_rows x n_cols.
+ * @param [in] n_rows number of rows
+ * @param [in] n_cols number of colums
+ * @param [in] labels device pointer for the labels. Size [n_rows].
+ * @param [in] param parameters for training
+ * @param [in] kernel_params parameters for the kernel function
+ * @param [out] model parameters of the trained model
+ */
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
             MLCommon::GramMatrix::KernelParams &kernel_params,
             svmModel<math_t> &model);
 
+/**
+ * @brief Predict classes for samples in input.
+ *
+ * The predictions are calculated according to the following formula:
+ * pred(x_i) = sign(f(x_i)) where
+ * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ *
+ * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
+ * we map it to the original labels, and return those.
+ *
+ * @tparam math_t floating point type
+ * @param handle the cuML handle
+ * @param [in] input device pointer for the input data in column major format,
+ *   size [n_rows x n_cols].
+ * @param [in] n_rows number of rows (input vectors)
+ * @param [in] n_cols number of colums (features)
+ * @param [in] kernel_params parameters for the kernel function
+ * @param [in] model SVM model parameters
+ * @param [out] preds device pointer to store the predicted class labels.
+ *    Size [n_rows]. Should be allocated on entry.
+ */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::GramMatrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds);
 
+/**
+ * Deallocate device buffers in the svmModel struct.
+ *
+ * @param [in] handle cuML handle
+ * @param [inout] m SVM model parameters
+ */
 template <typename math_t>
 void svmFreeBuffers(const cumlHandle &handle, svmModel<math_t> &m);
 
