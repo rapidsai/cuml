@@ -132,9 +132,8 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
-      prims/binary_op.cu
       prims/batched_matrix.cu
-      prims/ternary_op.cu
+      prims/binary_op.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu
@@ -204,6 +203,7 @@ if(BUILD_PRIMS_TESTS)
       prims/subtract.cu
       prims/sum.cu
       prims/svd.cu
+      prims/ternary_op.cu
       prims/transpose.cu
       prims/trustworthiness.cu
       prims/unary_op.cu
