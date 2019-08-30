@@ -46,8 +46,6 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
-    params = ::testing::TestWithParam<EigSelInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
     int len = params.len;
 
     allocate(cov_matrix, len);
@@ -58,8 +56,6 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
     allocate(eig_vectors, len);
     allocate(eig_vals, params.n_col);
-    allocate(eig_vectors_jacobi, len);
-    allocate(eig_vals_jacobi, params.n_col);
 
     T eig_vectors_ref_h[] = {0.2790, -0.6498, 0.6498, -0.2789, -0.5123, 0.4874,
                              0.4874, -0.5123, 0.6498, 0.2789,  -0.2789, -0.6498,
@@ -74,34 +70,12 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
     eigDC(cov_matrix, params.n_row, params.n_col, eig_vectors, eig_vals,
           cusolverH, stream, allocator);
-
-    T tol = 1.e-7;
-    int sweeps = 15;
-    eigJacobi(cov_matrix, params.n_row, params.n_col, eig_vectors_jacobi,
-              eig_vals_jacobi, tol, sweeps, cusolverH, stream, allocator);
-
-    // test code for comparing two methods
-    len = params.n * params.n;
-    allocate(cov_matrix_large, len);
-    allocate(eig_vectors_large, len);
-    allocate(eig_vectors_jacobi_large, len);
-    allocate(eig_vals_large, params.n);
-    allocate(eig_vals_jacobi_large, params.n);
-
-    r.uniform(cov_matrix_large, len, T(-1.0), T(1.0), stream);
-
-    eigDC(cov_matrix_large, params.n, params.n, eig_vectors_large,
-          eig_vals_large, cusolverH, stream, allocator);
-    eigJacobi(cov_matrix_large, params.n, params.n, eig_vectors_jacobi_large,
-              eig_vals_jacobi_large, tol, sweeps, cusolverH, stream, allocator);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(cov_matrix));
     CUDA_CHECK(cudaFree(eig_vectors));
-    CUDA_CHECK(cudaFree(eig_vectors_jacobi));
     CUDA_CHECK(cudaFree(eig_vals));
-    CUDA_CHECK(cudaFree(eig_vals_jacobi));
     CUDA_CHECK(cudaFree(eig_vectors_ref));
     CUDA_CHECK(cudaFree(eig_vals_ref));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
@@ -110,11 +84,8 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
  protected:
   EigSelInputs<T> params;
-  T *cov_matrix, *eig_vectors, *eig_vectors_jacobi, *eig_vectors_ref, *eig_vals,
-    *eig_vals_jacobi, *eig_vals_ref;
-
-  T *cov_matrix_large, *eig_vectors_large, *eig_vectors_jacobi_large,
-    *eig_vals_large, *eig_vals_jacobi_large;
+  T *cov_matrix, *eig_vectors, *eig_vectors_ref, *eig_vals,
+    *eig_vals_ref;
 
   cusolverDnHandle_t cusolverH = NULL;
   cudaStream_t stream;
