@@ -112,7 +112,7 @@ else()
 endif()
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(ClangFormat 8.0 EXACT REQUIRED)
+find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
