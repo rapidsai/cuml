@@ -45,7 +45,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
     std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
-
+    params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
     int len = params.len;
 
     allocate(cov_matrix, len);
@@ -68,7 +68,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     updateDevice(eig_vectors_ref, eig_vectors_ref_h, len, stream);
     updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col, stream);
 
-    eigDC(cov_matrix, params.n_row, params.n_col, eig_vectors, eig_vals,
+    eigSelDC(cov_matrix, params.n_row, params.n_col, params.n_col, eig_vectors, eig_vals,
           cusolverH, stream, allocator);
   }
 
