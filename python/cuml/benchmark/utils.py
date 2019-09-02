@@ -75,7 +75,7 @@ class SpeedupBenchmark(object):
         cu_elapsed = time.time() - cu_start
 
         sk_start = time.time()
-        algo.sk(data)
+        algo.run_sk(data)
         sk_elapsed = time.time() - float(sk_start)
 
         # Needs to return the calculation and the name given to it.
@@ -95,7 +95,7 @@ class CuMLOnlyBenchmark(object):
     def run(self, algo, rows, dims, data):
         data2 = self.converter(data)
         cu_start = time.time()
-        algo.cuml(data2)
+        algo.run_cuml(data2)
         cu_elapsed = time.time() - cu_start
 
         # Needs to return the calculation and the name given to it.
@@ -250,6 +250,13 @@ class BaseAlgorithm(object):
         self.load_data = load_data
         self.accepts_labels = accepts_labels
 
+    def run_cuml(self, data):
+        all_args = {**self.shared_args, **self.cuml_args}
+        cuml_obj = self.cuml_class(**all_args)
+        if self.accepts_labels:
+            cuml_obj.fit(data[0], data[1])
+        else:
+            cuml_obj.fit(data[0])
 
 class AlgoComparisonWrapper(BaseAlgorithm):
     """
@@ -292,7 +299,7 @@ class AlgoComparisonWrapper(BaseAlgorithm):
     def __str__(self):
         return "AlgoComparison:%s" % (self.name)
 
-    def sk(self, data):
+    def run_sk(self, data):
         all_args = {**self.shared_args, **self.sklearn_args}
         sk_obj = self.sk_class(**all_args)
         if self.accepts_labels:
@@ -300,12 +307,6 @@ class AlgoComparisonWrapper(BaseAlgorithm):
         else:
             sk_obj.fit(data[0])
 
-    def cuml(self, data):
-        all_args = {**self.shared_args, **self.cuml_args}
-        cuml_obj = self.cuml_class(**all_args)
-        if self.accepts_labels:
-            cuml_obj.fit(data[0], data[1])
-        else:
-            cuml_obj.fit(data[0])
+
 
 
