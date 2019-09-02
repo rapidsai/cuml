@@ -1,62 +1,8 @@
 from cuml.benchmark import utils, bench_data
-from importlib import reload
 
-import sklearn.cluster, sklearn.neighbors
-import cuml.cluster, cuml.neighbors
-import umap
 import sys
 
-def get_all_algos(load_data):
-    return [
-        utils.AlgoComparisonWrapper(
-            sklearn.cluster.KMeans,
-            cuml.cluster.KMeans,
-            shared_args=dict(init='random',
-                             n_clusters=8,
-                             max_iter=300),
-            name='KMeans',
-            accepts_labels=False,
-            load_data=load_data),
-        utils.AlgoComparisonWrapper(
-            sklearn.decomposition.PCA,
-            cuml.PCA,
-            shared_args=dict(n_components=10),
-            name='PCA',
-            accepts_labels=False,
-            load_data=load_data),
-        utils.AlgoComparisonWrapper(
-            sklearn.neighbors.NearestNeighbors,
-            cuml.neighbors.NearestNeighbors,
-            shared_args=dict(n_neighbors=1024),
-            sklearn_args=dict(algorithm='brute'),
-            cuml_args=dict(n_gpus=1),
-            name='NearestNeighbors',
-            accepts_labels=False,
-            load_data=load_data),
-        utils.AlgoComparisonWrapper(
-            sklearn.cluster.DBSCAN,
-            cuml.DBSCAN,
-            shared_args=dict(eps=3, min_samples=2),
-            sklearn_args=dict(algorithm='brute'),
-            name='DBScan',
-            accepts_labels=False
-        ),
-        utils.AlgoComparisonWrapper(
-            sklearn.linear_model.LinearRegression,
-            cuml.linear_model.LinearRegression,
-            shared_args={},
-            name='LinearRegression',
-            accepts_labels=True,
-            load_data=load_data),
-        utils.AlgoComparisonWrapper(
-            umap.UMAP,
-            cuml.manifold.UMAP,
-            shared_args=dict(n_neighbors=5, n_epochs=500),
-            name='UMAP',
-            accepts_labels=False,
-            load_data=load_data),
-    ]
-
+from .bench_algos import all_algorithms
 
 if __name__ == '__main__':
     import argparse
@@ -93,7 +39,7 @@ if __name__ == '__main__':
     dataset_loader = getattr(bench_data, args.dataset)
     print("Using dataset: %s" % (args.dataset,))
 
-    all_algos = get_all_algos(dataset_loader)
+    all_algos = all_algorithms(dataset_loader)
     if args.algorithms:
         algos_to_run = [a for a in all_algos if a.name in args.algorithms]
     else:
