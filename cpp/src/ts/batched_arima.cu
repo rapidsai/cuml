@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <cstdio>
 #include <tuple>
@@ -8,12 +23,6 @@
 
 #include <common/nvtx.hpp>
 
-// y - series to fit: (nobs, num_bathces) (nobs-major, i.e., column major)
-// num_batches - number of time series
-// order - ARIMA order (p: number of ar-parameters, d: difference parameter, q: number of ma-parameters)
-// params - parameters to evaluate: [mu, ar.., ma.., ...]
-// trans - run `jones_transform` on params;
-// returns: vector of log likelihood, one for each series (size: num_batches)
 void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
                      double* params, std::vector<double>& loglike_b,
                      bool trans) {

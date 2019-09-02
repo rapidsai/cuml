@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <matrix/batched_matrix.h>
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
@@ -343,18 +359,18 @@ class GPUContext {
  public:
   int m_p = 0;
   int m_q = 0;
-  double* d_ys = 0;
-  double* d_vs = 0;
-  double* d_Fs = 0;
-  double* d_loglike = 0;
-  double* d_sigma2 = 0;
-  std::shared_ptr<BatchedMatrixMemoryPool> pool = 0;
+  double* d_ys = nullptr;
+  double* d_vs = nullptr;
+  double* d_Fs = nullptr;
+  double* d_loglike = nullptr;
+  double* d_sigma2 = nullptr;
+  std::shared_ptr<BatchedMatrixMemoryPool> pool = nullptr;
 
   // // batched_jones
-  double* d_ar = 0;
-  double* d_Tar = 0;
-  double* d_ma = 0;
-  double* d_Tma = 0;
+  double* d_ar = nullptr;
+  double* d_Tar = nullptr;
+  double* d_ma = nullptr;
+  double* d_Tma = nullptr;
 
   GPUContext(int p, int q) : m_p(p), m_q(q) {
     d_ys = nullptr;
@@ -483,10 +499,9 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   ML::POP_RANGE();
 }
 
+//! A global context variable which saves allocations between invocations.
 GPUContext* GPU_CTX = nullptr;
 
-//! The public batched kalman filter.
-//! `h_ys`: (nobs, num_batches) in column-major (series-major) layout
 void batched_kalman_filter(double* h_ys, int nobs,
                            const vector<double>& b_ar_params,
                            const vector<double>& b_ma_params, int p, int q,
@@ -576,8 +591,6 @@ void batched_kalman_filter(double* h_ys, int nobs,
   ML::POP_RANGE();
 }
 
-//! Public interface to batched "jones transform" used in ARIMA to ensure
-//! certain properties of the AR and MA parameters.
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              const vector<double>& ar, const vector<double>& ma,
                              vector<double>& Tar, vector<double>& Tma) {
