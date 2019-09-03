@@ -54,22 +54,21 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     ASSERT(len == 16, "This test only works with 4x4 matrices!");
     updateDevice(cov_matrix, cov_matrix_h, len, stream);
 
-    allocate(eig_vectors, len);
+    allocate(eig_vectors, 12);
     allocate(eig_vals, params.n_col);
 
-    T eig_vectors_ref_h[] = {0.2790, -0.6498, 0.6498, -0.2789, -0.5123, 0.4874,
-                             0.4874, -0.5123, 0.6498, 0.2789,  -0.2789, -0.6498,
-                             0.4874, 0.5123,  0.5123, 0.4874};
-    T eig_vals_ref_h[] = {0.0614, 0.1024, 0.3096, 3.5266};
+    T eig_vectors_ref_h[] = {-0.5123, 0.4874,  0.4874, -0.5123, 0.6498, 0.2789,
+                             -0.2789, -0.6498, 0.4874, 0.5123,  0.5123, 0.4874};
+    T eig_vals_ref_h[] = {0.1024, 0.3096, 3.5266, 3.5266};
 
-    allocate(eig_vectors_ref, len);
+    allocate(eig_vectors_ref, 12);
     allocate(eig_vals_ref, params.n_col);
 
-    updateDevice(eig_vectors_ref, eig_vectors_ref_h, len, stream);
-    updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col, stream);
+    updateDevice(eig_vectors_ref, eig_vectors_ref_h, 12, stream);
+    updateDevice(eig_vals_ref, eig_vals_ref_h, 4, stream);
 
-    eigSelDC(cov_matrix, params.n_row, params.n_col, params.n_col, eig_vectors,
-             eig_vals, cusolverH, stream, allocator);
+    eigSelDC(cov_matrix, params.n_row, params.n_col, 3, eig_vectors, eig_vals,
+             EigVecMemUsage::OVERWRITE_INPUT, cusolverH, stream, allocator);
   }
 
   void TearDown() override {
@@ -110,13 +109,13 @@ TEST_P(EigSelTestValD, Result) {
 
 typedef EigSelTest<float> EigSelTestVecF;
 TEST_P(EigSelTestVecF, Result) {
-  ASSERT_TRUE(devArrMatch(eig_vectors_ref, eig_vectors, params.len,
+  ASSERT_TRUE(devArrMatch(eig_vectors_ref, eig_vectors, 12,
                           CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef EigSelTest<double> EigSelTestVecD;
 TEST_P(EigSelTestVecD, Result) {
-  ASSERT_TRUE(devArrMatch(eig_vectors_ref, eig_vectors, params.len,
+  ASSERT_TRUE(devArrMatch(eig_vectors_ref, eig_vectors, 12,
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
