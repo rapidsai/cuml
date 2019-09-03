@@ -1,10 +1,5 @@
 import numpy as np
 
-import statsmodels.tsa.stattools as st
-import pmdarima.arima as am
-
-from sklearn.linear_model import LinearRegression
-
 from IPython.core.debugger import set_trace
 
 def is_stationary(yi: np.ndarray, pval_threshold=0.05) -> bool:
