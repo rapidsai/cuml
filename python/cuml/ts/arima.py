@@ -20,11 +20,11 @@ from IPython.core.debugger import set_trace
 import pandas as pd
 
 from cuml.ts.batched_kalman import batched_kfilter
-from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
-from .batched_kalman import batched_transform as batched_trans_cuda
-from .batched_kalman import pack, unpack
-from .batched_lbfgs import batched_fmin_lbfgs_b
-from .batched_arima import batched_loglike_cuda
+from cuml.ts.batched_kalman import pynvtx_range_push, pynvtx_range_pop
+from cuml.ts.batched_kalman import batched_transform as batched_trans_cuda
+from cuml.ts.batched_kalman import pack, unpack
+from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
+from cuml.ts.batched_arima import batched_loglike_cuda
 
 class ARIMAModel:
     r"""
