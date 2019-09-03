@@ -42,6 +42,9 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
                                    random_state=10)
 
     wait(X_cudf)
+    wait(X_df)
+
+    print(str(X_df))
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
