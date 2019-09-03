@@ -49,7 +49,7 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @input param spectral_intialization: Whether to intialize with spectral embedding. Acts like pseudo PCA.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
 void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
@@ -61,10 +61,11 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              const bool verbose, const bool intialize_embeddings,
+              const bool verbose, const bool spectral_intialization,
               bool barnes_hut) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
+
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
     printf(
@@ -108,6 +109,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
+  // MLCommon::Sparse::COO<float> Affinity_Matrix;
+  // MLCommon::Sparse::from_knn_symmetrize_matrix(
+  //   indices, distances, n, n_neighbors, Affinity_Matrix, stream, handle.getDeviceAllocator());
+
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
@@ -150,13 +155,13 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose);
+                     verbose, spectral_intialization);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
                      post_momentum, random_state, verbose,
-                     intialize_embeddings);
+                     spectral_intialization);
   }
 
   COO_Matrix.destroy();
