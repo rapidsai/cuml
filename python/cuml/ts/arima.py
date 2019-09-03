@@ -19,7 +19,7 @@ import numpy as np
 from IPython.core.debugger import set_trace
 import pandas as pd
 
-from .batched_kalman import batched_kfilter
+from cuml.ts.batched_kalman import batched_kfilter
 from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
 from .batched_kalman import batched_transform as batched_trans_cuda
 from .batched_kalman import pack, unpack
