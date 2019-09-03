@@ -313,7 +313,7 @@ class ForestInference(Base):
     >>> fm = ForestInference.load(model_path, output_class=True)
     >>> fil_preds_gpu = fm.predict(X_gpu)
     >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
-    >>>						     np.asarray(fil_preds_gpu))
+    >>>                np.asarray(fil_preds_gpu))
 
     """
     def __init__(self,
@@ -416,6 +416,6 @@ class ForestInference(Base):
                                output_class=False,
                                algo='TREE_REORG',
                                threshold=0.50):
-        
+
         return self._impl.load_from_randomforest(model_handle, output_class,
-                                          algo, threshold)
+                                                 algo, threshold)
