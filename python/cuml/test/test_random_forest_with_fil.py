@@ -20,8 +20,6 @@ from cuml.test.utils import get_handle, array_equal
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
-from sklearn.ensemble import RandomForestClassifier as skrfc
-from sklearn.ensemble import RandomForestRegressor as skrfr
 
 from sklearn.metrics import accuracy_score
 from sklearn.datasets import fetch_california_housing, \
@@ -77,20 +75,26 @@ def test_rf_classification(datatype, split_algo,
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
-    tl_model = cuml_model.build_treelite_forest(num_features=ncols, task_category=2)
+    # convert the cuml forest model to treelite format
+    # and obtain a model handle
+    tl_model = cuml_model.build_treelite_forest(num_features=ncols,
+                                                task_category=2)
     fm = ForestInference()
-    model = fm.load_from_randomforest(tl_model.value, output_class=True,
-                                      threshold=0.5, algo='BATCH_TREE_REORG')
-    fil_preds = np.around(np.asarray(model.predict(X_test)))
+    # create a FIL model using the treelite model handle
+    model = fm.load_from_randomforest(tl_model.value,
+                                      output_class=True,
+                                      threshold=0.5,
+                                      algo='BATCH_TREE_REORG')
+    fil_preds = np.asarray(model.predict(X_test))
     fil_acc = accuracy_score(y_test, fil_preds)
     assert fil_acc >= cu_acc
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('ncols', [unit_param(50), quality_param(100),
+@pytest.mark.parametrize('ncols', [unit_param(50), quality_param(8),
                          stress_param(200)])
-@pytest.mark.parametrize('n_info', [unit_param(30), quality_param(50),
+@pytest.mark.parametrize('n_info', [unit_param(30), quality_param(5),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -121,18 +125,25 @@ def test_rf_regression(datatype, use_handle, split_algo,
     handle, stream = get_handle(use_handle)
 
     # Initialize, fit and predict using cuML's
-    # random forest classification model
+    # random forest regression model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
                        n_bins=8, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
+
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_mse = mean_squared_error(y_test, cu_predict)
-    tl_model = cuml_model.build_treelite_forest(num_features=ncols, task_category=2)
+    # convert the cuml forest model to treelite format and
+    # obtain a model handle
+    tl_model = cuml_model.build_treelite_forest(num_features=ncols,
+                                                task_category=2)
     fm = ForestInference()
-    model = fm.load_from_randomforest(model_handle=tl_model.value, algo='BATCH_TREE_REORG')
+    # create a FIL model using the treelite model handle
+    model = fm.load_from_randomforest(model_handle=tl_model.value,
+                                      algo='BATCH_TREE_REORG')
+    # predict using FIL
     fil_preds = model.predict(X_test)
     fil_mse = mean_squared_error(y_test, fil_preds)
     assert array_equal(fil_mse, cu_mse, 1e-2)

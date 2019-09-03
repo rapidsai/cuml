@@ -702,5 +702,4 @@ class RandomForestRegressor(Base):
                                                  <int> num_features,
                                                  <int> task_category)
         self.mod_ptr = <size_t> tl_model_ptr
-
         return ctypes.c_void_p(self.mod_ptr)
