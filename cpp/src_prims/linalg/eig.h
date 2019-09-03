@@ -67,6 +67,7 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
          "This usually occurs when some of the features do not vary enough.");
 }
 
+enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
 /**
  * @defgroup eig decomp with divide and conquer method for the column-major
@@ -84,39 +85,55 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
  * @{
  */
 template <typename math_t>
-void eigSelDC(const math_t *in, int n_rows, int n_cols, int n_eig_vals, math_t *eig_vectors,
-           math_t *eig_vals, cusolverDnHandle_t cusolverH, cudaStream_t stream,
-           std::shared_ptr<deviceAllocator> allocator) {
+void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
+              math_t *eig_vectors, math_t *eig_vals, EigVecMemUsage memUsage,
+              cusolverDnHandle_t cusolverH, cudaStream_t stream,
+              std::shared_ptr<deviceAllocator> allocator) {
   int lwork;
   int h_meig;
-  
-  CUSOLVER_CHECK(cusolverDnsyevdx_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                            CUSOLVER_EIG_RANGE_I,
-                                            CUBLAS_FILL_MODE_UPPER, n_rows, in,
-                                            n_cols, math_t(0.0), math_t(0.0), 
-                                            n_cols - n_eig_vals + 1, n_cols, &h_meig, 
-                                            eig_vals, &lwork));
+
+  CUSOLVER_CHECK(cusolverDnsyevdx_bufferSize(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+    CUBLAS_FILL_MODE_UPPER, n_rows, in, n_cols, math_t(0.0), math_t(0.0),
+    n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals, &lwork));
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
   device_buffer<int> d_dev_info(allocator, stream, 1);
+  device_buffer<math_t> d_eig_vectors(allocator, stream, 0);
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+  if (memUsage == OVERWRITE_INPUT) {
+    CUSOLVER_CHECK(cusolverDnsyevdx(
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+      CUBLAS_FILL_MODE_UPPER, n_rows, in, n_cols, math_t(0.0), math_t(0.0),
+      n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals, d_work.data(), lwork,
+      d_dev_info.data(), stream));
+  } else if (memUsage == COPY_INPUT) {
+    d_eig_vectors.resize(n_rows * n_cols, stream);
+    MLCommon::Matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevdx(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                 CUSOLVER_EIG_RANGE_I, CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, math_t(0.0), math_t(0.0), 
-                                 n_cols - n_eig_vals + 1, n_cols, &h_meig, 
-                                 eig_vals, d_work.data(), lwork,
-                                 d_dev_info.data(), stream));
-           
+    CUSOLVER_CHECK(cusolverDnsyevdx(
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+      CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors, n_cols, math_t(0.0),
+      math_t(0.0), n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals,
+      d_work.data(), lwork, d_dev_info.data(), stream));
+  }
+
   CUDA_CHECK(cudaGetLastError());
-           
+
   int dev_info;
   updateHost(&dev_info, d_dev_info.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "eig.h: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
+
+  if (memUsage == OVERWRITE_INPUT) {
+    Matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
+                            stream);
+  } else if (memUsage == COPY_INPUT) {
+    Matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors, n_rows,
+                            n_eig_vals, stream);
+  }
 }
 
 /**
