@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda_runtime_api.h>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
@@ -68,6 +69,8 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 }
 
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
+
+#if CUDART_VERSION >= 10010
 
 /**
  * @defgroup eig decomp with divide and conquer method for the column-major
@@ -135,6 +138,8 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
                             n_eig_vals, stream);
   }
 }
+
+#endif
 
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the

@@ -274,6 +274,7 @@ inline cusolverStatus_t cusolverDnsyevd(cusolverDnHandle_t handle,
 }
 /** @} */
 
+#if CUDART_VERSION >= 10010
 /**
  * @defgroup syevdx cusolver syevdx operations
  * @{
@@ -330,6 +331,7 @@ inline cusolverStatus_t cusolverDnsyevdx(
                            h_meig, W, work, lwork, devInfo);
 }
 /** @} */
+#endif
 
 /**
  * @defgroup svd cusolver svd operations
