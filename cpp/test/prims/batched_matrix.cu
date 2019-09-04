@@ -18,7 +18,7 @@
 #include <common/cuml_allocator.hpp>
 #include <cuML.hpp>
 #include <vector>
-#include "matrix/batched_matrix.h"
+#include "matrix/batched_matrix.hpp"
 #include "random/rng.h"
 #include "test_utils.h"
 
