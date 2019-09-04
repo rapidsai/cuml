@@ -11,6 +11,7 @@
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
 - PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1044 Remove nvidia driver installation from ci/cpu/build.sh
 - PR #990: Barnes Hut TSNE Memory Issue Fixes
 
 # cuML 0.9.0 (21 Aug 2019)
