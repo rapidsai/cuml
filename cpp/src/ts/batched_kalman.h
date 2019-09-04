@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+namespace ML {
+
 //! An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
 //! provide the resulting prediction as well as loglikelihood fit.
 //! @param h_ys_b The (batched) time series with shape (nobs, num_batches) in column major layout. Memory on host.
@@ -61,5 +63,7 @@ void batched_jones_transform(int p, int q, int num_batches, bool isInv,
                              const std::vector<double>& ma,
                              std::vector<double>& Tar,
                              std::vector<double>& Tma);
+
+}  // namespace ML
 
 #endif
