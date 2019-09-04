@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.decomposition.utils cimport *
 from cuml.utils import zeros
 
-cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
+cdef extern from "cumlprims/spmg/tsvd_spmg.hpp" namespace "ML":
 
     cdef void tsvdFitSPMG(float *h_input,
                           float *h_components,

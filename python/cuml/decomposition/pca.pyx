@@ -345,7 +345,7 @@ class PCA(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -451,7 +451,7 @@ class PCA(Base):
 
         return X_new
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X, convert_dtype=False):
         """
         Transform data back to its original space.
 
@@ -465,6 +465,11 @@ class PCA(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the inverse_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         Returns
         -------
         X_original : cuDF DataFrame, shape (n_samples, n_features)
@@ -472,7 +477,10 @@ class PCA(Base):
         """
         cdef uintptr_t trans_input_ptr
         X_m, trans_input_ptr, n_rows, _, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
@@ -522,7 +530,7 @@ class PCA(Base):
 
         return X_original
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Apply dimensionality reduction to X.
 
@@ -537,6 +545,12 @@ class PCA(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
+
         Returns
         -------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
@@ -545,7 +559,10 @@ class PCA(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         # todo: check dtype
         cpdef paramsPCA params
@@ -563,8 +580,6 @@ class PCA(Base):
         cdef uintptr_t singular_vals_ptr = \
             get_cudf_column_ptr(self.singular_values_)
         cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
-
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
