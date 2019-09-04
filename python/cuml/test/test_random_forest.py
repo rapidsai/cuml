@@ -129,16 +129,16 @@ def test_rf_regression(datatype, use_handle, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=8, split_algo=split_algo, split_criterion=2,
+                       n_bins=24, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=25, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     cu_mse = cuml_model.score(X_test, y_test)
     if mode != 'stress':
         # sklearn random forest classification model
         # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, max_depth=50,
+        sk_model = skrfr(n_estimators=50, max_depth=16,
                          min_samples_split=2, max_features=1.0,
                          random_state=10)
         sk_model.fit(X_train, y_train)
