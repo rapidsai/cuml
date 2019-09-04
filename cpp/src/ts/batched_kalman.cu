@@ -38,6 +38,8 @@
 
 #include <timeSeries/jones_transform.h>
 
+#include <cuML.hpp>
+
 using std::vector;
 
 using MLCommon::allocate;
@@ -57,6 +59,88 @@ namespace ML {
 void nvtx_range_push(std::string msg) { ML::PUSH_RANGE(msg.c_str()); }
 
 void nvtx_range_pop() { ML::POP_RANGE(); }
+
+// Because the kalman filter is typically called many times within the ARIMA
+// `fit()` method, allocations end up very costly. We avoid this by re-using the
+// variables stored in this global `GPUContext` object.
+class GPUContext {
+ public:
+  int m_p = 0;
+  int m_q = 0;
+  double* d_ys = nullptr;
+  double* d_vs = nullptr;
+  double* d_Fs = nullptr;
+  double* d_loglike = nullptr;
+  double* d_sigma2 = nullptr;
+
+  // memory allocators
+  std::shared_ptr<BatchedMatrixMemoryPool> pool = nullptr;
+  std::shared_ptr<ML::deviceAllocator> allocator;
+
+  // TODO: This handle will probably be passed in externally later and we will only
+  // permanently store the allocator shared_ptr.
+  cumlHandle m_handle;
+
+  // // batched_jones
+  double* d_ar = nullptr;
+  double* d_Tar = nullptr;
+  double* d_ma = nullptr;
+  double* d_Tma = nullptr;
+
+  GPUContext(int p, int q) : m_p(p), m_q(q) {
+    d_ys = nullptr;
+    d_vs = nullptr;
+    d_Fs = nullptr;
+    d_loglike = nullptr;
+    d_sigma2 = nullptr;
+    pool = nullptr;
+    d_ar = nullptr;
+    d_Tar = nullptr;
+    d_ma = nullptr;
+    d_Tma = nullptr;
+
+    m_handle.setStream(0);
+    allocator = m_handle.getDeviceAllocator();
+  }
+
+  // Note: Tried to re-use these device vectors, but it caused segfaults, so we ignore them for now.
+  // thrust::device_vector<double> d_Z_b;
+  // thrust::device_vector<double> d_R_b;
+  // thrust::device_vector<double> d_T_b;
+
+  // Only allocates when the pointer is uninitialized.
+  void allocate_if_zero(double*& ptr, size_t size) {
+    if (ptr == nullptr) {
+      ptr = (double*)allocator->allocate(sizeof(double) * size, 0);
+    }
+  }
+
+  bool orderEquals(int p, int q) { return (m_p == p) && (m_q = q); }
+
+  // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
+  //   if (v.size() == 0) {
+  //     v.resize(size);
+  //   }
+  // }
+
+  ~GPUContext() noexcept(false) {
+    ////////////////////////////////////////////////////////////
+    // free memory
+    CUDA_CHECK(cudaFree(d_ys));
+    CUDA_CHECK(cudaFree(d_vs));
+    CUDA_CHECK(cudaFree(d_Fs));
+    CUDA_CHECK(cudaFree(d_sigma2));
+    CUDA_CHECK(cudaFree(d_loglike));
+
+    CUDA_CHECK(cudaFree(d_ar));
+    CUDA_CHECK(cudaFree(d_Tar));
+    CUDA_CHECK(cudaFree(d_ma));
+    CUDA_CHECK(cudaFree(d_Tma));
+  }
+};
+
+//! A global context variable which saves allocations between invocations.
+GPUContext* GPU_CTX = nullptr;
 
 void process_mem_usage(double& vm_usage, double& resident_set) {
   vm_usage = 0.0;
@@ -315,7 +399,8 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
   // In batch-major format.
   double* d_sumlogFs;
 
-  allocate(d_sumlogFs, num_batches);
+  d_sumlogFs =
+    (double*)GPU_CTX->allocator->allocate(sizeof(double) * num_batches, 0);
 
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -352,76 +437,8 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
 
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, num_batches, d_sigma2,
                          d_loglike);
+  GPU_CTX->allocator->deallocate(d_sumlogFs, sizeof(double) * num_batches, 0);
 }
-
-// Because the kalman filter is typically called many times within the ARIMA
-// `fit()` method, allocations end up very costly. We avoid this by re-using the
-// variables stored in this global `GPUContext` object.
-class GPUContext {
- public:
-  int m_p = 0;
-  int m_q = 0;
-  double* d_ys = nullptr;
-  double* d_vs = nullptr;
-  double* d_Fs = nullptr;
-  double* d_loglike = nullptr;
-  double* d_sigma2 = nullptr;
-  std::shared_ptr<BatchedMatrixMemoryPool> pool = nullptr;
-
-  // // batched_jones
-  double* d_ar = nullptr;
-  double* d_Tar = nullptr;
-  double* d_ma = nullptr;
-  double* d_Tma = nullptr;
-
-  GPUContext(int p, int q) : m_p(p), m_q(q) {
-    d_ys = nullptr;
-    d_vs = nullptr;
-    d_Fs = nullptr;
-    d_loglike = nullptr;
-    d_sigma2 = nullptr;
-    pool = nullptr;
-    d_ar = nullptr;
-    d_Tar = nullptr;
-    d_ma = nullptr;
-    d_Tma = nullptr;
-  }
-
-  // Note: Tried to re-use these device vectors, but it caused segfaults, so we ignore them for now.
-  // thrust::device_vector<double> d_Z_b;
-  // thrust::device_vector<double> d_R_b;
-  // thrust::device_vector<double> d_T_b;
-
-  // Only allocates when the pointer is uninitialized.
-  static void allocate_if_zero(double*& ptr, size_t size) {
-    if (ptr == 0) {
-      MLCommon::allocate(ptr, size);
-    }
-  }
-
-  bool orderEquals(int p, int q) { return (m_p == p) && (m_q = q); }
-
-  // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
-  //   if (v.size() == 0) {
-  //     v.resize(size);
-  //   }
-  // }
-
-  ~GPUContext() noexcept(false) {
-    ////////////////////////////////////////////////////////////
-    // free memory
-    CUDA_CHECK(cudaFree(d_ys));
-    CUDA_CHECK(cudaFree(d_vs));
-    CUDA_CHECK(cudaFree(d_Fs));
-    CUDA_CHECK(cudaFree(d_sigma2));
-    CUDA_CHECK(cudaFree(d_loglike));
-
-    CUDA_CHECK(cudaFree(d_ar));
-    CUDA_CHECK(cudaFree(d_Tar));
-    CUDA_CHECK(cudaFree(d_ma));
-    CUDA_CHECK(cudaFree(d_Tma));
-  }
-};
 
 void init_batched_kalman_matrices(const vector<double>& b_ar_params,
                                   const vector<double>& b_ma_params,
@@ -501,9 +518,6 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   ML::POP_RANGE();
 }
 
-//! A global context variable which saves allocations between invocations.
-GPUContext* GPU_CTX = nullptr;
-
 void batched_kalman_filter(double* h_ys, int nobs,
                            const vector<double>& b_ar_params,
                            const vector<double>& b_ma_params, int p, int q,
@@ -523,7 +537,7 @@ void batched_kalman_filter(double* h_ys, int nobs,
   const size_t ys_len = nobs;
   ////////////////////////////////////////////////////////////
   // xfer batched series from host to device
-  GPUContext::allocate_if_zero(GPU_CTX->d_ys, nobs * num_batches);
+  GPU_CTX->allocate_if_zero(GPU_CTX->d_ys, nobs * num_batches);
   double* d_ys = GPU_CTX->d_ys;
   updateDevice(d_ys, h_ys, nobs * num_batches, 0);
 
@@ -537,7 +551,8 @@ void batched_kalman_filter(double* h_ys, int nobs,
                                d_Z_b, d_R_b, d_T_b);
 
   if (GPU_CTX->pool == nullptr) {
-    GPU_CTX->pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+    GPU_CTX->pool = std::make_shared<BatchedMatrixMemoryPool>(
+      num_batches, GPU_CTX->m_handle.getDeviceAllocator());
   }
   auto memory_pool = GPU_CTX->pool;
 
@@ -565,11 +580,11 @@ void batched_kalman_filter(double* h_ys, int nobs,
 
   ////////////////////////////////////////////////////////////
   // Computation
-  GPUContext::allocate_if_zero(GPU_CTX->d_vs, ys_len * num_batches);
-  GPUContext::allocate_if_zero(GPU_CTX->d_Fs, ys_len * num_batches);
+  GPU_CTX->allocate_if_zero(GPU_CTX->d_vs, ys_len * num_batches);
+  GPU_CTX->allocate_if_zero(GPU_CTX->d_Fs, ys_len * num_batches);
 
-  GPUContext::allocate_if_zero(GPU_CTX->d_sigma2, num_batches);
-  GPUContext::allocate_if_zero(GPU_CTX->d_loglike, num_batches);
+  GPU_CTX->allocate_if_zero(GPU_CTX->d_sigma2, num_batches);
+  GPU_CTX->allocate_if_zero(GPU_CTX->d_loglike, num_batches);
 
   _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, GPU_CTX->d_vs,
                          GPU_CTX->d_Fs, GPU_CTX->d_loglike, GPU_CTX->d_sigma2,
@@ -610,8 +625,8 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
 
   if (p > 0) {
     Tar.resize(p * batchSize);
-    GPUContext::allocate_if_zero(GPU_CTX->d_ar, p * batchSize);
-    GPUContext::allocate_if_zero(GPU_CTX->d_Tar, p * batchSize);
+    GPU_CTX->allocate_if_zero(GPU_CTX->d_ar, p * batchSize);
+    GPU_CTX->allocate_if_zero(GPU_CTX->d_Tar, p * batchSize);
 
     MLCommon::updateDevice(GPU_CTX->d_ar, ar.data(), p * batchSize, stream);
 
@@ -624,8 +639,8 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
   if (q > 0) {
     Tma.resize(q * batchSize);
 
-    GPUContext::allocate_if_zero(GPU_CTX->d_ma, q * batchSize);
-    GPUContext::allocate_if_zero(GPU_CTX->d_Tma, q * batchSize);
+    GPU_CTX->allocate_if_zero(GPU_CTX->d_ma, q * batchSize);
+    GPU_CTX->allocate_if_zero(GPU_CTX->d_Tma, q * batchSize);
 
     MLCommon::updateDevice(GPU_CTX->d_ma, ma.data(), q * batchSize, stream);
 

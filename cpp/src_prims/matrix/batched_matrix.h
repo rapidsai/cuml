@@ -29,6 +29,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cuML.hpp>
+
 namespace MLCommon {
 namespace Matrix {
 
@@ -39,21 +41,6 @@ void cudaFreeT(T* ptr) {
   CUDA_CHECK(cudaFree(ptr));
 }
 
-void BMM_Allocate(std::pair<int, int> shape, int num_batches, double*& A_dense,
-                  double**& A_array, bool setZero) {
-  int m = shape.first;
-  int n = shape.second;
-
-  allocate(A_dense, m * n * num_batches, setZero);
-  allocate(A_array, num_batches);
-
-  // fill array of pointers to each batch matrix.
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-    A_array[bid] = &(A_dense[bid * m * n]);
-  });
-}
-
 // https://stackoverflow.com/questions/32685540/why-cant-i-compile-an-unordered-map-with-a-pair-as-key
 struct pair_hash {
   template <class T1, class T2>
@@ -61,11 +48,35 @@ struct pair_hash {
     auto h1 = std::hash<T1>{}(p.first);
     auto h2 = std::hash<T2>{}(p.second);
 
-    // Mainly for demonstration purposes, i.e. works but is overly simple
-    // In the real world, use sth. like boost.hash_combine
+    // Not the best pair_hash, but it works for now...
     return 100 * h1 + h2;
   }
 };
+
+//! An allocation function for `BatchedMatrixMemory`. Written as a free function because I had trouble
+//! getting the __device__ lambda to compile as a member function of the `BatchedMatrixMemory`
+//! struct.
+void BMM_Allocate(std::pair<int, int> shape, int num_batches, double*& A_dense,
+                  double**& A_array, bool setZero,
+                  std::shared_ptr<ML::deviceAllocator> allocator) {
+  int m = shape.first;
+  int n = shape.second;
+
+  // Allocate dense batched matrix and possibly set to zero
+  allocate(A_dense, m * n * num_batches, setZero);
+  A_dense =
+    (double*)allocator->allocate(sizeof(double) * m * n * num_batches, 0);
+  if (setZero)
+    CUDA_CHECK(cudaMemset(A_dense, 0, sizeof(double) * m * n * num_batches));
+
+  // allocate and fill array of pointers to each batch matrix
+  A_array = (double**)allocator->allocate(sizeof(double*) * num_batches, 0);
+  // fill array of pointers to each batch matrix.
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+    A_array[bid] = &(A_dense[bid * m * n]);
+  });
+}
 
 //! A Memory object to store a batched matrix both as a dense pointer and as an
 //! array of pointers to each individual matrix.
@@ -74,13 +85,14 @@ struct BatchedMatrixMemory {
   //! @param shape The (M x N) shape of each matrix.
   //! @param num_batches The number of (equally-sized) matrices.
   //! @param setZero Should the matrices be initialized to zero?
-  BatchedMatrixMemory(std::pair<int, int> shape, int num_batches,
-                      bool setZero) {
-    BMM_Allocate(shape, num_batches, A_dense, A_array, setZero);
+  BatchedMatrixMemory(std::pair<int, int> shape, int num_batches, bool setZero,
+                      std::shared_ptr<ML::deviceAllocator> allocator) {
+    BMM_Allocate(shape, num_batches, A_dense, A_array, setZero, allocator);
     // std::cout << "Allocate (" << shape.first << "," << shape.second << "):" << A_array << "\n";
     in_use = true;
   }
 
+ public:
   //! Pointer to block of memory holding all matrices.
   double* A_dense;
   //! Array of pointers to each matrix.
@@ -92,9 +104,11 @@ struct BatchedMatrixMemory {
 // A pool allocator for `BatchedMatrix` objects.
 class BatchedMatrixMemoryPool {
  public:
-  BatchedMatrixMemoryPool(int num_batches) : m_num_batches(num_batches) {
+  BatchedMatrixMemoryPool(int num_batches,
+                          std::shared_ptr<ML::deviceAllocator> allocator)
+    : m_num_batches(num_batches), m_allocator(allocator) {
     // std::cout << "Memory Pool Init\n";
-    CUBLAS_CHECK(cublasCreate(&m_handle));
+    CUBLAS_CHECK(cublasCreate(&m_cublasHandle));
   }
 
   ~BatchedMatrixMemoryPool() {
@@ -105,7 +119,7 @@ class BatchedMatrixMemoryPool {
         cudaFreeT(v.A_dense);
       }
     }
-    CUBLAS_CHECK(cublasDestroy(m_handle));
+    CUBLAS_CHECK(cublasDestroy(m_cublasHandle));
   }
 
   std::pair<double*, double**> get(std::pair<int, int> shape,
@@ -113,7 +127,7 @@ class BatchedMatrixMemoryPool {
     auto mempool_for_shape = m_pool.find(shape);
     // if mempool empty for this shape, create first entry
     if (mempool_for_shape == m_pool.end()) {
-      BatchedMatrixMemory mem(shape, m_num_batches, setZero);
+      BatchedMatrixMemory mem(shape, m_num_batches, setZero, m_allocator);
       m_pool[shape] = {mem};
       return std::make_pair(mem.A_dense, mem.A_array);
     } else {
@@ -134,7 +148,7 @@ class BatchedMatrixMemoryPool {
       }
       if (!found_ununsed_entry) {
         // Create a new memory slot because no entries are free.
-        BatchedMatrixMemory mem(shape, m_num_batches, setZero);
+        BatchedMatrixMemory mem(shape, m_num_batches, setZero, m_allocator);
         shape_pool.push_back(mem);
         return std::make_pair(mem.A_dense, mem.A_array);
       }
@@ -160,7 +174,7 @@ class BatchedMatrixMemoryPool {
     }
   }
 
-  const cublasHandle_t& cublasHandle() const { return m_handle; }
+  const cublasHandle_t& cublasHandle() const { return m_cublasHandle; }
 
  private:
   //! The memory pool, organized by matrix shape.
@@ -171,7 +185,9 @@ class BatchedMatrixMemoryPool {
   //! The number of matrices in the batch
   int m_num_batches;
   //! The cublas handle
-  cublasHandle_t m_handle;
+  cublasHandle_t m_cublasHandle;
+  //! device allocator
+  std::shared_ptr<ML::deviceAllocator> m_allocator;
 };
 
 //! The BatchedMatrix class provides storage and a number of linear operations on collections (batches) of matrices of identical shape.
