@@ -112,7 +112,7 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k);
   MLCommon::allocate(knn_dists, n * k);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo;
@@ -137,11 +137,19 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
                  embeddings, stream, params->init);
 
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings);
+  }
+
   /**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                stream);
+
+  if (params->callback)
+    params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
@@ -170,7 +178,7 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k, true);
   MLCommon::allocate(knn_dists, n * k, true);
 
-  kNNGraph::run(X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -225,10 +233,16 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
 
+  if (params->callback)
+    params->callback->on_preprocess_end(embeddings);
+
   /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, stream);
+
+  if (params->callback)
+    params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -253,14 +267,10 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::allocate(knn_indices, n * params->n_neighbors);
   MLCommon::allocate(knn_dists, n * params->n_neighbors);
 
-  kNNGraph::run(orig_X, orig_n, d, knn_indices, knn_dists, params->n_neighbors,
-                params, stream);
+  kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices, knn_dists,
+                params->n_neighbors, params, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
-
-  MLCommon::LinAlg::unaryOp<T>(
-    knn_dists, knn_dists, n * params->n_neighbors,
-    [] __device__(T input) { return sqrt(input); }, stream);
 
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
@@ -332,7 +342,15 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
-  int n_epochs = 1000;  //params->n_epochs;
+  int n_epochs = params->n_epochs;
+  if (params->n_epochs <= 0) {
+    if (graph_coo.nnz <= 10000)
+      n_epochs = 100;
+    else
+      n_epochs = 30;
+  } else {
+    n_epochs /= 3;
+  }
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals, graph_coo.vals, graph_coo.nnz,
@@ -356,7 +374,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::allocate(epochs_per_sample, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
-    comp_coo.vals, comp_coo.nnz, params->n_epochs, epochs_per_sample, stream);
+    comp_coo.vals, comp_coo.nnz, n_epochs, epochs_per_sample, stream);
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows, comp_coo.cols,

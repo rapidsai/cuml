@@ -174,15 +174,15 @@ void fit_clusters(const cumlHandle &handle, T *X, int m, int n, int n_neighbors,
   MLCommon::allocate(knn_indices, m * n_neighbors);
   MLCommon::allocate(knn_dists, m * n_neighbors);
 
-  float **ptrs = new float*[1];
+  float **ptrs = new float *[1];
   int *sizes = new int[1];
   ptrs[0] = X;
   sizes[0] = m;
   knn.fit(ptrs, sizes, 1);
   knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
-  fit_clusters(handle, knn_indices, knn_dists, m, n_neighbors,
-          n_clusters, eigen_tol, out);
+  fit_clusters(handle, knn_indices, knn_dists, m, n_neighbors, n_clusters,
+               eigen_tol, out);
 
   CUDA_CHECK(cudaFree(knn_indices));
   CUDA_CHECK(cudaFree(knn_dists));
@@ -328,7 +328,7 @@ void fit_embedding(const cumlHandle &handle, T *X, int m, int n,
 
   MLCommon::allocate(knn_indices, m * n_neighbors);
   MLCommon::allocate(knn_dists, m * n_neighbors);
-  float **ptrs = new float*[1];
+  float **ptrs = new float *[1];
   int *sizes = new int[1];
   ptrs[0] = X;
   sizes[0] = m;
@@ -339,11 +339,11 @@ void fit_embedding(const cumlHandle &handle, T *X, int m, int n,
   fit_embedding(handle, knn_indices, knn_dists, m, n_neighbors, n_components,
                 out);
 
-        CUDA_CHECK(cudaFree(knn_indices));
-        CUDA_CHECK(cudaFree(knn_dists));
+  CUDA_CHECK(cudaFree(knn_indices));
+  CUDA_CHECK(cudaFree(knn_dists));
 
-        delete ptrs;
-        delete sizes;
+  delete ptrs;
+  delete sizes;
 }
 }  // namespace Spectral
 }  // namespace ML

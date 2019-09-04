@@ -16,9 +16,13 @@
 
 #pragma once
 
+#include "internals/internals.h"
 #include <string>
 
 namespace ML {
+
+using namespace ML::Internals;
+
 class UMAPParams {
  public:
   enum MetricType { EUCLIDEAN, CATEGORICAL };
@@ -40,7 +44,7 @@ class UMAPParams {
          * Number of epochs to use in the training of
          * the embedding.
          */
-  int n_epochs = 500;
+  int n_epochs = 0;
 
   /**
          * Initial learning rate for the embedding optimization
@@ -145,6 +149,8 @@ class UMAPParams {
   MetricType target_metric = EUCLIDEAN;
 
   float target_weights = 0.5;
+
+  GraphBasedDimRedCallback* callback = nullptr;
 };
 
 }  // namespace ML
