@@ -1,6 +1,7 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
+- PR #1071: Selective eigen solver of cuSolver 
 
 ## Improvements
 
