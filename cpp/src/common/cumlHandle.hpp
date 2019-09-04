@@ -25,6 +25,8 @@
 #include <cusolverDn.h>
 #include <cusparse.h>
 
+#include "common/cuml_comms_int.hpp"
+
 #include "../cuML.hpp"
 #include "../cuML_api.h"
 
@@ -55,6 +57,13 @@ class cumlHandle_impl {
   void waitOnUserStream() const;
   void waitOnInternalStreams() const;
 
+  void setCommunicator(
+    std::shared_ptr<MLCommon::cumlCommunicator> communicator);
+  const MLCommon::cumlCommunicator& getCommunicator() const;
+  bool commsInitialized() const;
+
+  const cudaDeviceProp& getDeviceProperties() const;
+
  private:
   //TODO: What is the right number?
   static constexpr int _num_streams = 3;
@@ -67,6 +76,9 @@ class cumlHandle_impl {
   std::shared_ptr<hostAllocator> _hostAllocator;
   cudaStream_t _userStream;
   cudaEvent_t _event;
+  cudaDeviceProp prop;
+
+  std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
   void createResources();
   void destroyResources();
