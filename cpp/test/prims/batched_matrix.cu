@@ -15,6 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <common/cuml_allocator.hpp>
+#include <cuML.hpp>
+#include <vector>
 #include "matrix/batched_matrix.h"
 #include "random/rng.h"
 #include "test_utils.h"
@@ -125,8 +128,10 @@ class BatchedMatrixTest
     // allocate(Bbi, 4*num_batches);
     // T* Zbi;
     // allocate(Zbi, 2*num_batches);
-
-    auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+    // ML::cumlHandle handle;
+    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    auto memory_pool =
+      std::make_shared<BatchedMatrixMemoryPool>(num_batches, allocator);
 
     BatchedMatrix AbM(2, 2, num_batches, memory_pool);
     BatchedMatrix BbM(2, 2, num_batches, memory_pool);
