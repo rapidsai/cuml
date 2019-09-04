@@ -63,7 +63,6 @@ void BMM_Allocate(std::pair<int, int> shape, int num_batches, double*& A_dense,
   int n = shape.second;
 
   // Allocate dense batched matrix and possibly set to zero
-  allocate(A_dense, m * n * num_batches, setZero);
   A_dense =
     (double*)allocator->allocate(sizeof(double) * m * n * num_batches, 0);
   if (setZero)
@@ -175,6 +174,8 @@ class BatchedMatrixMemoryPool {
   }
 
   const cublasHandle_t& cublasHandle() const { return m_cublasHandle; }
+
+  std::shared_ptr<ML::deviceAllocator> allocator() { return m_allocator; }
 
  private:
   //! The memory pool, organized by matrix shape.
@@ -484,10 +485,10 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   auto& handle = A.pool()->cublasHandle();
 
   int n = A.shape().first;
-  int* P;
-  allocate(P, n * num_batches);
-  int* info;
-  allocate(info, num_batches);
+  int* P =
+    (int*)A.pool()->allocator()->allocate(sizeof(int) * n * num_batches, 0);
+  int* info =
+    (int*)A.pool()->allocator()->allocate(sizeof(int) * num_batches, 0);
 
   BatchedMatrix Ainv(n, n, num_batches, A.pool());
 
@@ -497,6 +498,9 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
                                    info, num_batches));
 
   BatchedMatrix x = Ainv * b;
+
+  A.pool()->allocator()->deallocate(P, sizeof(int) * n * num_batches, 0);
+  A.pool()->allocator()->deallocate(info, sizeof(int) * num_batches, 0);
 
   return x;
 }
