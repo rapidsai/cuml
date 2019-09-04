@@ -13,17 +13,37 @@ With the exception of the cumlHandle, cuML algorithms should maintain thread-saf
 assumed to be single threaded. This means they should be able to be called from multiple host threads so 
 long as different instances of `cumlHandle` are used.
 
-Exceptions are made for algorithms that can take advantage of multiple CUDA streams in order to oversubscribe 
-or increase occupancy on a single GPU. In these cases, the use of multiple host threads within cuML algorithms
-should be used only to maintain concurrency of the underlying CUDA streams. Multiple host threads should be 
-used sparingly, be bounded, and should steer clear of performing CPU-intensive computations.
+Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
+in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
+threads within cuML algorithms should be used only to maintain concurrency of the underlying CUDA streams. 
+Multiple host threads should be used sparingly, be bounded, and should steer clear of performing CPU-intensive 
+computations.
 
-A good example of an acceptable use of host threads can be found in [this blog article](https://devblogs.nvidia.com/gpu-pro-tip-cuda-7-streams-simplify-concurrency/)
+A good example of an acceptable use of host threads within a cuML algorithm might look like the following
 
+```
+cudaStreamSynchronize(streamInCurrentHostThread);
+
+#pragma omp parallel for num_threads(n_threads)
+for(int i = 0; i < n; i++) {
+    ... possible light cpu pre-processing ...
+    cudaStream_t s;
+    cudaStreamCreate(&s);
+    my_kernel1<<<b, tpb, 0, s>>>(...);
+    ...
+    ... some possible async d2h / h2d copies ...
+    my_kernel2<<<b, tpb, 0, s>>>(...);
+    ...
+    cudaStreamSynchronize(s);
+    ... possible light cpu post-processing ...
+}
+```
+
+To avoid compatibility issues between different threading models, the only threading programming allowed in cuML is OpenMP.
 Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
 disabled. For this reason, it would be better to utilize OpenMP rather than raw pthreads for spawning host threads. 
 
-The use of threads in thirdparty libraries are okay.
+The use of threads in third-party libraries is allowed, though they should still avoid depending on a specific OpenMP runtime. 
 
 ## Public cuML interface
 ### Terminology
