@@ -18,14 +18,12 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include <treelite/tree.h>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
-namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -290,7 +288,6 @@ ModelHandle build_treelite_forest(ModelHandle* model,
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
-
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
     if (tree_ptr->root != nullptr) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr->root,

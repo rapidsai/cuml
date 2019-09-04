@@ -16,11 +16,13 @@
 import pytest
 import numpy as np
 from cuml.fil import ForestInference
-from cuml.test.utils import get_handle, array_equal
+from cuml.test.utils import get_handle
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
@@ -65,6 +67,14 @@ def test_rf_classification(datatype, split_algo,
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
 
+    sk_model = skrfc(n_estimators=40,
+                     max_depth=(max_depth if max_depth > 0 else None),
+                     min_samples_split=2, max_features=1.0,
+                     random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_predict)
+
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
@@ -73,8 +83,6 @@ def test_rf_classification(datatype, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=max_depth)
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
-    cu_acc = accuracy_score(y_test, cu_predict)
     # convert the cuml forest model to treelite format
     # and obtain a model handle
     tl_model = cuml_model.build_treelite_forest(num_features=ncols,
@@ -87,15 +95,15 @@ def test_rf_classification(datatype, split_algo,
                                       algo='BATCH_TREE_REORG')
     fil_preds = np.asarray(model.predict(X_test))
     fil_acc = accuracy_score(y_test, fil_preds)
-    assert fil_acc >= cu_acc
+    assert fil_acc >= (sk_acc - 0.07)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('ncols', [unit_param(50), quality_param(8),
+@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(8),
                          stress_param(200)])
-@pytest.mark.parametrize('n_info', [unit_param(30), quality_param(5),
-                         stress_param(100)])
+@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(8),
+                         stress_param(180)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -124,17 +132,14 @@ def test_rf_regression(datatype, use_handle, split_algo,
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
 
-    # Initialize, fit and predict using cuML's
-    # random forest regression model
+    # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=8, split_algo=split_algo, split_criterion=2,
+                       n_bins=32, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
-
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
-    cu_mse = mean_squared_error(y_test, cu_predict)
+
     # convert the cuml forest model to treelite format and
     # obtain a model handle
     tl_model = cuml_model.build_treelite_forest(num_features=ncols,
@@ -146,4 +151,14 @@ def test_rf_regression(datatype, use_handle, split_algo,
     # predict using FIL
     fil_preds = model.predict(X_test)
     fil_mse = mean_squared_error(y_test, fil_preds)
-    assert array_equal(fil_mse, cu_mse, 1e-2)
+
+    # Initialize, fit and predict using
+    # sklearn's random forest regression model
+    sk_model = skrfr(n_estimators=50, max_depth=16,
+                     min_samples_split=2, max_features=1.0,
+                     random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_mse = mean_squared_error(y_test, sk_predict)
+
+    assert fil_mse <= (sk_mse + 0.07)
