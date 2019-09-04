@@ -67,6 +67,7 @@ class GPUContext {
  public:
   int m_p = 0;
   int m_q = 0;
+  int m_num_batches = 0;
   double* d_ys = nullptr;
   double* d_vs = nullptr;
   double* d_Fs = nullptr;
@@ -87,7 +88,8 @@ class GPUContext {
   double* d_ma = nullptr;
   double* d_Tma = nullptr;
 
-  GPUContext(int p, int q) : m_p(p), m_q(q) {
+  GPUContext(int p, int q, int num_batches)
+    : m_p(p), m_q(q), m_num_batches(num_batches) {
     d_ys = nullptr;
     d_vs = nullptr;
     d_Fs = nullptr;
@@ -115,7 +117,9 @@ class GPUContext {
     }
   }
 
-  bool orderEquals(int p, int q) { return (m_p == p) && (m_q = q); }
+  bool orderEquals(int p, int q, int num_batches) {
+    return (m_p == p) && (m_q = q) && (m_num_batches == num_batches);
+  }
 
   // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
   //   if (v.size() == 0) {
@@ -527,11 +531,11 @@ void batched_kalman_filter(double* h_ys, int nobs,
   ML::PUSH_RANGE("batched_akalman_filter");
 
   if (GPU_CTX == nullptr) {
-    GPU_CTX = new GPUContext(p, q);
+    GPU_CTX = new GPUContext(p, q, num_batches);
   }
-  if (!GPU_CTX->orderEquals(p, q)) {
+  if (!GPU_CTX->orderEquals(p, q, num_batches)) {
     delete GPU_CTX;
-    GPU_CTX = new GPUContext(p, q);
+    GPU_CTX = new GPUContext(p, q, num_batches);
   }
 
   const size_t ys_len = nobs;
@@ -616,10 +620,10 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              vector<double>& Tar, vector<double>& Tma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
-  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext(p, q);
-  if (!GPU_CTX->orderEquals(p, q)) {
+  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext(p, q, batchSize);
+  if (!GPU_CTX->orderEquals(p, q, batchSize)) {
     delete GPU_CTX;
-    GPU_CTX = new GPUContext(p, q);
+    GPU_CTX = new GPUContext(p, q, batchSize);
   }
 
   std::shared_ptr<MLCommon::deviceAllocator> allocator(
