@@ -18,8 +18,8 @@
 #include <tuple>
 #include <vector>
 
-#include "batched_arima.h"
-#include "batched_kalman.h"
+#include "batched_arima.hpp"
+#include "batched_kalman.hpp"
 
 #include <common/nvtx.hpp>
 

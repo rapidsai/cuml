@@ -25,7 +25,7 @@ from libcpp cimport bool
 from libcpp.string cimport string
 cimport cython
 
-cdef extern from "ts/batched_kalman.h" namespace "ML":
+cdef extern from "ts/batched_kalman.hpp" namespace "ML":
 
   void batched_kalman_filter(double* ptr_ys_b,
                              int nobs,

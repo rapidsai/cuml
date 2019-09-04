@@ -25,7 +25,7 @@ from libcpp.string cimport string
 cimport cython
 from cuml.ts.batched_kalman import pynvtx_range_push, pynvtx_range_pop
 
-cdef extern from "ts/batched_arima.h" namespace "ML":
+cdef extern from "ts/batched_arima.hpp" namespace "ML":
   void batched_loglike(double* y, int num_batches, int nobs, int p,
                        int d, int q, double* params, vector[double]& vec_loglike, bool trans)
 

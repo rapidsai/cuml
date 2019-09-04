@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <matrix/batched_matrix.h>
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
@@ -23,7 +22,8 @@
 #include <utils.h>
 #include <cstdio>
 #include <iostream>
-#include "batched_kalman.h"
+#include <matrix/batched_matrix.hpp>
+#include "batched_kalman.hpp"
 
 #include <unistd.h>
 #include <fstream>
@@ -334,7 +334,7 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
   int num_threads = blockDim.x;
   double bid_sigma2 = 0.0;
   for (int it = 0; it < nobs; it += num_threads) {
-    // vs and Fs are in time-major order
+    // vs and Fs are in time-major order (memory layout: column major)
     int idx = (it + tid) + bid * nobs;
     double d_vs2_Fs = 0.0;
     if (idx < nobs * num_batches) {
@@ -602,7 +602,10 @@ void batched_kalman_filter(double* h_ys, int nobs,
   for (int i = 0; i < num_batches; i++) {
     h_vs_b[i].resize(ys_len);
     for (int j = 0; j < ys_len; j++) {
-      h_vs_b[i][j] = h_vs[j + i * ys_len];  // vs is in time-major order
+      h_vs_b[i][j] =
+        h_vs[j +
+             i *
+               ys_len];  // vs is in time-major order (column major, time first)
     }
   }
   ML::POP_RANGE();
