@@ -52,6 +52,8 @@ using MLCommon::Matrix::BatchedMatrixMemoryPool;
 ////////////////////////////////////////////////////////////
 #include <iostream>
 
+namespace ML {
+
 void nvtx_range_push(std::string msg) { ML::PUSH_RANGE(msg.c_str()); }
 
 void nvtx_range_pop() { ML::POP_RANGE(); }
@@ -634,3 +636,4 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
   }
   ML::POP_RANGE();
 }
+}  // namespace ML

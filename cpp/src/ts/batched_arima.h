@@ -17,6 +17,8 @@
 #pragma once
 #include <vector>
 
+namespace ML {
+
 //! Compute the loglikelihood of the given parameter on the given time series in a batched context.
 //! @param y series to fit: shape = (nobs, num_bathces) and expects column major data layout. Memory on host.
 //! @param num_batches number of time series
@@ -27,3 +29,4 @@
 void batched_loglike(double* h_y, int num_batches, int nobs, int p, int d,
                      int q, double* h_params, std::vector<double>& loglike,
                      bool trans = true);
+}  // namespace ML

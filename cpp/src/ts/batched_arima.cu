@@ -23,6 +23,8 @@
 
 #include <common/nvtx.hpp>
 
+namespace ML {
+
 void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
                      double* params, std::vector<double>& loglike_b,
                      bool trans) {
@@ -85,3 +87,4 @@ void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
   }
   ML::POP_RANGE();
 }
+}  // namespace ML
