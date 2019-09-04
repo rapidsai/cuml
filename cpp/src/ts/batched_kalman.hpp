@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ARIMA_BATCHED_KALMAN_H
-#define ARIMA_BATCHED_KALMAN_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -65,5 +64,3 @@ void batched_jones_transform(int p, int q, int num_batches, bool isInv,
                              std::vector<double>& Tma);
 
 }  // namespace ML
-
-#endif
