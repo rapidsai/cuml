@@ -17,6 +17,7 @@
 #pragma once
 #include <common/cumlHandle.hpp>
 #include "algo_helper.h"
+#include "flatnode.h"
 
 namespace ML {
 
@@ -73,28 +74,14 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
 void validity_check(const DecisionTreeParams params);
 void print(const DecisionTreeParams params);
 
-template <class T>
-struct Question {
-  int column;
-  T value;
-};
-
-template <class T, class L>
-struct TreeNode {
-  TreeNode<T, L> *left;
-  TreeNode<T, L> *right;
-  L prediction;
-  Question<T> question;
-  T split_metric_val;
-};
-
 template <class T, class L>
 struct TreeMetaDataNode {
+  int treeid;
   int depth_counter;
   int leaf_counter;
   double prepare_time;
   double train_time;
-  TreeNode<T, L> *root;
+  std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 
 template <class T, class L>
