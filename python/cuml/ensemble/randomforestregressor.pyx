@@ -531,6 +531,8 @@ class RandomForestRegressor(Base):
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
+
+        # task category = 1 for regression 
         treelite_model = \
             self.get_treelite_forest_from_rf(num_features=n_cols,
                                              task_category=1)

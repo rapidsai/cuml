@@ -520,7 +520,7 @@ class RandomForestClassifier(Base):
         return self
 
     def predict_model_on_gpu(self, X, output_class,
-                             threshold, algo):
+                             threshold, algo, num_classes):
         _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
@@ -528,7 +528,7 @@ class RandomForestClassifier(Base):
                              " and test data should be the same ")
         treelite_model = \
             self.get_treelite_forest_from_rf(num_features=n_cols,
-                                             task_category=1)
+                                             task_category=num_classes)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -590,7 +590,8 @@ class RandomForestClassifier(Base):
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='BATCH_TREE_REORG'):
+                algo='BATCH_TREE_REORG',
+                num_classes=2):
         """
         Predicts the labels for X.
         Parameters
@@ -618,10 +619,14 @@ class RandomForestClassifier(Base):
                               coalescing-friendly
                'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
                                     multiple rows per thread block
-        threshold : threshold is used to for classification
+        threshold : float
+                    threshold is used to for classification
                     This is optional and required only while performing the
                     predict operation on the GPU.
                     It is applied if output_class == True, else it is ignored
+        num_classes : integer
+                      num_classes is used to for giving the number of different classes
+                      present in the dataset
         Returns
         ----------
         y: NumPy
@@ -633,7 +638,8 @@ class RandomForestClassifier(Base):
             preds = self.predict_model_on_cpu(X)
         else:
             preds = self.predict_model_on_gpu(X, output_class,
-                                              threshold, algo)
+                                              threshold, algo,
+                                              num_classes)
 
         return preds
 
