@@ -147,7 +147,25 @@ _data_converters = { 'numpy': _convert_to_numpy,
                      'gpuarray': _convert_to_gpuarray }
 
 def gen_data(dataset_name, dataset_format,
-             n_samples=0, n_features=0, random_state=42):
-    data = _data_generators[dataset_name](n_samples, n_features, random_state)
+             n_samples=0, n_features=0, random_state=42,
+             **kwargs):
+    """Returns a tuple of data from the specified generator.
+
+    Output
+    -------
+        (features, labels) tuple containing matrices or dataframes of the
+        requested format.
+
+    Parameters
+    ----------
+    dataset_name : str
+        Dataset to use. Can be a synthetic generator (blobs or regression)
+        or a specified dataset (higgs currently, others coming soon)
+
+    dataset_format : str
+        Type of data to return. (One of cudf, numpy, pandas, gpuarray)
+    """
+    data = _data_generators[dataset_name](n_samples, n_features, random_state, **kwargs)
+
     data = _data_converters[dataset_format](data)
     return data
