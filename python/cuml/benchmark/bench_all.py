@@ -42,7 +42,6 @@ if __name__ == '__main__':
                                                    bench_dims,
                                                    args.dataset,
                                                    args.input_type)
-
     all_results = []
     for algo in algos_to_run:
         results = runner.run(algo)
