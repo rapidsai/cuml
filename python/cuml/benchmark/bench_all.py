@@ -1,8 +1,10 @@
-from cuml.benchmark import utils, bench_data
+"""bench_all.py - Command-line ML benchmark runner"""
+from cuml.benchmark import bench_data, bench_algos, bench_runners
 
+import time
 import sys
+import pandas as pd
 
-from .bench_algos import all_algorithms
 
 if __name__ == '__main__':
     import argparse
@@ -13,9 +15,9 @@ if __name__ == '__main__':
                         help='Evaluate at least 2**min_row_power samples')
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument('--quiet', '-q', action='store_false', dest='verbose', default=True)
-    parser.add_argument('--list', action='store_true')
     parser.add_argument('--csv', nargs='?')
-    parser.add_argument('--dataset', default='gen_data_regression')
+    parser.add_argument('--dataset', default='blobs')
+    parser.add_argument('--input-type', default='numpy')
     parser.add_argument('--default-size', action='store_true', help='Only run datasets at default size')
     parser.add_argument('algorithms', nargs='*', help='List of algorithms to run, or omit to run all')
     args = parser.parse_args()
@@ -28,32 +30,29 @@ if __name__ == '__main__':
         bench_rows = [0]
         bench_dims = [0]
 
-    # By default run with both cudf and numpy inputs to compare
-    runner = utils.BenchmarkRunner(rerun=True,
-                                   benchmarks=[utils.SpeedupBenchmark(name='cudf',
-                                                                      converter=utils.cudf_convert),
-                                               utils.SpeedupBenchmark(name='numpy')],
-                                   verbose=args.verbose,
-                                   bench_rows=bench_rows,
-                                   bench_dims=bench_dims)
-    dataset_loader = getattr(bench_data, args.dataset)
-    print("Using dataset: %s" % (args.dataset,))
-
-    all_algos = all_algorithms(dataset_loader)
     if args.algorithms:
-        algos_to_run = [a for a in all_algos if a.name in args.algorithms]
+        algos_to_run = [bench_algos.algorithm_by_name(name)
+                        for name in args.algorithms]
     else:
-        algos_to_run = all_algos
+        # Run all by default
+        algos_to_run = bench_algos.all_algorithms()
 
     print("Running: \n", "\n ".join([a.name for a in algos_to_run]))
+    runner = bench_runners.SpeedupComparisonRunner(bench_rows,
+                                                   bench_dims,
+                                                   args.dataset,
+                                                   args.input_type)
 
+    all_results = []
     for algo in algos_to_run:
-        runner.run(algo)
+        results = runner.run(algo)
+        for r in results:
+            all_results.append({ 'algo': algo.name, 'input': args.input_type, **r })
 
     print("Run finished!")
-    results = runner.results_df()
-    print(results)
+    results_df = pd.DataFrame.from_records(all_results)
+    print(results_df)
 
     if args.csv:
-        results.to_csv(args.csv)
+        results_df.to_csv(args.csv)
         print("Saved results to %s" % args.csv)
