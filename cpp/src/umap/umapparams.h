@@ -16,9 +16,13 @@
 
 #pragma once
 
+#include "internals/internals.h"
 #include <string>
 
 namespace ML {
+
+using namespace ML::Internals;
+
 class UMAPParams {
  public:
   enum MetricType { EUCLIDEAN, CATEGORICAL };
@@ -145,6 +149,8 @@ class UMAPParams {
   MetricType target_metric = EUCLIDEAN;
 
   float target_weights = 0.5;
+
+  GraphBasedDimRedCallback* callback = nullptr;
 };
 
 }  // namespace ML

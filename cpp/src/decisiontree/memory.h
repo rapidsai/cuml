@@ -19,37 +19,23 @@
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include "common/cumlHandle.hpp"
+#include "common/cuml_allocator.hpp"
 
 template <class T, class L>
 struct TemporaryMemory {
-  // Labels after boostrapping
-  MLCommon::device_buffer<L> *sampledlabels = nullptr;
+  //Allocators parsed from CUML handle
+  std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
+  std::shared_ptr<MLCommon::hostAllocator> host_allocator;
 
-  // Used for gini histograms (root tree node)
-  MLCommon::device_buffer<int> *d_hist = nullptr;
-  MLCommon::host_buffer<int> *h_hist = nullptr;
-
+  //Temporary data buffer
+  MLCommon::device_buffer<T> *temp_data = nullptr;
   //Host/Device histograms and device minmaxs
   MLCommon::device_buffer<T> *d_globalminmax = nullptr;
-  MLCommon::device_buffer<int> *d_histout = nullptr;
-  MLCommon::host_buffer<int> *h_histout = nullptr;
+  MLCommon::host_buffer<T> *h_globalminmax = nullptr;
   MLCommon::device_buffer<T> *d_mseout = nullptr;
   MLCommon::device_buffer<T> *d_predout = nullptr;
   MLCommon::host_buffer<T> *h_mseout = nullptr;
   MLCommon::host_buffer<T> *h_predout = nullptr;
-
-  //Below pointers are shared for split functions
-  MLCommon::device_buffer<char> *d_flags_left = nullptr;
-  MLCommon::device_buffer<char> *d_flags_right = nullptr;
-  MLCommon::host_buffer<int> *nrowsleftright = nullptr;
-  MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
-  size_t split_temp_storage_bytes = 0;
-
-  MLCommon::device_buffer<int> *d_num_selected_out = nullptr;
-  MLCommon::device_buffer<unsigned int> *temprowids = nullptr;
-  MLCommon::device_buffer<T> *question_value = nullptr;
-  MLCommon::device_buffer<T> *temp_data = nullptr;
-
   //Total temp mem
   size_t totalmem = 0;
 
@@ -67,7 +53,6 @@ struct TemporaryMemory {
   MLCommon::host_buffer<T> *h_quantile = nullptr;
   MLCommon::device_buffer<unsigned int> *d_colids = nullptr;
 
-  const ML::cumlHandle_impl &ml_handle;
   //Split algo
   int splitalgo;
 
@@ -106,16 +91,14 @@ struct TemporaryMemory {
   int max_nodes_pred = 0;
   int max_nodes_mse = 0;
   int max_nodes_per_level = 0;
-
-  TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
-                  int n_unique, int n_bins, const int split_algo, int depth,
-                  cudaStream_t _stream);
+  int max_nodes_minmax = 0;
+  TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
+                  int N, int Ncols, int n_unique, int n_bins,
+                  const int split_algo, int depth);
   ~TemporaryMemory();
-  void NodeMemAllocator(int N, int Ncols, int n_unique, int n_bins,
-                        const int split_algo);
   void LevelMemAllocator(int nrows, int ncols, int n_unique, int nbins,
-                         int depth);
-  void NodeMemCleaner();
+                         int depth, const int split_algo);
+
   void LevelMemCleaner();
   void print_info();
 };
