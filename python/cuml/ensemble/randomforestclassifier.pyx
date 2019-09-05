@@ -136,14 +136,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             bool) except +
 
     cdef void build_treelite_forest(ModelHandle*,
-                                           RandomForestMetaData[float, int]*,
-                                           int,
-                                           int)
+                                    RandomForestMetaData[float, int]*,
+                                    int,
+                                    int)
 
     cdef void build_treelite_forest(ModelHandle*,
-                                           RandomForestMetaData[double, int]*,
-                                           int,
-                                           int)
+                                    RandomForestMetaData[double, int]*,
+                                    int,
+                                    int)
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -522,7 +522,6 @@ class RandomForestClassifier(Base):
 
     def predict_model_on_gpu(self, X, output_class,
                              threshold, algo):
-        #typedef ctypes.c_void_p treelite_model
         _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
@@ -541,7 +540,7 @@ class RandomForestClassifier(Base):
         preds = tl_to_fil_model.predict(X)
         return preds
 
-    def predict_model_on_cpu(self, X):        
+    def predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -630,13 +629,13 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         if predict_model == "CPU" or predict_model is None:
-          preds = self.predict_model_on_cpu(X)
+            preds = self.predict_model_on_cpu(X)
         elif self.dtype == np.float64:
-          preds = self.predict_model_on_cpu(X)
+            preds = self.predict_model_on_cpu(X)
         else:
-          preds = self.predict_model_on_gpu(X, output_class,
-                                            threshold, algo)
-          
+            preds = self.predict_model_on_gpu(X, output_class,
+                                              threshold, algo)
+
         return preds
 
     def _predict_get_all(self, X):
@@ -836,7 +835,8 @@ class RandomForestClassifier(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def get_treelite_forest_from_rf(self, num_features, task_category=1, model=None):
+    def get_treelite_forest_from_rf(self, num_features,
+                                    task_category=1, model=None):
 
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
@@ -848,15 +848,15 @@ class RandomForestClassifier(Base):
         cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
             build_treelite_forest(& cuml_model_ptr,
-                                                 rf_forest,
-                                                 <int> num_features,
-                                                 <int> task_category)
+                                  rf_forest,
+                                  <int> num_features,
+                                  <int> task_category)
 
         else:
             build_treelite_forest(& cuml_model_ptr,
-                                                 rf_forest64,
-                                                 <int> num_features,
-                                                 <int> task_category)
+                                  rf_forest64,
+                                  <int> num_features,
+                                  <int> task_category)
         self.mod_ptr = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(self.mod_ptr)

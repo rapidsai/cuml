@@ -15,7 +15,6 @@
 
 import pytest
 import numpy as np
-from cuml.fil import ForestInference
 from cuml.test.utils import get_handle
 
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -26,7 +25,6 @@ from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
-from sklearn.metrics import mean_squared_error
 
 
 def unit_param(*args, **kwargs):
@@ -84,7 +82,7 @@ def test_rf_classification(datatype, split_algo,
                        max_depth=max_depth)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
-    	                           predict_model="GPU",
+                                   predict_model="GPU",
                                    output_class=True,
                                    threshold=0.5,
                                    algo='BATCH_TREE_REORG')
