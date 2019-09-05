@@ -15,6 +15,8 @@
 - PR #1044 Remove nvidia driver installation from ci/cpu/build.sh
 - PR #991: Barnes Hut TSNE Memory Issue Fixes
 - PR #1075: Pinning Dask & Distributed versions for consistent CI results
+- PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1074: Fix flake8 CI style check
 
 # cuML 0.9.0 (21 Aug 2019)
 
