@@ -74,7 +74,7 @@ def test_rf_classification(datatype, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=max_depth)
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cu_acc = accuracy_score(y_test, cu_predict)
 
     if nrows < 500000:
