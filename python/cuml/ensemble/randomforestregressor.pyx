@@ -30,6 +30,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -134,17 +135,15 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           double*,
                           bool) except +
 
-    cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                           RandomForestMetaData[float,
-                                                                float]*,
-                                           int,
-                                           int)
+    cdef void build_treelite_forest(ModelHandle*,
+                                    RandomForestMetaData[float,float]*,
+                                    int,
+                                    int)
 
-    cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                           RandomForestMetaData[double,
-                                                                double]*,
-                                           int,
-                                           int)
+    cdef void build_treelite_forest(ModelHandle*,
+                                    RandomForestMetaData[double,double]*,
+                                    int,
+                                    int)
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -481,7 +480,9 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def predict(self, X):
+    def predict(self, X, predict_model="GPU",
+                output_class=False,
+                algo='BATCH_TREE_REORG'):
         """
         Predicts the labels for X.
         Parameters
@@ -490,11 +491,59 @@ class RandomForestRegressor(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        predict_model : String
+                        "GPU" if prediction should be carried out on the GPU
+                        "CPU" or None if prediction should be carried out
+                        on the CPU
+        output_class: boolean
+                      This is optional and required only while performing the
+                      predict operation on the GPU.
+                      If true, return a 1 or 0 depending on whether the raw
+                      prediction exceeds the threshold. If False, just return
+                      the raw prediction.
+
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
         Returns
         ----------
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
+        if predict_model == "GPU":
+            preds = self.predict_model_on_gpu(X,
+                                              output_class,
+                                              algo)
+        else:
+            preds = self.predict_model_on_cpu(X)
+          
+        return preds
+
+    def predict_model_on_gpu(self, X,
+                             output_class,
+                             algo):
+        _, _, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C')
+        if n_cols != self.n_cols:
+            raise ValueError("The number of columns/features in the training"
+                             " and test data should be the same ")  
+        treelite_model = \
+            self.get_treelite_forest_from_rf(num_features=n_cols,
+                                                 task_category=1)
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_model.value,
+                                             output_class=False,
+                                             algo='BATCH_TREE_REORG')
+        preds = tl_to_fil_model.predict(X)
+        return preds
+
+    def predict_model_on_cpu(self, X):        
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -682,9 +731,9 @@ class RandomForestRegressor(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def build_treelite_forest(self, num_features, task_category=1, model=None):
+    def get_treelite_forest_from_rf(self, num_features, task_category=1, model=None):
 
-        cdef ModelHandle cuml_model_ptr = NULL
+        cdef ModelHandle cuml_model_ptr;
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
@@ -693,15 +742,15 @@ class RandomForestRegressor(Base):
 
         cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
-            tl_model_ptr = build_treelite_forest(& cuml_model_ptr,
-                                                 rf_forest,
-                                                 <int> num_features,
-                                                 <int> task_category)
+            build_treelite_forest(& cuml_model_ptr,
+                                  rf_forest,
+                                  <int> num_features,
+                                  <int> task_category)
 
         else:
-            tl_model_ptr = build_treelite_forest(& cuml_model_ptr,
-                                                 rf_forest64,
-                                                 <int> num_features,
-                                                 <int> task_category)
-        self.mod_ptr = <size_t> tl_model_ptr
+            build_treelite_forest(& cuml_model_ptr,
+                                  rf_forest64,
+                                  <int> num_features,
+                                  <int> task_category)
+        self.mod_ptr = <size_t> cuml_model_ptr
         return ctypes.c_void_p(self.mod_ptr)
