@@ -610,7 +610,6 @@ class RandomForestClassifier(Base):
                       If true, return a 1 or 0 depending on whether the raw
                       prediction exceeds the threshold. If False, just return
                       the raw prediction.
-
         algo : string name of the algo from (from algo_t enum)
                This is optional and required only while performing the
                predict operation on the GPU.
@@ -625,8 +624,7 @@ class RandomForestClassifier(Base):
                     predict operation on the GPU.
                     It is applied if output_class == True, else it is ignored
         num_classes : integer
-                      num_classes is used to for giving the number of different classes
-                      present in the dataset
+                      number of different classes present in the dataset
         Returns
         ----------
         y: NumPy
