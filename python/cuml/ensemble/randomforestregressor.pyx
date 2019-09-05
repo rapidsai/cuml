@@ -136,12 +136,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           bool) except +
 
     cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float,float]*,
+                                    RandomForestMetaData[float, float]*,
                                     int,
                                     int)
 
     cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double,double]*,
+                                    RandomForestMetaData[double, double]*,
                                     int,
                                     int)
 
@@ -521,7 +521,6 @@ class RandomForestRegressor(Base):
                                               algo)
         else:
             preds = self.predict_model_on_cpu(X)
-          
         return preds
 
     def predict_model_on_gpu(self, X,
@@ -531,10 +530,10 @@ class RandomForestRegressor(Base):
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")  
+                             " and test data should be the same ")
         treelite_model = \
             self.get_treelite_forest_from_rf(num_features=n_cols,
-                                                 task_category=1)
+                                             task_category=1)
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_model.value,
@@ -543,7 +542,7 @@ class RandomForestRegressor(Base):
         preds = tl_to_fil_model.predict(X)
         return preds
 
-    def predict_model_on_cpu(self, X):        
+    def predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -731,9 +730,10 @@ class RandomForestRegressor(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def get_treelite_forest_from_rf(self, num_features, task_category=1, model=None):
+    def get_treelite_forest_from_rf(self, num_features,
+                                    task_category=1, model=None):
 
-        cdef ModelHandle cuml_model_ptr;
+        cdef ModelHandle cuml_model_ptr
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
