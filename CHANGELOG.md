@@ -2,7 +2,7 @@
 
 ## New Features
 
-- PR #1035: Updating RF wrappers to include the RF to treelite function
+- PR #1073: Updating RF wrappers to use FIL for prediction
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
