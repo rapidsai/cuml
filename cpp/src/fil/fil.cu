@@ -306,8 +306,8 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
 
-  params->cols = model.num_feature;
   // fill in forest-dependent params
+  params->cols = model.num_feature;
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;

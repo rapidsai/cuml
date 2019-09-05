@@ -174,6 +174,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   void SetUp() override {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
