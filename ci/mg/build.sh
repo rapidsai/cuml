@@ -50,8 +50,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       umap-learn \
       libclang \
       nccl>=2.4 \
-      dask=2.2.0 \
-      distributed=2.2.0 \
+      dask \
+      distributed \
       dask-ml \
       dask-cudf \
       dask-cuda
