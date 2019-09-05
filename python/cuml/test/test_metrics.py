@@ -121,7 +121,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
                        n_bins=8, split_algo=0, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=-1)
+                       max_depth=16)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = cu_acc_score(y_test, cu_predict)
