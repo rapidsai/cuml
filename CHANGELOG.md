@@ -13,7 +13,8 @@
 - PR #1040: Update version of numba in development conda yaml files
 - PR #1043: Updates to accomodate cuDF python code reorganization
 - PR #1044 Remove nvidia driver installation from ci/cpu/build.sh
-- PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #991: Barnes Hut TSNE Memory Issue Fixes
+- PR #1075: Pinning Dask & Distributed versions for consistent CI results
 
 # cuML 0.9.0 (21 Aug 2019)
 
