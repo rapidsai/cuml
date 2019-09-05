@@ -74,7 +74,7 @@ def test_rf_classification(datatype, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=max_depth)
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cu_acc = accuracy_score(y_test, cu_predict)
 
     if nrows < 500000:
@@ -125,7 +125,7 @@ def test_rf_regression(datatype, nrows, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=8, split_algo=split_algo, split_criterion=2,
+                       n_bins=24, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=max_depth, accuracy_metric='mse')
