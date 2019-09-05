@@ -48,6 +48,10 @@ cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
         EUCLIDEAN = 0,
         CATEGORICAL = 1
 
+cdef extern from "internals/internals.h" namespace "ML::Internals":
+
+    cdef cppclass GraphBasedDimRedCallback
+
 cdef extern from "umap/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
@@ -68,7 +72,8 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         float b,
         int target_n_neighbors,
         float target_weights,
-        MetricType target_metric
+        MetricType target_metric,
+        GraphBasedDimRedCallback* callback
 
 
 cdef extern from "umap/umap.hpp" namespace "ML":
@@ -224,7 +229,8 @@ class UMAP(Base):
                  target_weights=0.5,
                  target_metric="euclidean",
                  should_downcast=True,
-                 handle=None):
+                 handle=None,
+                 callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -269,6 +275,11 @@ class UMAP(Base):
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
 
+        cdef uintptr_t callback_ptr = 0
+        if callback:
+            callback_ptr = callback.get_native_callback()
+            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
+
         self._should_downcast = should_downcast
         if should_downcast:
             warnings.warn("Parameter should_downcast is deprecated, use "
@@ -276,6 +287,8 @@ class UMAP(Base):
                           " methods instead. ")
 
         self.umap_params = <size_t> umap_params
+
+        self.callback = callback  # prevent callback destruction
 
     def __getstate__(self):
         state = self.__dict__.copy()
