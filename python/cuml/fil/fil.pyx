@@ -278,7 +278,7 @@ class ForestInference(Base):
     Examples
     --------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/fil_demo.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
     infererence. ForestInference can also accept a numpy array directly at the
@@ -287,8 +287,10 @@ class ForestInference(Base):
     >>> # Assume that the file 'xgb.model' contains a classifier model that was
     >>> # previously saved by XGBoost's save_model function.
     >>>
-    >>> import sklearn
+    >>> import sklearn, sklearn.datasets, numpy as np
     >>> from numba import cuda
+    >>> from cuml import ForestInference
+    >>> model_path = 'xgb.model'
     >>> X_test, y_test = sklearn.datasets.make_classification()
     >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
     >>> fm = ForestInference.load(model_path, output_class=True)
