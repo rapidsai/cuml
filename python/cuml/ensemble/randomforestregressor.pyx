@@ -275,7 +275,7 @@ class RandomForestRegressor(Base):
                  'accuracy_metric']
 
     def __init__(self, n_estimators=10, max_depth=16, handle=None,
-                 max_features='auto', n_bins=8, n_streams=4,
+                 max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
@@ -306,8 +306,8 @@ class RandomForestRegressor(Base):
                                 " more information")
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
-        if max_depth < 0 and split_algo == 1:
-            raise ValueError("Must specify max_depth >0 with split_algo=1")
+        if max_depth < 0:
+            raise ValueError("Must specify max_depth >0 ")
 
         self.split_algo = split_algo
         criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
