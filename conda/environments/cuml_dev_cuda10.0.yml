@@ -17,8 +17,8 @@ dependencies:
 - scikit-learn>=0.21
 - umap-learn>=0.3.9
 - scikit-learn>=0.21
-- dask
-- distributed
+- dask=2.2.0
+- distributed=2.2.0
 - dask-ml
 - dask-cuda=0.10*
 - dask-cudf=0.10*
