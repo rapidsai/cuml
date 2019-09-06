@@ -118,7 +118,7 @@ class GPUContext {
   }
 
   bool orderEquals(int p, int q, int num_batches) {
-    return (m_p == p) && (m_q = q) && (m_num_batches == num_batches);
+    return (m_p == p) && (m_q == q) && (m_num_batches == num_batches);
   }
 
   // static void resize_if_zero(thrust::device_vector<double> v, size_t size) {
@@ -130,16 +130,17 @@ class GPUContext {
   ~GPUContext() noexcept(false) {
     ////////////////////////////////////////////////////////////
     // free memory
-    CUDA_CHECK(cudaFree(d_ys));
-    CUDA_CHECK(cudaFree(d_vs));
-    CUDA_CHECK(cudaFree(d_Fs));
-    CUDA_CHECK(cudaFree(d_sigma2));
-    CUDA_CHECK(cudaFree(d_loglike));
+    if (d_ys != nullptr) allocator->deallocate(d_ys, 0, 0);
+    if (d_vs != nullptr) allocator->deallocate(d_vs, 0, 0);
+    if (d_Fs != nullptr) allocator->deallocate(d_Fs, 0, 0);
+    if (d_sigma2 != nullptr) allocator->deallocate(d_sigma2, 0, 0);
+    if (d_loglike != nullptr) allocator->deallocate(d_loglike, 0, 0);
 
-    CUDA_CHECK(cudaFree(d_ar));
-    CUDA_CHECK(cudaFree(d_Tar));
-    CUDA_CHECK(cudaFree(d_ma));
-    CUDA_CHECK(cudaFree(d_Tma));
+    if (d_ar != nullptr) allocator->deallocate(d_ar, 0, 0);
+    if (d_Tar != nullptr) allocator->deallocate(d_Tar, 0, 0);
+    if (d_ma != nullptr) allocator->deallocate(d_ma, 0, 0);
+    if (d_Tma != nullptr) allocator->deallocate(d_Tma, 0, 0);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
 };
 
