@@ -173,6 +173,9 @@ class LabelEncoder(object):
             .set_keys(self._cats.keys())
             .values()
         )
+
+        print(str(encoded))
+
         if -1 in encoded:
             raise KeyError("Attempted to encode unseen key")
         return encoded
