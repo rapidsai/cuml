@@ -16,6 +16,7 @@
 
 #include "decisiontree.hpp"
 #include "decisiontree_impl.cuh"
+#include "flatnode.h"
 
 namespace ML {
 namespace DecisionTree {
@@ -55,8 +56,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
  * @param[in] params: decision tree hyper-parameters.
  */
 void validity_check(const DecisionTreeParams params) {
-  ASSERT((params.max_depth == -1) || (params.max_depth > 0),
-         "Invalid max depth %d", params.max_depth);
+  ASSERT((params.max_depth > 0), "Invalid max depth %d", params.max_depth);
   ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
          "Invalid max leaves %d", params.max_leaves);
   ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
@@ -120,7 +120,7 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_tree_summary<T, L>(tree);
-  print_node<T, L>("", tree->root, false);
+  print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
 /**

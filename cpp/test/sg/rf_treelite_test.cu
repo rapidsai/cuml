@@ -398,7 +398,7 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
 // //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::GINI,
    1},  // single tree forest, bootstrap false, unlimited depth, 4 bins
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
@@ -413,7 +413,7 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::CRITERION_END,
    1},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::ENTROPY, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::ENTROPY, 1},
@@ -432,14 +432,14 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierTreeliteTests,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MSE, 1},
   {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MSE, 1},
   {40, 20, 5, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::CRITERION_END,
    1},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MAE, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MAE, 1},
