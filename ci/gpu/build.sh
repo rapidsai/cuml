@@ -55,7 +55,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       distributed=2.2.0 \
       dask-ml \
       dask-cudf=${MINOR_VERSION} \
-      dask-cuda=${MINOR_VERSION} \
+      dask-cuda=0.8 \
       statsmodels \
       xgboost=0.90.rapidsdev1
 
