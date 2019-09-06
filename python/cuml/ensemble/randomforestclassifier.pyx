@@ -250,7 +250,7 @@ class RandomForestClassifier(Base):
                    per node split.
                    If int then max_features/n_features.
                    If float then max_features is a fraction.
-                   If 'auto' then max_features=n_features which is 1.0.
+                   If 'auto' then max_features=1/sqrt(n_features).
                    If 'sqrt' then max_features=1/sqrt(n_features).
                    If 'log2' then max_features=log2(n_features)/n_features.
                    If None, then max_features=1/sqrt(n_features).
@@ -275,7 +275,7 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=16, handle=None,
-                 max_features=1.0, n_bins=8, n_streams=8,
+                 max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
