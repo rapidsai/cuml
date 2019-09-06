@@ -174,9 +174,7 @@ class LabelEncoder(object):
             .values()
         )
 
-        print(str(encoded))
-
-        if -1 in encoded:
+        if -1 in encoded.values:
             raise KeyError("Attempted to encode unseen key")
         return encoded
 
