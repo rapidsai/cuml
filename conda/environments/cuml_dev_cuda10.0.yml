@@ -20,7 +20,7 @@ dependencies:
 - dask=2.2.0
 - distributed=2.2.0
 - dask-ml
-- dask-cuda=0.10*
+- dask-cuda=0.8*
 - dask-cudf=0.10*
 - nccl>=2.4
 - libcumlprims=0.9*

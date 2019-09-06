@@ -54,7 +54,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       distributed=2.2.0 \
       dask-ml \
       dask-cudf \
-      dask-cuda
+      dask-cuda=0.8
 
 logger "Check versions..."
 python --version
