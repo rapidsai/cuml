@@ -50,11 +50,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       umap-learn \
       libclang \
       nccl>=2.4 \
-      dask=2.2.0 \
-      distributed=2.2.0 \
+      dask=2.3.0 \
+      distributed=2.3.0 \
       dask-ml \
       dask-cudf \
-      dask-cuda=0.8
+      dask-cuda=0.9
 
 logger "Check versions..."
 python --version

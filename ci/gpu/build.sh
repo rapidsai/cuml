@@ -51,11 +51,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       cmake==3.14.3 \
       umap-learn \
       nccl>=2.4 \
-      dask=2.2.0 \
-      distributed=2.2.0 \
+      dask=2.3.0 \
+      distributed=2.3.0 \
       dask-ml \
       dask-cudf=${MINOR_VERSION} \
-      dask-cuda=0.8 \
+      dask-cuda=0.9 \
       statsmodels \
       xgboost=0.90.rapidsdev1
 
