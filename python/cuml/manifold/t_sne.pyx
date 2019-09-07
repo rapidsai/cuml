@@ -243,7 +243,7 @@ class TSNE(Base):
                           "Will do in the near future.".format(metric))
             metric = 'euclidean'
         init = init.lower()
-        if init != 'random' or init != 'spectral' or init != 'pca':
+        if init != 'random' and init != 'spectral' and init != 'pca':
             warnings.warn("TSNE does not support {} but only random "
                           "or spectral intialization.".format(init))
             init = 'random'
