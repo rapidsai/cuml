@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "common/device_buffer.hpp"
 #include "umap/umapparams.h"
 
 #include "sparse/coo.h"
@@ -41,10 +42,21 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
               const long *knn_indices, const T *knn_dists,
               MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
               T *embedding) {
-  Spectral::fit_embedding(handle, coo->rows, coo->cols, coo->vals, coo->nnz, n,
-                          params->n_components, embedding);
+  MLCommon::device_buffer<T> tmp_storage(
+    handle.getDeviceAllocator(), handle.getStream(), n * params->n_components);
 
-  MLCommon::LinAlg::transpose(embedding, n*params->n_components, handle.getStream());
+  Spectral::fit_embedding(handle, coo->rows, coo->cols, coo->vals, coo->nnz, n,
+                          params->n_components, tmp_storage.data());
+
+  MLCommon::LinAlg::transpose(
+    embedding, tmp_storage.data(), params->n_components, n,
+    handle.getImpl().getCublasHandle(), handle.getStream());
+
+  std::cout << MLCommon::arr2Str(embedding, n * params->n_components,
+                                 "spectral_init", handle.getStream())
+            << std::endl;
+
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 }  // namespace SpectralInit
 }  // namespace InitEmbed
