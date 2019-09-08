@@ -978,6 +978,16 @@ __global__ static void coo_gemm_kernel(
   }
 }
 
+/**
+ * @brief COO_Matrix @ B or COO_Matrix @ B.T
+
+ * @param coo_matrix: Input COO matrix(n, p)
+ * @param B: Input B matrix (p, k)
+ * @param k: Number of output columns or columns(B)
+ * @param out: Output matrix either (n, k) when trans = False or (p, k) when trans
+ * @param stream: Input cuda stream
+ * @param trans: Whether to perform COO @ B or COO @ B.T
+ */
 template <typename T, int TPB_X = 32, int TPB_Y = 32>
 void coo_gemm(const COO<T> *__restrict coo_matrix, const T *__restrict B,
               const int k, T *__restrict out, cudaStream_t stream,

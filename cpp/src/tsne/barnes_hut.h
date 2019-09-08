@@ -139,17 +139,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Intialize embeddings
   if (spectral_intialization == true) {
-    Spectral::fit_embedding(handle, (int *)ROW, (int *)COL, VAL, NNZ, n, 2,
-                            attr_forces);
-
-    // Copy embedding into YY vector since YY is much longer
-    thrust::copy(thrust::cuda::par.on(stream), attr_forces, attr_forces + n,
-                 YY);
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    thrust::copy(thrust::cuda::par.on(stream), attr_forces + n,
-                 attr_forces + 2 * n, YY + nnodes + 1);
-    CUDA_CHECK(cudaPeekAtLastError());
   } else {
     random_vector(YY, -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
                   random_state);

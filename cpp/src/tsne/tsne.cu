@@ -17,18 +17,11 @@
 #include "distances.h"
 #include "exact_kernels.h"
 #include "tsne/tsne.h"
-#include "unary_op.h"
 #include "utils.h"
 
 #include "barnes_hut.h"
 #include "exact_tsne.h"
-#include "spectral/spectral.h"
-
-#define CHECK(x)                                                       \
-  ASSERT(x == 0, "cuSolver or cuBLAS failed at line = %d file = %s\n", \
-         __LINE__, __FILE__);
-
-#define MIN(a, b) (a > b) ? b : a
+#include "sparse_svd.h"
 
 namespace ML {
 
@@ -39,7 +32,7 @@ namespace ML {
  * @output param embedding: The final embedding. Will overwrite this internally.
  * @input param n: Number of rows in data X.
  * @input param p: Number of columns in data X.
- * @input param dim: Number of output dimensions for embeddings embedding.
+ * @input param dim: Number of output dimensions for embeddings.
  * @input param n_neighbors: Number of nearest neighbors used.
  * @input param theta: Float between 0 and 1. Tradeoff for speed (0) vs accuracy (1) for Barnes Hut only.
  * @input param epssq: A tiny jitter to promote numerical stability.
@@ -155,112 +148,27 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
-  // Intialize via Sparse SVD for COO matrices
   int cols = n;
-  int oversamples = 10;
-  int k = MIN(2 + oversamples, cols);
-  cusolverDnHandle_t cusolverH = NULL;
-  CHECK(cusolverDnCreate(&cusolverH));
-  cublasHandle_t cublasH = NULL;
-  CHECK(cublasCreate(&cublasH));
+  float *U =
+    embedding;  // (float*) d_alloc->allocate(sizeof(float) * n * dim, stream);
+  float *S = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
+  float *VT = (float *)d_alloc->allocate(sizeof(float) * dim * cols, stream);
+  SparseSVD(&COO_Matrix, U, S, VT, handle, dim, 10, 7, random_state);
 
-  float *Y /*(n,k)*/ =
-    (float *)d_alloc->allocate(sizeof(float) * n * k, stream);
-  float *Z /*(p,k)*/ =
-    (float *)d_alloc->allocate(sizeof(float) * cols * k, stream);
-  random_vector(Z, 0.0f, 1.0f, cols * k, stream, random_state,
-                true);  // normal = true
+  float *UU = (float *)malloc(sizeof(float) * n * dim);
+  CUDA_CHECK(
+    cudaMemcpy(UU, U, sizeof(float) * n * dim, cudaMemcpyDeviceToHost));
 
-  // Y, _ = np.linalg.qr(Y)
-  int lwork_Y = 0;
-  CHECK(cusolverDnSgeqrf_bufferSize(cusolverH, n, k, Y, n, &lwork_Y));
-  float *work_Y = (float *)d_alloc->allocate(sizeof(float) * lwork_Y, stream);
-
-  // Z, _ = np.linalg.qr(Z)
-  int lwork_Z = 0;
-  CHECK(cusolverDnSgeqrf_bufferSize(cusolverH, cols, k, Z, cols, &lwork_Z));
-  float *work_Z = (float *)d_alloc->allocate(sizeof(float) * lwork_Z, stream);
-
-  // Tau for both QR factorizations
-  float *tau = (float *)d_alloc->allocate(sizeof(float) * k, stream);
-  int *info = (int *)d_alloc->allocate(sizeof(int), stream);
-
-  // Y = X @ Z
-  MLCommon::Sparse::coo_gemm(&COO_Matrix, Z, k, Y, stream,
-                             false);  // trans = false
-
-  for (int i = 0; i < 3; i++) {
-    // Y, _ = np.linalg.qr(Y)
-    CHECK(cusolverDnSgeqrf(cusolverH, n, k, Y, n, tau, work_Y, lwork_Y, info));
-    CHECK(
-      cusolverDnSorgqr(cusolverH, n, k, k, Y, n, tau, work_Y, lwork_Y, info));
-
-    // Z = X.T @ Y
-    MLCommon::Sparse::coo_gemm(&COO_Matrix, Y, k, Z, stream,
-                               true);  // trans = true
-
-    // Z, _ = np.linalg.qr(Z)
-    CHECK(cusolverDnSgeqrf(cusolverH, cols, k, Z, cols, tau, work_Z, lwork_Z,
-                           info));
-    CHECK(cusolverDnSorgqr(cusolverH, cols, k, k, Z, cols, tau, work_Z, lwork_Z,
-                           info));
-
-    // Y = X @ Z
-    MLCommon::Sparse::coo_gemm(&COO_Matrix, Z, k, Y, stream,
-                               false);  // trans = false
+  for (int j = 0; j < dim; j++) {
+    printf("[");
+    for (int i = 0; i < n; i++) printf("%.3f,", UU[j * n + i]);
+    printf("],\n");
   }
 
-  // Y, _ = np.linalg.qr(Y)
-  CHECK(cusolverDnSgeqrf(cusolverH, n, k, Y, n, tau, work_Y, lwork_Y, info));
-  CHECK(cusolverDnSorgqr(cusolverH, n, k, k, Y, n, tau, work_Y, lwork_Y, info));
+  free(UU);
 
-  // Z(p,k) = Y.T @ X (or (X.T @ Y).T)
-  MLCommon::Sparse::coo_gemm(&COO_Matrix, Y, k, Z, stream,
-                             true);  // trans = true
-
-  // T(k,k) = Z @ Z.T (or (Z.T @ Z))
-  float *T = (float *)d_alloc->allocate(sizeof(float) * k * k, stream);
-
-  float alpha = 1.0f;
-  float beta = 0.0f;
-  cublasSsyrk(cublasH, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, k, cols, &alpha, Z,
-              cols, &beta, T, k);
-
-  // W, Uhat = np.linalg.eigh(T)
-  float *W = (float *)d_alloc->allocate(sizeof(float) * k, stream);
-  float *Uhat = (float *)d_alloc->allocate(sizeof(float) * k * k, stream);
-
-  int lwork_T = 0;
-  CHECK(cusolverDnSsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                    CUBLAS_FILL_MODE_UPPER, k, T, k, W,
-                                    &lwork_T));
-  float *work_T = (float *)d_alloc->allocate(sizeof(float) * lwork_T, stream);
-
-  CHECK(cusolverDnSsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                         CUBLAS_FILL_MODE_UPPER, k, T, k, W, work_T, lwork_T,
-                         info));
-
-  int info_cpu;
-  CUDA_CHECK(cudaMemcpy(&info_cpu, info, sizeof(int), cudaMemcpyDeviceToHost));
-
-  printf("Lwork_Y = %d, Lwork_Z = %d lwork_T = %d Info = %d\n", lwork_Y,
-         lwork_Z, lwork_T, info_cpu);
-
-  d_alloc->deallocate(work_T, sizeof(float) * lwork_T, stream);
-  d_alloc->deallocate(Uhat, sizeof(float) * k * k, stream);
-  d_alloc->deallocate(W, sizeof(float) * k, stream);
-  d_alloc->deallocate(T, sizeof(float) * k * k, stream);
-
-  d_alloc->deallocate(work_Z, sizeof(float) * lwork_Z, stream);
-  d_alloc->deallocate(work_Y, sizeof(float) * lwork_Y, stream);
-  d_alloc->deallocate(tau, sizeof(float) * k, stream);
-  d_alloc->deallocate(info, sizeof(int), stream);
-
-  d_alloc->deallocate(Y, sizeof(float) * n * k, stream);
-  d_alloc->deallocate(Z, sizeof(float) * cols * k, stream);
-
-  cublasDestroy(cublasH);
-  cusolverDnDestroy(cusolverH);
+  d_alloc->deallocate(S, sizeof(float) * dim, stream);
+  d_alloc->deallocate(VT, sizeof(float) * dim * cols, stream);
 
   if (barnes_hut) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, embedding, n, theta, epssq,

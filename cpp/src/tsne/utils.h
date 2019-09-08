@@ -74,6 +74,72 @@ void random_vector(T *vector,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+template <typename T>
+__global__ static void reverse_array(T *__restrict x, const int n) {
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (i > n / 2) return;
+
+  const T left = x[i];
+  x[i] = x[n - i - 1];  // -1 as if n = 3, i = 0, X[n-i] = X[3-0]
+  x[n - i - 1] = left;
+}
+
+template <typename T>
+__global__ static void reverse_matrix(T *__restrict X,  // F-Contiguous
+                                      const int n, const int p) {
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (j > p / 2) return;
+
+  for (int i = 0; i < n; i++) {
+    const T left = X[i + j * n];
+    X[i + j * n] = X[i + (p - j - 1) * n];
+    X[i + (p - j - 1) * n] = left;
+  }
+}
+
+template <typename T>
+void reverse(T *__restrict X, const int n,
+             const int p,  // 0 means array.
+             cudaStream_t stream) {
+  if (p == 0) {
+    if (n == 1) return;
+
+    reverse_array<<<MLCommon::ceildiv(n / 2, 1024), 1024, 0, stream>>>(X, n);
+  } else {
+    if (p == 1) return;
+
+    reverse_matrix<<<MLCommon::ceildiv(p / 2, 1024), 1024, 0, stream>>>(X, n,
+                                                                        p);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/*
+X / array 
+default is column wise divide ie:
+X(n,p) / array(p)
+*/
+template <typename T>
+__global__ static void _matrix_multiply_by_array(
+  T *__restrict X,  // F-Contiguous
+  const int n, const int p, const T *__restrict array) {
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (j >= p) return;
+
+  const T mult = array[j];
+
+  for (int i = 0; i < n; i++) X[i + j * n] *= mult;
+}
+
+template <typename T>
+void matrix_multiply_by_array(T *__restrict X,  // F-Contiguous
+                              const int n, const int p,
+                              const T *__restrict array, cudaStream_t stream) {
+  _matrix_multiply_by_array<<<MLCommon::ceildiv(p, 1024), 1024, 0, stream>>>(
+    X, n, p, array);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
 long start, end;
 struct timeval timecheck;
 double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
