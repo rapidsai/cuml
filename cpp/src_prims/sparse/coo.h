@@ -733,26 +733,28 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
     int start_idx = row_ind[row];  // each thread processes one row
     int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
-    int nnz = 0;
+    int row_nnz = 0;
+    int out_start_idx = start_idx * 2;
+
     for (int idx = 0; idx < stop_idx - start_idx; idx++) {
       int cur_row = rows[idx + start_idx];
       int cur_col = cols[idx + start_idx];
       T cur_val = vals[idx + start_idx];
 
-      int out_idx = start_idx * 2 + nnz;
       int lookup_row = cur_col;
       int t_start = row_ind[lookup_row];  // Start at
       int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
 
-      T transpose = 0.0;
+      // If it doesn't already exist, set the transposed value to the current value
+      T transpose = cur_val;
 
       bool found_match = false;
       for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
         // If we find a match, let's get out of the loop. We won't
         // need to modify the transposed value, since that will be
         // done in a different thread.
-        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col &&
-            vals[t_idx] != 0.0) {
+        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col) {
+          // If it exists already, set transposed value to existing value
           transpose = vals[t_idx];
           found_match = true;
           break;
@@ -772,17 +774,17 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
       // compute `res` on it here because it will be computed
       // in a different thread.
       if (!found_match && vals[idx] != 0.0) {
-        orows[out_idx + nnz] = cur_col;
-        ocols[out_idx + nnz] = cur_row;
-        ovals[out_idx + nnz] = T(res);
-        ++nnz;
+        orows[out_start_idx + row_nnz] = cur_col;
+        ocols[out_start_idx + row_nnz] = cur_row;
+        ovals[out_start_idx + row_nnz] = T(res);
+        ++row_nnz;
       }
 
       if (res != 0.0) {
-        orows[out_idx + nnz] = cur_row;
-        ocols[out_idx + nnz] = cur_col;
-        ovals[out_idx + nnz] = T(res);
-        ++nnz;
+        orows[out_start_idx + row_nnz] = cur_row;
+        ocols[out_start_idx + row_nnz] = cur_col;
+        ovals[out_start_idx + row_nnz] = T(res);
+        ++row_nnz;
       }
     }
   }

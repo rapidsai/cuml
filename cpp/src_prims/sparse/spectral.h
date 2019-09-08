@@ -174,7 +174,7 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
   clustering_params.n_clusters = n_components + 1;
   clustering_params.n_eig_vects = n_components + 1;
   clustering_params.algorithm = NVGRAPH_BALANCED_CUT_LANCZOS;
-  clustering_params.evs_tolerance = 0.0f;
+  clustering_params.evs_tolerance = 0.01f;
   clustering_params.evs_max_iter = 0;
   clustering_params.kmean_tolerance = 0.0f;
   clustering_params.kmean_max_iter = 1;
