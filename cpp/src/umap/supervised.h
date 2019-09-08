@@ -180,8 +180,8 @@ void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
   result->allocate(result_nnz, in1->n_rows);
 
   /**
-             * Element-wise sum of two simplicial sets
-             */
+   * Element-wise sum of two simplicial sets
+   */
   MLCommon::Sparse::csr_add_finalize<float, 32>(
     row1_ind, in1->cols, in1->vals, in1->nnz, row2_ind, in2->cols, in2->vals,
     in2->nnz, in1->n_rows, result_ind, result->cols, result->vals, stream);
