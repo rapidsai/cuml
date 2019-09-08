@@ -748,7 +748,9 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 
       bool found_match = false;
       for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-        // If we find a match, let's get out of the loop
+        // If we find a match, let's get out of the loop. We won't
+        // need to modify the transposed value, since that will be
+        // done in a different thread.
         if (cols[t_idx] == cur_row && rows[t_idx] == cur_col &&
             vals[t_idx] != 0.0) {
           transpose = vals[t_idx];
@@ -757,12 +759,18 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
         }
       }
 
-      // Custom reduction op on value and its transpose
+      // Custom reduction op on value and its transpose, which enables
+      // specialized weighting.
+      // If only simple X+X.T is desired, this op can just sum
+      // the two values.
       T res = reduction_op(cur_row, cur_col, cur_val, transpose);
 
       // if we didn't find an exact match, we need to add
-      // the transposed value into our current matrix.
-
+      // the computed res into our current matrix to guarantee
+      // symmetry.
+      // Note that if we did find a match, we don't need to
+      // compute `res` on it here because it will be computed
+      // in a different thread.
       if (!found_match && vals[idx] != 0.0) {
         orows[out_idx + nnz] = cur_col;
         ocols[out_idx + nnz] = cur_row;
