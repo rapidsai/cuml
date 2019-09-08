@@ -245,6 +245,8 @@ void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                         stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   T *dist_means_host = (T *)malloc(n_neighbors * sizeof(T));
   MLCommon::updateHost(dist_means_host, dist_means_dev, n_neighbors, stream);
 
