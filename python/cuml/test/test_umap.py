@@ -100,6 +100,7 @@ def test_supervised_umap_trustworthiness_on_iris():
                        verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
+
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
 
@@ -127,6 +128,16 @@ def test_umap_trustworthiness_on_iris():
     # multi-component layout (which is marked experimental).
     # As a result, our score drops by 0.006.
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
+
+
+def test_umap_trustworthiness_on_iris_random_init():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                       verbose=False).fit_transform(data, convert_dtype=True)
+    trust = trustworthiness(iris.data, embedding, 10)
+
+    assert trust >= 0.95
 
 
 def test_umap_transform_on_iris():
