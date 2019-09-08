@@ -53,7 +53,7 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components):
 
     sk_score = sklearn_trustworthiness(X, X_embedded)
 
-    eps = 0.0001
+    eps = 0.001
     assert (sk_score * (1 - eps) <= cu_score and
             cu_score <= sk_score * (1 + eps))
     # assert cu_score == sk_score ideally
