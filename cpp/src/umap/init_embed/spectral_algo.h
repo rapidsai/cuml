@@ -52,10 +52,6 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
     embedding, tmp_storage.data(), params->n_components, n,
     handle.getImpl().getCublasHandle(), handle.getStream());
 
-  std::cout << MLCommon::arr2Str(embedding, n * params->n_components,
-                                 "spectral_init", handle.getStream())
-            << std::endl;
-
   CUDA_CHECK(cudaPeekAtLastError());
 }
 }  // namespace SpectralInit
