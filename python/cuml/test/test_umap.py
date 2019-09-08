@@ -97,7 +97,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=True).fit_transform(data, iris.target,
+                       verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
 
@@ -114,7 +114,7 @@ def test_supervised_umap_trustworthiness_against_umap_learn():
     print(str(iris.target))
 
     skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, iris.target)
+                              verbose=False).fit_transform(data, iris.target)
 
     trust = trustworthiness(iris.data, embedding, 10)
 
@@ -130,7 +130,7 @@ def test_umap_trustworthiness_against_umap_learn():
                                                     convert_dtype=True)
 
     skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data)
+                              verbose=False).fit_transform(data)
 
     trust = trustworthiness(iris.data, embedding, 10)
 
