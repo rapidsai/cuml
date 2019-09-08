@@ -735,41 +735,44 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 
     int nnz = 0;
     for (int idx = 0; idx < stop_idx - start_idx; idx++) {
+      int cur_row = rows[idx + start_idx];
+      int cur_col = cols[idx + start_idx];
+      T cur_val = vals[idx + start_idx];
+
       int out_idx = start_idx * 2 + nnz;
-      int row_lookup = cols[idx + start_idx];
-      int t_start = row_ind[row_lookup];  // Start at
-      int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
+      int lookup_row = cur_col;
+      int t_start = row_ind[lookup_row];  // Start at
+      int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
+
       bool found_match = false;
       for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
         // If we find a match, let's get out of the loop
-        if (cols[t_idx] == rows[idx + start_idx] &&
-            rows[t_idx] == cols[idx + start_idx] && vals[t_idx] != 0.0) {
+        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col &&
+            vals[t_idx] != 0.0) {
           transpose = vals[t_idx];
           found_match = true;
           break;
         }
       }
 
+      // Custom reduction op on value and its transpose
+      T res = reduction_op(cur_row, cur_col, cur_val, transpose);
+
       // if we didn't find an exact match, we need to add
       // the transposed value into our current matrix.
+
       if (!found_match && vals[idx] != 0.0) {
-        orows[out_idx + nnz] = cols[idx + start_idx];
-        ocols[out_idx + nnz] = rows[idx + start_idx];
-        ovals[out_idx + nnz] = vals[idx + start_idx];
+        orows[out_idx + nnz] = cur_col;
+        ocols[out_idx + nnz] = cur_row;
+        ovals[out_idx + nnz] = T(res);
         ++nnz;
       }
 
-      T val = vals[idx + start_idx];
-
-      // Custom reduction op on value and its transpose
-      T res = reduction_op(rows[idx + start_idx], cols[idx + start_idx], val,
-                           transpose);
-
       if (res != 0.0) {
-        orows[out_idx + nnz] = rows[idx + start_idx];
-        ocols[out_idx + nnz] = cols[idx + start_idx];
+        orows[out_idx + nnz] = cur_row;
+        ocols[out_idx + nnz] = cur_col;
         ovals[out_idx + nnz] = T(res);
         ++nnz;
       }
