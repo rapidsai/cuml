@@ -304,8 +304,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   CUDA_CHECK(cudaFree(yrow_ind));
 
   /**
-             * Remove zeros
-             */
+   * Remove zeros
+   */
   COO<T> out;
   coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
 

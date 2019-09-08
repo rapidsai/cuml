@@ -65,6 +65,8 @@ void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
   device_buffer<T> eigVals(allocator, stream, n_clusters);
   device_buffer<T> embedding(allocator, stream, n * n_clusters);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   // Spectral clustering parameters
   struct SpectralClusteringParameter clustering_params;
   clustering_params.n_clusters = n_clusters;
@@ -168,6 +170,8 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
   device_buffer<T> eigVals(allocator, stream, n_components + 1);
   device_buffer<T> eigVecs(allocator, stream, n * (n_components + 1));
   device_buffer<int> labels(allocator, stream, n);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Spectral clustering parameters
   struct SpectralClusteringParameter clustering_params;

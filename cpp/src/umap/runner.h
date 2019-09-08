@@ -182,14 +182,14 @@ void _fit(const cumlHandle &handle,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Allocate workspace for fuzzy simplicial set.
-         */
+   * Allocate workspace for fuzzy simplicial set.
+   */
   COO<T> rgraph_coo;
   COO<T> tmp_coo;
 
   /**
-         * Run Fuzzy simplicial set
-         */
+   * Run Fuzzy simplicial set
+   */
   //int nnz = n*k*2;
   FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, params->n_neighbors,
                                &tmp_coo, params, stream);
@@ -200,9 +200,9 @@ void _fit(const cumlHandle &handle,
   COO<T> final_coo;
 
   /**
-         * If target metric is 'categorical', perform
-         * categorical simplicial set intersection.
-         */
+   * If target metric is 'categorical', perform
+   * categorical simplicial set intersection.
+   */
   if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
     if (params->verbose)
       std::cout << "Performing categorical intersection" << std::endl;
@@ -210,8 +210,8 @@ void _fit(const cumlHandle &handle,
       y, &rgraph_coo, &final_coo, params, stream);
 
     /**
-         * Otherwise, perform general simplicial set intersection
-         */
+     * Otherwise, perform general simplicial set intersection
+     */
   } else {
     if (params->verbose)
       std::cout << "Performing general intersection" << std::endl;
@@ -220,16 +220,16 @@ void _fit(const cumlHandle &handle,
   }
 
   /**
-         * Remove zeros
-         */
+   * Remove zeros
+   */
   MLCommon::Sparse::coo_sort<T>(&final_coo, stream);
 
   COO<T> ocoo;
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
 
   /**
-         * Initialize embeddings
-         */
+   * Initialize embeddings
+   */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
 
@@ -237,8 +237,8 @@ void _fit(const cumlHandle &handle,
     params->callback->on_preprocess_end(embeddings);
 
   /**
-         * Run simplicial set embedding to approximate low-dimensional representation
-         */
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, stream);
 
   if (params->callback)
