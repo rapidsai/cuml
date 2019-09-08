@@ -433,7 +433,6 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
-
         self.handle.sync()
 
         return self
