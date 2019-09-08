@@ -90,7 +90,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
 
 
 # Allow slight deviation from expected trust due to numerical error
-TRUST_TOLERANCE_THRESH = 0.005
+TRUST_TOLERANCE_THRESH = 0.001
 
 
 def test_supervised_umap_trustworthiness_on_iris():
@@ -126,7 +126,7 @@ def test_umap_trustworthiness_on_iris():
     # We are doing a spectral embedding but not a
     # multi-component layout (which is marked experimental).
     # As a result, our score drops by 0.006.
-    assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
+    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
 
 def test_umap_transform_on_iris():
