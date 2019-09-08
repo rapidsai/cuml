@@ -433,6 +433,9 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
+
+        self.handle.sync()
+
         return self
 
     def fit_transform(self, X, y=None, convert_dtype=False):
@@ -537,5 +540,7 @@ class UMAP(Base):
             ret = np.asarray(embedding)
 
         del X_m
+
+        self.handle.sync()
 
         return ret

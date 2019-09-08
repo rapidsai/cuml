@@ -365,8 +365,8 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Remove zeros
-         */
+   * Remove zeros
+   */
   MLCommon::Sparse::COO<T> comp_coo;
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, stream);
 
