@@ -42,6 +42,9 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
               const long *knn_indices, const T *knn_dists,
               MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
               T *embedding) {
+
+  ASSERT(n > params->n_components, "Spectral layout requires n_samples > n_components");
+
   MLCommon::device_buffer<T> tmp_storage(
     handle.getDeviceAllocator(), handle.getStream(), n * params->n_components);
 
