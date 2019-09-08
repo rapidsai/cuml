@@ -746,7 +746,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
       int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       // If it doesn't already exist, set the transposed value to the current value
-      T transpose = cur_val;
+      T transpose = 0.0;
 
       bool found_match = false;
       for (int t_idx = t_start; t_idx < t_stop; t_idx++) {

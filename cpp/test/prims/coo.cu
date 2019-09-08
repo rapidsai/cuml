@@ -86,8 +86,8 @@ TEST_P(COOSymmetrize, Result) {
     new int[nnz * 2]{1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0};
   int *exp_cols_h =
     new int[nnz * 2]{0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0};
-  float *exp_vals_h = new float[nnz * 2]{1.0, 1.0, 1.5, 0, 0.5, 1, 1,   0,
-                                         1.0, 1,   0.5, 0, 1.5, 1, 1.0, 0.0};
+  float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5,   0,
+                                         0.5, 0.5,   0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
   COO<float> expected(exp_rows_h, exp_cols_h, exp_vals_h, nnz * 2, 4, 4, false);
 
@@ -106,6 +106,7 @@ TEST_P(COOSymmetrize, Result) {
     stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == expected.nnz);
   ASSERT_TRUE(
