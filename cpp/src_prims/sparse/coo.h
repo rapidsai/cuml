@@ -820,13 +820,14 @@ void coo_symmetrize(COO<T> *const in, COO<T> *out,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename math_t>
-__global__ static void symmetric_find_size(const math_t *__restrict data,
-                                           const long *__restrict indices,
-                                           const int n, const int k,
-                                           int *__restrict row_sizes,
-                                           int *__restrict row_sizes2) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+__global__ static void
+symmetric_find_size(const math_t *__restrict data,
+                    const long *__restrict indices,
+                    const int n, const int k,
+                    int *__restrict row_sizes,
+                    int *__restrict row_sizes2)
+{
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
@@ -846,9 +847,12 @@ __global__ static void symmetric_find_size(const math_t *__restrict data,
  * @param row_sizes: Input row sum 1 array(n)
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
-__global__ static void reduce_find_size(const int n, const int k,
-                                        int *__restrict row_sizes,
-                                        const int *__restrict row_sizes2) {
+__global__ static void
+reduce_find_size(const int n,
+                 const int k,
+                 int *__restrict row_sizes,
+                 const int *__restrict row_sizes2)
+{
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
   row_sizes[i] += (row_sizes2[i] + k);
@@ -869,14 +873,17 @@ __global__ static void reduce_find_size(const int n, const int k,
  * @param k: Number of n_neighbors
  */
 template <typename math_t>
-__global__ static void symmetric_sum(int *__restrict edges,
-                                     const math_t *__restrict data,
-                                     const long *__restrict indices,
-                                     math_t *__restrict VAL,
-                                     int *__restrict COL, int *__restrict ROW,
-                                     const int n, const int k) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+__global__ static void
+symmetric_sum(int *__restrict edges,
+              const math_t *__restrict data,
+              const long *__restrict indices,
+              math_t *__restrict VAL,
+              int *__restrict COL,
+              int *__restrict ROW,
+              const int n,
+              const int k)
+{
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
@@ -911,11 +918,15 @@ __global__ static void symmetric_sum(int *__restrict edges,
  * @param stream: Input cuda stream
  */
 template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(const long *__restrict knn_indices,
-                                const math_t *__restrict knn_dists, const int n,
-                                const int k, COO<math_t> *out,
-                                cudaStream_t stream,
-                                std::shared_ptr<deviceAllocator> d_alloc) {
+void
+from_knn_symmetrize_matrix(const long *__restrict knn_indices,
+                           const math_t *__restrict knn_dists,
+                           const int n,
+                           const int k,
+                           COO<math_t> *out,
+                           cudaStream_t stream,
+                           std::shared_ptr<deviceAllocator> d_alloc)
+{
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -949,8 +960,8 @@ void from_knn_symmetrize_matrix(const long *__restrict knn_indices,
   // are calculated as the cumulative rolling sum of the previous rows.
   // Notice reusing old edges memory
   // Rolling cumulative sum
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), row_sizes, row_sizes + n,
-                         edges);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), row_sizes,
+                         row_sizes + n, edges);
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
 
@@ -963,20 +974,32 @@ void from_knn_symmetrize_matrix(const long *__restrict knn_indices,
   d_alloc->deallocate(edges, sizeof(int) * n, stream);
 }
 
+
+
+
 template <typename T>
-__global__ static void coo_gemm_kernel(
-  const T *__restrict VAL, const int *__restrict COL, const int *__restrict ROW,
-  const int NNZ, const int n, const int p, const T *__restrict B, const int k,
-  T *__restrict out)  // F-Contiguous output
+__global__ static void
+coo_gemm_kernel(const T *__restrict VAL,
+                const int *__restrict COL,
+                const int *__restrict ROW,
+                const int NNZ,
+                const int n,
+                const int p,
+                const T *__restrict B,
+                const int k,
+                T *__restrict out) // F-Contiguous output
 {
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= NNZ) return;
 
   for (int j = 0; j < k; j++) {
     // out[ROW[i], j] += VAL[i] * B[COL[i], j]
-    atomicAdd(&out[ROW[i] + n * j], VAL[i] * B[COL[i] + p * j]);
+    atomicAdd(&out[ROW[i] + n*j],
+              VAL[i] * B[COL[i] + p*j]);
   }
 }
+
+
 
 /**
  * @brief COO_Matrix @ B or COO_Matrix @ B.T
@@ -989,31 +1012,34 @@ __global__ static void coo_gemm_kernel(
  * @param trans: Whether to perform COO @ B or COO @ B.T
  */
 template <typename T, int TPB_X = 32, int TPB_Y = 32>
-void coo_gemm(const COO<T> *__restrict coo_matrix, const T *__restrict B,
-              const int k, T *__restrict out, cudaStream_t stream,
-              const bool trans = false) {
+void
+coo_gemm(const COO<T> *__restrict coo_matrix,
+         const T *__restrict B,
+         const int k,
+         T * __restrict out,         
+         cudaStream_t stream,
+         const bool trans = false)
+{
   if (not trans) {
     // Need to set output to 0
-    CUDA_CHECK(
-      cudaMemsetAsync(out, 0, sizeof(T) * coo_matrix->n_rows * k, stream));
+    CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * coo_matrix->n_rows * k, stream));
 
-    coo_gemm_kernel<<<MLCommon::ceildiv(coo_matrix->nnz, 1024), 1024, 0,
-                      stream>>>(
+    coo_gemm_kernel<<<MLCommon::ceildiv(coo_matrix->nnz, 1024), 1024, 0, stream>>>(
       coo_matrix->vals, coo_matrix->cols, coo_matrix->rows, coo_matrix->nnz,
       coo_matrix->n_rows, coo_matrix->n_cols, B, k, out);
-  } else {
+  }
+  else {
     // Need to set output to 0
-    CUDA_CHECK(
-      cudaMemsetAsync(out, 0, sizeof(T) * coo_matrix->n_cols * k, stream));
+    CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * coo_matrix->n_cols * k, stream));
 
     // Just swap column and row indices!
-    coo_gemm_kernel<<<MLCommon::ceildiv(coo_matrix->nnz, 1024), 1024, 0,
-                      stream>>>(
+    coo_gemm_kernel<<<MLCommon::ceildiv(coo_matrix->nnz, 1024), 1024, 0, stream>>>(
       coo_matrix->vals, coo_matrix->rows, coo_matrix->cols, coo_matrix->nnz,
       coo_matrix->n_cols, coo_matrix->n_rows, B, k, out);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
+
 
 };  // namespace Sparse
 };  // namespace MLCommon

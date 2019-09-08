@@ -23,6 +23,7 @@
 #include "exact_tsne.h"
 #include "sparse_svd.h"
 
+
 namespace ML {
 
 /**
@@ -53,9 +54,9 @@ namespace ML {
  * @input param spectral_intialization: Whether to intialize with spectral embedding. Acts like pseudo PCA.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
-              const int n, const int p, const int dim, int n_neighbors,
-              const float theta, const float epssq, float perplexity,
+void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const int n,
+              const int p, const int dim, int n_neighbors, const float theta,
+              const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
               const float min_gain, const float pre_learning_rate,
@@ -64,8 +65,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
               const float post_momentum, const long long random_state,
               const bool verbose, const bool spectral_intialization,
               bool barnes_hut) {
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
-           embedding != NULL,
+  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && embedding != NULL,
          "Wrong input args");
 
   if (dim > 2 and barnes_hut) {
@@ -81,7 +81,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
   }
   // Perplexity must be less than number of datapoints
   // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
-  if (perplexity > n) perplexity = n;
+  if (perplexity > n)
+    perplexity = n;
+
 
   if (verbose) {
     printf("[Info]  Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
@@ -99,17 +101,18 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
+
   START_TIMER;
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
-  float *distances =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  long *indices =
-    (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
+  float *distances = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  long *indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
   TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
+
+
 
   START_TIMER;
   //---------------------------------------------------
@@ -120,20 +123,20 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
 
+
   START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
   if (verbose)
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
-  float *P =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  const float P_sum =
-    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                            perplexity_tol, n, n_neighbors, handle);
+  float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  const float P_sum = TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
+                                              perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
+
 
   START_TIMER;
   //---------------------------------------------------
@@ -148,27 +151,32 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
+
   int cols = n;
-  float *U =
-    embedding;  // (float*) d_alloc->allocate(sizeof(float) * n * dim, stream);
-  float *S = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
-  float *VT = (float *)d_alloc->allocate(sizeof(float) * dim * cols, stream);
+  float *U =  embedding; // (float*) d_alloc->allocate(sizeof(float) * n * dim, stream);
+  float *S =  (float*) d_alloc->allocate(sizeof(float) * dim, stream);
+  float *VT = (float*) d_alloc->allocate(sizeof(float) * dim * cols, stream);
   SparseSVD(&COO_Matrix, U, S, VT, handle, dim, 10, 7, random_state);
 
-  float *UU = (float *)malloc(sizeof(float) * n * dim);
-  CUDA_CHECK(
-    cudaMemcpy(UU, U, sizeof(float) * n * dim, cudaMemcpyDeviceToHost));
+
+  float *UU = (float*) malloc(sizeof(float) * n * dim);
+  CUDA_CHECK(cudaMemcpy(UU, U, sizeof(float) * n * dim, cudaMemcpyDeviceToHost));
 
   for (int j = 0; j < dim; j++) {
     printf("[");
-    for (int i = 0; i < n; i++) printf("%.3f,", UU[j * n + i]);
+    for (int i = 0; i < n; i++)
+      printf("%.3f,", UU[j*n + i]);
     printf("],\n");
   }
 
   free(UU);
 
+
   d_alloc->deallocate(S, sizeof(float) * dim, stream);
   d_alloc->deallocate(VT, sizeof(float) * dim * cols, stream);
+  
+
+
 
   if (barnes_hut) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, embedding, n, theta, epssq,
@@ -176,15 +184,17 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
                      verbose, spectral_intialization);
-  } else {
-    TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim,
-                     early_exaggeration, exaggeration_iter, min_gain,
-                     pre_learning_rate, post_learning_rate, max_iter,
-                     min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, spectral_intialization);
+  }
+  else {
+    TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim, early_exaggeration,
+                     exaggeration_iter, min_gain, pre_learning_rate,
+                     post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+                     post_momentum, random_state, verbose,
+                     spectral_intialization);
   }
 
   COO_Matrix.destroy();
 }
+
 
 }  // namespace ML
