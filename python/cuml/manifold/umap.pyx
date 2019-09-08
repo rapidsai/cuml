@@ -227,7 +227,7 @@ class UMAP(Base):
                  b=None,
                  target_n_neighbors=-1,
                  target_weights=0.5,
-                 target_metric="euclidean",
+                 target_metric="categorical",
                  should_downcast=True,
                  handle=None,
                  callback=None):

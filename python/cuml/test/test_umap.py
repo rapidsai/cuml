@@ -104,6 +104,40 @@ def test_supervised_umap_trustworthiness_on_iris():
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
 
 
+# def test_supervised_umap_trustworthiness_against_umap_learn():
+#     iris = datasets.load_iris()
+#     data = iris.data
+#     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
+#                        verbose=False).fit_transform(data, iris.target,
+#                                                     convert_dtype=True)
+#
+#     print(str(iris.target))
+#
+#     skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01, n_epochs=5000,
+#                        verbose=False).fit_transform(data, iris.target)
+#
+#     trust = trustworthiness(iris.data, embedding, 10)
+#
+#     skl_trust = trustworthiness(iris.data, skl_embedding, 10)
+#     assert (skl_trust - 0.0001) <= trust <= (skl_trust + 0.0001)
+#
+#
+# def test_umap_trustworthiness_against_umap_learn():
+#     iris = datasets.load_iris()
+#     data = iris.data
+#     embedding = cuUMAP(n_neighbors=10, min_dist=0.01, n_epochs=5000,
+#                        verbose=False).fit_transform(data,
+#                                                     convert_dtype=True)
+#
+#     skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
+#                        verbose=False).fit_transform(data)
+#
+#     trust = trustworthiness(iris.data, embedding, 10)
+#
+#     skl_trust = trustworthiness(iris.data, skl_embedding, 10)
+#     assert (skl_trust - 0.0001) <= trust <= (skl_trust + 0.0001)
+
+
 def test_semisupervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
