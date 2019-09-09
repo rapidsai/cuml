@@ -100,7 +100,7 @@ def stress_param(*args, **kwargs):
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('datatype', [np.float32])
 def test_accuracy(nrows, ncols, n_info, datatype):
 
     use_handle = True
@@ -108,8 +108,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=5)
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
+
     X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
