@@ -32,8 +32,22 @@ namespace Sparse {
 
 static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
-/**
- * @brief a container object for sparse CSR formatted matrices
+/** @brief A Container object for CSR format. There are two motivations
+ * behind using a container for CSR arrays.
+ *
+ * The first motivation is that it simplifies code, rather than always having
+ * to pass three arrays as function arguments.
+ *
+ * The second is more subtle, but much more important. The size
+ * of the resulting COO from a sparse operation is often not known ahead of time,
+ * since it depends on the contents of the underlying graph. The COO object can
+ * allocate the underlying arrays lazily so that the object can be created by the
+ * user and passed as an output argument in a sparse primitive. The sparse primitive
+ * would have the responsibility for allocating and populating the output arrays,
+ * while the original caller still maintains ownership of the underlying memory.
+ *
+ * @tparam T: the type of the value array.
+ *
  */
 template <typename T>
 class CSR {
@@ -332,7 +346,8 @@ __device__ int get_stop_idx(T row, int m, int nnz, const T *ind) {
 }
 
 template <int TPB_X = 32>
-__global__ void csr_to_coo_kernel(int *row_ind, int m, int *coo_rows, int nnz) {
+__global__ void csr_to_coo_kernel(const int *row_ind, int m, int *coo_rows,
+                                  int nnz) {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < m) {
@@ -351,7 +366,7 @@ __global__ void csr_to_coo_kernel(int *row_ind, int m, int *coo_rows, int nnz) {
  * @param stream: cuda stream to use
  */
 template <int TPB_X>
-void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz,
+void csr_to_coo(const int *row_ind, int m, int *coo_rows, int nnz,
                 cudaStream_t stream) {
   dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -558,7 +573,7 @@ __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
  * @param total_rows total number vertices in graph
  * @param batchSize size of row_ind
  * @param op custom row operation functor accepting the row and beginning index.
- * @param stream cuda stream to use
+ * @param stream cuda stream 121to use
  */
 template <typename T, int TPB_X = 32, typename Lambda = auto(T, T, T)->void>
 void csr_row_op(const T *row_ind, T n_rows, T nnz, Lambda op,

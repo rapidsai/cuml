@@ -36,8 +36,16 @@
 namespace MLCommon {
 namespace Sparse {
 
-/** @brief A Container object for sparse coordinate
- * format.
+/** @brief A Container object for sparse coordinate. There are two motivations
+ * behind using a container for COO arrays.
+ *
+ * The first motivation is that it simplifies code, rather than always having
+ * to pass three arrays as function arguments.
+ *
+ * The second is more subtle, but much more important. The size
+ * of the resulting COO from a sparse operation is often not known ahead of time,
+ * since it depends on the contents of the underlying graph. The COO object can
+ * allocate the underlying arrays lazily so that
  *
  * @tparam T: the type of the value array.
  *
