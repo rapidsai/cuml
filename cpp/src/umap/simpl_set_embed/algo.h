@@ -55,14 +55,14 @@ __device__ __host__ double rdist(const T *X, const T *Y, int n) {
 }
 
 /**
-	         * Given a set of weights and number of epochs, generate
-	         * the number of epochs per sample for each weight.
-	         *
-	         * @param weights: The weights of how much we wish to sample each 1-simplex
-	         * @param weights_n: the size of the weights array
-	         * @param n_epochs: the total number of epochs we want to train for
-	         * @returns an array of number of epochs per sample, one for each 1-simplex
-	         */
+ * Given a set of weights and number of epochs, generate
+ * the number of epochs per sample for each weight.
+ *
+ * @param weights: The weights of how much we wish to sample each 1-simplex
+ * @param weights_n: the size of the weights array
+ * @param n_epochs: the total number of epochs we want to train for
+ * @returns an array of number of epochs per sample, one for each 1-simplex
+ */
 template <typename T>
 void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
                             cudaStream_t stream) {
@@ -83,8 +83,8 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
 }
 
 /**
-	         * Clip a value to within a lower and upper bound
-	         */
+ * Clip a value to within a lower and upper bound
+ */
 __device__ __host__ double clip(double val, double lb, double ub) {
   if (val > ub)
     return ub;
