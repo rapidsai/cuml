@@ -385,7 +385,7 @@ class WorkingSet {
       f_idx.data(), n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
     MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_ws, TPB), TPB>>>(idx.data(),
-                                                                   n_rows);
+                                                                   n_ws);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
