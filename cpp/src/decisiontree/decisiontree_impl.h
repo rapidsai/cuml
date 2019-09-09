@@ -26,7 +26,7 @@
 #include <vector>
 #include "algo_helper.h"
 #include "decisiontree.hpp"
-#include "kernels/metric_def.h"
+#include "levelalgo/metric_def.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                            \
@@ -43,18 +43,16 @@ bool is_dev_ptr(const void *p);
 namespace DecisionTree {
 
 template <class T, class L>
-void null_tree_node_child_ptrs(TreeNode<T, L> &node);
+void print(const SparseTreeNode<T, L> &node, std::ostream &os);
 
 template <class T, class L>
-void print(const TreeNode<T, L> &node, std::ostream &os);
-
-template <class T, class L>
-void print_node(const std::string &prefix, const TreeNode<T, L> *const node,
+void print_node(const std::string &prefix,
+                const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft);
 
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         const DecisionTree::TreeNode<T, L> *root,
+                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_output_group);
 
 struct DataInfo {
@@ -87,52 +85,37 @@ class DecisionTreeBase {
   std::vector<unsigned int> feature_selector;
   MLCommon::TimerCPU prepare_fit_timer;
 
-  void split_branch(const T *data, MetricQuestion<T> &ques,
-                    const int n_sampled_rows, int &nrowsleft, int &nrowsright,
-                    unsigned int *rowids);
-
-  void plant(const cumlHandle_impl &handle, TreeNode<T, L> *&root,
-             const T *data, const int ncols, const int nrows, const L *labels,
+  void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
+             const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-             int maxdepth = -1, int max_leaf_nodes = -1,
-             const float colper = 1.0, int n_bins = 8,
-             int split_algo_flag = SPLIT_ALGO::GLOBAL_QUANTILE,
-             int cfg_min_rows_per_node = 2, bool cfg_bootstrap_features = false,
-             CRITERION cfg_split_criterion = CRITERION::CRITERION_END,
-             bool cfg_quantile_per_tree = false,
-             std::shared_ptr<TemporaryMemory<T, L>> in_tempmem = nullptr);
-  void init_depth_zero(const L *labels, std::vector<unsigned int> &colselector,
-                       const unsigned int *rowids, const int n_sampled_rows,
-                       const std::shared_ptr<TemporaryMemory<T, L>> tempmem);
-  TreeNode<T, L> *grow_tree(const T *data, const float colper, const L *labels,
-                            int depth, unsigned int *rowids,
-                            const int n_sampled_rows,
-                            MetricInfo<T> prev_split_info);
-  virtual void find_best_fruit_all(const T *data, const L *labels,
-                                   const float colper, MetricQuestion<T> &ques,
-                                   float &gain, unsigned int *rowids,
-                                   const int n_sampled_rows,
-                                   MetricInfo<T> split_info[3], int depth) = 0;
+             const int treeid, int maxdepth, int max_leaf_nodes,
+             const float colper, int n_bins, int split_algo_flag,
+             int cfg_min_rows_per_node, bool cfg_bootstrap_features,
+             CRITERION cfg_split_criterion, bool cfg_quantile_per_tree);
 
-  virtual TreeNode<T, L> *grow_deep_tree(
+  virtual void grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
     const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
     const int ncols, const int nrows,
+    std::vector<SparseTreeNode<T, L>> &sparsetree,
     std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
-  void base_fit(const ML::cumlHandle &handle, const T *data, const int ncols,
-                const int nrows, const L *labels, unsigned int *rowids,
-                const int n_sampled_rows, int unique_labels,
-                TreeNode<T, L> *&root, DecisionTreeParams &tree_params,
-                bool is_classifier,
-                std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
+  void base_fit(
+    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const cudaStream_t stream_in, const T *data, const int ncols,
+    const int nrows, const L *labels, unsigned int *rowids,
+    const int n_sampled_rows, int unique_labels,
+    std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
+    DecisionTreeParams &tree_params, bool is_classifier,
+    std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
   // Printing utility for high level tree info.
   void print_tree_summary() const;
 
   // Printing utility for debug and looking at nodes and leaves.
-  void print(const TreeNode<T, L> *root) const;
+  void print(const std::vector<SparseTreeNode<T, L>> &sparsetree) const;
 
   // Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
   void predict(const ML::cumlHandle &handle, const TreeMetaDataNode<T, L> *tree,
@@ -141,7 +124,8 @@ class DecisionTreeBase {
   void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
                    const int n_rows, const int n_cols, L *preds,
                    bool verbose = false) const;
-  L predict_one(const T *row, const TreeNode<T, L> *const node,
+  L predict_one(const T *row,
+                const std::vector<SparseTreeNode<T, L>> sparsetree, int idx,
                 bool verbose = false) const;
 
   void set_metadata(TreeMetaDataNode<T, L> *&tree);
@@ -160,17 +144,22 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
+  //This fit fucntion does not take handle , used by RF
+  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+           const cudaStream_t stream_in, const T *data, const int ncols,
+           const int nrows, const int *labels, unsigned int *rowids,
+           const int n_sampled_rows, const int unique_labels,
+           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
+
  private:
-  /* depth is used to distinguish between root and other tree nodes for computations */
-  void find_best_fruit_all(const T *data, const int *labels, const float colper,
-                           MetricQuestion<T> &ques, float &gain,
-                           unsigned int *rowids, const int n_sampled_rows,
-                           MetricInfo<T> split_info[3], int depth);
-  TreeNode<T, int> *grow_deep_tree(
-    const T *data, const int *labels, unsigned int *rowids,
-    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-    const int ncols, const int nrows,
-    std::shared_ptr<TemporaryMemory<T, int>> tempmem);
+  void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
+                      const std::vector<unsigned int> &feature_selector,
+                      const int n_sampled_rows, const int ncols,
+                      const int nrows,
+                      std::vector<SparseTreeNode<T, int>> &sparsetree,
+                      std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
 
@@ -183,17 +172,22 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            DecisionTreeParams tree_params,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
+  //This fit function does not take handle. Used by RF
+  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
+           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+           const cudaStream_t stream_in, const T *data, const int ncols,
+           const int nrows, const T *labels, unsigned int *rowids,
+           const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
+           DecisionTreeParams tree_params,
+           std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
+
  private:
-  /* depth is used to distinguish between root and other tree nodes for computations */
-  void find_best_fruit_all(const T *data, const T *labels, const float colper,
-                           MetricQuestion<T> &ques, float &gain,
-                           unsigned int *rowids, const int n_sampled_rows,
-                           MetricInfo<T> split_info[3], int depth);
-  TreeNode<T, T> *grow_deep_tree(
-    const T *data, const T *labels, unsigned int *rowids,
-    const std::vector<unsigned int> &feature_selector, const int n_sampled_rows,
-    const int ncols, const int nrows,
-    std::shared_ptr<TemporaryMemory<T, T>> tempmem);
+  void grow_deep_tree(const T *data, const T *labels, unsigned int *rowids,
+                      const std::vector<unsigned int> &feature_selector,
+                      const int n_sampled_rows, const int ncols,
+                      const int nrows,
+                      std::vector<SparseTreeNode<T, T>> &sparsetree,
+                      std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class
 
