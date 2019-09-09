@@ -113,8 +113,10 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  d_colids =
-    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
+  d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator, stream,
+                                                       maxnodes * ncols);
+  h_colids = new MLCommon::host_buffer<unsigned int>(host_allocator, stream,
+                                                     maxnodes * ncols);
 
   totalmem += nrows * 2 * sizeof(unsigned int);
   totalmem += maxnodes * 3 * sizeof(int);

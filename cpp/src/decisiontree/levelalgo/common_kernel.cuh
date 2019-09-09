@@ -63,7 +63,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
     __syncthreads();
 
     if (local_flag != LEAF) {
-      int col = colids[colcnt];
+      int col = colids[local_flag * ncols + colcnt];
       T local_data = data[col * nrows + tid];
       if (!isnan(local_data)) {
         //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -97,7 +97,7 @@ __global__ void get_minmax_kernel_global(
     if (local_flag != LEAF) {
       for (int colcnt = 0; colcnt < ncols; colcnt++) {
         int coloff = 2 * n_nodes * colcnt;
-        int col = colids[colcnt];
+        int col = colids[local_flag * ncols + colcnt];
         T local_data = data[col * nrows + tid];
         if (!isnan(local_data)) {
           //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -156,10 +156,11 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        QuestionType question(question_ptr, colids, colidx, n_nodes, local_flag,
+        int colid = colids[local_flag * ncols + colidx];
+        QuestionType question(question_ptr, colid, colidx, n_nodes, local_flag,
                               nbins);
         T quesval = question(split_bin_index[local_flag]);
-        T local_data = data[colids[colidx] * nrows + tid];
+        T local_data = data[colid * nrows + tid];
         //The inverse comparision here to push right instead of left
         if (local_data <= quesval) {
           local_flag = local_leaf_flag << 1;
@@ -199,11 +200,10 @@ struct ReducePair {
 template <typename T>
 struct QuantileQues {
   const T* __restrict__ quantile;
-  DI QuantileQues(const T* __restrict__ quantile_ptr,
-                  const unsigned int* __restrict__ colids,
+  DI QuantileQues(const T* __restrict__ quantile_ptr, const unsigned int colid,
                   const unsigned int colcnt, const int n_nodes,
                   const unsigned int nodeid, const int nbins)
-    : quantile(quantile_ptr + colids[colcnt] * nbins) {}
+    : quantile(quantile_ptr + colid * nbins) {}
 
   DI T operator()(const int binid) { return quantile[binid]; }
 };
@@ -211,8 +211,7 @@ struct QuantileQues {
 template <typename T>
 struct MinMaxQues {
   T min, delta;
-  DI MinMaxQues(const T* __restrict__ minmax_ptr,
-                const unsigned int* __restrict__ colids,
+  DI MinMaxQues(const T* __restrict__ minmax_ptr, const unsigned int colid,
                 const unsigned int colcnt, const int n_nodes,
                 const unsigned int nodeid, const int nbins) {
     int off = colcnt * 2 * n_nodes + nodeid;
