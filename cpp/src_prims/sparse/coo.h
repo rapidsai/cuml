@@ -45,7 +45,10 @@ namespace Sparse {
  * The second is more subtle, but much more important. The size
  * of the resulting COO from a sparse operation is often not known ahead of time,
  * since it depends on the contents of the underlying graph. The COO object can
- * allocate the underlying arrays lazily so that
+ * allocate the underlying arrays lazily so that the object can be created by the
+ * user and passed as an output argument in a sparse primitive. The sparse primitive
+ * would have the responsibility for allocating and populating the output arrays,
+ * while the original caller still maintains ownership of the underlying memory.
  *
  * @tparam T: the type of the value array.
  *
@@ -263,7 +266,8 @@ class COO {
         vals = nullptr;
 
       } catch (Exception &e) {
-        std::cout << "An exception occurred freeing COO memory" << std::endl;
+        std::cout << "An exception occurred freeing COO memory: " << e.what()
+                  << std::endl;
       }
     }
   }
