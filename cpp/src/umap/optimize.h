@@ -202,9 +202,10 @@ void find_params_ab(UMAPParams *params, cudaStream_t stream) {
 
   optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   MLCommon::updateHost(&(params->a), coeffs, 1, stream);
   MLCommon::updateHost(&(params->b), coeffs + 1, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (params->verbose)
     std::cout << "a=" << params->a << ", " << params->b << std::endl;

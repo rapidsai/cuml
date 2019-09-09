@@ -69,11 +69,11 @@ __global__ void init_transform(int *indices, T *weights, int n,
 }
 
 /**
-     * Simple helper function to set the values of an array to zero.
-     *
-     * @param vals array of values
-     * @param nnz size of array of values
-     */
+ * Simple helper function to set the values of an array to zero.
+ *
+ * @param vals array of values
+ * @param nnz size of array of values
+ */
 template <int TPB_X>
 __global__ void reset_vals(int *vals, int nnz) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -81,10 +81,10 @@ __global__ void reset_vals(int *vals, int nnz) {
 }
 
 /**
-     * Firt exponential decay curve to find the parameters
-     * a and b, which are based on min_dist and spread
-     * parameters.
-     */
+ * Fit exponential decay curve to find the parameters
+ * a and b, which are based on min_dist and spread
+ * parameters.
+ */
 void find_ab(UMAPParams *params, cudaStream_t stream) {
   Optimize::find_params_ab(params, stream);
 }
@@ -104,8 +104,8 @@ void _fit(const cumlHandle &handle,
   find_ab(params, stream);
 
   /**
-		 * Allocate workspace for kNN graph
-		 */
+   * Allocate workspace for kNN graph
+   */
   long *knn_indices;
   T *knn_dists;
 
@@ -121,8 +121,8 @@ void _fit(const cumlHandle &handle,
                                params, stream);
 
   /**
-		 * Remove zeros from simplicial set
-		 */
+   * Remove zeros from simplicial set
+   */
   int *row_count_nz, *row_count;
   MLCommon::allocate(row_count_nz, n, true);
   MLCommon::allocate(row_count, n, true);
@@ -132,8 +132,8 @@ void _fit(const cumlHandle &handle,
                                                stream);
 
   /**
-         * Run initialization method
-         */
+   * Run initialization method
+   */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
                  embeddings, stream, params->init);
 
@@ -288,16 +288,16 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     adjusted_local_connectivity, stream);
 
   /**
-         * Compute graph of membership strengths
-         */
+   * Compute graph of membership strengths
+   */
 
   int nnz = n * params->n_neighbors;
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
   /**
-         * Allocate workspace for fuzzy simplicial set.
-         */
+   * Allocate workspace for fuzzy simplicial set.
+   */
 
   COO<T> graph_coo(nnz, n, n);
 
@@ -332,9 +332,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Go through COO values and set everything that's less than
-         * vals.max() / params->n_epochs to 0.0
-         */
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
   thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(graph_coo.vals);
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));

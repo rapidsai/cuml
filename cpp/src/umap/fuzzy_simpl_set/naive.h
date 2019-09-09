@@ -335,8 +335,7 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
 
   /**
    * Combines all the fuzzy simplicial sets into a global
-   * one via a fuzzy union. (Symmetrize knn graph and weight
-   * based on directionality).
+   * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
   MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
@@ -345,7 +344,7 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
       T prod_matrix = result * transpose;
       T res = set_op_mix_ratio * (result + transpose - prod_matrix) +
               (1.0 - set_op_mix_ratio) * prod_matrix;
-      return T(res);
+      return res;
     },
     stream);
 
