@@ -17,11 +17,11 @@
 #include <iostream>
 #include <numeric>
 #include "../decisiontree.hpp"
-#include "../kernels/metric.cuh"
-#include "../kernels/metric_def.h"
+#include "../flatnode.h"
 #include "common_helper.cuh"
-#include "flatnode.h"
 #include "levelhelper_classifier.cuh"
+#include "metric.cuh"
+
 /*
 This is the driver function for building classification tree 
 level by level using a simple for loop.
@@ -32,17 +32,17 @@ At each level; following steps are involved.
 4. make split.
 */
 template <typename T>
-ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
+void grow_deep_tree_classification(
   const T* data, const int* labels, unsigned int* rowids,
   const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
   const int nrows, const int n_unique_labels, const int nbins,
   const int maxdepth, const int maxleaves, const int min_rows_per_node,
-  const ML::CRITERION split_cr, int& depth_cnt, int& leaf_cnt,
+  const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
+  int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols = feature_selector.size();
   MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
                          feature_selector.size(), tempmem->stream);
-
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
   setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
@@ -64,7 +64,6 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
   sparse_histstate.resize(total_nodes, std::vector<int>(n_unique_labels));
   sparse_histstate[0] = histvec;
 
-  std::vector<SparseTreeNode<T, int>> sparsetree;
   sparsetree.reserve(total_nodes);
   SparseTreeNode<T, int> sparsenode;
   sparsenode.best_metric_val = initial_metric;
@@ -102,21 +101,21 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  ncols, n_unique_labels, nbins, n_nodes,
-                                 tempmem, d_histogram);
+                                 split_algo, tempmem, d_histogram);
 
     float* infogain = tempmem->h_outgain->data();
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
-        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
+        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, feature_selector, d_colids, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, infogain,
-        sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
+        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
+        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
     }
@@ -129,13 +128,11 @@ ML::DecisionTree::TreeNode<T, int>* grow_deep_tree_classification(
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-
-    make_level_split(data, nrows, ncols, nbins, n_nodes, d_split_colidx,
-                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
+    make_level_split(data, nrows, ncols, nbins, n_nodes, split_algo,
+                     d_split_colidx, d_split_binidx, d_new_node_flags, flagsptr,
+                     tempmem);
   }
-
   for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
     sparsetree[i].prediction = get_class_hist(sparse_histstate[i]);
   }
-  return go_recursive_sparse(sparsetree);
 }
