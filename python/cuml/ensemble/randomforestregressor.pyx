@@ -434,6 +434,10 @@ class RandomForestRegressor(Base):
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
 
+        if self.dtype == np.float64:
+            warnings.warn("In order to run predict on the GPU convert"
+                          " the data to float32")
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -480,52 +484,9 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def predict(self, X, predict_model="GPU",
-                output_class=False,
-                algo='BATCH_TREE_REORG'):
-        """
-        Predicts the labels for X.
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        predict_model : String
-                        "GPU" if prediction should be carried out on the GPU
-                        "CPU" or None if prediction should be carried out
-                        on the CPU
-        output_class: boolean
-                      This is optional and required only while performing the
-                      predict operation on the GPU.
-                      If true, return a 1 or 0 depending on whether the raw
-                      prediction exceeds the threshold. If False, just return
-                      the raw prediction.
-
-        algo : string name of the algo from (from algo_t enum)
-               This is optional and required only while performing the
-               predict operation on the GPU.
-               'NAIVE' - simple inference using shared memory
-               'TREE_REORG' - similar to naive but trees rearranged to be more
-                              coalescing-friendly
-               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-                                    multiple rows per thread block
-        Returns
-        ----------
-        y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
-        """
-        if predict_model == "GPU":
-            preds = self.predict_model_on_gpu(X,
-                                              output_class,
-                                              algo)
-        else:
-            preds = self.predict_model_on_cpu(X)
-        return preds
-
-    def predict_model_on_gpu(self, X,
-                             output_class,
-                             algo):
+    def _predict_model_on_gpu(self, X,
+                              output_class,
+                              algo):
         _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
@@ -533,9 +494,9 @@ class RandomForestRegressor(Base):
                              " and test data should be the same ")
 
         # task category = 1 for regression
-        treelite_model = \
-            self.get_treelite_forest_from_rf(num_features=n_cols,
-                                             task_category=1)
+        treelite_model = self._get_treelite(num_features=n_cols,
+                                            task_category=1)
+
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_model.value,
@@ -544,7 +505,7 @@ class RandomForestRegressor(Base):
         preds = tl_to_fil_model.predict(X)
         return preds
 
-    def predict_model_on_cpu(self, X):
+    def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -591,6 +552,54 @@ class RandomForestRegressor(Base):
         preds = preds_m.copy_to_host()
         del(X_m)
         del(preds_m)
+        return preds
+
+    def predict(self, X, predict_model="GPU",
+                output_class=False,
+                algo='BATCH_TREE_REORG'):
+        """
+        Predicts the labels for X.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        predict_model : String
+                        "GPU" if prediction should be carried out on the GPU
+                        "CPU" or None if prediction should be carried out
+                        on the CPU
+        output_class: boolean
+                      This is optional and required only while performing the
+                      predict operation on the GPU.
+                      If true, return a 1 or 0 depending on whether the raw
+                      prediction exceeds the threshold. If False, just return
+                      the raw prediction.
+
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
+        Returns
+        ----------
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+        """
+        if self.dtype == np.float64:
+            raise TypeError("GPU predict model only accepts float32 dtype"
+                            " as input, convert the data to float32 or"
+                            " use the CPU predict model.")
+
+        elif predict_model == "GPU":
+            preds = self._predict_model_on_gpu(X,
+                                               output_class,
+                                               algo)
+        else:
+            preds = self._predict_model_on_cpu(X)
         return preds
 
     def score(self, X, y):
@@ -732,8 +741,8 @@ class RandomForestRegressor(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def get_treelite_forest_from_rf(self, num_features,
-                                    task_category=1, model=None):
+    def _get_treelite(self, num_features,
+                      task_category=1, model=None):
 
         cdef ModelHandle cuml_model_ptr
         cdef RandomForestMetaData[float, float] *rf_forest = \

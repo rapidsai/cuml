@@ -222,14 +222,17 @@ cdef class ForestInference_impl():
                                  bool output_class,
                                  str algo,
                                  float threshold):
+
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model.handle
+
         from_treelite(handle_[0],
                       &self.forest_data,
                       <ModelHandle> model_ptr,
@@ -241,14 +244,18 @@ cdef class ForestInference_impl():
                                bool output_class,
                                str algo,
                                float threshold):
+
         cdef treelite_params_t treelite_params
+
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t> model_handle
+
         from_treelite(handle_[0],
                       &self.forest_data,
                       <ModelHandle> model_ptr,

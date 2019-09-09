@@ -2,7 +2,7 @@
 
 ## New Features
 
-- PR #1073: Updating RF wrappers to use FIL for prediction
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
