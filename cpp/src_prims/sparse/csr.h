@@ -209,7 +209,8 @@ class CSR {
       vals = nullptr;
 
     } catch (Exception &e) {
-      std::cout << "An exception occurred freeing COO memory" << std::endl;
+      std::cout << "An exception occurred freeing COO memory: " << e.what()
+                << std::endl;
     }
   }
 };
