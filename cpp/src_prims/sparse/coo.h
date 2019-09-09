@@ -775,14 +775,14 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
       if (!found_match && vals[idx] != 0.0) {
         orows[out_start_idx + row_nnz] = cur_col;
         ocols[out_start_idx + row_nnz] = cur_row;
-        ovals[out_start_idx + row_nnz] = T(res);
+        ovals[out_start_idx + row_nnz] = res;
         ++row_nnz;
       }
 
       if (res != 0.0) {
         orows[out_start_idx + row_nnz] = cur_row;
         ocols[out_start_idx + row_nnz] = cur_col;
-        ovals[out_start_idx + row_nnz] = T(res);
+        ovals[out_start_idx + row_nnz] = res;
         ++row_nnz;
       }
     }

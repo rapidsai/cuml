@@ -52,7 +52,7 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
                           params->n_components, tmp_storage.data());
 
   MLCommon::LinAlg::transpose(
-    embedding, tmp_storage.data(), n, params->n_components,
+    embedding, tmp_storage.data(), params->n_components, n,
     handle.getImpl().getCublasHandle(), handle.getStream());
 
   CUDA_CHECK(cudaPeekAtLastError());

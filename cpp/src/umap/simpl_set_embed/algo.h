@@ -295,10 +295,6 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
-  /**
-   * Go through COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
-   */
   int n_epochs = params->n_epochs;
   if (n_epochs <= 0) {
     if (m <= 10000)
@@ -307,10 +303,14 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
       n_epochs = 200;
   }
 
+  /**
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
   MLCommon::LinAlg::unaryOp<T>(
     in->vals, in->vals, nnz,
     [=] __device__(T input) {
-      if (input < (max / n_epochs))
+      if (input < (max / float(n_epochs)))
         return 0.0f;
       else
         return input;
