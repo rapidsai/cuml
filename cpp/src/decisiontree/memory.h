@@ -52,7 +52,7 @@ struct TemporaryMemory {
   MLCommon::device_buffer<T> *d_quantile = nullptr;
   MLCommon::host_buffer<T> *h_quantile = nullptr;
   MLCommon::device_buffer<unsigned int> *d_colids = nullptr;
-
+  MLCommon::host_buffer<unsigned int> *h_colids = nullptr;
   //Split algo
   int splitalgo;
 

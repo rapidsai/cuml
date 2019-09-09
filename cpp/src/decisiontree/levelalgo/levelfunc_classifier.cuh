@@ -33,16 +33,15 @@ At each level; following steps are involved.
 */
 template <typename T>
 void grow_deep_tree_classification(
-  const T* data, const int* labels, unsigned int* rowids,
-  const std::vector<unsigned int>& feature_selector, int n_sampled_rows,
-  const int nrows, const int n_unique_labels, const int nbins,
-  const int maxdepth, const int maxleaves, const int min_rows_per_node,
+  const T* data, const int* labels, unsigned int* rowids, const int Ncols,
+  const float colper, int n_sampled_rows, const int nrows,
+  const int n_unique_labels, const int nbins, const int maxdepth,
+  const int maxleaves, const int min_rows_per_node,
   const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  const int ncols = feature_selector.size();
-  MLCommon::updateDevice(tempmem->d_colids->data(), feature_selector.data(),
-                         feature_selector.size(), tempmem->stream);
+  std::vector<unsigned int> feature_selector;
+  const int ncols = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
   setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
@@ -88,9 +87,12 @@ void grow_deep_tree_classification(
   unsigned int* h_new_node_flags = tempmem->h_new_node_flags->data();
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
   unsigned int* d_colids = tempmem->d_colids->data();
-
+  unsigned int* h_colids = tempmem->h_colids->data();
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
+
+    update_feature_sampling(h_colids, d_colids, Ncols, ncols, n_nodes,
+                            tempmem->stream);
     n_nodes = n_nodes_nextitr;
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
@@ -106,14 +108,14 @@ void grow_deep_tree_classification(
     float* infogain = tempmem->h_outgain->data();
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
-        h_histogram, d_histogram, feature_selector, d_colids, nbins,
+        h_histogram, d_histogram, h_colids, d_colids, ncols, nbins,
         n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
         infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
-        h_histogram, d_histogram, feature_selector, d_colids, nbins,
+        h_histogram, d_histogram, h_colids, d_colids, ncols, nbins,
         n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
         infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,

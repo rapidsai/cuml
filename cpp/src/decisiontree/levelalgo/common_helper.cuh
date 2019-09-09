@@ -18,6 +18,20 @@
 #include "common_kernel.cuh"
 #include "stats/minmax.h"
 
+void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
+                             const int Ncols, const int ncols,
+                             const int n_nodes, const cudaStream_t &stream) {
+  std::vector<unsigned int> feature_selector;
+  for (int nid = 0; nid < n_nodes; nid++) {
+    feature_selector.resize(Ncols);
+    std::iota(feature_selector.begin(), feature_selector.end(), 0);
+    std::random_shuffle(feature_selector.begin(), feature_selector.end());
+    feature_selector.resize(ncols);
+    memcpy(&h_colids[nid * ncols], feature_selector.data(),
+           ncols * sizeof(unsigned int));
+  }
+  MLCommon::updateDevice(d_colids, h_colids, ncols * n_nodes, stream);
+}
 template <typename T>
 void get_minmax(const T *data, const unsigned int *flags,
                 const unsigned int *colids, const int nrows, const int ncols,
@@ -101,7 +115,7 @@ int get_class_hist(std::vector<int> &node_hist) {
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
                const int colid, const int binid, const int nodeid,
-               const int n_nodes, const std::vector<unsigned int> &colselector,
+               const int n_nodes, const unsigned int *colselector,
                const int split_algo) {
   if (split_algo == 0) {
     T min = minmax[nodeid + colid * n_nodes * 2];

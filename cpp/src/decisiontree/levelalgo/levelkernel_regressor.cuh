@@ -90,7 +90,7 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
   T local_label;
   int local_cnt;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
+  unsigned int colid;
   if (tid < nrows) {
     local_flag = flags[tid];
     local_label = labels[tid];
@@ -98,7 +98,9 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
   }
 
   for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-    unsigned int colid = colids[colcnt];
+    if (local_flag != LEAF) {
+      colid = colids[local_flag * ncols + colcnt];
+    }
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       shmempred[i] = (T)0;
       shmemcount[i] = 0;
@@ -108,7 +110,7 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                             nbins);
 
 #pragma unroll(8)
@@ -154,7 +156,7 @@ __global__ void get_mse_kernel(
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   T parent_pred;
   unsigned int parent_count;
-
+  unsigned int colid;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
@@ -167,7 +169,9 @@ __global__ void get_mse_kernel(
   }
 
   for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-    unsigned int colid = colids[colcnt];
+    if (local_flag != LEAF) {
+      colid = colids[local_flag * ncols + colcnt];
+    }
     unsigned int coloff = colcnt * nbins * n_nodes;
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       shmem_predout[i] = predout[i + coloff];
@@ -183,7 +187,7 @@ __global__ void get_mse_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                             nbins);
 
 #pragma unroll(8)
@@ -236,10 +240,10 @@ __global__ void get_pred_kernel_global(
       local_cnt = sample_cnt[tid];
 
       for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-        unsigned int colid = colids[colcnt];
+        unsigned int colid = colids[local_flag * ncols + colcnt];
         unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
-        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+        QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                               nbins);
 
 #pragma unroll(8)
@@ -285,10 +289,10 @@ __global__ void get_mse_kernel_global(
       parent_pred = parentpred[local_flag];
 
       for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-        unsigned int colid = colids[colcnt];
+        unsigned int colid = colids[local_flag * ncols + colcnt];
         unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
-        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+        QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                               nbins);
 
 #pragma unroll(8)
@@ -317,10 +321,10 @@ __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
   const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
   const unsigned int *__restrict__ parentcount,
-  const T *__restrict__ parentmetric, const unsigned int *__restrict__ colids,
-  const int nbins, const int ncols, const int n_nodes, const int min_rpn,
-  float *outgain, int *best_col_id, int *best_bin_id, T *child_mean,
-  unsigned int *child_count, T *child_best_metric) {
+  const T *__restrict__ parentmetric, const int nbins, const int ncols,
+  const int n_nodes, const int min_rpn, float *outgain, int *best_col_id,
+  int *best_bin_id, T *child_mean, unsigned int *child_count,
+  T *child_best_metric) {
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 

@@ -58,6 +58,7 @@ void get_histogram_classification(
     get_minmax(data, flags, tempmem->d_colids->data(), nrows, ncols, n_nodes,
                tempmem->max_nodes_minmax, tempmem->d_globalminmax->data(),
                tempmem->h_globalminmax->data(), tempmem->stream);
+    CUDA_CHECK(cudaDeviceSynchronize());
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
@@ -91,10 +92,10 @@ void get_histogram_classification(
 }
 template <typename T, typename F, typename DF>
 void get_best_split_classification(
-  unsigned int *hist, unsigned int *d_hist,
-  const std::vector<unsigned int> &colselector, unsigned int *d_colids,
-  const int nbins, const int n_unique_labels, const int n_nodes,
-  const int depth, const int min_rpn, const int split_algo, float *gain,
+  unsigned int *hist, unsigned int *d_hist, unsigned int *h_colids,
+  unsigned int *d_colids, const int ncols, const int nbins,
+  const int n_unique_labels, const int n_nodes, const int depth,
+  const int min_rpn, const int split_algo, float *gain,
   std::vector<std::vector<int>> &sparse_histstate,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
@@ -106,10 +107,9 @@ void get_best_split_classification(
   if (tempmem->h_globalminmax != nullptr)
     minmax = tempmem->h_globalminmax->data();
   if (split_algo == 0) CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  int ncols = colselector.size();
   size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
-  if (n_nodes > 512) use_gpu_flag = true;
+  //if (n_nodes > 512) use_gpu_flag = true;
   memset(gain, 0, n_nodes * sizeof(float));
   int sparsetree_sz = sparsetree.size();
   if (use_gpu_flag) {
@@ -154,7 +154,7 @@ void get_best_split_classification(
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
     get_best_split_classification_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
-        d_hist, d_parent_hist, d_parent_metric, d_colids, nbins, ncols, n_nodes,
+        d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
         n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
@@ -181,10 +181,10 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
-      curr_node.colid = colselector[split_colidx[nodecnt]];
+      curr_node.colid = h_colids[nodecnt * ncols + split_colidx[nodecnt]];
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
-        nodecnt, n_nodes, colselector, split_algo);
+        nodecnt, n_nodes, &h_colids[nodecnt * ncols], split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
@@ -265,10 +265,10 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
-      curr_node.colid = colselector[split_colidx[nodecnt]];
+      curr_node.colid = h_colids[nodecnt * ncols + split_colidx[nodecnt]];
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
-        nodecnt, n_nodes, colselector, split_algo);
+        nodecnt, n_nodes, &h_colids[nodecnt * ncols], split_algo);
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];
