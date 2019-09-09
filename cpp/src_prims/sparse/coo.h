@@ -393,7 +393,7 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
  * @param results array to place results
  */
 template <int TPB_X>
-__global__ void coo_row_count_kernel(int *const rows, int nnz, int *results) {
+__global__ void coo_row_count_kernel(const int *rows, int nnz, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
     atomicAdd(results + rows[row], 1);
@@ -409,7 +409,7 @@ __global__ void coo_row_count_kernel(int *const rows, int nnz, int *results) {
  * @param stream: cuda stream to use
  */
 template <int TPB_X>
-void coo_row_count(int *const rows, int nnz, int *results,
+void coo_row_count(const int *rows, int nnz, int *results,
                    cudaStream_t stream) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -427,7 +427,7 @@ void coo_row_count(int *const rows, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+void coo_row_count(const COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
@@ -436,7 +436,7 @@ void coo_row_count(COO<T> *const in, int *results, cudaStream_t stream = 0) {
 }
 
 template <int TPB_X, typename T>
-__global__ void coo_row_count_nz_kernel(int *const rows, T *const vals, int nnz,
+__global__ void coo_row_count_nz_kernel(const int *rows, const T *vals, int nnz,
                                         int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != 0.0) {
@@ -445,7 +445,7 @@ __global__ void coo_row_count_nz_kernel(int *const rows, T *const vals, int nnz,
 }
 
 template <int TPB_X, typename T>
-__global__ void coo_row_count_scalar_kernel(int *const rows, T *const vals,
+__global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
                                             int nnz, T scalar, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != scalar) {
@@ -463,7 +463,7 @@ __global__ void coo_row_count_scalar_kernel(int *const rows, T *const vals,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_scalar(COO<T> *const in, T scalar, int *results,
+void coo_row_count_scalar(const COO<T> *in, T scalar, int *results,
                           cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -485,7 +485,7 @@ void coo_row_count_scalar(COO<T> *const in, T scalar, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_scalar(int *const rows, T *const vals, int nnz, T scalar,
+void coo_row_count_scalar(const int *rows, const T *vals, int nnz, T scalar,
                           int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -506,7 +506,7 @@ void coo_row_count_scalar(int *const rows, T *const vals, int nnz, T scalar,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_nz(int *const rows, T *const vals, int nnz, int *results,
+void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
                       cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -524,7 +524,7 @@ void coo_row_count_nz(int *const rows, T *const vals, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_nz(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+void coo_row_count_nz(const COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
@@ -590,7 +590,7 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_scalar(COO<T> *const in, COO<T> *out, T scalar,
+void coo_remove_scalar(const COO<T> *in, COO<T> *out, T scalar,
                        cudaStream_t stream) {
   int *row_count_nz, *row_count;
 
@@ -630,13 +630,13 @@ void coo_remove_scalar(COO<T> *const in, COO<T> *out, T scalar,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_zeros(COO<T> *const in, COO<T> *out, cudaStream_t stream) {
+void coo_remove_zeros(const COO<T> *in, COO<T> *out, cudaStream_t stream) {
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
 template <int TPB_X, typename T>
-__global__ void from_knn_graph_kernel(long *const knn_indices,
-                                      T *const knn_dists, int m, int k,
+__global__ void from_knn_graph_kernel(const long *knn_indices,
+                                      const T *knn_dists, int m, int k,
                                       int *rows, int *cols, T *vals) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < m) {
@@ -661,7 +661,7 @@ __global__ void from_knn_graph_kernel(long *const knn_indices,
  * @param vals: output COO val array
  */
 template <typename T>
-void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               int *rows, int *cols, T *vals) {
   dim3 grid(ceildiv(m, 32), 1, 1);
   dim3 blk(32, 1, 1);
@@ -674,7 +674,7 @@ void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
  * into COO format.
  */
 template <typename T>
-void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               COO<T> *out) {
   out->allocate(m * k, m, m);
 
@@ -691,7 +691,7 @@ void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(T *const rows, int nnz, T *row_ind, int m,
+void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        cudaStream_t stream = 0) {
   T *row_counts;
   MLCommon::allocate(row_counts, m, true);
@@ -718,7 +718,7 @@ void sorted_coo_to_csr(T *const rows, int nnz, T *row_ind, int m,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(COO<T> *const coo, int *row_ind,
+void sorted_coo_to_csr(const COO<T> *coo, int *row_ind,
                        cudaStream_t stream = 0) {
   sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
@@ -800,7 +800,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename Lambda>
-void coo_symmetrize(COO<T> *const in, COO<T> *out,
+void coo_symmetrize(const COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream) {
   dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
