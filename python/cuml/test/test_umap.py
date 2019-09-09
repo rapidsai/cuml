@@ -111,8 +111,6 @@ def test_supervised_umap_trustworthiness_against_umap_learn():
                        verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
 
-    print(str(iris.target))
-
     skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
                               verbose=False).fit_transform(data, iris.target)
 

@@ -270,7 +270,7 @@ __global__ void csr_row_normalize_max_kernel(
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-  // sum all vals for row and divide each val by sum
+  // find max across columns and divide
   if (row < m) {
     int start_idx = ia[row];
     int stop_idx = 0;
@@ -279,13 +279,14 @@ __global__ void csr_row_normalize_max_kernel(
     } else
       stop_idx = nnz;
 
-    T max = MIN_FLOAT;  // todo: Make this min possible T
+    T max = MIN_FLOAT;
     for (int j = start_idx; j < stop_idx; j++) {
       if (vals[j] > max) max = vals[j];
     }
 
+    // divide nonzeros in current row by max
     for (int j = start_idx; j < stop_idx; j++) {
-      if (max != 0.0) {
+      if (max != 0.0 && max > MIN_FLOAT) {
         T val = vals[j];
         result[j] = val / max;
       } else {
