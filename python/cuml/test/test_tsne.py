@@ -9,7 +9,7 @@ import cudf
 import pytest
 
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
-                 'diabetes', 'wine']
+                 'diabetes']
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -37,9 +37,7 @@ def test_tsne(name):
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
         print("Trust = ", trust)
-        if trust < 0.97:
-            if trust < 0.95:
-                assert trust > 0.88
+        assert trust > 0.76
         assert nans == 0
         del Y
 
@@ -48,9 +46,7 @@ def test_tsne(name):
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
         print("Trust = ", trust)
-        if trust < 0.97:
-            if trust < 0.95:
-                assert trust > 0.88
+        assert trust > 0.76
         assert nans == 0
         del Y
 
@@ -61,9 +57,7 @@ def test_tsne(name):
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
         print("Trust = ", trust)
-        if trust < 0.97:
-            if trust < 0.95:
-                assert trust > 0.88
+        assert trust > 0.76
         assert nans == 0
         del Y
 
@@ -72,8 +66,6 @@ def test_tsne(name):
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
         print("Trust = ", trust)
-        if trust < 0.97:
-            if trust < 0.95:
-                assert trust > 0.88
+        assert trust > 0.76
         assert nans == 0
         del Y

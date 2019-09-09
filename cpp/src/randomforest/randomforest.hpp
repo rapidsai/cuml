@@ -76,7 +76,7 @@ struct RF_params {
 
 void set_rf_params(RF_params& params, int cfg_n_trees = 1,
                    bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f,
-                   int cfg_n_streams = 4);
+                   int cfg_n_streams = 8);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
                        float cfg_rows_sample, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
