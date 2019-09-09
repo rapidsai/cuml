@@ -443,6 +443,10 @@ class RandomForestClassifier(Base):
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
 
+        if self.dtype == np.float64:
+            warnings.warn("In order to run predict on the GPU convert"
+                          " the data to float32")
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -519,16 +523,16 @@ class RandomForestClassifier(Base):
         del(y_m)
         return self
 
-    def predict_model_on_gpu(self, X, output_class,
-                             threshold, algo, num_classes):
+    def _predict_model_on_gpu(self, X, output_class,
+                              threshold, algo, num_classes):
         _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        treelite_model = \
-            self.get_treelite_forest_from_rf(num_features=n_cols,
-                                             task_category=num_classes)
+
+        treelite_model = self._get_treelite(num_features=n_cols,
+                                            task_category=num_classes)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -539,7 +543,7 @@ class RandomForestClassifier(Base):
         preds = tl_to_fil_model.predict(X)
         return preds
 
-    def predict_model_on_cpu(self, X):
+    def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
@@ -630,14 +634,18 @@ class RandomForestClassifier(Base):
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if predict_model == "CPU" or predict_model is None:
-            preds = self.predict_model_on_cpu(X)
-        elif self.dtype == np.float64:
-            preds = self.predict_model_on_cpu(X)
+        if self.dtype == np.float64:
+            raise TypeError("GPU predict model only accepts float32 dtype"
+                            " as input, convert the data to float32 or"
+                            " use the CPU predict model.")
+
+        elif predict_model == "CPU" or predict_model is None:
+            preds = self._predict_model_on_cpu(X)
+
         else:
-            preds = self.predict_model_on_gpu(X, output_class,
-                                              threshold, algo,
-                                              num_classes)
+            preds = self._predict_model_on_gpu(X, output_class,
+                                               threshold, algo,
+                                               num_classes)
 
         return preds
 
@@ -838,8 +846,8 @@ class RandomForestClassifier(Base):
         else:
             print_rf_detailed(rf_forest)
 
-    def get_treelite_forest_from_rf(self, num_features,
-                                    task_category=1, model=None):
+    def _get_treelite(self, num_features,
+                      task_category=1, model=None):
 
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
