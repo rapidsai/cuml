@@ -106,7 +106,7 @@ def test_supervised_umap_trustworthiness_against_umap_learn():
     trust = trustworthiness(iris.data, embedding, 10)
 
     skl_trust = trustworthiness(iris.data, skl_embedding, 10)
-    assert (skl_trust - 0.008) <= trust <= (skl_trust + 0.008)
+    assert (skl_trust - 0.009) <= trust <= (skl_trust + 0.009)
 
 
 def test_supervised_umap_trustworthiness_on_iris():
