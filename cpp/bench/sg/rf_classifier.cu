@@ -114,6 +114,10 @@ struct RunD : public Run<double> {
 
 template <typename D>
 std::vector<Params<D>> getInputs() {
+  struct Triplets {
+    int nrows, ncols, nclasses;
+  };
+
   std::vector<Params<D>> out;
   Params<D> p;
   p.rowMajor = false;
@@ -130,27 +134,26 @@ std::vector<Params<D>> getInputs() {
   p.p.tree_params.n_bins = 32;
   p.p.tree_params.bootstrap_features = true;
   p.p.tree_params.quantile_per_tree = true;
-  p.p.tree_params.split_algo = 0;
+  p.p.tree_params.split_algo = 1;
   p.p.tree_params.split_criterion = (ML::CRITERION)0;
-  std::vector<std::pair<int, int>> rowcols = {
-    {160000, 64},
-    {640000, 64},
-    {1280000, 64},
+  p.p.n_trees = 500;
+  std::vector<Triplets> rowcols = {
+    {160000, 64, 2},
+    {640000, 64, 8},
+    // Bosch dataset
+    {1184000, 968, 2},
   };
   for (auto& rc : rowcols) {
-    p.nrows = rc.first;
-    p.ncols = rc.second;
-    for (auto nclass : std::vector<int>({2, 8})) {
-      p.nclasses = nclass;
-      for (auto trees : std::vector<int>({250, 500})) {
-        p.p.n_trees = trees;
-        for (auto max_depth : std::vector<int>({8, 10})) {
-          p.p.tree_params.max_depth = max_depth;
-          for (auto streams : std::vector<int>({4, 8})) {
-            p.p.n_streams = streams;
-            out.push_back(p);
-          }
-        }
+    // Let's run Bosch only for float type
+    if (!std::is_same<D, float>::value && rc.ncols == 968) continue;
+    p.nrows = rc.nrows;
+    p.ncols = rc.ncols;
+    p.nclasses = rc.nclasses;
+    for (auto max_depth : std::vector<int>({8, 10})) {
+      p.p.tree_params.max_depth = max_depth;
+      for (auto streams : std::vector<int>({8, 10})) {
+        p.p.n_streams = streams;
+        out.push_back(p);
       }
     }
   }
