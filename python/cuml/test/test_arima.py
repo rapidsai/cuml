@@ -19,6 +19,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 import cuml.ts.arima as arima
+from cuml.ts.stationarity import stationarity
+from scipy.optimize.optimize import _approx_fprime_helper
+
+# from IPython.core.debugger import set_trace
 
 # test data time
 t = np.array([1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20,
@@ -114,6 +118,57 @@ def test_log_likelihood():
         ll = arima.ll_f(1, order, y0, np.copy(x0[p-1]), trans=True)
         # print("ll=", ll)
         np.testing.assert_almost_equal(ll, ref_ll[p-1])
+
+
+def test_gradient():
+    """test gradient implementation"""
+    num_samples = 100
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys = noise + 0.5*xs
+    for num_batches in range(1, 5):
+        ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
+        order = (1, 1, 1)
+        mu = 0.0
+        arparams = np.array([-0.01])
+        maparams = np.array([-1.0])
+        x = np.r_[mu, arparams, maparams]
+        x = np.tile(x, num_batches)
+        num_samples = ys_df.shape[0]
+        num_batches = ys_df.shape[1]
+
+        p, d, q = order
+        num_parameters = d + p + q
+        gpu = True
+        # print("Batched Gradient")
+        g = arima.ll_gf(num_batches, num_parameters, order, ys_df, x)
+        # print("One-at-a-time Gradient")
+        grad_fd = np.zeros(len(x))
+        h = 1e-8
+        for i in range(len(x)):
+            def fx(xp):
+                return arima.ll_f(num_batches, order,
+                                  ys_df, xp).sum()
+
+            xph = np.copy(x)
+            xmh = np.copy(x)
+            xph[i] += h
+            xmh[i] -= h
+            f_ph = fx(xph)
+            f_mh = fx(xmh)
+            grad_fd[i] = (f_ph-f_mh)/(2*h)
+
+        # print("g={}, g_ref={}".format(g, grad_fd))
+        np.testing.assert_allclose(g, grad_fd, rtol=1e-4)
+
+        def f(xk):
+            return arima.ll_f(num_batches, order,
+                              ys_df, xk).sum()
+
+        # from scipy
+        g_sp = _approx_fprime_helper(x, f, h)
+        np.testing.assert_allclose(g, g_sp, rtol=1e-4)
 
 
 def testBIC():
@@ -266,6 +321,22 @@ def bench_arima(num_batches=240, plot=False):
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
 
+def test_stationarity():
+
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys1 = noise + 0.5*xs
+    ys2 = noise
+
+    num_batches = 2
+    ys_df = np.zeros((num_samples, num_batches), order="F")
+    ys_df[:, 0] = ys1
+    ys_df[:, 1] = ys2
+
+    d_b = stationarity(ys_df)
+    np.testing.assert_array_equal(d_b, [1, 0])
 
 if __name__ == "__main__":
     testBIC()
