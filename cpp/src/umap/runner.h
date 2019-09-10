@@ -69,18 +69,6 @@ __global__ void init_transform(int *indices, T *weights, int n,
 }
 
 /**
- * Simple helper function to set the values of an array to zero.
- *
- * @param vals array of values
- * @param nnz size of array of values
- */
-template <int TPB_X>
-__global__ void reset_vals(int *vals, int nnz) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < nnz) vals[row] = 0.0;
-}
-
-/**
  * Fit exponential decay curve to find the parameters
  * a and b, which are based on min_dist and spread
  * parameters.
@@ -328,7 +316,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   CUDA_CHECK(cudaFree(vals_normed));
 
-  reset_vals<TPB_X><<<grid_n, blk, 0, stream>>>(ia, n);
+  MLCommon::LinAlg::unaryOp<int>(
+    ia, ia, n, [=] __device__(int input) { return 0.0; }, stream);
+
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
