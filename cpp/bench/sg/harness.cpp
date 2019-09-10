@@ -58,7 +58,7 @@ void Harness::RunAll() {
   ASSERT(b.initialized, "Harness::RunAll: Not yet initialized!");
   for (auto itr : b.runners) {
     auto ret = itr.second->run(itr.first, b.toRun);
-    b.info.push_back(ret);
+    if (!ret.empty()) b.info.push_back(ret);
   }
   if (b.info.empty()) printf("No benchmarks ran!\n");
 }
@@ -75,7 +75,9 @@ void Harness::PrintResultsInCsv() {
 size_t Harness::TotalTestsRun() {
   auto &b = get();
   ASSERT(b.initialized, "Harness::RunAll: Not yet initialized!");
-  return b.info.size();
+  size_t count = 0;
+  for (const auto &itr : b.info) count += itr.size();
+  return count;
 }
 
 void Harness::RegisterRunner(const std::string &name,
