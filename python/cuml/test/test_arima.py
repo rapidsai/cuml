@@ -78,6 +78,24 @@ def test_arima_start_params():
     np.testing.assert_array_almost_equal(arma, arma_ref)
 
 
+def test_transform():
+    
+    x0 = np.array([ -36.24493319,   -0.76159416,   -0.76159416, -167.65533746,
+                    -0.76159416,   -0.76159416])
+
+    # Without corrections to the MA parameters, this inverse transform will return NaN
+    Tx0 = arima.batch_invtrans(0, 1, 2, 2, x0)
+
+    assert(not np.isnan(Tx0).any())
+    
+    Tx0 = arima.batch_invtrans(2, 1, 0, 2, x0)
+
+    assert(not np.isnan(Tx0).any())
+
+    # print("sm(success)", _ma_invtransparams(np.array([-0.237406, -0.761594])))
+    # print("sm(NaN)", _ma_invtransparams(np.array([-0.761594, -0.761594])))
+
+
 def test_log_likelihood():
     """
     Test loglikelihood against reference results using reference parameters
