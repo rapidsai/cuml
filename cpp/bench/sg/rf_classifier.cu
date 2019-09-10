@@ -121,7 +121,7 @@ std::vector<Params<D>> getInputs() {
   std::vector<Params<D>> out;
   Params<D> p;
   p.rowMajor = false;
-  p.cluster_std = (D)1.0;
+  p.cluster_std = (D)10.0;
   p.shuffle = false;
   p.center_box_min = (D)-10.0;
   p.center_box_max = (D)10.0;
@@ -133,7 +133,7 @@ std::vector<Params<D>> getInputs() {
   p.p.tree_params.min_rows_per_node = 3;
   p.p.tree_params.n_bins = 32;
   p.p.tree_params.bootstrap_features = true;
-  p.p.tree_params.quantile_per_tree = true;
+  p.p.tree_params.quantile_per_tree = false;
   p.p.tree_params.split_algo = 1;
   p.p.tree_params.split_criterion = (ML::CRITERION)0;
   p.p.n_trees = 500;
