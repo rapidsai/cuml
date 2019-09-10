@@ -58,7 +58,6 @@ void get_histogram_classification(
     get_minmax(data, flags, tempmem->d_colids->data(), nrows, ncols, n_nodes,
                tempmem->max_nodes_minmax, tempmem->d_globalminmax->data(),
                tempmem->h_globalminmax->data(), tempmem->stream);
-    CUDA_CHECK(cudaDeviceSynchronize());
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
