@@ -440,22 +440,28 @@ def init_x0(order, y):
     x0 = start_params((p, q, d), yd)
 
     mu, ar, ma = unpack(p, d, q, 1, x0)
+    
     # The inverse jones transform has domain [-1, 1]. Apply Tanh to ensure this range.
-    ar = [np.tanh(ar[0])]
-    ma = [np.tanh(ma[0])]
+    if p > 0:
+        ar = [np.tanh(ar[0])]
+    else:
+        ar = []
+    if q > 0:
+        ma = [np.tanh(ma[0])]
+    else:
+        ma = []
 
     x0 = pack(p, d, q, 1, mu, ar, ma)
 
     pynvtx_range_pop()
     return x0
 
-def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
+def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="bic"):
     """Grid search to find optimal (lowest `ic`) (p,_,q) values for each
     time-series in y_b, which is a dense `ndarray` with columns as time.
-    Optimality is based on minimizing AIC or BIC, which both sum negative
+    Optimality is based on minimizing BIC or AIC, which both sum negative
     log-likelihood against model complexity; Higher model complexity might
-    yield a lower negative LL, but at higher `aic` due to complexity term.
-
+    yield a lower negative LL, but at higher `bic` due to complexity term.
     """
 
     num_batches = y_b.shape[1]
@@ -472,7 +478,14 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
             if p == 0 and q == 0:
                 continue
 
-            b_model = fit(y_b, (p, d, q), 0.0, arparams, maparams)
+            x0 = np.array([])
+            for i in range(num_batches):
+                x0i = init_x0((p, d, q), y_b[:, i])
+                x0 = np.r_[x0, x0i]
+
+            mu0, ar0, ma0 = unpack(p, d, q, num_batches, x0)
+
+            b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
             if method == "aic":
                 ic = b_model.aic
@@ -485,8 +498,16 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
                 if ic_i < best_ic[i]:
                     best_model.order[i] = (p, d, q)
                     best_model.mu[i] = b_model.mu[i]
-                    best_model.ar_params[i] = b_model.ar_params[i]
-                    best_model.ma_params[i] = b_model.ma_params[i]
+
+                    if p > 0:
+                        best_model.ar_params[i] = b_model.ar_params[i]
+                    else:
+                        best_model.ar_params[i] = []
+                    if q > 0:
+                        best_model.ma_params[i] = b_model.ma_params[i]
+                    else:
+                        best_model.ma_params[i] = []
+
                     best_ic[i] = ic_i
 
     return (best_model, best_ic)
