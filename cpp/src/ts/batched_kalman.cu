@@ -616,6 +616,54 @@ void batched_kalman_filter(double* h_ys, int nobs,
   ML::POP_RANGE();
 }
 
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const std::vector<T>& v) {
+  if (!v.empty()) {
+    out << '[';
+    std::copy(v.begin(), v.end(), std::ostream_iterator<T>(out, ", "));
+    out << "\b\b]";
+  }
+  return out;
+}
+
+std::vector<double> fix_ar_ma_invparams(const vector<double>& old_params,
+                                        int pq, bool isAr = true) {
+  std::vector<double> params = old_params;
+  int num_batches = params.size() / pq;
+  int n = pq;
+
+  // The parameter must be within a "triangle" region. If not, we bring the parameter inside by 1%.
+  double eps = 0.99;
+
+  for (int ib = 0; ib < num_batches; ib++) {
+    for (int i = 0; i < n; i++) {
+      double sum = 0.0;
+      for (int j = 0; j < i; j++) {
+        sum += params[n - j - 1 + ib * n];
+      }
+
+      // AR is minus
+      if (isAr) {
+        // param < 1-sum(param)
+        params[n - i - 1 + ib * n] =
+          std::min((1 - sum) * eps, params[n - i - 1 + ib * n]);
+        // param > -(1-sum(param))
+        params[n - i - 1 + ib * n] =
+          std::max(-(1 - sum) * eps, params[n - i - 1 + ib * n]);
+      } else {
+        // MA is plus
+        // param < 1+sum(param)
+        params[n - i - 1 + ib * n] =
+          std::min((1 + sum) * eps, params[n - i - 1 + ib * n]);
+        // param > -(1+sum(param))
+        params[n - i - 1 + ib * n] =
+          std::max(-(1 + sum) * eps, params[n - i - 1 + ib * n]);
+      }
+    }
+  }
+  return params;
+}
+
 void batched_jones_transform(int p, int q, int batchSize, bool isInv,
                              const vector<double>& ar, const vector<double>& ma,
                              vector<double>& Tar, vector<double>& Tma) {
@@ -632,11 +680,20 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
   cudaStream_t stream = 0;
 
   if (p > 0) {
+    // inverse transform will produce NaN if parameters are outside of a "triangle" region
+    vector<double> ar_fixed;
+    if (isInv) {
+      ar_fixed = fix_ar_ma_invparams(ar, p, true);
+    } else {
+      ar_fixed = ar;
+    }
+
     Tar.resize(p * batchSize);
     GPU_CTX->allocate_if_zero(GPU_CTX->d_ar, p * batchSize);
     GPU_CTX->allocate_if_zero(GPU_CTX->d_Tar, p * batchSize);
 
-    MLCommon::updateDevice(GPU_CTX->d_ar, ar.data(), p * batchSize, stream);
+    MLCommon::updateDevice(GPU_CTX->d_ar, ar_fixed.data(), p * batchSize,
+                           stream);
 
     MLCommon::TimeSeries::jones_transform(GPU_CTX->d_ar, batchSize, p,
                                           GPU_CTX->d_Tar, true, isInv,
@@ -645,12 +702,21 @@ void batched_jones_transform(int p, int q, int batchSize, bool isInv,
     MLCommon::updateHost(Tar.data(), GPU_CTX->d_Tar, p * batchSize, stream);
   }
   if (q > 0) {
+    // inverse transform will produce NaN if parameters are outside of a "triangle" region
+    vector<double> ma_fixed;
+    if (isInv) {
+      ma_fixed = fix_ar_ma_invparams(ma, q, false);
+    } else {
+      ma_fixed = ma;
+    }
+
     Tma.resize(q * batchSize);
 
     GPU_CTX->allocate_if_zero(GPU_CTX->d_ma, q * batchSize);
     GPU_CTX->allocate_if_zero(GPU_CTX->d_Tma, q * batchSize);
 
-    MLCommon::updateDevice(GPU_CTX->d_ma, ma.data(), q * batchSize, stream);
+    MLCommon::updateDevice(GPU_CTX->d_ma, ma_fixed.data(), q * batchSize,
+                           stream);
 
     MLCommon::TimeSeries::jones_transform(GPU_CTX->d_ma, batchSize, q,
                                           GPU_CTX->d_Tma, false, isInv,
