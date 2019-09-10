@@ -130,6 +130,10 @@ struct Dataset : public DatasetParams {
    * @param cols number of columns
    * @param isRowMajor whether to store the input in row or col major
    * @param nclass number of classes (meaningful only for classification)
+   * @param readOp functor/operator to take the current row of values and update
+   *               the dataset accordingly. Its signature is expected to be:
+   * `void readOp(const std::vector<std::string>& row, std::vector<D>& X,
+   *              std::vector<L>& y, int lineNum, bool rowMajor);`
    */
   template <typename Lambda>
   void read_csv(const cumlHandle& handle, const std::string& csvfile, int rows,
@@ -151,7 +155,7 @@ struct Dataset : public DatasetParams {
     int break_cnt = nrows;
     while (getline(myfile, line) && (counter < nrows)) {
       std::stringstream str(line);
-      std::vector<D> row;
+      std::vector<std::string> row;
       float i;
       while (str >> i) {
         row.push_back(i);
