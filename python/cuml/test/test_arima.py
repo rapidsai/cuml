@@ -321,6 +321,19 @@ def bench_arima(num_batches=240, plot=False):
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
 
+def test_grid_search(num_batches=2):
+    ns = len(t)
+    y_b = np.zeros((ns, num_batches))
+
+    for i in range(num_batches):
+        y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
+
+    best_model, ic = arima.grid_search(y_b, d=1)
+
+    if num_batches == 2:
+        np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
+
+
 def test_stationarity():
 
     num_samples = 200
@@ -338,9 +351,15 @@ def test_stationarity():
     d_b = stationarity(ys_df)
     np.testing.assert_array_equal(d_b, [1, 0])
 
+
+
 if __name__ == "__main__":
     testBIC()
     testFit_Predict_Forecast()
     test_arima_start_params()
     test_log_likelihood()
+    test_gradient()
+    test_transform()
+    
+    test_grid_search(2)
     # bench_arima(num_batches=200)
