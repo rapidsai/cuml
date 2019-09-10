@@ -122,7 +122,7 @@ struct Dataset : public DatasetParams {
   }
 
   /**
-   * @brief Read the input csv file and construct the dataset
+   * @brief Read the input csv file and construct the dataset.
    * @tparam Lambda lambda to customize how to read the data and labels
    * @param handle cuml handle
    * @param csvfile the csv file
@@ -154,13 +154,7 @@ struct Dataset : public DatasetParams {
     int counter = 0;
     int break_cnt = nrows;
     while (getline(myfile, line) && (counter < nrows)) {
-      std::stringstream str(line);
-      std::vector<std::string> row;
-      float i;
-      while (str >> i) {
-        row.push_back(i);
-        if (str.peek() == ',') str.ignore();
-      }
+      auto row = split(line, ',');
       readOp(row, _X, _y, counter, rowMajor);
       counter++;
     }
@@ -179,6 +173,16 @@ struct Dataset : public DatasetParams {
     ncols = cols;
     X = (D*)allocator->allocate(nrows * ncols * sizeof(D), stream);
     y = (L*)allocator->allocate(nrows * sizeof(L), stream);
+  }
+
+  std::vector<std::string> split(const std::string& str, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream iss(str);
+    while (std::getline(iss, token, delimiter)) {
+      tokens.push_back(token);
+    }
+    return tokens;
   }
 };
 
