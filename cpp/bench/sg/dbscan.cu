@@ -32,8 +32,7 @@ struct Params : public BlobsParams<D> {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << ";min_pts=" << min_pts << ";eps=" << eps
-        << ";max_bytes_per_batch=" << max_bytes_per_batch;
+    oss << PARAM(min_pts) << PARAM(eps) << PARAM(max_bytes_per_batch);
     return BlobsParams<D>::str() + oss.str();
   }
 };

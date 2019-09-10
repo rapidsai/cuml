@@ -30,11 +30,9 @@ struct Params : public BlobsParams<D> {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << ";init=" << p.init << ";max_iter=" << p.max_iter << ";tol=" << p.tol
-        << ";verbose=" << p.verbose << ";metric=" << p.metric
-        << ";oversampling_factor=" << p.oversampling_factor
-        << ";batch_size=" << p.batch_size
-        << ";inertia-check=" << p.inertia_check;
+    oss << PARAM(p.init) << PARAM(p.max_iter) << PARAM(p.tol) << PARAM(p.metric)
+        << PARAM(p.oversampling_factor) << PARAM(p.batch_size)
+        << PARAM(p.inertia_check);
     return BlobsParams<D>::str() + oss.str();
   }
 };

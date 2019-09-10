@@ -30,6 +30,8 @@
 namespace ML {
 namespace Bench {
 
+#define PARAM(val) #val << "=" << val << ";"
+
 /**
  * Indicates the dataset size. This is supposed to be used as the base class
  * by every Benchmark's Params structure.
@@ -46,8 +48,7 @@ struct DatasetParams {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << "nrows=" << nrows << ";ncols=" << ncols << ";nclasses=" << nclasses
-        << ";rowMajor=" << rowMajor;
+    oss << PARAM(nrows) << PARAM(ncols) << PARAM(nclasses) << PARAM(rowMajor);
     return oss.str();
   }
 };
@@ -62,9 +63,8 @@ struct BlobsParams : public DatasetParams {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << ";cluster_std=" << cluster_std << ";shuffle=" << shuffle
-        << ";center_box_min=" << center_box_min
-        << ";center_box_max=" << center_box_max << ";seed=" << seed;
+    oss << PARAM(cluster_std) << PARAM(shuffle) << PARAM(center_box_min)
+        << PARAM(center_box_max) << PARAM(seed);
     return DatasetParams::str() + oss.str();
   }
 };
