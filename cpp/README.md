@@ -35,6 +35,7 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+| BUILD_CUML_BENCH | [ON, OFF] | OFF | Enable/disable building oc cuML C++ benchark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compiles only for that.  |
@@ -46,6 +47,7 @@ After running CMake in a `build` directory, if the `BUILD_*` options were not tu
 
 ```bash
 $ make -j # Build libcuml++ and all tests
+$ make -j bench # Build c++ cuml benchmark
 $ make -j cuml++ # Build libcuml++
 $ make -j ml # Build ml_test algorithm tests binary
 $ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
