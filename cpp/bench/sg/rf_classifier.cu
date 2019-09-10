@@ -30,17 +30,14 @@ struct Params : public BlobsParams<D> {
 
   std::string str() const {
     std::ostringstream oss;
-    oss << ";n_trees=" << p.n_trees << ";bootstrap=" << p.bootstrap
-        << ";rows_sample=" << p.rows_sample << ";n_streams=" << p.n_streams
-        << ";max_depth=" << p.tree_params.max_depth
-        << ";max_leaves=" << p.tree_params.max_leaves
-        << ";max_features=" << p.tree_params.max_features
-        << ";n_bins=" << p.tree_params.n_bins
-        << ";split_algo=" << p.tree_params.split_algo
-        << ";min_rows_per_node=" << p.tree_params.min_rows_per_node
-        << ";bootstrap_features=" << p.tree_params.bootstrap_features
-        << ";quantile_per_tree=" << p.tree_params.quantile_per_tree
-        << ";split_criterion=" << p.tree_params.split_criterion;
+    oss << PARAM(p.n_trees) << PARAM(p.bootstrap) << PARAM(p.rows_sample)
+        << PARAM(p.n_streams) << PARAM(p.tree_params.max_depth)
+        << PARAM(p.tree_params.max_leaves) << PARAM(p.tree_params.max_features)
+        << PARAM(p.tree_params.n_bins) << PARAM(p.tree_params.split_algo)
+        << PARAM(p.tree_params.min_rows_per_node)
+        << PARAM(p.tree_params.bootstrap_features)
+        << PARAM(p.tree_params.quantile_per_tree)
+        << PARAM(p.tree_params.split_criterion);
     return BlobsParams<D>::str() + oss.str();
   }
 };
