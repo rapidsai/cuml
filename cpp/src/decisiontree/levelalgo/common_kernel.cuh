@@ -61,7 +61,6 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
     }
 
     __syncthreads();
-
     if (local_flag != LEAF) {
       int col = colids[local_flag * ncols + colcnt];
       T local_data = data[col * nrows + tid];

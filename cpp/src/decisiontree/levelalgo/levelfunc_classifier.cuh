@@ -90,10 +90,9 @@ void grow_deep_tree_classification(
   unsigned int* h_colids = tempmem->h_colids->data();
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
-
-    update_feature_sampling(h_colids, d_colids, Ncols, ncols, n_nodes,
-                            tempmem->stream);
     n_nodes = n_nodes_nextitr;
+    update_feature_sampling(h_colids, d_colids, Ncols, ncols, n_nodes, depth,
+                            tempmem->stream);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
     ASSERT(
