@@ -23,10 +23,12 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              const int n_nodes, const int curr_depth,
                              const cudaStream_t &stream) {
   std::vector<unsigned int> feature_selector;
+  feature_selector.resize(Ncols);
+  std::iota(feature_selector.begin(), feature_selector.end(), 0);
   for (int nid = 0; nid < n_nodes; nid++) {
-    feature_selector.resize(Ncols);
-    std::iota(feature_selector.begin(), feature_selector.end(), 0);
     if (Ncols != ncols) {
+      feature_selector.resize(Ncols);
+      std::iota(feature_selector.begin(), feature_selector.end(), 0);
       std::random_shuffle(feature_selector.begin(), feature_selector.end());
       feature_selector.resize(ncols);
     }
