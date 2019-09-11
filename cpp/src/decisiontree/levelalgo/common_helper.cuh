@@ -19,14 +19,17 @@
 #include "stats/minmax.h"
 
 template <typename RNG_G, typename DIST>
-void update_feature_sampling(unsigned int *h_colstart, unsigned int *d_colstart,
+void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
+                             unsigned int *h_colstart, unsigned int *d_colstart,
                              const int Ncols, const int ncols,
                              const int n_nodes, RNG_G rng, DIST dist,
                              const cudaStream_t &stream) {
   if (Ncols != ncols) {
+    std::shuffle(h_colids, h_colids + Ncols, rng);
     for (int i = 0; i < n_nodes; i++) {
       h_colstart[i] = dist(rng);
     }
+    MLCommon::updateDevice(d_colids, h_colids, Ncols, stream);
     MLCommon::updateDevice(d_colstart, h_colstart, n_nodes, stream);
   }
 }
