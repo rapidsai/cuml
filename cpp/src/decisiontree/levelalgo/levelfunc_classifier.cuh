@@ -39,7 +39,7 @@ void grow_deep_tree_classification(
   const int maxleaves, const int min_rows_per_node,
   const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   std::vector<unsigned int> feature_selector;
   const int ncols = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
@@ -75,8 +75,10 @@ void grow_deep_tree_classification(
   std::vector<int> sparse_nodelist;
   sparse_nodelist.reserve(pow(2, maxdepth));
   sparse_nodelist.push_back(0);
-  //this can be depth loop
 
+  //RNG setup
+  std::mt19937 mtg(treeid * 1000);
+  std::uniform_int_distribution<unsigned int> dist(0, Ncols - 1);
   //Setup pointers
   unsigned int* d_histogram = tempmem->d_histogram->data();
   unsigned int* h_histogram = tempmem->h_histogram->data();
@@ -88,11 +90,18 @@ void grow_deep_tree_classification(
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
   unsigned int* d_colids = tempmem->d_colids->data();
   unsigned int* h_colids = tempmem->h_colids->data();
+  unsigned int* d_colstart = tempmem->d_colstart->data();
+  unsigned int* h_colstart = tempmem->h_colstart->data();
+  MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+  CUDA_CHECK(cudaMemsetAsync(
+    d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
+    tempmem->stream));
+
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
-    update_feature_sampling(h_colids, d_colids, Ncols, ncols, n_nodes, depth,
-                            tempmem->stream);
+    update_feature_sampling(h_colstart, d_colstart, Ncols, ncols, n_nodes, mtg,
+                            dist, tempmem->stream);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
     ASSERT(
@@ -101,24 +110,24 @@ void grow_deep_tree_classification(
       n_nodes, tempmem->max_nodes_per_level, depth);
 
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
-                                 ncols, n_unique_labels, nbins, n_nodes,
+                                 Ncols, ncols, n_unique_labels, nbins, n_nodes,
                                  split_algo, tempmem, d_histogram);
 
     float* infogain = tempmem->h_outgain->data();
     if (split_cr == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
-        h_histogram, d_histogram, h_colids, d_colids, ncols, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
-        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
+        Ncols, ncols, nbins, n_unique_labels, n_nodes, depth, min_rows_per_node,
+        split_algo, infogain, sparse_histstate, sparsetree, sparsesize,
+        sparse_nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+        d_split_binidx, tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
-        h_histogram, d_histogram, h_colids, d_colids, ncols, nbins,
-        n_unique_labels, n_nodes, depth, min_rows_per_node, split_algo,
-        infogain, sparse_histstate, sparsetree, sparsesize, sparse_nodelist,
-        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-        tempmem);
+        h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
+        Ncols, ncols, nbins, n_unique_labels, n_nodes, depth, min_rows_per_node,
+        split_algo, infogain, sparse_histstate, sparsetree, sparsesize,
+        sparse_nodelist, h_split_colidx, h_split_binidx, d_split_colidx,
+        d_split_binidx, tempmem);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
@@ -129,7 +138,7 @@ void grow_deep_tree_classification(
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-    make_level_split(data, nrows, ncols, nbins, n_nodes, split_algo,
+    make_level_split(data, nrows, Ncols, ncols, nbins, n_nodes, split_algo,
                      d_split_colidx, d_split_binidx, d_new_node_flags, flagsptr,
                      tempmem);
   }

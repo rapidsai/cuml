@@ -16,6 +16,7 @@
 
 #include <utils.h>
 #include <queue>
+#include <random>
 #include <type_traits>
 #include "decisiontree_impl.h"
 #include "levelalgo/levelfunc_classifier.cuh"
@@ -216,12 +217,26 @@ void DecisionTreeBase<T, L>::plant(
   CUDA_CHECK(cudaStreamSynchronize(
     tempmem->stream));  // added to ensure accurate measurement
 
+  //Bootstrap features
+  std::vector<unsigned int> feature_selector;
+  feature_selector.resize(dinfo.Ncols);
+  if (bootstrap_features) {
+    for (int i = 0; i < dinfo.Ncols; i++) {
+      feature_selector.push_back(rand() % dinfo.Ncols);
+    }
+  } else {
+    std::iota(feature_selector.begin(), feature_selector.end(), 0);
+  }
+  std::mt19937 mtg(treeid * 1000);
+  std::shuffle(feature_selector.begin(), feature_selector.end(), mtg);
+  memcpy(tempmem->h_colids->data(), feature_selector.data(),
+         dinfo.Ncols * sizeof(unsigned int));
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
   grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols, colper,
-                 dinfo.NLocalrows, sparsetree, tempmem);
+                 dinfo.NLocalrows, sparsetree, treeid, tempmem);
   train_time = timer.getElapsedSeconds();
   tempmem.reset();
 }
@@ -330,8 +345,8 @@ void DecisionTreeBase<T, L>::base_fit(
   } else {
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
       device_allocator_in, host_allocator_in, stream_in, nrows, ncols,
-      unique_labels, tree_params.n_bins, tree_params.split_algo,
-      tree_params.max_depth);
+      tree_params.max_features, unique_labels, tree_params.n_bins,
+      tree_params.split_algo, tree_params.max_depth);
     tree_params.quantile_per_tree = true;
   }
 
@@ -406,14 +421,14 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   const T *data, const int *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, int>> &sparsetree,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_classification(
     data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
     this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
     this->min_rows_per_node, this->split_criterion, this->split_algo, depth_cnt,
-    leaf_cnt, sparsetree, tempmem);
+    leaf_cnt, sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
@@ -423,14 +438,14 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   const T *data, const T *labels, unsigned int *rowids,
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, T>> &sparsetree,
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_regression(data, labels, rowids, ncols, colper, n_sampled_rows,
                             nrows, this->nbins, this->treedepth,
                             this->maxleaves, this->min_rows_per_node,
                             this->split_criterion, this->split_algo, depth_cnt,
-                            leaf_cnt, sparsetree, tempmem);
+                            leaf_cnt, sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }

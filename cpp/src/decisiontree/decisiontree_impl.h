@@ -96,7 +96,7 @@ class DecisionTreeBase {
     const T *data, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, const int ncols, const float colper,
     const int nrows, std::vector<SparseTreeNode<T, L>> &sparsetree,
-    std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
+    const int treeid, std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(
     const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
@@ -156,6 +156,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
                       const int n_sampled_rows, const int ncols,
                       const float colper, const int nrows,
                       std::vector<SparseTreeNode<T, int>> &sparsetree,
+                      const int treeid,
                       std::shared_ptr<TemporaryMemory<T, int>> tempmem);
 
 };  // End DecisionTreeClassifier Class
@@ -183,6 +184,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
                       const int n_sampled_rows, const int ncols,
                       const float colper, const int nrows,
                       std::vector<SparseTreeNode<T, T>> &sparsetree,
+                      const int treeid,
                       std::shared_ptr<TemporaryMemory<T, T>> tempmem);
 
 };  // End DecisionTreeRegressor Class
