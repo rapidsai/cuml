@@ -186,7 +186,7 @@ def test_umap_transform_on_iris():
 
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.89
-    
+
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_umap_fit_transform_trust(name):
