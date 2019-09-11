@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "internals/internals.h"
 #include <string>
+#include "internals/internals.h"
 
 namespace ML {
 
@@ -146,7 +146,7 @@ class UMAPParams {
          */
   int target_n_neighbors = -1;
 
-  MetricType target_metric = EUCLIDEAN;
+  MetricType target_metric = CATEGORICAL;
 
   float target_weights = 0.5;
 
