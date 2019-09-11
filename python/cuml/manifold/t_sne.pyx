@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
 from cuml.utils import input_to_dev_array as to_cuda
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -340,7 +340,7 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = cuda.device_array(
+        Y = rmm.device_array(
             (n, self.n_components),
             order="F",
             dtype=np.float32)

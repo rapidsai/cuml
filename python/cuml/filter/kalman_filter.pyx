@@ -24,6 +24,7 @@ import numpy as np
 
 from numba import cuda
 from cuml.utils import numba_utils
+from librmm_cffi import librmm as rmm
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -138,7 +139,7 @@ class KalmanFilter(Base):
     .. code::
 
         while some_condition_is_true:
-            z = numba.cuda.to_device(np.array([i])
+            z = numba.rmm.to_device(np.array([i])
             f.predict()
             f.update(z)
 
@@ -215,15 +216,15 @@ class KalmanFilter(Base):
         R = np.eye(dim_z, dtype=self.dtype)
         z = np.array([[0]*dim_z], dtype=self.dtype).T
 
-        self.F = cuda.to_device(Phi)
-        self.x = cuda.to_device(x_up)
-        self.x_prev = cuda.to_device(x_est)
-        self.P = cuda.to_device(P_up)
-        self.P_prev = cuda.to_device(P_est)
-        self.Q = cuda.to_device(Q)
-        self.H = cuda.to_device(H)
-        self.R = cuda.to_device(R)
-        self.z = cuda.to_device(z)
+        self.F = rmm.to_device(Phi)
+        self.x = rmm.to_device(x_up)
+        self.x_prev = rmm.to_device(x_est)
+        self.P = rmm.to_device(P_up)
+        self.P_prev = rmm.to_device(P_est)
+        self.Q = rmm.to_device(Q)
+        self.H = rmm.to_device(H)
+        self.R = rmm.to_device(R)
+        self.z = rmm.to_device(z)
 
         self.dim_x = dim_x
         self.dim_z = dim_z
@@ -261,7 +262,7 @@ class KalmanFilter(Base):
                                                     <float*> _R_ptr,
                                                     <float*> _H_ptr)
 
-        self.workspace = cuda.to_device(zeros(workspace_size,
+        self.workspace = rmm.to_device(zeros(workspace_size,
                                               dtype=self.dtype))
         self._workspace_size = workspace_size
 
@@ -435,7 +436,7 @@ class KalmanFilter(Base):
             z_ptr = self._get_column_ptr(z)
 
         elif isinstance(z, np.ndarray):
-            z_dev = cuda.to_device(z)
+            z_dev = rmm.to_device(z)
             z_ptr = z.device_ctypes_pointer.value
 
         elif cuda.devicearray.is_cuda_ndarray(z):
@@ -525,7 +526,7 @@ class KalmanFilter(Base):
 
             elif (isinstance(value, np.ndarray) or
                   cuda.devicearray.is_cuda_ndarray(value)):
-                val = cuda.to_device(value)
+                val = rmm.to_device(value)
 
             super(KalmanFilter, self).__setattr__(name, val)
 
