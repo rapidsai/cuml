@@ -46,4 +46,4 @@ class RegressorMixin:
         X_m = input_to_dev_array(X)[0]
         y_m = input_to_dev_array(y)[0]
 
-        return r2_score(y_m, cuda.to_device(self.predict(X_m)))
+        return r2_score(y_m, rmm.to_device(self.predict(X_m)))
