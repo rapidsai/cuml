@@ -69,22 +69,10 @@ __global__ void init_transform(int *indices, T *weights, int n,
 }
 
 /**
-     * Simple helper function to set the values of an array to zero.
-     *
-     * @param vals array of values
-     * @param nnz size of array of values
-     */
-template <int TPB_X>
-__global__ void reset_vals(int *vals, int nnz) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < nnz) vals[row] = 0.0;
-}
-
-/**
-     * Firt exponential decay curve to find the parameters
-     * a and b, which are based on min_dist and spread
-     * parameters.
-     */
+ * Fit exponential decay curve to find the parameters
+ * a and b, which are based on min_dist and spread
+ * parameters.
+ */
 void find_ab(UMAPParams *params, cudaStream_t stream) {
   Optimize::find_params_ab(params, stream);
 }
@@ -104,8 +92,8 @@ void _fit(const cumlHandle &handle,
   find_ab(params, stream);
 
   /**
-		 * Allocate workspace for kNN graph
-		 */
+   * Allocate workspace for kNN graph
+   */
   long *knn_indices;
   T *knn_dists;
 
@@ -121,8 +109,8 @@ void _fit(const cumlHandle &handle,
                                params, stream);
 
   /**
-		 * Remove zeros from simplicial set
-		 */
+   * Remove zeros from simplicial set
+   */
   int *row_count_nz, *row_count;
   MLCommon::allocate(row_count_nz, n, true);
   MLCommon::allocate(row_count, n, true);
@@ -132,8 +120,8 @@ void _fit(const cumlHandle &handle,
                                                stream);
 
   /**
-         * Run initialization method
-         */
+   * Run initialization method
+   */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
                  embeddings, stream, params->init);
 
@@ -148,8 +136,7 @@ void _fit(const cumlHandle &handle,
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                stream);
 
-  if (params->callback)
-    params->callback->on_train_end(embeddings);
+  if (params->callback) params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
@@ -170,8 +157,8 @@ void _fit(const cumlHandle &handle,
   find_ab(params, stream);
 
   /**
-         * Allocate workspace for kNN graph
-         */
+   * Allocate workspace for kNN graph
+   */
   long *knn_indices;
   T *knn_dists;
 
@@ -182,14 +169,14 @@ void _fit(const cumlHandle &handle,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Allocate workspace for fuzzy simplicial set.
-         */
+   * Allocate workspace for fuzzy simplicial set.
+   */
   COO<T> rgraph_coo;
   COO<T> tmp_coo;
 
   /**
-         * Run Fuzzy simplicial set
-         */
+   * Run Fuzzy simplicial set
+   */
   //int nnz = n*k*2;
   FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, params->n_neighbors,
                                &tmp_coo, params, stream);
@@ -200,9 +187,9 @@ void _fit(const cumlHandle &handle,
   COO<T> final_coo;
 
   /**
-         * If target metric is 'categorical', perform
-         * categorical simplicial set intersection.
-         */
+   * If target metric is 'categorical', perform
+   * categorical simplicial set intersection.
+   */
   if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
     if (params->verbose)
       std::cout << "Performing categorical intersection" << std::endl;
@@ -210,8 +197,8 @@ void _fit(const cumlHandle &handle,
       y, &rgraph_coo, &final_coo, params, stream);
 
     /**
-         * Otherwise, perform general simplicial set intersection
-         */
+     * Otherwise, perform general simplicial set intersection
+     */
   } else {
     if (params->verbose)
       std::cout << "Performing general intersection" << std::endl;
@@ -220,29 +207,27 @@ void _fit(const cumlHandle &handle,
   }
 
   /**
-         * Remove zeros
-         */
+   * Remove zeros
+   */
   MLCommon::Sparse::coo_sort<T>(&final_coo, stream);
 
   COO<T> ocoo;
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
 
   /**
-         * Initialize embeddings
-         */
+   * Initialize embeddings
+   */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
 
-  if (params->callback)
-    params->callback->on_preprocess_end(embeddings);
+  if (params->callback) params->callback->on_preprocess_end(embeddings);
 
   /**
-         * Run simplicial set embedding to approximate low-dimensional representation
-         */
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, stream);
 
-  if (params->callback)
-    params->callback->on_train_end(embeddings);
+  if (params->callback) params->callback->on_train_end(embeddings);
 
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -291,16 +276,16 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     adjusted_local_connectivity, stream);
 
   /**
-         * Compute graph of membership strengths
-         */
+   * Compute graph of membership strengths
+   */
 
   int nnz = n * params->n_neighbors;
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
   /**
-         * Allocate workspace for fuzzy simplicial set.
-         */
+   * Allocate workspace for fuzzy simplicial set.
+   */
 
   COO<T> graph_coo(nnz, n, n);
 
@@ -331,25 +316,31 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   CUDA_CHECK(cudaFree(vals_normed));
 
-  reset_vals<TPB_X><<<grid_n, blk, 0, stream>>>(ia, n);
+  MLCommon::LinAlg::unaryOp<int>(
+    ia, ia, n, [=] __device__(int input) { return 0.0; }, stream);
+
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Go through COO values and set everything that's less than
-         * vals.max() / params->n_epochs to 0.0
-         */
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
   thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(graph_coo.vals);
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
   if (params->n_epochs <= 0) {
-    if (graph_coo.nnz <= 10000)
+    if (n <= 10000)
       n_epochs = 100;
     else
       n_epochs = 30;
   } else {
     n_epochs /= 3;
+  }
+
+  if (params->verbose) {
+    std::cout << "n_epochs=" << n_epochs << std::endl;
   }
 
   MLCommon::LinAlg::unaryOp<T>(
@@ -365,8 +356,8 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-         * Remove zeros
-         */
+   * Remove zeros
+   */
   MLCommon::Sparse::COO<T> comp_coo;
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, stream);
 
