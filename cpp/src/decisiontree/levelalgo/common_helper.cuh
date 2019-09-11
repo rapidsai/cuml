@@ -18,9 +18,25 @@
 #include "common_kernel.cuh"
 #include "stats/minmax.h"
 
+template <typename RNG_G, typename DIST>
+void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
+                             unsigned int *h_colstart, unsigned int *d_colstart,
+                             const int Ncols, const int ncols,
+                             const int n_nodes, RNG_G rng, DIST dist,
+                             const cudaStream_t &stream) {
+  if (Ncols != ncols) {
+    std::shuffle(h_colids, h_colids + Ncols, rng);
+    for (int i = 0; i < n_nodes; i++) {
+      h_colstart[i] = dist(rng);
+    }
+    MLCommon::updateDevice(d_colids, h_colids, Ncols, stream);
+    MLCommon::updateDevice(d_colstart, h_colstart, n_nodes, stream);
+  }
+}
 template <typename T>
 void get_minmax(const T *data, const unsigned int *flags,
-                const unsigned int *colids, const int nrows, const int ncols,
+                const unsigned int *colids, const unsigned int *colstart,
+                const int nrows, const int Ncols, const int ncols,
                 const int n_nodes, const int max_shmem_nodes, T *d_minmax,
                 T *h_minmax, cudaStream_t &stream) {
   using E = typename MLCommon::Stats::encode_traits<T>::E;
@@ -35,10 +51,11 @@ void get_minmax(const T *data, const unsigned int *flags,
   if (n_nodes <= max_shmem_nodes) {
     get_minmax_kernel<T, E>
       <<<nblocks, threads, 2 * n_nodes * sizeof(T), stream>>>(
-        data, flags, colids, nrows, ncols, n_nodes, init_val, d_minmax);
+        data, flags, colids, colstart, nrows, Ncols, ncols, n_nodes, init_val,
+        d_minmax);
   } else {
     get_minmax_kernel_global<T, E><<<nblocks, threads, 0, stream>>>(
-      data, flags, colids, nrows, 1, n_nodes, d_minmax);
+      data, flags, colids, colstart, nrows, Ncols, ncols, n_nodes, d_minmax);
   }
   CUDA_CHECK(cudaGetLastError());
 
@@ -67,10 +84,11 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
 
 //This function call the split kernel
 template <typename T, typename L>
-void make_level_split(const T *data, const int nrows, const int ncols,
-                      const int nbins, const int n_nodes, const int split_algo,
-                      int *split_colidx, int *split_binidx,
-                      const unsigned int *new_node_flags, unsigned int *flags,
+void make_level_split(const T *data, const int nrows, const int Ncols,
+                      const int ncols, const int nbins, const int n_nodes,
+                      const int split_algo, int *split_colidx,
+                      int *split_binidx, const unsigned int *new_node_flags,
+                      unsigned int *flags,
                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
@@ -78,14 +96,14 @@ void make_level_split(const T *data, const int nrows, const int ncols,
     split_level_kernel<T, MinMaxQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_globalminmax->data(), tempmem->d_colids->data(),
-        split_colidx, split_binidx, nrows, ncols, nbins, n_nodes,
-        new_node_flags, flags);
+        tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
+        ncols, nbins, n_nodes, new_node_flags, flags);
   } else {
     split_level_kernel<T, QuantileQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_quantile->data(), tempmem->d_colids->data(),
-        split_colidx, split_binidx, nrows, ncols, nbins, n_nodes,
-        new_node_flags, flags);
+        tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
+        ncols, nbins, n_nodes, new_node_flags, flags);
   }
   CUDA_CHECK(cudaGetLastError());
 }
@@ -101,13 +119,14 @@ int get_class_hist(std::vector<int> &node_hist) {
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
                const int colid, const int binid, const int nodeid,
-               const int n_nodes, const std::vector<unsigned int> &colselector,
+               const int n_nodes, const unsigned int *colselector,
+               const unsigned int colstart, const int Ncols,
                const int split_algo) {
   if (split_algo == 0) {
     T min = minmax[nodeid + colid * n_nodes * 2];
     T delta = (minmax[nodeid + n_nodes + colid * n_nodes * 2] - min) / nbins;
     return (min + delta * (binid + 1));
   } else {
-    return quantile[colselector[colid] * nbins + binid];
+    return quantile[colselector[(colstart + colid) % Ncols] * nbins + binid];
   }
 }
