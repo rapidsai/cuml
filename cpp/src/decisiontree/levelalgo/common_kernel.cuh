@@ -43,15 +43,20 @@ template <typename T, typename E>
 __global__ void get_minmax_kernel(const T* __restrict__ data,
                                   const unsigned int* __restrict__ flags,
                                   const unsigned int* __restrict__ colids,
-                                  const int nrows, const int ncols,
-                                  const int n_nodes, T init_min_val,
-                                  T* minmax) {
+                                  const unsigned int* __restrict__ colstart,
+                                  const int nrows, const int Ncols,
+                                  const int ncols, const int n_nodes,
+                                  T init_min_val, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
+  unsigned int colst;
   extern __shared__ char shared_mem_minmax[];
   T* shmem_minmax = (T*)shared_mem_minmax;
   if (tid < nrows) {
     local_flag = flags[tid];
+  }
+  if (local_flag != LEAF) {
+    colst = colstart[local_flag];
   }
   for (int colcnt = 0; colcnt < ncols; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
@@ -62,7 +67,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 
     __syncthreads();
     if (local_flag != LEAF) {
-      int col = colids[local_flag * ncols + colcnt];
+      int col = colids[(colst + colcnt) % Ncols];
       T local_data = data[col * nrows + tid];
       if (!isnan(local_data)) {
         //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -87,16 +92,18 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 template <typename T, typename E>
 __global__ void get_minmax_kernel_global(
   const T* __restrict__ data, const unsigned int* __restrict__ flags,
-  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
-  const int n_nodes, T* minmax) {
+  const unsigned int* __restrict__ colids, const unsigned int* colstart,
+  const int nrows, const int Ncols, const int ncols, const int n_nodes,
+  T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
   if (tid < nrows) {
     local_flag = flags[tid];
     if (local_flag != LEAF) {
+      unsigned int colst = colstart[local_flag];
       for (int colcnt = 0; colcnt < ncols; colcnt++) {
         int coloff = 2 * n_nodes * colcnt;
-        int col = colids[local_flag * ncols + colcnt];
+        int col = colids[(colst + colcnt) % Ncols];
         T local_data = data[col * nrows + tid];
         if (!isnan(local_data)) {
           //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -140,9 +147,10 @@ template <typename T, typename QuestionType>
 __global__ void split_level_kernel(
   const T* __restrict__ data, const T* __restrict__ question_ptr,
   const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart,
   const int* __restrict__ split_col_index,
-  const int* __restrict__ split_bin_index, const int nrows, const int ncols,
-  const int nbins, const int n_nodes,
+  const int* __restrict__ split_bin_index, const int nrows, const int Ncols,
+  const int ncols, const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
   unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -155,7 +163,7 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        int colid = colids[local_flag * ncols + colidx];
+        int colid = colids[(colstart[local_flag] + colidx) % Ncols];
         QuestionType question(question_ptr, colid, colidx, n_nodes, local_flag,
                               nbins);
         T quesval = question(split_bin_index[local_flag]);
