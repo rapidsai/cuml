@@ -218,19 +218,14 @@ void DecisionTreeBase<T, L>::plant(
     tempmem->stream));  // added to ensure accurate measurement
 
   //Bootstrap features
-  std::vector<unsigned int> feature_selector;
-  feature_selector.resize(dinfo.Ncols);
+  unsigned int *h_colids = tempmem->h_colids->data();
   if (bootstrap_features) {
     for (int i = 0; i < dinfo.Ncols; i++) {
-      feature_selector.push_back(rand() % dinfo.Ncols);
+      h_colids[i] = rand() % dinfo.Ncols;
     }
   } else {
-    std::iota(feature_selector.begin(), feature_selector.end(), 0);
+    std::iota(h_colids, h_colids + dinfo.Ncols, 0);
   }
-  std::mt19937 mtg(treeid * 1000);
-  std::shuffle(feature_selector.begin(), feature_selector.end(), mtg);
-  memcpy(tempmem->h_colids->data(), feature_selector.data(),
-         dinfo.Ncols * sizeof(unsigned int));
   prepare_time = prepare_fit_timer.getElapsedSeconds();
 
   total_temp_mem = tempmem->totalmem;
