@@ -64,7 +64,7 @@ def test_rf_classification(datatype, split_algo,
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle)
+    handle, stream = get_handle(use_handle, n_streams = 8)
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
@@ -120,7 +120,7 @@ def test_rf_regression(datatype, nrows, split_algo,
     y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle)
+    handle, stream = get_handle(use_handle, n_streams = 8)
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
