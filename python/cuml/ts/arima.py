@@ -138,7 +138,7 @@ def fit(y: np.ndarray,
         mu0: np.ndarray,
         ar_params0: List[np.ndarray],
         ma_params0: List[np.ndarray],
-        opt_disp=-1, h=1e-9, gpu=True, alpha_max=1000):
+        opt_disp=-1, h=1e-9, alpha_max=1000):
     """
     Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
     with the given initial parameters. `y` is (num_samples, num_batches)
