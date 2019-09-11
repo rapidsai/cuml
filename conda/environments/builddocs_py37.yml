@@ -28,4 +28,3 @@ dependencies:
 - pip
 - pip:
   - sphinx-markdown-tables
-  - cmake_setuptools
