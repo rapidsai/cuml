@@ -22,10 +22,9 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
-from sklearn.metrics import mean_squared_error
 
 
 def unit_param(*args, **kwargs):
@@ -49,7 +48,9 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_depth', [-1, 1, 16])
-def test_rf_classification(datatype, split_algo,
+@pytest.mark.parametrize('max_features', [0.8, 'auto',
+                                          'log2', 'sqrt'])
+def test_rf_classification(datatype, split_algo, max_features,
                            n_info, nrows, ncols, max_depth):
     use_handle = True
     if max_depth < 0:
@@ -82,7 +83,7 @@ def test_rf_classification(datatype, split_algo,
         # initialization, fit and predict
         sk_model = skrfc(n_estimators=40,
                          max_depth=(max_depth if max_depth > 0 else None),
-                         min_samples_split=2, max_features=1.0,
+                         min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
@@ -102,8 +103,11 @@ def test_rf_classification(datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_depth', [-1, 1, 16])
+@pytest.mark.parametrize('max_features', [1.0, 'auto',
+                                          'log2', 'sqrt'])
 def test_rf_regression(datatype, nrows, split_algo,
-                       n_info, max_depth, ncols):
+                       n_info, max_depth, ncols,
+                       max_features):
     use_handle = True
     if max_depth < 0:
         pytest.xfail("Unlimited depth not supported")
@@ -130,18 +134,20 @@ def test_rf_regression(datatype, nrows, split_algo,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=max_depth, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cu_mse = cuml_model.score(X_test, y_test)
+    cu_preds = cuml_model.predict(X_test)
+    cu_r2 = r2_score(y_test, cu_preds)
+
     if nrows < 500000:
         # sklearn random forest classification model
         # initialization, fit and predict
         sk_model = skrfr(n_estimators=50,
                          max_depth=(max_depth if max_depth > 0 else None),
-                         min_samples_split=2, max_features=1.0,
+                         min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
-        sk_mse = mean_squared_error(y_test, sk_predict)
+        sk_r2 = r2_score(y_test, sk_predict)
 
         # compare the accuracy of the two models
         if max_depth > 1:
-            assert cu_mse <= (sk_mse + 0.07)
+            assert cu_r2 >= (sk_r2 - 0.07)
