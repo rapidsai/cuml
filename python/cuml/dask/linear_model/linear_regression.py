@@ -26,7 +26,7 @@ import numpy as np
 from dask import delayed
 from dask.distributed import wait, default_client
 from math import ceil
-from numba import cuda
+from librmm_cffi import librmm as rmm
 from toolz import first
 from tornado import gen
 
@@ -497,8 +497,8 @@ def predict_to_device_arrays(arr, worker, loc_dict, nparts, dtype):
         part_size = ceil(nrows / nparts)
         up_limit = min((part_number+1)*part_size, nrows)
         mat = X.compute().as_gpu_matrix(order='F')
-        pred = cuda.to_device(np.zeros(up_limit-(part_number*part_size),
-                                       dtype=dtype))
+        pred = rmm.to_device(np.zeros(up_limit-(part_number*part_size),
+                                      dtype=dtype))
         mats.append([mat, coef.to_gpu_array(), pred])
 
     dev = device_of_devicendarray(mats[0][0])
@@ -516,14 +516,14 @@ def preprocess_on_worker(arr):
 
 
 def dev_array_on_worker(rows, dtype=np.float64, unique=0):
-    return cuda.to_device(np.zeros(rows, dtype=dtype))
+    return rmm.to_device(np.zeros(rows, dtype=dtype))
 
 
 # Need to have different named function for predict to avoid
 # dask key colision in case of same rows and columns between
 # different arrays
 def pred_array_on_worker(rows, cols, dtype=np.float64, unique=0):
-    return cuda.to_device(np.zeros((rows, cols), dtype=dtype))
+    return rmm.to_device(np.zeros((rows, cols), dtype=dtype))
 
 
 def preprocess_predict(arr):
