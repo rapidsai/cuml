@@ -283,7 +283,7 @@ class KMeans(Base):
             params.init = Array
             dim_cc = self.n_clusters * self.n_cols
             self.cluster_centers_ = rmm.device_array(dim_cc,
-                                                      dtype=self.dtype)
+                                                     dtype=self.dtype)
             si = self.init
             self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
@@ -535,7 +535,7 @@ class KMeans(Base):
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
         preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
-                                    dtype=self.dtype))
+                                   dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
 

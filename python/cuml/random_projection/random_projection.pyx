@@ -235,8 +235,8 @@ cdef class BaseRandomProjection():
                                                  else None))
 
         X_new = rmm.device_array((n_samples, self.params.n_components),
-                                  dtype=self.dtype,
-                                  order='F')
+                                 dtype=self.dtype,
+                                 order='F')
 
         cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
 
