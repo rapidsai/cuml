@@ -126,7 +126,7 @@ def clusters_equal(a0, b0, n_clusters):
     return array_equal(a, b)
 
 
-def get_handle(use_handle, n_streams = 0):
+def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
     h = cuml.Handle(n_streams)
