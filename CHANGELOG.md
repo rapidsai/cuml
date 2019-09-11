@@ -18,6 +18,7 @@
 - PR #990: Barnes Hut TSNE Memory Issue Fixes
 - PR #1072: Remove pip requirements and setup
 - PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
 
 # cuML 0.9.0 (21 Aug 2019)
 
