@@ -397,8 +397,8 @@ class UMAP(Base):
         self.raw_data_rows = n_rows
 
         self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
-                                               umap_params.n_components),
-                                              order="C", dtype=np.float32))
+                                              umap_params.n_components),
+                                             order="C", dtype=np.float32))
         self.embeddings = \
             self.arr_embed.device_ctypes_pointer.value
 
@@ -507,8 +507,8 @@ class UMAP(Base):
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
         embedding = rmm.to_device(zeros((X_m.shape[0],
-                                          umap_params.n_components),
-                                         order="C", dtype=np.float32))
+                                         umap_params.n_components),
+                                        order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
