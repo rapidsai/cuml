@@ -15,7 +15,7 @@
 #
 
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 
 class RegressorMixin:
