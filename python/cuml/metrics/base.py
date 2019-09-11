@@ -17,6 +17,7 @@
 
 class RegressorMixin:
     """Mixin class for regression estimators in"""
+
     _estimator_type = "regressor"
 
     def score(self, X, y, **kwargs):
@@ -37,4 +38,5 @@ class RegressorMixin:
             R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
+
         return r2_score(y.to_gpu_array(), self.predict(X).to_gpu_array())
