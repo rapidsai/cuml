@@ -129,7 +129,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * sizeof(float);
   totalmem += 3 * maxnodes * sizeof(T);
-  totalmem += ncols * sizeof(int);
+  totalmem += (ncols + maxnodes) * sizeof(int);
   //Regression
   if (typeid(L) == typeid(T)) {
     d_mseout = new MLCommon::device_buffer<T>(
