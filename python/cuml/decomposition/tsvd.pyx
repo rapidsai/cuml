@@ -272,7 +272,7 @@ class TruncatedSVD(Base):
        X : array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, rmm.array interface compliant array like CuPy
+           ndarray, cuda array interface compliant array like CuPy
 
         """
         cdef uintptr_t input_ptr
@@ -348,7 +348,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, rmm.array interface compliant array like CuPy
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
@@ -376,7 +376,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, rmm.array interface compliant array like CuPy
+           ndarray, cuda array interface compliant array like CuPy
 
         convert_dtype : bool, optional (default = False)
             When set to True, the inverse_transform method will automatically
@@ -442,7 +442,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, rmm.array interface compliant array like CuPy
+            ndarray, cuda array interface compliant array like CuPy
 
         convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
