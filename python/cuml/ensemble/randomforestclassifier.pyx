@@ -636,8 +636,8 @@ class RandomForestClassifier(Base):
         """
         if self.dtype == np.float64:
             raise TypeError("GPU predict model only accepts float32 dtype"
-                            " as input, convert the data to float32 or"
-                            " use the CPU predict model.")
+                            " as input, convert the data to float32 or "
+                            "use the CPU predict with `predict_model='CPU'`.")
 
         elif predict_model == "CPU" or predict_model is None:
             preds = self._predict_model_on_cpu(X)
