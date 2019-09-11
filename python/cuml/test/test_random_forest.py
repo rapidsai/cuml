@@ -69,8 +69,8 @@ def test_rf_classification(datatype, split_algo, max_features,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=max_features,
-                       n_bins=8, split_algo=split_algo, split_criterion=0,
+    cuml_model = curfc(max_features=1.0,
+                       n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=max_depth)
@@ -128,8 +128,8 @@ def test_rf_regression(datatype, nrows, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfr(max_features=max_features, rows_sample=1.0,
-                       n_bins=24, split_algo=split_algo, split_criterion=2,
+    cuml_model = curfr(max_features=1.0, rows_sample=1.0,
+                       n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=max_depth, accuracy_metric='mse')
