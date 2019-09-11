@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 import warnings
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -282,7 +282,7 @@ class KMeans(Base):
                                  % (self.init.shape, self.n_clusters))
             params.init = Array
             dim_cc = self.n_clusters * self.n_cols
-            self.cluster_centers_ = cuda.device_array(dim_cc,
+            self.cluster_centers_ = rmm.device_array(dim_cc,
                                                       dtype=self.dtype)
             si = self.init
             self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
@@ -293,7 +293,7 @@ class KMeans(Base):
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
             params.init = Array
-            self.cluster_centers_ = cuda.to_device(self.init.flatten())
+            self.cluster_centers_ = rmm.to_device(self.init.flatten())
 
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             params.init = KMeansPlusPlus
@@ -338,7 +338,7 @@ class KMeans(Base):
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             clust_cent = zeros(self.n_clusters * self.n_cols,
                                dtype=self.dtype)
-            self.cluster_centers_ = cuda.to_device(clust_cent)
+            self.cluster_centers_ = rmm.to_device(clust_cent)
 
         c_c = self.cluster_centers_
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
@@ -534,7 +534,7 @@ class KMeans(Base):
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(zeros(self.n_clusters*n_rows,
+        preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
                                     dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)

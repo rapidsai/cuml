@@ -26,7 +26,7 @@ import math
 import numpy as np
 import warnings
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -197,9 +197,9 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            preds = cuda.device_array(n_rows, dtype=np.float32)
+            preds = rmm.device_array(n_rows, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
-              not cuda.is_cuda_array(preds)):
+              not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
 

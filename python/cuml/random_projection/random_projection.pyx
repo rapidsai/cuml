@@ -22,7 +22,7 @@
 import cudf
 import numpy as np
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -234,7 +234,7 @@ cdef class BaseRandomProjection():
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None))
 
-        X_new = cuda.device_array((n_samples, self.params.n_components),
+        X_new = rmm.device_array((n_samples, self.params.n_components),
                                   dtype=self.dtype,
                                   order='F')
 

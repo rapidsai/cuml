@@ -31,7 +31,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -396,7 +396,7 @@ class UMAP(Base):
         self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
-        self.arr_embed = cuda.to_device(zeros((self.X_m.shape[0],
+        self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
                                                umap_params.n_components),
                                               order="C", dtype=np.float32))
         self.embeddings = \
@@ -506,7 +506,7 @@ class UMAP(Base):
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
-        embedding = cuda.to_device(zeros((X_m.shape[0],
+        embedding = rmm.to_device(zeros((X_m.shape[0],
                                           umap_params.n_components),
                                          order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value

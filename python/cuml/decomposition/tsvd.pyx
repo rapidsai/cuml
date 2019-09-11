@@ -23,8 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-
+from librmm_cffi import librmm as rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -251,10 +250,10 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
-                                                 dtype=self.dtype))
-        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
-                                                   dtype=self.dtype))
+        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
+                                                dtype=self.dtype))
+        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                                  dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -273,7 +272,7 @@ class TruncatedSVD(Base):
        X : array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
+           ndarray, rmm.array interface compliant array like CuPy
 
         """
         cdef uintptr_t input_ptr
@@ -349,7 +348,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+            ndarray, rmm.array interface compliant array like CuPy
 
         Returns
         ----------
@@ -377,7 +376,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
+           ndarray, rmm.array interface compliant array like CuPy
 
         convert_dtype : bool, optional (default = False)
             When set to True, the inverse_transform method will automatically
@@ -402,8 +401,8 @@ class TruncatedSVD(Base):
         params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
-                                          dtype=dtype.type))
+        input_data = rmm.to_device(zeros(params.n_rows*params.n_cols,
+                                         dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
@@ -443,7 +442,7 @@ class TruncatedSVD(Base):
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+            ndarray, rmm.array interface compliant array like CuPy
 
         convert_dtype : bool, optional (default = False)
             When set to True, the transform method will automatically
@@ -469,8 +468,8 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         t_input_data = \
-            cuda.to_device(zeros(params.n_rows*params.n_components,
-                                 dtype=dtype.type))
+            rmm.to_device(zeros(params.n_rows*params.n_components,
+                                dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
