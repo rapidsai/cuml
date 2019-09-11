@@ -331,12 +331,16 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   int n_epochs = params->n_epochs;
   if (params->n_epochs <= 0) {
-    if (graph_coo.nnz <= 10000)
+    if (n <= 10000)
       n_epochs = 100;
     else
       n_epochs = 30;
   } else {
     n_epochs /= 3;
+  }
+
+  if (params->verbose) {
+    std::cout << "n_epochs=" << n_epochs << std::endl;
   }
 
   MLCommon::LinAlg::unaryOp<T>(

@@ -70,14 +70,22 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
   T weights_max = *(thrust::max_element(thrust::cuda::par.on(stream), d_weights,
                                         d_weights + weights_n));
 
+  //  result = -1.0 * np.ones(
+  //      weights.shape[0], dtype=np.float64
+  //  )
+  //  n_samples = n_epochs * (weights / weights.max())
+  //  result[n_samples > 0] = (
+  //      float(n_epochs) / n_samples[n_samples > 0]
+  //  )
+
   MLCommon::LinAlg::unaryOp<T>(
     result, weights, weights_n,
     [=] __device__(T input) {
       T v = n_epochs * (input / weights_max);
-      if (v * n_epochs > 0)
+      if (v > 0)
         return T(n_epochs) / v;
       else
-        return -1.0f;
+        return T(-1.0);
     },
     stream);
 }
@@ -175,13 +183,12 @@ __global__ void optimize_batch_kernel(
       /**
        * Negative sampling stage
        */
-      MLCommon::Random::detail::TapsGenerator gen((uint64_t)seed, (uint64_t)row,
-                                                  0);
+      MLCommon::Random::detail::PhiloxGenerator gen((uint64_t)seed,
+                                                    (uint64_t)row, 0);
       for (int p = 0; p < n_neg_samples; p++) {
-        T r;
-        gen.next<T>(r);
-        int t = r * tail_n;
-
+        int r;
+        gen.next(r);
+        int t = r % tail_n;
         T *negative_sample = tail_embedding + (t * params.n_components);
         dist_squared = rdist(current, negative_sample, params.n_components);
 
