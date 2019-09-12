@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
