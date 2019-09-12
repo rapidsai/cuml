@@ -269,7 +269,7 @@ class RandomForestClassifier(Base):
                    If 'auto' then max_features=1/sqrt(n_features).
                    If 'sqrt' then max_features=1/sqrt(n_features).
                    If 'log2' then max_features=log2(n_features)/n_features.
-                   If None, then max_features=1/sqrt(n_features).                   
+                   If None, then max_features=1/sqrt(n_features).
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
@@ -409,7 +409,6 @@ class RandomForestClassifier(Base):
         else:
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <size_t>rf_forest64
-
         self.__dict__.update(state)
 
     def _get_max_feat_val(self):

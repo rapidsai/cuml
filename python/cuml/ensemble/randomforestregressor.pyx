@@ -408,8 +408,6 @@ class RandomForestRegressor(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-           
-
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
