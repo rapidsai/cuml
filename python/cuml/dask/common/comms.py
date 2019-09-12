@@ -393,12 +393,10 @@ class CommsContext:
         UCX is only initialized if `comms_p2p == True`
         """
 
-        self.worker_addresses = self.client.has_what().keys() \
-            if workers is None else workers
-
-        # NCCL forces uniqueness. The following line can be removed
+        # NCCL forces uniqueness. The following line should be removed
         # if we use CUDA-aware MPI
-        self.worker_addresses = list(set(self.worker_addresses))
+        self.worker_addresses = list(set((self.client.has_what().keys()
+                                          if workers is None else workers)))
 
         if self.ucx_initialized or self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
