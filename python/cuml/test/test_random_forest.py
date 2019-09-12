@@ -52,7 +52,6 @@ def stress_param(*args, **kwargs):
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols, max_depth):
     use_handle = True
-    
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,

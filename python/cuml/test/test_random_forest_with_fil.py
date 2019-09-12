@@ -87,7 +87,6 @@ def test_rf_classification(datatype, split_algo,
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)
-    print(cuml_acc,fil_acc,sk_acc)
     assert fil_acc >= (cuml_acc - 0.02)
     assert fil_acc >= (sk_acc - 0.07)
 
@@ -136,7 +135,6 @@ def test_rf_regression(datatype, use_handle, split_algo,
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds)
     fil_r2 = r2_score(y_test, fil_preds)
-    
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     sk_model = skrfr(n_estimators=50, max_depth=16,
@@ -145,6 +143,5 @@ def test_rf_regression(datatype, use_handle, split_algo,
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
-    print(cu_r2,fil_r2,sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
     assert fil_r2 >= (sk_r2 - 0.07)
