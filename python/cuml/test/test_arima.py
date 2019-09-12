@@ -140,7 +140,6 @@ def test_gradient():
 
         p, d, q = order
         num_parameters = d + p + q
-        gpu = True
         # print("Batched Gradient")
         g = arima.ll_gf(num_batches, num_parameters, order, ys_df, x)
         # print("One-at-a-time Gradient")
@@ -199,7 +198,7 @@ def testBIC():
                                   mu0,
                                   ar0,
                                   ma0,
-                                  opt_disp=-1, h=1e-9, gpu=True)
+                                  opt_disp=-1, h=1e-9)
 
         # print("BIC({}, 1, 1): ".format(p), batched_model.bic)
         np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
@@ -238,7 +237,7 @@ def testFit_Predict_Forecast(plot=False):
                                   mu0,
                                   ar0,
                                   ma0,
-                                  opt_disp=-1, h=1e-9, gpu=True)
+                                  opt_disp=-1, h=1e-9)
 
         y_b = arima.predict_in_sample(batched_model)
         y_fc = arima.forecast(batched_model, ns_test)
@@ -307,7 +306,7 @@ def bench_arima(num_batches=240, plot=False):
                               mu0,
                               ar0,
                               ma0,
-                              opt_disp=-1, h=1e-9, gpu=True)
+                              opt_disp=-1, h=1e-9)
 
     end = timer()
 
@@ -360,6 +359,6 @@ if __name__ == "__main__":
     test_log_likelihood()
     test_gradient()
     test_transform()
-    
     test_grid_search(2)
-    # bench_arima(num_batches=200)
+    test_stationarity()
+    # bench_arima(num_batches=240*16)
