@@ -181,7 +181,7 @@ void DecisionTreeBase<T, L>::print_tree_summary() const {
  * @brief Print detailed tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] root: pointer to tree's root node
+ * @param[in] sparsetree: Sparse tree strcut
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print(
@@ -190,6 +190,26 @@ void DecisionTreeBase<T, L>::print(
   print_node<T, L>("", sparsetree, 0, false);
 }
 
+/**
+ * @brief This function calls the rlevant regression oir classification with input parameters.
+ * @tparam T: datatype of input data (float ot double)
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[out] sparsetree: This will be the generated Decision Tree
+ * @param[in] data: Input data
+ * @param[in] ncols: Original number of columns in the dataset
+ * @param[in] nrows: Original number of rows in dataset
+ * @param[in] labels: Labels of input dataset
+ * @param[in] rowids: List of selected rows for the tree building
+ * @param[in] n_sampled_rows: Number of rows after subsampling
+ * @param[in] unique_labels: Number of unique classes for calssification. Its set to 1 for regression
+ * @param[in] treeid: Tree id in case of building multiple tree from RF.
+ * @param[in] n_bins: Number of split bins for every node.
+ * @param[in] split_algo_flag: Split algo used. MinMax / Quantile
+ * @param[in] cfg_min_rows_per_rows: Minimum number of rows to consider before split evaluation
+ * @param[in] cfg_bootstrap_features: If features need to be bootstarpped.
+ * @param[in] cfg_split_criterion: Split criteria to be used. GINI, ENTROPY, MSE, MAE
+ * @param[in] quantile_per_tree: If per tree quantile needs to be built.
+ */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
   std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
@@ -209,7 +229,7 @@ void DecisionTreeBase<T, L>::plant(
   min_rows_per_node = cfg_min_rows_per_node;
   bootstrap_features = cfg_bootstrap_features;
   split_criterion = cfg_split_criterion;
-  srand(treeid * 1000);
+
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
     preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
                         n_bins, tempmem);

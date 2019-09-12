@@ -45,7 +45,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
                                   const unsigned int* __restrict__ colids,
                                   const unsigned int* __restrict__ colstart,
                                   const int nrows, const int Ncols,
-                                  const int ncols, const int n_nodes,
+                                  const int ncols_sampled, const int n_nodes,
                                   T init_min_val, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
@@ -58,7 +58,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
   if (local_flag != LEAF) {
     colst = colstart[local_flag];
   }
-  for (int colcnt = 0; colcnt < ncols; colcnt++) {
+  for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
       *(E*)&shmem_minmax[i] = (i < n_nodes)
                                 ? MLCommon::Stats::encode(init_min_val)
@@ -93,7 +93,7 @@ template <typename T, typename E>
 __global__ void get_minmax_kernel_global(
   const T* __restrict__ data, const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ colids, const unsigned int* colstart,
-  const int nrows, const int Ncols, const int ncols, const int n_nodes,
+  const int nrows, const int Ncols, const int ncols_sampled, const int n_nodes,
   T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
@@ -101,7 +101,7 @@ __global__ void get_minmax_kernel_global(
     local_flag = flags[tid];
     if (local_flag != LEAF) {
       unsigned int colst = colstart[local_flag];
-      for (int colcnt = 0; colcnt < ncols; colcnt++) {
+      for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
         int coloff = 2 * n_nodes * colcnt;
         int col = colids[(colst + colcnt) % Ncols];
         T local_data = data[col * nrows + tid];
@@ -150,7 +150,7 @@ __global__ void split_level_kernel(
   const unsigned int* __restrict__ colstart,
   const int* __restrict__ split_col_index,
   const int* __restrict__ split_bin_index, const int nrows, const int Ncols,
-  const int ncols, const int nbins, const int n_nodes,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
   unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;

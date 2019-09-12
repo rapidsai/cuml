@@ -39,7 +39,7 @@ void grow_deep_tree_regression(
   const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
   int& depth_cnt, int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-  const int ncols = (int)(colper * Ncols);
+  const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
   setup_sampling(flagsptr, sample_cnt, rowids, nrows, n_sampled_rows,
@@ -108,7 +108,7 @@ void grow_deep_tree_regression(
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
-                            ncols, n_nodes, mtg, dist, tempmem->stream);
+                            ncols_sampled, n_nodes, mtg, dist, tempmem->stream);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
 
@@ -121,21 +121,21 @@ void grow_deep_tree_regression(
 
     if (split_cr == ML::CRITERION::MSE) {
       get_mse_regression<T, SquareFunctor>(
-        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols, nbins, n_nodes,
-        split_algo, tempmem, d_mseout, d_predout, d_count);
+        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
+        n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
     } else {
       get_mse_regression<T, AbsFunctor>(
-        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols, nbins, n_nodes,
-        split_algo, tempmem, d_mseout, d_predout, d_count);
+        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
+        n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
     }
 
     float* infogain = tempmem->h_outgain->data();
     get_best_split_regression(
       h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
-      d_colids, h_colstart, d_colstart, Ncols, ncols, nbins, n_nodes, depth,
-      min_rows_per_node, split_algo, sparsesize, infogain, sparse_meanstate,
-      sparse_countstate, sparsetree, sparse_nodelist, h_split_colidx,
-      h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
+      d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
+      depth, min_rows_per_node, split_algo, sparsesize, infogain,
+      sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
+      h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
@@ -144,9 +144,9 @@ void grow_deep_tree_regression(
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-    make_level_split(data, nrows, Ncols, ncols, nbins, n_nodes, split_algo,
-                     d_split_colidx, d_split_binidx, d_new_node_flags, flagsptr,
-                     tempmem);
+    make_level_split(data, nrows, Ncols, ncols_sampled, nbins, n_nodes,
+                     split_algo, d_split_colidx, d_split_binidx,
+                     d_new_node_flags, flagsptr, tempmem);
   }
   for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
     sparsetree[i].prediction = sparse_meanstate[i];

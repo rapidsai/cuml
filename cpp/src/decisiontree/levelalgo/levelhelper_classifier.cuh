@@ -42,11 +42,11 @@ void initial_metric_classification(
 template <typename T>
 void get_histogram_classification(
   const T *data, const int *labels, unsigned int *flags,
-  unsigned int *sample_cnt, const int nrows, const int Ncols, const int ncols,
-  const int n_unique_labels, const int nbins, const int n_nodes,
-  const int split_algo, std::shared_ptr<TemporaryMemory<T, int>> tempmem,
-  unsigned int *histout) {
-  size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
+  unsigned int *sample_cnt, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
+  const int n_nodes, const int split_algo,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
+  size_t histcount = ncols_sampled * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
   int node_batch = min(n_nodes, tempmem->max_nodes_class);
@@ -56,21 +56,24 @@ void get_histogram_classification(
 
   if (split_algo == 0) {
     get_minmax(data, flags, tempmem->d_colids->data(),
-               tempmem->d_colstart->data(), nrows, Ncols, ncols, n_nodes,
-               tempmem->max_nodes_minmax, tempmem->d_globalminmax->data(),
-               tempmem->h_globalminmax->data(), tempmem->stream);
+               tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
+               n_nodes, tempmem->max_nodes_minmax,
+               tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
+               tempmem->stream);
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols, n_unique_labels,
-          nbins, n_nodes, tempmem->d_globalminmax->data(), histout);
+          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
+          n_unique_labels, nbins, n_nodes, tempmem->d_globalminmax->data(),
+          histout);
     } else {
       get_hist_kernel_global<T, MinMaxQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols, n_unique_labels,
-          nbins, n_nodes, tempmem->d_globalminmax->data(), histout);
+          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
+          n_unique_labels, nbins, n_nodes, tempmem->d_globalminmax->data(),
+          histout);
     }
 
   } else {
@@ -78,14 +81,16 @@ void get_histogram_classification(
       get_hist_kernel<T, QuantileQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols, n_unique_labels,
-          nbins, n_nodes, tempmem->d_quantile->data(), histout);
+          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
+          n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+          histout);
     } else {
       get_hist_kernel_global<T, QuantileQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols, n_unique_labels,
-          nbins, n_nodes, tempmem->d_quantile->data(), histout);
+          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
+          n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
+          histout);
     }
   }
   CUDA_CHECK(cudaGetLastError());
@@ -94,9 +99,10 @@ template <typename T, typename F, typename DF>
 void get_best_split_classification(
   unsigned int *hist, unsigned int *d_hist, unsigned int *h_colids,
   unsigned int *d_colids, unsigned int *h_colstart, unsigned int *d_colstart,
-  const int Ncols, const int ncols, const int nbins, const int n_unique_labels,
-  const int n_nodes, const int depth, const int min_rpn, const int split_algo,
-  float *gain, std::vector<std::vector<int>> &sparse_histstate,
+  const int Ncols, const int ncols_sampled, const int nbins,
+  const int n_unique_labels, const int n_nodes, const int depth,
+  const int min_rpn, const int split_algo, float *gain,
+  std::vector<std::vector<int>> &sparse_histstate,
   std::vector<SparseTreeNode<T, int>> &sparsetree, const int sparsesize,
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
@@ -107,7 +113,7 @@ void get_best_split_classification(
   if (tempmem->h_globalminmax != nullptr)
     minmax = tempmem->h_globalminmax->data();
   if (split_algo == 0) CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  size_t histcount = ncols * nbins * n_unique_labels * n_nodes;
+  size_t histcount = ncols_sampled * nbins * n_unique_labels * n_nodes;
   bool use_gpu_flag = false;
   if (n_nodes > 512) use_gpu_flag = true;
   memset(gain, 0, n_nodes * sizeof(float));
@@ -154,7 +160,7 @@ void get_best_split_classification(
     size_t shmemsz = (threads + 2) * 2 * n_unique_labels * sizeof(int);
     get_best_split_classification_kernel<T, DF>
       <<<n_nodes, threads, shmemsz, tempmem->stream>>>(
-        d_hist, d_parent_hist, d_parent_metric, nbins, ncols, n_nodes,
+        d_hist, d_parent_hist, d_parent_metric, nbins, ncols_sampled, n_nodes,
         n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
@@ -210,7 +216,7 @@ void get_best_split_classification(
       std::vector<int> besthist_left(n_unique_labels);
       std::vector<int> besthist_right(n_unique_labels);
 
-      for (int colid = 0; colid < ncols; colid++) {
+      for (int colid = 0; colid < ncols_sampled; colid++) {
         int coloffset = colid * nbins * n_unique_labels * n_nodes;
         for (int binid = 0; binid < nbins; binid++) {
           int binoffset = binid * n_unique_labels;

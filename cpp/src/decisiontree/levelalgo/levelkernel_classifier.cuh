@@ -44,17 +44,15 @@ __global__ void sample_count_histogram_kernel(
 
 //This kernel does histograms for all bins, all cols and all nodes at a given level
 template <typename T, typename QuestionType>
-__global__ void get_hist_kernel(const T* __restrict__ data,
-                                const int* __restrict__ labels,
-                                const unsigned int* __restrict__ flags,
-                                const unsigned int* __restrict__ sample_cnt,
-                                const unsigned int* __restrict__ colids,
-                                const unsigned int* __restrict__ colstart,
-                                const int nrows, const int Ncols,
-                                const int ncols, const int n_unique_labels,
-                                const int nbins, const int n_nodes,
-                                const T* __restrict__ question_ptr,
-                                unsigned int* histout) {
+__global__ void get_hist_kernel(
+  const T* __restrict__ data, const int* __restrict__ labels,
+  const unsigned int* __restrict__ flags,
+  const unsigned int* __restrict__ sample_cnt,
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
+  const int n_nodes, const T* __restrict__ question_ptr,
+  unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
   unsigned int local_flag = LEAF;
   int local_label = -1;
@@ -69,7 +67,7 @@ __global__ void get_hist_kernel(const T* __restrict__ data,
   if (local_flag != LEAF) {
     colst = colstart[local_flag];
   }
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
       colid = colids[(colst + colcnt) % Ncols];
     }
@@ -115,7 +113,7 @@ __global__ void get_hist_kernel_global(
   const unsigned int* __restrict__ sample_cnt,
   const unsigned int* __restrict__ colids,
   const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols, const int n_unique_labels, const int nbins,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const T* __restrict__ question_ptr,
   unsigned int* histout) {
   unsigned int local_flag;
@@ -130,7 +128,7 @@ __global__ void get_hist_kernel_global(
     if (local_flag != LEAF) {
       colst = colstart[local_flag];
     }
-    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+    for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
       //Check if leaf
       if (local_flag != LEAF) {
         unsigned int colid = colids[(colst + colcnt) % Ncols];
@@ -183,7 +181,7 @@ template <typename T, typename F>
 __global__ void get_best_split_classification_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
-  const T* __restrict__ parent_metric, const int nbins, const int ncols,
+  const T* __restrict__ parent_metric, const int nbins, const int ncols_sampled,
   const int n_nodes, const int n_unique_labels, const int min_rpn,
   float* outgain, int* best_col_id, int* best_bin_id, unsigned int* child_hist,
   T* child_best_metric) {
@@ -220,7 +218,7 @@ __global__ void get_best_split_classification_kernel(
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
     tid_pair.idx = -1;
-    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+    for (int id = threadIdx.x; id < nbins * ncols_sampled; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_unique_labels * n_nodes;
       int binoffset = (id % nbins) * n_unique_labels;
       int tmp_lnrows = 0;
