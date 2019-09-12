@@ -131,6 +131,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
+  CUDA_CHECK(cudaStreamSynchronize(s));
+
 #pragma omp parallel
   {
 #pragma omp for
