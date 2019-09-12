@@ -194,7 +194,10 @@ class SVC(Base):
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
-    def __dealloc__(self):
+    def __del__(self):
+        self._dealloc()
+
+    def _dealloc(self):
         # deallocate model parameters
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
@@ -212,6 +215,7 @@ class SVC(Base):
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
+
         self._model = None
 
     def _get_c_kernel(self, kernel):
@@ -395,7 +399,7 @@ class SVC(Base):
         y_m, y_ptr, _, _, _ = input_to_dev_array(y,
                                                  convert_to_dtype=self.dtype)
 
-        self.__dealloc__()  # delete any previously fitted model
+        self._dealloc()  # delete any previously fitted model
         self._coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X)
