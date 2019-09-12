@@ -19,13 +19,12 @@ from cuml.test.utils import get_handle
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
+
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
-from sklearn.metrics import mean_squared_error
 
 
 def unit_param(*args, **kwargs):
@@ -49,9 +48,10 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification(datatype, split_algo,
-                           n_info, nrows, ncols, max_features):
+def test_rf_classification_fil(datatype, split_algo,
+                               n_info, nrows, ncols, max_features):
     use_handle = True
+
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -63,6 +63,14 @@ def test_rf_classification(datatype, split_algo,
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
 
+    sk_model = skrfc(n_estimators=40,
+                     max_depth=16,
+                     min_samples_split=2, max_features=max_features,
+                     random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_predict)
+
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=max_features,
@@ -71,21 +79,16 @@ def test_rf_classification(datatype, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test,
+                                   predict_model="GPU",
+                                   output_class=True,
+                                   threshold=0.5,
+                                   algo='BATCH_TREE_REORG')
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
-    cu_acc = accuracy_score(y_test, cu_predict)
-
-    if nrows < 500000:
-        # sklearn random forest classification model
-        # initialization, fit and predict
-        sk_model = skrfc(n_estimators=40,
-                         max_depth=16,
-                         min_samples_split=2, max_features=max_features,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
-        assert cu_acc >= (sk_acc - 0.07)
-
+    cuml_acc = accuracy_score(y_test, cu_predict)
+    fil_acc = accuracy_score(y_test, fil_preds)
+    assert fil_acc >= (cuml_acc - 0.02)
+    assert fil_acc >= (sk_acc - 0.07)
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
@@ -96,13 +99,14 @@ def test_rf_classification(datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression(datatype, split_algo,
-                       n_info, mode, ncols, max_features):
+def test_rf_regression_fil(datatype, split_algo,
+                           n_info, mode, ncols, max_features):
     use_handle = True
     if mode == 'unit':
         X, y = make_regression(n_samples=100, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
+
     elif mode == 'quality':
         X, y = fetch_california_housing(return_X_y=True)
 
@@ -119,25 +123,26 @@ def test_rf_regression(datatype, split_algo,
 
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle)
-
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
+    # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=1.0,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cuml_predict = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cuml_predict)
-    if mode != 'stress':
-        # sklearn random forest classification model
-        # initialization, fit and predict
-        sk_model = skrfr(n_estimators=50, max_depth=16,
-                         min_samples_split=2, max_features=max_features,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict)
-        # compare the accuracy of the two models
-        assert cu_r2 >= (sk_r2 - 0.07)
+    # predict using FIL
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    cu_r2 = r2_score(y_test, cu_preds)
+    fil_r2 = r2_score(y_test, fil_preds)
+    # Initialize, fit and predict using
+    # sklearn's random forest regression model
+    sk_model = skrfr(n_estimators=50, max_depth=16,
+                     min_samples_split=2, max_features=max_features,
+                     random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_r2 = r2_score(y_test, sk_predict)
+    print(fil_r2, cu_r2, sk_r2)
+    assert fil_r2 >= (cu_r2 - 0.02)
+    assert fil_r2 >= (sk_r2 - 0.07)
