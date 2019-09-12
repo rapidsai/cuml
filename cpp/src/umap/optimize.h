@@ -154,7 +154,9 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
     MLCommon::updateHost(grads_h, grads, 2, stream);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
+
     for (int i = 0; i < 2; i++) {
       if (abs(grads_h[i]) - tolerance <= 0) tol_grads += 1;
     }
@@ -204,6 +206,7 @@ void find_params_ab(UMAPParams *params, cudaStream_t stream) {
 
   MLCommon::updateHost(&(params->a), coeffs, 1, stream);
   MLCommon::updateHost(&(params->b), coeffs + 1, 1, stream);
+
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (params->verbose)
