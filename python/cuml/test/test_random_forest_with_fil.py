@@ -39,20 +39,18 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-@pytest.mark.parametrize('nrows', [unit_param(2000), quality_param(5000),
-                         stress_param(100000)])
-@pytest.mark.parametrize('ncols', [unit_param(100), quality_param(100),
+@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
                          stress_param(200)])
-@pytest.mark.parametrize('n_info', [unit_param(40), quality_param(60),
+@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_depth', [16, 1])
+@pytest.mark.parametrize('max_depth', [1, 16])
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols, max_depth):
     use_handle = True
-    if split_algo == 1 and max_depth < 0:
-        pytest.xfail("Unlimited depth not supported with quantile")
 
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -76,7 +74,7 @@ def test_rf_classification(datatype, split_algo,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=8, split_algo=split_algo, split_criterion=0,
+                       n_bins=24, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=max_depth)
@@ -86,28 +84,28 @@ def test_rf_classification(datatype, split_algo,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='BATCH_TREE_REORG')
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
+    cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)
+    print(cuml_acc,fil_acc,sk_acc)
+    assert fil_acc >= (cuml_acc - 0.02)
     assert fil_acc >= (sk_acc - 0.07)
-
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(8),
+@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
                          stress_param(200)])
-@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(8),
-                         stress_param(180)])
-@pytest.mark.parametrize('n_bins', [unit_param(16), quality_param(26),
-                         stress_param(34)])
+@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
+                         stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
-                       n_info, mode, ncols, n_bins):
+                       n_info, mode, ncols):
 
     if mode == 'unit':
-        X, y = make_regression(n_samples=300, n_features=ncols,
-                               n_informative=1,
-                               effective_rank=10,
+        X, y = make_regression(n_samples=30, n_features=ncols,
+                               n_informative=n_info,
                                random_state=123)
 
     elif mode == 'quality':
@@ -128,15 +126,17 @@ def test_rf_regression(datatype, use_handle, split_algo,
     handle, stream = get_handle(use_handle)
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
-                       n_bins=n_bins, split_algo=split_algo, split_criterion=2,
+                       n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     # predict using FIL
-    cu_preds = cuml_model.predict(X_test, predict_model="GPU")
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds)
-
+    fil_r2 = r2_score(y_test, fil_preds)
+    
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     sk_model = skrfr(n_estimators=50, max_depth=16,
@@ -145,4 +145,6 @@ def test_rf_regression(datatype, use_handle, split_algo,
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
-    assert cu_r2 >= (sk_r2 - 0.07)
+    print(cu_r2,fil_r2,sk_r2)
+    assert fil_r2 >= (cu_r2 - 0.02)
+    assert fil_r2 >= (sk_r2 - 0.07)
