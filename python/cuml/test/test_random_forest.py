@@ -26,7 +26,6 @@ from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 
-
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
