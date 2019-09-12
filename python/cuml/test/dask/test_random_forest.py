@@ -44,6 +44,7 @@ def test_rf_classification(n_workers, partitions_per_worker):
                                n_clusters_per_class=1, n_informative=10,
                                random_state=123, n_classes=5)
 
+    X = X.astype(np.float32)
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
@@ -92,6 +93,9 @@ def test_rf_regression(n_workers, partitions_per_worker):
 
     X, y = make_regression(n_samples=40000, n_features=20,
                            n_informative=10, random_state=123)
+
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 

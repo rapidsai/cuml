@@ -227,7 +227,7 @@ class UMAP(Base):
                  b=None,
                  target_n_neighbors=-1,
                  target_weights=0.5,
-                 target_metric="euclidean",
+                 target_metric="categorical",
                  should_downcast=True,
                  handle=None,
                  callback=None):
@@ -324,7 +324,7 @@ class UMAP(Base):
 
     def __del__(self):
         cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
-        free(umap_params)
+        del umap_params
 
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
@@ -433,6 +433,8 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
+        self.handle.sync()
+
         return self
 
     def fit_transform(self, X, y=None, convert_dtype=False):
@@ -537,5 +539,7 @@ class UMAP(Base):
             ret = np.asarray(embedding)
 
         del X_m
+
+        self.handle.sync()
 
         return ret
