@@ -21,10 +21,10 @@
 template <typename RNG_G, typename DIST>
 void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              unsigned int *h_colstart, unsigned int *d_colstart,
-                             const int Ncols, const int ncols,
+                             const int Ncols, const int ncols_sampled,
                              const int n_nodes, RNG_G rng, DIST dist,
                              const cudaStream_t &stream) {
-  if (Ncols != ncols) {
+  if (Ncols != ncols_sampled) {
     std::shuffle(h_colids, h_colids + Ncols, rng);
     for (int i = 0; i < n_nodes; i++) {
       h_colstart[i] = dist(rng);
@@ -36,35 +36,36 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
 template <typename T>
 void get_minmax(const T *data, const unsigned int *flags,
                 const unsigned int *colids, const unsigned int *colstart,
-                const int nrows, const int Ncols, const int ncols,
+                const int nrows, const int Ncols, const int ncols_sampled,
                 const int n_nodes, const int max_shmem_nodes, T *d_minmax,
                 T *h_minmax, cudaStream_t &stream) {
   using E = typename MLCommon::Stats::encode_traits<T>::E;
   T init_val = std::numeric_limits<T>::max();
   int threads = 128;
-  int nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
+  int nblocks = MLCommon::ceildiv(2 * ncols_sampled * n_nodes, threads);
   minmax_init_kernel<T, E><<<nblocks, threads, 0, stream>>>(
-    d_minmax, ncols * n_nodes, n_nodes, init_val);
+    d_minmax, ncols_sampled * n_nodes, n_nodes, init_val);
   CUDA_CHECK(cudaGetLastError());
 
   nblocks = MLCommon::ceildiv(nrows, threads);
   if (n_nodes <= max_shmem_nodes) {
     get_minmax_kernel<T, E>
       <<<nblocks, threads, 2 * n_nodes * sizeof(T), stream>>>(
-        data, flags, colids, colstart, nrows, Ncols, ncols, n_nodes, init_val,
-        d_minmax);
+        data, flags, colids, colstart, nrows, Ncols, ncols_sampled, n_nodes,
+        init_val, d_minmax);
   } else {
     get_minmax_kernel_global<T, E><<<nblocks, threads, 0, stream>>>(
-      data, flags, colids, colstart, nrows, Ncols, ncols, n_nodes, d_minmax);
+      data, flags, colids, colstart, nrows, Ncols, ncols_sampled, n_nodes,
+      d_minmax);
   }
   CUDA_CHECK(cudaGetLastError());
 
-  nblocks = MLCommon::ceildiv(2 * ncols * n_nodes, threads);
+  nblocks = MLCommon::ceildiv(2 * ncols_sampled * n_nodes, threads);
   minmax_decode_kernel<T, E>
-    <<<nblocks, threads, 0, stream>>>(d_minmax, ncols * n_nodes);
+    <<<nblocks, threads, 0, stream>>>(d_minmax, ncols_sampled * n_nodes);
 
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(h_minmax, d_minmax, 2 * n_nodes * ncols, stream);
+  MLCommon::updateHost(h_minmax, d_minmax, 2 * n_nodes * ncols_sampled, stream);
 }
 // This function does setup for flags. and count.
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
@@ -85,10 +86,10 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
 //This function call the split kernel
 template <typename T, typename L>
 void make_level_split(const T *data, const int nrows, const int Ncols,
-                      const int ncols, const int nbins, const int n_nodes,
-                      const int split_algo, int *split_colidx,
-                      int *split_binidx, const unsigned int *new_node_flags,
-                      unsigned int *flags,
+                      const int ncols_sampled, const int nbins,
+                      const int n_nodes, const int split_algo,
+                      int *split_colidx, int *split_binidx,
+                      const unsigned int *new_node_flags, unsigned int *flags,
                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
@@ -97,13 +98,13 @@ void make_level_split(const T *data, const int nrows, const int Ncols,
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_globalminmax->data(), tempmem->d_colids->data(),
         tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
-        ncols, nbins, n_nodes, new_node_flags, flags);
+        ncols_sampled, nbins, n_nodes, new_node_flags, flags);
   } else {
     split_level_kernel<T, QuantileQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_quantile->data(), tempmem->d_colids->data(),
         tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
-        ncols, nbins, n_nodes, new_node_flags, flags);
+        ncols_sampled, nbins, n_nodes, new_node_flags, flags);
   }
   CUDA_CHECK(cudaGetLastError());
 }

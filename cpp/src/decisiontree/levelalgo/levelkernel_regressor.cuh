@@ -79,7 +79,7 @@ __global__ void get_pred_kernel(
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols, const int nbins, const int n_nodes,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const T *__restrict__ question_ptr, T *predout, unsigned int *countout) {
   extern __shared__ char shmem_pred_kernel[];
   T *shmempred = (T *)shmem_pred_kernel;
@@ -99,7 +99,7 @@ __global__ void get_pred_kernel(
   if (local_flag != LEAF) {
     colst = colstart[local_flag];
   }
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
       colid = colids[(colst + colcnt) % Ncols];
     }
@@ -143,7 +143,7 @@ __global__ void get_mse_kernel(
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols, const int nbins, const int n_nodes,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const T *__restrict__ question_ptr, const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
@@ -172,7 +172,7 @@ __global__ void get_mse_kernel(
     colst = colstart[local_flag];
   }
 
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
       colid = colids[(colst + colcnt) % Ncols];
     }
@@ -230,7 +230,7 @@ __global__ void get_pred_kernel_global(
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols, const int nbins, const int n_nodes,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const T *__restrict__ question_ptr, T *predout, unsigned int *countout) {
   unsigned int local_flag = LEAF;
   T local_label;
@@ -243,7 +243,7 @@ __global__ void get_pred_kernel_global(
       local_label = labels[tid];
       local_cnt = sample_cnt[tid];
       unsigned int colst = colstart[local_flag];
-      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
         unsigned int colid = colids[(colst + colcnt) % Ncols];
         unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
@@ -273,7 +273,7 @@ __global__ void get_mse_kernel_global(
   const unsigned int *__restrict__ sample_cnt,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols, const int nbins, const int n_nodes,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const T *__restrict__ question_ptr, const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
@@ -293,7 +293,7 @@ __global__ void get_mse_kernel_global(
       parent_count = parentcount[local_flag];
       parent_pred = parentpred[local_flag];
       unsigned int colst = colstart[local_flag];
-      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
         unsigned int colid = colids[(colst + colcnt) % Ncols];
         unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
@@ -326,7 +326,7 @@ __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
   const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
   const unsigned int *__restrict__ parentcount,
-  const T *__restrict__ parentmetric, const int nbins, const int ncols,
+  const T *__restrict__ parentmetric, const int nbins, const int ncols_sampled,
   const int n_nodes, const int min_rpn, float *outgain, int *best_col_id,
   int *best_bin_id, T *child_mean, unsigned int *child_count,
   T *child_best_metric) {
@@ -342,7 +342,7 @@ __global__ void get_best_split_regression_kernel(
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
     tid_pair.idx = -1;
-    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+    for (int id = threadIdx.x; id < nbins * ncols_sampled; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_nodes;
       int binoffset = id % nbins;
       int threadoffset = coloffset + binoffset + nodeoffset;
