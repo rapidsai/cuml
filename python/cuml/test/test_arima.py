@@ -259,20 +259,21 @@ def testFit_Predict_Forecast(plot=False):
     l2_error_predict1 = np.sum((y_b_p[1][:, :] - y[:ns_train, :])**2, axis=0)
     # print("l2_error_predict=({},{})".format(l2_error_predict0, l2_error_predict1))
 
-    l2_error_ref0 = [5.182155880809287e+08, 4.431172130950448e+08]
-    l2_error_ref1 = [5.401615747413801e+08, 4.649077944193724e+08]
+    l2_error_ref0 = [5.182051389156103e+08, 4.431233573125673e+08]
+    l2_error_ref1 = [5.401477624567382e+08, 4.648935410015458e+08]
 
     l2_error_forecast0 = np.sum((y_f_p[0][:, :] - y[ns_train-1:-1, :])**2, axis=0)
     l2_error_forecast1 = np.sum((y_f_p[1][:, :] - y[ns_train-1:-1, :])**2, axis=0)
     # print("l2_error_forecast=({},{})".format(l2_error_forecast0, l2_error_forecast1))
 
-    l2_error_fc_ref0 = [2.783439226866143e+08, 2.400999999394908e+08]
-    l2_error_fc_ref1 = [3.7288613986029667e+08, 3.0391497933745754e+08]
+    l2_error_fc_ref0 = [2.7842121544235116e+08, 2.4011835018659216e+08]
+    l2_error_fc_ref1 = [3.727819285451149e+08, 3.039403517904961e+08]
 
-    np.testing.assert_allclose(l2_error_predict0, l2_error_ref0, rtol=1e-3)
-    np.testing.assert_allclose(l2_error_predict1, l2_error_ref1, rtol=1e-3)
-    np.testing.assert_allclose(l2_error_forecast0, l2_error_fc_ref0, rtol=1e-3)
-    np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=1e-3)
+    rtol = 1e-8
+    np.testing.assert_allclose(l2_error_predict0, l2_error_ref0, rtol=rtol)
+    np.testing.assert_allclose(l2_error_predict1, l2_error_ref1, rtol=rtol)
+    np.testing.assert_allclose(l2_error_forecast0, l2_error_fc_ref0, rtol=rtol)
+    np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=rtol)
     
 
 
