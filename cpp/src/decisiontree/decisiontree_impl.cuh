@@ -240,6 +240,7 @@ void DecisionTreeBase<T, L>::plant(
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
   if (bootstrap_features) {
+    srand(treeid * 1000);
     for (int i = 0; i < dinfo.Ncols; i++) {
       h_colids[i] = rand() % dinfo.Ncols;
     }

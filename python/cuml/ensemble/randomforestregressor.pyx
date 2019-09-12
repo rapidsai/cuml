@@ -400,8 +400,10 @@ class RandomForestRegressor(Base):
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
             return self.max_features
-        elif self.max_features == 'sqrt' or self.max_features == 'auto':
+        elif self.max_features == 'sqrt':
             return 1/np.sqrt(self.n_cols)
+        elif self.max_features == 'auto':
+            return 1.0
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
         else:
