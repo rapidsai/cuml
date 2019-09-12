@@ -165,8 +165,6 @@ struct forest {
   int ntrees_;
   int depth_;
   int cols_;
-  int pitch_;
-  int max_items_;
   algo_t algo_;
   int max_shm_;
   output_t output_;
