@@ -26,6 +26,7 @@ from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 
+
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -47,8 +48,8 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification_fil(datatype, split_algo,
-                               n_info, nrows, ncols, max_features):
+def test_rf_classification(datatype, split_algo,
+                           n_info, nrows, ncols, max_features):
     use_handle = True
 
     train_rows = np.int32(nrows*0.8)
@@ -98,8 +99,8 @@ def test_rf_classification_fil(datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression_fil(datatype, split_algo,
-                           n_info, mode, ncols, max_features):
+def test_rf_regression(datatype, split_algo,
+                       n_info, mode, ncols, max_features):
     use_handle = True
     if mode == 'unit':
         X, y = make_regression(n_samples=100, n_features=ncols,
