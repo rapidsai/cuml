@@ -1,7 +1,23 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 import cuml
 
-import sklearn.cluster, sklearn.neighbors
+import sklearn.cluster, sklearn.neighbors, sklearn.ensemble, sklearn
 import umap
+import numpy as np
 
 class AlgorithmPair():
     """
@@ -18,7 +34,8 @@ class AlgorithmPair():
                  cuml_args={},
                  sklearn_args={},
                  name=None,
-                 accepts_labels=True):
+                 accepts_labels=True,
+                 data_prep_hook=None):
         """
         Parameters
         ----------
@@ -27,11 +44,16 @@ class AlgorithmPair():
         cuml_class : class
            Class for cuML algorithm
         shared_args : dict
-           Arguments passed to both implementations
-        ....
+           Arguments passed to both implementations's initializer
+        cuml_args : dict
+           Arguments *only* passed to cuml's initializer
+        sklearn_args dict
+           Arguments *only* passed to sklearn's initializer
         accepts_labels : boolean
            If True, the fit methods expects both X and y
            inputs. Otherwise, it expects only an X input.
+        data_prep_hook : function (data -> data)
+           Optional function to run on input data before passing to fit
         """
         if name:
             self.name = name
@@ -43,6 +65,7 @@ class AlgorithmPair():
         self.shared_args = shared_args
         self.cuml_args = cuml_args
         self.sklearn_args = sklearn_args
+        self.data_prep_hook = data_prep_hook
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -55,6 +78,8 @@ class AlgorithmPair():
         all_args = {**all_args, **override_args}
 
         cpu_obj = self.cpu_class(**all_args)
+        if self.data_prep_hook:
+            data = self.data_prep_hook(data)
         if self.accepts_labels:
             cpu_obj.fit(data[0], data[1])
         else:
@@ -66,10 +91,16 @@ class AlgorithmPair():
         all_args = {**all_args, **override_args}
 
         cuml_obj = self.cuml_class(**all_args)
+        if self.data_prep_hook:
+            data = self.data_prep_hook(data)
         if self.accepts_labels:
             cuml_obj.fit(data[0], data[1])
         else:
             cuml_obj.fit(data[0])
+
+def _labels_to_int_hook(data):
+    """Helper function converting labels to int32"""
+    return (data[0], data[1].astype(np.int32))
 
 def all_algorithms():
     return [
@@ -109,6 +140,19 @@ def all_algorithms():
             shared_args={},
             name='LinearRegression',
             accepts_labels=True),
+        AlgorithmPair(
+            sklearn.linear_model.LogisticRegression,
+            cuml.linear_model.LogisticRegression,
+            shared_args={},
+            name='LogisticRegression',
+            accepts_labels=True),
+        AlgorithmPair(
+            sklearn.ensemble.RandomForestClassifier,
+            cuml.ensemble.RandomForestClassifier,
+            shared_args={'max_features': 1.0, 'n_estimators': 100},
+            name='RandomForestClassifier',
+            accepts_labels=True,
+            data_prep_hook=_labels_to_int_hook),
         AlgorithmPair(
             umap.UMAP,
             cuml.manifold.UMAP,
