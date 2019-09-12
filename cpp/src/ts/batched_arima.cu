@@ -25,8 +25,8 @@
 
 namespace ML {
 
-void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
-                     double* params, std::vector<double>& loglike_b,
+void batched_loglike(double* h_y, int num_batches, int nobs, int p, int d,
+                     int q, double* h_params, std::vector<double>& loglike,
                      bool trans) {
   using std::get;
   using std::vector;
@@ -42,13 +42,13 @@ void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
 
   for (int ib = 0; ib < num_batches; ib++) {
     if (d > 0) {
-      mu.at(ib) = params[ib * N];
+      mu.at(ib) = h_params[ib * N];
     }
     for (int ip = 0; ip < p; ip++) {
-      ar.at(p * ib + ip) = params[ib * N + d + ip];
+      ar.at(p * ib + ip) = h_params[ib * N + d + ip];
     }
     for (int iq = 0; iq < q; iq++) {
-      ma.at(q * ib + iq) = params[ib * N + d + p + iq];
+      ma.at(q * ib + iq) = h_params[ib * N + d + p + iq];
     }
   }
 
@@ -67,7 +67,7 @@ void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
   std::vector<std::vector<double>> vs_b;
   if (d == 0) {
     // no diff
-    batched_kalman_filter(y, nobs, Tar, Tma, p, q, num_batches, loglike_b,
+    batched_kalman_filter(h_y, nobs, Tar, Tma, p, q, num_batches, loglike,
                           vs_b);
   } else if (d == 1) {
     // diff and center (with `mu`):
@@ -76,12 +76,12 @@ void batched_loglike(double* y, int num_batches, int nobs, int p, int d, int q,
       auto mu_ib = mu[ib];
       for (int i = 0; i < nobs - 1; i++) {
         y_diff[ib * (nobs - 1) + i] =
-          (y[ib * nobs + i + 1] - y[ib * nobs + i]) - mu_ib;
+          (h_y[ib * nobs + i + 1] - h_y[ib * nobs + i]) - mu_ib;
       }
     }
 
     batched_kalman_filter(y_diff.data(), nobs - d, Tar, Tma, p, q, num_batches,
-                          loglike_b, vs_b);
+                          loglike, vs_b);
   } else {
     throw std::runtime_error("Not supported difference parameter: d=0, 1");
   }
