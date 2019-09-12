@@ -37,7 +37,7 @@ import cudf
 import os
 import time
 import pickle
-import sklearn.datasets
+import sklearn.datasets, sklearn.model_selection
 from numba import cuda
 from urllib.request import urlretrieve
 import gzip
@@ -101,7 +101,9 @@ def load_higgs(format='cudf'):
     return X_df, y_df
 
 def _convert_to_numpy(data):
-    if isinstance(data, tuple):
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
         return tuple([_convert_to_numpy(d) for d in data])
     elif isinstance(data, np.ndarray):
         return data
@@ -111,7 +113,9 @@ def _convert_to_numpy(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 def _convert_to_cudf(data):
-    if isinstance(data, tuple):
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
         return tuple([_convert_to_cudf(d) for d in data])
     elif isinstance(data, pd.DataFrame):
         return cudf.DataFrame.from_pandas(data)
@@ -121,7 +125,9 @@ def _convert_to_cudf(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 def _convert_to_pandas(data):
-    if isinstance(data, tuple):
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
         return tuple([_convert_to_pandas(d) for d in data])
     elif isinstance(data, pd.DataFrame):
         return cudf.DataFrame.from_pandas(data)
@@ -131,7 +137,9 @@ def _convert_to_pandas(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 def _convert_to_gpuarray(data, order='F'):
-    if isinstance(data, tuple):
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
         return tuple([_convert_to_gpuarray(d, order=order)
                      for d in data])
     else:
@@ -148,13 +156,15 @@ _data_converters = { 'numpy': _convert_to_numpy,
 
 def gen_data(dataset_name, dataset_format,
              n_samples=0, n_features=0, random_state=42,
+             test_fraction=0.0,
              **kwargs):
     """Returns a tuple of data from the specified generator.
 
     Output
     -------
-        (features, labels) tuple containing matrices or dataframes of the
-        requested format.
+        (train_features, train_labels, test_features, test_labels) tuple
+        containing matrices or dataframes of the requested format.
+        test_features and test_labels may be None if no splitting was done.
 
     Parameters
     ----------
@@ -164,8 +174,16 @@ def gen_data(dataset_name, dataset_format,
 
     dataset_format : str
         Type of data to return. (One of cudf, numpy, pandas, gpuarray)
+
+    test_fraction : float
+        Fraction of the dataset to partition randomly into the test set.
+        If this is 0.0, no test set will be created.
     """
     data = _data_generators[dataset_name](n_samples, n_features, random_state, **kwargs)
+    if test_fraction != 0.0:
+        data = sklearn.model_selection.train_test_split(*data)
+    else:
+        data = (*data, None, None) # No test set
 
     data = _data_converters[dataset_format](data)
     return data
