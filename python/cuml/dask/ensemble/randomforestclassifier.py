@@ -193,6 +193,9 @@ class RandomForestClassifier:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        if handle is None:
+            handle = cuml.Handle(n_streams)
+
         self.rfs = {
             worker: c.submit(
                 RandomForestClassifier._func_build_rf,
