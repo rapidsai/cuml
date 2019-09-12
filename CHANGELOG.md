@@ -1,6 +1,7 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
+- PR #1071: Selective eigen solver of cuSolver 
 
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 
