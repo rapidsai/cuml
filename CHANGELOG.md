@@ -6,6 +6,7 @@
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 - PR #763: Add examples to train_test_split documentation
+- PR #????: Unified inference kernels for different FIL algorithms
 
 ## Bug Fixes
 
