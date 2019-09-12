@@ -556,7 +556,7 @@ class SmoSolverTest : public ::testing::Test {
       ay += dual_coefs_host[i];
     }
     // Test if \sum \alpha_i y_i = 0
-    EXPECT_LT(abs(ay), 1.0e-6f);
+    EXPECT_LT(abs(ay), 1.0e-5f);
 
     if (x_support_exp) {
       EXPECT_TRUE(devArrMatchHost(x_support_exp, x_support_d, n_coefs * n_cols,
@@ -763,20 +763,18 @@ TYPED_TEST(SmoSolverTest, Blobs) {
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
      smoOutput<TypeParam>{98, {}, 5.33624, {}, {}, {}}},
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2, 100},
-     smoOutput<TypeParam>{2, {}, 0.941554, {}, {}, {}}}};
-  //  {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 100},
-  //   smoOutput<TypeParam>{68, {}, 3.571, {}, {}, {}}}};
-  //{blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
-  // smoOutput<TypeParam>{844, {}, -11.7999, {}, {}, {}}},
-  //{blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.001, 0}, 100, 10000},
-  // smoOutput<TypeParam>{100, {}, 1.27648, {}, {}, {}}}};
-  // The last three (disabled) tests are sensitive to the precision that we use.
-  // TODO: confirm that this is correct behavior, and enable these tests
-
+     smoOutput<TypeParam>{2, {}, 0.941554, {}, {}, {}}},
+    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 100},
+     smoOutput<TypeParam>{68, {}, 3.571, {}, {}, {}}},
+    //{blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
+    // smoOutput<TypeParam>{869, {}, -7.7783, {}, {}, {}}},
+    {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.001, 0}, 100, 1000},
+     smoOutput<TypeParam>{100, {}, 4.3920, {}, {}, {}}}};
   auto allocator = this->handle.getDeviceAllocator();
   for (auto d : data) {
     auto p = d.first;
     SCOPED_TRACE(p);
+
     device_buffer<float> x_float(allocator, this->stream, p.n_rows * p.n_cols);
     device_buffer<TypeParam> x2(allocator, this->stream);
     device_buffer<int> y_int(allocator, this->stream, p.n_rows);
@@ -793,8 +791,8 @@ TYPED_TEST(SmoSolverTest, Blobs) {
       x = (TypeParam *)x_float.data();
     } else {
       x2.resize(p.n_rows * p.n_cols, this->stream);
-      cast<<<MLCommon::ceildiv(p.n_rows, TPB), TPB, 0, this->stream>>>(
-        x2.data(), p.n_rows * p.n_cols, x_float.data());
+      cast<<<MLCommon::ceildiv(p.n_rows * p.n_cols, TPB), TPB, 0,
+             this->stream>>>(x2.data(), p.n_rows * p.n_cols, x_float.data());
       CUDA_CHECK(cudaPeekAtLastError());
       x = x2.data();
     }
@@ -802,17 +800,54 @@ TYPED_TEST(SmoSolverTest, Blobs) {
       y.data(), p.n_rows, y_int.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
-    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 200, 100,
-                       false);
+    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(x, p.n_rows, p.n_cols, y.data());
     std::cout << p << ": " << svc.model.n_support << " " << svc.model.b << "\n";
     auto exp = d.second;
     this->checkResults(svc.model, exp);
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
-
     svc.predict(x, p.n_rows, p.n_cols, y_pred.data());
   }
+}
+
+TYPED_TEST(SmoSolverTest, MemoryLeak) {
+  std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
+    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
+     smoOutput<TypeParam>{869, {}, -7.7783, {}, {}, {}}}};
+  size_t free1, total, free2;
+  CUDA_CHECK(cudaMemGetInfo(&free1, &total));
+  auto allocator = this->handle.getDeviceAllocator();
+  for (auto d : data) {
+    auto p = d.first;
+    SCOPED_TRACE(p);
+
+    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
+    device_buffer<int> y_int(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
+
+    Random::make_blobs(x.data(), y_int.data(), p.n_rows, p.n_cols, 2, allocator,
+                       this->stream);
+    int TPB = 256;
+
+    cast<<<MLCommon::ceildiv(p.n_rows, TPB), TPB, 0, this->stream>>>(
+      y.data(), p.n_rows, y_int.data());
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
+    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+    device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
+                                    this->stream, p.n_rows);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+    float delta = (free1 - free2);
+    EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
+    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+  }
+  CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+  float delta = (free1 - free2);
+  EXPECT_EQ(delta, 0);
 }
 
 };  // namespace SVM
