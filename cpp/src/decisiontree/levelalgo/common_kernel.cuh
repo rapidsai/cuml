@@ -49,14 +49,14 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
                                   T init_min_val, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
-  unsigned int colst;
+  unsigned int colstart_local;
   extern __shared__ char shared_mem_minmax[];
   T* shmem_minmax = (T*)shared_mem_minmax;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
   if (local_flag != LEAF) {
-    colst = colstart[local_flag];
+    colstart_local = colstart[local_flag];
   }
   for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
@@ -67,7 +67,7 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 
     __syncthreads();
     if (local_flag != LEAF) {
-      int col = colids[(colst + colcnt) % Ncols];
+      int col = colids[(colstart_local + colcnt) % Ncols];
       T local_data = data[col * nrows + tid];
       if (!isnan(local_data)) {
         //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -92,18 +92,18 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 template <typename T, typename E>
 __global__ void get_minmax_kernel_global(
   const T* __restrict__ data, const unsigned int* __restrict__ flags,
-  const unsigned int* __restrict__ colids, const unsigned int* colstart,
-  const int nrows, const int Ncols, const int ncols_sampled, const int n_nodes,
-  T* minmax) {
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_nodes, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
   if (tid < nrows) {
     local_flag = flags[tid];
     if (local_flag != LEAF) {
-      unsigned int colst = colstart[local_flag];
+      unsigned int colstart_local = colstart[local_flag];
       for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
         int coloff = 2 * n_nodes * colcnt;
-        int col = colids[(colst + colcnt) % Ncols];
+        int col = colids[(colstart_local + colcnt) % Ncols];
         T local_data = data[col * nrows + tid];
         if (!isnan(local_data)) {
           //Min max values are saved in shared memory and global memory as per the shuffled colids.

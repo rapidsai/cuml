@@ -88,7 +88,7 @@ __global__ void get_pred_kernel(
   unsigned int local_flag = LEAF;
   T local_label;
   int local_cnt;
-  unsigned int colst;
+  unsigned int colstart_local;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int colid;
   if (tid < nrows) {
@@ -97,11 +97,11 @@ __global__ void get_pred_kernel(
     local_cnt = sample_cnt[tid];
   }
   if (local_flag != LEAF) {
-    colst = colstart[local_flag];
+    colstart_local = colstart[local_flag];
   }
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
-      colid = colids[(colst + colcnt) % Ncols];
+      colid = colids[(colstart_local + colcnt) % Ncols];
     }
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       shmempred[i] = (T)0;
@@ -159,7 +159,7 @@ __global__ void get_mse_kernel(
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   T parent_pred;
   unsigned int parent_count;
-  unsigned int colid, colst;
+  unsigned int colid, colstart_local;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
@@ -169,12 +169,12 @@ __global__ void get_mse_kernel(
     parent_pred = parentpred[local_flag];
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
-    colst = colstart[local_flag];
+    colstart_local = colstart[local_flag];
   }
 
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
-      colid = colids[(colst + colcnt) % Ncols];
+      colid = colids[(colstart_local + colcnt) % Ncols];
     }
     unsigned int coloff = colcnt * nbins * n_nodes;
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
@@ -242,9 +242,9 @@ __global__ void get_pred_kernel_global(
     if (local_flag != LEAF) {
       local_label = labels[tid];
       local_cnt = sample_cnt[tid];
-      unsigned int colst = colstart[local_flag];
+      unsigned int colstart_local = colstart[local_flag];
       for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
-        unsigned int colid = colids[(colst + colcnt) % Ncols];
+        unsigned int colid = colids[(colstart_local + colcnt) % Ncols];
         unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
         QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
@@ -292,9 +292,9 @@ __global__ void get_mse_kernel_global(
     if (local_flag != LEAF) {
       parent_count = parentcount[local_flag];
       parent_pred = parentpred[local_flag];
-      unsigned int colst = colstart[local_flag];
+      unsigned int colstart_local = colstart[local_flag];
       for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
-        unsigned int colid = colids[(colst + colcnt) % Ncols];
+        unsigned int colid = colids[(colstart_local + colcnt) % Ncols];
         unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
         QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
