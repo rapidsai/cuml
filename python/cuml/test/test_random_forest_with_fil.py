@@ -39,10 +39,10 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
-                         stress_param(200)])
+@pytest.mark.parametrize('ncols', [unit_param(16), quality_param(200),
+                         stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -92,8 +92,8 @@ def test_rf_classification_fil(datatype, split_algo,
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
-                         stress_param(200)])
+@pytest.mark.parametrize('ncols', [unit_param(16), quality_param(200),
+                         stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -103,7 +103,7 @@ def test_rf_regression_fil(datatype, split_algo,
                            n_info, mode, ncols, max_features):
     use_handle = True
     if mode == 'unit':
-        X, y = make_regression(n_samples=30, n_features=ncols,
+        X, y = make_regression(n_samples=100, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
 
@@ -143,5 +143,6 @@ def test_rf_regression_fil(datatype, split_algo,
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
+    print(fil_r2, cu_r2, sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
     assert fil_r2 >= (sk_r2 - 0.07)

@@ -22,7 +22,7 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.metrics import mean_squared_error
@@ -40,10 +40,10 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
-                         stress_param(200)])
+@pytest.mark.parametrize('ncols', [unit_param(16), quality_param(200),
+                         stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -55,7 +55,7 @@ def test_rf_classification(datatype, split_algo,
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
-                               random_state=123, n_classes=5)
+                               random_state=123, n_classes=2)
     X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
     y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
@@ -89,8 +89,8 @@ def test_rf_classification(datatype, split_algo,
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
-                         stress_param(200)])
+@pytest.mark.parametrize('ncols', [unit_param(16), quality_param(200),
+                         stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -100,7 +100,7 @@ def test_rf_regression(datatype, split_algo,
                        n_info, mode, ncols, max_features):
     use_handle = True
     if mode == 'unit':
-        X, y = make_regression(n_samples=30, n_features=ncols,
+        X, y = make_regression(n_samples=100, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
     elif mode == 'quality':
@@ -128,7 +128,8 @@ def test_rf_regression(datatype, split_algo,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cu_mse = cuml_model.score(X_test, y_test)
+    cuml_predict = cuml_model.predict(X_test, predict_model="CPU")
+    cu_r2 = r2_score(y_test, cuml_predict)
     if mode != 'stress':
         # sklearn random forest classification model
         # initialization, fit and predict
@@ -137,6 +138,6 @@ def test_rf_regression(datatype, split_algo,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
-        sk_mse = mean_squared_error(y_test, sk_predict)
+        sk_r2 = r2_score(y_test, sk_predict)
         # compare the accuracy of the two models
-        assert cu_mse <= (sk_mse + 0.07)
+        assert cu_r2 >= (sk_r2 - 0.07)
