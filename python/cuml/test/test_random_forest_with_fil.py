@@ -49,7 +49,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 def test_rf_classification_fil(datatype, split_algo,
-                           n_info, nrows, ncols, max_features):
+                               n_info, nrows, ncols, max_features):
     use_handle = True
 
     train_rows = np.int32(nrows*0.8)
@@ -98,9 +98,9 @@ def test_rf_classification_fil(datatype, split_algo,
                          stress_param(100)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features',[1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 def test_rf_regression_fil(datatype, split_algo,
-                       n_info, mode, ncols, max_features):
+                           n_info, mode, ncols, max_features):
     use_handle = True
     if mode == 'unit':
         X, y = make_regression(n_samples=30, n_features=ncols,
