@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
-#include "tsne/digits.h"
+#include "datasets/digits.h"
 #include "tsne/tsne.cu"
 
 #include "cuda_utils.h"
@@ -32,6 +32,7 @@
 using namespace MLCommon;
 using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
+using namespace MLCommon::Datasets::Digits;
 
 using namespace ML;
 
@@ -48,11 +49,8 @@ class TSNETest : public ::testing::Test {
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
     // Test Barnes Hut
-    std::cout << "[>>>>]    Starting TSNE....\n";
     TSNE_fit(handle, X_d, Y_d, n, p, 2, 90);
-    std::cout << "[>>>>]    Got embeddings!....\n";
 
-    std::cout << "Updating host" << std::endl;
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
                cudaMemcpyDeviceToHost);
@@ -68,8 +66,6 @@ class TSNETest : public ::testing::Test {
     MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
 
-    std::cout << "DONE!" << std::endl;
-
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Test trustworthiness
@@ -77,15 +73,10 @@ class TSNETest : public ::testing::Test {
     score_bh = trustworthiness_score<float, EucUnexpandedL2>(
       X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
 
-    std::cout << "SCORE: " << score_bh << std::endl;
-
     // Test Exact TSNE
-    std::cout << "[>>>>]    Starting Exact TSNE....\n";
     TSNE_fit(handle, X_d, Y_d, n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
              0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true, true, false);
-    std::cout << "[>>>>]    Got embeddings!....\n";
 
-    std::cout << "Updating host" << std::endl;
     cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
                cudaMemcpyDeviceToHost);
 
@@ -96,15 +87,12 @@ class TSNETest : public ::testing::Test {
     }
 
     MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-    std::cout << "DONE!" << std::endl;
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Test trustworthiness
     // euclidean test
     score_exact = trustworthiness_score<float, EucUnexpandedL2>(
       X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
-
-    std::cout << "SCORE: " << score_exact << std::endl;
 
     // Free space
     free(embeddings_h);
