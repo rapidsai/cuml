@@ -236,27 +236,70 @@ def test_svm_numeric_arraytype(x_arraytype, y_arraytype, x_dtype, y_dtype):
     assert n_pred_wrong == 0
 
 
+def get_memsize(svc):
+    """ Calculates the memory occupied by the parameters of an SVC object
+
+    Parameters
+    ----------
+    svc : cuML SVC classifier object
+
+    Return
+    ------
+    The GPU memory usage in bytes.
+    """
+    ms = 0
+    for a in ['dual_coef_', 'support_', 'support_vectors_']:
+        x = getattr(svc, a)
+        ms += np.prod(x.shape)*x.dtype.itemsize
+    return ms
+
+
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 1, 'gamma': 1}
 ])
-@pytest.mark.parametrize('n_rows', [100])
-@pytest.mark.parametrize('n_iter', [100])
-def test_svm_loop(params, n_rows, n_iter, dataset='blobs', n_cols=10):
+@pytest.mark.parametrize('n_rows', [unit_param(100), quality_param(1000),
+                                    stress_param(1000)])
+@pytest.mark.parametrize('n_iter', [unit_param(10), quality_param(100),
+                                    stress_param(1000)])
+@pytest.mark.parametrize('n_cols', [1000])
+def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
+    """
+    Test whether there is any memory leak. Note: small n_rows, and n_cols
+    values will result in small model size, that will not be measured by
+    get_memory_info.
+    """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+    stream = cuml.cuda.Stream()
+    handle = cuml.Handle()
+    handle.setStream(stream)
+    # Warmup. Some modules that are used in SVC allocate space on the device
+    # and consume memory. Here we make sure that this allocation is done
+    # before the first call to get_memory_info.
+    tmp = cuml.svm.SVC(handle=handle, **params)
+    tmp.fit(X_train, y_train)
+    ms = get_memsize(tmp)
+    print("Memory consumtion of SVC object is {} MiB".format(ms/(1024*1024.0)))
 
     free_mem = cuda.current_context().get_memory_info()[0]
+
+    # Check first whether the get_memory_info gives us the correct memory
+    # footprint
+    cuSVC = cuml.svm.SVC(handle=handle, **params)
+    cuSVC.fit(X_train, y_train)
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    assert delta_mem >= ms
+
+    # Main test loop
+    b_sum = 0
     for i in range(n_iter):
-        cuSVC = cuml.svm.SVC(**params)
+        cuSVC = cuml.svm.SVC(handle=handle, **params)
         cuSVC.fit(X_train, y_train)
+        b_sum += cuSVC.intercept_
         cuSVC.predict(X_train)
 
-    # intercept_exp = 0.9557494777004518
-    # n_sv_exp = 6656
-    # assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
-    # assert cuSVC.n_support_ == n_sv_exp
+    print(b_sum, cuSVC.n_support_, cuSVC.intercept_)
     del(cuSVC)
+    handle.sync()
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    delta_mem /= (1024*1024.0)  # in MiB
-    # This does not work yet
-    # print("Delta mem", delta_mem)
-    # assert delta_mem < 1
+    print("Delta GPU mem: {} bytes".format(delta_mem))
+    assert delta_mem == 0
