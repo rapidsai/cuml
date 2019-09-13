@@ -82,14 +82,28 @@ def report_asv(results_df, output_dir):
         result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
         db.addResult(b_info, result)
 
-def run(algos_to_run, dataset, bench_rows, bench_dims, input_type, param_override_list, cuml_param_override_list, output_csv=None, run_cpu=True):
-    print("Running: \n", "\n ".join([a.name for a in algos_to_run]))
+def run_variations(algos, dataset, bench_rows,
+                   bench_dims,
+                   param_override_list=[{}],
+                   cuml_param_override_list=[{}],
+                   input_type="numpy",
+                   run_cpu=True):
+    """
+    Parameters
+    ----------
+        algos : str or list
+          Name of algorithms to run and evaluate
+
+        dataset : str
+          Name of dataset to use
+    """
+    print("Running: \n", "\n ".join([a.name for a in algos]))
     runner = bench_runners.AccuracyComparisonWrapper(bench_rows,
                                                      bench_dims,
                                                      dataset,
                                                      input_type)
     all_results = []
-    for algo in algos_to_run:
+    for algo in algos:
         for param_overrides in param_override_list:
             for cuml_param_overrides in cuml_param_override_list:
                 results = runner.run(algo, param_overrides, cuml_param_overrides, run_cpu=run_cpu)
@@ -99,10 +113,6 @@ def run(algos_to_run, dataset, bench_rows, bench_dims, input_type, param_overrid
     print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)
     print(results_df)
-
-    if output_csv:
-        results_df.to_csv(output_csv)
-        print("Saved results to %s" % output_csv)
 
     return results_df
 
@@ -162,16 +172,19 @@ if __name__ == '__main__':
         # Run all by default
         algos_to_run = bench_algos.all_algorithms()
 
-    results_df = run(algos_to_run,
+    results_df = run_variations(algos_to_run,
                      dataset=args.dataset,
                      bench_rows=bench_rows,
                      bench_dims=bench_dims,
                      input_type=args.input_type,
                      param_override_list=param_override_list,
                      cuml_param_override_list=cuml_param_override_list,
-                     output_csv=args.csv,
                      run_cpu=(not args.skip_cpu)
     )
+
+    if args.csv:
+        results_df.to_csv(args.csv)
+        print("Saved results to %s" % args.csv)
 
     if args.asvdb:
         report_asv(results_df, args.asvdb)
