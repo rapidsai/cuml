@@ -106,7 +106,7 @@ void grow_deep_tree_classification(
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem->stream);
+                            tempmem);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
     ASSERT(
