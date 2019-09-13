@@ -98,13 +98,14 @@ struct TemporaryMemory {
     const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
     const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
     const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
-    int n_bins, const int split_algo, int depth);
+    int n_bins, const int split_algo, int depth, bool col_shuffle);
   TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
                   float colper, int n_unique, int n_bins, const int split_algo,
-                  int depth);
+                  int depth, bool col_shuffle);
   ~TemporaryMemory();
   void LevelMemAllocator(int nrows, int ncols, float colper, int n_unique,
-                         int nbins, int depth, const int split_algo);
+                         int nbins, int depth, const int split_algo,
+                         bool col_shuffle);
 
   void LevelMemCleaner();
   void print_info();
