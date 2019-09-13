@@ -90,8 +90,12 @@ void grow_deep_tree_classification(
   unsigned int* d_new_node_flags = tempmem->d_new_node_flags->data();
   unsigned int* d_colids = tempmem->d_colids->data();
   unsigned int* h_colids = tempmem->h_colids->data();
-  unsigned int* d_colstart = tempmem->d_colstart->data();
-  unsigned int* h_colstart = tempmem->h_colstart->data();
+  unsigned int* d_colstart = nullptr;
+  unsigned int* h_colstart = nullptr;
+  if (tempmem->d_colstart != nullptr) {
+    d_colstart = tempmem->d_colstart->data();
+    h_colstart = tempmem->h_colstart->data();
+  }
   CUDA_CHECK(cudaMemsetAsync(
     d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
     tempmem->stream));
