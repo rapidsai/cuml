@@ -82,23 +82,37 @@ def report_asv(results_df, output_dir):
         result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
         db.addResult(b_info, result)
 
-def run_variations(algos, dataset, bench_rows,
+def run_variations(algos, dataset_name, bench_rows,
                    bench_dims,
                    param_override_list=[{}],
                    cuml_param_override_list=[{}],
                    input_type="numpy",
                    run_cpu=True):
     """
+    Runs each algo in `algos` once per
+    `bench_rows X bench_dims X params_override_list X cuml_param_override_list`
+    combination and returns a dataframe containing timing and accuracy data.
+
     Parameters
     ----------
-        algos : str or list
-          Name of algorithms to run and evaluate
-
-        dataset : str
-          Name of dataset to use
+    algos : str or list
+      Name of algorithms to run and evaluate
+    dataset_name : str
+      Name of dataset to use
+    bench_rows : list of int
+      Dataset row counts to test
+    bench_dims : list of int
+      Dataset column counts to test
+    param_override_list : list of dict
+      Dicts containing parameters to pass to __init__.
+      Each dict specifies parameters to override in one run of the algorithm.
+    cuml_param_override_list : list of dict
+      Dicts containing parameters to pass to __init__ of the cuml algo only.
+    run_cpu : boolean
+      If True, run the cpu-based algorithm for comparison
     """
     print("Running: \n", "\n ".join([a.name for a in algos]))
-    runner = bench_runners.AccuracyComparisonWrapper(bench_rows,
+    runner = bench_runners.AccuracyComparisonRunner(bench_rows,
                                                      bench_dims,
                                                      dataset,
                                                      input_type)

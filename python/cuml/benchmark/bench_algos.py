@@ -24,9 +24,10 @@ import numpy as np
 class AlgorithmPair():
     """
     Wraps a cuML algorithm and (optionally) a cpu-based algorithm
-    (typically scikit-learn, but does not need to be). Provides
-    mechanisms to each version with default arguments.
-    If no CPU-based version of the algorithm is availab.e, pass None for the
+    (typically scikit-learn, but does not need to be as long as it offers
+    `fit` and `predict` or `transform` methods).
+    Provides mechanisms to run each version with default arguments.
+    If no CPU-based version of the algorithm is available, pass None for the
     cpu_class when instantiating
     """
     def __init__(self,
@@ -113,6 +114,7 @@ def _labels_to_int_hook(data):
     return (data[0], data[1].astype(np.int32))
 
 def all_algorithms():
+    """Returns all defined AlgorithmPair objects"""
     return [
         AlgorithmPair(
             sklearn.cluster.KMeans,
@@ -168,12 +170,26 @@ def all_algorithms():
             data_prep_hook=_labels_to_int_hook,
             accuracy_function=metrics.accuracy_score),
         AlgorithmPair(
+            sklearn.ensemble.RandomForestRegressor,
+            cuml.ensemble.RandomForestRegressor,
+            shared_args={'max_features': 1.0, 'n_estimators': 100},
+            name='RandomForestRegressor',
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score),
+        AlgorithmPair(
             umap.UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name='UMAP',
             accepts_labels=False,
             accuracy_function=cuml.metrics.trustworthiness),
+        AlgorithmPair(
+            None,
+            cuml.linear_model.MBSGDClassifier,
+            shared_args={},
+            name='MBSGDClassifier',
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score),
     ]
 
 

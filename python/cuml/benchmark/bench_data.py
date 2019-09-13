@@ -185,13 +185,19 @@ def gen_data(dataset_name, dataset_format,
     dataset_format : str
         Type of data to return. (One of cudf, numpy, pandas, gpuarray)
 
+    n_samples : int
+        Number of samples to include in training set (regardless of test split)
     test_fraction : float
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
     """
-    data = _data_generators[dataset_name](n_samples, n_features, random_state, **kwargs)
+    data = _data_generators[dataset_name](int(n_samples / (1-test_fraction)),
+                                          n_features, random_state, **kwargs)
     if test_fraction != 0.0:
-        X_train, X_test, y_train, y_test = tuple(sklearn.model_selection.train_test_split(*data))
+        X_train, X_test, y_train, y_test = tuple(
+            sklearn.model_selection.train_test_split(*data,
+                                                     train_size=n_samples))
+        print("Post split: ", X_train.shape)
         data = (X_train, y_train, X_test, y_test)
     else:
         data = (*data, None, None) # No test set
