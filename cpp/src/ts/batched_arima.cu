@@ -23,11 +23,19 @@
 
 #include <common/nvtx.hpp>
 
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/for_each.h>
+#include <thrust/host_vector.h>
+#include <thrust/iterator/counting_iterator.h>
+
+#include <cuML.hpp>
+
 namespace ML {
 
-void batched_loglike(double* h_y, int num_batches, int nobs, int p, int d,
-                     int q, double* h_params, std::vector<double>& loglike,
-                     bool trans) {
+void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
+                     int p, int d, int q, double* h_params,
+                     std::vector<double>& loglike, bool trans) {
   using std::get;
   using std::vector;
 
@@ -57,7 +65,7 @@ void batched_loglike(double* h_y, int num_batches, int nobs, int p, int d,
   vector<double> Tma;
 
   if (trans) {
-    batched_jones_transform(p, q, num_batches, false, ar, ma, Tar, Tma);
+    batched_jones_transform(handle, p, q, num_batches, false, ar, ma, Tar, Tma);
   } else {
     // non-transformed case: just use original parameters
     Tar = ar;
@@ -67,21 +75,31 @@ void batched_loglike(double* h_y, int num_batches, int nobs, int p, int d,
   std::vector<std::vector<double>> vs_b;
   if (d == 0) {
     // no diff
-    batched_kalman_filter(h_y, nobs, Tar, Tma, p, q, num_batches, loglike,
-                          vs_b);
-  } else if (d == 1) {
-    // diff and center (with `mu`):
-    std::vector<double> y_diff(num_batches * (nobs - 1));
-    for (int ib = 0; ib < num_batches; ib++) {
-      auto mu_ib = mu[ib];
-      for (int i = 0; i < nobs - 1; i++) {
-        y_diff[ib * (nobs - 1) + i] =
-          (h_y[ib * nobs + i + 1] - h_y[ib * nobs + i]) - mu_ib;
-      }
-    }
-
-    batched_kalman_filter(y_diff.data(), nobs - d, Tar, Tma, p, q, num_batches,
+    batched_kalman_filter(handle, d_y, nobs, Tar, Tma, p, q, num_batches,
                           loglike, vs_b);
+  } else if (d == 1) {
+    ////////////////////////////////////////////////////////////
+    // diff and center (with `mu`):
+    ////////////////////////////////////////////////////////////
+
+    // make device array and pointer
+    thrust::device_vector<double> y_diff(num_batches * (nobs - 1));
+    thrust::device_vector<double> d_mu = mu;
+    double* y_diff_ptr = thrust::raw_pointer_cast(y_diff.data());
+    double* d_mu_ptr = thrust::raw_pointer_cast(d_mu.data());
+    auto counting = thrust::make_counting_iterator(0);
+    // TODO: This for_each should probably go over samples, so batches are in the inner loop.
+    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+      double mu_ib = d_mu_ptr[bid];
+      for (int i = 0; i < nobs - 1; i++) {
+        // diff and center (with `mu` parameter)
+        y_diff_ptr[bid * (nobs - 1) + i] =
+          (d_y[bid * nobs + i + 1] - d_y[bid * nobs + i]) - mu_ib;
+      }
+    });
+
+    batched_kalman_filter(handle, y_diff_ptr, nobs - d, Tar, Tma, p, q,
+                          num_batches, loglike, vs_b);
   } else {
     throw std::runtime_error("Not supported difference parameter: d=0, 1");
   }

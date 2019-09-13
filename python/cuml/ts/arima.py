@@ -17,180 +17,15 @@
 from typing import List, Tuple
 import numpy as np
 from IPython.core.debugger import set_trace
-import pandas as pd
 
 from cuml.ts.batched_kalman import batched_kfilter
 from cuml.ts.batched_kalman import pynvtx_range_push, pynvtx_range_pop
-from cuml.ts.batched_kalman import batched_transform as batched_trans_cuda
 from cuml.ts.batched_kalman import pack, unpack
-from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
-from cuml.ts.batched_arima import batched_loglike_cuda
 
-class ARIMAModel:
-    r"""
-    The Batched ARIMA model fits the following to each given input:
-    if d=1:
-      \delta \tilde{y}_{t} = \mu + \sum_{i=1}^{p} \phi_i \delta y_{t-i}
-                                    + \sum_{i=1}^{q} \theta_i (y_{t-i} -
-                                                                 \tilde{y}_{t-i})
+import cuml.ts.batched_arima as batched_arima
 
-    Note all fitted parameters, \mu, \phi_i, \theta_i.
-    """
+import cudf
 
-    def __init__(self, order: List[Tuple[int, int, int]],
-                 mu: np.ndarray,
-                 ar_params: List[np.ndarray],
-                 ma_params: List[np.ndarray],
-                 y: pd.DataFrame):
-        self.order = order
-        self.mu = mu
-        self.ar_params = ar_params
-        self.ma_params = ma_params
-        self.y = y
-        self.num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
-        self.num_batches = y.shape[1]
-        self.yp = None
-        self.niter = None # number of iterations used during fit
-
-    def __repr__(self):
-        return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
-                                                                    self.ar_params, self.ma_params)
-
-    def __str__(self):
-        return self.__repr__()
-
-    @property
-    def bic(self):
-        (p, d, q) = self.order[0]
-        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.order[0], self.y, x)
-        return [-2 * lli + np.log(len(self.y)) * (_model_complexity(self.order[i]))
-                for (i, lli) in enumerate(llb)]
-
-    @property
-    def aic(self):
-        (p, d, q) = self.order[0]
-        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.order[0], self.y, x)
-        return [-2 * lli + 2 * (_model_complexity(self.order[i]))
-                for (i, lli) in enumerate(llb)]
-
-
-def _model_complexity(order):
-    (p, d, q) = order
-    # complexity is number of parameters: mu + ar + ma
-    return d + p + q
-
-
-def ll_f(num_batches, order, y, x, trans=True):
-    """Computes batched loglikelihood given parameters stored in `x`."""
-    pynvtx_range_push("ll_f")
-
-    p, d, q = order
-    nobs = len(y)
-    llb = batched_loglike_cuda(y, num_batches, nobs, p, d, q, x, trans)
-    
-    pynvtx_range_pop()
-    return llb
-
-def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, trans=True):
-    """Computes fd-gradient of batched loglikelihood given parameters stored in
-    `x`. Because batches are independent, it only compute the function for the
-    single-batch number of parameters."""
-    pynvtx_range_push("ll_gf")
-    
-    fd = np.zeros(num_parameters)
-
-    grad = np.zeros(len(x))
-
-    # 1st order FD saves 20% runtime.
-    # ll_b0 = ll_f(num_batches, num_parameters, order, y, x, trans=trans)
-    assert (len(x) / num_parameters) == float(num_batches)
-    for i in range(num_parameters):
-        fd[i] = h
-
-        # duplicate the perturbation across batches (they are independent)
-        fdph = np.tile(fd, num_batches)
-
-        # reset perturbation
-        fd[i] = 0.0
-
-        ll_b_ph = ll_f(num_batches, order, y, x+fdph, trans=trans)
-        ll_b_mh = ll_f(num_batches, order, y, x-fdph, trans=trans)
-        
-        np.seterr(all='raise')
-        grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
-        # grad_i_b = (ll_b_ph - ll_b0)/(h)
-
-        if num_batches == 1:
-            grad[i] = grad_i_b
-        else:
-            assert len(grad[i::num_parameters]) == len(grad_i_b)
-            # Distribute the result to all batches
-            grad[i::num_parameters] = grad_i_b
-
-    pynvtx_range_pop()
-    return grad
-
-
-def fit(y: np.ndarray,
-        order: Tuple[int, int, int],
-        mu0: np.ndarray,
-        ar_params0: List[np.ndarray],
-        ma_params0: List[np.ndarray],
-        opt_disp=-1, h=1e-9, alpha_max=1000):
-    """
-    Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
-    with the given initial parameters. `y` is (num_samples, num_batches)
-
-    """
-
-    # turn on floating point exceptions!
-    np.seterr(all='raise')
-
-    p, d, q = order
-    num_parameters = d + p + q
-
-    num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
-    num_batches = y.shape[1]
-
-    def f(x: np.ndarray) -> np.ndarray:
-        """The (batched) energy functional returning the negative loglikelihood (for each series)."""
-
-        # Recall: Maximimize LL means minimize negative
-        n_llf = -(ll_f(num_batches, order, y, x, trans=True))
-        return n_llf/(num_samples-1)
-
-
-    # optimized finite differencing gradient for batches
-    def gf(x):
-        """The gradient of the (batched) energy functional."""
-        # Recall: We maximize LL by minimizing -LL
-        n_gllf = -ll_gf(num_batches, num_parameters, order, y, x, h, trans=True)
-        return n_gllf/(num_samples-1)
-
-    x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
-    x0 = batch_invtrans(p, d, q, num_batches, x0)
-        
-    # check initial parameter sanity
-    if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
-
-
-    # Optimize parameters by minimizing log likelihood.
-    x, niter, flags = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
-                                           iprint=opt_disp, factr=1000)
-
-    # TODO: Better Handle non-zero `flag` array values: 0 -> ok, 1,2 -> optimizer had trouble
-    if (flags != 0).any():
-        print("WARNING(`fit()`): Some batch members had optimizer problems.")
-
-    Tx = batch_trans(p, d, q, num_batches, x)
-    mu, ar, ma = unpack(p, d, q, num_batches, Tx)
-
-    fit_model = ARIMAModel(num_batches*[order], mu, ar, ma, y)
-    fit_model.niter = niter
-    return fit_model
 
 
 def diffAndCenter(y: np.ndarray,
@@ -329,28 +164,6 @@ def forecast(model, nsteps: int) -> np.ndarray:
     return y_fc_b
 
 
-def batch_trans(p, d, q, nb, x):
-    """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
-    pynvtx_range_push("jones trans")
-
-    Tx = batched_trans_cuda(p, d, q, nb, x, False)
-    
-    pynvtx_range_pop()
-    return Tx
-
-
-def batch_invtrans(p, d, q, nb, x):
-    """Apply the *inverse* stationarity/invertibility guaranteeing transform to
-       batched-parameter vector x.
-    """
-    pynvtx_range_push("jones inv-trans")
-
-    Tx = batched_trans_cuda(p, d, q, nb, x, True)
-
-    pynvtx_range_pop()
-    return Tx
-
-
 def undifference(x, x0):
     # set_trace()
     xi = np.append(x0, x)
@@ -485,7 +298,7 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="bic"):
 
             mu0, ar0, ma0 = unpack(p, d, q, num_batches, x0)
 
-            b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
+            b_model = batched_arima.fit(y_b, (p, d, q), mu0, ar0, ma0)
 
             if method == "aic":
                 ic = b_model.aic
