@@ -58,18 +58,20 @@ __global__ void get_hist_kernel(
   int local_label = -1;
   int local_cnt;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int colid, colstart_local;
+  unsigned int colid;
+  int colstart_local = -1;
   if (tid < nrows) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
   }
   if (local_flag != LEAF) {
-    colstart_local = colstart[local_flag];
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
   }
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     if (local_flag != LEAF) {
-      colid = colids[(colstart_local + colcnt) % Ncols];
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
     }
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
          i += blockDim.x) {
@@ -120,18 +122,17 @@ __global__ void get_hist_kernel_global(
   int local_label;
   int local_cnt;
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int colstart_local;
   for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
     if (local_flag != LEAF) {
-      colstart_local = colstart[local_flag];
-    }
-    for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
-      //Check if leaf
-      if (local_flag != LEAF) {
-        unsigned int colid = colids[(colstart_local + colcnt) % Ncols];
+      local_label = labels[tid];
+      local_cnt = sample_cnt[tid];
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
+
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+        unsigned int colid = get_column_id(colids, colstart_local, Ncols,
+                                           ncols_sampled, colcnt, local_flag);
         T local_data = data[tid + colid * nrows];
         //Loop over nbins
         QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,

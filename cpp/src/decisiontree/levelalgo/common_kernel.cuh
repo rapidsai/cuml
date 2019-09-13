@@ -19,6 +19,18 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
+DI unsigned int get_column_id(const unsigned int* __restrict__ colids,
+                              const int colstart_local, const int Ncols,
+                              const int ncols_sampled, const int colcnt,
+                              const unsigned int local_flag) {
+  unsigned int col;
+  if (colstart_local != -1) {
+    col = colids[(colstart_local + colcnt) % Ncols];
+  } else {
+    col = colids[local_flag * ncols_sampled + colcnt];
+  }
+  return col;
+}
 template <typename T, typename E>
 __global__ void minmax_init_kernel(T* minmax, const int len, const int n_nodes,
                                    const T init_val) {
@@ -49,13 +61,13 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
                                   T init_min_val, T* minmax) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned int local_flag = LEAF;
-  unsigned int colstart_local;
+  int colstart_local = -1;
   extern __shared__ char shared_mem_minmax[];
   T* shmem_minmax = (T*)shared_mem_minmax;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
-  if (local_flag != LEAF) {
+  if (local_flag != LEAF && colstart != nullptr) {
     colstart_local = colstart[local_flag];
   }
   for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
@@ -67,7 +79,8 @@ __global__ void get_minmax_kernel(const T* __restrict__ data,
 
     __syncthreads();
     if (local_flag != LEAF) {
-      int col = colids[(colstart_local + colcnt) % Ncols];
+      int col = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                              colcnt, local_flag);
       T local_data = data[col * nrows + tid];
       if (!isnan(local_data)) {
         //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -100,10 +113,12 @@ __global__ void get_minmax_kernel_global(
   if (tid < nrows) {
     local_flag = flags[tid];
     if (local_flag != LEAF) {
-      unsigned int colstart_local = colstart[local_flag];
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
       for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
         int coloff = 2 * n_nodes * colcnt;
-        int col = colids[(colstart_local + colcnt) % Ncols];
+        int col = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                                colcnt, local_flag);
         T local_data = data[col * nrows + tid];
         if (!isnan(local_data)) {
           //Min max values are saved in shared memory and global memory as per the shuffled colids.
@@ -163,7 +178,10 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        int colid = colids[(colstart[local_flag] + colidx) % Ncols];
+        int local_colstart = -1;
+        if (colstart != nullptr) local_colstart = colstart[local_flag];
+        int colid = get_column_id(colids, local_colstart, Ncols, ncols_sampled,
+                                  colidx, local_flag);
         QuestionType question(question_ptr, colid, colidx, n_nodes, local_flag,
                               nbins);
         T quesval = question(split_bin_index[local_flag]);
