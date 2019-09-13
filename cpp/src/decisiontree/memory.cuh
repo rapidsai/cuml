@@ -25,7 +25,7 @@ TemporaryMemory<T, L>::TemporaryMemory(
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
   const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
   const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
-  int n_bins, const int split_algo, int depth) {
+  int n_bins, const int split_algo, int depth, bool col_shuffle) {
   stream = stream_in;
   splitalgo = split_algo;
 
@@ -33,14 +33,15 @@ TemporaryMemory<T, L>::TemporaryMemory(
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
-  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo);
+  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
+                    col_shuffle);
 }
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
                                        int Ncols, float colper, int n_unique,
                                        int n_bins, const int split_algo,
-                                       int depth) {
+                                       int depth, bool col_shuffle) {
   //Assign Stream from cumlHandle
   stream = handle.getStream();
   splitalgo = split_algo;
@@ -49,7 +50,8 @@ TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = handle.getDeviceAllocator();
   host_allocator = handle.getHostAllocator();
-  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo);
+  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
+                    col_shuffle);
 }
 
 template <class T, class L>
@@ -67,7 +69,8 @@ template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               float colper, int n_unique,
                                               int nbins, int depth,
-                                              const int split_algo) {
+                                              const int split_algo,
+                                              bool col_shuffle) {
   if (depth > 20 || (depth == -1)) {
     max_nodes_per_level = pow(2, 20);
   } else {
@@ -221,9 +224,9 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   if (h_globalminmax != nullptr) h_globalminmax->release(stream);
   d_sample_cnt->release(stream);
   d_colids->release(stream);
-  d_colstart->release(stream);
+  if (d_colstart != nullptr) d_colstart->release(stream);
   h_colids->release(stream);
-  h_colstart->release(stream);
+  if (h_colstart != nullptr) h_colstart->release(stream);
   delete h_new_node_flags;
   delete d_new_node_flags;
   delete h_split_colidx;
@@ -244,8 +247,8 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   delete d_sample_cnt;
   delete d_colids;
   delete h_colids;
-  delete d_colstart;
-  delete h_colstart;
+  if (d_colstart != nullptr) delete d_colstart;
+  if (h_colstart != nullptr) delete h_colstart;
   //Classification
   if (typeid(L) == typeid(int)) {
     h_histogram->release(stream);

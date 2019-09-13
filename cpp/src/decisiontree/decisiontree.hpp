@@ -34,7 +34,6 @@ struct DecisionTreeParams {
   int max_leaves;
   /**
    * Ratio of number of features (columns) to consider per node split.
-   * TODO SKL's default is sqrt(n_cols)
    */
   float max_features;
   /**
@@ -62,6 +61,10 @@ struct DecisionTreeParams {
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion;
+  /**
+   * Weahther to use full shuffle while feature subsampling. Default is one shuffle per depth with random start points per node
+   */
+  bool shuffle_features;
 };
 
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
@@ -70,7 +73,8 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_min_rows_per_node = 2,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
-                     bool cfg_quantile_per_tree = false);
+                     bool cfg_quantile_per_tree = false,
+                     bool cfg_shuffle_features = false);
 void validity_check(const DecisionTreeParams params);
 void print(const DecisionTreeParams params);
 

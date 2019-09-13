@@ -362,7 +362,8 @@ void DecisionTreeBase<T, L>::base_fit(
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
       device_allocator_in, host_allocator_in, stream_in, nrows, ncols,
       tree_params.max_features, unique_labels, tree_params.n_bins,
-      tree_params.split_algo, tree_params.max_depth);
+      tree_params.split_algo, tree_params.max_depth,
+      tree_params.shuffle_features);
     tree_params.quantile_per_tree = true;
   }
 
