@@ -16,6 +16,8 @@
 import cuml
 
 import sklearn.cluster, sklearn.neighbors, sklearn.ensemble, sklearn
+from sklearn import metrics
+import cuml.metrics
 import umap
 import numpy as np
 
@@ -32,10 +34,11 @@ class AlgorithmPair():
                  cuml_class,
                  shared_args,
                  cuml_args={},
-                 sklearn_args={},
+                 cpu_args={},
                  name=None,
                  accepts_labels=True,
-                 data_prep_hook=None):
+                 data_prep_hook=None,
+                 accuracy_function=None):
         """
         Parameters
         ----------
@@ -47,13 +50,15 @@ class AlgorithmPair():
            Arguments passed to both implementations's initializer
         cuml_args : dict
            Arguments *only* passed to cuml's initializer
-        sklearn_args dict
+        cpu_args dict
            Arguments *only* passed to sklearn's initializer
         accepts_labels : boolean
            If True, the fit methods expects both X and y
            inputs. Otherwise, it expects only an X input.
         data_prep_hook : function (data -> data)
            Optional function to run on input data before passing to fit
+        accuracy_function : function (y_test, y_pred)
+           Function that returns a scalar representing accuracy
         """
         if name:
             self.name = name
@@ -64,8 +69,9 @@ class AlgorithmPair():
         self.cuml_class = cuml_class
         self.shared_args = shared_args
         self.cuml_args = cuml_args
-        self.sklearn_args = sklearn_args
+        self.cpu_args = cpu_args
         self.data_prep_hook = data_prep_hook
+        self.accuracy_function = accuracy_function
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -74,7 +80,7 @@ class AlgorithmPair():
         """Runs the cpu-based algorithm's fit method on specified data"""
         if self.cpu_class is None:
             raise ValueError("No CPU implementation for %s" % self.name)
-        all_args = {**self.shared_args, **self.sklearn_args}
+        all_args = {**self.shared_args, **self.cpu_args}
         all_args = {**all_args, **override_args}
 
         cpu_obj = self.cpu_class(**all_args)
@@ -84,6 +90,8 @@ class AlgorithmPair():
             cpu_obj.fit(data[0], data[1])
         else:
             cpu_obj.fit(data[0])
+
+        return cpu_obj
 
     def run_cuml(self, data, **override_args):
         """Runs the cuml-based algorithm's fit method on specified data"""
@@ -98,6 +106,8 @@ class AlgorithmPair():
         else:
             cuml_obj.fit(data[0])
 
+        return cuml_obj
+
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
     return (data[0], data[1].astype(np.int32))
@@ -111,7 +121,8 @@ def all_algorithms():
                              n_clusters=8,
                              max_iter=300),
             name='KMeans',
-            accepts_labels=False),
+            accepts_labels=False,
+            accuracy_function=metrics.homogeneity_score),
         AlgorithmPair(
             sklearn.decomposition.PCA,
             cuml.PCA,
@@ -122,7 +133,7 @@ def all_algorithms():
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
-            sklearn_args=dict(algorithm='brute'),
+            cpu_args=dict(algorithm='brute'),
             cuml_args=dict(n_gpus=1),
             name='NearestNeighbors',
             accepts_labels=False),
@@ -130,7 +141,7 @@ def all_algorithms():
             sklearn.cluster.DBSCAN,
             cuml.DBSCAN,
             shared_args=dict(eps=3, min_samples=2),
-            sklearn_args=dict(algorithm='brute'),
+            cpu_args=dict(algorithm='brute'),
             name='DBSCAN',
             accepts_labels=False
         ),
@@ -139,26 +150,30 @@ def all_algorithms():
             cuml.linear_model.LinearRegression,
             shared_args={},
             name='LinearRegression',
-            accepts_labels=True),
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score),
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
             shared_args={},
             name='LogisticRegression',
-            accepts_labels=True),
+            accepts_labels=True,
+            accuracy_function=metrics.accuracy_score),
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
             shared_args={'max_features': 1.0, 'n_estimators': 100},
             name='RandomForestClassifier',
             accepts_labels=True,
-            data_prep_hook=_labels_to_int_hook),
+            data_prep_hook=_labels_to_int_hook,
+            accuracy_function=metrics.accuracy_score),
         AlgorithmPair(
             umap.UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name='UMAP',
-            accepts_labels=False),
+            accepts_labels=False,
+            accuracy_function=cuml.metrics.trustworthiness),
     ]
 
 

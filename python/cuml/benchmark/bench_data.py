@@ -61,6 +61,15 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
     X_arr, y_arr = sklearn.datasets.make_blobs(n_samples, n_features, centers=centers, random_state=random_state)
     return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
 
+def _gen_data_classification(n_samples, n_features, random_state=42, n_classes=2):
+    """Wrapper for sklearn make_blobs"""
+    if n_samples == 0:
+        n_samples = int(1e6)
+    if n_features == 0:
+        n_samples = 100
+    X_arr, y_arr = sklearn.datasets.make_classification(n_samples, n_features, n_classes, random_state=random_state)
+    return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
+
 def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
     X_df, y_df = load_higgs('pandas')
     if n_samples == 0:
@@ -147,6 +156,7 @@ def _convert_to_gpuarray(data, order='F'):
 
 
 _data_generators = { 'blobs': _gen_data_blobs,
+                     'classification': _gen_data_classification,
                      'regression': _gen_data_regression,
                      'higgs': _gen_data_higgs }
 _data_converters = { 'numpy': _convert_to_numpy,
@@ -181,7 +191,8 @@ def gen_data(dataset_name, dataset_format,
     """
     data = _data_generators[dataset_name](n_samples, n_features, random_state, **kwargs)
     if test_fraction != 0.0:
-        data = sklearn.model_selection.train_test_split(*data)
+        X_train, X_test, y_train, y_test = tuple(sklearn.model_selection.train_test_split(*data))
+        data = (X_train, y_train, X_test, y_test)
     else:
         data = (*data, None, None) # No test set
 
