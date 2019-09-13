@@ -18,21 +18,33 @@
 #include "common_kernel.cuh"
 #include "stats/minmax.h"
 
-template <typename RNG_G, typename DIST>
+template <typename RNG, typename DIST>
 void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              unsigned int *h_colstart, unsigned int *d_colstart,
                              const int Ncols, const int ncols_sampled,
-                             const int n_nodes, RNG_G rng, DIST dist,
+                             const int n_nodes, RNG rng, DIST dist,
+                             std::vector<unsigned int> &feature_selector,
                              const cudaStream_t &stream) {
-  if (Ncols != ncols_sampled) {
-    std::shuffle(h_colids, h_colids + Ncols, rng);
-    for (int i = 0; i < n_nodes; i++) {
-      h_colstart[i] = dist(rng);
+  if (h_colstart != nullptr) {
+    if (Ncols != ncols_sampled) {
+      std::shuffle(h_colids, h_colids + Ncols, rng);
+      for (int i = 0; i < n_nodes; i++) {
+        h_colstart[i] = dist(rng);
+      }
+      MLCommon::updateDevice(d_colids, h_colids, Ncols, stream);
+      MLCommon::updateDevice(d_colstart, h_colstart, n_nodes, stream);
     }
-    MLCommon::updateDevice(d_colids, h_colids, Ncols, stream);
-    MLCommon::updateDevice(d_colstart, h_colstart, n_nodes, stream);
+  } else {
+    for (int i = 0; i < n_nodes; i++) {
+      std::vector<unsigned int> temp(feature_selector);
+      std::shuffle(temp.begin(), temp.end(), rng);
+      memcpy(&h_colids[i * ncols_sampled], temp.data(),
+             ncols_sampled * sizeof(unsigned int));
+    }
+    MLCommon::updateDevice(d_colids, h_colids, ncols_sampled * n_nodes, stream);
   }
 }
+
 template <typename T>
 void get_minmax(const T *data, const unsigned int *flags,
                 const unsigned int *colids, const unsigned int *colstart,
@@ -93,18 +105,20 @@ void make_level_split(const T *data, const int nrows, const int Ncols,
                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
+  unsigned int *d_colstart = nullptr;
+  if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
   if (split_algo == 0) {
     split_level_kernel<T, MinMaxQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_globalminmax->data(), tempmem->d_colids->data(),
-        tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
-        ncols_sampled, nbins, n_nodes, new_node_flags, flags);
+        d_colstart, split_colidx, split_binidx, nrows, Ncols, ncols_sampled,
+        nbins, n_nodes, new_node_flags, flags);
   } else {
     split_level_kernel<T, QuantileQues<T>>
       <<<blocks, threads, 0, tempmem->stream>>>(
         data, tempmem->d_quantile->data(), tempmem->d_colids->data(),
-        tempmem->d_colstart->data(), split_colidx, split_binidx, nrows, Ncols,
-        ncols_sampled, nbins, n_nodes, new_node_flags, flags);
+        d_colstart, split_colidx, split_binidx, nrows, Ncols, ncols_sampled,
+        nbins, n_nodes, new_node_flags, flags);
   }
   CUDA_CHECK(cudaGetLastError());
 }
@@ -120,14 +134,24 @@ int get_class_hist(std::vector<int> &node_hist) {
 template <typename T>
 T getQuesValue(const T *minmax, const T *quantile, const int nbins,
                const int colid, const int binid, const int nodeid,
-               const int n_nodes, const unsigned int *colselector,
-               const unsigned int colstart, const int Ncols,
-               const int split_algo) {
+               const int n_nodes, const int featureid, const int split_algo) {
   if (split_algo == 0) {
     T min = minmax[nodeid + colid * n_nodes * 2];
     T delta = (minmax[nodeid + n_nodes + colid * n_nodes * 2] - min) / nbins;
     return (min + delta * (binid + 1));
   } else {
-    return quantile[colselector[(colstart + colid) % Ncols] * nbins + binid];
+    return quantile[featureid * nbins + binid];
   }
+}
+
+unsigned int getQuesColumn(const unsigned int *colids, const int colstart_local,
+                           const int Ncols, const int ncols_sampled,
+                           const int colidx, const int nodeid) {
+  unsigned int col;
+  if (colstart_local != -1) {
+    col = colids[(colstart_local + colidx) % Ncols];
+  } else {
+    col = colids[nodeid * ncols_sampled + colidx];
+  }
+  return col;
 }
