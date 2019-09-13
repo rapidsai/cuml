@@ -56,10 +56,10 @@ def extract_param_overrides(params_to_sweep):
 
 def run(algos_to_run, dataset, bench_rows, bench_dims, input_type, param_override_list, cuml_param_override_list, output_csv=None, run_cpu=True):
     print("Running: \n", "\n ".join([a.name for a in algos_to_run]))
-    runner = bench_runners.SpeedupComparisonRunner(bench_rows,
-                                                   bench_dims,
-                                                   dataset,
-                                                   input_type)
+    runner = bench_runners.AccuracyComparisonWrapper(bench_rows,
+                                                     bench_dims,
+                                                     dataset,
+                                                     input_type)
     all_results = []
     for algo in algos_to_run:
         for param_overrides in param_override_list:
