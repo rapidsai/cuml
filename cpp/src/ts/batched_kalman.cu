@@ -69,7 +69,7 @@ class GPUContext {
   int m_p = 0;
   int m_q = 0;
   int m_num_batches = 0;
-  double* d_ys = nullptr;
+  // double* d_ys = nullptr;
   double* d_vs = nullptr;
   double* d_Fs = nullptr;
   double* d_loglike = nullptr;
@@ -81,7 +81,7 @@ class GPUContext {
 
   // TODO: This handle will probably be passed in externally later and we will only
   // permanently store the allocator shared_ptr.
-  cumlHandle m_handle;
+  // cumlHandle m_handle;
 
   // // batched_jones
   double* d_ar = nullptr;
@@ -89,9 +89,9 @@ class GPUContext {
   double* d_ma = nullptr;
   double* d_Tma = nullptr;
 
-  GPUContext(int p, int q, int num_batches)
+  GPUContext(int p, int q, int num_batches, cumlHandle& handle)
     : m_p(p), m_q(q), m_num_batches(num_batches) {
-    d_ys = nullptr;
+    // d_ys = nullptr;
     d_vs = nullptr;
     d_Fs = nullptr;
     d_loglike = nullptr;
@@ -102,8 +102,8 @@ class GPUContext {
     d_ma = nullptr;
     d_Tma = nullptr;
 
-    m_handle.setStream(0);
-    allocator = m_handle.getDeviceAllocator();
+    handle.setStream(0);
+    allocator = handle.getDeviceAllocator();
   }
 
   // Note: Tried to re-use these device vectors, but it caused segfaults, so we ignore them for now.
@@ -131,7 +131,7 @@ class GPUContext {
   ~GPUContext() noexcept(false) {
     ////////////////////////////////////////////////////////////
     // free memory
-    if (d_ys != nullptr) allocator->deallocate(d_ys, 0, 0);
+    // if (d_ys != nullptr) allocator->deallocate(d_ys, 0, 0);
     if (d_vs != nullptr) allocator->deallocate(d_vs, 0, 0);
     if (d_Fs != nullptr) allocator->deallocate(d_Fs, 0, 0);
     if (d_sigma2 != nullptr) allocator->deallocate(d_sigma2, 0, 0);
@@ -559,7 +559,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   ML::POP_RANGE();
 }
 
-void batched_kalman_filter(double* h_ys, int nobs,
+void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
                            const vector<double>& b_ar_params,
                            const vector<double>& b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& h_loglike_b,
@@ -568,19 +568,19 @@ void batched_kalman_filter(double* h_ys, int nobs,
   ML::PUSH_RANGE("batched_akalman_filter");
 
   if (GPU_CTX == nullptr) {
-    GPU_CTX = new GPUContext(p, q, num_batches);
+    GPU_CTX = new GPUContext(p, q, num_batches, handle);
   }
   if (!GPU_CTX->orderEquals(p, q, num_batches)) {
     delete GPU_CTX;
-    GPU_CTX = new GPUContext(p, q, num_batches);
+    GPU_CTX = new GPUContext(p, q, num_batches, handle);
   }
 
   const size_t ys_len = nobs;
   ////////////////////////////////////////////////////////////
   // xfer batched series from host to device
-  GPU_CTX->allocate_if_zero(GPU_CTX->d_ys, nobs * num_batches);
-  double* d_ys = GPU_CTX->d_ys;
-  updateDevice(d_ys, h_ys, nobs * num_batches, 0);
+  // GPU_CTX->allocate_if_zero(GPU_CTX->d_ys, nobs * num_batches);
+  // double* d_ys = GPU_CTX->d_ys;
+  // updateDevice(d_ys, h_ys, nobs * num_batches, 0);
 
   int r;
 
@@ -593,7 +593,7 @@ void batched_kalman_filter(double* h_ys, int nobs,
 
   if (GPU_CTX->pool == nullptr) {
     GPU_CTX->pool = std::make_shared<BatchedMatrixMemoryPool>(
-      num_batches, GPU_CTX->m_handle.getDeviceAllocator());
+      num_batches, GPU_CTX->allocator);
   }
   auto memory_pool = GPU_CTX->pool;
 
@@ -662,6 +662,10 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& v) {
   return out;
 }
 
+//! AR and MA parameters have to be within a "triangle" region (i.e., subject to
+//! an inequality) for the inverse transform to not return 'NaN' due to the
+//! logarithm within the inverse. This function ensures that inequality is
+//! satisfied for all parameters.
 std::vector<double> fix_ar_ma_invparams(const vector<double>& old_params,
                                         int pq, bool isAr = true) {
   std::vector<double> params = old_params;
@@ -700,15 +704,16 @@ std::vector<double> fix_ar_ma_invparams(const vector<double>& old_params,
   return params;
 }
 
-void batched_jones_transform(int p, int q, int batchSize, bool isInv,
-                             const vector<double>& ar, const vector<double>& ma,
-                             vector<double>& Tar, vector<double>& Tma) {
+void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
+                             bool isInv, const vector<double>& ar,
+                             const vector<double>& ma, vector<double>& Tar,
+                             vector<double>& Tma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
-  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext(p, q, batchSize);
+  if (GPU_CTX == nullptr) GPU_CTX = new GPUContext(p, q, batchSize, handle);
   if (!GPU_CTX->orderEquals(p, q, batchSize)) {
     delete GPU_CTX;
-    GPU_CTX = new GPUContext(p, q, batchSize);
+    GPU_CTX = new GPUContext(p, q, batchSize, handle);
   }
 
   std::shared_ptr<MLCommon::deviceAllocator> allocator(

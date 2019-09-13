@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuML.hpp>
 #include <string>
 #include <vector>
 
@@ -23,7 +24,7 @@ namespace ML {
 
 //! An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
 //! provide the resulting prediction as well as loglikelihood fit.
-//! @param h_ys_b The (batched) time series with shape (nobs, num_batches) in column major layout. Memory on host.
+//! @param h_ys_b The (batched) time series with shape (nobs, num_batches) in column major layout. Memory on device.
 //! @param nobs The number of samples per time series
 //! @param b_ar_params The AR parameters, in groups of size `p` with total length `p * num_batches`
 //! @param b_ma_params The mA parameters, in groups of size `q` with total length `q * num_batches`
@@ -33,7 +34,7 @@ namespace ML {
 //! @param loglike_b The resulting loglikelihood (for each series)
 //! @param h_vs_b The residual between the prediction and the original series.
 //! @param initP_with_kalman_iterations Initialize the Kalman filter covariance `P` with 1 or more kalman iterations instead of an analytical heuristic.
-void batched_kalman_filter(double* h_ys_b, int nobs,
+void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
                            const std::vector<double>& b_ar_params,
                            const std::vector<double>& b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& loglike_b,
@@ -57,8 +58,8 @@ void nvtx_range_pop();
 //! @param ma MA parameters (host)
 //! @param ar Transformed AR parameters (host)
 //! @param ma Transformed MA parameters (host)
-void batched_jones_transform(int p, int q, int num_batches, bool isInv,
-                             const std::vector<double>& ar,
+void batched_jones_transform(cumlHandle& handle, int p, int q, int num_batches,
+                             bool isInv, const std::vector<double>& ar,
                              const std::vector<double>& ma,
                              std::vector<double>& Tar,
                              std::vector<double>& Tma);

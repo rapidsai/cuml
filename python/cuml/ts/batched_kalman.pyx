@@ -25,9 +25,15 @@ from libcpp cimport bool
 from libcpp.string cimport string
 cimport cython
 
+import cuml
+from cuml.common.handle cimport cumlHandle
+from cuml.utils.input_utils import input_to_dev_array
+from libc.stdint cimport uintptr_t
+
 cdef extern from "ts/batched_kalman.hpp" namespace "ML":
 
-  void batched_kalman_filter(double* ptr_ys_b,
+  void batched_kalman_filter(cumlHandle& handle,
+                             double* ptr_ys_b,
                              int nobs,
                              const vector[double]& b_ar_params,
                              const vector[double]& b_ma_params,
@@ -41,7 +47,8 @@ cdef extern from "ts/batched_kalman.hpp" namespace "ML":
 
   void nvtx_range_pop()
 
-  void batched_jones_transform(int p, int q,
+  void batched_jones_transform(cumlHandle& handle,
+                               int p, int q,
                                int batchSize,
                                bool isInv,
                                const vector[double]& ar,
@@ -91,7 +98,7 @@ def pack(p, d, q, nb, mu, ar, ma):
     pynvtx_range_pop()
     return x
 
-def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv):
+def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
@@ -105,7 +112,8 @@ def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv):
         for iq in range(q):
             vec_ma.push_back(x[(d+p+q)*ib + d + p + iq])
 
-    batched_jones_transform(p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()        
+    batched_jones_transform(handle_[0], p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
 
     # unpack Tar & Tma results into [np.ndarray]
     Tx = np.zeros(nb*(d+p+q))
@@ -136,7 +144,7 @@ def pynvtx_range_pop():
 def batched_kfilter(np.ndarray[double, ndim=2] y,
                     np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
                     int p, int d, int q,
-                    initP_with_kalman_iterations=False):
+                    initP_with_kalman_iterations=False, handle=None):
 
     cdef vector[double] vec_loglike_b
     
@@ -174,7 +182,19 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
     vs = np.zeros((nobs, num_batches))
     pynvtx_range_pop()
 
-    batched_kalman_filter(&y[0,0],
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    cdef uintptr_t d_y_ptr
+    d_y, d_y_ptr, num_samples, num_batches, dtype = input_to_dev_array(y, check_dtype=np.float64)
+
+    if dtype != np.float64:
+        raise ValueError("Only 64-bit floating point inputs currently supported (tried with {})".format(dtype))
+
+    batched_kalman_filter(handle_[0],
+                          <double*> d_y_ptr,
                           nobs,
                           vec_b_ar_params,
                           vec_b_ma_params,
