@@ -23,7 +23,6 @@ import pandas as pd
 import numpy as np
 import json
 
-
 def extract_param_overrides(params_to_sweep):
     """
     Parameters
@@ -53,6 +52,35 @@ def extract_param_overrides(params_to_sweep):
     dict_list = [dict(tl) for tl in tuple_list]
     return dict_list
 
+def report_asv(results_df, output_dir):
+    import asvdb
+    import platform
+    import psutil
+
+    uname = platform.uname()
+    (commitHash, commitTime) = asvdb.utils.getCommitInfo()
+
+    b_info = asvdb.BenchmarkInfo(machineName=uname.machine,
+                      cudaVer="10.0",
+                      osType="%s %s" % (uname.system, uname.release),
+                      pythonVer=platform.python_version(),
+                      commitHash=commitHash,
+                      commitTime=commitTime,
+                      gpuType="n/a",
+                      cpuType=uname.processor,
+                      arch=uname.machine,
+                      ram="%d" % psutil.virtual_memory().total)
+    (repo, branch) = asvdb.utils.getRepoInfo()  # gets repo info from CWD by default
+
+    db = asvdb.ASVDb(dbDir=output_dir,
+                     repo=repo,
+                     branches=[branch])
+
+    for index, row in results_df.iterrows():
+        val_keys = ['cu_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
+        params = [(k,v) for k,v in row.items() if k not in val_keys]
+        result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
+        db.addResult(b_info, result)
 
 def run(algos_to_run, dataset, bench_rows, bench_dims, input_type, param_override_list, cuml_param_override_list, output_csv=None, run_cpu=True):
     print("Running: \n", "\n ".join([a.name for a in algos_to_run]))
@@ -76,6 +104,8 @@ def run(algos_to_run, dataset, bench_rows, bench_dims, input_type, param_overrid
         results_df.to_csv(output_csv)
         print("Saved results to %s" % output_csv)
 
+    return results_df
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(prog='bench_all',
@@ -91,6 +121,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument('--quiet', '-q', action='store_false', dest='verbose', default=True)
     parser.add_argument('--csv', nargs='?')
+    parser.add_argument('--asvdb', nargs='?')
     parser.add_argument('--dataset', default='blobs')
     parser.add_argument('--skip-cpu', action='store_true')
     parser.add_argument('--input-type', default='numpy')
@@ -107,7 +138,8 @@ if __name__ == '__main__':
     parser.add_argument('algorithms', nargs='*', help='List of algorithms to run, or omit to run all')
     args = parser.parse_args()
 
-    bench_rows = np.logspace(np.log10(args.min_rows), np.log10(args.max_rows), num=args.num_sizes, dtype=np.int32)
+    bench_rows = np.logspace(np.log10(args.min_rows), np.log10(args.max_rows),
+                             num=args.num_sizes, dtype=np.int32)
     bench_dims = args.input_dimensions
 
     if args.num_features > 0:
@@ -130,13 +162,17 @@ if __name__ == '__main__':
         # Run all by default
         algos_to_run = bench_algos.all_algorithms()
 
-    run(algos_to_run,
-        dataset=args.dataset,
-        bench_rows=bench_rows,
-        bench_dims=bench_dims,
-        input_type=args.input_type,
-        param_override_list=param_override_list,
-        cuml_param_override_list=cuml_param_override_list,
-        output_csv=args.csv,
-        run_cpu=(not args.skip_cpu)
+    results_df = run(algos_to_run,
+                     dataset=args.dataset,
+                     bench_rows=bench_rows,
+                     bench_dims=bench_dims,
+                     input_type=args.input_type,
+                     param_override_list=param_override_list,
+                     cuml_param_override_list=cuml_param_override_list,
+                     output_csv=args.csv,
+                     run_cpu=(not args.skip_cpu)
     )
+
+    if args.asvdb:
+        report_asv(results_df, args.asvdb)
+
