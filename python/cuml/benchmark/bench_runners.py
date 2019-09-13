@@ -42,7 +42,7 @@ class SpeedupComparisonRunner:
         algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
         cu_elapsed = time.time() - cu_start
 
-        if run_cpu:
+        if run_cpu and algo_pair.cpu_class is not None:
             cpu_start = time.time()
             algo_pair.run_cpu(data, **param_overrides)
             cpu_elapsed = time.time() - cpu_start
@@ -79,7 +79,7 @@ class SpeedupComparisonRunner:
 
 
 
-class AccuracyComparisonWrapper(SpeedupComparisonRunner):
+class AccuracyComparisonRunner(SpeedupComparisonRunner):
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute accuracy and speedup of cuml relative to sklearn
     baseline."""
@@ -118,7 +118,7 @@ class AccuracyComparisonWrapper(SpeedupComparisonRunner):
             cuml_accuracy = 0.0
 
         cpu_accuracy = 0.0
-        if run_cpu:
+        if run_cpu and algo_pair.cpu_class is not None:
             cpu_start = time.time()
             cpu_model = algo_pair.run_cpu(data, **param_overrides)
             cpu_elapsed = time.time() - cpu_start
