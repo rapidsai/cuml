@@ -40,7 +40,6 @@ void grow_deep_tree_classification(
   const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  std::vector<unsigned int> feature_selector;
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -95,17 +94,19 @@ void grow_deep_tree_classification(
   if (tempmem->d_colstart != nullptr) {
     d_colstart = tempmem->d_colstart->data();
     h_colstart = tempmem->h_colstart->data();
+    CUDA_CHECK(cudaMemsetAsync(
+      d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
+      tempmem->stream));
+    MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
-  CUDA_CHECK(cudaMemsetAsync(
-    d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
-    tempmem->stream));
-  MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+  std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
 
   for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
-                            ncols_sampled, n_nodes, mtg, dist, tempmem->stream);
+                            ncols_sampled, n_nodes, mtg, dist, feature_selector,
+                            tempmem->stream);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
     ASSERT(

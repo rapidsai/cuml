@@ -119,15 +119,22 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  d_colids =
-    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
-  d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                         stream, maxnodes);
-  h_colids =
-    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
-  h_colstart =
-    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
+  if (col_shuffle == true) {
+    d_colids = new MLCommon::device_buffer<unsigned int>(
+      device_allocator, stream, ncols_sampled * maxnodes);
+    h_colids = new MLCommon::host_buffer<unsigned int>(
+      host_allocator, stream, ncols_sampled * maxnodes);
 
+  } else {
+    d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                         stream, ncols);
+    d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                           stream, maxnodes);
+    h_colids =
+      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
+    h_colstart =
+      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
+  }
   totalmem += nrows * 2 * sizeof(unsigned int);
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * sizeof(float);

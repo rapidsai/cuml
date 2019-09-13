@@ -53,27 +53,25 @@ void get_histogram_classification(
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
-
+  unsigned int *d_colstart = nullptr;
+  if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
   if (split_algo == 0) {
-    get_minmax(data, flags, tempmem->d_colids->data(),
-               tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
-               n_nodes, tempmem->max_nodes_minmax,
+    get_minmax(data, flags, tempmem->d_colids->data(), d_colstart, nrows, Ncols,
+               ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
                tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
                tempmem->stream);
     if ((n_nodes == node_batch)) {
       get_hist_kernel<T, MinMaxQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
-          n_unique_labels, nbins, n_nodes, tempmem->d_globalminmax->data(),
-          histout);
+          d_colstart, nrows, Ncols, ncols_sampled, n_unique_labels, nbins,
+          n_nodes, tempmem->d_globalminmax->data(), histout);
     } else {
       get_hist_kernel_global<T, MinMaxQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
-          n_unique_labels, nbins, n_nodes, tempmem->d_globalminmax->data(),
-          histout);
+          d_colstart, nrows, Ncols, ncols_sampled, n_unique_labels, nbins,
+          n_nodes, tempmem->d_globalminmax->data(), histout);
     }
 
   } else {
@@ -81,16 +79,14 @@ void get_histogram_classification(
       get_hist_kernel<T, QuantileQues<T>>
         <<<blocks, threads, shmem, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
-          n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
-          histout);
+          d_colstart, nrows, Ncols, ncols_sampled, n_unique_labels, nbins,
+          n_nodes, tempmem->d_quantile->data(), histout);
     } else {
       get_hist_kernel_global<T, QuantileQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
-          tempmem->d_colstart->data(), nrows, Ncols, ncols_sampled,
-          n_unique_labels, nbins, n_nodes, tempmem->d_quantile->data(),
-          histout);
+          d_colstart, nrows, Ncols, ncols_sampled, n_unique_labels, nbins,
+          n_nodes, tempmem->d_quantile->data(), histout);
     }
   }
   CUDA_CHECK(cudaGetLastError());
@@ -187,11 +183,14 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
+      int local_colstart = -1;
+      if (h_colstart != nullptr) local_colstart = h_colstart[nodecnt];
       curr_node.colid =
-        h_colids[(h_colstart[nodecnt] + split_colidx[nodecnt]) % Ncols];
+        getQuesColumn(h_colids, local_colstart, Ncols, ncols_sampled,
+                      split_colidx[nodecnt], nodecnt);
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
-        nodecnt, n_nodes, h_colids, h_colstart[nodecnt], Ncols, split_algo);
+        nodecnt, n_nodes, curr_node.colid, split_algo);
 
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
@@ -272,11 +271,15 @@ void get_best_split_classification(
       //Sparse tree
       SparseTreeNode<T, int> &curr_node =
         sparsetree[sparsesize + sparse_nodeid];
+      int local_colstart = -1;
+      if (h_colstart != nullptr) local_colstart = h_colstart[nodecnt];
       curr_node.colid =
-        h_colids[(h_colstart[nodecnt] + split_colidx[nodecnt]) % Ncols];
+        getQuesColumn(h_colids, local_colstart, Ncols, ncols_sampled,
+                      split_colidx[nodecnt], nodecnt);
       curr_node.quesval = getQuesValue(
         minmax, quantile, nbins, split_colidx[nodecnt], split_binidx[nodecnt],
-        nodecnt, n_nodes, h_colids, h_colstart[nodecnt], Ncols, split_algo);
+        nodecnt, n_nodes, curr_node.colid, split_algo);
+
       curr_node.left_child_id = sparsetree_sz + 2 * nodecnt;
       SparseTreeNode<T, int> leftnode, rightnode;
       leftnode.best_metric_val = bestmetric[0];
