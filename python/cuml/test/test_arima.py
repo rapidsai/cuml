@@ -89,11 +89,11 @@ def test_transform():
                     -0.76159416,   -0.76159416])
 
     # Without corrections to the MA parameters, this inverse transform will return NaN
-    Tx0 = arima.batch_invtrans(0, 1, 2, 2, x0)
+    Tx0 = b_arima.batch_invtrans(0, 1, 2, 2, x0)
 
     assert(not np.isnan(Tx0).any())
     
-    Tx0 = arima.batch_invtrans(2, 1, 0, 2, x0)
+    Tx0 = b_arima.batch_invtrans(2, 1, 0, 2, x0)
 
     assert(not np.isnan(Tx0).any())
 
@@ -189,7 +189,7 @@ def testBIC():
 
         x0 = np.array([])
         for i in range(nb):
-            x0i = arima.init_x0(order, y[:,i])
+            x0i = b_arima.init_x0(order, y[:,i])
             x0 = np.r_[x0, x0i]
 
         p, d, q = order
@@ -201,7 +201,7 @@ def testBIC():
                                     ma0,
                                     opt_disp=-1, h=1e-9)
 
-        print("Batched_model: ", batched_model)
+        # print("Batched_model: ", batched_model)
 
         # print("BIC({}, 1, 1): ".format(p), batched_model.bic)
         np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
@@ -221,7 +221,7 @@ def testFit():
 
         x0 = np.array([])
         for i in range(nb):
-            x0i = arima.init_x0(order, y[:,i])
+            x0i = b_arima.init_x0(order, y[:,i])
             x0 = np.r_[x0, x0i]
 
         p, d, q = order
@@ -239,7 +239,7 @@ def testFit():
         np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1])
         np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1])
 
-def testPredict(plot=True):
+def testPredict(plot=False):
     _, y = get_data()
 
     mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
@@ -255,7 +255,7 @@ def testPredict(plot=True):
 
         y_b_p = arima.predict_in_sample(model)
 
-        print("y_b=", y_b_p)
+        # print("y_b=", y_b_p)
         if plot:
             nb_plot = 2
             fig, axes = plt.subplots(nb_plot, 1)
@@ -288,7 +288,7 @@ def testFit_Predict_Forecast(plot=False):
         y_train = np.zeros((ns_train, nb))
         for i in range(nb):
             y_train[:, i] = y[:ns_train, i]
-            x0i = arima.init_x0(order, y_train[:, i])
+            x0i = b_arima.init_x0(order, y_train[:, i])
             x0 = np.r_[x0, x0i]
 
         p, d, q = order
@@ -389,7 +389,7 @@ def test_grid_search(num_batches=2):
     for i in range(num_batches):
         y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
 
-    best_model, ic = arima.grid_search(y_b, d=1)
+    best_model, ic = b_arima.grid_search(y_b, d=1)
 
     if num_batches == 2:
         np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
@@ -415,13 +415,16 @@ def test_stationarity():
 
 
 if __name__ == "__main__":
-    # testBIC()
-    # test_log_likelihood()
+    testBIC()
+    test_log_likelihood()
+    testFit()
+    testPredict()
     testFit_Predict_Forecast()
-    # test_arima_start_params()
+    test_arima_start_params()
     
-    # test_gradient()
-    # test_transform()
-    # test_grid_search(2)
-    # test_stationarity()
+    test_gradient()
+    test_transform()
+    test_stationarity()
+
+    test_grid_search(2)
     # bench_arima(num_batches=240*16)
