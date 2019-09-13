@@ -28,7 +28,11 @@ class SpeedupComparisonRunner:
         self.dataset_name = dataset_name
         self.input_type = input_type
 
-    def _run_one_size(self, algo_pair, data, param_overrides={}, cuml_param_overrides={}, run_cpu=True):
+    def _run_one_size(self, algo_pair, n_samples, n_features, param_overrides={}, cuml_param_overrides={}, run_cpu=True):
+        data = bench_data.gen_data(self.dataset_name,
+                                   self.input_type,
+                                   n_samples,
+                                   n_features)
         cu_start = time.time()
         algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
         cu_elapsed = time.time() - cu_start
@@ -43,8 +47,8 @@ class SpeedupComparisonRunner:
         return dict(cu_time=cu_elapsed,
                     cpu_time=cpu_elapsed,
                     speedup=cpu_elapsed / float(cu_elapsed),
-                    n_samples=data[0].shape[0],
-                    n_features=data[0].shape[1],
+                    n_samples=n_samples,
+                    n_features=n_features,
                     **param_overrides,
                     **cuml_param_overrides)
 
@@ -53,11 +57,7 @@ class SpeedupComparisonRunner:
         for ns in self.bench_rows:
             for nf in self.bench_dims:
                 try:
-                    data = bench_data.gen_data(self.dataset_name,
-                                               self.input_type,
-                                               ns,
-                                               nf)
-                    all_results.append(self._run_one_size(algo_pair, data, param_overrides, cuml_param_overrides, run_cpu))
+                    all_results.append(self._run_one_size(algo_pair, ns, nf, param_overrides, cuml_param_overrides, run_cpu))
                 except Exception as e:
                     print("Failed to run with %d samples, %d features: %s" %
                           (ns, nf, str(e)))
