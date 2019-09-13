@@ -16,23 +16,40 @@
 #pragma once
 #include "../flatnode.h"
 #include "common_kernel.cuh"
+#include "random/rng.h"
 #include "stats/minmax.h"
 
-template <typename RNG, typename DIST>
+void random_startids(unsigned int *data, int len, int Ncols, const int num_sms,
+                     cudaStream_t stream) {
+  uint64_t offset = 0;
+  MLCommon::Random::randImpl(
+    offset, data, len,
+    [=] __device__(unsigned int val, int idx) { return (val % Ncols); }, 256,
+    4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
+}
+
+template <typename T, typename L, typename RNG, typename DIST>
 void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              unsigned int *h_colstart, unsigned int *d_colstart,
                              const int Ncols, const int ncols_sampled,
                              const int n_nodes, RNG rng, DIST dist,
                              std::vector<unsigned int> &feature_selector,
-                             const cudaStream_t &stream) {
+                             std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);
-      for (int i = 0; i < n_nodes; i++) {
-        h_colstart[i] = dist(rng);
+      MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+      if (n_nodes < 256 * tempmem->num_sms) {
+        for (int i = 0; i < n_nodes; i++) {
+          h_colstart[i] = dist(rng);
+        }
+        MLCommon::updateDevice(d_colstart, h_colstart, n_nodes,
+                               tempmem->stream);
+      } else {
+        random_startids(d_colstart, n_nodes, Ncols, tempmem->num_sms,
+                        tempmem->stream);
+        MLCommon::updateHost(h_colstart, d_colstart, n_nodes, tempmem->stream);
       }
-      MLCommon::updateDevice(d_colids, h_colids, Ncols, stream);
-      MLCommon::updateDevice(d_colstart, h_colstart, n_nodes, stream);
     }
   } else {
     for (int i = 0; i < n_nodes; i++) {
@@ -41,7 +58,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
       memcpy(&h_colids[i * ncols_sampled], temp.data(),
              ncols_sampled * sizeof(unsigned int));
     }
-    MLCommon::updateDevice(d_colids, h_colids, ncols_sampled * n_nodes, stream);
+    MLCommon::updateDevice(d_colids, h_colids, ncols_sampled * n_nodes,
+                           tempmem->stream);
   }
 }
 
