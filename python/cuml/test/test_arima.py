@@ -359,12 +359,12 @@ def bench_arima(num_batches=240, plot=False):
     start = timer()
 
     for i in range(num_batches):
-        x0i = arima.init_x0(order, y_b[:, i])
+        x0i = b_arima.init_x0(order, y_b[:, i])
         x0 = np.r_[x0, x0i]
 
     mu0, ar0, ma0 = arima.unpack(p, d, q, num_batches, x0)
 
-    batched_model = arima.fit(y_b, order,
+    batched_model = b_arima.fit(y_b, order,
                               mu0,
                               ar0,
                               ma0,

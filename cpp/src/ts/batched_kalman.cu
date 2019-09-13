@@ -423,9 +423,13 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
     // NumPy version
     //   invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
     //   P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+    ML::PUSH_RANGE("P0: (I-TxT)");
     BatchedMatrix I_m_TxT =
       BatchedMatrix::Identity(r * r, num_batches, Zb.pool()) - b_kron(Tb, Tb);
+    ML::POP_RANGE();
+    ML::PUSH_RANGE("(I-TxT)\\(R.R^T)");
     BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
+    ML::POP_RANGE();
     BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
     // auto& stream = std::cout;
