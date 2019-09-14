@@ -91,10 +91,25 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
 
   Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
+
+  // Also create sum array
+  device_buffer<math_t> sum(handle.getDeviceAllocator(), stream, prms.n_cols);
+
+  if ((sizeof(math_t) == sizeof(float)) or (sizeof(math_t) == sizeof(double)))
+  {
+    // Fast path
+    // Sum is just n * mean
+    // This only executes for float32, float64 data
+    thrust::copy(thrust::cuda::par.on(stream), mu, mu + prms.n_cols, sum.data());
+    CUDA_CHECK(cudaPeekAtLastError());
+    MLCommon::LinAlg::scalarMultiply(sum.data(), sum.data(), (math_t) prms.n_rows, prms.n_cols, stream);
+  }
+
+
   int len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
 
-  Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
+  Stats::cov(cov.data(), input, mu, sum.data(), prms.n_cols, prms.n_rows, true, false, true,
              cublas_handle, stream);
   truncCompExpVars(handle, cov.data(), components, explained_var,
                    explained_var_ratio, prms, stream);
@@ -103,8 +118,13 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
   Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
                   stream, true);
 
-  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                 stream);
+  // If does not use fast ssyrk + mean trick path
+  if ((sizeof(math_t) != sizeof(float)) and (sizeof(math_t) != sizeof(double)))
+  {
+    // Column wise add mean
+    Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                   stream);
+  }
 }
 
 /**
