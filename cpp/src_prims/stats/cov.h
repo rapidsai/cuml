@@ -36,7 +36,8 @@ __global__ static void mean_trick_kernel(const math_t *__restrict sum,
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every row
   if (i > j or j >= p) return;  // Only process upper triangular
 
-  XTX(i, j) = (XTX(i, j) - sum[j] * mu[i]) * multiplier;  // For XTX / n
+  XTX(i, j) -= sum[j] * mu[i];
+  XTX(i, j) *= multiplier;  // For XTX / n
 }
 
 /**
@@ -122,15 +123,35 @@ void cov(Type *covar, Type *data, const Type *mu,
       CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
                                       &alpha, data, D, data, D, &beta, covar, D,
                                       stream));
+    } else if ((sizeof(Type) != sizeof(float)) and
+               (sizeof(Type) != sizeof(double))) {
+      // Uses old in place centering
+      meanCenter(data, data, mu, D, N, rowMajor, true, stream);
+      Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
+      Type beta = Type(0);
+
+      // Other data types
+      LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
+                   alpha, beta, handle, stream);
     } else {
+      //meanCenter(data, data, mu, D, N, rowMajor, true, stream);
       Type alpha = Type(1);
       Type beta = Type(0);
 
-      // TODO: Investigate why syrk is slower than gemm
-      // LinAlg::cublassyrk(handle, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, D, N,
-      //                    &alpha, data, N, &beta, covar, D, stream);
       LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
                    alpha, beta, handle, stream);
+
+      if (sizeof(Type) == sizeof(float)) {
+        // Produces X.T @ X float32
+        CUBLAS_CHECK(cublasSsyrk(handle, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, D,
+                                 N, (float *)&alpha, (float *)data, N,
+                                 (float *)&beta, (float *)covar, D));
+      } else if (sizeof(Type) == sizeof(double)) {
+        // Produces X.T @ X float64
+        CUBLAS_CHECK(cublasDsyrk(handle, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, D,
+                                 N, (double *)&alpha, (double *)data, N,
+                                 (double *)&beta, (double *)covar, D));
+      }
 
       const dim3 threadsPerBlock(TPB_X, TPB_Y);
       const dim3 numBlocks(MLCommon::ceildiv(D, TPB_X),
