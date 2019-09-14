@@ -45,7 +45,7 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @input param new_intialization: Whether to intialize with random numbers.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  
 The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
@@ -66,6 +66,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const int max_iter = 1000, const float min_grad_norm = 1e-7,
               const float pre_momentum = 0.5, const float post_momentum = 0.8,
               const long long random_state = -1, const bool verbose = true,
-              const bool intialize_embeddings = true, bool barnes_hut = true);
+              const bool new_intialization = true, bool barnes_hut = true);
 
 }  // namespace ML
