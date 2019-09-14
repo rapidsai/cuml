@@ -91,26 +91,24 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
 
   Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-
   // Also create sum array
   device_buffer<math_t> sum(handle.getDeviceAllocator(), stream, prms.n_cols);
 
-  if ((sizeof(math_t) == sizeof(float)) or (sizeof(math_t) == sizeof(double)))
-  {
+  if ((sizeof(math_t) == sizeof(float)) or (sizeof(math_t) == sizeof(double))) {
     // Fast path
     // Sum is just n * mean
     // This only executes for float32, float64 data
-    thrust::copy(thrust::cuda::par.on(stream), mu, mu + prms.n_cols, sum.data());
-    CUDA_CHECK(cudaPeekAtLastError());
-    MLCommon::LinAlg::scalarMultiply(sum.data(), sum.data(), (math_t) prms.n_rows, prms.n_cols, stream);
+    thrust::copy(thrust::cuda::par.on(stream), mu, mu + prms.n_cols,
+                 sum.data());
+    MLCommon::LinAlg::scalarMultiply(sum.data(), sum.data(),
+                                     (math_t)prms.n_rows, prms.n_cols, stream);
   }
-
 
   int len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
 
-  Stats::cov(cov.data(), input, mu, sum.data(), prms.n_cols, prms.n_rows, true, false, true,
-             cublas_handle, stream);
+  Stats::cov(cov.data(), input, mu, sum.data(), prms.n_cols, prms.n_rows, true,
+             false, true, cublas_handle, stream);
   truncCompExpVars(handle, cov.data(), components, explained_var,
                    explained_var_ratio, prms, stream);
 
@@ -119,8 +117,8 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
                   stream, true);
 
   // If does not use fast ssyrk + mean trick path
-  if ((sizeof(math_t) != sizeof(float)) and (sizeof(math_t) != sizeof(double)))
-  {
+  if ((sizeof(math_t) != sizeof(float)) and
+      (sizeof(math_t) != sizeof(double))) {
     // Column wise add mean
     Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                    stream);
@@ -257,11 +255,31 @@ void pcaTransform(const cumlHandle_impl &handle, math_t *input,
                                           true, stream);
   }
 
+  /*
   Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                     stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
   Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                  stream);
+  */
+
+  // We want (X_new - mu) @ V = X_new @ V - mu @ V
+  device_buffer<math_t> VT_mu(handle.getDeviceAllocator(), stream,
+                              prms.n_components);
+
+  // We need to minus mu @ V so alpha = -1
+  const math_t alpha = -1, beta = 0;
+  // components is C-Contiguous
+  // TODO: Can store this internally as a buffer
+  LinAlg::cublasgemv(handle.getCublasHandle(), CUBLAS_OP_N, prms.n_components,
+                     prms.n_cols, &alpha, components, prms.n_components, mu, 1,
+                     &beta, VT_mu.data(), 1, stream);
+
+  tsvdTransform(handle, input, components, trans_input, prms, stream);
+
+  // Add -mu @ V to X_new @ V
+  Stats::meanAdd(trans_input, trans_input, VT_mu.data(), prms.n_components,
+                 prms.n_rows, false, true, stream);
 
   if (prms.whiten) {
     Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
