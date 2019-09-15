@@ -383,9 +383,7 @@ class TSNE(Base):
                 print("Learning rate is adpative. In TSNE paper, "
                       "it has been shown that as n->inf, "
                       "Barnes Hut works well if n_neighbors->30, "
-                      "learning_rate->20000, early_exaggeration->24.")
-                print("n_neighbors decreases to 30 as n->inf. "
-                      "Likewise for the other params.")
+                      "learning_rate->20000, early_exaggeration->12.")
             if n <= 2000:
                 self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
@@ -393,7 +391,7 @@ class TSNE(Base):
                 self.n_neighbors = max(int(102 - 0.0012 * n), 30)
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
-            self.early_exaggeration = 24.0 if n > 10000 else 12.0
+            self.early_exaggeration = 12.0
             if self.verbose:
                 print("New n_neighbors = {}, "
                       "learning_rate = {}, "

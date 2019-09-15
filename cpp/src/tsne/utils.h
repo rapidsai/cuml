@@ -51,12 +51,15 @@
  * @input param seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
  * @input param normal: If true, then will provide random normal numbers
  */
-template <typename T>
-void random_vector(T *vector,
-                   const T minimum,  // mean for normal == true
-                   const T maximum,  // std for normal == true
-                   const int size, cudaStream_t stream, long long seed = -1,
-                   const bool normal = false) {
+template <typename T> void
+random_vector(T *vector,
+              const T minimum, // mean for normal == true
+              const T maximum, // std for normal == true
+              const int size,
+              cudaStream_t stream,
+              long long seed = -1,
+              const bool normal = false)
+{
   if (seed <= 0) {
     // Get random seed based on time of day
     struct timeval tp;
@@ -67,12 +70,14 @@ void random_vector(T *vector,
   MLCommon::Random::Rng random(seed);
   if (not normal) {
     random.uniform<T>(vector, size, minimum, maximum, stream);
-  } else {
+  }
+  else {
     random.normal<T>(vector, size, minimum, maximum, stream);
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
+
 
 long start, end;
 struct timeval timecheck;
