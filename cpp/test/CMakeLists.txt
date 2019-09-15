@@ -143,6 +143,7 @@ if(BUILD_PRIMS_TESTS)
       prims/cov.cu
       prims/csr.cu
       prims/decoupled_lookback.cu
+      prims/dispersion.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
       prims/dist_eps.cu
@@ -151,6 +152,7 @@ if(BUILD_PRIMS_TESTS)
       prims/dist_l1.cu
       prims/divide.cu
       prims/eig.cu
+      prims/eig_sel.cu
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu

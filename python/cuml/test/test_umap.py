@@ -90,7 +90,23 @@ def test_umap_fit_transform_score(nrows, n_feats):
 
 
 # Allow slight deviation from expected trust due to numerical error
-TRUST_TOLERANCE_THRESH = 0.005
+TRUST_TOLERANCE_THRESH = 0.001
+
+
+def test_supervised_umap_trustworthiness_against_umap_learn():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
+                       verbose=False).fit_transform(data, iris.target,
+                                                    convert_dtype=True)
+
+    skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                              verbose=False).fit_transform(data, iris.target)
+
+    trust = trustworthiness(iris.data, embedding, 10)
+
+    skl_trust = trustworthiness(iris.data, skl_embedding, 10)
+    assert (skl_trust - 0.009) <= trust <= (skl_trust + 0.009)
 
 
 def test_supervised_umap_trustworthiness_on_iris():
@@ -100,7 +116,24 @@ def test_supervised_umap_trustworthiness_on_iris():
                        verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
+
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
+
+
+def test_umap_trustworthiness_against_umap_learn():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
+                       verbose=False).fit_transform(data,
+                                                    convert_dtype=True)
+
+    skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                              verbose=False).fit_transform(data)
+
+    trust = trustworthiness(iris.data, embedding, 10)
+
+    skl_trust = trustworthiness(iris.data, skl_embedding, 10)
+    assert (skl_trust - 0.008) <= trust <= (skl_trust + 0.008)
 
 
 def test_semisupervised_umap_trustworthiness_on_iris():
@@ -126,7 +159,17 @@ def test_umap_trustworthiness_on_iris():
     # We are doing a spectral embedding but not a
     # multi-component layout (which is marked experimental).
     # As a result, our score drops by 0.006.
-    assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
+    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
+
+
+def test_umap_trustworthiness_on_iris_random_init():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                       verbose=False).fit_transform(data, convert_dtype=True)
+    trust = trustworthiness(iris.data, embedding, 10)
+
+    assert trust >= 0.95
 
 
 def test_umap_transform_on_iris():
@@ -167,7 +210,7 @@ def test_umap_fit_transform_trust(name):
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 

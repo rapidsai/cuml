@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 import warnings
 
-from numba import cuda
+from librmm_cffi import librmm as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -118,7 +118,7 @@ class KMeansMG(KMeans):
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             clust_cent = zeros(self.n_clusters * self.n_cols,
                                dtype=self.dtype)
-            self.cluster_centers_ = cuda.to_device(clust_cent)
+            self.cluster_centers_ = rmm.to_device(clust_cent)
 
         cdef uintptr_t cluster_centers_ptr = \
             get_dev_array_ptr(self.cluster_centers_)

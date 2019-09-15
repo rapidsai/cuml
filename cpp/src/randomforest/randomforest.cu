@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *	http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,8 @@
 #include "randomforest_impl.cuh"
 
 namespace ML {
+
+using namespace MLCommon;
 
 /**
  * @brief Set RF_metrics.
@@ -159,7 +161,6 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   }
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
-  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
@@ -181,7 +182,6 @@ void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use input tree params
   params.tree_params = cfg_tree_params;
-  if (params.tree_params.split_algo == 0) params.n_streams = 1;
 }
 
 /**
@@ -270,7 +270,6 @@ void build_treelite_forest(ModelHandle* model,
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
-
   ModelBuilderHandle model_builder;
   // num_output_group is 1 for binary classification and regression
   // num_output_group is #class for multiclass classification which is the same as task_category
@@ -288,8 +287,8 @@ void build_treelite_forest(ModelHandle* model,
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
-    if (tree_ptr->root != nullptr) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr->root,
+    if (tree_ptr->sparsetree.size() != 0) {
+      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
                                               num_output_group);
 
       // The third argument -1 means append to the end of the tree list.
@@ -325,9 +324,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, int>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfClassifier<float>> rf_classifier =
@@ -342,9 +338,6 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, int>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfClassifier<double>> rf_classifier =
@@ -501,9 +494,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, float>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfRegressor<float>> rf_regressor =
@@ -517,9 +507,6 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, double>[rf_params.n_trees];
-  for (int i = 0; i < rf_params.n_trees; i++) {
-    forest->trees[i].root = nullptr;
-  }
   forest->rf_params = rf_params;
 
   std::shared_ptr<rfRegressor<double>> rf_regressor =
