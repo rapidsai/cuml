@@ -35,8 +35,8 @@ if(BUILD_CUML_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
-        faisslib
+        # gpufaisslib
+        # faisslib
         treelite_runtimelib
         ${CUML_CPP_TARGET}
         ${CUML_C_TARGET}
@@ -51,21 +51,21 @@ if(BUILD_CUML_TESTS)
       sg/fil_test.cu
       sg/handle_test.cu
       sg/holtwinters_test.cu
-      sg/kmeans_test.cu
-      sg/knn_test.cu
+      # sg/kmeans_test.cu
+      # sg/knn_test.cu
       sg/lkf_test.cu
       sg/ols.cu
       sg/pca_test.cu
       sg/quasi_newton.cu
-      sg/rf_test.cu
-      sg/rf_treelite_test.cu
+      # sg/rf_test.cu
+      # sg/rf_treelite_test.cu
       sg/ridge.cu
       sg/rproj_test.cu
       sg/sgd.cu
-      sg/spectral_test.cu
-      sg/tsne_test.cu
+      # sg/spectral_test.cu
+      # sg/tsne_test.cu
       sg/tsvd_test.cu
-      sg/umap_test.cu
+      # sg/umap_test.cu
       )
 
     add_dependencies(ml ${ClangFormat_TARGET})
@@ -90,8 +90,8 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
-        faisslib
+        # gpufaisslib
+        # faisslib
         ${CUML_CPP_TARGET}
         pthread
         ${ZLIB_LIBRARIES}
@@ -99,7 +99,7 @@ if(BUILD_CUML_MG_TESTS)
 
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
-      mg/knn_test_mg.cu
+      # mg/knn_test_mg.cu
       mg/test_ml_mg_utils.cu
       )
 
@@ -122,8 +122,8 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
-        gpufaisslib
-        faisslib
+        # gpufaisslib
+        # faisslib
         ${ZLIB_LIBRARIES}
     )
 
@@ -163,7 +163,7 @@ if(BUILD_PRIMS_TESTS)
       prims/host_buffer.cu
       prims/jones_transform.cu
       prims/klDivergence.cu
-      prims/knn.cu
+      # prims/knn.cu
       prims/kselection.cu
       prims/label.cu
       prims/linearReg.cu
@@ -194,7 +194,7 @@ if(BUILD_PRIMS_TESTS)
       prims/rsvd.cu
       prims/sample_without_replacement.cu
       prims/scatter.cu
-      prims/score.cu
+      # prims/score.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
@@ -204,7 +204,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sum.cu
       prims/svd.cu
       prims/transpose.cu
-      prims/trustworthiness.cu
+      # prims/trustworthiness.cu
       prims/unary_op.cu
       prims/vMeasure.cu
       prims/weighted_mean.cu
