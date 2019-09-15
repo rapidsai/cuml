@@ -359,6 +359,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/spectral/spectral.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
