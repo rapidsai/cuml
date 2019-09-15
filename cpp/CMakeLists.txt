@@ -350,7 +350,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/nvtx.cu
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
-    src/decisiontree/decisiontree.cu
+    # src/decisiontree/decisiontree.cu
     # src/fil/batch_tree_reorg.cu
     # src/fil/fil.cu
     # src/fil/naive.cu
