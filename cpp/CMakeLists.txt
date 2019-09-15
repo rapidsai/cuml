@@ -207,6 +207,7 @@ message("GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
+  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
@@ -235,56 +236,28 @@ add_clang_format(
 
 include(ExternalProject)
 
-# ExternalProject_Add(treelite
-#     PREFIX ${TREELITE_DIR}
-#     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
-#     CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-# )
+ExternalProject_Add(treelite
+    PREFIX ${TREELITE_DIR}
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
+    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
 
-# add_library(dmlclib STATIC IMPORTED)
-# add_library(treelitelib STATIC IMPORTED)
-# add_library(treelite_runtimelib SHARED IMPORTED)
+add_library(dmlclib STATIC IMPORTED)
+add_library(treelitelib STATIC IMPORTED)
+add_library(treelite_runtimelib SHARED IMPORTED)
 
-# add_dependencies(dmlclib treelite)
-# add_dependencies(treelitelib treelite)
-# add_dependencies(treelite_runtimelib treelite)
+add_dependencies(dmlclib treelite)
+add_dependencies(treelitelib treelite)
+add_dependencies(treelite_runtimelib treelite)
 
-# set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
-# set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-# set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
+set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
+set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
-
-  # Configuration of faiss for the correct architectures
-
-  # TODO: Update faiss submodule and use new flags
-  # file(READ ${FAISS_DIR}/makefile.inc.in CONFIG_FILE)
-  #     string(REPLACE "-Xcudafe --diag_suppress=unrecognized_attribute"
-  #            "--disable-warnings"
-  #            CONFIG_FILE ${CONFIG_FILE})
-  #     string(REPLACE "compute_35,code=\"compute_35\"" "compute_60,code=\"sm_60\""
-  #            CONFIG_FILE ${CONFIG_FILE})
-  #     string(REPLACE "compute_52,code=\"compute_52\"" "compute_61,code=\"sm_61\""
-  #            CONFIG_FILE ${CONFIG_FILE})
-  #     string(REPLACE "compute_60,code=\"compute_60\"" "compute_70,code=\"sm_70\""
-  #            CONFIG_FILE ${CONFIG_FILE})
-
-  # if((CUDA_VERSION_MAJOR EQUAL 9))
-  #     # Do not generate Turing on 9.2
-  #     string(REPLACE "-gencode arch=compute_61,code=\"compute_61\" " ""
-  #            CONFIG_FILE ${CONFIG_FILE})
-
-  # endif()
-  # if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-  #     string(REPLACE "compute_61,code=\"compute_61\"" "compute_70,code=\"sm_75\""
-  #            CONFIG_FILE ${CONFIG_FILE})
-  #     file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
-  # endif()
-
-  # file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
 
   message(STATUS "PREFAIS: BLAS - ${BLAS_LIBRARIES}" )
   message(STATUS "PREFAIS: CMAKE_INSTALL_PREFIX - ${CMAKE_INSTALL_PREFIX}" )
@@ -294,7 +267,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   ExternalProject_Add(faiss
     SOURCE_DIR "${FAISS_DIR}"
-    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
+    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS}
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faissbuild/
     BUILD_COMMAND $(MAKE) -j
     INSTALL_COMMAND $(MAKE) -s install > /dev/null
@@ -305,13 +278,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   ExternalProject_Get_Property(faiss install_dir)
 
   add_library(faisslib STATIC IMPORTED)
-  # add_library(gpufaisslib STATIC IMPORTED)
 
   add_dependencies(faisslib faiss)
-  # add_dependencies(gpufaisslib faiss)
 
   set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
-  # set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -350,11 +320,11 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/nvtx.cu
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
-    # src/decisiontree/decisiontree.cu
-    # src/fil/batch_tree_reorg.cu
-    # src/fil/fil.cu
-    # src/fil/naive.cu
-    # src/fil/tree_reorg.cu
+    src/decisiontree/decisiontree.cu
+    src/fil/batch_tree_reorg.cu
+    src/fil/fil.cu
+    src/fil/naive.cu
+    src/fil/tree_reorg.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
@@ -363,7 +333,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/metrics.cu
     src/metrics/trustworthiness.cu
     src/pca/pca.cu
-    # src/randomforest/randomforest.cu
+    src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
@@ -382,7 +352,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${ZLIB_LIBRARIES}
     treelitelib
     dmlclib
-    # gpufaisslib
     faisslib
     )
 

@@ -35,9 +35,8 @@ if(BUILD_CUML_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        # gpufaisslib
         faisslib
-        # treelite_runtimelib
+        treelite_runtimelib
         ${CUML_CPP_TARGET}
         ${CUML_C_TARGET}
         pthread
@@ -46,25 +45,25 @@ if(BUILD_CUML_TESTS)
 
     # (please keep the filenames in alphabetical order)
     add_executable(ml
-      # sg/cd_test.cu
-      # sg/dbscan_test.cu
-      # sg/fil_test.cu
-      # sg/handle_test.cu
-      # sg/holtwinters_test.cu
+      sg/cd_test.cu
+      sg/dbscan_test.cu
+      sg/fil_test.cu
+      sg/handle_test.cu
+      sg/holtwinters_test.cu
       sg/kmeans_test.cu
       sg/knn_test.cu
-      # sg/lkf_test.cu
-      # sg/ols.cu
-      # sg/pca_test.cu
-      # sg/quasi_newton.cu
-      # # sg/rf_test.cu
-      # # sg/rf_treelite_test.cu
-      # sg/ridge.cu
-      # sg/rproj_test.cu
-      # sg/sgd.cu
+      sg/lkf_test.cu
+      sg/ols.cu
+      sg/pca_test.cu
+      sg/quasi_newton.cu
+      sg/rf_test.cu
+      sg/rf_treelite_test.cu
+      sg/ridge.cu
+      sg/rproj_test.cu
+      sg/sgd.cu
       sg/spectral_test.cu
       sg/tsne_test.cu
-      # sg/tsvd_test.cu
+      sg/tsvd_test.cu
       sg/umap_test.cu
       )
 
@@ -90,7 +89,6 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        # gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
         pthread
@@ -122,94 +120,93 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
-        # gpufaisslib
         faisslib
         ${ZLIB_LIBRARIES}
     )
 
     # (please keep the filenames in alphabetical order)
     add_executable(prims
-      # prims/add.cu
-      # prims/add_sub_dev_scalar.cu
-      # prims/adjustedRandIndex.cu
-      # prims/binary_op.cu
-      # prims/ternary_op.cu
-      # prims/coalesced_reduction.cu
-      # prims/cuda_utils.cu
-      # prims/columnSort.cu
-      # prims/completenessScore.cu
-      # prims/contingencyMatrix.cu
-      # prims/coo.cu
-      # prims/cov.cu
-      # prims/csr.cu
-      # prims/decoupled_lookback.cu
-      # prims/dispersion.cu
-      # prims/dist_adj.cu
-      # prims/dist_cos.cu
-      # prims/dist_eps.cu
-      # prims/dist_euc_exp.cu
-      # prims/dist_euc_unexp.cu
-      # prims/dist_l1.cu
-      # prims/divide.cu
-      # prims/eig.cu
-      # prims/eig_sel.cu
-      # prims/eltwise.cu
-      # prims/eltwise2d.cu
-      # prims/entropy.cu
-      # prims/gather.cu
-      # prims/gemm.cu
-      # prims/gram.cu
-      # prims/grid_sync.cu
-      # prims/hinge.cu
-      # prims/homogeneityScore.cu
-      # prims/host_buffer.cu
-      # prims/jones_transform.cu
-      # prims/klDivergence.cu
+      prims/add.cu
+      prims/add_sub_dev_scalar.cu
+      prims/adjustedRandIndex.cu
+      prims/binary_op.cu
+      prims/ternary_op.cu
+      prims/coalesced_reduction.cu
+      prims/cuda_utils.cu
+      prims/columnSort.cu
+      prims/completenessScore.cu
+      prims/contingencyMatrix.cu
+      prims/coo.cu
+      prims/cov.cu
+      prims/csr.cu
+      prims/decoupled_lookback.cu
+      prims/dispersion.cu
+      prims/dist_adj.cu
+      prims/dist_cos.cu
+      prims/dist_eps.cu
+      prims/dist_euc_exp.cu
+      prims/dist_euc_unexp.cu
+      prims/dist_l1.cu
+      prims/divide.cu
+      prims/eig.cu
+      prims/eig_sel.cu
+      prims/eltwise.cu
+      prims/eltwise2d.cu
+      prims/entropy.cu
+      prims/gather.cu
+      prims/gemm.cu
+      prims/gram.cu
+      prims/grid_sync.cu
+      prims/hinge.cu
+      prims/homogeneityScore.cu
+      prims/host_buffer.cu
+      prims/jones_transform.cu
+      prims/klDivergence.cu
       prims/knn.cu
-      # prims/kselection.cu
-      # prims/label.cu
-      # prims/linearReg.cu
-      # prims/log.cu
-      # prims/logisticReg.cu
-      # prims/make_blobs.cu
-      # prims/map_then_reduce.cu
-      # prims/math.cu
-      # prims/matrix.cu
-      # prims/matrix_vector_op.cu
-      # prims/mean.cu
-      # prims/mean_center.cu
-      # prims/minmax.cu
-      # prims/mvg.cu
-      # prims/multiply.cu
-      # prims/mutualInfoScore.cu
-      # prims/norm.cu
-      # prims/penalty.cu
-      # prims/permute.cu
-      # prims/power.cu
-      # prims/randIndex.cu
-      # prims/reduce.cu
-      # prims/reduce_cols_by_key.cu
-      # prims/reduce_rows_by_key.cu
-      # prims/reverse.cu
-      # prims/rng.cu
-      # prims/rng_int.cu
-      # prims/rsvd.cu
-      # prims/sample_without_replacement.cu
-      # prims/scatter.cu
+      prims/kselection.cu
+      prims/label.cu
+      prims/linearReg.cu
+      prims/log.cu
+      prims/logisticReg.cu
+      prims/make_blobs.cu
+      prims/map_then_reduce.cu
+      prims/math.cu
+      prims/matrix.cu
+      prims/matrix_vector_op.cu
+      prims/mean.cu
+      prims/mean_center.cu
+      prims/minmax.cu
+      prims/mvg.cu
+      prims/multiply.cu
+      prims/mutualInfoScore.cu
+      prims/norm.cu
+      prims/penalty.cu
+      prims/permute.cu
+      prims/power.cu
+      prims/randIndex.cu
+      prims/reduce.cu
+      prims/reduce_cols_by_key.cu
+      prims/reduce_rows_by_key.cu
+      prims/reverse.cu
+      prims/rng.cu
+      prims/rng_int.cu
+      prims/rsvd.cu
+      prims/sample_without_replacement.cu
+      prims/scatter.cu
       prims/score.cu
-      # prims/sigmoid.cu
-      # prims/silhouetteScore.cu
-      # prims/sqrt.cu
-      # prims/stddev.cu
-      # prims/strided_reduction.cu
-      # prims/subtract.cu
-      # prims/sum.cu
-      # prims/svd.cu
-      # prims/transpose.cu
+      prims/sigmoid.cu
+      prims/silhouetteScore.cu
+      prims/sqrt.cu
+      prims/stddev.cu
+      prims/strided_reduction.cu
+      prims/subtract.cu
+      prims/sum.cu
+      prims/svd.cu
+      prims/transpose.cu
       prims/trustworthiness.cu
-      # prims/unary_op.cu
-      # prims/vMeasure.cu
-      # prims/weighted_mean.cu
+      prims/unary_op.cu
+      prims/vMeasure.cu
+      prims/weighted_mean.cu
       )
 
     add_dependencies(prims ${ClangFormat_TARGET})
