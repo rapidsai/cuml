@@ -158,8 +158,9 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
           gpu_res.setDefaultStream(att.device, stream);
 
           faiss::gpu::bruteForceKnn(
-            &gpu_res, faiss::METRIC_L2, ptr, size, search_items, n, D, k,
-            all_D + (long(i) * k * long(n)), all_I + (long(i) * k * long(n)));
+            &gpu_res, faiss::METRIC_L2, ptr, true, size, search_items, true,
+            n, D, k, all_D + (long(i) * k * long(n)),
+            all_I + (long(i) * k * long(n)));
 
           CUDA_CHECK(cudaPeekAtLastError());
           CUDA_CHECK(cudaStreamSynchronize(stream));
