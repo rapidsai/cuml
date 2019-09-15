@@ -212,6 +212,7 @@ endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT CMAKE_CXX11_ABI)
