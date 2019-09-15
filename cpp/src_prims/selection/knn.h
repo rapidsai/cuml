@@ -22,7 +22,7 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/IndexProxy.h>
+// #include <faiss/gpu/IndexProxy.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <iostream>
