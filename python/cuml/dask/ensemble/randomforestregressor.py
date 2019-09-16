@@ -16,6 +16,7 @@
 
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions
+import cuml
 import cudf
 import numpy as np
 
