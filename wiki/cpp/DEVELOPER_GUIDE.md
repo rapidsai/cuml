@@ -6,7 +6,7 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Performance
 1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See PR [#973](https://github.com/rapidsai/cuml/pull/973) for more details.
-2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. See PR [#1015](https://github.com/rapidsai/cuml/pull/1015) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. See PR [#1015](https://github.com/rapidsai/cuml/pull/1015) and also the section on [CUDA Resources](#cuda-resources) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
 
 ## Thread safety
 cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
