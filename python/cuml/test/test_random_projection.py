@@ -112,13 +112,13 @@ def test_johnson_lindenstrauss_min_dim():
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('method', ['gaussian', 'sparse'])
+@pytest.mark.parametrize('method', ['sparse'])
 def test_random_projection_fit_transform_default(datatype, input_type,
                                                  method):
 
-    eps = 0.2
+    eps = 0.8
     # dataset generation
-    data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
+    data, target = make_blobs(n_samples=30, centers=4, n_features=5000)
 
     # conversion to input_type
     data = data.astype(datatype)
