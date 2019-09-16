@@ -18,10 +18,9 @@ import cuml
 from cuml.test.utils import array_equal
 import numpy as np
 from sklearn.datasets import load_iris
-from sklearn.datasets import make_regression, make_classification
+from sklearn.datasets import make_regression
 import pickle
 from sklearn.manifold.t_sne import trustworthiness
-from sklearn.ensemble import RandomForestClassifier as skrfc
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -62,9 +61,6 @@ umap_model = dict(
     UMAP=cuml.UMAP()
 )
 
-rf_model = dict(
-    RF=cuml.RandomForestClassifier()
-)
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -94,44 +90,17 @@ def pickle_save_load(tmpdir, model):
     return cu_after_pickle_model
 
 
-def make_dataset(datatype, nrows, ncols, n_info):
+def make_dataset(datatype, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=0, n_classes=2)
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           random_state=0)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(np.int32)
-    y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
+    y_train = np.asarray(y[:train_rows, ]).astype(datatype)
 
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, X_test
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('model', rf_model.values())
-@pytest.mark.parametrize('nrows', [unit_param(100)])
-@pytest.mark.parametrize('ncols', [unit_param(10)])
-@pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
-    X_train, y_train, X_test, y_test = make_dataset(datatype, nrows, ncols, n_info)
-
-    model.fit(X_train, y_train)
-    cu_before_pickle_predict = np.asarray(model.predict(X_test)) # .to_array()
-    filename = 'finalized_model.sav'
-    pickle.dump(model, open(filename, 'wb'))
-    sk_model = skrfc(n_estimators=10,
-                     max_depth=16, max_features=1.0,
-                     random_state=10)
-    sk_model.fit(X_train, y_train)
-    filename = 'finalized_model_sklearn.sav'
-    pickle.dump(sk_model, open(filename, 'wb'))
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    cu_after_pickle_predict = np.asarray(cu_after_pickle_model.predict(X_test))  # .to_array()
-
-    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
-
-"""
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', regression_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
@@ -266,20 +235,20 @@ def test_neighbors_pickle(tmpdir, datatype, model, nrows,
 
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
-"""
-"""
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
 def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 
-    ###
+    """
     Note: This test digs down a bit far into the
     internals of the implementation, but it's
     important that regressions do not occur
     from changes to the class.
-    ###
+    """
 
     model = cuml.neighbors.NearestNeighbors()
 
@@ -374,4 +343,3 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
     trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
-"""
