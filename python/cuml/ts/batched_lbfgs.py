@@ -2,7 +2,7 @@ import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
 from scipy.optimize import _lbfgsb
-from .batched_kalman import pynvtx_range_push, pynvtx_range_pop
+from cuml.ts.nvtx import pynvtx_range_push, pynvtx_range_pop
 
 from collections import deque
 

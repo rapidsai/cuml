@@ -33,9 +33,11 @@
 
 namespace ML {
 
+using std::vector;
+
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* h_params,
-                     std::vector<double>& loglike, bool trans) {
+                     std::vector<double>& loglike, double*& d_vs, bool trans) {
   using std::get;
   using std::vector;
 
@@ -72,11 +74,10 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
     Tma = ma;
   }
 
-  std::vector<std::vector<double>> vs_b;
   if (d == 0) {
     // no diff
     batched_kalman_filter(handle, d_y, nobs, Tar, Tma, p, q, num_batches,
-                          loglike, vs_b);
+                          loglike, d_vs);
   } else if (d == 1) {
     ////////////////////////////////////////////////////////////
     // diff and center (with `mu`):
@@ -99,10 +100,17 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
     });
 
     batched_kalman_filter(handle, y_diff_ptr, nobs - d, Tar, Tma, p, q,
-                          num_batches, loglike, vs_b);
+                          num_batches, loglike, d_vs);
   } else {
     throw std::runtime_error("Not supported difference parameter: d=0, 1");
   }
+
   ML::POP_RANGE();
 }
+
+void update_host(cumlHandle& handle, double* d_vs, int N, double* h_vs) {
+  printf("Copying %p -> %p\n", d_vs, h_vs);
+  MLCommon::updateHost(h_vs, d_vs, N, handle.getStream());
+}
+
 }  // namespace ML

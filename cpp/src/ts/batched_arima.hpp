@@ -25,9 +25,15 @@ namespace ML {
 //! @param num_batches number of time series
 //! @param order ARIMA order (p: number of ar-parameters, d: difference parameter, q: number of ma-parameters)
 //! @param params parameters to evaluate group by series: [mu0, ar.., ma.., mu1, ..] Memory on host.
+//! @param h_vs The residual between model and original signal. shape = (nobs, num_batches) Memory on host.
 //! @param trans run `jones_transform` on params
 //! @return vector of log likelihood, one for each series (size: num_batches). Memory on host.
+//! @return kalman residual, shape = (nobs, num_batches) Memory on device.
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* h_params,
-                     std::vector<double>& loglike, bool trans = true);
+                     std::vector<double>& loglike, double*& d_vs,
+                     bool trans = true);
+
+void update_host(cumlHandle& handle, double* d_vs, int N, double* h_vs);
+
 }  // namespace ML

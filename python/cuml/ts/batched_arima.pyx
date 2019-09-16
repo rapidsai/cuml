@@ -23,24 +23,41 @@ from libc.stdlib cimport malloc, free
 from libcpp cimport bool
 from libcpp.string cimport string
 cimport cython
-from cuml.ts.batched_kalman import pynvtx_range_push, pynvtx_range_pop
-from cuml.ts.batched_kalman import pack, unpack
-from cuml.ts.batched_kalman import batched_transform as batched_trans_cuda
 from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
 
 import cuml
 from cuml.utils.input_utils import input_to_dev_array
-
+from cuml.common.handle cimport cumlHandle
 from libc.stdint cimport uintptr_t
-
 
 from typing import List, Tuple
 import cudf
 
+from cuml.ts.nvtx import pynvtx_range_push, pynvtx_range_pop
+
 cdef extern from "ts/batched_arima.hpp" namespace "ML":
   void batched_loglike(cumlHandle& handle, double* y, int num_batches, int nobs, int p,
-                       int d, int q, double* params, vector[double]& vec_loglike, bool trans)
+                       int d, int q, double* params,
+                       vector[double]& vec_loglike, double* d_vs, bool trans)
 
+  void update_host(cumlHandle& handle, double* d_vs, int N, double* h_vs);
+
+cdef extern from "utils.h" namespace "MLCommon":
+  void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
+
+cdef extern from "ts/batched_kalman.hpp" namespace "ML":
+
+  void batched_jones_transform(cumlHandle& handle,
+                               int p, int q,
+                               int batchSize,
+                               bool isInv,
+                               const vector[double]& ar,
+                               const vector[double]& ma,
+                               vector[double]& Tar,
+                               vector[double]& Tma)
+
+
+  
 
 class ARIMAModel:
     r"""
@@ -118,6 +135,84 @@ def init_x0(order, y):
 
     pynvtx_range_pop()
     return x0
+
+
+def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle):
+    cdef vector[double] vec_ar
+    cdef vector[double] vec_ma
+    cdef vector[double] vec_Tar
+    cdef vector[double] vec_Tma
+
+    pynvtx_range_push("batched_transform")
+    # pack ar & ma into C++ vectors
+    for ib in range(nb):
+        for ip in range(p):
+            vec_ar.push_back(x[(d+p+q)*ib + d + ip])
+        for iq in range(q):
+            vec_ma.push_back(x[(d+p+q)*ib + d + p + iq])
+
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()        
+    batched_jones_transform(handle_[0], p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
+
+    # unpack Tar & Tma results into [np.ndarray]
+    Tx = np.zeros(nb*(d+p+q))
+    for ib in range(nb):
+
+        # copy mu
+        Tx[(d+p+q)*ib] = x[(d+p+q)*ib]
+
+        # copy ar
+        for ip in range(p):
+            Tx[(d+p+q)*ib + d + ip] = vec_Tar[ib*p + ip]
+
+        # copy ma
+        for iq in range(q):
+            Tx[(d+p+q)*ib + d + p + iq] = vec_Tma[ib*q + iq]
+
+    pynvtx_range_pop()
+    return (Tx)
+
+
+def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
+    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
+    pynvtx_range_push("unpack(x) -> (ar,ma,mu)")
+    num_parameters = d + p + q
+    mu = np.zeros(nb)
+    ar = []
+    ma = []
+    for i in range(nb):
+        xi = x[i*num_parameters:(i+1)*num_parameters]
+        if d>0:
+            mu[i] = xi[0]
+        if p>0:
+            ar.append(xi[d:(d+p)])
+        ma.append(xi[d+p:])
+
+    pynvtx_range_pop()
+    return (mu, ar, ma)
+
+def pack(p, d, q, nb, mu, ar, ma):
+    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
+    pynvtx_range_push("pack(ar,ma,mu) -> x")
+    num_parameters = d + p + q
+    x = np.zeros(num_parameters*nb)
+    for i in range(nb):
+        xi = np.zeros(num_parameters)
+        if d>0:
+            xi[0] = mu[i]
+        
+        for j in range(p):
+            xi[j+d] = ar[i][j]
+        for j in range(q):
+            xi[j+p+d] = ma[i][j]
+        # xi = np.array([mu[i]])
+        # xi = np.r_[xi, ar[i]]
+        # xi = np.r_[xi, ma[i]]
+        x[i*num_parameters:(i+1)*num_parameters] = xi
+
+    pynvtx_range_pop()
+    return x
+
 
 def start_params(order, y_diff):
     """A quick approach to determine reasonable starting mu (trend), AR, and MA parameters"""
@@ -200,7 +295,7 @@ def batch_trans(p, d, q, nb, x, handle=None):
     if handle is None:
         handle = cuml.common.handle.Handle()
 
-    Tx = batched_trans_cuda(p, d, q, nb, x, False, handle)
+    Tx = batched_transform(p, d, q, nb, x, False, handle)
     
     pynvtx_range_pop()
     return Tx
@@ -215,7 +310,7 @@ def batch_invtrans(p, d, q, nb, x, handle=None):
     if handle is None:
         handle = cuml.common.handle.Handle()
 
-    Tx = batched_trans_cuda(p, d, q, nb, x, True, handle)
+    Tx = batched_transform(p, d, q, nb, x, True, handle)
 
     pynvtx_range_pop()
     return Tx
@@ -246,6 +341,49 @@ def batch_invtrans(p, d, q, nb, x, handle=None):
 
 #     return loglike
 
+def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=None):
+    """ Computes and returns the kalman residual """
+    
+    cdef vector[double] vec_loglike
+    cdef vector[double] vec_y_cm
+    cdef vector[double] vec_x
+
+    # if cumlHandle is None:
+    # cumlHandle = 
+
+    pynvtx_range_push("ll_f")
+    p, d, q = order
+
+    num_params = (p+d+q)
+
+    vec_loglike.resize(num_batches)
+
+    cdef uintptr_t d_y_ptr
+    # note: make sure you explicitly have d_y_array. Otherwise it gets garbage collected (I think).
+    d_y_array, d_y_ptr, _, _, dtype = input_to_dev_array(y, check_dtype=np.float64)
+
+
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    cdef double* d_vs_ptr
+
+    if dtype != np.float64:
+        raise ValueError("Only 64-bit floating point inputs currently supported")
+
+    batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, &x[0], vec_loglike, d_vs_ptr, trans)
+    # cdef vector[double] vec_res
+
+    cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
+
+    # update_host(handle_[0], d_vs_ptr, (nobs-d) * num_batches, &vs[0,0])
+    updateHost(&vs[0,0], d_vs_ptr, (nobs-d) * num_batches, 0)
+    
+    return vs
+
+
 def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=None):
     """Computes batched loglikelihood given parameters stored in `x`."""
 
@@ -272,9 +410,11 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
         handle = cuml.common.handle.Handle()
 
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
- 
+
+    cdef double* d_vs_ptr
+
     if dtype == np.float64:
-        batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, &x[0], vec_loglike, trans)
+        batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, &x[0], vec_loglike, d_vs_ptr, trans)
     else:
         raise ValueError("Only 64-bit floating point inputs currently supported")
 

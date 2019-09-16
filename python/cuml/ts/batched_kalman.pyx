@@ -15,205 +15,117 @@
 #
 # cython: language_level = 3
 
-import numpy as np
+# import numpy as np
 
-import ctypes
-cimport numpy as np
-from libcpp.vector cimport vector
-from libc.stdlib cimport malloc, free
-from libcpp cimport bool
-from libcpp.string cimport string
-cimport cython
+# import ctypes
+# cimport numpy as np
+# from libcpp.vector cimport vector
+# from libc.stdlib cimport malloc, free
+# from libcpp cimport bool
+# from libcpp.string cimport string
+# cimport cython
 
-import cuml
-from cuml.common.handle cimport cumlHandle
-from cuml.utils.input_utils import input_to_dev_array
-from libc.stdint cimport uintptr_t
+# import cuml
+# from cuml.common.handle cimport cumlHandle
+# from cuml.utils.input_utils import input_to_dev_array
+# from libc.stdint cimport uintptr_t
 
-cdef extern from "ts/batched_kalman.hpp" namespace "ML":
+# cdef extern from "ts/batched_kalman.hpp" namespace "ML":
 
-  void batched_kalman_filter(cumlHandle& handle,
-                             double* ptr_ys_b,
-                             int nobs,
-                             const vector[double]& b_ar_params,
-                             const vector[double]& b_ma_params,
-                             int p, int q,
-                             int num_batches,
-                             vector[double]& vec_loglike_b,
-                             vector[vector[double]]& vec_vs_b,
-                             bool initP_with_kalman_iterations)
+#   void batched_kalman_filter(cumlHandle& handle,
+#                              double* ptr_ys_b,
+#                              int nobs,
+#                              const vector[double]& b_ar_params,
+#                              const vector[double]& b_ma_params,
+#                              int p, int q,
+#                              int num_batches,
+#                              vector[double]& vec_loglike_b,
+#                              vector[vector[double]]& vec_vs_b,
+#                              bool initP_with_kalman_iterations)
 
-  void nvtx_range_push(string msg)
+#   void nvtx_range_push(string msg)
 
-  void nvtx_range_pop()
-
-  void batched_jones_transform(cumlHandle& handle,
-                               int p, int q,
-                               int batchSize,
-                               bool isInv,
-                               const vector[double]& ar,
-                               const vector[double]& ma,
-                               vector[double]& Tar,
-                               vector[double]& Tma)
+#   void nvtx_range_pop()
 
 
-def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
-    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    pynvtx_range_push("unpack(x) -> (ar,ma,mu)")
-    num_parameters = d + p + q
-    mu = np.zeros(nb)
-    ar = []
-    ma = []
-    for i in range(nb):
-        xi = x[i*num_parameters:(i+1)*num_parameters]
-        if d>0:
-            mu[i] = xi[0]
-        if p>0:
-            ar.append(xi[d:(d+p)])
-        ma.append(xi[d+p:])
-
-    pynvtx_range_pop()
-    return (mu, ar, ma)
 
 
-def pack(p, d, q, nb, mu, ar, ma):
-    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    pynvtx_range_push("pack(ar,ma,mu) -> x")
-    num_parameters = d + p + q
-    x = np.zeros(num_parameters*nb)
-    for i in range(nb):
-        xi = np.zeros(num_parameters)
-        if d>0:
-            xi[0] = mu[i]
-        
-        for j in range(p):
-            xi[j+d] = ar[i][j]
-        for j in range(q):
-            xi[j+p+d] = ma[i][j]
-        # xi = np.array([mu[i]])
-        # xi = np.r_[xi, ar[i]]
-        # xi = np.r_[xi, ma[i]]
-        x[i*num_parameters:(i+1)*num_parameters] = xi
-
-    pynvtx_range_pop()
-    return x
-
-def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle):
-    cdef vector[double] vec_ar
-    cdef vector[double] vec_ma
-    cdef vector[double] vec_Tar
-    cdef vector[double] vec_Tma
-
-    pynvtx_range_push("batched_transform")
-    # pack ar & ma into C++ vectors
-    for ib in range(nb):
-        for ip in range(p):
-            vec_ar.push_back(x[(d+p+q)*ib + d + ip])
-        for iq in range(q):
-            vec_ma.push_back(x[(d+p+q)*ib + d + p + iq])
-
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()        
-    batched_jones_transform(handle_[0], p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
-
-    # unpack Tar & Tma results into [np.ndarray]
-    Tx = np.zeros(nb*(d+p+q))
-    for ib in range(nb):
-
-        # copy mu
-        Tx[(d+p+q)*ib] = x[(d+p+q)*ib]
-
-        # copy ar
-        for ip in range(p):
-            Tx[(d+p+q)*ib + d + ip] = vec_Tar[ib*p + ip]
-
-        # copy ma
-        for iq in range(q):
-            Tx[(d+p+q)*ib + d + p + iq] = vec_Tma[ib*q + iq]
-
-    pynvtx_range_pop()
-    return (Tx)
-
-def pynvtx_range_push(msg):
-    cdef string s = msg.encode("UTF-8")
-    nvtx_range_push(s)
-
-def pynvtx_range_pop():
-    nvtx_range_pop()
 
 
-def batched_kfilter(np.ndarray[double, ndim=2] y,
-                    np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
-                    int p, int d, int q,
-                    initP_with_kalman_iterations=False, handle=None):
 
-    cdef vector[double] vec_loglike_b
+# def batched_kfilter(np.ndarray[double, ndim=2] y,
+#                     np.ndarray[double, ndim=1] mu_ar_ma_params_x, # [mu, ar.., ma..., mu, ar.., ma.., ...]
+#                     int p, int d, int q,
+#                     initP_with_kalman_iterations=False, handle=None):
+
+#     cdef vector[double] vec_loglike_b
     
-    cdef int nobs = y.shape[0]
-    cdef int num_batches = y.shape[1]
+#     cdef int nobs = y.shape[0]
+#     cdef int num_batches = y.shape[1]
 
-    # cuDF wasn't working well, comment out for now
-    # # Extract device pointer from DataFrame. Careful: `y_mat` temporary is to
-    # # avoid the "gpu_matrix" object from getting garbage collected. `ytmp`
-    # # simply satisfies the Cython compiler.
-    # y_mat = y.as_gpu_matrix()
-    # cdef unsigned long long ytmp = y_mat.gpu_data.device_pointer.value
-    # cdef double* y_ptr = <double*>ytmp
+#     # cuDF wasn't working well, comment out for now
+#     # # Extract device pointer from DataFrame. Careful: `y_mat` temporary is to
+#     # # avoid the "gpu_matrix" object from getting garbage collected. `ytmp`
+#     # # simply satisfies the Cython compiler.
+#     # y_mat = y.as_gpu_matrix()
+#     # cdef unsigned long long ytmp = y_mat.gpu_data.device_pointer.value
+#     # cdef double* y_ptr = <double*>ytmp
 
-    cdef vector[double] vec_b_ar_params
-    cdef vector[double] vec_b_ma_params
+#     cdef vector[double] vec_b_ar_params
+#     cdef vector[double] vec_b_ma_params
 
-    cdef vector[double*] vec_ys_b
+#     cdef vector[double*] vec_ys_b
 
-    cdef vector[vector[double]] vec_vs_b
+#     cdef vector[vector[double]] vec_vs_b
 
-    pynvtx_range_push("batched_kfilter")
+#     pynvtx_range_push("batched_kfilter")
 
-    pynvtx_range_push("batched_kfilter_copy_input")
-    vec_b_ar_params.resize(p * num_batches)
-    vec_b_ma_params.resize(q * num_batches)
+#     pynvtx_range_push("batched_kfilter_copy_input")
+#     vec_b_ar_params.resize(p * num_batches)
+#     vec_b_ma_params.resize(q * num_batches)
 
-    for i in range(num_batches):
-        for ip in range(p):
-            vec_b_ar_params[i*p + ip] = mu_ar_ma_params_x[i*(d+p+q) + d + ip]
-        for iq in range(q):
-            vec_b_ma_params[i*q + iq] = mu_ar_ma_params_x[i*(d+p+q) + d + p + iq]
+#     for i in range(num_batches):
+#         for ip in range(p):
+#             vec_b_ar_params[i*p + ip] = mu_ar_ma_params_x[i*(d+p+q) + d + ip]
+#         for iq in range(q):
+#             vec_b_ma_params[i*q + iq] = mu_ar_ma_params_x[i*(d+p+q) + d + p + iq]
 
-    ll_b = np.zeros(num_batches)
-    vs = np.zeros((nobs, num_batches))
-    pynvtx_range_pop()
+#     ll_b = np.zeros(num_batches)
+#     vs = np.zeros((nobs, num_batches))
+#     pynvtx_range_pop()
 
-    if handle is None:
-        handle = cuml.common.handle.Handle()
+#     if handle is None:
+#         handle = cuml.common.handle.Handle()
 
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+#     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    cdef uintptr_t d_y_ptr
-    d_y, d_y_ptr, num_samples, num_batches, dtype = input_to_dev_array(y, check_dtype=np.float64)
+#     cdef uintptr_t d_y_ptr
+#     d_y, d_y_ptr, num_samples, num_batches, dtype = input_to_dev_array(y, check_dtype=np.float64)
 
-    if dtype != np.float64:
-        raise ValueError("Only 64-bit floating point inputs currently supported (tried with {})".format(dtype))
+#     if dtype != np.float64:
+#         raise ValueError("Only 64-bit floating point inputs currently supported (tried with {})".format(dtype))
 
-    batched_kalman_filter(handle_[0],
-                          <double*> d_y_ptr,
-                          nobs,
-                          vec_b_ar_params,
-                          vec_b_ma_params,
-                          p, q,
-                          num_batches,
-                          vec_loglike_b,
-                          vec_vs_b,
-                          initP_with_kalman_iterations)
+#     batched_kalman_filter(handle_[0],
+#                           <double*> d_y_ptr,
+#                           nobs,
+#                           vec_b_ar_params,
+#                           vec_b_ma_params,
+#                           p, q,
+#                           num_batches,
+#                           vec_loglike_b,
+#                           vec_vs_b,
+#                           initP_with_kalman_iterations)
 
-    # convert C++-results to numpy arrays
-    pynvtx_range_push("batched_kfilter_copy_results")
-    for i in range(num_batches):
-        ll_b[i] = vec_loglike_b[i]
-        for j in range(nobs):
-            vs[j,i] = vec_vs_b[i][j]
-    pynvtx_range_pop()
+#     # convert C++-results to numpy arrays
+#     pynvtx_range_push("batched_kfilter_copy_results")
+#     for i in range(num_batches):
+#         ll_b[i] = vec_loglike_b[i]
+#         for j in range(nobs):
+#             vs[j,i] = vec_vs_b[i][j]
+#     pynvtx_range_pop()
 
-    pynvtx_range_pop()
-    return ll_b, vs
+#     pynvtx_range_pop()
+#     return ll_b, vs
 
 
 
