@@ -74,3 +74,19 @@ def test_svd(datatype, lrate, input_type, penalty,
     cu_sgd.fit(X_train, y_train)
     cu_pred = cu_sgd.predict(X_test).to_array()
     print("cuML predictions : ", cu_pred)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['ndarray'])
+def test_svd_default(datatype, input_type):
+
+    X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],
+                       dtype=datatype)
+    y_train = np.array([1, 1, 2, 2], dtype=datatype)
+    X_test = np.array([[3.0, 5.0], [2.0, 5.0]]).astype(datatype)
+
+    cu_sgd = cumlSGD()
+
+    cu_sgd.fit(X_train, y_train)
+    cu_pred = cu_sgd.predict(X_test).to_array()
+    print("cuML predictions : ", cu_pred)

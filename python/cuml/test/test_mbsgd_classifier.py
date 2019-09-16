@@ -69,3 +69,32 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
     cu_error = accuracy_score(cu_pred, y_test)
     skl_error = accuracy_score(skl_pred, y_test)
     assert(cu_error - skl_error <= 0.02)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [20])
+@pytest.mark.parametrize('ncols', [6])
+def test_mbsgd_classifier_default(datatype,
+                                  nrows, ncols):
+
+    train_rows = int(nrows*0.8)
+    X, y = make_classification(n_samples=nrows,
+                               n_features=ncols, random_state=0)
+    X_test = np.array(X[train_rows:, :], dtype=datatype)
+    X_train = np.array(X[:train_rows, :], dtype=datatype)
+    y_train = np.array(y[:train_rows, ], dtype=datatype)
+    y_test = np.array(y[train_rows:, ], dtype=datatype)
+
+    cu_mbsgd_classifier = cumlMBSGClassifier()
+
+    cu_mbsgd_classifier.fit(X_train, y_train)
+    cu_pred = cu_mbsgd_classifier.predict(X_test).to_array()
+
+    skl_sgd_classifier = SGDClassifier()
+
+    skl_sgd_classifier.fit(X_train, y_train)
+    skl_pred = skl_sgd_classifier.predict(X_test)
+
+    cu_error = accuracy_score(cu_pred, y_test)
+    skl_error = accuracy_score(skl_pred, y_test)
+    assert(cu_error - skl_error <= 0.02)

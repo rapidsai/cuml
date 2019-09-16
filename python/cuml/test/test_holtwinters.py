@@ -246,3 +246,11 @@ def test_get_season(freq):
     base = seasons[0]
     assert pytest.approx(seasons[evens], 1e-4) == base
     assert pytest.approx(seasons[odds], 1e-4) == -1*base
+
+
+def test_holtwinters_default():
+    global airpassengers, co2, nybirths
+    data = np.asarray([airpassengers, co2, nybirths], dtype=np.float64)
+    cu_hw = cuml_ES(data)
+    cu_hw.fit()
+    cu_hw.forecast(5)

@@ -22,10 +22,9 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
-from sklearn.metrics import mean_squared_error
 
 
 def unit_param(*args, **kwargs):
@@ -46,7 +45,7 @@ def stress_param(*args, **kwargs):
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_depth', [1, 16])
 def test_rf_classification(datatype, split_algo,
@@ -54,6 +53,10 @@ def test_rf_classification(datatype, split_algo,
     use_handle = True
     if split_algo == 1 and max_depth < 0:
         pytest.xfail("Unlimited depth not supported with quantile")
+
+    if datatype == np.float64:
+        pytest.xfail("Datatype np.float64 will run only on the CPU"
+                     " please convert the data to dtype np.float32")
 
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -99,11 +102,15 @@ def test_rf_classification(datatype, split_algo,
                          stress_param(200)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
                        n_info, mode, ncols):
+
+    if datatype == np.float64:
+        pytest.xfail("Datatype np.float64 will run only on the CPU"
+                     " please convert the data to dtype np.float32")
 
     if mode == 'unit':
         X, y = make_regression(n_samples=30, n_features=ncols,
@@ -134,7 +141,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cu_mse = cuml_model.score(X_test, y_test)
+    cu_r2 = cuml_model.score(X_test, y_test)
     if mode != 'stress':
         # sklearn random forest classification model
         # initialization, fit and predict
@@ -143,7 +150,64 @@ def test_rf_regression(datatype, use_handle, split_algo,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
-        sk_mse = mean_squared_error(y_test, sk_predict)
+        sk_r2 = r2_score(y_test, sk_predict)
 
         # compare the accuracy of the two models
-        assert cu_mse <= (sk_mse + 0.07)
+        assert cu_r2 >= (sk_r2 + 0.07)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_rf_classification_default(datatype):
+
+    train_rows = np.int32(30*0.8)
+    X, y = make_classification(n_samples=30, n_features=10,
+                               n_clusters_per_class=1, n_informative=7,
+                               random_state=123, n_classes=5)
+    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc()
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
+    cu_acc = accuracy_score(y_test, cu_predict)
+
+    # sklearn random forest classification model
+    # initialization, fit and predict
+    sk_model = skrfc(max_depth=16, random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_predict)
+
+    # compare the accuracy of the two models
+    assert cu_acc >= (sk_acc - 0.07)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_rf_regression_default(datatype):
+
+    X, y = make_regression(n_samples=30, n_features=10,
+                           n_informative=7,
+                           random_state=123)
+
+    train_rows = np.int32(X.shape[0]*0.8)
+    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(datatype)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfr()
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
+    cu_r2 = r2_score(y_test, cu_predict)
+    sk_model = skrfr(max_depth=16, random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_r2 = r2_score(y_test, sk_predict)
+
+    # compare the accuracy of the two models
+    assert cu_r2 >= (sk_r2 + 0.07)

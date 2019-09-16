@@ -118,6 +118,43 @@ def test_linear_models(datatype, X_type, y_type,
         assert array_equal(skridge_predict, curidge_predict,
                            1e-1, with_sign=True)
 
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('X_type', ['ndarray'])
+def test_linear_models_default(datatype, X_type):
+    train_rows = np.int32(20*0.8)
+    X, y = make_regression(n_samples=(20), n_features=3,
+                           n_informative=2, random_state=0)
+    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
+
+    # Initialization of cuML's linear and ridge regression models
+    cuols = cuLinearRegression()
+
+    curidge = cuRidge()
+
+    # fit and predict cuml linear regression model
+    cuols.fit(X_train, y_train)
+    cuols_predict = cuols.predict(X_test).to_array()
+
+    # fit and predict cuml ridge regression model
+    curidge.fit(X_train, y_train)
+    curidge_predict = curidge.predict(X_test).to_array()
+
+    # sklearn linear and ridge regression model initialization and fit
+    skols = skLinearRegression()
+    skols.fit(X_train, y_train)
+    skridge = skRidge()
+    skridge.fit(X_train, y_train)
+
+    skols_predict = skols.predict(X_test)
+    skridge_predict = skridge.predict(X_test)
+
+    assert array_equal(skols_predict, cuols_predict,
+                       1e-1, with_sign=True)
+    assert array_equal(skridge_predict, curidge_predict,
+                       1e-1, with_sign=True)
+
 
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
@@ -178,3 +215,35 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
         # This is the only case where cuml and sklearn actually do a similar
         # lbfgs, other cases cuml does owl or sklearn does saga
         assert np.sum(preds.to_array() != skpreds)/20000 < 1e-3
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+def test_logistic_regression_default(dtype):
+
+    # Checking sklearn >= 0.21 for testing elasticnet
+    sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
+    if not sk_check and penalty == 'elasticnet':
+        pytest.skip("Need sklearn > 0.21 for testing logistic with"
+                    "elastic net.")
+
+    nrows = 100000
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=10,
+                               n_redundant=0, n_informative=2)
+
+    X_test = np.asarray(X[train_rows:, 0:]).astype(dtype)
+    X_train = np.asarray(X[0:train_rows, :]).astype(dtype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(dtype)
+
+    culog = cuLog()
+    culog.fit(X_train, y_train)
+    penalty = 'l2'
+    # Only solver=saga supports elasticnet in scikit
+    sklog = skLog()
+
+    sklog.fit(X_train, y_train)
+
+    preds = culog.predict(X_test)
+    skpreds = sklog.predict(X_test)
+
+    assert np.sum(preds.to_array() != skpreds)/20000 < 1e-1
