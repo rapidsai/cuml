@@ -288,7 +288,7 @@ class RandomForestRegressor:
 
     @staticmethod
     def _predict(model, X, r):
-        return model.predict(X)
+        return model.predict(X).copy_to_host()
 
     def fit(self, X, y):
         """
