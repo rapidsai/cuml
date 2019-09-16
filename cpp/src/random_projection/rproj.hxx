@@ -45,7 +45,9 @@ namespace ML {
 		cudaStream_t stream = h.getStream();
         auto d_alloc = h.getDeviceAllocator();
 		int len = params.n_components * params.n_features;
-        random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+
+    random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+
 		auto rng = Random::Rng(params.random_state);
 		math_t scale = 1.0 / sqrt(double(params.n_components));
 		rng.normal(random_matrix->dense_data, len, math_t(0), scale, stream);
@@ -67,7 +69,9 @@ namespace ML {
 		if (params.density == 1.0f)
 		{
 			int len = params.n_components * params.n_features;
-            random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+
+			random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
+
 			auto rng = Random::Rng(params.random_state);
 			math_t scale = 1.0 / sqrt(math_t(params.n_components));
 			rng.scaled_bernoulli(random_matrix->dense_data, len, math_t(0.5), scale, stream);
@@ -133,6 +137,7 @@ namespace ML {
 
 		if (params->gaussian_method)
 		{
+
 			gaussian_random_matrix<math_t>(handle, random_matrix, *params);
 		}
 		else

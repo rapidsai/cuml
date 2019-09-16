@@ -56,12 +56,12 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
     # Function used to fit the model
     cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
-                          paramsRPROJ* params)
+                          paramsRPROJ* params) except +
 
     # Function used to apply data transformation
     cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
-                                paramsRPROJ* params)
+                                paramsRPROJ* params) except +
 
     # Function used to compute the Johnson Lindenstrauss minimal distance
     cdef size_t c_johnson_lindenstrauss_min_dim \
@@ -197,12 +197,17 @@ cdef class BaseRandomProjection():
         self.params.n_samples = n_samples
         self.params.n_features = n_features
 
-        if self.dtype == np.float32:
-            RPROJfit[float](handle_[0], self.rand_matS, &self.params)
-        else:
-            RPROJfit[double](handle_[0], self.rand_matD, &self.params)
+        try:
+            if self.dtype == np.float32:
+                RPROJfit[float](handle_[0], self.rand_matS, &self.params)
+            else:
+                RPROJfit[double](handle_[0], self.rand_matD, &self.params)
 
-        self.handle.sync()
+            self.handle.sync()
+
+        except RuntimeError:
+            import sys
+            raise Exception(sys.exc_info()[1])
 
         return self
 

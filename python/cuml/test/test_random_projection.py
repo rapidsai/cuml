@@ -116,7 +116,7 @@ def test_johnson_lindenstrauss_min_dim():
 def test_random_projection_fit_transform_default(datatype, input_type,
                                                  method):
 
-    eps = 0.2
+    eps = 0.1
     # dataset generation
     data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
 
@@ -126,9 +126,9 @@ def test_random_projection_fit_transform_default(datatype, input_type,
 
     # creation of model
     if method == 'gaussian':
-        model = GaussianRandomProjection()
+        model = GaussianRandomProjection(eps=eps)
     else:
-        model = SparseRandomProjection()
+        model = SparseRandomProjection(eps=eps)
 
     # fitting the model
     if input_type == 'dataframe':
