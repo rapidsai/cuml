@@ -1,7 +1,7 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
-- PR #1082: C++: benchmark for c++ codes inside cuML
+- PR #1082: C++ benchmark tool for c++/CUDA code inside cuML
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
