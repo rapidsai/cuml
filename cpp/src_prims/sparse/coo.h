@@ -19,6 +19,9 @@
 
 #include "cusparse_wrappers.h"
 
+#include "common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
+
 #include <cusparse_v2.h>
 
 #include <thrust/device_ptr.h>
@@ -53,31 +56,29 @@ namespace Sparse {
  * @tparam T: the type of the value array.
  *
  */
-template <typename T>
+template <typename T, typename Index_Type = int>
 class COO {
  protected:
   bool owner;
+  device_buffer<Index_Type> rows;
+  device_buffer<Index_Type> cols;
+  device_buffer<T> vals;
+
+  Index_Type nnz;
+  Index_Type n_rows;
+  Index_Type n_cols;
 
  public:
-  int *rows;
-  int *cols;
-  T *vals;
-  int nnz;
-  int n_rows;
-  int n_cols;
-  bool device;
-
   /**
-        * @param device: are the underlying arrays going to be on device?
-        */
-  COO(bool device = true)
+    * @param device: are the underlying arrays going to be on device?
+    */
+  COO()
     : rows(nullptr),
       cols(nullptr),
       vals(nullptr),
       nnz(-1),
       n_rows(-1),
       n_cols(-1),
-      device(device),
       owner(true) {}
 
   /**
@@ -89,8 +90,9 @@ class COO {
         * @param n_cols: number of cols in the dense matrix
         * @param device: are the underlying arrays on device?
         */
-  COO(int *rows, int *cols, T *vals, int nnz, int n_rows = -1, int n_cols = -1,
-      bool device = true)
+  COO(device_buffer<Index_Type> &rows, device_buffer<Index_Type> &cols,
+      device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = -1,
+      Index_Type n_cols = -1)
     : rows(rows),
       cols(cols),
       vals(vals),
@@ -106,17 +108,12 @@ class COO {
         * @param n_cols: number of cols in the dense matrix
         * @param device: are the underlying arrays on device?
         */
-  COO(int nnz, int n_rows = -1, int n_cols = -1, bool device = true,
+  COO(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
+      Index_Type nnz, Index_Type n_rows = -1, Index_Type n_cols = -1,
       bool init = true)
-    : rows(nullptr),
-      cols(nullptr),
-      vals(nullptr),
-      nnz(nnz),
-      n_rows(n_rows),
-      n_cols(n_cols),
-      device(device),
-      owner(true) {
-    this->allocate(nnz, n_rows, n_cols, device, init);
+    : nnz(nnz), n_rows(n_rows), n_cols(n_cols), owner(true) {
+    this->allocate(std::shared_ptr<deviceAllocator> allocator,
+                   cudaStream_t stream, nnz, n_rows, n_cols, device, init);
   }
 
   ~COO() { this->destroy(); }
@@ -143,9 +140,21 @@ class COO {
     return true;
   }
 
+  Index_Type *get_rows() const {
+    return this->rows.data();
+  }
+
+  Index_Type *get_cols() const {
+    return this->cols.get();
+  }
+
+  T *get_vals() const {
+    return this->vals.get();
+  }
+
   /**
-        * @brief Send human-readable state information to output stream
-        */
+    * @brief Send human-readable state information to output stream
+    */
   friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;

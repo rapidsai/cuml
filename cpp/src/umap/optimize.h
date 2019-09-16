@@ -48,9 +48,9 @@ __global__ void map_kernel(T *output, T *X, int n_rows, T *coef, Lambda grad) {
 }
 
 /**
-         * This works on a one-dimensional set of
-         * x-values.
-         */
+ * This works on a one-dimensional set of
+ * x-values.
+ */
 template <typename T, int TPB_X>
 void f(T *input, int n_rows, T *coef, T *preds) {
   dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
@@ -63,9 +63,9 @@ void f(T *input, int n_rows, T *coef, T *preds) {
 }
 
 /**
-         * Calculate the gradients for fitting parameters a and b
-         * to a smooth function based on exponential decay
-         */
+ * Calculate the gradients for fitting parameters a and b
+ * to a smooth function based on exponential decay
+ */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                  UMAPParams *params, cudaStream_t stream) {
@@ -73,8 +73,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   dim3 blk(TPB_X, 1, 1);
 
   /**
-             * Calculate residuals
-             */
+   * Calculate residuals
+   */
   T *residuals;
   MLCommon::allocate(residuals, n_rows);
 
@@ -83,8 +83,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-             * Gradient w/ respect to a
-             */
+   * Gradient w/ respect to a
+   */
   T *a_deriv;
   MLCommon::allocate(a_deriv, n_rows);
   MLCommon::copy(a_deriv, input, n_rows, stream);
@@ -98,8 +98,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-             * Gradient w/ respect to b
-             */
+   * Gradient w/ respect to b
+   */
   T *b_deriv;
   MLCommon::allocate(b_deriv, n_rows);
   MLCommon::copy(b_deriv, input, n_rows, stream);
@@ -110,15 +110,15 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
     });
 
   /**
-             * Multiply partial derivs by residuals
-             */
+   * Multiply partial derivs by residuals
+   */
   MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows,
                                     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-             * Finally, take the mean
-             */
+   * Finally, take the mean
+   */
   MLCommon::Stats::mean(grads, a_deriv, 1, n_rows, false, false, stream);
   MLCommon::Stats::mean(grads + 1, b_deriv, 1, n_rows, false, false, stream);
 
@@ -130,8 +130,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
 }
 
 /**
-         * Perform non-linear gradient descent
-         */
+ * Perform non-linear gradient descent
+ */
 template <typename T, int TPB_X>
 void optimize_params(T *input, int n_rows, const T *labels, T *coef,
                      UMAPParams *params, cudaStream_t stream,
