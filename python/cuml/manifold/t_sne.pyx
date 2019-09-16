@@ -45,7 +45,7 @@ cimport cuml.common.cuda
 cdef extern from "tsne/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
         const cumlHandle &handle,
-        const float *X,
+        float *X,
         float *Y,
         const int n,
         const int p,
@@ -67,7 +67,7 @@ cdef extern from "tsne/tsne.h" namespace "ML" nogil:
         const float post_momentum,
         const long long random_state,
         const bool verbose,
-        const bool new_intialization,
+        const bool pca_intialization,
         bool barnes_hut) except +
 
 
@@ -329,11 +329,12 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
+        cdef str order = 'F' if self.init == 'pca' else 'C'
         if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            _X, X_ptr, n, p, dtype = to_cuda(X, order=order,
                                              convert_to_dtype=np.float32)
         else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            _X, X_ptr, n, p, dtype = to_cuda(X, order=order,
                                              check_dtype=np.float32)
 
         if n <= 1:
@@ -346,34 +347,11 @@ class TSNE(Base):
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
-        # PCA Intialization
-        if self.init == 'pca':
-            copy = False
-            if isinstance(X, np.ndarray):
-                copy = True
-                if X.flags.f_contiguous:
-                    A = X
-                else:
-                    A = _X
-            else:
-                A = X
-            Y = PCA(n_components=self.n_components,copy=copy,
-                    random_state=self.random_state).fit_transform(A)
-            if isinstance(Y, cudf.DataFrame):
-                for col in Y.columns:
-                    if Y[col].dtype != np.float32:
-                        Y[col] = Y[col].astype(np.float32)
-                Y = Y.as_gpu_matrix()
-            else:
-                if Y.dtype != np.float32:
-                    Y = Y.astype(np.float32)
-                Y = cuda.to_device(Y)
-        else:
-            # Prepare output embeddings
-            Y = cuda.device_array(
-                (n, self.n_components),
-                order="F",
-                dtype=np.float32)
+        # Prepare output embeddings
+        Y = cuda.device_array(
+            (n, self.n_components),
+            order="F",
+            dtype=np.float32)
 
         cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
 
@@ -426,7 +404,7 @@ class TSNE(Base):
                  <float> self.post_momentum,
                  <long long> seed,
                  <bool> self.verbose,
-                 <bool> (self.init == 'random'),
+                 <bool> (self.init == 'pca'),
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory

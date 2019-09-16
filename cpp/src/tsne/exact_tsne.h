@@ -54,29 +54,14 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1, const bool verbose = true,
-                const bool new_intialization = true)
+                const bool pca_intialization = false)
 {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
   // Intialize embeddings
-  if (new_intialization == false) {
-
-    thrust::device_ptr<float> Y_ = thrust::device_pointer_cast(Y);
-    const float max = fabs(*thrust::max_element(thrust::cuda::par.on(stream), Y_, Y_ + n*dim));
-    const float min = fabs(*thrust::min_element(thrust::cuda::par.on(stream), Y_, Y_ + n*dim));
-
-    float total_maximum = (max > min) ? max : min;
-    if (total_maximum == 0) {
-      // Intialize with random numbers since total_maximum == 0
-      random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
-    }
-    else {
-      total_maximum = 0.1f / total_maximum;
-      MLCommon::LinAlg::scalarMultiply(Y, Y, total_maximum, dim*n, stream);
-    }
-  }
-  else {
+  if (pca_intialization == false)
+  {
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
   }
 

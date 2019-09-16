@@ -52,8 +52,8 @@ namespace LinAlg {
  * @{
  */
 template <typename math_t>
-void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
-                   math_t *&U, math_t *&V, int k, int p, bool use_bbt,
+void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *S_vec,
+                   math_t *U, math_t *V, int k, int p, bool use_bbt,
                    bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
                    math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
                    cublasHandle_t cublasH, cudaStream_t stream,

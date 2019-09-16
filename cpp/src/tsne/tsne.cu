@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "../../src_prims/utils.h"
+#include "../../src_prims/linalg/rsvd.h"
+#include "../../src_prims/linalg/transpose.h"
 #include "distances.h"
 #include "exact_kernels.h"
 #include "tsne/tsne.h"
@@ -22,6 +24,9 @@
 #include "barnes_hut.h"
 #include "exact_tsne.h"
 
+#include "common/device_buffer.hpp"
+
+#define device_buffer MLCommon::device_buffer
 
 namespace ML {
 
@@ -51,10 +56,10 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param new_intialization: Whether to intialize with random numbers.
+ * @input param pca_intialization: Whether to intialize with PCA.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const int n,
+void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
               const int p, const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
@@ -63,19 +68,22 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              const bool verbose, const bool new_intialization,
-              bool barnes_hut) {
+              const bool verbose, const bool pca_intialization,
+              bool barnes_hut)
+{
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && embedding != NULL,
          "Wrong input args");
 
-  if (dim > 2 and barnes_hut) {
+  if (dim > 2 and barnes_hut)
+  {
     barnes_hut = false;
     printf(
       "[Warn]  Barnes Hut only works for dim == 2. Switching to exact "
       "solution.\n");
   }
   if (n_neighbors > n) n_neighbors = n;
-  if (n_neighbors > 1023) {
+  if (n_neighbors > 1023)
+  {
     printf("[Warn]  FAISS only supports maximum n_neighbors = 1023.\n");
     n_neighbors = 1023;
   }
@@ -85,7 +93,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
     perplexity = n;
 
 
-  if (verbose) {
+  if (verbose)
+  {
     printf("[Info]  Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
            dim, perplexity);
     if (perplexity < 5 or perplexity > 50)
@@ -101,6 +110,57 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
+  //---------------------------------------------------
+  // PCA Intialization via randomized SVD
+  float *A;
+  device_buffer<float> X_C_contiguous(d_alloc, stream);
+
+  if (pca_intialization == true)
+  {
+    if (verbose) printf("[Info] Now performing PCA Intialization!\n");
+
+    // Data is currently F-Contiguous
+    device_buffer<float> S(d_alloc, stream, dim);
+
+    // We want U from U, S, VT = svd(X), so disregard VT and S
+    // Provide approx 7 upsamples for stability
+    // Since very tall and skinny matrix, using Jacobi based QR is reasonably more
+    // faster than Householder reflections
+    device_buffer<float> VT(d_alloc, stream, 0);
+    MLCommon::LinAlg::rsvdFixedRank(X, n, p, S.data(), embedding, VT.data(),
+                                    dim, 7, true, true, false, true, 1e-6f, 10,
+                                    handle.getImpl().getcusolverDnHandle(),
+                                    handle.getImpl().getCublasHandle(),
+                                    stream, d_alloc);
+
+    // Scale components
+    thrust::device_ptr<float> Y_ = thrust::device_pointer_cast(embedding);
+    const float max = fabs(*thrust::max_element(thrust::cuda::par.on(stream), Y_, Y_ + n*dim));
+    const float min = fabs(*thrust::min_element(thrust::cuda::par.on(stream), Y_, Y_ + n*dim));
+
+    float total_maximum = (max > min) ? max : min;
+    if (total_maximum == 0)
+    {
+      // Intialize with random numbers since total_maximum == 0
+      random_vector(embedding, -0.001f, 0.001f, n*dim, stream, random_state);
+    }
+    else
+    {
+      MLCommon::LinAlg::scalarMultiply(embedding, embedding, 1.0f/total_maximum, n*dim, stream);
+    }
+
+    // Now transpose the data to make it C-Contiguous
+    X_C_contiguous.resize(n*p, stream);
+    MLCommon::LinAlg::transpose(X, X_C_contiguous.data(), n, p,
+                                handle.getImpl().getCublasHandle(), stream);
+
+    A = X_C_contiguous.data();
+  }
+  else
+  {
+    A = X;
+  }
+
 
   START_TIMER;
   //---------------------------------------------------
@@ -108,7 +168,13 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
   if (verbose) printf("[Info] Getting distances.\n");
   float *distances = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
+  TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
+
+  if (pca_intialization == true)
+  {
+    X_C_contiguous.resize(0, stream); // remove C contiguous layout
+  }
+
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
@@ -118,7 +184,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
   //---------------------------------------------------
   // Normalize distances
   if (verbose)
+  {
     printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
+  }
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
@@ -128,7 +196,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
   //---------------------------------------------------
   // Optimal perplexity
   if (verbose)
+  {
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
+  }
   float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   const float P_sum = TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                                               perplexity_tol, n, n_neighbors, handle);
@@ -152,19 +222,21 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *embedding, const 
   END_TIMER(SymmetrizeTime);
   
 
-  if (barnes_hut) {
+  if (barnes_hut)
+  {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, embedding, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, new_intialization);
+                     verbose, pca_intialization);
   }
-  else {
+  else
+  {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
                      post_momentum, random_state, verbose,
-                     new_intialization);
+                     pca_intialization);
   }
 
   COO_Matrix.destroy();
