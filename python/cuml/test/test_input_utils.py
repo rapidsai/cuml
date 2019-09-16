@@ -22,7 +22,7 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_dev_array, has_cupy
+from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
 
 from cuml.utils.input_utils import convert_dtype
 
@@ -57,6 +57,28 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data)
 
     np.testing.assert_equal(X.copy_to_host(), real_data)
+
+    assert n_rows == num_rows
+    assert n_cols == num_cols
+    assert dtype == dtype
+
+    del input_data
+    del real_data
+
+
+@pytest.mark.parametrize('dtype', test_dtypes_acceptable)
+@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize('num_rows', test_num_rows)
+@pytest.mark.parametrize('num_cols', test_num_cols)
+def test_input_to_host_array(dtype, input_type, num_rows, num_cols):
+    input_data, real_data = get_input(input_type, num_rows, num_cols, dtype)
+
+    if input_data is None:
+        pytest.skip('cupy not installed')
+
+    X, X_ptr, n_rows, n_cols, dtype = input_to_host_array(input_data)
+
+    np.testing.assert_equal(X, real_data)
 
     assert n_rows == num_rows
     assert n_cols == num_cols
