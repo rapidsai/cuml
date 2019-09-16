@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *	http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,8 @@
 #include "randomforest_impl.cuh"
 
 namespace ML {
+
+using namespace MLCommon;
 
 /**
  * @brief Set RF_metrics.
@@ -268,7 +270,6 @@ void build_treelite_forest(ModelHandle* model,
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
-
   ModelBuilderHandle model_builder;
   // num_output_group is 1 for binary classification and regression
   // num_output_group is #class for multiclass classification which is the same as task_category
