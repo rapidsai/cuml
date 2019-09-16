@@ -97,6 +97,7 @@ void grow_deep_tree_classification(
     CUDA_CHECK(cudaMemsetAsync(
       d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
       tempmem->stream));
+    memset(h_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int));
     MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
