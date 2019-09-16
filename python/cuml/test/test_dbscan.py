@@ -106,3 +106,33 @@ def test_dbscan_sklearn_comparison(name, nrows):
                                                'sk_DBSCAN', X)
         assert(sk_n_clusters == cu_n_clusters)
         clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+
+
+@pytest.mark.parametrize("name", [
+                                 'noisy_moons',
+                                 'blobs',
+                                 'no_structure'])
+def test_dbscan_default(name):
+    default_base = {'quantile': .3,
+                    'eps': .5,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 2}
+    n_samples = 20
+    pat = get_pattern(name, n_samples)
+    params = default_base.copy()
+    params.update(pat[1])
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    cuml_dbscan = cuDBSCAN()
+    cu_y_pred, cu_n_clusters = fit_predict(cuml_dbscan,
+                                           'cuml_DBSCAN', X)
+
+    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+    sk_y_pred, sk_n_clusters = fit_predict(dbscan,
+                                           'sk_DBSCAN', X)
+    assert(sk_n_clusters == cu_n_clusters)
+    clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
