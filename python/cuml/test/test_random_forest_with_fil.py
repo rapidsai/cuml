@@ -63,7 +63,7 @@ def test_rf_classification(datatype, split_algo,
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle)
+    handle, stream = get_handle(use_handle, n_streams=8)
 
     sk_model = skrfc(n_estimators=40,
                      max_depth=(max_depth if max_depth > 0 else None),
@@ -125,7 +125,7 @@ def test_rf_regression(datatype, use_handle, split_algo,
     y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle)
+    handle, stream = get_handle(use_handle, n_streams=8)
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=1.0, rows_sample=1.0,
                        n_bins=n_bins, split_algo=split_algo, split_criterion=2,
