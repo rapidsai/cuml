@@ -2,11 +2,15 @@
 
 ## New Features
 - PR #1082: C++ benchmark tool for c++/CUDA code inside cuML
+- PR #1071: Selective eigen solver of cuSolver 
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 - PR #763: Add examples to train_test_split documentation
+- PR #1076: Paying off some UMAP / Spectral tech debt. 
+- PR #1086: Ensure RegressorMixin scorer uses device arrays
 
 ## Bug Fixes
 
@@ -17,7 +21,10 @@
 - PR #991: Barnes Hut TSNE Memory Issue Fixes
 - PR #1075: Pinning Dask version for consistent CI results
 - PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1066: Using proper set of workers to destroy nccl comms
+- PR #1072: Remove pip requirements and setup
 - PR #1074: Fix flake8 CI style check
+- PR #1088: Change straggling numba python allocations to use RMM
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -31,6 +38,7 @@
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #823: prims: cluster dispersion metric
 - PR #816: Added inverse_transform() for LabelEncoder
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
