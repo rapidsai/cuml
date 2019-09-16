@@ -11,6 +11,7 @@
 - PR #763: Add examples to train_test_split documentation
 - PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1107: Enable CuPy in conda recipes and GPU CI
 
 ## Bug Fixes
 
