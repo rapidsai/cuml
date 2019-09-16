@@ -118,6 +118,7 @@ def test_linear_models(datatype, X_type, y_type,
         assert array_equal(skridge_predict, curidge_predict,
                            1e-1, with_sign=True)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('X_type', ['ndarray'])
 def test_linear_models_default(datatype, X_type):
@@ -220,6 +221,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
 def test_logistic_regression_default(dtype):
 
+    penalty = 'l2'
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
     if not sk_check and penalty == 'elasticnet':
@@ -237,7 +239,6 @@ def test_logistic_regression_default(dtype):
 
     culog = cuLog()
     culog.fit(X_train, y_train)
-    penalty = 'l2'
     # Only solver=saga supports elasticnet in scikit
     sklog = skLog()
 
