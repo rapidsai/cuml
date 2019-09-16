@@ -91,7 +91,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
                     'damping': .9,
                     'preference': -200,
                     'n_neighbors': 10,
-                    'n_clusters': 8}
+                    'n_clusters': 3}
 
     pat = get_pattern(name, nrows)
 

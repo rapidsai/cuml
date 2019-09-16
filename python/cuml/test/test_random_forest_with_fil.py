@@ -146,3 +146,60 @@ def test_rf_regression(datatype, use_handle, split_algo,
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
     assert cu_r2 >= (sk_r2 - 0.07)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_rf_classification_default(datatype):
+
+    train_rows = np.int32(30*0.8)
+    X, y = make_classification(n_samples=30, n_features=10,
+                               n_clusters_per_class=1, n_informative=7,
+                               random_state=123, n_classes=5)
+    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(np.int32)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(np.int32)
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc()
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test)
+    cu_acc = accuracy_score(y_test, cu_predict)
+
+    # sklearn random forest classification model
+    # initialization, fit and predict
+    sk_model = skrfc(max_depth=16, random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_acc = accuracy_score(y_test, sk_predict)
+
+    # compare the accuracy of the two models
+    assert cu_acc >= (sk_acc - 0.07)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_rf_regression_default(datatype):
+
+    X, y = make_regression(n_samples=30, n_features=10,
+                           n_informative=7,
+                           random_state=123)
+
+    train_rows = np.int32(X.shape[0]*0.8)
+    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
+    y_test = np.asarray(y[train_rows:, ]).astype(datatype)
+    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfr()
+    cuml_model.fit(X_train, y_train)
+    cu_predict = cuml_model.predict(X_test)
+    cu_r2 = r2_score(y_test, cu_predict)
+    sk_model = skrfr(max_depth=16, random_state=10)
+    sk_model.fit(X_train, y_train)
+    sk_predict = sk_model.predict(X_test)
+    sk_r2 = r2_score(y_test, sk_predict)
+
+    # compare the accuracy of the two models
+    assert cu_r2 >= (sk_r2 + 0.07)
