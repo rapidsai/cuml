@@ -26,7 +26,7 @@ if(BUILD_CUML_BENCH)
   set(ML_BENCH_LINK_LIBRARIES ${CUML_CPP_TARGET})
 
   # (please keep the filenames in alphabetical order)
-  add_executable(bench
+  add_executable(sg
     sg/dbscan.cu
     sg/harness.cpp
     sg/kmeans.cu
@@ -34,8 +34,8 @@ if(BUILD_CUML_BENCH)
     sg/rf_classifier.cu
   )
 
-  add_dependencies(bench ${ClangFormat_TARGET})
+  add_dependencies(sg ${ClangFormat_TARGET})
 
-  target_link_libraries(bench ${ML_BENCH_LINK_LIBRARIES})
+  target_link_libraries(sg ${ML_BENCH_LINK_LIBRARIES})
 
 endif(BUILD_CUML_BENCH)
