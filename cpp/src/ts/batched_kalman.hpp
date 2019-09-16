@@ -32,13 +32,13 @@ namespace ML {
 //! @param q The number of MA parameters
 //! @param num_batches The number of series making up the batch
 //! @param loglike_b The resulting loglikelihood (for each series)
-//! @param h_vs_b The residual between the prediction and the original series.
+//! @param d_vs The residual between the prediction and the original series. shape=(nobs, num_batches), Memory on device.
 //! @param initP_with_kalman_iterations Initialize the Kalman filter covariance `P` with 1 or more kalman iterations instead of an analytical heuristic.
 void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
                            const std::vector<double>& b_ar_params,
                            const std::vector<double>& b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& loglike_b,
-                           std::vector<std::vector<double>>& h_vs_b,
+                           double*& d_vs,
                            bool initP_with_kalman_iterations = false);
 
 //! NVTX Wrapper function creating a range.

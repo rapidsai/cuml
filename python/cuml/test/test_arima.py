@@ -233,11 +233,12 @@ def testFit():
                                     ma0,
                                     opt_disp=-1, h=1e-9)
 
-        # print("Batched_model: ", batched_model)
+        print("num iterations: ", batched_model.niter)
 
-        np.testing.assert_allclose(batched_model.mu, mu_ref[p-1])
-        np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1])
-        np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1])
+        rtol = 1e-2
+        np.testing.assert_allclose(batched_model.mu, mu_ref[p-1], rtol=rtol)
+        np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1], rtol=rtol)
+        np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1], rtol=rtol)
 
 def testPredict(plot=False):
     _, y = get_data()
