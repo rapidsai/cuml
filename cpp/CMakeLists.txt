@@ -52,7 +52,7 @@ option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
-option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" OFF)
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
