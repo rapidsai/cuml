@@ -46,7 +46,7 @@ DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],
   auto tid = threadIdx.x;
   auto val = DataT(0.0);
   if (tid < len) {
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < VecLen; ++i) {
       val += x[i] * y[i];
     }
@@ -81,18 +81,18 @@ __global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x, IdxT m,
     _x.load(x, blockIdx.x * n + idx);
   }
   for (IdxT i = 0; i < m; i += VecTypeY::Ratio) {
-    #pragma unroll
+#pragma unroll
     for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
       _a.fill(DataT(0.0));
       if (idx < n) {
         _a.load(A, batchOffset + (i + j) * m + idx);
       }
-      _y.data[j] = dotProduct<DataT, IdxT, TPB>(_a.data, _x.data, n, sdot,
-                                                false);
+      _y.data[j] =
+        dotProduct<DataT, IdxT, TPB>(_a.data, _x.data, n, sdot, false);
       __syncthreads();
     }
     if (threadIdx.x == 0) {
-      _y.store(y, i * VecTypeY::Ratio);
+      _y.store(y, blockIdx.x * m + i * VecTypeY::Ratio);
     }
   }
 }
@@ -116,17 +116,17 @@ void gemvImplAx(DataT* y, const DataT* A, const DataT* x, IdxT m, IdxT n,
     gemvImplY<DataT, IdxT, VecLenAx, 16 / sizeof(DataT), TPB>(
       y, A, x, m, n, batchSize, stream);
   } else if (8 / sizeof(DataT) && bytes % 8 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 8 / sizeof(DataT), TPB>(
-      y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 8 / sizeof(DataT), TPB>(y, A, x, m, n,
+                                                             batchSize, stream);
   } else if (4 / sizeof(DataT) && bytes % 4 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 4 / sizeof(DataT), TPB>(
-      y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 4 / sizeof(DataT), TPB>(y, A, x, m, n,
+                                                             batchSize, stream);
   } else if (2 / sizeof(DataT) && bytes % 2 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 2 / sizeof(DataT), TPB>(
-      y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 2 / sizeof(DataT), TPB>(y, A, x, m, n,
+                                                             batchSize, stream);
   } else if (1 / sizeof(DataT)) {
-    gemvImplY<DataT, IdxT, VecLenAx, 1 / sizeof(DataT), TPB>(
-      y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 1 / sizeof(DataT), TPB>(y, A, x, m, n,
+                                                             batchSize, stream);
   } else {
     gemvImplY<DataT, IdxT, VecLenAx, 1, TPB>(y, A, x, m, n, batchSize, stream);
   }
