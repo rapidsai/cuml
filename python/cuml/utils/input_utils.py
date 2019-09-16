@@ -266,11 +266,10 @@ def input_to_host_array(X, order='F', deepcopy=False,
         reference unless deepcopy=True
     * numba device array - returns a reference unless deepcopy=True
 
-    Returns: namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
+    Returns: namedtuple('host_array', 'array pointer n_rows n_cols dtype')
 
-    `dev_array` is a new device array if the input was not a numba device
-        array. It is a reference to the input X if it was a numba device array
-        or cuda array interface compliant (like cupy)
+    `host_array` is a new device array if the input was not a NumPy device
+        array. It is a reference to the input X if it was a NumPy host array
     """
 
     if convert_to_dtype:
@@ -337,7 +336,7 @@ def input_to_host_array(X, order='F', deepcopy=False,
 
     X_ptr = X_m.ctypes.data
 
-    result = namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
+    result = namedtuple('host_array', 'array pointer n_rows n_cols dtype')
 
     return result(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
                   dtype=dtype)
