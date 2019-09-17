@@ -71,34 +71,35 @@ __global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x,
   VecTypeAx _x, _a;
   VecTypeY _y, _z;
   IdxT idx = threadIdx.x * VecTypeAx::Ratio;
-  IdxT batchOffset = blockIdx.x * m * n;
+  IdxT batch = blockIdx.y;
+  IdxT rowId = blockIdx.x * VecTypeY::Ratio;
+  auto rowOffset = batch * m * n + rowId * n;
   _x.fill(Zero);
   _z.fill(Zero);
   if (idx < n) {
-    _x.load(x, blockIdx.x * n + idx);
+    _x.load(x, batch * n + idx);
   }
-  for (IdxT i = 0; i < m; i += VecTypeY::Ratio) {
+#pragma unroll
+  for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
+    _a.fill(Zero);
+    if (idx < n) {
+      _a.load(A, rowOffset + j * n + idx);
+    }
+    _y.val.data[j] = dotProduct<DataT, IdxT, VecTypeAx::Ratio>(
+      _a.val.data, _x.val.data, sdot, false);
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) {
+    auto yidx = batch * m + rowId;
+    if (beta != Zero) {
+      _z.load(y, yidx);
+    }
 #pragma unroll
     for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
-      _a.fill(Zero);
-      if (idx < n) {
-        _a.load(A, batchOffset + (i + j) * n + idx);
-      }
-      _y.val.data[j] = dotProduct<DataT, IdxT, VecTypeAx::Ratio>(
-        _a.val.data, _x.val.data, sdot, false);
-      __syncthreads();
+      _y.val.data[j] =
+        op(alpha * _y.val.data[j] + beta * _z.val.data[j], yidx + j);
     }
-    if (threadIdx.x == 0) {
-      if (beta != Zero) {
-        _z.load(y, blockIdx.x * m + i);
-      }
-#pragma unroll
-      for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
-        _y.val.data[j] = op(alpha * _y.val.data[j] + beta * _z.val.data[j],
-                            blockIdx.x * m + i + j);
-      }
-      _y.store(y, blockIdx.x * m + i);
-    }
+    _y.store(y, yidx);
   }
 }
 
@@ -111,8 +112,10 @@ void gemvImplY(DataT* y, const DataT* A, const DataT* x, const DataT* z,
   int tpb = alignTo<int>(nAligned, WarpSize);
   int nWarps = tpb / WarpSize;
   size_t smemSize = sizeof(DataT) * nWarps;
+  auto mAligned = VecLenY ? ceildiv(m, VecLenY) : m;
+  dim3 nblks(mAligned, batchSize);
   gemvKernel<DataT, IdxT, VecLenAx, VecLenY, EpilogueOp>
-    <<<batchSize, tpb, smemSize, stream>>>(y, A, x, z, alpha, beta, m, n, op);
+    <<<nblks, tpb, smemSize, stream>>>(y, A, x, z, alpha, beta, m, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
