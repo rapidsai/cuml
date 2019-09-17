@@ -49,7 +49,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
                              random_state=10)
 
     cumlModel.fit(X_cudf)
+
+    import time
+
+    start = time.time()
     daskmlModel1.fit(X_df)
+    print("dask-ml time: " + str(time.time() - start))
 
     cumlLabels = cumlModel.predict(X_cudf)
     daskmlLabels1 = daskmlModel1.predict(X_df)

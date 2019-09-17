@@ -13,10 +13,11 @@
 # limitations under the License.
 #
 
-import dask.dataframe as dd
+from dask.dataframe import from_delayed
 import pandas as pd
 
 import cudf
+
 
 import dask_cudf
 
@@ -24,6 +25,7 @@ from dask.distributed import default_client
 from dask.distributed import wait as dask_wait
 
 from sklearn.datasets import make_blobs
+from cuml.utils.numba_utils import gpu_major_converter
 
 import numpy as np
 
@@ -32,9 +34,9 @@ import math
 
 
 def create_df(f, m, n, centers, cluster_std, random_state, r):
-    X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
+    X,_ = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                       random_state=random_state)
-    ret = pd.DataFrame(X)
+    ret = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(np.float32)))
     return ret
 
 
@@ -44,7 +46,7 @@ def get_meta(df):
 
 
 def to_cudf(df, r):
-    return cudf.from_pandas(df)
+    return cudf.from_/topandas(df)
 
 
 def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
@@ -97,14 +99,18 @@ def dask_make_blobs(nrows, ncols, n_centers=8, n_parts=None, cluster_std=1.0,
     # Wait for completion
     dask_wait(dfs)
 
-    ddfs = [client.submit(to_cudf, df, random.random()) for df in dfs]
+    #ddfs = [client.submit(to_cudf, df, random.random()) for df in dfs]
     # Wait for completion
-    dask_wait(ddfs)
+    #idask_wait(ddfs)
 
-    meta_ddf = client.submit(get_meta, dfs[0]).result()
-    meta_cudf = client.submit(get_meta, ddfs[0]).result()
+    #meta_ddf = client.submit(get_meta, dfs[0]).result()
+    meta_cudf = client.submit(get_meta, dfs[0]).result().reset_index(drop=True)
 
-    d_df = dd.from_delayed(dfs, meta=meta_ddf)
-    d_cudf = dask_cudf.from_delayed(ddfs, meta=meta_cudf)
+    print("META CUDF: " + str(meta_cudf))
 
-    return d_df, d_cudf
+    #d_df = dd.from_delayed(dfs, meta=meta_ddf)
+    d_cudf = from_delayed(dfs, meta=meta_cudf)
+
+    return d_cudf
+
+
