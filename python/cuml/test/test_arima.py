@@ -235,7 +235,7 @@ def testFit():
 
         print("num iterations: ", batched_model.niter)
 
-        rtol = 1e-2
+        rtol = 1e-8
         np.testing.assert_allclose(batched_model.mu, mu_ref[p-1], rtol=rtol)
         np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1], rtol=rtol)
         np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1], rtol=rtol)
