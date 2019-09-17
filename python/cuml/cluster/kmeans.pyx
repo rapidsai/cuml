@@ -302,7 +302,6 @@ class KMeans(Base):
         params.oversampling_factor=self.oversampling_factor
         self._params = params
 
-
     def fit(self, X):
         """
         Compute k-means clustering with X.
