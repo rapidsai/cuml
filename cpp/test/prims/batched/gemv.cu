@@ -36,19 +36,19 @@ template <typename T, typename IdxType = int>
 }
 
 template <typename Type>
-__global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type* x,
+__global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
                                      int m, int n) {
   int batch = blockIdx.y;
   int row = blockIdx.x;
   int col = threadIdx.x;
   if (row < m && col < n) {
-    auto prod = A[batch * m * n + row * m + col] * x[batch * n + col];
+    auto prod = A[batch * m * n + row * n + col] * x[batch * n + col];
     atomicAdd(y + batch * m + row, prod);
   }
 }
 
 template <typename Type>
-void naiveBatchGemv(Type *y, const Type *A, const Type* x, int m, int n,
+void naiveBatchGemv(Type *y, const Type *A, const Type *x, int m, int n,
                     int batchSize, cudaStream_t stream) {
   static int TPB = ceildiv(n, WarpSize);
   dim3 nblks(m, batchSize);
@@ -75,8 +75,8 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     r.uniform(x, veclenx, T(-1.0), T(1.0), stream);
     CUDA_CHECK(cudaMemsetAsync(out_ref, 0, sizeof(T) * vecleny, stream));
     naiveBatchGemv(out_ref, A, x, params.m, params.n, params.batchSize, stream);
-    gemv<DataT, int, 128>(out, A, x, params.m, params.n, params.batchSize,
-                          stream);
+    gemv<T, int, 128>(out, A, x, nullptr, T(1.0), T(0.0), params.m, params.n,
+                      params.batchSize, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -89,45 +89,39 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
- protected:n;
+ protected:
   cudaStream_t stream;
   BatchGemvInputs<T> params;
   T *A, *x, *out_ref, *out;
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
-  {0.000001f, 128, 128, 32, 1234ULL},
-  {0.000001f, 128, 126, 32, 1234ULL},
-  {0.000001f, 128, 125, 32, 1234ULL},
-  {0.000001f, 126, 128, 32, 1234ULL},
-  {0.000001f, 126, 126, 32, 1234ULL},
-  {0.000001f, 126, 125, 32, 1234ULL},
-  {0.000001f, 125, 128, 32, 1234ULL},
-  {0.000001f, 125, 126, 32, 1234ULL},
+  {0.000001f, 128, 128, 32, 1234ULL}, {0.000001f, 128, 126, 32, 1234ULL},
+  {0.000001f, 128, 125, 32, 1234ULL}, {0.000001f, 126, 128, 32, 1234ULL},
+  {0.000001f, 126, 126, 32, 1234ULL}, {0.000001f, 126, 125, 32, 1234ULL},
+  {0.000001f, 125, 128, 32, 1234ULL}, {0.000001f, 125, 126, 32, 1234ULL},
   {0.000001f, 125, 125, 32, 1234ULL},
 };
 typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.vecleny,
-                          CompareApprox<float>(params.tolerance)));
+  int vecleny = params.batchSize * params.m;
+  ASSERT_TRUE(
+    devArrMatch(out_ref, out, vecleny, CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF,
                         ::testing::ValuesIn(inputsf));
 
 typedef BatchGemvTest<double> BatchGemvTestD;
 const std::vector<BatchGemvInputs<double>> inputsd = {
-  {0.0000001, 128, 128, 32, 1234ULL},
-  {0.0000001, 128, 126, 32, 1234ULL},
-  {0.0000001, 128, 125, 32, 1234ULL},
-  {0.0000001, 126, 128, 32, 1234ULL},
-  {0.0000001, 126, 126, 32, 1234ULL},
-  {0.0000001, 126, 125, 32, 1234ULL},
-  {0.0000001, 125, 128, 32, 1234ULL},
-  {0.0000001, 125, 126, 32, 1234ULL},
+  {0.0000001, 128, 128, 32, 1234ULL}, {0.0000001, 128, 126, 32, 1234ULL},
+  {0.0000001, 128, 125, 32, 1234ULL}, {0.0000001, 126, 128, 32, 1234ULL},
+  {0.0000001, 126, 126, 32, 1234ULL}, {0.0000001, 126, 125, 32, 1234ULL},
+  {0.0000001, 125, 128, 32, 1234ULL}, {0.0000001, 125, 126, 32, 1234ULL},
   {0.0000001, 125, 125, 32, 1234ULL},
 };
 TEST_P(BatchGemvTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.vecleny,
+  int vecleny = params.batchSize * params.m;
+  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD,
