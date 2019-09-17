@@ -34,10 +34,6 @@ namespace fil {
 using namespace MLCommon;
 namespace tl = treelite;
 
-void naive(const predict_params& ps, cudaStream_t stream);
-void tree_reorg(const predict_params& ps, cudaStream_t stream);
-void batch_tree_reorg(const predict_params& ps, cudaStream_t stream);
-
 void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
                      bool def_left, bool is_leaf) {
   dense_node dn(output, thresh, fid, def_left, is_leaf);
@@ -141,6 +137,7 @@ struct forest {
     ps.ntrees = ntrees_;
     ps.depth = depth_;
     ps.cols = cols_;
+    ps.algo = algo_;
     ps.preds = preds;
     ps.data = data;
     ps.rows = rows;
@@ -148,19 +145,7 @@ struct forest {
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
-    switch (algo_) {
-      case algo_t::NAIVE:
-        naive(ps, stream);
-        break;
-      case algo_t::TREE_REORG:
-        tree_reorg(ps, stream);
-        break;
-      case algo_t::BATCH_TREE_REORG:
-        batch_tree_reorg(ps, stream);
-        break;
-      default:
-        ASSERT(false, "internal error: invalid algorithm");
-    }
+    infer(ps, stream);
 
     // Transform the output if necessary.
     if (output_ != output_t::RAW || global_bias_ != 0.0f) {
