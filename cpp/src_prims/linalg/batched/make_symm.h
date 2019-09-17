@@ -26,10 +26,38 @@ static constexpr int TileDim = 32;
 static constexpr int BlockRows = 8;
 
 // Ref: https://devblogs.nvidia.com/efficient-matrix-transpose-cuda-cc/
+///@todo: special-case for blockIdx.x == blockIdx.y to reduce gmem traffic
 template <typename DataT, typename IdxT, typename EpilogueOp>
 __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
                            EpilogueOp op) {
   __shared__ DataT smem[TileDim][TileDim + 1];  // +1 to avoid bank conflicts
+  IdxT batchOffset = blockIdx.z * n * n;
+  IdxT myRowStart = blockIdx.y * TileDim + threadIdx.y;
+  IdxT myColStart = blockIdx.x * TileDim + threadIdx.x;
+  IdxT myIdx = batchOffset + myRowStart * n + myColStart;
+  // load the transpose part
+  IdxT otherRowStart = blockIdx.x * TileDim + threadIdx.y;
+  IdxT otherColStart = blockIdx.y * TileDim + threadIdx.x;
+  IdxT otherIdx = batchOffset + otherRowStart * n + otherColStart;
+  if (otherColStart < n) {
+#pragma unroll
+    for (int i = 0; i < TileDim; i += BlockRows) {
+      if (otherRowStart + i < n) {
+        smem[threadIdx.y + i][threadIdx.x] = in[otherIdx + i * n];
+      }
+    }
+  }
+  __syncthreads();
+  if (myColStart < n) {
+#pragma unroll
+    for (int i = 0; i < TileDim; i += BlockRows) {
+      auto offset = myIdx + i * n;
+      if (myRowStart + i < n) {
+        auto sum = smem[threadIdx.x][threadIdx.y + i] + in[offset];
+        out[offset] = op(sum * DataT(0.5), offset);
+      }
+    }
+  }
 }
 
 /**
@@ -51,8 +79,8 @@ void make_symm(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
   dim3 blk(TileDim, BlockRows);
   auto nblks = ceildiv<int>(n, TileDim);
   dim3 grid(nblks, nblks, batchSize);
-  symmKernel<DataT, IdxT, EpilogueOp><<<grid, blk, 0, stream>>>(
-    out, in, batchSize, n, op);
+  symmKernel<DataT, IdxT, EpilogueOp>
+    <<<grid, blk, 0, stream>>>(out, in, batchSize, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
