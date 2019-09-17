@@ -114,9 +114,9 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 namespace tl = treelite;
 
 template <class T, class L>
-tl::Model& build_treelite_forest(ModelHandle* model,
-                                 const RandomForestMetaData<T, L>* forest,
-                                 int num_features, int task_category);
+ModelHandle build_treelite_forest(ModelHandle* model,
+                                  const RandomForestMetaData<T, L>* forest,
+                                  int num_features, int task_category);
 
 // ----------------------------- Classification ----------------------------------- //
 

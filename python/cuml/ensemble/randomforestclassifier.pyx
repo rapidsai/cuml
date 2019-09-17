@@ -139,12 +139,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef Model& build_treelite_forest(ModelHandle*,
+    cdef ModelHandle build_treelite_forest(ModelHandle*,
                                       RandomForestMetaData[float, int]*,
                                       int,
                                       int)
 
-    cdef Model& build_treelite_forest(ModelHandle*,
+    cdef ModelHandle build_treelite_forest(ModelHandle*,
                                       RandomForestMetaData[double, int]*,
                                       int,
                                       int)
@@ -865,7 +865,7 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
-        cdef Model tl_model
+        cdef ModelHandle tl_model
 
         if self.dtype == np.float32:
             tl_model = build_treelite_forest(& cuml_model_ptr,

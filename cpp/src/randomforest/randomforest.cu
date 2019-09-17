@@ -266,9 +266,9 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-tl::Model& build_treelite_forest(ModelHandle* model,
-                                 const RandomForestMetaData<T, L>* forest,
-                                 int num_features, int task_category) {
+ModelHandle build_treelite_forest(ModelHandle* model,
+                                  const RandomForestMetaData<T, L>* forest,
+                                  int num_features, int task_category) {
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
@@ -301,16 +301,14 @@ tl::Model& build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
-  tl::Model& temp = *(tl::Model*)*model;
-  std::cout << " model num_features in c++ : " << temp.num_feature << std::endl
+  tl::Model& tl_mod = *(tl::Model*)*model;
+  std::cout << " model num_features in c++ : " << tl_mod.num_feature
+            << std::endl
             << std::flush;
-  fil::forest_params_t* params;
-  params->ntrees = temp.trees.size();
-  const std::vector<treelite::Tree, std::allocator<treelite::Tree>> a =
-    temp.trees;
-  std::cout << " model tree size in c++ : " << params->ntrees << std::endl
-            << std::flush;
-  return temp;
+  TREELITE_CHECK(
+    TreeliteExportProtobufModel("/home/nfs/saljain/rf_fil/cuml/cpp", *model));
+  // std::cout << " model tree protobuf val : " << val << std::endl << std::flush;
+  return *model;
 }
 
 /**
@@ -628,16 +626,16 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
-template tl::Model& build_treelite_forest<float, int>(
+template ModelHandle build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
   int num_features, int task_category);
-template tl::Model& build_treelite_forest<double, int>(
+template ModelHandle build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
   int num_features, int task_category);
-template tl::Model& build_treelite_forest<float, float>(
+template ModelHandle build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
   int num_features, int task_category);
-template tl::Model& build_treelite_forest<double, double>(
+template ModelHandle build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
   int num_features, int task_category);
 }  // End namespace ML
