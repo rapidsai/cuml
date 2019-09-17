@@ -54,7 +54,7 @@ DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],
   typedef cub::BlockReduce<DataT, TPB> BlockReduce;
   typedef typename BlockReduce::TempStorage BlockReduceSmem;
   auto temp = *reinterpret_cast<BlockReduceSmem*>(smem);
-  auto* sDot = reinterpret_cast<DataT>(smem + sizeof(BlockReduceSmem));
+  auto* sDot = reinterpret_cast<DataT*>(smem + sizeof(BlockReduceSmem));
   auto dot = BlockReduce(temp).Sum(val);
   if (broadcast) {
     if (tid == 0) {
@@ -66,17 +66,21 @@ DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],
   return dot;
 }
 
-template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, int TPB>
-__global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x, IdxT m,
-                           IdxT n) {
+template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, int TPB,
+          typename EpilogueOp>
+__global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x,
+                           const DataT* z, DataT alpha, DataT beta, IdxT m,
+                           IdxT n, EpilogueOp op) {
   typedef TxN_t<DataT, VecLenAx> VecTypeAx;
   typedef TxN_t<DataT, VecLenY> VecTypeY;
-  extern __shared__ char sdot[];
+  extern __shared__ char smem[];
+  auto* sdot = smem;
   VecTypeAx _x, _a;
-  VecTypeY _y;
+  VecTypeY _y, _z;
   IdxT idx = threadIdx.x * VecTypeAx::Ratio;
   IdxT batchOffset = blockIdx.x * m * n;
   _x.fill(DataT(0.0));
+  _z.fill(DataT(0.0));
   if (idx < n) {
     _x.load(x, blockIdx.x * n + idx);
   }
@@ -85,50 +89,63 @@ __global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x, IdxT m,
     for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
       _a.fill(DataT(0.0));
       if (idx < n) {
-        _a.load(A, batchOffset + (i + j) * m + idx);
+        _a.load(A, batchOffset + (i + j) * n + idx);
       }
-      _y.data[j] =
-        dotProduct<DataT, IdxT, TPB>(_a.data, _x.data, n, sdot, false);
+      _y.val.data[j] = dotProduct<DataT, IdxT, TPB, VecTypeAx::Ratio>(
+        _a.val.data, _x.val.data, n, sdot, false);
       __syncthreads();
     }
     if (threadIdx.x == 0) {
-      _y.store(y, blockIdx.x * m + i * VecTypeY::Ratio);
+      if (beta != DataT(0.0)) {
+        _z.load(y, blockIdx.x * m + i);
+      }
+#pragma unroll
+      for (IdxT j = 0; j < VecTypeY::Ratio; ++j) {
+        _y.val.data[j] = op(alpha * _y.val.data[j] + beta * _z.val.data[j],
+                            blockIdx.x * m + i + j);
+      }
+      _y.store(y, blockIdx.x * m + i);
     }
   }
 }
 
-template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, int TPB>
-void gemvImplY(DataT* y, const DataT* A, const DataT* x, IdxT m, IdxT n,
-               IdxT batchSize, cudaStream_t stream) {
+template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, int TPB,
+          typename EpilogueOp>
+void gemvImplY(DataT* y, const DataT* A, const DataT* x, const DataT* z,
+               DataT alpha, DataT beta, IdxT m, IdxT n, IdxT batchSize,
+               EpilogueOp op, cudaStream_t stream) {
   typedef cub::BlockReduce<DataT, TPB> BlockReduce;
   typedef typename BlockReduce::TempStorage BlockReduceSmem;
   size_t smemSize = sizeof(BlockReduceSmem);
-  gemvKernel<DataT, IdxT, VecLenAx, VecLenY, TPB>
-    <<<batchSize, TPB, smemSize, stream>>>(y, A, x, m, n);
+  gemvKernel<DataT, IdxT, VecLenAx, VecLenY, TPB, EpilogueOp>
+    <<<batchSize, TPB, smemSize, stream>>>(y, A, x, z, alpha, beta, m, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT, typename IdxT, int VecLenAx, int TPB>
-void gemvImplAx(DataT* y, const DataT* A, const DataT* x, IdxT m, IdxT n,
-                IdxT batchSize, cudaStream_t stream) {
+template <typename DataT, typename IdxT, int VecLenAx, int TPB,
+          typename EpilogueOp>
+void gemvImplAx(DataT* y, const DataT* A, const DataT* x, const DataT* z,
+                DatatT alpha, DataT beta, IdxT m, IdxT n, IdxT batchSize,
+                EpilogueOp op, cudaStream_t stream) {
   size_t bytes = m * sizeof(DataT);
   if (16 / sizeof(DataT) && bytes % 16 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 16 / sizeof(DataT), TPB>(
-      y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 16 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (8 / sizeof(DataT) && bytes % 8 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 8 / sizeof(DataT), TPB>(y, A, x, m, n,
-                                                             batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 8 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (4 / sizeof(DataT) && bytes % 4 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 4 / sizeof(DataT), TPB>(y, A, x, m, n,
-                                                             batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 4 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (2 / sizeof(DataT) && bytes % 2 == 0) {
-    gemvImplY<DataT, IdxT, VecLenAx, 2 / sizeof(DataT), TPB>(y, A, x, m, n,
-                                                             batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 2 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (1 / sizeof(DataT)) {
-    gemvImplY<DataT, IdxT, VecLenAx, 1 / sizeof(DataT), TPB>(y, A, x, m, n,
-                                                             batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 1 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else {
-    gemvImplY<DataT, IdxT, VecLenAx, 1, TPB>(y, A, x, m, n, batchSize, stream);
+    gemvImplY<DataT, IdxT, VecLenAx, 1, TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   }
 }
 
@@ -139,35 +156,42 @@ void gemvImplAx(DataT* y, const DataT* A, const DataT* x, IdxT m, IdxT n,
  * @tparam DataT data type
  * @tparam IdxT idx type
  * @tparam TPB threads per block
+ * @tparam EpilogueOp custom epilogue after computing alpha * Ax + beta * z
  * @param y the output vectors (dim = batchSize x m, row-major)
  * @param A input matrices (dim = batchSize x m x n, row-major)
  * @param x the input vectors (dim = batchSize x n, row-major)
+ * @param z vectors used to update the output (dim = batchSize x m, row-major)
+ * @param alpha scaling param for Ax
+ * @param beta scaling param for z
  * @param m number of rows in A
  * @param n number of columns in A
  * @param batchSize batch size
  * @param stream cuda stream
+ * @param op epilogue operation
  */
-template <typename DataT, typename IdxT, int TPB>
-void gemv(DataT* y, const DataT* A, const DataT* x, IdxT m, IdxT n,
-          IdxT batchSize, cudaStream_t stream) {
+template <typename DataT, typename IdxT, int TPB, EpilogueOp op>
+void gemv(DataT* y, const DataT* A, const DataT* x, const DataT* z, DataT alpha,
+          DataT beta, IdxT m, IdxT n, IdxT batchSize, cudaStream_t stream,
+          EpilogueOp op = Nop<DataT, IdxT>()) {
   size_t bytes = n * sizeof(DataT);
   if (16 / sizeof(DataT) && bytes % 16 == 0) {
-    gemvImplAx<DataT, IdxT, 16 / sizeof(DataT), TPB>(y, A, x, m, n, batchSize,
-                                                     stream);
+    gemvImplAx<DataT, IdxT, 16 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (8 / sizeof(DataT) && bytes % 8 == 0) {
-    gemvImplAx<DataT, IdxT, 8 / sizeof(DataT), TPB>(y, A, x, m, n, batchSize,
-                                                    stream);
+    gemvImplAx<DataT, IdxT, 8 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (4 / sizeof(DataT) && bytes % 4 == 0) {
-    gemvImplAx<DataT, IdxT, 4 / sizeof(DataT), TPB>(y, A, x, m, n, batchSize,
-                                                    stream);
+    gemvImplAx<DataT, IdxT, 4 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (2 / sizeof(DataT) && bytes % 2 == 0) {
-    gemvImplAx<DataT, IdxT, 2 / sizeof(DataT), TPB>(y, A, x, m, n, batchSize,
-                                                    stream);
+    gemvImplAx<DataT, IdxT, 2 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else if (1 / sizeof(DataT)) {
-    gemvImplAx<DataT, IdxT, 1 / sizeof(DataT), TPB>(y, A, x, m, n, batchSize,
-                                                    stream);
+    gemvImplAx<DataT, IdxT, 1 / sizeof(DataT), TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   } else {
-    gemvImplAx<DataT, IdxT, 1, TPB>(y, A, x, m, n, batchSize, stream);
+    gemvImplAx<DataT, IdxT, 1, TPB, EpilogueOp>(
+      y, A, x, z, alpha, beta, m, n, batchSize, op, stream);
   }
 }
 
