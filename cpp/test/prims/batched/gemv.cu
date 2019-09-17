@@ -50,7 +50,7 @@ __global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
 template <typename Type>
 void naiveBatchGemv(Type *y, const Type *A, const Type *x, int m, int n,
                     int batchSize, cudaStream_t stream) {
-  static int TPB = ceildiv(n, WarpSize);
+  static int TPB = ceildiv(n, WarpSize) * WarpSize;
   dim3 nblks(m, batchSize);
   naiveBatchGemvKernel<Type><<<nblks, TPB, 0, stream>>>(y, A, x, m, n);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -75,8 +75,8 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     r.uniform(x, veclenx, T(-1.0), T(1.0), stream);
     CUDA_CHECK(cudaMemsetAsync(out_ref, 0, sizeof(T) * vecleny, stream));
     naiveBatchGemv(out_ref, A, x, params.m, params.n, params.batchSize, stream);
-    gemv<T, int, 128>(out, A, x, nullptr, T(1.0), T(0.0), params.m, params.n,
-                      params.batchSize, stream);
+    gemv<T, int>(out, A, x, nullptr, T(1.0), T(0.0), params.m, params.n,
+                 params.batchSize, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -96,11 +96,11 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
-  {0.000001f, 128, 128, 32, 1234ULL}, {0.000001f, 128, 126, 32, 1234ULL},
-  {0.000001f, 128, 125, 32, 1234ULL}, {0.000001f, 126, 128, 32, 1234ULL},
-  {0.000001f, 126, 126, 32, 1234ULL}, {0.000001f, 126, 125, 32, 1234ULL},
-  {0.000001f, 125, 128, 32, 1234ULL}, {0.000001f, 125, 126, 32, 1234ULL},
-  {0.000001f, 125, 125, 32, 1234ULL},
+  {0.001f, 128, 128, 32, 1234ULL}, {0.001f, 128, 126, 32, 1234ULL},
+  {0.001f, 128, 125, 32, 1234ULL}, {0.001f, 126, 128, 32, 1234ULL},
+  {0.001f, 126, 126, 32, 1234ULL}, {0.001f, 126, 125, 32, 1234ULL},
+  {0.001f, 125, 128, 32, 1234ULL}, {0.001f, 125, 126, 32, 1234ULL},
+  {0.001f, 125, 125, 32, 1234ULL},
 };
 typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result) {
