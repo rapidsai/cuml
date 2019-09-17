@@ -143,9 +143,15 @@ void make_level_split(const T *data, const int nrows, const int Ncols,
 
 /* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
    computation. */
-int get_class_hist(std::vector<int> &node_hist) {
-  int classval =
-    std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
+int get_class_hist(unsigned int *node_hist, const int n_unique_labels) {
+  unsigned int maxval = node_hist[0];
+  int classval = 0;
+  for (int i = 1; i < n_unique_labels; i++) {
+    if (node_hist[i] > maxval) {
+      maxval = node_hist[i];
+      classval = i;
+    }
+  }
   return classval;
 }
 
