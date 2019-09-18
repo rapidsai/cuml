@@ -197,17 +197,12 @@ cdef class BaseRandomProjection():
         self.params.n_samples = n_samples
         self.params.n_features = n_features
 
-        try:
-            if self.dtype == np.float32:
-                RPROJfit[float](handle_[0], self.rand_matS, &self.params)
-            else:
-                RPROJfit[double](handle_[0], self.rand_matD, &self.params)
+        if self.dtype == np.float32:
+            RPROJfit[float](handle_[0], self.rand_matS, &self.params)
+        else:
+            RPROJfit[double](handle_[0], self.rand_matD, &self.params)
 
-            self.handle.sync()
-
-        except RuntimeError:
-            import sys
-            raise Exception(sys.exc_info()[1])
+        self.handle.sync()
 
         return self
 
