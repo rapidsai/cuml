@@ -40,8 +40,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     from cuml.dask.common import to_dask_df
 
     X_cudf, _ = make_blobs(nrows, ncols, nclusters, n_parts,
-                         cluster_std=0.1, verbose=True,
-                         random_state=10)
+                           cluster_std=0.1, verbose=True,
+                           random_state=10)
 
     X_df = to_dask_df(X_cudf)
 
