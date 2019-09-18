@@ -12,6 +12,7 @@
 - PR #1076: Paying off some UMAP / Spectral tech debt. 
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
 - PR #1110: Adding tests to use default values of parameters of the models
+- PR #1111: Propagating random projection exceptions to cython
 
 ## Bug Fixes
 
