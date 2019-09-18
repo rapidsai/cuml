@@ -87,7 +87,6 @@ class KMeansMG(KMeans):
     `cuml.dask.cluster.kmeans`.
     """
 
-
     def __init__(self, **kwargs):
         super(KMeansMG, self).__init__(**kwargs)
 
