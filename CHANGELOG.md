@@ -1,30 +1,116 @@
-# cuML 0.9.0 (Date TBD)
+# cuML 0.10.0 (Date TBD)
+
+## New Features
+- PR #1071: Selective eigen solver of cuSolver 
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+
+## Improvements
+- PR #961: High Peformance RF; HIST algo
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #763: Add examples to train_test_split documentation
+- PR #1093: Unified inference kernels for different FIL algorithms
+- PR #1076: Paying off some UMAP / Spectral tech debt. 
+- PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+
+## Bug Fixes
+
+- PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
+- PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1044: Remove nvidia driver installation from ci/cpu/build.sh
+- PR #991: Barnes Hut TSNE Memory Issue Fixes
+- PR #1075: Pinning Dask version for consistent CI results
+- PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1066: Using proper set of workers to destroy nccl comms
+- PR #1072: Remove pip requirements and setup
+- PR #1074: Fix flake8 CI style check
+- PR #1088: Change straggling numba python allocations to use RMM
+- PR #1106: Pinning Distributed version to match Dask for consistent CI results
+
+# cuML 0.9.0 (21 Aug 2019)
 
 ## New Features
 
+- PR #894: Convert RF to treelite format
+- PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
 - PR #787: homogeneity, completeness and v-measure metrics ml-prim
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #823: prims: cluster dispersion metric
+- PR #816: Added inverse_transform() for LabelEncoder
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
+- PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #871: Wrapper for FIL
+- PR #870: make_blobs python function
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
+- PR #840: Dask RF classification and regression
+- PR #870: make_blobs python function
+- PR #879: import of treelite models to FIL
+- PR #892: General Gram matrices prim
+- PR #883: Adding MNMG Kmeans
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+- PR #926: Wrapper for FIL
+- PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
 - PR #807: Added development conda yml files
 - PR #840: Require cmake >= 3.14
 - PR #832: Stateless Decision Tree and Random Forest API
+- PR #857: Small modifications to comms for utilizing IB w/ Dask
+- PR #851: Random forest Stateless API wrappers
+- PR #865: High Performance RF
+- PR #895: Pretty prints arguments!
+- PR #920: Add an empty marker kernel for tracing purposes
+- PR #915: syncStream added to cumlCommunicator
+- PR #922: Random Forest support in FIL
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #918: Streamline CUDA_REL environment variable
+- PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
+- PR #950: global_bias support in FIL
+- PR #773: Significant improvements to input checking of all classes and common input API for Python
+- PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
+- PR #965: Making dask-ml a hard dependency
+- PR #976: Update api.rst for new 0.9 classes
+- PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
+- PR #978: Update README for 0.9
+- PR #1009: Fix references to notebooks-contrib
 
 ## Bug Fixes
 
+- PR #923: Fix misshapen level/trend/season HoltWinters output
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
+- PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
+- PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
+- PR #983: Change RF max_depth default to 16
+- PR #987: Change default values for knn
+- PR #988: Switch to exact tsne
+- PR #991: Cleanup python code in cuml.dask.cluster
+- PR #996: ucx_initialized being properly set in CommsContext
+- PR #1007: Throws a well defined error when mutigpu is not enabled
+- PR #1018: Hint location of nccl in build.sh for CI
+- PR #1022: Using random_state to make K-Means MNMG tests deterministic
+- PR #1034: Fix typos and formatting issues in RF docs
 
 # cuML 0.8.0 (27 June 2019)
 

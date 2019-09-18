@@ -14,6 +14,7 @@
 #
 
 import pytest
+
 from dask_cuda import LocalCUDACluster
 
 import random
@@ -26,6 +27,8 @@ from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
+pytestmark = pytest.mark.mg
+
 
 def test_comms_init_no_p2p():
 
@@ -33,6 +36,20 @@ def test_comms_init_no_p2p():
     client = Client(cluster)  # noqa
 
     cb = CommsContext(comms_p2p=False)
+    cb.init()
+
+    assert cb.nccl_initialized is True
+    assert cb.ucx_initialized is False
+
+    cb.destroy()
+
+
+def test_comms_init_p2p_no_ucx():
+
+    cluster = LocalCUDACluster()
+    client = Client(cluster)   # noqa
+
+    cb = CommsContext(comms_p2p=True)
     cb.init()
 
     assert cb.nccl_initialized is True
@@ -49,6 +66,7 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
+@pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist():
     cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
@@ -61,6 +79,7 @@ def test_default_comms_no_exist():
     cluster.close()
 
 
+@pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms():
 
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -88,7 +107,8 @@ def test_allreduce():
     start = time.time()
     dfs = [client.submit(func_test_allreduce, cb.sessionId,
                          random.random(), workers=[w])
-           for wid, w in zip(range(len(cb.workers)), cb.workers)]
+           for wid, w in zip(range(len(cb.worker_addresses)),
+                             cb.worker_addresses)]
     wait(dfs)
 
     print("Time: " + str(time.time() - start))
@@ -119,7 +139,8 @@ def test_send_recv(n_trials):
                          n_trials,
                          random.random(),
                          workers=[w])
-           for wid, w in zip(range(len(cb.workers)), cb.workers)]
+           for wid, w in zip(range(len(cb.worker_addresses)),
+                             cb.worker_addresses)]
 
     wait(dfs)
     print("Time: " + str(time.time() - start))

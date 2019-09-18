@@ -109,7 +109,6 @@ void kNN::reset() {
 }
 
 /**
-
 	 * Fit a kNN model by creating separate indices for multiple given
 	 * instances of kNNParams.
 	 * @param input  an array of pointers to data on (possibly different) devices
