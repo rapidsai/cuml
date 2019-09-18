@@ -23,11 +23,11 @@ from dask.distributed import Client
 
 
 @pytest.mark.parametrize('nrows', [1e3, 1e4])
-@pytest.mark.parametrize('ncols', [1, 10, 100])
-@pytest.mark.parametrize('centers', [10, 50, 1000])
-@pytest.mark.parametrize("cluster_std", [0.1, 0.001, 0.0001])
+@pytest.mark.parametrize('ncols', [10, 100])
+@pytest.mark.parametrize('centers', [10])
+@pytest.mark.parametrize("cluster_std", [0.1])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nparts", [1, 5, 10])
+@pytest.mark.parametrize("nparts", [1, 5])
 def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts):
 
     cluster = LocalCUDACluster()
