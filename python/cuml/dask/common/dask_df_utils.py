@@ -83,11 +83,16 @@ def to_dask_cudf(futures):
     return dd.from_delayed(dfs, meta=meta)
 
 
-def to_pandas(df, r):
-    return df.to_pandas()
-
-
 def to_dask_df(dask_cudf):
+    """
+    Convert a Dask-cuDF into a Pandas-backed Dask Dataframe.
+
+    :param dask_cudf : dask_cudf.DataFrame
+    :return : dask.DataFrame
+    """
+
+    def to_pandas(df, r):
+        return df.to_pandas()
 
     c = default_client()
     delayed_ddf = dask_cudf.to_delayed()
