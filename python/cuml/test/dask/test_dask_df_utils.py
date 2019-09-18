@@ -19,7 +19,7 @@ import numpy as np
 
 from dask_cuda import LocalCUDACluster
 
-from dask.distributed import Client, wait
+from dask.distributed import Client
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -48,7 +48,3 @@ def test_make_blobs(dtype, nparts):
 
     c.close()
     cluster.close()
-
-
-
-
