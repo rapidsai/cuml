@@ -191,7 +191,7 @@ void DecisionTreeBase<T, L>::print(
 }
 
 /**
- * @brief This function calls the rlevant regression oir classification with input parameters.
+ * @brief This function calls the relevant regression oir classification with input parameters.
  * @tparam T: datatype of input data (float ot double)
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[out] sparsetree: This will be the generated Decision Tree

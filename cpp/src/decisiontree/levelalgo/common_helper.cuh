@@ -19,6 +19,7 @@
 #include "random/rng.h"
 #include "stats/minmax.h"
 
+//GPU based RNG in the range [0,Ncols)
 void random_startids(unsigned int *data, int len, int Ncols, const int num_sms,
                      cudaStream_t stream) {
   uint64_t offset = 0;
@@ -28,6 +29,10 @@ void random_startids(unsigned int *data, int len, int Ncols, const int num_sms,
     4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
 }
 
+/*This functions does feature subsampling.
+ *The default is reshuffling of a feature list at ever level followed by random start index in the reshuffled vector for each node.
+ *In case full reshuffle is enabled. A reshuffle is performed for every node in the tree
+ */
 template <typename T, typename L, typename RNG, typename DIST>
 void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              unsigned int *h_colstart, unsigned int *d_colstart,
@@ -63,6 +68,7 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
   }
 }
 
+//This function calcualtes min/max from the samples that belong in a given node. This is done for all the nodes at a given level
 template <typename T>
 void get_minmax(const T *data, const unsigned int *flags,
                 const unsigned int *colids, const unsigned int *colstart,
