@@ -758,56 +758,61 @@ __global__ void cast(outType *out, int n, inType *in) {
   if (tid < n) out[tid] = in[tid];
 }
 
+// To have the same input data for both single and double precision,
+// we generate the blobs in single precision only, and cast to dp if needed.
+template <typename math_t>
+void make_blobs(math_t *x, math_t *y, int n_rows, int n_cols, int n_cluster,
+                std::shared_ptr<MLCommon::deviceAllocator> &allocator,
+                cudaStream_t stream) {
+  device_buffer<float> x_float(allocator, stream, n_rows * n_cols);
+  device_buffer<int> y_int(allocator, stream, n_rows);
+
+  Random::make_blobs(x_float.data(), y_int.data(), n_rows, n_cols, n_cluster,
+                     allocator, stream, (float *)nullptr, (float *)nullptr,
+                     1.0f, true, -2.0f, 2.0f, 0);
+  int TPB = 256;
+  if (std::is_same<float, math_t>::value) {
+    copy(x, (math_t *)x_float.data(), n_rows * n_cols, stream);
+  } else {
+    cast<<<MLCommon::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
+      x, n_rows * n_cols, x_float.data());
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+  cast<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows,
+                                                           y_int.data());
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
 TYPED_TEST(SmoSolverTest, Blobs) {
   std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
-     smoOutput<TypeParam>{98, {}, 5.33624, {}, {}, {}}},
+     smoOutput<TypeParam>{94, {}, 0.5694, {}, {}, {}}},
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2, 100},
-     smoOutput<TypeParam>{2, {}, 0.941554, {}, {}, {}}},
+     smoOutput<TypeParam>{2, {}, -0.0182734, {}, {}, {}}},
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 100},
-     smoOutput<TypeParam>{68, {}, 3.571, {}, {}, {}}},
-    //{blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
-    // smoOutput<TypeParam>{869, {}, -7.7783, {}, {}, {}}},
+     smoOutput<TypeParam>{69, {}, 0.131509, {}, {}, {}}},
+    {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
+     smoOutput<TypeParam>{864, {}, -0.0175729, {}, {}, {}}},
     {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.001, 0}, 100, 1000},
-     smoOutput<TypeParam>{100, {}, 4.3920, {}, {}, {}}}};
+     smoOutput<TypeParam>{99, {}, -0.051627, {}, {}, {}}}};
   auto allocator = this->handle.getDeviceAllocator();
   for (auto d : data) {
     auto p = d.first;
     SCOPED_TRACE(p);
 
-    device_buffer<float> x_float(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> x2(allocator, this->stream);
-    device_buffer<int> y_int(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
     device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-
-    // To have the same input data for both single and double precision,
-    // we generate the blobs in single precision only, and later cast to dp
-    // if needed.
-    Random::make_blobs(x_float.data(), y_int.data(), p.n_rows, p.n_cols, 2,
-                       allocator, this->stream);
-    int TPB = 256;
-    TypeParam *x;
-    if (std::is_same<float, TypeParam>::value) {
-      x = (TypeParam *)x_float.data();
-    } else {
-      x2.resize(p.n_rows * p.n_cols, this->stream);
-      cast<<<MLCommon::ceildiv(p.n_rows * p.n_cols, TPB), TPB, 0,
-             this->stream>>>(x2.data(), p.n_rows * p.n_cols, x_float.data());
-      CUDA_CHECK(cudaPeekAtLastError());
-      x = x2.data();
-    }
-    cast<<<MLCommon::ceildiv(p.n_rows, TPB), TPB, 0, this->stream>>>(
-      y.data(), p.n_rows, y_int.data());
-    CUDA_CHECK(cudaPeekAtLastError());
-
+    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
+               this->stream);
+    //myPrintDevVector("x", x.data(), 10);
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(x, p.n_rows, p.n_cols, y.data());
+    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
     std::cout << p << ": " << svc.model.n_support << " " << svc.model.b << "\n";
     auto exp = d.second;
     this->checkResults(svc.model, exp);
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
-    svc.predict(x, p.n_rows, p.n_cols, y_pred.data());
+    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
   }
 }
 
@@ -823,16 +828,9 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
     SCOPED_TRACE(p);
 
     device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<int> y_int(allocator, this->stream, p.n_rows);
     device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-
-    Random::make_blobs(x.data(), y_int.data(), p.n_rows, p.n_cols, 2, allocator,
-                       this->stream);
-    int TPB = 256;
-
-    cast<<<MLCommon::ceildiv(p.n_rows, TPB), TPB, 0, this->stream>>>(
-      y.data(), p.n_rows, y_int.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
+               this->stream);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
