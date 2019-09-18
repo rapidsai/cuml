@@ -341,7 +341,7 @@ def batch_invtrans(p, d, q, nb, x, handle=None):
 
 #     return loglike
 
-def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=None):
+def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
     """ Computes and returns the kalman residual """
     
     cdef vector[double] vec_loglike
