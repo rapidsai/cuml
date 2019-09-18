@@ -12,6 +12,7 @@
 - PR #1076: Paying off some UMAP / Spectral tech debt. 
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1098: TSNE PCA Intialization
 
 ## Bug Fixes
 
