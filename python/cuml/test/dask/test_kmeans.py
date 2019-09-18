@@ -37,34 +37,34 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
     from cuml.dask.datasets import make_blobs
 
-    X_df, _ = make_blobs(nrows, ncols, nclusters, n_parts,
+    from cuml.dask.common import to_dask_df
+
+    X_cudf, _ = make_blobs(nrows, ncols, nclusters, n_parts,
                          cluster_std=0.1, verbose=True,
                          random_state=10)
+
+    X_df = to_dask_df(X_cudf)
 
     wait(X_df)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
-    daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters,
-                             random_state=10)
 
-    cumlModel.fit(X_df)
+    daskmlModel = dmlKMeans(init="k-means||", n_clusters=nclusters,
+                            random_state=10)
 
-    import time
-
-    start = time.time()
-    daskmlModel1.fit(X_df)
-    print("dask-ml time: " + str(time.time() - start))
+    cumlModel.fit(X_cudf)
+    daskmlModel.fit(X_df)
 
     cumlLabels = cumlModel.predict(X_cudf)
-    daskmlLabels1 = daskmlModel1.predict(X_df)
+    daskmlLabels = daskmlModel.predict(X_df)
 
     from sklearn.metrics import adjusted_rand_score
 
     cumlPred = cumlLabels.compute().to_pandas().values
-    daskmlPred1 = daskmlLabels1.compute()
+    daskmlPred = daskmlLabels.compute()
 
-    score = adjusted_rand_score(cumlPred, daskmlPred1)
+    score = adjusted_rand_score(cumlPred, daskmlPred)
 
     if owns_cluster:
         client.close()
