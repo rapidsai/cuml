@@ -14,32 +14,26 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <vector>
-
+#include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <vector>
 #include "datasets/digits.h"
-#include "tsne/tsne.h"
+#include "tsne/tsne.cu"
 
-#include "metrics/trustworthiness.h"
-#include "cuML.hpp"
-#include "distance/distance.h"
-#include "knn/knn.hpp"
+#include "cuda_utils.h"
+
+
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 
-
-using namespace ML;
 using namespace MLCommon;
-using namespace ML::Metrics;
-using namespace std;
-
-using namespace MLCommon;
+using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
+using namespace ML;
 
 
 
@@ -49,109 +43,71 @@ class TSNETest : public ::testing::Test
   void basicTest()
   {
     cumlHandle handle;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    assert(stream != NULL);
 
+    // Allocate memory
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(), n*p);
+    MLCommon::updateDevice(X_d.data(), digits.data(), n*p, handle.getStream());
 
-    float *X_d, *Y_d;
-    MLCommon::allocate(X_d, n * p);
-    assert(X_d != NULL);
-
-    MLCommon::allocate(Y_d, n * 2);
-    assert(Y_d != NULL);
-    MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
+    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(), n*2);
 
 
     // Test Barnes Hut
-    printf("[Test] Start Barnes Hut\n");
-    TSNE_fit(handle, X_d, Y_d, n, p, 2, 90);
-    printf("[Test] Completed Barnes Hut\n");
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
 
 
+    // Move embeddings to host.
+    // This can be used for printing if needed.
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
-               cudaMemcpyDeviceToHost);
-    printf("[Test] Completed memcpy\n");
+    assert(embeddings_h != NULL);
+
+    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n*2, handle.getStream());
 
 
+    // Transpose the data
     int k = 0;
     float C_contiguous_embedding[n * 2];
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < 2; j++)
         C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
-    printf("[Test] Completed making C-Contiguous\n");
 
 
-    float *YY;
-    MLCommon::allocate(YY, n * 2);
-    assert(YY != NULL);
+    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2, handle.getStream());
 
-    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    printf("[Test] Completed memcpying into device memory\n");
 
     // Test trustworthiness
-    // euclidean test
-
-
-    printf("[Test] Starting Trustworthiness\n");
-    assert(X_d != NULL);
-    assert(YY != NULL);
-    assert(n != 0);
-    assert(p != 0);
-    assert(handle.getDeviceAllocator() != NULL);
-    assert(stream != NULL);
-
-    score_bh = trustworthiness_score<float,EucUnexpandedL2Sqrt>(handle, X_d, YY, n, p, 2, 5);
+    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
 
 
     // Test Exact TSNE
-    printf("[Test] Start Exact TSNE\n");
-    TSNE_fit(handle, X_d, Y_d, n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
              0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true, false, false);
-    printf("[Test] Completed Exact TSNE\n");
 
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
-               cudaMemcpyDeviceToHost);
-    printf("[Test] Completed memcpy\n");
+    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n*2, handle.getStream());
 
 
+    // Move embeddings to host.
+    // This can be used for printing if needed.
     k = 0;
     for (int i = 0; i < n; i++)
     {
       for (int j = 0; j < 2; j++)
         C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
-    printf("[Test] Completed making C-Contiguous\n");
 
-
-    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
-    printf("[Test] Completed memcpying into device memory\n");
+    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2, handle.getStream());
 
 
     // Test trustworthiness
-    // euclidean test
-    printf("[Test] Testing trustworthiness\n");
-    assert(X_d != NULL);
-    assert(YY != NULL);
-    assert(n != 0);
-    assert(p != 0);
-    assert(handle.getDeviceAllocator() != NULL);
-    assert(stream != NULL);
+     score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
 
-    score_exact = trustworthiness_score<float,EucUnexpandedL2Sqrt>(handle, X_d, YY, n, p, 2, 5);
 
     // Free space
     free(embeddings_h);
-    CUDA_CHECK(cudaFree(Y_d));
-    CUDA_CHECK(cudaFree(YY));
-    CUDA_CHECK(cudaFree(X_d));
-
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
