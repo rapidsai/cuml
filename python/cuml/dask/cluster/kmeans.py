@@ -48,6 +48,9 @@ class KMeans(object):
     def __init__(self, client=None, **kwargs):
         """
         Constructor for distributed KMeans model
+
+        Parameters
+        ----------
         handle : cuml.Handle
             If it is None, a new one is created just for this class.
         n_clusters : int (default = 8)
@@ -61,8 +64,6 @@ class KMeans(object):
         random_state : int (default = 1)
             If you want results to be the same when you restart Python,
             select a state.
-        precompute_distances : boolean (default = 'auto')
-            Not supported yet.
         init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
                (default = 'scalable-k-means++')
             'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
@@ -71,14 +72,24 @@ class KMeans(object):
             from data for the initial centroids. If an ndarray is passed,
             it should be of shape (n_clusters, n_features) and gives the
             initial centers.
-        n_init : int (default = 1)
-            Number of times intialization is run. More is slower,
-            but can be better.
-        algorithm : "auto"
-            Currently uses full EM, but will support others later.
-        n_gpu : int (default = 1)
-            Number of GPUs to use. Currently uses single GPU, but will support
-            multiple GPUs later.
+        oversampling_factor : int (default = 2) The amount of points to sample
+            in scalable k-means++ initialization for potential centroids.
+            Increasing this value can lead to better initial centroids at the
+            cost of memory. The total number of centroids sampled in scalable
+            k-means++ is oversampling_factor * n_clusters * 8.
+        max_samples_per_batch : int (default = 32768) The number of data
+            samples to use for batches of the pairwise distance computation.
+            This computation is done throughout both fit predict. The default
+            should suit most cases. The total number of elements in the batched
+            pairwise distance computation is max_samples_per_batch * n_clusters.
+            It might become necessary to lower this number when n_clusters
+            becomes prohibitively large.
+
+        Attributes
+        ----------
+        cluster_centers_ : array
+            The coordinates of the final clusters. This represents of "mean" of
+            each data cluster.
         """
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
@@ -227,3 +238,27 @@ class KMeans(object):
             workers=[w]).result() for w, f in gpu_futures.items()]
 
         return np.sum(scores)
+
+    def get_params(self):
+        """
+        Scikit-learn style return parameter state
+        """
+        return self.kwargs
+
+    def set_params(self, **params):
+        """
+        Scikit-learn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
+        if not params:
+            return self
+        current_params = self.kwargs
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter for estimator')
+            else:
+                self.kwargs[key] = value
+        return self

@@ -35,20 +35,20 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     from cuml.dask.cluster import KMeans as cumlKMeans
     from dask_ml.cluster import KMeans as dmlKMeans
 
-    from cuml.test.dask.utils import dask_make_blobs
+    from cuml.dask.datasets import make_blobs
 
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
-                                   cluster_std=0.1, verbose=True,
-                                   random_state=10)
+    X_df, _ = make_blobs(nrows, ncols, nclusters, n_parts,
+                         cluster_std=0.1, verbose=True,
+                         random_state=10)
 
-    wait(X_cudf)
+    wait(X_df)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
     daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters,
                              random_state=10)
 
-    cumlModel.fit(X_cudf)
+    cumlModel.fit(X_df)
 
     import time
 
