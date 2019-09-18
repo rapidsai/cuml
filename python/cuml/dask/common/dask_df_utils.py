@@ -21,6 +21,8 @@ from collections import OrderedDict
 
 from dask.distributed import wait
 
+import random
+
 
 @gen.coroutine
 def extract_ddf_partitions(ddf):
@@ -78,4 +80,25 @@ def to_dask_cudf(futures):
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
     meta = c.submit(get_meta, dfs[0]).result()
+    return dd.from_delayed(dfs, meta=meta)
+
+
+def to_pandas(df, r):
+    return df.to_pandas()
+
+
+def to_dask_df(dask_cudf):
+
+    c = default_client()
+    delayed_ddf = dask_cudf.to_delayed()
+    gpu_futures = c.compute(delayed_ddf)
+    wait(gpu_futures)
+
+    dfs = [c.submit(
+        to_pandas,
+        f,
+        random.random()) for f in gpu_futures]
+
+    meta = c.submit(get_meta, dfs[0]).result()
+
     return dd.from_delayed(dfs, meta=meta)
