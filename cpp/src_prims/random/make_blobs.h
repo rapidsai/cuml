@@ -68,7 +68,7 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
                 cudaStream_t stream, const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
-                bool shuffle = true, DataT center_box_min = (DataT)10.0,
+                bool shuffle = true, DataT center_box_min = (DataT)-10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
                 GeneratorType type = GenPhilox) {
   Rng r(seed, type);
