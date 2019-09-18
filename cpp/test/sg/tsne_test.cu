@@ -47,7 +47,8 @@ class TSNETest : public ::testing::Test
     // Allocate memory
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(), n*p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n*p, handle.getStream());
-
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    
     device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(), n*2);
 
 
@@ -61,6 +62,7 @@ class TSNETest : public ::testing::Test
     assert(embeddings_h != NULL);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n*2, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
 
     // Transpose the data
@@ -74,7 +76,7 @@ class TSNETest : public ::testing::Test
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2, handle.getStream());
-
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
     score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
@@ -86,7 +88,7 @@ class TSNETest : public ::testing::Test
              0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true, false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n*2, handle.getStream());
-
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -99,7 +101,7 @@ class TSNETest : public ::testing::Test
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2, handle.getStream());
-
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
      score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
