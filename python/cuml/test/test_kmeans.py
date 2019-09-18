@@ -17,6 +17,7 @@ import pytest
 import numpy as np
 import cuml
 from sklearn import cluster
+from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
@@ -106,20 +107,9 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cu_y_pred, _ = fit_predict(cuml_kmeans,
                                'cuml_Kmeans', X)
-
-    kmeans = cluster.KMeans()
+    cu_score = adjusted_rand_score(cu_y_pred, y)
+    kmeans = cluster.KMeans(random_state=12)
     sk_y_pred, _ = fit_predict(kmeans,
                                'sk_Kmeans', X)
-
-    # Noisy circles clusters are rotated in the results,
-    # since we are comparing 2 we just need to compare that both clusters
-    # have approximately the same number of points.
-    calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
-    print(cuml_kmeans.score(X), kmeans.score(X))
-    score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
-    if name == 'noisy_circles':
-        assert (calculation < 2e-3) and score_test
-
-    else:
-        assert (clusters_equal(sk_y_pred, cu_y_pred,
-                params['n_clusters'])) and score_test
+    sk_score = adjusted_rand_score(sk_y_pred, y)
+    assert cu_score > sk_score
