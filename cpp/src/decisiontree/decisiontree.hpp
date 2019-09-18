@@ -62,7 +62,7 @@ struct DecisionTreeParams {
    */
   CRITERION split_criterion;
   /**
-   * Weahther to use full shuffle while feature subsampling. Default is one shuffle per depth with random start points per node
+   * Weahther to fully reshuffle the features for subsampling at each tree node. Default is one shuffle per depth with random start point in the shuffled feature list per node
    */
   bool shuffle_features;
 };
