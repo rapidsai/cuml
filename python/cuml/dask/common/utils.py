@@ -102,3 +102,22 @@ def build_host_dict(workers):
             hosts_dict[host].add(port)
 
     return hosts_dict
+
+
+def persist_across_workers(client, objects, workers=None):
+    """
+    Calls persist on the 'objects' ensuring they are spread
+    across the workers on 'workers'.
+
+    Parameters
+    ----------
+    client : dask.distributed.Client
+    objects : list
+        Dask distributed objects to be persisted
+    workers : list or None
+        List of workers across which to persist objects
+        If None, then all workers attached to 'client' will be used
+    """
+    if workers is None:
+        workers = client.has_what().keys()  # Default to all workers
+    return client.persist(objects, workers={o: workers for o in objects})

@@ -50,19 +50,19 @@ cdef extern from "nccl.h":
     ncclResult_t ncclCommInitRank(ncclComm_t *comm,
                                   int nranks,
                                   ncclUniqueId commId,
-                                  int rank)
+                                  int rank) nogil
 
-    ncclResult_t ncclGetUniqueId(ncclUniqueId *uniqueId)
+    ncclResult_t ncclGetUniqueId(ncclUniqueId *uniqueId) nogil
 
-    ncclResult_t ncclCommUserRank(const ncclComm_t comm, int *rank)
+    ncclResult_t ncclCommUserRank(const ncclComm_t comm, int *rank) nogil
 
-    ncclResult_t ncclCommCuDevice(const ncclComm_t comm, int *count)
+    ncclResult_t ncclCommCuDevice(const ncclComm_t comm, int *count) nogil
 
-    const char *ncclGetErrorString(ncclResult_t result)
+    const char *ncclGetErrorString(ncclResult_t result) nogil
 
-    ncclResult_t ncclCommAbort(ncclComm_t comm)
+    ncclResult_t ncclCommAbort(ncclComm_t comm) nogil
 
-    ncclResult_t ncclCommDestroy(ncclComm_t comm)
+    ncclResult_t ncclCommDestroy(ncclComm_t comm) nogil
 
 NCCL_UNIQUE_ID_BYTES = 128
 
@@ -125,11 +125,23 @@ cdef class nccl:
 
         comm_ = <ncclComm_t*>self.comm
 
-        cdef ncclResult_t result = ncclCommInitRank(comm_, nranks,
-                                                    deref(ident), rank)
+        cdef int nr = nranks
+        cdef int r = rank
+        cdef ncclResult_t result
 
+        import time
+
+        start = time.time()
+        with nogil:
+            result = ncclCommInitRank(comm_, nr,
+                                      deref(ident), r)
+
+        end = time.time()
+
+        print("NCCL Init Took: " + str(end-start))
         if result != ncclSuccess:
-            err_str = ncclGetErrorString(result)
+            with nogil:
+                err_str = ncclGetErrorString(result)
             print("NCCL_ERROR: %s" % err_str)
 
     def destroy(self):
@@ -140,10 +152,12 @@ cdef class nccl:
 
         cdef ncclResult_t result
         if comm_ != NULL:
-            result = ncclCommDestroy(deref(comm_))
+            with nogil:
+                result = ncclCommDestroy(deref(comm_))
 
             if result != ncclSuccess:
-                err_str = ncclGetErrorString(result)
+                with nogil:
+                    err_str = ncclGetErrorString(result)
                 print("NCCL_ERROR: %s" % err_str)
 
             free(self.comm)
@@ -156,10 +170,12 @@ cdef class nccl:
         comm_ = <ncclComm_t*>self.comm
         cdef ncclResult_t result
         if comm_ != NULL:
-            result = ncclCommAbort(deref(comm_))
+            with nogil:
+                result = ncclCommAbort(deref(comm_))
 
             if result != ncclSuccess:
-                err_str = ncclGetErrorString(result)
+                with nogil:
+                    err_str = ncclGetErrorString(result)
                 print("NCCL_ERROR: %s" % err_str)
             free(comm_)
             self.comm = NULL
@@ -172,10 +188,13 @@ cdef class nccl:
         cdef int *dev = <int*>malloc(sizeof(int))
 
         comm_ = <ncclComm_t*>self.comm
-        cdef ncclResult_t result = ncclCommCuDevice(deref(comm_), dev)
+        cdef ncclResult_t result
+        with nogil:
+            result = ncclCommCuDevice(deref(comm_), dev)
 
         if result != ncclSuccess:
-            err_str = ncclGetErrorString(result)
+            with nogil:
+                err_str = ncclGetErrorString(result)
             print("NCCL_ERROR: %s" % err_str)
 
         ret = dev[0]
@@ -192,10 +211,13 @@ cdef class nccl:
 
         comm_ = <ncclComm_t*>self.comm
 
-        cdef ncclResult_t result = ncclCommUserRank(deref(comm_), rank)
+        cdef ncclResult_t result
+        with nogil:
+            result = ncclCommUserRank(deref(comm_), rank)
 
         if result != ncclSuccess:
-            err_str = ncclGetErrorString(result)
+            with nogil:
+                err_str = ncclGetErrorString(result)
             print("NCCL_ERROR: %s" % err_str)
 
         ret = rank[0]
