@@ -87,13 +87,8 @@ class KMeansMG(KMeans):
     `cuml.dask.cluster.kmeans`.
     """
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, precompute_distances='auto',
-                 init='scalable-k-means++', n_init=1, algorithm='auto'):
-        super(KMeansMG, self).__init__(handle, n_clusters, max_iter, tol,
-                                       verbose, random_state,
-                                       precompute_distances,
-                                       init, n_init, algorithm)
+    def __init__(self, **kwargs):
+        super(KMeansMG, self).__init__(**kwargs)
 
     def fit(self, X):
         """
