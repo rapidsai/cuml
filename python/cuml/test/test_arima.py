@@ -247,6 +247,8 @@ def testPredict(plot=False):
     ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])], [np.array([ 0.0309027562133337, -0.0191533926207157]), np.array([-0.0386322768036704, -0.0330133336831984])]]
     ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])], [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
 
+    l2err_ref = [[2.89207546e+08, 2.94128712e+08], [2.99917090e+08, 2.86482161e+08]]
+
     for p in range(1, 3):
         order = (p, 1, 1)
 
@@ -256,7 +258,6 @@ def testPredict(plot=False):
 
         y_b_p = arima.predict_in_sample(model)
 
-        # print("y_b=", y_b_p)
         if plot:
             nb_plot = 2
             fig, axes = plt.subplots(nb_plot, 1)
@@ -265,6 +266,10 @@ def testPredict(plot=False):
 
             plt.show()
 
+
+        l2_error_predict = np.sum((y_b_p - y)**2, axis=0)
+        np.testing.assert_allclose(l2err_ref[p-1], l2_error_predict)
+        # print("l2_error(p={}):".format(p), l2_error_predict)
 
 def testFit_Predict_Forecast(plot=False):
     """
