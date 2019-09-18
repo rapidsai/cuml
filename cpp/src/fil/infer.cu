@@ -38,10 +38,9 @@ struct vec {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ void infer_one_tree(const dense_node* root, int tree,
-                                               float* sdata, int depth,
-                                               int ntrees, int cols,
-                                               vec<NITEMS>& out) {
+__device__ __forceinline__ void infer_one_tree(const dense_node* root,
+                                               float* sdata, int pitch,
+                                               int cols, vec<NITEMS>& out) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
@@ -49,7 +48,7 @@ __device__ __forceinline__ void infer_one_tree(const dense_node* root, int tree,
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
       if ((mask >> j) & 1 == 0) continue;
-      dense_node n = root[curr[j] * ntrees + tree];
+      dense_node n = root[curr[j] * pitch];
       if (n.is_leaf()) {
         mask &= ~(1 << j);
         continue;
@@ -59,12 +58,27 @@ __device__ __forceinline__ void infer_one_tree(const dense_node* root, int tree,
       curr[j] = (curr[j] << 1) + 1 + cond;
     }
   } while (mask != 0);
+#pragma unroll
   for (int j = 0; j < NITEMS; ++j)
-    out[j] += root[curr[j] * ntrees + tree].output();
+    out[j] += root[curr[j] * pitch].output();
+}
+
+__device__ __forceinline__ void infer_one_tree(const dense_node* root,
+                                               float* sdata, int pitch,
+                                               int cols, vec<1>& out) {
+  int curr = 0;
+  for (;;) {
+    dense_node n = root[curr * pitch];
+    if (n.is_leaf()) break;
+    float val = sdata[n.fid()];
+    bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
+    curr = (curr << 1) + 1 + cond;
+  }
+  out[0] = root[curr * pitch].output();
 }
 
 template <int NITEMS>
-__global__ void batch_tree_reorg_kernel(predict_params ps) {
+__global__ void infer_k(predict_params ps) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
@@ -80,10 +94,9 @@ __global__ void batch_tree_reorg_kernel(predict_params ps) {
   // one block works on a single row and the whole forest
   vec<NITEMS> out;
   for (int i = 0; i < NITEMS; ++i) out[i] = 0.0f;
-  int max_nodes = tree_num_nodes(ps.depth);
   for (int j = threadIdx.x; j < ps.ntrees; j += blockDim.x) {
-    infer_one_tree<NITEMS>(ps.nodes, j, sdata, ps.depth, ps.ntrees, ps.cols,
-                           out);
+    infer_one_tree<NITEMS>(ps.nodes + j * ps.tree_stride, sdata, ps.pitch,
+                           ps.cols, out);
   }
   typedef cub::BlockReduce<vec<NITEMS>, FIL_TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage tmp_storage;
@@ -96,29 +109,32 @@ __global__ void batch_tree_reorg_kernel(predict_params ps) {
   }
 }
 
-const static int MAX_NITEMS = 4;
-void batch_tree_reorg(const predict_params& ps, cudaStream_t stream) {
-  int nitems = ps.max_shm / (sizeof(float) * ps.cols);
-  if (nitems == 0) {
+void infer(predict_params ps, cudaStream_t stream) {
+  const int MAX_BATCH_ITEMS = 4;
+  ps.max_items = ps.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
+  ps.pitch = ps.algo == algo_t::NAIVE ? 1 : ps.ntrees;
+  ps.tree_stride = ps.algo == algo_t::NAIVE ? tree_num_nodes(ps.depth) : 1;
+  int num_items = ps.max_shm / (sizeof(float) * ps.cols);
+  if (num_items == 0) {
     int max_cols = ps.max_shm / sizeof(float);
     ASSERT(false, "p.cols == %d: too many features, only %d allowed", ps.cols,
            max_cols);
   }
-  nitems = std::min(nitems, MAX_NITEMS);
-  int nblks = ceildiv(int(ps.rows), nitems);
-  int shm_sz = nitems * sizeof(float) * ps.cols;
-  switch (nitems) {
+  num_items = std::min(num_items, ps.max_items);
+  int nblks = ceildiv(int(ps.rows), num_items);
+  int shm_sz = num_items * sizeof(float) * ps.cols;
+  switch (num_items) {
     case 1:
-      batch_tree_reorg_kernel<1><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<1><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 2:
-      batch_tree_reorg_kernel<2><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<2><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 3:
-      batch_tree_reorg_kernel<3><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<3><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     case 4:
-      batch_tree_reorg_kernel<4><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<4><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");
