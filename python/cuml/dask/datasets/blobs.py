@@ -35,7 +35,7 @@ def create_df(f, m, n, centers, cluster_std, random_state, dtype, r):
     """
     Returns Dask Dataframes on device for X and y.
     """
-    X,y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
+    X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                          random_state=random_state)
     X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
     y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
@@ -121,4 +121,3 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     y_cudf = from_delayed(y, meta=meta_y)
 
     return X_cudf, y_cudf
-

@@ -80,10 +80,10 @@ class KMeans(object):
         max_samples_per_batch : int (default = 32768) The number of data
             samples to use for batches of the pairwise distance computation.
             This computation is done throughout both fit predict. The default
-            should suit most cases. The total number of elements in the batched
-            pairwise distance computation is max_samples_per_batch * n_clusters.
-            It might become necessary to lower this number when n_clusters
-            becomes prohibitively large.
+            should suit most cases. The total number of elements in the
+            batched pairwise distance computation is max_samples_per_batch
+            * n_clusters. It might become necessary to lower this number when
+            n_clusters becomes prohibitively large.
 
         Attributes
         ----------

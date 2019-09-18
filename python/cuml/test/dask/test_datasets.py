@@ -35,7 +35,8 @@ def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts):
 
     from cuml.dask.datasets import make_blobs
 
-    X, y = make_blobs(nrows, ncols, n_parts=nparts, centers=centers, cluster_std=cluster_std, dtype=dtype)
+    X, y = make_blobs(nrows, ncols, n_parts=nparts, centers=centers,
+                      cluster_std=cluster_std, dtype=dtype)
 
     assert X.npartitions == nparts
     assert y.npartitions == nparts
@@ -52,7 +53,3 @@ def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts):
 
     c.close()
     cluster.close()
-
-
-
-
