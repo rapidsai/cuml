@@ -545,6 +545,7 @@ class SmoSolverTest : public ::testing::Test {
                     math_t b = 0, math_t *x_support_d = nullptr,
                     int *idx_d = nullptr, math_t epsilon = 0.001) {
     int n_sv_diff = n_coefs_exp * 0.01;
+    if (n_coefs_exp >= 100 && n_sv_diff < 3) n_sv_diff = 3;
     ASSERT_LE(abs(n_coefs - n_coefs_exp), n_sv_diff);
     if (dual_coefs_exp) {
       EXPECT_TRUE(devArrMatchHost(dual_coefs_exp, dual_coefs_d, n_coefs,
@@ -882,7 +883,7 @@ TYPED_TEST(SmoSolverTest, Blobs) {
 
 TYPED_TEST(SmoSolverTest, MemoryLeak) {
   std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 100},
+    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 1000},
      smoOutput<TypeParam>{34, {}, 0.0681913, {}, {}, {}}}};
   size_t free1, total, free2;
   CUDA_CHECK(cudaMemGetInfo(&free1, &total));
