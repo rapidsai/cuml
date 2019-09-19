@@ -23,7 +23,9 @@ project(cuml_bench LANGUAGES CXX CUDA)
 
 if(BUILD_CUML_BENCH)
 
-  set(ML_BENCH_LINK_LIBRARIES ${CUML_CPP_TARGET})
+  set(ML_BENCH_LINK_LIBRARIES
+    ${CUML_CPP_TARGET}
+    ${GBENCH_LIBNAME})
 
   # (please keep the filenames in alphabetical order)
   add_executable(sg

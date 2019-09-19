@@ -127,6 +127,12 @@ set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest/googletest CACHE STRING
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
 
+set(GBENCH_DIR ${PROJECT_SOURCE_DIR}/external/benchmark CACHE STRING
+  "Path to the google bench repo")
+
+set(GBENCH_LIBNAME "benchmark_main" CACHE STRING
+  "Name of the google bench library")
+
 set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
   "Path to FAISS source directory")
 
@@ -321,13 +327,15 @@ include_directories(
   test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
+# to avoid benchmark using googletest and picking up c++03 files
+set(BENCHMARK_ENABLE_TESTING OFF)
+add_subdirectory(${GBENCH_DIR} ${PROJECT_BINARY_DIR}/benchmark)
 
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
