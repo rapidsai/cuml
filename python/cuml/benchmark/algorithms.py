@@ -15,13 +15,18 @@
 #
 import cuml
 
-import sklearn.cluster, sklearn.neighbors, sklearn.ensemble, sklearn
+import sklearn
+import sklearn.cluster
+import sklearn.neighbors
+import sklearn.ensemble
 from sklearn import metrics
-import cuml.metrics, cuml.decomposition
+import cuml.metrics
+import cuml.decomposition
 import umap
 import numpy as np
 
-class AlgorithmPair():
+
+class AlgorithmPair:
     """
     Wraps a cuML algorithm and (optionally) a cpu-based algorithm
     (typically scikit-learn, but does not need to be as long as it offers
@@ -30,16 +35,19 @@ class AlgorithmPair():
     If no CPU-based version of the algorithm is available, pass None for the
     cpu_class when instantiating
     """
-    def __init__(self,
-                 cpu_class,
-                 cuml_class,
-                 shared_args,
-                 cuml_args={},
-                 cpu_args={},
-                 name=None,
-                 accepts_labels=True,
-                 data_prep_hook=None,
-                 accuracy_function=None):
+
+    def __init__(
+        self,
+        cpu_class,
+        cuml_class,
+        shared_args,
+        cuml_args={},
+        cpu_args={},
+        name=None,
+        accepts_labels=True,
+        data_prep_hook=None,
+        accuracy_function=None,
+    ):
         """
         Parameters
         ----------
@@ -109,9 +117,11 @@ class AlgorithmPair():
 
         return cuml_obj
 
+
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
     return (data[0], data[1].astype(np.int32))
+
 
 def all_algorithms():
     """Returns all defined AlgorithmPair objects"""
@@ -119,109 +129,119 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init='random',
-                             n_clusters=8,
-                             max_iter=300),
-            name='KMeans',
+            shared_args=dict(init="random", n_clusters=8, max_iter=300),
+            name="KMeans",
             accepts_labels=False,
-            accuracy_function=metrics.homogeneity_score),
+            accuracy_function=metrics.homogeneity_score,
+        ),
         AlgorithmPair(
             sklearn.decomposition.PCA,
             cuml.PCA,
             shared_args=dict(n_components=10),
-            name='PCA',
-            accepts_labels=False),
+            name="PCA",
+            accepts_labels=False,
+        ),
         AlgorithmPair(
             sklearn.decomposition.truncated_svd,
             cuml.decomposition.tsvd.TruncatedSVD,
             shared_args=dict(n_components=10),
-            name='tSVD',
-            accepts_labels=False),
+            name="tSVD",
+            accepts_labels=False,
+        ),
         AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
-            cpu_args=dict(algorithm='brute'),
+            cpu_args=dict(algorithm="brute"),
             cuml_args={},
-            name='NearestNeighbors',
-            accepts_labels=False),
+            name="NearestNeighbors",
+            accepts_labels=False,
+        ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
             cuml.DBSCAN,
             shared_args=dict(eps=3, min_samples=2),
-            cpu_args=dict(algorithm='brute'),
-            name='DBSCAN',
-            accepts_labels=False
+            cpu_args=dict(algorithm="brute"),
+            name="DBSCAN",
+            accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.linear_model.LinearRegression,
             cuml.linear_model.LinearRegression,
             shared_args={},
-            name='LinearRegression',
+            name="LinearRegression",
             accepts_labels=True,
-            accuracy_function=metrics.r2_score),
+            accuracy_function=metrics.r2_score,
+        ),
         AlgorithmPair(
             sklearn.linear_model.ElasticNet,
             cuml.linear_model.ElasticNet,
-            shared_args={'alpha': 0.1, 'l1_ratio': 0.5},
-            name='ElasticNet',
+            shared_args={"alpha": 0.1, "l1_ratio": 0.5},
+            name="ElasticNet",
             accepts_labels=True,
-            accuracy_function=metrics.r2_score),
+            accuracy_function=metrics.r2_score,
+        ),
         AlgorithmPair(
             sklearn.linear_model.Lasso,
             cuml.linear_model.Lasso,
             shared_args={},
-            name='Lasso',
+            name="Lasso",
             accepts_labels=True,
-            accuracy_function=metrics.r2_score),
+            accuracy_function=metrics.r2_score,
+        ),
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
             shared_args={},
-            name='LogisticRegression',
+            name="LogisticRegression",
             accepts_labels=True,
-            accuracy_function=metrics.accuracy_score),
+            accuracy_function=metrics.accuracy_score,
+        ),
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
-            shared_args={'max_features': 1.0, 'n_estimators': 10},
-            name='RandomForestClassifier',
+            shared_args={"max_features": 1.0, "n_estimators": 10},
+            name="RandomForestClassifier",
             accepts_labels=True,
             data_prep_hook=_labels_to_int_hook,
-            accuracy_function=metrics.accuracy_score),
+            accuracy_function=metrics.accuracy_score,
+        ),
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
-            shared_args={'max_features': 1.0, 'n_estimators': 10},
-            name='RandomForestRegressor',
+            shared_args={"max_features": 1.0, "n_estimators": 10},
+            name="RandomForestRegressor",
             accepts_labels=True,
-            accuracy_function=metrics.r2_score),
+            accuracy_function=metrics.r2_score,
+        ),
         AlgorithmPair(
             sklearn.manifold.TSNE,
             cuml.manifold.TSNE,
             shared_args=dict(),
-            name='TSNE',
-            accepts_labels=False),
+            name="TSNE",
+            accepts_labels=False,
+        ),
         AlgorithmPair(
             umap.UMAP,
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
-            name='UMAP',
+            name="UMAP",
             accepts_labels=False,
-            accuracy_function=cuml.metrics.trustworthiness),
+            accuracy_function=cuml.metrics.trustworthiness,
+        ),
         AlgorithmPair(
             None,
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
             cuml_args=dict(eta0=0.005, epochs=100),
-            name='MBSGDClassifier',
+            name="MBSGDClassifier",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score),
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
     ]
 
 
 def algorithm_by_name(name):
     """Returns the algorithm pair with the name 'name' (case-insensitive)"""
     algos = all_algorithms()
-    return next((a for a in algos if a.name.lower() == name.lower()),
-                None)
+    return next((a for a in algos if a.name.lower() == name.lower()), None)

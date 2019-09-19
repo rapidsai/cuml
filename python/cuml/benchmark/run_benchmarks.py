@@ -15,13 +15,10 @@
 #
 """Command-line ML benchmark runner"""
 
-from cuml.benchmark import datagen, algorithms, runners
-
-import time
-import sys
-import pandas as pd
+from cuml.benchmark import algorithms, runners
 import numpy as np
 import json
+
 
 def extract_param_overrides(params_to_sweep):
     """
@@ -55,9 +52,10 @@ def extract_param_overrides(params_to_sweep):
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser(
         prog='run_benchmarks',
-        description='''
+        description=r'''
         Command-line benchmark runner, logging results to
         stdout and/or CSV.
 
@@ -80,34 +78,74 @@ if __name__ == '__main__':
                 --input-dimensions 16 256 \
                 -- DBSCAN KMeans TSNE PCA UMAP
 
-        ''')
-    parser.add_argument('--max-rows', type=int, default=100000,
-                        help='Evaluate at most max_row samples')
-    parser.add_argument('--min-rows', type=int, default=10000,
-                        help='Evaluate at least min_rows samples')
-    parser.add_argument('--num-sizes', type=int, default=2,
-                        help='Number of different sizes to test')
+        ''',
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        '--max-rows',
+        type=int,
+        default=100000,
+        help='Evaluate at most max_row samples',
+    )
+    parser.add_argument(
+        '--min-rows',
+        type=int,
+        default=10000,
+        help='Evaluate at least min_rows samples',
+    )
+    parser.add_argument(
+        '--num-sizes',
+        type=int,
+        default=2,
+        help='Number of different sizes to test',
+    )
     parser.add_argument('--num-features', type=int, default=-1)
-    parser.add_argument('--quiet', '-q', action='store_false', dest='verbose', default=True)
+    parser.add_argument(
+        '--quiet', '-q', action='store_false', dest='verbose', default=True
+    )
     parser.add_argument('--csv', nargs='?')
     parser.add_argument('--dataset', default='blobs')
     parser.add_argument('--skip-cpu', action='store_true')
     parser.add_argument('--input-type', default='numpy')
-    parser.add_argument('--input-dimensions', default=[64,256,512], nargs='+', type=int,
-                        help='Data dimension sizes (may provide multiple sizes)')
-    parser.add_argument('--param-sweep', nargs='*', type=str,
-                        help='''Parameter values to vary, in the form:
-                                key=val_list, where val_list may be a comma-separated list''')
-    parser.add_argument('--cuml-param-sweep', nargs='*', type=str,
-                        help='''Parameter values to vary for cuML only, in the form:
-                                key=val_list, where val_list may be a comma-separated list''')
-    parser.add_argument('--default-size', action='store_true',
-                        help='Only run datasets at default size')
-    parser.add_argument('algorithms', nargs='*', help='List of algorithms to run, or omit to run all')
+    parser.add_argument(
+        '--input-dimensions',
+        default=[64, 256, 512],
+        nargs='+',
+        type=int,
+        help='Data dimension sizes (may provide multiple sizes)',
+    )
+    parser.add_argument(
+        '--param-sweep',
+        nargs='*',
+        type=str,
+        help='''Parameter values to vary, in the form:
+                key=val_list, where val_list may be a comma-separated list''',
+    )
+    parser.add_argument(
+        '--cuml-param-sweep',
+        nargs='*',
+        type=str,
+        help='''Parameter values to vary for cuML only, in the form:
+                key=val_list, where val_list may be a comma-separated list''',
+    )
+    parser.add_argument(
+        '--default-size',
+        action='store_true',
+        help='Only run datasets at default size',
+    )
+    parser.add_argument(
+        'algorithms',
+        nargs='*',
+        help='List of algorithms to run, or omit to run all',
+    )
     args = parser.parse_args()
 
-    bench_rows = np.logspace(np.log10(args.min_rows), np.log10(args.max_rows),
-                             num=args.num_sizes, dtype=np.int32)
+    bench_rows = np.logspace(
+        np.log10(args.min_rows),
+        np.log10(args.max_rows),
+        num=args.num_sizes,
+        dtype=np.int32,
+    )
     bench_dims = args.input_dimensions
 
     if args.num_features > 0:
@@ -138,7 +176,7 @@ if __name__ == '__main__':
         input_type=args.input_type,
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
-        run_cpu=(not args.skip_cpu)
+        run_cpu=(not args.skip_cpu),
     )
 
     if args.csv:
