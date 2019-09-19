@@ -19,7 +19,7 @@ cmake_policy(SET CMP0079 NEW)
 project(cuml_test LANGUAGES CXX CUDA)
 
 # Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-include_directories(${GTEST_DIR}/googletest/include)
+include_directories(${GTEST_DIR}/include)
 
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------
