@@ -152,7 +152,7 @@ def load_higgs():
     ]  # Assign dtypes to each column
     data_df = pd.read_csv(
         decompressed_filepath, names=col_names,
-        dtype={k: v for k,v in zip(col_names, dtypes_ls)}
+        dtype={k: v for k, v in zip(col_names, dtypes_ls)}
     )
     X_df = data_df[data_df.columns.difference(['label'])]
     y_df = data_df['label']
