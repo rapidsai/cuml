@@ -160,6 +160,7 @@ def load_higgs():
 
 
 def _convert_to_numpy(data):
+    """Returns tuple data with all elements converted to numpy ndarrays"""
     if data is None:
         return None
     elif isinstance(data, tuple):
@@ -178,7 +179,6 @@ def _convert_to_cudf(data):
     elif isinstance(data, tuple):
         return tuple([_convert_to_cudf(d) for d in data])
     elif isinstance(data, pd.DataFrame):
-        print("Class: ", data.__class__)
         return cudf.DataFrame.from_pandas(data)
     elif isinstance(data, pd.Series):
         return cudf.Series.from_pandas(data)
