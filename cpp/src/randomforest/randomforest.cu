@@ -18,12 +18,15 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+#include <fil/fil.h>
+#include <treelite/tree.h>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
+namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -292,13 +295,29 @@ void build_treelite_forest(ModelHandle* model,
                                               num_output_group);
 
       // The third argument -1 means append to the end of the tree list.
-      TREELITE_CHECK(
-        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+      // TREELITE_CHECK(
+      //  TreeliteModelBuilderInsertTree(model_builder, tree_builder, 0));
+      std::cout << " TreeliteModelBuilderInsertTree output : "
+                << TreeliteModelBuilderInsertTree(model_builder, tree_builder,
+                                                  0)
+                << std::flush << std::endl;
     }
   }
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  tl::Model& tl_mod = *(tl::Model*)*model;
+  std::cout << " model num_features in c++ : " << tl_mod.num_feature
+            << std::endl
+            << std::flush;
+  CompilerHandle compiler;
+  // "ast_navive" is the default compiler treelite used in their Python code.
+  TREELITE_CHECK(TreeliteCompilerCreate("ast_native", &compiler));
+
+  // Generate C code in the directory specified below.
+  // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of CompilerHandle.
+  // Treelite will create a directory if it doesn't exist.
+  // TREELITE_CHECK(TreeliteExportProtobufModel("./my.buffer", *model));
 }
 
 /**
