@@ -29,11 +29,8 @@ if(BUILD_CUML_BENCH)
 
   # (please keep the filenames in alphabetical order)
   add_executable(sg
-    sg/dbscan.cu
-    sg/harness.cpp
     sg/kmeans.cu
     sg/main.cpp
-    sg/rf_classifier.cu
   )
 
   add_dependencies(sg ${ClangFormat_TARGET})

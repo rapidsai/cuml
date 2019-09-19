@@ -30,8 +30,6 @@
 namespace ML {
 namespace Bench {
 
-#define PARAM(val) #val << "=" << val << ";"
-
 /**
  * Indicates the dataset size. This is supposed to be used as the base class
  * by every Benchmark's Params structure.
@@ -45,28 +43,14 @@ struct DatasetParams {
   int nclasses;
   /** input dataset is stored row or col major? */
   bool rowMajor;
-
-  std::string str() const {
-    std::ostringstream oss;
-    oss << PARAM(nrows) << PARAM(ncols) << PARAM(nclasses) << PARAM(rowMajor);
-    return oss.str();
-  }
 };
 
 /** Holds params needed to generate blobs dataset */
-template <typename D>
-struct BlobsParams : public DatasetParams {
-  D cluster_std;
+struct BlobsParams {
+  double cluster_std;
   bool shuffle;
-  D center_box_min, center_box_max;
+  double center_box_min, center_box_max;
   uint64_t seed;
-
-  std::string str() const {
-    std::ostringstream oss;
-    oss << PARAM(cluster_std) << PARAM(shuffle) << PARAM(center_box_min)
-        << PARAM(center_box_max) << PARAM(seed);
-    return DatasetParams::str() + oss.str();
-  }
 };
 
 /**
@@ -75,106 +59,96 @@ struct BlobsParams : public DatasetParams {
  * @tparam L type of the labels/output (type of y)
  */
 template <typename D, typename L>
-struct Dataset : public DatasetParams {
+struct Dataset {
   /** input data */
   D* X;
   /** labels or output associated with each row of input data */
   L* y;
 
-  /** free-up the buffers */
-  void deallocate(const cumlHandle& handle) {
+  /** allocate space needed for the dataset */
+  void allocate(const cumlHandle& handle, const DatasetParams& p) {
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
-    allocator->deallocate(X, nrows * ncols * sizeof(D), stream);
-    allocator->deallocate(y, nrows * sizeof(L), stream);
+    X = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
+    y = (L*)allocator->allocate(p.nrows * sizeof(L), stream);
+  }
+
+  /** free-up the buffers */
+  void deallocate(const cumlHandle& handle, const DatasetParams& p) {
+    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.getStream();
+    allocator->deallocate(X, p.nrows * p.ncols * sizeof(D), stream);
+    allocator->deallocate(y, p.nrows * sizeof(L), stream);
   }
 
   /** whether the current dataset is for classification or regression */
   bool isClassification() const { return typeid(D) != typeid(L); }
 
-  /** generate random blobs data. Args meaning is the same as in make_blobs */
-  void blobs(const cumlHandle& handle, int rows, int cols, bool isRowMajor,
-             int nclass, D cluster_std, bool shuffle, D center_box_min,
-             D center_box_max, uint64_t seed) {
+  /**
+   * Generate random blobs data. Args are the same as in make_blobs.
+   * Assumes that the user has already called `allocate`
+   */
+  void blobs(const cumlHandle& handle, const DatasetParams& p,
+             const BlobsParams& b) {
     ASSERT(isClassification(),
            "make_blobs: is only for classification/clustering problems!");
-    allocate(handle, rows, cols);
-    rowMajor = isRowMajor;
-    nclasses = nclass;
-    D* tmpX;
+    auto* tmpX = X;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
-    if (!isRowMajor) {
-      tmpX = (D*)allocator->allocate(nrows * ncols * sizeof(D), stream);
-    } else {
-      tmpX = X;
+    if (!p.rowMajor) {
+      tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
     MLCommon::Random::make_blobs<D, int>(
-      tmpX, y, nrows, ncols, nclasses, allocator, stream, nullptr, nullptr,
-      cluster_std, shuffle, center_box_min, center_box_max, seed);
-    if (!isRowMajor) {
+      tmpX, y, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
+      nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
+      D(b.center_box_max), b.seed);
+    if (!p.rowMajor) {
       D alpha = (D)1.0, beta = (D)0.0;
       MLCommon::LinAlg::cublasgeam<D>(
-        handle.getImpl().getCublasHandle(), CUBLAS_OP_T, CUBLAS_OP_N, nrows,
-        ncols, &alpha, tmpX, ncols, &beta, X, nrows, X, nrows, stream);
-      allocator->deallocate(tmpX, nrows * ncols * sizeof(D), stream);
+        handle.getImpl().getCublasHandle(), CUBLAS_OP_T, CUBLAS_OP_N, p.nrows,
+        p.ncols, &alpha, tmpX, p.ncols, &beta, X, p.nrows, X, p.nrows, stream);
+      allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
     }
   }
 
   /**
    * @brief Read the input csv file and construct the dataset.
+   *        Assumes that the user has already called `allocate`
    * @tparam Lambda lambda to customize how to read the data and labels
    * @param handle cuml handle
    * @param csvfile the csv file
-   * @param rows number of rows
-   * @param cols number of columns
-   * @param isRowMajor whether to store the input in row or col major
-   * @param nclass number of classes (meaningful only for classification)
+   * @param p dataset parameters
    * @param readOp functor/operator to take the current row of values and update
    *               the dataset accordingly. Its signature is expected to be:
    * `void readOp(const std::vector<std::string>& row, std::vector<D>& X,
-   *              std::vector<L>& y, int lineNum, bool rowMajor);`
+   *              std::vector<L>& y, int lineNum, const DatasetParams& p);`
    */
   template <typename Lambda>
-  void read_csv(const cumlHandle& handle, const std::string& csvfile, int rows,
-                int cols, bool isRowMajor, int nclass, Lambda readOp) {
-    if (isClassification() && nclass <= 0) {
+  void read_csv(const cumlHandle& handle, const std::string& csvfile,
+                const DatasetParams& p, Lambda readOp) {
+    if (isClassification() && p.nclasses <= 0) {
       ASSERT(false,
              "read_csv: for classification data 'nclasses' is mandatory!");
     }
-    nrows = rows;
-    ncols = cols;
-    nclasses = nclass;
-    rowMajor = isRowMajor;
-    std::vector<D> _X(nrows * ncols);
-    std::vector<L> _y(nrows);
+    std::vector<D> _X(p.nrows * p.ncols);
+    std::vector<L> _y(p.nrows);
     std::ifstream myfile;
     myfile.open(csvfile);
     std::string line;
     int counter = 0;
-    int break_cnt = nrows;
-    while (getline(myfile, line) && (counter < nrows)) {
+    int break_cnt = p.nrows;
+    while (getline(myfile, line) && (counter < p.nrows)) {
       auto row = split(line, ',');
-      readOp(row, _X, _y, counter, rowMajor);
+      readOp(row, _X, _y, counter, p);
       counter++;
     }
     myfile.close();
-    allocate(handle, rows, cols);
     auto stream = handle.getStream();
-    MLCommon::copy(X, &(_X[0]), nrows * ncols, stream);
-    MLCommon::copy(y, &(_y[0]), nrows, stream);
+    MLCommon::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
+    MLCommon::copy(y, &(_y[0]), p.nrows, stream);
   }
 
  private:
-  void allocate(const cumlHandle& handle, int rows, int cols) {
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
-    nrows = rows;
-    ncols = cols;
-    X = (D*)allocator->allocate(nrows * ncols * sizeof(D), stream);
-    y = (L*)allocator->allocate(nrows * sizeof(L), stream);
-  }
-
   std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;
     std::string token;
