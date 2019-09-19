@@ -4,6 +4,7 @@
 - PR #1071: Selective eigen solver of cuSolver 
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 - PR #1113: prims: new batched make-symmetric-matrix primitive
+- PR #1112: prims: new batched-gemv primitive
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
@@ -12,6 +13,7 @@
 - PR #1093: Unified inference kernels for different FIL algorithms
 - PR #1076: Paying off some UMAP / Spectral tech debt. 
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 
 ## Bug Fixes
 
