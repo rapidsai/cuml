@@ -16,8 +16,8 @@ Requires pytest-benchmark, which is not currently installed by default.
 """
 
 from cuml.benchmark import datagen, algorithms
+from cuml.utils.import_utils import has_pytest_benchmark
 import pytest
-
 
 #
 # Testing utilities
@@ -52,18 +52,24 @@ def _benchmark_algo(
 #
 # Core tests
 #
+@pytest.mark.skipif(not has_pytest_benchmark(),
+                    reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_rows', [1000, 10000])
 @pytest.mark.parametrize('n_features', [5, 500])
 def test_kmeans(benchmark, n_rows, n_features):
     _benchmark_algo(benchmark, 'KMeans', 'blobs', n_rows, n_features)
 
 
+@pytest.mark.skipif(not has_pytest_benchmark(),
+                    reason='pytest-benchmark missing')
 @pytest.mark.parametrize('algo_name', ['DBSCAN', 'UMAP', 'NearestNeighbors'])
 def test_with_blobs(benchmark, algo_name):
     # Lump together a bunch of simple blobs-based tests
     _benchmark_algo(benchmark, algo_name, 'blobs', 10000, 100)
 
 
+@pytest.mark.skipif(not has_pytest_benchmark(),
+                    reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_components', [2, 10, 50])
 def test_pca(benchmark, n_components):
     _benchmark_algo(
