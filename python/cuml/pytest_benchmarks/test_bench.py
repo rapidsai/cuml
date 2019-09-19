@@ -15,24 +15,39 @@
 Requires pytest-benchmark, which is not currently installed by default.
 """
 
-from cuml import benchmark
 from cuml.benchmark import datagen, algorithms
 import pytest
+
 
 #
 # Testing utilities
 #
-def _benchmark_algo(benchmark, name, dataset_name, n_samples=10000,
-                    n_features=100, input_type='numpy', data_kwargs={}, algo_args={}):
-    """Simplest benchmark wrapper to time algorithm 'name' on dataset 'dataset_name'"""
+def _benchmark_algo(
+    benchmark,
+    name,
+    dataset_name,
+    n_samples=10000,
+    n_features=100,
+    input_type='numpy',
+    data_kwargs={},
+    algo_args={},
+):
+    """Simplest benchmark wrapper to time algorithm 'name' on dataset
+    'dataset_name'"""
     algo = algorithms.algorithm_by_name(name)
-    data = datagen.gen_data(dataset_name, input_type, n_samples=n_samples,
-                            n_features=n_features, **data_kwargs)
+    data = datagen.gen_data(
+        dataset_name,
+        input_type,
+        n_samples=n_samples,
+        n_features=n_features,
+        **data_kwargs
+    )
 
     def _benchmark_inner():
         algo.run_cuml(data, **algo_args)
 
     benchmark(_benchmark_inner)
+
 
 #
 # Core tests
@@ -42,13 +57,20 @@ def _benchmark_algo(benchmark, name, dataset_name, n_samples=10000,
 def test_kmeans(benchmark, n_rows, n_features):
     _benchmark_algo(benchmark, 'KMeans', 'blobs', n_rows, n_features)
 
+
 @pytest.mark.parametrize('algo_name', ['DBSCAN', 'UMAP', 'NearestNeighbors'])
 def test_with_blobs(benchmark, algo_name):
     # Lump together a bunch of simple blobs-based tests
     _benchmark_algo(benchmark, algo_name, 'blobs', 10000, 100)
 
+
 @pytest.mark.parametrize('n_components', [2, 10, 50])
 def test_pca(benchmark, n_components):
-    _benchmark_algo(benchmark, 'PCA', 'blobs', 50000, 100,
-                    algo_args=dict(n_components=n_components))
-
+    _benchmark_algo(
+        benchmark,
+        'PCA',
+        'blobs',
+        50000,
+        100,
+        algo_args=dict(n_components=n_components),
+    )
