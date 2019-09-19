@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 def has_dask():
     try:
         import dask   # NOQA
@@ -62,6 +63,7 @@ def has_xgboost():
         return True
     except ImportError:
         return False
+
 
 def has_pytest_benchmark():
     try:
