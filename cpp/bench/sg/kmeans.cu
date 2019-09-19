@@ -23,14 +23,17 @@ namespace ML {
 namespace Bench {
 namespace kmeans {
 
-typedef ML::kmeans::KMeansParams Params;
+struct Params {
+  DatasetParams data;
+  BlobsParams blobs;
+  ML::kmeans::KMeansParams kmeans;
+};
 
 template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
-  KMeans(const std::string& name, const DatasetParams p, const BlobsParams b,
-         const Params kp)
-    : BlobsFixture<D>(p, b), kParams(kp) {
+  KMeans(const std::string& name, const Params& p)
+    : BlobsFixture<D>(p.data, p.blobs), kParams(p.kmeans) {
     this->SetName(name.c_str());
   }
 
@@ -67,27 +70,51 @@ class KMeans : public BlobsFixture<D> {
   }
 
  private:
-  Params kParams;
+  ML::kmeans::KMeansParams kParams;
   int* labels;
   D* centroids;
   D inertia;
   int nIter;
 };
 
-typedef KMeans<float> KMeansF;
-typedef KMeans<double> KMeansD;
+std::vector<Params> getInputs() {
+  std::vector<Params> out;
+  Params p;
+  p.data.rowMajor = true;
+  p.blobs.cluster_std = 1.0;
+  p.blobs.shuffle = false;
+  p.blobs.center_box_min = -10.0;
+  p.blobs.center_box_max = 10.0;
+  p.blobs.seed = 12345ULL;
+  p.kmeans.init = ML::kmeans::KMeansParams::InitMethod(0);
+  p.kmeans.max_iter = 300;
+  p.kmeans.tol = 1e-4;
+  p.kmeans.verbose = false;
+  p.kmeans.seed = int(p.blobs.seed);
+  p.kmeans.metric = 0;  // L2
+  p.kmeans.inertia_check = true;
+  std::vector<std::pair<int, int>> rowcols = {
+    {160000, 64},
+    {320000, 64},
+    {640000, 64},
+  };
+  for (auto& rc : rowcols) {
+    p.data.nrows = rc.first;
+    p.data.ncols = rc.second;
+    for (auto nclass : std::vector<int>({8, 16, 32})) {
+      p.data.nclasses = nclass;
+      p.kmeans.n_clusters = p.data.nclasses;
+      for (auto bs_shift : std::vector<int>({16, 18})) {
+        p.kmeans.batch_size = 1 << bs_shift;
+        out.push_back(p);
+      }
+    }
+  }
+  return out;
+}
 
-const DatasetParams p = {160000, 64, 8, true};
-const BlobsParams bp1 = {1.0, false, -10.0, 10.0, 12345ULL};
-// const Params kp1 = {8,          ML::kmeans::KMeansParams::KMeansPlusPlus,
-//                     300,        1e-4,
-//                     0,          int(bp1.seed),
-//                     0 /* L2 */, 2,
-//                     1 << 16,    true};
-Params kp1;
-
-CUML_BENCH_REGISTER_F(KMeansF, bench1, p, bp1, kp1);
-CUML_BENCH_REGISTER_F(KMeansD, bench1, p, bp1, kp1);
+CUML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
+CUML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
 
 }  // end namespace kmeans
 }  // end namespace Bench
