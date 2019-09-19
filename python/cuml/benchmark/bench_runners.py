@@ -87,25 +87,22 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                  dataset_name='blobs', input_type='numpy',
                  test_fraction=0.10):
         super().__init__(bench_rows, bench_dims, dataset_name, input_type)
-        self.test_fraction = 0.10
+        self.test_fraction = test_fraction
 
     def _run_one_size(self, algo_pair, n_samples, n_features,
                       param_overrides={},
                       cuml_param_overrides={},
                       cpu_param_overrides={},
                       run_cpu=True):
-        # keep training set size constant even as we add test
-        n_samples_with_test = int(n_samples / (1 - self.test_fraction))
-
         data = bench_data.gen_data(self.dataset_name,
                                    self.input_type,
-                                   n_samples_with_test,
+                                   n_samples,
                                    n_features,
                                    test_fraction=self.test_fraction)
         X_test, y_test = data[2:]
 
         cu_start = time.time()
-        cuml_model = algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
+        cuml_model = algo_pair.run_cuml(data, **{**param_overrides, **cuml_param_overrides})
         cu_elapsed = time.time() - cu_start
 
         if algo_pair.accuracy_function:

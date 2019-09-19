@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""bench_data - Data generators for cuML benchmarks
+"""Data generators for cuML benchmarks
 
-The main entry point for consumers is generating
+The main entry point for consumers is gen_data, which
+wraps the underlying data generators.
+
+Notes when writing new generators:
 
 Each generator is a function that accepts:
  * n_samples (set to 0 for 'default')
@@ -41,6 +44,7 @@ import sklearn.datasets, sklearn.model_selection
 from numba import cuda
 from urllib.request import urlretrieve
 import gzip
+import functools
 
 def _gen_data_regression(n_samples, n_features, random_state=42):
     """Wrapper for sklearn make_regression"""
@@ -49,7 +53,6 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
     if n_features == 0:
         n_features = 100
     X_arr, y_arr = sklearn.datasets.make_regression(n_samples, n_features, random_state=random_state)
-    print("Xarr size: ", X_arr.shape)
     return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
 
 def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
@@ -61,6 +64,11 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
     X_arr, y_arr = sklearn.datasets.make_blobs(n_samples, n_features, centers=centers, random_state=random_state)
     return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
 
+def _gen_data_zeros(n_samples, n_features, random_state=42):
+    """Dummy generator for use in testing - returns all 0s"""
+    return (np.zeros((n_samples, n_features), dtype=np.float32),
+            np.zeros(n_samples, dtype=np.float32))
+
 def _gen_data_classification(n_samples, n_features, random_state=42, n_classes=2):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
@@ -71,6 +79,7 @@ def _gen_data_classification(n_samples, n_features, random_state=42, n_classes=2
     return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
 
 def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
+    """Wrapper returning Higgs in Pandas formatter"""
     X_df, y_df = load_higgs('pandas')
     if n_samples == 0:
         n_samples = X_df.shape[0]
@@ -156,6 +165,7 @@ def _convert_to_gpuarray(data, order='F'):
 
 
 _data_generators = { 'blobs': _gen_data_blobs,
+                     'zeros': _gen_data_zeros,
                      'classification': _gen_data_classification,
                      'regression': _gen_data_regression,
                      'higgs': _gen_data_higgs }
@@ -164,6 +174,8 @@ _data_converters = { 'numpy': _convert_to_numpy,
                      'pandas': _convert_to_pandas,
                      'gpuarray': _convert_to_gpuarray }
 
+
+@functools.lru_cache(maxsize=8)
 def gen_data(dataset_name, dataset_format,
              n_samples=0, n_features=0, random_state=42,
              test_fraction=0.0,
@@ -193,11 +205,16 @@ def gen_data(dataset_name, dataset_format,
     """
     data = _data_generators[dataset_name](int(n_samples / (1-test_fraction)),
                                           n_features, random_state, **kwargs)
+    print("generated: ", data[0].shape[0], " number: ",
+          int(n_samples / (1-test_fraction)),
+          " frac = ", test_fraction,
+          " samples = ", n_samples
+    )
+
     if test_fraction != 0.0:
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(*data,
                                                      train_size=n_samples))
-        print("Post split: ", X_train.shape)
         data = (X_train, y_train, X_test, y_test)
     else:
         data = (*data, None, None) # No test set
