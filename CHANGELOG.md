@@ -27,6 +27,7 @@
 - PR #1066: Using proper set of workers to destroy nccl comms
 - PR #1072: Remove pip requirements and setup
 - PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 

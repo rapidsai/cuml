@@ -34,7 +34,7 @@ float EntropyFunctor::max_val(int nclass) {
   float prob = 1.0 / nclass;
   return (-1.0 * nclass * prob * logf(prob));
 }
-float GiniFunctor::exec(std::vector<int> &hist, int nrows) {
+float GiniFunctor::exec(std::vector<unsigned int> &hist, int nrows) {
   float gval = 1.0;
   for (int i = 0; i < hist.size(); i++) {
     float prob = ((float)hist[i]) / nrows;
@@ -43,7 +43,7 @@ float GiniFunctor::exec(std::vector<int> &hist, int nrows) {
   return gval;
 }
 
-float EntropyFunctor::exec(std::vector<int> &hist, int nrows) {
+float EntropyFunctor::exec(std::vector<unsigned int> &hist, int nrows) {
   float eval = 0.0;
   for (int i = 0; i < hist.size(); i++) {
     if (hist[i] != 0) {
