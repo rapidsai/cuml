@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""DEMO integration of benchmarking to pytest interface
+"""Demo integration of benchmarking to pytest interface
 Requires pytest-benchmark, which is not currently installed by default.
 """
 
 from cuml import benchmark
-from cuml.benchmark import bench_data, bench_algos
+from cuml.benchmark import datagen, algorithms
 import pytest
 
 #
@@ -25,9 +25,9 @@ import pytest
 def _benchmark_algo(benchmark, name, dataset_name, n_samples=10000,
                     n_features=100, input_type='numpy', data_kwargs={}, algo_args={}):
     """Simplest benchmark wrapper to time algorithm 'name' on dataset 'dataset_name'"""
-    algo = bench_algos.algorithm_by_name(name)
-    data = bench_data.gen_data(dataset_name, input_type, n_samples=n_samples,
-                               n_features=n_features, **data_kwargs)
+    algo = algorithms.algorithm_by_name(name)
+    data = datagen.gen_data(dataset_name, input_type, n_samples=n_samples,
+                            n_features=n_features, **data_kwargs)
 
     def _benchmark_inner():
         algo.run_cuml(data, **algo_args)
