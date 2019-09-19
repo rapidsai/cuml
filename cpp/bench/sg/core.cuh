@@ -107,6 +107,68 @@ class BlobsFixture : public Fixture {
   Dataset<D, L> data;
 };  // end class BlobFixture
 
+/**
+ * RAII way of timing cuda calls. This has been shamelessly copied from the
+ * cudf codebase. So, credits for this class goes to cudf developers.
+ */
+struct CudaEventTimer {
+ public:
+  /**
+   * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
+   *        of L2 and then starts the timer.
+   * @param h cuml handle
+   * @param st the benchmark::State whose timer we are going to update.
+   * @param flushL2 whether or not to flush the L2 cache before every iteration.
+   * @param s The CUDA stream we are measuring time on.
+   */
+  CudaEventTimer(const cumlHandle& h, ::benchmark::State& st, bool flushL2,
+                 cudaStream_t s)
+    : handle(h), state(&st), stream(s) {
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
+    // flush L2?
+    if (flushL2) {
+      int devId = 0;
+      CUDA_CHECK(cudaGetDevice(&devId));
+      int l2CacheSize = 0;
+      CUDA_CHECK(
+        cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
+      if (l2CacheSize > 0) {
+        auto allocator = handle.getDeviceAllocator();
+        auto* buffer = (int*)allocator->allocate(l2CacheSize, stream);
+        CUDA_CHECK(cudaMemsetAsync(buffer, 0, l2CacheSize, stream));
+        allocator->deallocate(buffer, l2CacheSize, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
+    }
+    CUDA_CHECK(cudaEventRecord(start, stream));
+  }
+  CudaEventTimer() = delete;
+
+  /** 
+   * @brief The dtor stops the timer and performs a synchroniazation. Time of
+   *       the benchmark::State object provided to the ctor will be set  to the
+   *       value given by `cudaEventElapsedTime()`.
+   */
+  ~CudaEventTimer() {
+    CUDA_CHECK(cudaEventRecord(stop, stream));
+    CUDA_CHECK(cudaEventSynchronize(stop));
+    float milliseconds = 0.0f;
+    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    ///@todo: for now, let's always measure in milliseconds in cuML bench
+    state->SetIterationTime(milliseconds);
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+  }
+
+ private:
+  cudaEvent_t start;
+  cudaEvent_t stop;
+  const cumlHandle& handle;
+  ::benchmark::State* state;
+  cudaStream_t stream;
+};  // end namespace CudaEventTimer
+
 namespace internal {
 template <typename Params, typename Class>
 struct Registrar {
@@ -118,7 +180,9 @@ struct Registrar {
       auto testName = name + "/" + oss.str();
       auto* b = ::benchmark::internal::RegisterBenchmarkInternal(
         new Class(testName, param));
-      ///@todo: add custom functions here
+      ///@todo: expose a currying-like interface to the final macro
+      b->UseManualTime();
+      b->Unit(benchmark::kMillisecond);
       ++counter;
     }
   }
