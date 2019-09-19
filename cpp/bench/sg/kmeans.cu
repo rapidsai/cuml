@@ -17,7 +17,7 @@
 #include <cuML.hpp>
 #include <kmeans/kmeans.hpp>
 #include <utility>
-#include "core.cuh"
+#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
