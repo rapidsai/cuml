@@ -46,6 +46,8 @@ class SpeedupComparisonRunner:
         data = datagen.gen_data(
             self.dataset_name, self.input_type, n_samples, n_features
         )
+        print("data type: ", data[0].__class__)
+
         cu_start = time.time()
         algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
         cu_elapsed = time.time() - cu_start
@@ -136,6 +138,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             n_features,
             test_fraction=self.test_fraction,
         )
+        print("-------- data type: ", data[0].__class__)
         X_test, y_test = data[2:]
 
         cu_start = time.time()

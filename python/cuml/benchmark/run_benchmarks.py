@@ -78,6 +78,10 @@ if __name__ == '__main__':
                 --input-dimensions 16 256 \
                 -- DBSCAN KMeans TSNE PCA UMAP
 
+          # Use a real dataset at its default size
+          python run_benchmarks.py --dataset higgs --default-size \
+                RandomForestClassifier LogisticRegression
+
         ''',
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -134,6 +138,11 @@ if __name__ == '__main__':
         help='Only run datasets at default size',
     )
     parser.add_argument(
+        '--raise-on-error',
+        action='store_true',
+        help='Throw exception on a failed benchmark',
+    )
+    parser.add_argument(
         'algorithms',
         nargs='*',
         help='List of algorithms to run, or omit to run all',
@@ -177,6 +186,7 @@ if __name__ == '__main__':
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
+        raise_on_error=args.raise_on_error
     )
 
     if args.csv:
