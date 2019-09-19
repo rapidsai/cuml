@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""bench_all.py - Command-line ML benchmark runner"""
+"""Command-line ML benchmark runner"""
 
-from cuml.benchmark import bench_data, bench_algos, bench_runners
+from cuml.benchmark import datagen, algorithms, runners
 
 import time
 import sys
@@ -52,90 +52,35 @@ def extract_param_overrides(params_to_sweep):
     dict_list = [dict(tl) for tl in tuple_list]
     return dict_list
 
-def report_asv(results_df, output_dir):
-    import asvdb
-    import platform
-    import psutil
-
-    uname = platform.uname()
-    (commitHash, commitTime) = asvdb.utils.getCommitInfo()
-
-    b_info = asvdb.BenchmarkInfo(machineName=uname.machine,
-                      cudaVer="10.0",
-                      osType="%s %s" % (uname.system, uname.release),
-                      pythonVer=platform.python_version(),
-                      commitHash=commitHash,
-                      commitTime=commitTime,
-                      gpuType="n/a",
-                      cpuType=uname.processor,
-                      arch=uname.machine,
-                      ram="%d" % psutil.virtual_memory().total)
-    (repo, branch) = asvdb.utils.getRepoInfo()  # gets repo info from CWD by default
-
-    db = asvdb.ASVDb(dbDir=output_dir,
-                     repo=repo,
-                     branches=[branch])
-
-    for index, row in results_df.iterrows():
-        val_keys = ['cu_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
-        params = [(k,v) for k,v in row.items() if k not in val_keys]
-        result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
-        db.addResult(b_info, result)
-
-def run_variations(algos, dataset_name, bench_rows,
-                   bench_dims,
-                   param_override_list=[{}],
-                   cuml_param_override_list=[{}],
-                   input_type="numpy",
-                   run_cpu=True):
-    """
-    Runs each algo in `algos` once per
-    `bench_rows X bench_dims X params_override_list X cuml_param_override_list`
-    combination and returns a dataframe containing timing and accuracy data.
-
-    Parameters
-    ----------
-    algos : str or list
-      Name of algorithms to run and evaluate
-    dataset_name : str
-      Name of dataset to use
-    bench_rows : list of int
-      Dataset row counts to test
-    bench_dims : list of int
-      Dataset column counts to test
-    param_override_list : list of dict
-      Dicts containing parameters to pass to __init__.
-      Each dict specifies parameters to override in one run of the algorithm.
-    cuml_param_override_list : list of dict
-      Dicts containing parameters to pass to __init__ of the cuml algo only.
-    run_cpu : boolean
-      If True, run the cpu-based algorithm for comparison
-    """
-    print("Running: \n", "\n ".join([str(a.name) for a in algos]))
-    runner = bench_runners.AccuracyComparisonRunner(bench_rows,
-                                                     bench_dims,
-                                                     dataset_name,
-                                                     input_type)
-    all_results = []
-    for algo in algos:
-        for param_overrides in param_override_list:
-            for cuml_param_overrides in cuml_param_override_list:
-                results = runner.run(algo, param_overrides, cuml_param_overrides, run_cpu=run_cpu)
-                for r in results:
-                    all_results.append({'algo': algo.name, 'input': input_type, **r})
-
-    print("Finished all benchmark runs")
-    results_df = pd.DataFrame.from_records(all_results)
-    print(results_df)
-
-    return results_df
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(prog='bench_all',
-                                     description='''
-                                     Testing
-                                     ''')
+    parser = argparse.ArgumentParser(
+        prog='run_benchmarks',
+        description='''
+        Command-line benchmark runner, logging results to
+        stdout and/or CSV.
+
+        Examples:
+          # Simple logistic regression
+          python run_benchmarks.py --dataset classification LogisticRegression
+
+          # Compare impact of RF parameters and data sets
+          python run_benchmarks.py --dataset classification  \
+                --max-rows 100000 --min-rows 10000 \
+                --cuml-param-sweep n_bins=[4,16] n_estimators=[10,100] \
+                --csv results.csv \
+                RandomForestClassifier
+
+          # Run a bunch of clustering and dimensionality reduction algorithms
+          # (Because `--input-dimensions` takes a varying number of args, you
+          # need the extra `--` to separate it from the algorithm names
+          python run_benchmarks.py --dataset blobs \
+                --max-rows 20000 --min-rows 20000 --num-sizes 1 \
+                --input-dimensions 16 256 \
+                -- DBSCAN KMeans TSNE PCA UMAP
+
+        ''')
     parser.add_argument('--max-rows', type=int, default=100000,
                         help='Evaluate at most max_row samples')
     parser.add_argument('--min-rows', type=int, default=10000,
@@ -145,7 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument('--quiet', '-q', action='store_false', dest='verbose', default=True)
     parser.add_argument('--csv', nargs='?')
-    parser.add_argument('--asvdb', nargs='?')
     parser.add_argument('--dataset', default='blobs')
     parser.add_argument('--skip-cpu', action='store_true')
     parser.add_argument('--input-type', default='numpy')
@@ -178,28 +122,25 @@ if __name__ == '__main__':
     if args.algorithms:
         algos_to_run = []
         for name in args.algorithms:
-            algo = bench_algos.algorithm_by_name(name)
+            algo = algorithms.algorithm_by_name(name)
             if not algo:
                 raise ValueError("No %s 'algorithm' found" % name)
             algos_to_run.append(algo)
     else:
         # Run all by default
-        algos_to_run = bench_algos.all_algorithms()
+        algos_to_run = algorithms.all_algorithms()
 
-    results_df = run_variations(algos_to_run,
-                     dataset_name=args.dataset,
-                     bench_rows=bench_rows,
-                     bench_dims=bench_dims,
-                     input_type=args.input_type,
-                     param_override_list=param_override_list,
-                     cuml_param_override_list=cuml_param_override_list,
-                     run_cpu=(not args.skip_cpu)
+    results_df = runners.run_variations(
+        algos_to_run,
+        dataset_name=args.dataset,
+        bench_rows=bench_rows,
+        bench_dims=bench_dims,
+        input_type=args.input_type,
+        param_override_list=param_override_list,
+        cuml_param_override_list=cuml_param_override_list,
+        run_cpu=(not args.skip_cpu)
     )
 
     if args.csv:
         results_df.to_csv(args.csv)
         print("Saved results to %s" % args.csv)
-
-    if args.asvdb:
-        report_asv(results_df, args.asvdb)
-

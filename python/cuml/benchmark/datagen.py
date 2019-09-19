@@ -205,12 +205,6 @@ def gen_data(dataset_name, dataset_format,
     """
     data = _data_generators[dataset_name](int(n_samples / (1-test_fraction)),
                                           n_features, random_state, **kwargs)
-    print("generated: ", data[0].shape[0], " number: ",
-          int(n_samples / (1-test_fraction)),
-          " frac = ", test_fraction,
-          " samples = ", n_samples
-    )
-
     if test_fraction != 0.0:
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(*data,

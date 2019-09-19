@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""bench_runners.py - Wrappers to run ML benchmarks"""
+"""Wrappers to run ML benchmarks"""
 
-from cuml.benchmark import bench_data, bench_algos
+from cuml.benchmark import datagen, algorithms
 import time
 import numpy as np
+import pandas as pd
 
 class SpeedupComparisonRunner:
     """Wrapper to run an algorithm with multiple dataset sizes
@@ -34,7 +35,7 @@ class SpeedupComparisonRunner:
                       cuml_param_overrides={},
                       cpu_param_overrides={},
                       run_cpu=True):
-        data = bench_data.gen_data(self.dataset_name,
+        data = datagen.gen_data(self.dataset_name,
                                    self.input_type,
                                    n_samples,
                                    n_features)
@@ -59,7 +60,9 @@ class SpeedupComparisonRunner:
 
     def run(self, algo_pair, param_overrides={},
             cuml_param_overrides={},
-            cpu_param_overrides={}, *, run_cpu=True):
+            cpu_param_overrides={}, *,
+            run_cpu=True,
+            raise_on_error=False):
         all_results = []
         for ns in self.bench_rows:
             for nf in self.bench_dims:
@@ -73,7 +76,8 @@ class SpeedupComparisonRunner:
                 except Exception as e:
                     print("Failed to run with %d samples, %d features: %s" %
                           (ns, nf, str(e)))
-                    raise
+                    if raise_on_error:
+                        raise
                     all_results.append(dict(n_samples=ns, n_features=nf))
         return all_results
 
@@ -94,7 +98,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                       cuml_param_overrides={},
                       cpu_param_overrides={},
                       run_cpu=True):
-        data = bench_data.gen_data(self.dataset_name,
+        data = datagen.gen_data(self.dataset_name,
                                    self.input_type,
                                    n_samples,
                                    n_features,
@@ -138,3 +142,56 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     n_features=n_features,
                     **param_overrides,
                     **cuml_param_overrides)
+
+
+def run_variations(algos, dataset_name, bench_rows,
+                   bench_dims,
+                   param_override_list=[{}],
+                   cuml_param_override_list=[{}],
+                   input_type="numpy",
+                   run_cpu=True,
+                   raise_on_error=False):
+    """
+    Runs each algo in `algos` once per
+    `bench_rows X bench_dims X params_override_list X cuml_param_override_list`
+    combination and returns a dataframe containing timing and accuracy data.
+
+    Parameters
+    ----------
+    algos : str or list
+      Name of algorithms to run and evaluate
+    dataset_name : str
+      Name of dataset to use
+    bench_rows : list of int
+      Dataset row counts to test
+    bench_dims : list of int
+      Dataset column counts to test
+    param_override_list : list of dict
+      Dicts containing parameters to pass to __init__.
+      Each dict specifies parameters to override in one run of the algorithm.
+    cuml_param_override_list : list of dict
+      Dicts containing parameters to pass to __init__ of the cuml algo only.
+    run_cpu : boolean
+      If True, run the cpu-based algorithm for comparison
+    """
+    print("Running: \n", "\n ".join([str(a.name) for a in algos]))
+    runner = AccuracyComparisonRunner(bench_rows,
+                                      bench_dims,
+                                      dataset_name,
+                                      input_type)
+    all_results = []
+    for algo in algos:
+        print("Running %s..." % (algo.name))
+        for param_overrides in param_override_list:
+            for cuml_param_overrides in cuml_param_override_list:
+                results = runner.run(algo, param_overrides, cuml_param_overrides,
+                                     run_cpu=run_cpu,
+                                     raise_on_error=raise_on_error)
+                for r in results:
+                    all_results.append({'algo': algo.name, 'input': input_type, **r})
+
+    print("Finished all benchmark runs")
+    results_df = pd.DataFrame.from_records(all_results)
+    print(results_df)
+
+    return results_df

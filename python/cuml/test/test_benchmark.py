@@ -14,17 +14,18 @@
 #
 import cuml
 from cuml import benchmark
-from cuml.benchmark import bench_data
-from cuml.benchmark.bench_runners import AccuracyComparisonRunner
+from cuml.benchmark import datagen, runners, algorithms
+from cuml.benchmark.runners import AccuracyComparisonRunner
 import numpy as np
 import cudf
 import pytest
 from numba import cuda
 from sklearn import metrics
 
+
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
 def test_data_generators(dataset):
-    data = bench_data.gen_data(dataset, "numpy",
+    data = datagen.gen_data(dataset, "numpy",
                                n_samples=100, n_features=10)
     assert isinstance(data, np.array)
     assert data[0].shape[0] == 100
@@ -32,7 +33,7 @@ def test_data_generators(dataset):
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf'])
 def test_data_generators(input_type):
-    X, *_  = bench_data.gen_data('blobs', input_type,
+    X, *_  = datagen.gen_data('blobs', input_type,
                               n_samples=100, n_features=10)
     if input_type == 'numpy':
         assert isinstance(X, np.ndarray)
@@ -47,7 +48,7 @@ def test_data_generators(input_type):
 
 
 def test_data_generator_split():
-    X_train, y_train, X_test, y_test  = bench_data.gen_data('blobs',
+    X_train, y_train, X_test, y_test  = datagen.gen_data('blobs',
                                                             'numpy',
                                                             n_samples=100,
                                                             n_features=10,
@@ -56,22 +57,19 @@ def test_data_generator_split():
     assert X_test.shape == (25,10)
 
 def test_run_variations():
-    from cuml.benchmark.bench_all import run_variations
-    algo = cuml.benchmark.bench_algos.algorithm_by_name(
-        "LogisticRegression")
+    from runners import run_variations
+    algo = algorithms.algorithm_by_name("LogisticRegression")
 
     res = run_variations([algo],
                          dataset_name="classification",
                          bench_rows=[100,200],
-                        bench_dims=[10, 20])
+                         bench_dims=[10, 20])
     assert res.shape[0] == 4
     assert (res.n_samples == 100).sum() == 2
     assert (res.n_features == 20).sum() == 2
 
 
 def test_accuracy_runner():
-    from cuml.benchmark.bench_algos import AlgorithmPair
-
     # Set up data that should deliver accuracy of 0.20 if all goes right
     class MockAlgo:
         def fit(self, X, y):
@@ -82,11 +80,11 @@ def test_accuracy_runner():
             res[0:int(nr / 5.0)] = 1.0
             return res
 
-    pair = AlgorithmPair(MockAlgo,
-                         MockAlgo,
-                         shared_args={},
-                         name="Mock",
-                         accuracy_function=metrics.accuracy_score)
+    pair = algorithms.AlgorithmPair(MockAlgo,
+                                 MockAlgo,
+                                 shared_args={},
+                                 name="Mock",
+                                 accuracy_function=metrics.accuracy_score)
 
     runner = AccuracyComparisonRunner([20], [5],
                                       dataset_name='zeros',
