@@ -16,95 +16,90 @@
 
 #include <cuML.hpp>
 #include <dbscan/dbscan.hpp>
-#include "dataset.h"
-#include "harness.h"
+#include <utility>
+#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
 namespace dbscan {
 
-template <typename D>
-struct Params : public BlobsParams<D> {
-  // algo related
+struct AlgoParams {
   int min_pts;
-  D eps;
+  double eps;
   size_t max_bytes_per_batch;
+};
 
-  std::string str() const {
-    std::ostringstream oss;
-    oss << PARAM(min_pts) << PARAM(eps) << PARAM(max_bytes_per_batch);
-    return BlobsParams<D>::str() + oss.str();
-  }
+struct Params {
+  DatasetParams data;
+  BlobsParams blobs;
+  AlgoParams dbscan;
 };
 
 template <typename D>
-struct Run : public Benchmark<Params<D>> {
-  void setup() {
-    const auto& p = this->getParams();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle);
-    handle->setStream(stream);
-    auto allocator = handle->getDeviceAllocator();
-    labels = (int*)allocator->allocate(p.nrows * sizeof(int), stream);
-    dataset.blobs(*handle, p.nrows, p.ncols, p.rowMajor, p.nclasses,
-                  p.cluster_std, p.shuffle, p.center_box_min, p.center_box_max,
-                  p.seed);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+class Dbscan : public BlobsFixture<D> {
+ public:
+  Dbscan(const std::string& name, const Params& p)
+    : BlobsFixture<D>(p.data, p.blobs), dParams(p.dbscan) {
+    this->SetName(name.c_str());
   }
 
-  void teardown() {
-    const auto& p = this->getParams();
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle->getDeviceAllocator();
-    allocator->deallocate(labels, p.nrows * sizeof(int), stream);
-    dataset.deallocate(*handle);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+ protected:
+  void runBenchmark(::benchmark::State& state) override {
+    if (!this->params.rowMajor) {
+      state.SkipWithError("Dbscan only supports row-major inputs");
+    }
+    auto& handle = *this->handle;
+    auto stream = handle.getStream();
+    for (auto _ : state) {
+      CudaEventTimer timer(handle, state, true, stream);
+      dbscanFit(handle, this->data.X, this->params.nrows, this->params.ncols,
+                D(dParams.eps), dParams.min_pts, labels,
+                dParams.max_bytes_per_batch);
+    }
   }
 
-  ///@todo: implement
-  void metrics(RunInfo& ri) {}
+  void allocateBuffers(const ::benchmark::State& state) override {
+    auto allocator = this->handle->getDeviceAllocator();
+    auto stream = this->handle->getStream();
+    labels =
+      (int*)allocator->allocate(this->params.nrows * sizeof(int), stream);
+  }
 
-  void run() {
-    const auto& p = this->getParams();
-    ASSERT(p.rowMajor, "Dbscan only supports row-major inputs");
-    dbscanFit(*handle, dataset.X, p.nrows, p.ncols, p.eps, p.min_pts, labels,
-              p.max_bytes_per_batch);
-    CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
+  void deallocateBuffers(const ::benchmark::State& state) override {
+    auto allocator = this->handle->getDeviceAllocator();
+    auto stream = this->handle->getStream();
+    allocator->deallocate(labels, this->params.nrows * sizeof(int), stream);
   }
 
  private:
-  std::shared_ptr<cumlHandle> handle;
-  cudaStream_t stream;
+  AlgoParams dParams;
   int* labels;
-  Dataset<D, int> dataset;
 };
 
-template <typename D>
-std::vector<Params<D>> getInputs() {
-  std::vector<Params<D>> out;
-  Params<D> p;
-  p.rowMajor = true;
-  p.cluster_std = (D)1.0;
-  p.shuffle = false;
-  p.center_box_min = (D)-10.0;
-  p.center_box_max = (D)10.0;
-  p.seed = 12345ULL;
-  p.max_bytes_per_batch = 0;
+std::vector<Params> getInputs() {
+  std::vector<Params> out;
+  Params p;
+  p.data.rowMajor = true;
+  p.blobs.cluster_std = (D)1.0;
+  p.blobs.shuffle = false;
+  p.blobs.center_box_min = (D)-10.0;
+  p.blobs.center_box_max = (D)10.0;
+  p.blobs.seed = 12345ULL;
+  p.dbscan.max_bytes_per_batch = 0;
   std::vector<std::pair<int, int>> rowcols = {
     {10000, 81},
     {20000, 128},
     {40000, 128},
   };
   for (auto& rc : rowcols) {
-    p.nrows = rc.first;
-    p.ncols = rc.second;
+    p.data.nrows = rc.first;
+    p.data.ncols = rc.second;
     for (auto nclass : std::vector<int>({2, 4, 8})) {
-      p.nclasses = nclass;
+      p.data.nclasses = nclass;
       for (auto ep : std::vector<D>({0.1, 1.0})) {
-        p.eps = ep;
+        p.dbscan.eps = ep;
         for (auto mp : std::vector<int>({3, 10})) {
-          p.min_pts = mp;
+          p.dbscan.min_pts = mp;
           out.push_back(p);
         }
       }
@@ -113,8 +108,8 @@ std::vector<Params<D>> getInputs() {
   return out;
 }
 
-REGISTER_BENCH(Run<float>, Params<float>, dbscanF, getInputs<float>());
-REGISTER_BENCH(Run<double>, Params<double>, dbscanD, getInputs<double>());
+CUML_BENCH_REGISTER(Params, Dbscan<float>, "blobs", getInputs());
+CUML_BENCH_REGISTER(Params, Dbscan<double>, "blobs", getInputs());
 
 }  // end namespace dbscan
 }  // end namespace Bench

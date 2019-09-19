@@ -29,6 +29,7 @@ if(BUILD_CUML_BENCH)
 
   # (please keep the filenames in alphabetical order)
   add_executable(sg
+    sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
   )
