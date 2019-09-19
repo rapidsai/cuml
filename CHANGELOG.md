@@ -3,6 +3,7 @@
 ## New Features
 - PR #1071: Selective eigen solver of cuSolver 
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 
 ## Improvements
