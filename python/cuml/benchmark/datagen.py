@@ -38,13 +38,14 @@ import numpy as np
 import pandas as pd
 import cudf
 import os
-import time
-import pickle
-import sklearn.datasets, sklearn.model_selection
-from numba import cuda
+import sklearn.datasets
+import sklearn.model_selection
 from urllib.request import urlretrieve
 import gzip
 import functools
+from cuml.utils import input_utils
+from numba import cuda
+
 
 def _gen_data_regression(n_samples, n_features, random_state=42):
     """Wrapper for sklearn make_regression"""
@@ -52,8 +53,14 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
         n_samples = int(1e6)
     if n_features == 0:
         n_features = 100
-    X_arr, y_arr = sklearn.datasets.make_regression(n_samples, n_features, random_state=random_state)
-    return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
+    X_arr, y_arr = sklearn.datasets.make_regression(
+        n_samples, n_features, random_state=random_state
+    )
+    return (
+        pd.DataFrame(X_arr.astype(np.float32)),
+        pd.Series(y_arr.astype(np.float32)),
+    )
+
 
 def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
     """Wrapper for sklearn make_blobs"""
@@ -61,22 +68,39 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
         n_samples = int(1e6)
     if n_features == 0:
         n_samples = 100
-    X_arr, y_arr = sklearn.datasets.make_blobs(n_samples, n_features, centers=centers, random_state=random_state)
-    return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
+    X_arr, y_arr = sklearn.datasets.make_blobs(
+        n_samples, n_features, centers=centers, random_state=random_state
+    )
+    return (
+        pd.DataFrame(X_arr.astype(np.float32)),
+        pd.Series(y_arr.astype(np.float32)),
+    )
+
 
 def _gen_data_zeros(n_samples, n_features, random_state=42):
     """Dummy generator for use in testing - returns all 0s"""
-    return (np.zeros((n_samples, n_features), dtype=np.float32),
-            np.zeros(n_samples, dtype=np.float32))
+    return (
+        np.zeros((n_samples, n_features), dtype=np.float32),
+        np.zeros(n_samples, dtype=np.float32),
+    )
 
-def _gen_data_classification(n_samples, n_features, random_state=42, n_classes=2):
+
+def _gen_data_classification(
+    n_samples, n_features, random_state=42, n_classes=2
+):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
         n_samples = int(1e6)
     if n_features == 0:
         n_samples = 100
-    X_arr, y_arr = sklearn.datasets.make_classification(n_samples, n_features, n_classes, random_state=random_state)
-    return (pd.DataFrame(X_arr.astype(np.float32)), pd.Series(y_arr.astype(np.float32)))
+    X_arr, y_arr = sklearn.datasets.make_classification(
+        n_samples, n_features, n_classes, random_state=random_state
+    )
+    return (
+        pd.DataFrame(X_arr.astype(np.float32)),
+        pd.Series(y_arr.astype(np.float32)),
+    )
+
 
 def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
     """Wrapper returning Higgs in Pandas formatter"""
@@ -86,12 +110,17 @@ def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
     if n_features == 0:
         n_features = X_df.shape[1]
     if n_features > X_df.shape[1]:
-        raise ValueError("Higgs dataset has only %d features, cannot support %d" %
-                         (X_df.shape[1], n_features))
+        raise ValueError(
+            "Higgs dataset has only %d features, cannot support %d"
+            % (X_df.shape[1], n_features)
+        )
     if n_samples > X_df.shape[0]:
-        raise ValueError("Higgs dataset has only %d rows, cannot support %d" %
-                         (X_df.shape[0], n_samples))
+        raise ValueError(
+            "Higgs dataset has only %d rows, cannot support %d"
+            % (X_df.shape[0], n_samples)
+        )
     return X_df.iloc[:n_samples, :n_features], y_df.iloc[:n_samples]
+
 
 def _download_and_cache(url, compressed_filepath, decompressed_filepath):
     if not os.path.isfile(compressed_filepath):
@@ -102,21 +131,32 @@ def _download_and_cache(url, compressed_filepath, decompressed_filepath):
             df.write(cf.read())
     return decompressed_filepath
 
+
 # Default location to cache datasets
 DATASETS_DIRECTORY = '.'
 
+
 def load_higgs(format='cudf'):
     """Returns the Higgs Boson dataset as an X, y tuple of dataframes."""
-    higgs_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz'
-    decompressed_filepath = _download_and_cache(higgs_url,
-                                                os.path.join(DATASETS_DIRECTORY, "HIGGS.csv.gz"),
-                                                os.path.join(DATASETS_DIRECTORY, "HIGGS.csv"))
-    col_names = ['label'] + ["col-{}".format(i) for i in range(2, 30)] # Assign column names
-    dtypes_ls = ['int32'] + ['float32' for _ in range(2, 30)] # Assign dtypes to each column
-    data_df = pd.read_csv(decompressed_filepath, names=col_names, dtype=dtypes_ls)
+    higgs_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz'  # noqa
+    decompressed_filepath = _download_and_cache(
+        higgs_url,
+        os.path.join(DATASETS_DIRECTORY, "HIGGS.csv.gz"),
+        os.path.join(DATASETS_DIRECTORY, "HIGGS.csv"),
+    )
+    col_names = ['label'] + [
+        "col-{}".format(i) for i in range(2, 30)
+    ]  # Assign column names
+    dtypes_ls = ['int32'] + [
+        'float32' for _ in range(2, 30)
+    ]  # Assign dtypes to each column
+    data_df = pd.read_csv(
+        decompressed_filepath, names=col_names, dtype=dtypes_ls
+    )
     X_df = data_df[data_df.columns.difference(['label'])]
     y_df = data_df['label']
     return X_df, y_df
+
 
 def _convert_to_numpy(data):
     if data is None:
@@ -130,17 +170,20 @@ def _convert_to_numpy(data):
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
+
 def _convert_to_cudf(data):
     if data is None:
         return None
     elif isinstance(data, tuple):
         return tuple([_convert_to_cudf(d) for d in data])
     elif isinstance(data, pd.DataFrame):
+        print("Class: ", data.__class__)
         return cudf.DataFrame.from_pandas(data)
     elif isinstance(data, pd.Series):
         return cudf.Series.from_pandas(data)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
+
 
 def _convert_to_pandas(data):
     if data is None:
@@ -148,38 +191,55 @@ def _convert_to_pandas(data):
     elif isinstance(data, tuple):
         return tuple([_convert_to_pandas(d) for d in data])
     elif isinstance(data, pd.DataFrame):
-        return cudf.DataFrame.from_pandas(data)
+        return data
     elif isinstance(data, pd.Series):
-        return cudf.Series.from_pandas(data)
+        return data
+    elif isinstance(data, cudf.DataFrame):
+        return data.to_pandas()
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
+
 
 def _convert_to_gpuarray(data, order='F'):
     if data is None:
         return None
     elif isinstance(data, tuple):
-        return tuple([_convert_to_gpuarray(d, order=order)
-                     for d in data])
+        return tuple([_convert_to_gpuarray(d, order=order) for d in data])
+    elif isinstance(data, pd.DataFrame):
+        gdf = cudf.DataFrame.from_pandas(data)
+        return gdf.as_gpu_matrix(order=order)
+    elif isinstance(data, pd.Series):
+        gs = cudf.Series.from_pandas(data)
+        return cuda.as_cuda_array(gs)
     else:
-        return input_to_dev_array(data, order=order)
+        return input_utils.input_to_dev_array(data, order=order)[0]
 
 
-_data_generators = { 'blobs': _gen_data_blobs,
-                     'zeros': _gen_data_zeros,
-                     'classification': _gen_data_classification,
-                     'regression': _gen_data_regression,
-                     'higgs': _gen_data_higgs }
-_data_converters = { 'numpy': _convert_to_numpy,
-                     'cudf': _convert_to_cudf,
-                     'pandas': _convert_to_pandas,
-                     'gpuarray': _convert_to_gpuarray }
+_data_generators = {
+    'blobs': _gen_data_blobs,
+    'zeros': _gen_data_zeros,
+    'classification': _gen_data_classification,
+    'regression': _gen_data_regression,
+    'higgs': _gen_data_higgs,
+}
+_data_converters = {
+    'numpy': _convert_to_numpy,
+    'cudf': _convert_to_cudf,
+    'pandas': _convert_to_pandas,
+    'gpuarray': _convert_to_gpuarray,
+}
 
 
 @functools.lru_cache(maxsize=8)
-def gen_data(dataset_name, dataset_format,
-             n_samples=0, n_features=0, random_state=42,
-             test_fraction=0.0,
-             **kwargs):
+def gen_data(
+    dataset_name,
+    dataset_format,
+    n_samples=0,
+    n_features=0,
+    random_state=42,
+    test_fraction=0.0,
+    **kwargs
+):
     """Returns a tuple of data from the specified generator.
 
     Output
@@ -203,15 +263,21 @@ def gen_data(dataset_name, dataset_format,
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
     """
-    data = _data_generators[dataset_name](int(n_samples / (1-test_fraction)),
-                                          n_features, random_state, **kwargs)
+    data = _data_generators[dataset_name](
+        int(n_samples / (1 - test_fraction)),
+        n_features,
+        random_state,
+        **kwargs
+    )
     if test_fraction != 0.0:
         X_train, X_test, y_train, y_test = tuple(
-            sklearn.model_selection.train_test_split(*data,
-                                                     train_size=n_samples))
+            sklearn.model_selection.train_test_split(
+                *data, train_size=n_samples
+            )
+        )
         data = (X_train, y_train, X_test, y_test)
     else:
-        data = (*data, None, None) # No test set
+        data = (*data, None, None)  # No test set
 
     data = _data_converters[dataset_format](data)
     return data

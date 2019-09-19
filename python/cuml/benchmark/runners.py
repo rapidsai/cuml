@@ -15,30 +15,37 @@
 #
 """Wrappers to run ML benchmarks"""
 
-from cuml.benchmark import datagen, algorithms
+from cuml.benchmark import datagen
 import time
 import numpy as np
 import pandas as pd
 
+
 class SpeedupComparisonRunner:
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute speedup of cuml relative to sklearn baseline."""
-    def __init__(self, bench_rows, bench_dims,
-                 dataset_name='blobs', input_type='numpy'):
+
+    def __init__(
+        self, bench_rows, bench_dims, dataset_name='blobs', input_type='numpy'
+    ):
         self.bench_rows = bench_rows
         self.bench_dims = bench_dims
         self.dataset_name = dataset_name
         self.input_type = input_type
 
-    def _run_one_size(self, algo_pair, n_samples, n_features,
-                      param_overrides={},
-                      cuml_param_overrides={},
-                      cpu_param_overrides={},
-                      run_cpu=True):
-        data = datagen.gen_data(self.dataset_name,
-                                   self.input_type,
-                                   n_samples,
-                                   n_features)
+    def _run_one_size(
+        self,
+        algo_pair,
+        n_samples,
+        n_features,
+        param_overrides={},
+        cuml_param_overrides={},
+        cpu_param_overrides={},
+        run_cpu=True,
+    ):
+        data = datagen.gen_data(
+            self.dataset_name, self.input_type, n_samples, n_features
+        )
         cu_start = time.time()
         algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
         cu_elapsed = time.time() - cu_start
@@ -50,63 +57,91 @@ class SpeedupComparisonRunner:
         else:
             cpu_elapsed = 0.0
 
-        return dict(cu_time=cu_elapsed,
-                    cpu_time=cpu_elapsed,
-                    speedup=cpu_elapsed / float(cu_elapsed),
-                    n_samples=n_samples,
-                    n_features=n_features,
-                    **param_overrides,
-                    **cuml_param_overrides)
+        return dict(
+            cu_time=cu_elapsed,
+            cpu_time=cpu_elapsed,
+            speedup=cpu_elapsed / float(cu_elapsed),
+            n_samples=n_samples,
+            n_features=n_features,
+            **param_overrides,
+            **cuml_param_overrides
+        )
 
-    def run(self, algo_pair, param_overrides={},
-            cuml_param_overrides={},
-            cpu_param_overrides={}, *,
-            run_cpu=True,
-            raise_on_error=False):
+    def run(
+        self,
+        algo_pair,
+        param_overrides={},
+        cuml_param_overrides={},
+        cpu_param_overrides={},
+        *,
+        run_cpu=True,
+        raise_on_error=False
+    ):
         all_results = []
         for ns in self.bench_rows:
             for nf in self.bench_dims:
                 try:
-                    all_results.append(self._run_one_size(algo_pair,
-                                                          ns,
-                                                          nf,
-                                                          param_overrides,
-                                                          cuml_param_overrides,
-                                                          cpu_param_overrides, run_cpu))
+                    all_results.append(
+                        self._run_one_size(
+                            algo_pair,
+                            ns,
+                            nf,
+                            param_overrides,
+                            cuml_param_overrides,
+                            cpu_param_overrides,
+                            run_cpu,
+                        )
+                    )
                 except Exception as e:
-                    print("Failed to run with %d samples, %d features: %s" %
-                          (ns, nf, str(e)))
+                    print(
+                        "Failed to run with %d samples, %d features: %s"
+                        % (ns, nf, str(e))
+                    )
                     if raise_on_error:
                         raise
                     all_results.append(dict(n_samples=ns, n_features=nf))
         return all_results
 
 
-
 class AccuracyComparisonRunner(SpeedupComparisonRunner):
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute accuracy and speedup of cuml relative to sklearn
     baseline."""
-    def __init__(self, bench_rows, bench_dims,
-                 dataset_name='blobs', input_type='numpy',
-                 test_fraction=0.10):
+
+    def __init__(
+        self,
+        bench_rows,
+        bench_dims,
+        dataset_name='blobs',
+        input_type='numpy',
+        test_fraction=0.10,
+    ):
         super().__init__(bench_rows, bench_dims, dataset_name, input_type)
         self.test_fraction = test_fraction
 
-    def _run_one_size(self, algo_pair, n_samples, n_features,
-                      param_overrides={},
-                      cuml_param_overrides={},
-                      cpu_param_overrides={},
-                      run_cpu=True):
-        data = datagen.gen_data(self.dataset_name,
-                                   self.input_type,
-                                   n_samples,
-                                   n_features,
-                                   test_fraction=self.test_fraction)
+    def _run_one_size(
+        self,
+        algo_pair,
+        n_samples,
+        n_features,
+        param_overrides={},
+        cuml_param_overrides={},
+        cpu_param_overrides={},
+        run_cpu=True,
+    ):
+        data = datagen.gen_data(
+            self.dataset_name,
+            self.input_type,
+            n_samples,
+            n_features,
+            test_fraction=self.test_fraction,
+        )
         X_test, y_test = data[2:]
 
         cu_start = time.time()
-        cuml_model = algo_pair.run_cuml(data, **{**param_overrides, **cuml_param_overrides})
+        cuml_model = algo_pair.run_cuml(
+            data, **{**param_overrides, **cuml_param_overrides}
+        )
         cu_elapsed = time.time() - cu_start
 
         if algo_pair.accuracy_function:
@@ -114,7 +149,9 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 y_pred_cuml = cuml_model.predict(X_test)
             else:
                 y_pred_cuml = cuml_model.transform(X_test)
-            cuml_accuracy = algo_pair.accuracy_function(y_test, np.asarray(y_pred_cuml))
+            cuml_accuracy = algo_pair.accuracy_function(
+                y_test, np.asarray(y_pred_cuml)
+            )
         else:
             cuml_accuracy = 0.0
 
@@ -129,28 +166,36 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cpu = cpu_model.predict(X_test)
                 else:
                     y_pred_cpu = cpu_model.transform(X_test)
-                cpu_accuracy = algo_pair.accuracy_function(y_test, np.asarray(y_pred_cpu))
+                cpu_accuracy = algo_pair.accuracy_function(
+                    y_test, np.asarray(y_pred_cpu)
+                )
         else:
             cpu_elapsed = 0.0
 
-        return dict(cu_time=cu_elapsed,
-                    cpu_time=cpu_elapsed,
-                    cuml_acc=cuml_accuracy,
-                    cpu_acc=cpu_accuracy,
-                    speedup=cpu_elapsed / float(cu_elapsed),
-                    n_samples=n_samples,
-                    n_features=n_features,
-                    **param_overrides,
-                    **cuml_param_overrides)
+        return dict(
+            cu_time=cu_elapsed,
+            cpu_time=cpu_elapsed,
+            cuml_acc=cuml_accuracy,
+            cpu_acc=cpu_accuracy,
+            speedup=cpu_elapsed / float(cu_elapsed),
+            n_samples=n_samples,
+            n_features=n_features,
+            **param_overrides,
+            **cuml_param_overrides
+        )
 
 
-def run_variations(algos, dataset_name, bench_rows,
-                   bench_dims,
-                   param_override_list=[{}],
-                   cuml_param_override_list=[{}],
-                   input_type="numpy",
-                   run_cpu=True,
-                   raise_on_error=False):
+def run_variations(
+    algos,
+    dataset_name,
+    bench_rows,
+    bench_dims,
+    param_override_list=[{}],
+    cuml_param_override_list=[{}],
+    input_type="numpy",
+    run_cpu=True,
+    raise_on_error=False,
+):
     """
     Runs each algo in `algos` once per
     `bench_rows X bench_dims X params_override_list X cuml_param_override_list`
@@ -175,20 +220,25 @@ def run_variations(algos, dataset_name, bench_rows,
       If True, run the cpu-based algorithm for comparison
     """
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
-    runner = AccuracyComparisonRunner(bench_rows,
-                                      bench_dims,
-                                      dataset_name,
-                                      input_type)
+    runner = AccuracyComparisonRunner(
+        bench_rows, bench_dims, dataset_name, input_type
+    )
     all_results = []
     for algo in algos:
         print("Running %s..." % (algo.name))
         for param_overrides in param_override_list:
             for cuml_param_overrides in cuml_param_override_list:
-                results = runner.run(algo, param_overrides, cuml_param_overrides,
-                                     run_cpu=run_cpu,
-                                     raise_on_error=raise_on_error)
+                results = runner.run(
+                    algo,
+                    param_overrides,
+                    cuml_param_overrides,
+                    run_cpu=run_cpu,
+                    raise_on_error=raise_on_error,
+                )
                 for r in results:
-                    all_results.append({'algo': algo.name, 'input': input_type, **r})
+                    all_results.append(
+                        {'algo': algo.name, 'input': input_type, **r}
+                    )
 
     print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)

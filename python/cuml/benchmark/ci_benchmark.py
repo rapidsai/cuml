@@ -23,14 +23,14 @@ from cuml.benchmark import algorithms
 import numpy as np
 import pandas as pd
 
+
 def log_range(start, end, n):
-    return np.logspace(np.log10(start),
-                       np.log10(end),
-                       num=n,
-                       dtype=np.int32)
+    return np.logspace(np.log10(start), np.log10(end), num=n, dtype=np.int32)
+
 
 def expand_params(key, vals):
     return [{key: v} for v in vals]
+
 
 def report_asv(results_df, output_dir):
     """Logs the dataframe `results_df` to airspeed velocity format.
@@ -50,26 +50,31 @@ def report_asv(results_df, output_dir):
     uname = platform.uname()
     (commitHash, commitTime) = asvdb.utils.getCommitInfo()
 
-    b_info = asvdb.BenchmarkInfo(machineName=uname.machine,
-                      cudaVer="10.0",
-                      osType="%s %s" % (uname.system, uname.release),
-                      pythonVer=platform.python_version(),
-                      commitHash=commitHash,
-                      commitTime=commitTime,
-                      gpuType="n/a",
-                      cpuType=uname.processor,
-                      arch=uname.machine,
-                      ram="%d" % psutil.virtual_memory().total)
-    (repo, branch) = asvdb.utils.getRepoInfo()  # gets repo info from CWD by default
+    b_info = asvdb.BenchmarkInfo(
+        machineName=uname.machine,
+        cudaVer="10.0",
+        osType="%s %s" % (uname.system, uname.release),
+        pythonVer=platform.python_version(),
+        commitHash=commitHash,
+        commitTime=commitTime,
+        gpuType="n/a",
+        cpuType=uname.processor,
+        arch=uname.machine,
+        ram="%d" % psutil.virtual_memory().total,
+    )
+    (
+        repo,
+        branch,
+    ) = asvdb.utils.getRepoInfo()  # gets repo info from CWD by default
 
-    db = asvdb.ASVDb(dbDir=output_dir,
-                     repo=repo,
-                     branches=[branch])
+    db = asvdb.ASVDb(dbDir=output_dir, repo=repo, branches=[branch])
 
     for index, row in results_df.iterrows():
         val_keys = ['cu_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
-        params = [(k,v) for k,v in row.items() if k not in val_keys]
-        result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
+        params = [(k, v) for k, v in row.items() if k not in val_keys]
+        result = asvdb.BenchmarkResult(
+            row['algo'], params, result=row['cu_time']
+        )
         db.addResult(b_info, result)
 
 
@@ -89,7 +94,7 @@ def make_bench_configs(long_config):
         small_rows = log_range(20000, 20000, 1)
         large_rows = log_range(100000, 100000, 1)
 
-    default_dims = [16,256]
+    default_dims = [16, 256]
 
     # Add all the simple algorithms that don't need special treatment
     algo_defs = [
@@ -103,47 +108,59 @@ def make_bench_configs(long_config):
         ("LinearRegression", "regression", large_rows, default_dims, [{}]),
         ("Lasso", "regression", large_rows, default_dims, [{}]),
         ("ElasticNet", "regression", large_rows, default_dims, [{}]),
-        ("PCA", "blobs", large_rows, [32,256],
-         expand_params("n_components", [2,25])),
-        ("tSVD", "blobs", large_rows, [32,256],
-         expand_params("n_components", [2,25]))
+        ("PCA", "blobs", large_rows, [32, 256],
+         expand_params("n_components", [2, 25])),
+        ("tSVD", "blobs", large_rows, [32, 256],
+         expand_params("n_components", [2, 25]),),
     ]
 
     for algo_name, dataset_name, rows, dims, params in algo_defs:
-        configs.append(dict(algo_name=algo_name,
-                            dataset_name=dataset_name,
-                            bench_rows=rows,
-                            bench_dims=dims,
-                            param_override_list=params))
+        configs.append(
+            dict(
+                algo_name=algo_name,
+                dataset_name=dataset_name,
+                bench_rows=rows,
+                bench_dims=dims,
+                param_override_list=params,
+            )
+        )
 
     # Explore some more interesting params for RF
     if long_config:
-        configs += [dict(algo_name="RandomForestClassifier",
-                   dataset_name="classification",
-                   bench_rows=small_rows,
-                   bench_dims=default_dims,
-                   cuml_param_override_list=[
-                       {"n_bins": [8, 32]},
-                       {"split_algo": [0,1]},
-                       {"max_features": ['sqrt', 1.0]}
-                   ])]
+        configs += [
+            dict(
+                algo_name="RandomForestClassifier",
+                dataset_name="classification",
+                bench_rows=small_rows,
+                bench_dims=default_dims,
+                cuml_param_override_list=[
+                    {"n_bins": [8, 32]},
+                    {"split_algo": [0, 1]},
+                    {"max_features": ['sqrt', 1.0]},
+                ],
+            )
+        ]
 
     return configs
 
+
 bench_config = {
     "short": make_bench_configs(False),
-    "long": make_bench_configs(True)
+    "long": make_bench_configs(True),
 }
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(prog='ci_benchmark',
-                                     description='''
+
+    parser = argparse.ArgumentParser(
+        prog='ci_benchmark',
+        description='''
                                      Tool for running benchmarks in CI
-                                     ''')
-    parser.add_argument("--benchmark", type=str,
-                        choices=bench_config.keys(),
-                        default="short")
+                                     ''',
+    )
+    parser.add_argument(
+        "--benchmark", type=str, choices=bench_config.keys(), default="short"
+    )
 
     parser.add_argument('--asvdb', required=False, type=str)
     args = parser.parse_args()
