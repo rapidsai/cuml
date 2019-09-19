@@ -18,8 +18,8 @@
 NOTE: This is currently experimental as the ops team builds out the CI
 platform to support benchmark reporting.
 """
-from cuml.benchmark.bench_all import run_variations, report_asv
-from cuml.benchmark import bench_algos
+from cuml.benchmark.runners import run_variations
+from cuml.benchmark import algorithms
 import numpy as np
 import pandas as pd
 
@@ -32,6 +32,47 @@ def log_range(start, end, n):
 def expand_params(key, vals):
     return [{key: v} for v in vals]
 
+def report_asv(results_df, output_dir):
+    """Logs the dataframe `results_df` to airspeed velocity format.
+    This writes (or appends to) JSON files in `output_dir`
+
+    Parameters
+    ----------
+    results_df : pd.DataFrame
+      DataFrame with one row per benchmark run
+    output_dir : str
+      Directory for ASV output database
+    """
+    import asvdb
+    import platform
+    import psutil
+
+    uname = platform.uname()
+    (commitHash, commitTime) = asvdb.utils.getCommitInfo()
+
+    b_info = asvdb.BenchmarkInfo(machineName=uname.machine,
+                      cudaVer="10.0",
+                      osType="%s %s" % (uname.system, uname.release),
+                      pythonVer=platform.python_version(),
+                      commitHash=commitHash,
+                      commitTime=commitTime,
+                      gpuType="n/a",
+                      cpuType=uname.processor,
+                      arch=uname.machine,
+                      ram="%d" % psutil.virtual_memory().total)
+    (repo, branch) = asvdb.utils.getRepoInfo()  # gets repo info from CWD by default
+
+    db = asvdb.ASVDb(dbDir=output_dir,
+                     repo=repo,
+                     branches=[branch])
+
+    for index, row in results_df.iterrows():
+        val_keys = ['cu_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
+        params = [(k,v) for k,v in row.items() if k not in val_keys]
+        result = asvdb.BenchmarkResult(row['algo'], params, result=row['cu_time'])
+        db.addResult(b_info, result)
+
+
 def make_bench_configs(long_config):
     """Defines the configurations we want to benchmark
     If `long_config` is True, this may take over an hour.
@@ -41,19 +82,19 @@ def make_bench_configs(long_config):
     if long_config:
         # Use large_rows for pretty fast algos,
         # use small_rows for slower ones
-        small_rows = log_range(10000, 1000000, 3)
-        large_rows = log_range(1e5, 1e7, 3)
+        small_rows = log_range(10000, 1000000, 2)
+        large_rows = log_range(1e5, 1e7, 2)
     else:
         # Small config only runs a single size
-        small_rows = log_range(2000, 2000, 1)
-        large_rows = log_range(10000, 10000, 1)
+        small_rows = log_range(20000, 20000, 1)
+        large_rows = log_range(100000, 100000, 1)
 
     default_dims = [16,256]
 
     # Add all the simple algorithms that don't need special treatment
     algo_defs = [
         ("KMeans", "blobs", small_rows, default_dims, [{}]),
-        ("DBScan", "blobs", large_rows, default_dims, [{}]),
+        ("DBScan", "blobs", small_rows, default_dims, [{}]),
         ("TSNE", "blobs", small_rows, default_dims, [{}]),
         ("NearestNeighbors", "blobs", small_rows, default_dims, [{}]),
         ("MBSGDClassifier", "blobs", large_rows, default_dims, [{}]),
@@ -113,7 +154,7 @@ if __name__ == '__main__':
     for cfg_in in bench_to_run:
         # Pass an actual algo object instead of an algo_name string
         cfg = cfg_in.copy()
-        algo = bench_algos.algorithm_by_name(cfg_in["algo_name"])
+        algo = algorithms.algorithm_by_name(cfg_in["algo_name"])
         cfg["algos"] = [algo]
         del cfg["algo_name"]
         res = run_variations(**{**default_args, **cfg})
