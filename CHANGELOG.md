@@ -4,6 +4,7 @@
 - PR #1071: Selective eigen solver of cuSolver 
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 - PR #1112: prims: new batched-gemv primitive
+- PR #855: Added benchmark tools
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
