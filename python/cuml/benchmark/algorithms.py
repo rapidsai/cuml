@@ -19,6 +19,7 @@ import sklearn
 import sklearn.cluster
 import sklearn.neighbors
 import sklearn.ensemble
+import sklearn.random_projection
 from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
@@ -142,10 +143,17 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            sklearn.decomposition.truncated_svd,
+            sklearn.decomposition.truncated_svd.TruncatedSVD,
             cuml.decomposition.tsvd.TruncatedSVD,
             shared_args=dict(n_components=10),
             name="tSVD",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
+            sklearn.random_projection.GaussianRandomProjection,
+            cuml.random_projection.GaussianRandomProjection,
+            shared_args=dict(n_components=10),
+            name="GaussianRandomProjection",
             accepts_labels=False,
         ),
         AlgorithmPair(
