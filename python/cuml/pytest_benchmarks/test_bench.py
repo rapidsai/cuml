@@ -19,6 +19,7 @@ from cuml.benchmark import datagen, algorithms
 from cuml.utils.import_utils import has_pytest_benchmark
 import pytest
 
+
 #
 # Testing utilities
 #
