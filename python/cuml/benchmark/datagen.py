@@ -103,8 +103,8 @@ def _gen_data_classification(
 
 
 def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
-    """Wrapper returning Higgs in Pandas formatter"""
-    X_df, y_df = load_higgs('pandas')
+    """Wrapper returning Higgs in Pandas format"""
+    X_df, y_df = load_higgs()
     if n_samples == 0:
         n_samples = X_df.shape[0]
     if n_features == 0:
@@ -136,7 +136,7 @@ def _download_and_cache(url, compressed_filepath, decompressed_filepath):
 DATASETS_DIRECTORY = '.'
 
 
-def load_higgs(format='cudf'):
+def load_higgs():
     """Returns the Higgs Boson dataset as an X, y tuple of dataframes."""
     higgs_url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz'  # noqa
     decompressed_filepath = _download_and_cache(
@@ -147,11 +147,12 @@ def load_higgs(format='cudf'):
     col_names = ['label'] + [
         "col-{}".format(i) for i in range(2, 30)
     ]  # Assign column names
-    dtypes_ls = ['int32'] + [
-        'float32' for _ in range(2, 30)
+    dtypes_ls = [np.int32] + [
+        np.float32 for _ in range(2, 30)
     ]  # Assign dtypes to each column
     data_df = pd.read_csv(
-        decompressed_filepath, names=col_names, dtype=dtypes_ls
+        decompressed_filepath, names=col_names,
+        dtype={k: v for k,v in zip(col_names, dtypes_ls)}
     )
     X_df = data_df[data_df.columns.difference(['label'])]
     y_df = data_df['label']
@@ -270,6 +271,8 @@ def gen_data(
         **kwargs
     )
     if test_fraction != 0.0:
+        if n_samples == 0:
+            n_samples = int(data[0].shape[0] * (1 - test_fraction))
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
                 *data, train_size=n_samples
