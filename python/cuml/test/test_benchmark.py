@@ -57,20 +57,30 @@ def test_data_generator_split():
 
 def test_run_variations():
     from cuml.benchmark.bench_all import run_variations
-    pass
+    algo = cuml.benchmark.bench_algos.algorithm_by_name(
+        "LogisticRegression")
 
-def test_accuracy_runner(mocker):
-    # Generate a trivial data pattern to test
+    res = run_variations([algo],
+                         dataset_name="classification",
+                         bench_rows=[100,200],
+                        bench_dims=[10, 20])
+    assert res.shape[0] == 4
+    assert (res.n_samples == 100).sum() == 2
+    assert (res.n_features == 20).sum() == 2
+
+
+def test_accuracy_runner():
     from cuml.benchmark.bench_algos import AlgorithmPair
 
-    mocker.patch('cuml.benchmark.bench_data.gen_data').return_value = (
-        np.zeros((5,2)), np.zeros(5),
-        np.zeros((5,2)), np.ones(5) )
+    # Set up data that should deliver accuracy of 0.20 if all goes right
     class MockAlgo:
         def fit(self, X, y):
             return
         def predict(self, X):
-            return np.array([0,0,1,0,0])
+            nr = X.shape[0]
+            res = np.zeros(nr)
+            res[0:int(nr / 5.0)] = 1.0
+            return res
 
     pair = AlgorithmPair(MockAlgo,
                          MockAlgo,
@@ -78,7 +88,8 @@ def test_accuracy_runner(mocker):
                          name="Mock",
                          accuracy_function=metrics.accuracy_score)
 
-
-
-    runner = AccuracyComparisonRunner([100], [10])
-    runner.run(pair)
+    runner = AccuracyComparisonRunner([20], [5],
+                                      dataset_name='zeros',
+                                      test_fraction=0.20)
+    results = runner.run(pair)[0]
+    assert results["cuml_acc"] == pytest.approx(0.80)

@@ -111,10 +111,10 @@ def run_variations(algos, dataset_name, bench_rows,
     run_cpu : boolean
       If True, run the cpu-based algorithm for comparison
     """
-    print("Running: \n", "\n ".join([a.name for a in algos]))
+    print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = bench_runners.AccuracyComparisonRunner(bench_rows,
                                                      bench_dims,
-                                                     dataset,
+                                                     dataset_name,
                                                      input_type)
     all_results = []
     for algo in algos:
@@ -187,7 +187,7 @@ if __name__ == '__main__':
         algos_to_run = bench_algos.all_algorithms()
 
     results_df = run_variations(algos_to_run,
-                     dataset=args.dataset,
+                     dataset_name=args.dataset,
                      bench_rows=bench_rows,
                      bench_dims=bench_dims,
                      input_type=args.input_type,

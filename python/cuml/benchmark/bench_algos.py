@@ -17,7 +17,7 @@ import cuml
 
 import sklearn.cluster, sklearn.neighbors, sklearn.ensemble, sklearn
 from sklearn import metrics
-import cuml.metrics
+import cuml.metrics, cuml.decomposition
 import umap
 import numpy as np
 
@@ -132,11 +132,17 @@ def all_algorithms():
             name='PCA',
             accepts_labels=False),
         AlgorithmPair(
+            sklearn.decomposition.truncated_svd,
+            cuml.decomposition.tsvd.TruncatedSVD,
+            shared_args=dict(n_components=10),
+            name='tSVD',
+            accepts_labels=False),
+        AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
             cpu_args=dict(algorithm='brute'),
-            cuml_args=dict(n_gpus=1),
+            cuml_args={},
             name='NearestNeighbors',
             accepts_labels=False),
         AlgorithmPair(
@@ -155,6 +161,20 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=metrics.r2_score),
         AlgorithmPair(
+            sklearn.linear_model.ElasticNet,
+            cuml.linear_model.ElasticNet,
+            shared_args={'alpha': 0.1, 'l1_ratio': 0.5},
+            name='ElasticNet',
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score),
+        AlgorithmPair(
+            sklearn.linear_model.Lasso,
+            cuml.linear_model.Lasso,
+            shared_args={},
+            name='Lasso',
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score),
+        AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
             shared_args={},
@@ -164,7 +184,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
-            shared_args={'max_features': 1.0, 'n_estimators': 100},
+            shared_args={'max_features': 1.0, 'n_estimators': 10},
             name='RandomForestClassifier',
             accepts_labels=True,
             data_prep_hook=_labels_to_int_hook,
@@ -172,10 +192,16 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
-            shared_args={'max_features': 1.0, 'n_estimators': 100},
+            shared_args={'max_features': 1.0, 'n_estimators': 10},
             name='RandomForestRegressor',
             accepts_labels=True,
             accuracy_function=metrics.r2_score),
+        AlgorithmPair(
+            sklearn.manifold.TSNE,
+            cuml.manifold.TSNE,
+            shared_args=dict(),
+            name='TSNE',
+            accepts_labels=False),
         AlgorithmPair(
             umap.UMAP,
             cuml.manifold.UMAP,
@@ -187,6 +213,7 @@ def all_algorithms():
             None,
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
+            cuml_args=dict(eta0=0.005, epochs=100),
             name='MBSGDClassifier',
             accepts_labels=True,
             accuracy_function=cuml.metrics.accuracy_score),
