@@ -42,12 +42,13 @@ class KMeans : public BlobsFixture<D> {
     if (!this->params.rowMajor) {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
+    auto& handle = *this->handle;
+    auto stream = handle.getStream();
     for (auto _ : state) {
-      ///@todo: cuda event timer
-      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X,
-                              this->params.nrows, this->params.ncols, centroids,
-                              labels, inertia, nIter);
-      CUDA_CHECK(cudaStreamSynchronize(this->handle->getStream()));
+      CudaEventTimer timer(handle, state, true, stream);
+      ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
+                              this->params.ncols, centroids, labels, inertia,
+                              nIter);
     }
   }
 
