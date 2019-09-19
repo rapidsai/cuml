@@ -49,6 +49,7 @@ class Fixture : public ::benchmark::Fixture {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
+    handle.reset();
   }
 
   // to keep compiler happy
@@ -101,12 +102,12 @@ class BlobsFixture : public Fixture {
     data.deallocate(*handle, params);
   }
 
+  /** parameters passed to `make_blobs` */
   BlobsParams bParams;
   Dataset<D, L> data;
-};
+};  // end class BlobFixture
 
 namespace internal {
-
 template <typename Params, typename Class>
 struct Registrar {
   Registrar(const std::vector<Params>& paramsList, const std::string& name) {
@@ -121,8 +122,7 @@ struct Registrar {
       ++counter;
     }
   }
-};
-
+};  // end struct Registrar
 };  // end namespace internal
 
 /**
