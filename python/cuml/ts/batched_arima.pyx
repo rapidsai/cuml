@@ -47,17 +47,9 @@ cdef extern from "utils.h" namespace "MLCommon":
 
 cdef extern from "ts/batched_kalman.hpp" namespace "ML":
 
-  void batched_jones_transform(cumlHandle& handle,
-                               int p, int q,
-                               int batchSize,
-                               bool isInv,
-                               const vector[double]& ar,
-                               const vector[double]& ma,
-                               vector[double]& Tar,
-                               vector[double]& Tma)
-
-
-  
+  void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
+                               int batchSize, bool isInv, const double* h_params,
+                               double* h_Tparams);
 
 class ARIMAModel:
     r"""
@@ -137,37 +129,20 @@ def init_x0(order, y):
     return x0
 
 
-def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle):
+def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
     cdef vector[double] vec_Tma
 
     pynvtx_range_push("batched_transform")
-    # pack ar & ma into C++ vectors
-    for ib in range(nb):
-        for ip in range(p):
-            vec_ar.push_back(x[(d+p+q)*ib + d + ip])
-        for iq in range(q):
-            vec_ma.push_back(x[(d+p+q)*ib + d + p + iq])
+    
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    cdef np.ndarray[double] Tx = np.zeros(nb*(d+p+q))
 
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()        
-    batched_jones_transform(handle_[0], p, q, nb, isInv, vec_ar, vec_ma, vec_Tar, vec_Tma)
-
-    # unpack Tar & Tma results into [np.ndarray]
-    Tx = np.zeros(nb*(d+p+q))
-    for ib in range(nb):
-
-        # copy mu
-        Tx[(d+p+q)*ib] = x[(d+p+q)*ib]
-
-        # copy ar
-        for ip in range(p):
-            Tx[(d+p+q)*ib + d + ip] = vec_Tar[ib*p + ip]
-
-        # copy ma
-        for iq in range(q):
-            Tx[(d+p+q)*ib + d + p + iq] = vec_Tma[ib*q + iq]
+    batched_jones_transform(handle_[0], p, d, q, nb, isInv, &x[0], &Tx[0])
 
     pynvtx_range_pop()
     return (Tx)
@@ -359,8 +334,10 @@ def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, han
     vec_loglike.resize(num_batches)
 
     cdef uintptr_t d_y_ptr
+    cdef uintptr_t d_x_ptr
     # note: make sure you explicitly have d_y_array. Otherwise it gets garbage collected (I think).
     d_y_array, d_y_ptr, _, _, dtype = input_to_dev_array(y, check_dtype=np.float64)
+    d_x_array, d_x_ptr, _, _, dtype = input_to_dev_array(x, check_dtype=np.float64)
 
 
     if handle is None:
@@ -373,7 +350,7 @@ def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, han
     if dtype != np.float64:
         raise ValueError("Only 64-bit floating point inputs currently supported")
 
-    batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, &x[0], vec_loglike, d_vs_ptr, trans)
+    batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr, vec_loglike, d_vs_ptr, trans)
     # cdef vector[double] vec_res
 
     cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
@@ -402,9 +379,10 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
     vec_loglike.resize(num_batches)
 
     cdef uintptr_t d_y_ptr
+    cdef uintptr_t d_x_ptr
     # note: make sure you explicitly have d_y_array. Otherwise it gets garbage collected (I think).
     d_y_array, d_y_ptr, _, _, dtype = input_to_dev_array(y, check_dtype=np.float64)
-
+    d_x_array, d_x_ptr, _, _, dtype = input_to_dev_array(x, check_dtype=np.float64)
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -414,7 +392,7 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
     cdef double* d_vs_ptr
 
     if dtype == np.float64:
-        batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, &x[0], vec_loglike, d_vs_ptr, trans)
+        batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr, vec_loglike, d_vs_ptr, trans)
     else:
         raise ValueError("Only 64-bit floating point inputs currently supported")
 

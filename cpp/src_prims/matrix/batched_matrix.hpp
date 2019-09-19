@@ -106,7 +106,6 @@ class BatchedMatrixMemoryPool {
   BatchedMatrixMemoryPool(int num_batches,
                           std::shared_ptr<ML::deviceAllocator> allocator)
     : m_num_batches(num_batches), m_allocator(allocator) {
-    // std::cout << "Memory Pool Init\n";
     CUBLAS_CHECK(cublasCreate(&m_cublasHandle));
   }
 

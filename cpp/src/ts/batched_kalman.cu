@@ -495,8 +495,8 @@ void _batched_kalman_filter(double* d_ys, int nobs, const BatchedMatrix& Zb,
                                     0);
 }
 
-void init_batched_kalman_matrices(const vector<double>& b_ar_params,
-                                  const vector<double>& b_ma_params,
+void init_batched_kalman_matrices(const double* d_b_ar_params,
+                                  const double* d_b_ma_params,
                                   const int num_batches, const int p,
                                   const int q, int& r,
                                   thrust::device_vector<double>& d_Z_b,
@@ -508,8 +508,6 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
 
   ML::PUSH_RANGE("init_batched_kalman_matrices");
 
-  device_vector<double> d_b_ar_params = b_ar_params;
-  device_vector<double> d_b_ma_params = b_ma_params;
   const int nb = num_batches;
   // see (3.18) in TSA by D&K
   r = std::max(p, q + 1);
@@ -523,8 +521,6 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
   thrust::fill(d_T_b.begin(), d_T_b.end(), 0.0);
 
   // wish we didn't have to do this casting dance...
-  double* d_b_ar_params_data = thrust::raw_pointer_cast(d_b_ar_params.data());
-  double* d_b_ma_params_data = thrust::raw_pointer_cast(d_b_ma_params.data());
   double* d_Z_b_data = thrust::raw_pointer_cast(d_Z_b.data());
   double* d_R_b_data = thrust::raw_pointer_cast(d_R_b.data());
   double* d_T_b_data = thrust::raw_pointer_cast(d_T_b.data());
@@ -534,9 +530,6 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
     // See TSA pg. 54 for Z,R,T matrices
     // Z = [1 0 0 0 ... 0]
     d_Z_b_data[bid * r] = 1.0;
-    // for (int i = 1; i < r; i++) {
-    //   d_Z_b_data[bid * r + i] = 0.0;
-    // }
 
     /*
         |1.0   |
@@ -545,7 +538,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
      */
     d_R_b_data[bid * r] = 1.0;
     for (int i = 0; i < q; i++) {
-      d_R_b_data[bid * r + i + 1] = d_b_ma_params_data[bid * q + i];
+      d_R_b_data[bid * r + i + 1] = d_b_ma_params[bid * q + i];
     }
 
     /*
@@ -561,7 +554,7 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
     for (int i = 0; i < r; i++) {
       // note: ar_i is zero if (i > p)
       if (i < p) {
-        d_T_b_data[bid * r * r + i] = d_b_ar_params_data[bid * p + i];
+        d_T_b_data[bid * r * r + i] = d_b_ar_params[bid * p + i];
       }
 
       // shifted identity
@@ -574,8 +567,8 @@ void init_batched_kalman_matrices(const vector<double>& b_ar_params,
 }
 
 void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
-                           const vector<double>& b_ar_params,
-                           const vector<double>& b_ma_params, int p, int q,
+                           const double* d_b_ar_params,
+                           const double* d_b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& h_loglike_b,
                            double*& d_vs, bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE("batched_akalman_filter");
@@ -601,8 +594,8 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
   thrust::device_vector<double> d_R_b;
   thrust::device_vector<double> d_T_b;
 
-  init_batched_kalman_matrices(b_ar_params, b_ma_params, num_batches, p, q, r,
-                               d_Z_b, d_R_b, d_T_b);
+  init_batched_kalman_matrices(d_b_ar_params, d_b_ma_params, num_batches, p, q,
+                               r, d_Z_b, d_R_b, d_T_b);
 
   if (KALMAN_CTX->pool == nullptr) {
     KALMAN_CTX->pool = std::make_shared<BatchedMatrixMemoryPool>(
@@ -667,48 +660,112 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& v) {
 //! an inequality) for the inverse transform to not return 'NaN' due to the
 //! logarithm within the inverse. This function ensures that inequality is
 //! satisfied for all parameters.
-std::vector<double> fix_ar_ma_invparams(const vector<double>& old_params,
-                                        int pq, bool isAr = true) {
-  std::vector<double> params = old_params;
-  int num_batches = params.size() / pq;
+void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
+                         int num_batches, int pq, bool isAr = true) {
+  cudaMemcpy(d_new_params, d_old_params, num_batches * pq,
+             cudaMemcpyDeviceToDevice);
   int n = pq;
 
   // The parameter must be within a "triangle" region. If not, we bring the parameter inside by 1%.
   double eps = 0.99;
-
-  for (int ib = 0; ib < num_batches; ib++) {
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + num_batches, [=] __device__(int ib) {
     for (int i = 0; i < n; i++) {
       double sum = 0.0;
       for (int j = 0; j < i; j++) {
-        sum += params[n - j - 1 + ib * n];
+        sum += d_new_params[n - j - 1 + ib * n];
       }
-
       // AR is minus
       if (isAr) {
         // param < 1-sum(param)
-        params[n - i - 1 + ib * n] =
-          std::min((1 - sum) * eps, params[n - i - 1 + ib * n]);
+        d_new_params[n - i - 1 + ib * n] =
+          min((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
         // param > -(1-sum(param))
-        params[n - i - 1 + ib * n] =
-          std::max(-(1 - sum) * eps, params[n - i - 1 + ib * n]);
+        d_new_params[n - i - 1 + ib * n] =
+          max(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
       } else {
         // MA is plus
         // param < 1+sum(param)
-        params[n - i - 1 + ib * n] =
-          std::min((1 + sum) * eps, params[n - i - 1 + ib * n]);
+        d_new_params[n - i - 1 + ib * n] =
+          min((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
         // param > -(1+sum(param))
-        params[n - i - 1 + ib * n] =
-          std::max(-(1 + sum) * eps, params[n - i - 1 + ib * n]);
+        d_new_params[n - i - 1 + ib * n] =
+          max(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
       }
     }
-  }
-  return params;
+  });
+}
+
+void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
+            int batchSize, int p, int d, int q) {
+  int N = (p + d + q);
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + batchSize, [=] __device__(int bid) {
+    if (d > 0) d_mu[bid] = d_params[bid * N];
+    for (int ip = 0; ip < p; ip++) {
+      d_ar[p * bid + ip] = d_params[bid * N + d + ip];
+    }
+    for (int iq = 0; iq < q; iq++) {
+      d_ma[q * bid + iq] = d_params[bid * N + d + p + iq];
+    }
+  });
+}
+
+void pack(int batchSize, int p, int d, int q, const double* d_mu,
+          const double* d_ar, const double* d_ma, double* d_params) {
+  int N = (p + d + q);
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + batchSize, [=] __device__(int bid) {
+    if (d > 0) d_params[bid * N] = d_mu[bid];
+    for (int ip = 0; ip < p; ip++) {
+      d_params[bid * N + d + ip] = d_ar[p * bid + ip];
+    }
+    for (int iq = 0; iq < q; iq++) {
+      d_params[bid * N + d + p + iq] = d_ma[q * bid + iq];
+    }
+  });
+}
+
+void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
+                             int batchSize, bool isInv, const double* h_params,
+                             double* h_Tparams) {
+  int N = p + d + q;
+  auto alloc = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  double* d_params =
+    (double*)alloc->allocate(N * batchSize * sizeof(double), stream);
+  double* d_Tparams =
+    (double*)alloc->allocate(N * batchSize * sizeof(double), stream);
+  double* d_mu =
+    (double*)alloc->allocate(d * batchSize * sizeof(double), stream);
+  double* d_ar =
+    (double*)alloc->allocate(p * batchSize * sizeof(double), stream);
+  double* d_ma =
+    (double*)alloc->allocate(q * batchSize * sizeof(double), stream);
+
+  MLCommon::updateDevice(d_params, h_params, N * batchSize, stream);
+
+  unpack(d_params, d_mu, d_ar, d_ma, batchSize, p, d, q);
+
+  double* d_Tar;
+  double* d_Tma;
+  batched_jones_transform(handle, p, q, batchSize, isInv, d_ar, d_ma, d_Tar,
+                          d_Tma);
+
+  pack(batchSize, p, d, q, d_mu, d_ar, d_ma, d_Tparams);
+
+  MLCommon::updateHost(h_Tparams, d_Tparams, N * batchSize, stream);
+
+  alloc->deallocate(d_params, N * batchSize * sizeof(double), stream);
+  alloc->deallocate(d_Tparams, N * batchSize * sizeof(double), stream);
+  alloc->deallocate(d_mu, d * batchSize * sizeof(double), stream);
+  alloc->deallocate(d_ar, p * batchSize * sizeof(double), stream);
+  alloc->deallocate(d_ma, q * batchSize * sizeof(double), stream);
 }
 
 void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
-                             bool isInv, const vector<double>& ar,
-                             const vector<double>& ma, vector<double>& Tar,
-                             vector<double>& Tma) {
+                             bool isInv, const double* d_ar, const double* d_ma,
+                             double*& d_Tar, double*& d_Tma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
   if (KALMAN_CTX == nullptr)
@@ -718,53 +775,54 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
     KALMAN_CTX = new KalmanContext(p, q, batchSize, handle);
   }
 
-  std::shared_ptr<MLCommon::deviceAllocator> allocator(
-    new MLCommon::defaultDeviceAllocator());
-  cudaStream_t stream = 0;
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
 
   if (p > 0) {
     // inverse transform will produce NaN if parameters are outside of a "triangle" region
-    vector<double> ar_fixed;
+    double* d_ar_fixed;
+    d_ar_fixed =
+      (double*)allocator->allocate(sizeof(double) * batchSize * p, stream);
     if (isInv) {
-      ar_fixed = fix_ar_ma_invparams(ar, p, true);
+      fix_ar_ma_invparams(d_ar, d_ar_fixed, p, true);
     } else {
-      ar_fixed = ar;
+      cudaMemcpy(d_ar_fixed, d_ar, sizeof(double) * batchSize * p,
+                 cudaMemcpyDeviceToDevice);
     }
 
-    Tar.resize(p * batchSize);
-    KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_ar, p * batchSize);
-    KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_Tar, p * batchSize);
+    // KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_ar, p * batchSize);
+    // KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_Tar, p * batchSize);
 
-    MLCommon::updateDevice(KALMAN_CTX->d_ar, ar_fixed.data(), p * batchSize,
-                           stream);
+    d_Tar =
+      (double*)allocator->allocate(p * batchSize * sizeof(double), stream);
 
-    MLCommon::TimeSeries::jones_transform(KALMAN_CTX->d_ar, batchSize, p,
-                                          KALMAN_CTX->d_Tar, true, isInv,
-                                          allocator, stream);
+    MLCommon::TimeSeries::jones_transform(d_ar_fixed, batchSize, p, d_Tar, true,
+                                          isInv, allocator, stream);
 
-    MLCommon::updateHost(Tar.data(), KALMAN_CTX->d_Tar, p * batchSize, stream);
+    allocator->deallocate(d_ar_fixed, sizeof(double) * batchSize * p, stream);
   }
   if (q > 0) {
     // inverse transform will produce NaN if parameters are outside of a "triangle" region
-    vector<double> ma_fixed;
+    double* d_ma_fixed;
+    d_ma_fixed =
+      (double*)allocator->allocate(sizeof(double) * batchSize * q, stream);
     if (isInv) {
-      ma_fixed = fix_ar_ma_invparams(ma, q, false);
+      fix_ar_ma_invparams(d_ma, d_ma_fixed, q, false);
     } else {
-      ma_fixed = ma;
+      cudaMemcpy(d_ma_fixed, d_ma, sizeof(double) * batchSize * q,
+                 cudaMemcpyDeviceToDevice);
     }
 
-    Tma.resize(q * batchSize);
+    // KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_ar, p * batchSize);
+    // KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_Tar, p * batchSize);
 
-    KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_ma, q * batchSize);
-    KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_Tma, q * batchSize);
+    d_Tma =
+      (double*)allocator->allocate(q * batchSize * sizeof(double), stream);
 
-    MLCommon::updateDevice(KALMAN_CTX->d_ma, ma_fixed.data(), q * batchSize,
-                           stream);
+    MLCommon::TimeSeries::jones_transform(d_ma_fixed, batchSize, q, d_Tma,
+                                          false, isInv, allocator, stream);
 
-    MLCommon::TimeSeries::jones_transform(KALMAN_CTX->d_ma, batchSize, q,
-                                          KALMAN_CTX->d_Tma, false, isInv,
-                                          allocator, stream);
-    MLCommon::updateHost(Tma.data(), KALMAN_CTX->d_Tma, q * batchSize, stream);
+    allocator->deallocate(d_ma_fixed, sizeof(double) * batchSize * q, stream);
   }
   ML::POP_RANGE();
 }
