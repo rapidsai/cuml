@@ -1,4 +1,4 @@
-5#
+#
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
 
-cdef extern from "treelite/tree.h" namespace "treelite":
+cdef extern from "treelite/tree.h":
     cdef struct Model:
         pass
 
@@ -140,15 +140,15 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                     RandomForestMetaData[float, int]*,
-                                     int,
-                                     int)
+    cdef void build_treelite_forest(ModelHandle*,
+                                      RandomForestMetaData[float, int]*,
+                                      int,
+                                      int)
 
-    cdef ModelHandle build_treelite_forest(ModelHandle*,
-                                     RandomForestMetaData[double, int]*,
-                                     int,
-                                     int)
+    cdef void build_treelite_forest(ModelHandle*,
+                                      RandomForestMetaData[double, int]*,
+                                      int,
+                                      int)
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -541,7 +541,11 @@ class RandomForestClassifier(Base):
                              " and test data should be the same ")
         import pdb
         pdb.set_trace()
+<<<<<<< HEAD
         treelite_model, tm_mod = self._get_treelite(data=X, num_features=n_cols,
+=======
+        treelite_model = self._get_treelite(num_features=n_cols,
+>>>>>>> ba942055db448800582370c4ecf0b0bfd2a81e99
                                             task_category=num_classes)
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -870,16 +874,16 @@ class RandomForestClassifier(Base):
         cdef ModelHandle tl_model
 
         if self.dtype == np.float32:
-            build_treelite_forest(& cuml_model_ptr,
-                                  rf_forest,
-                                  <int> num_features,
-                                  <int> task_category)
+            tl_model = build_treelite_forest(& cuml_model_ptr,
+                                             rf_forest,
+                                             <int> num_features,
+                                             <int> task_category)
 
         else:
-            build_treelite_forest(& cuml_model_ptr,
-                                  rf_forest64,
-                                  <int> num_features,
-                                  <int> task_category)
+            tl_model = build_treelite_forest(& cuml_model_ptr,
+                                             rf_forest64,
+                                             <int> num_features,
+                                             <int> task_category)
         self.mod_ptr = <size_t> cuml_model_ptr
 
         print(" model handle type : ", (self.mod_ptr))

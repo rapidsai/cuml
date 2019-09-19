@@ -267,9 +267,9 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model,
-                           const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category) {
+ModelHandle build_treelite_forest(ModelHandle* model,
+                                  const RandomForestMetaData<T, L>* forest,
+                                  int num_features, int task_category) {
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
@@ -310,14 +310,11 @@ void build_treelite_forest(ModelHandle* model,
   std::cout << " model num_features in c++ : " << tl_mod.num_feature
             << std::endl
             << std::flush;
-  CompilerHandle compiler;
-  // "ast_navive" is the default compiler treelite used in their Python code.
-  TREELITE_CHECK(TreeliteCompilerCreate("ast_native", &compiler));
 
-  // Generate C code in the directory specified below.
-  // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of CompilerHandle.
-  // Treelite will create a directory if it doesn't exist.
-  // TREELITE_CHECK(TreeliteExportProtobufModel("./my.buffer", *model));
+  TREELITE_CHECK(
+    TreeliteExportProtobufModel("/home/nfs/saljain/rf_fil/cuml/cpp", *model));
+  // std::cout << " model tree protobuf val : " << val << std::endl << std::flush;
+  return *model;
 }
 
 /**
@@ -635,16 +632,16 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
-template void build_treelite_forest<float, int>(
+template ModelHandle build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
   int num_features, int task_category);
-template void build_treelite_forest<double, int>(
+template ModelHandle build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
   int num_features, int task_category);
-template void build_treelite_forest<float, float>(
+template ModelHandle build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
   int num_features, int task_category);
-template void build_treelite_forest<double, double>(
+template ModelHandle build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
   int num_features, int task_category);
 }  // End namespace ML
