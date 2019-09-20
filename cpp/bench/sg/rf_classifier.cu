@@ -46,7 +46,7 @@ template <typename D>
 class RFClassifier : public BlobsFixture<D> {
  public:
   RFClassifier(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), dParams(p.rf) {
+    : BlobsFixture<D>(p.data, p.blobs), rfParams(p.rf) {
     this->SetName(name.c_str());
   }
 
@@ -61,11 +61,10 @@ class RFClassifier : public BlobsFixture<D> {
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       mPtr->trees = nullptr;
-      RF(handle, this->data.X, this->params.nrows, this->params.ncols,
-                D(dParams.eps), dParams.min_pts, labels,
-                dParams.max_bytes_per_batch);
+      fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
+          labels, this->params.nclasses, rfParams);
       CUDA_CHECK(cudaStreamSynchronize(stream));
-      delete [] mPtr->trees;
+      delete[] mPtr->trees;
     }
   }
 
@@ -85,8 +84,10 @@ class RFClassifier : public BlobsFixture<D> {
  private:
   int* labels;
   RFClassifierModel<D> model;
+  RF_params rfParams;
 };
 
+template <typename D>
 std::vector<Params> getInputs() {
   struct Triplets {
     int nrows, ncols, nclasses;
@@ -130,8 +131,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, RFClassifier<float>, "blobs", getInputs());
-CUML_BENCH_REGISTER(Params, RFClassifier<double>, "blobs", getInputs());
+CUML_BENCH_REGISTER(Params, RFClassifier<float>, "blobs", getInputs<float>());
+CUML_BENCH_REGISTER(Params, RFClassifier<double>, "blobs", getInputs<double>());
 
 }  // end namespace rf
 }  // end namespace Bench
