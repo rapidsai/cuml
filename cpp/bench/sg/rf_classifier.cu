@@ -16,149 +16,122 @@
 
 #include <cuML.hpp>
 #include <randomforest/randomforest.hpp>
-#include "dataset.h"
-#include "harness.h"
+#include <utility>
+#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
 namespace rf {
 
-template <typename D>
-struct Params : public BlobsParams<D> {
-  // algo related
-  RF_params p;
-
-  std::string str() const {
-    std::ostringstream oss;
-    oss << PARAM(p.n_trees) << PARAM(p.bootstrap) << PARAM(p.rows_sample)
-        << PARAM(p.n_streams) << PARAM(p.tree_params.max_depth)
-        << PARAM(p.tree_params.max_leaves) << PARAM(p.tree_params.max_features)
-        << PARAM(p.tree_params.n_bins) << PARAM(p.tree_params.split_algo)
-        << PARAM(p.tree_params.min_rows_per_node)
-        << PARAM(p.tree_params.bootstrap_features)
-        << PARAM(p.tree_params.quantile_per_tree)
-        << PARAM(p.tree_params.split_criterion);
-    return BlobsParams<D>::str() + oss.str();
-  }
+struct Params {
+  DatasetParams data;
+  BlobsParams blobs;
+  RF_params rf;
 };
 
 template <typename D>
-struct Run : public Benchmark<Params<D>> {
-  void setup() {
-    const auto& p = this->getParams();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    ///@todo: enable this after PR: https://github.com/rapidsai/cuml/pull/1015
-    // handle.reset(new cumlHandle(p.p.n_streams));
-    handle.reset(new cumlHandle);
-    handle->setStream(stream);
-    auto allocator = handle->getDeviceAllocator();
-    labels = (int*)allocator->allocate(p.nrows * sizeof(int), stream);
-    dataset.blobs(*handle, p.nrows, p.ncols, p.rowMajor, p.nclasses,
-                  p.cluster_std, p.shuffle, p.center_box_min, p.center_box_max,
-                  p.seed);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+struct RFClassifierModel {};
 
-  void teardown() {
-    const auto& p = this->getParams();
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle->getDeviceAllocator();
-    allocator->deallocate(labels, p.nrows * sizeof(int), stream);
-    dataset.deallocate(*handle);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  ///@todo: implement
-  void metrics(RunInfo& ri) {}
-
- protected:
-  std::shared_ptr<cumlHandle> handle;
-  cudaStream_t stream;
-  int* labels;
-  Dataset<D, int> dataset;
-};
-
-struct RunF : public Run<float> {
-  void run() {
-    const auto& p = this->getParams();
-    const auto& h = *handle;
-    auto* mPtr = &model;
-    mPtr->trees = nullptr;
-    ASSERT(!p.rowMajor, "RF only supports col-major inputs");
-    fit(h, mPtr, dataset.X, p.nrows, p.ncols, labels, p.nclasses, p.p);
-    CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
-  }
-
- private:
+template <>
+struct RFClassifierModel<float> {
   ML::RandomForestClassifierF model;
 };
 
-struct RunD : public Run<double> {
-  void run() {
-    const auto& p = this->getParams();
-    const auto& h = *handle;
-    auto* mPtr = &model;
-    mPtr->trees = nullptr;
-    ASSERT(!p.rowMajor, "RF only supports col-major inputs");
-    fit(h, mPtr, dataset.X, p.nrows, p.ncols, labels, p.nclasses, p.p);
-    CUDA_CHECK(cudaStreamSynchronize(handle->getStream()));
-  }
-
- private:
+template <>
+struct RFClassifierModel<double> {
   ML::RandomForestClassifierD model;
 };
 
 template <typename D>
-std::vector<Params<D>> getInputs() {
+class RFClassifier : public BlobsFixture<D> {
+ public:
+  RFClassifier(const std::string& name, const Params& p)
+    : BlobsFixture<D>(p.data, p.blobs), dParams(p.rf) {
+    this->SetName(name.c_str());
+  }
+
+ protected:
+  void runBenchmark(::benchmark::State& state) override {
+    if (this->params.rowMajor) {
+      state.SkipWithError("RFClassifier only supports col-major inputs");
+    }
+    auto& handle = *this->handle;
+    auto stream = handle.getStream();
+    auto* mPtr = &model.model;
+    for (auto _ : state) {
+      CudaEventTimer timer(handle, state, true, stream);
+      mPtr->trees = nullptr;
+      RF(handle, this->data.X, this->params.nrows, this->params.ncols,
+                D(dParams.eps), dParams.min_pts, labels,
+                dParams.max_bytes_per_batch);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      delete [] mPtr->trees;
+    }
+  }
+
+  void allocateBuffers(const ::benchmark::State& state) override {
+    auto allocator = this->handle->getDeviceAllocator();
+    auto stream = this->handle->getStream();
+    labels =
+      (int*)allocator->allocate(this->params.nrows * sizeof(int), stream);
+  }
+
+  void deallocateBuffers(const ::benchmark::State& state) override {
+    auto allocator = this->handle->getDeviceAllocator();
+    auto stream = this->handle->getStream();
+    allocator->deallocate(labels, this->params.nrows * sizeof(int), stream);
+  }
+
+ private:
+  int* labels;
+  RFClassifierModel<D> model;
+};
+
+std::vector<Params> getInputs() {
   struct Triplets {
     int nrows, ncols, nclasses;
   };
-
-  std::vector<Params<D>> out;
-  Params<D> p;
-  p.rowMajor = false;
-  p.cluster_std = (D)10.0;
-  p.shuffle = false;
-  p.center_box_min = (D)-10.0;
-  p.center_box_max = (D)10.0;
-  p.seed = 12345ULL;
-  p.p.bootstrap = true;
-  p.p.rows_sample = 1.f;
-  p.p.tree_params.max_leaves = 1 << 20;
-  p.p.tree_params.max_features = 1.f;
-  p.p.tree_params.min_rows_per_node = 3;
-  p.p.tree_params.n_bins = 32;
-  p.p.tree_params.bootstrap_features = true;
-  p.p.tree_params.quantile_per_tree = false;
-  p.p.tree_params.split_algo = 1;
-  p.p.tree_params.split_criterion = (ML::CRITERION)0;
-  p.p.n_trees = 500;
+  std::vector<Params> out;
+  Params p;
+  p.data.rowMajor = false;
+  p.blobs.cluster_std = 10.0;
+  p.blobs.shuffle = false;
+  p.blobs.center_box_min = -10.0;
+  p.blobs.center_box_max = 10.0;
+  p.blobs.seed = 12345ULL;
+  p.rf.bootstrap = true;
+  p.rf.rows_sample = 1.f;
+  p.rf.tree_params.max_leaves = 1 << 20;
+  p.rf.tree_params.max_features = 1.f;
+  p.rf.tree_params.min_rows_per_node = 3;
+  p.rf.tree_params.n_bins = 32;
+  p.rf.tree_params.bootstrap_features = true;
+  p.rf.tree_params.quantile_per_tree = false;
+  p.rf.tree_params.split_algo = 1;
+  p.rf.tree_params.split_criterion = (ML::CRITERION)0;
+  p.rf.n_trees = 500;
+  p.rf.n_streams = 8;
   std::vector<Triplets> rowcols = {
     {160000, 64, 2},
     {640000, 64, 8},
-    // Bosch dataset
-    {1184000, 968, 2},
+    {1184000, 968, 2},  // Mimicking Bosch dataset
   };
   for (auto& rc : rowcols) {
     // Let's run Bosch only for float type
     if (!std::is_same<D, float>::value && rc.ncols == 968) continue;
-    p.nrows = rc.nrows;
-    p.ncols = rc.ncols;
-    p.nclasses = rc.nclasses;
+    p.data.nrows = rc.nrows;
+    p.data.ncols = rc.ncols;
+    p.data.nclasses = rc.nclasses;
     for (auto max_depth : std::vector<int>({8, 10})) {
-      p.p.tree_params.max_depth = max_depth;
-      for (auto streams : std::vector<int>({8, 10})) {
-        p.p.n_streams = streams;
-        out.push_back(p);
-      }
+      p.rf.tree_params.max_depth = max_depth;
+      out.push_back(p);
     }
   }
   return out;
 }
 
-REGISTER_BENCH(RunF, Params<float>, rfClassifierF, getInputs<float>());
-REGISTER_BENCH(RunD, Params<double>, rfClassifierD, getInputs<double>());
+CUML_BENCH_REGISTER(Params, RFClassifier<float>, "blobs", getInputs());
+CUML_BENCH_REGISTER(Params, RFClassifier<double>, "blobs", getInputs());
 
 }  // end namespace rf
 }  // end namespace Bench
