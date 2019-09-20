@@ -155,8 +155,7 @@ struct CudaEventTimer {
     CUDA_CHECK(cudaEventSynchronize(stop));
     float milliseconds = 0.0f;
     CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
-    ///@todo: for now, let's always measure in milliseconds in cuML bench
-    state->SetIterationTime(milliseconds);
+    state->SetIterationTime(milliseconds / 1000.f);
     CUDA_CHECK(cudaEventDestroy(start));
     CUDA_CHECK(cudaEventDestroy(stop));
   }
