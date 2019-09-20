@@ -57,7 +57,7 @@ if is_ucx_enabled() and has_ucp():
     import ucp
 
 
-async def _connection_func(ep, listener):
+async def _connection_func(ep):
     pass
 
 
@@ -162,9 +162,7 @@ async def _func_ucp_create_listener(sessionId, r):
         print("Listener already started for sessionId=" +
               str(sessionId))
     else:
-        ucp.init()
-        listener = ucp.start_listener(_connection_func, 0,
-                                      is_coroutine=True)
+        listener = ucp.create_listener(_connection_func)
 
         worker_state(sessionId)["ucp_listener"] = listener
 
@@ -174,8 +172,6 @@ async def _func_ucp_create_listener(sessionId, r):
 
         del worker_state(sessionId)["ucp_listener"]
         del listener
-
-        ucp.fin()
 
 
 async def _func_ucp_stop_listener(sessionId):
@@ -266,8 +262,8 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     for k in worker_info:
         if k != local_address:
             ip, port = parse_host_port(k)
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
-                                        timeout=1)
+            # TODO: add timeout=1
+            ep = await ucp.create_endpoint(ip, worker_info[k]["p"])
             eps[worker_info[k]["r"]] = ep
             count += 1
 
@@ -280,8 +276,9 @@ def _func_destroy_all(sessionId, comms_p2p):
 
     if comms_p2p:
         for ep in worker_state(sessionId)["ucp_eps"]:
-            if ep is not None:
-                ucp.destroy_ep(ep)
+            if ep is not None and not ep.closed():
+                ep.signal_shutdown()
+                ep.close()
                 del ep
         del worker_state(sessionId)["ucp_eps"]
         del worker_state(sessionId)["handle"]
