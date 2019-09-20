@@ -662,7 +662,7 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& v) {
 //! satisfied for all parameters.
 void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
                          int num_batches, int pq, bool isAr = true) {
-  cudaMemcpy(d_new_params, d_old_params, num_batches * pq,
+  cudaMemcpy(d_new_params, d_old_params, num_batches * pq * sizeof(double),
              cudaMemcpyDeviceToDevice);
   int n = pq;
 
@@ -679,18 +679,18 @@ void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
       if (isAr) {
         // param < 1-sum(param)
         d_new_params[n - i - 1 + ib * n] =
-          min((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
+          fmin((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
         // param > -(1-sum(param))
         d_new_params[n - i - 1 + ib * n] =
-          max(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
+          fmax(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
       } else {
         // MA is plus
         // param < 1+sum(param)
         d_new_params[n - i - 1 + ib * n] =
-          min((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
+          fmin((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
         // param > -(1+sum(param))
         d_new_params[n - i - 1 + ib * n] =
-          max(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
+          fmax(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
       }
     }
   });
@@ -752,7 +752,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
   batched_jones_transform(handle, p, q, batchSize, isInv, d_ar, d_ma, d_Tar,
                           d_Tma);
 
-  pack(batchSize, p, d, q, d_mu, d_ar, d_ma, d_Tparams);
+  pack(batchSize, p, d, q, d_mu, d_Tar, d_Tma, d_Tparams);
 
   MLCommon::updateHost(h_Tparams, d_Tparams, N * batchSize, stream);
 
@@ -784,7 +784,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
     d_ar_fixed =
       (double*)allocator->allocate(sizeof(double) * batchSize * p, stream);
     if (isInv) {
-      fix_ar_ma_invparams(d_ar, d_ar_fixed, p, true);
+      fix_ar_ma_invparams(d_ar, d_ar_fixed, batchSize, p, true);
     } else {
       cudaMemcpy(d_ar_fixed, d_ar, sizeof(double) * batchSize * p,
                  cudaMemcpyDeviceToDevice);
@@ -807,7 +807,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
     d_ma_fixed =
       (double*)allocator->allocate(sizeof(double) * batchSize * q, stream);
     if (isInv) {
-      fix_ar_ma_invparams(d_ma, d_ma_fixed, q, false);
+      fix_ar_ma_invparams(d_ma, d_ma_fixed, batchSize, q, false);
     } else {
       cudaMemcpy(d_ma_fixed, d_ma, sizeof(double) * batchSize * q,
                  cudaMemcpyDeviceToDevice);

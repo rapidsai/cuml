@@ -462,7 +462,7 @@ def fit(y,
 
     x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
     x0 = batch_invtrans(p, d, q, num_batches, x0, handle)
-        
+
     # check initial parameter sanity
     if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
             raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
