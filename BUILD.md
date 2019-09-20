@@ -146,6 +146,7 @@ To build individual components, specify them as arguments to `build.sh`
 $ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
 $ ./build.sh cuml                      # build and install the cuML python package
 $ ./build.sh prims                     # build the ML prims tests
+$ ./build.sh bench                     # build the cuML c++ benchmark
 ```
 
 Other `build.sh` options:
@@ -161,7 +162,7 @@ $ ./build.sh cuml --multigpu           # build the cuml python package with mult
 
 ### Custom Build Options
 
-#### libcuml & libcumlc++
+#### libcuml & libcuml++
 
 cuML's cmake has the following configurable flags available:
 
