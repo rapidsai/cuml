@@ -74,7 +74,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench --multigpu -v
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
