@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
                    around the C++ code.
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
+   bench         - build the cuml C++ benchmark
  and <flag> is:
    -v            - verbose build mode
    -g            - build for debug
@@ -121,7 +122,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -148,6 +149,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
 fi
 if (( ${NUMARGS} == 0 )) || hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
+fi
+if (( ${NUMARGS} == 0 )) || hasArg bench; then
+    MAKE_TARGETS="${MAKE_TARGETS} bench"
 fi
 
 # build cumlcomms library
