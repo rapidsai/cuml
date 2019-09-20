@@ -151,7 +151,7 @@ if (( ${NUMARGS} == 0 )) || hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
 if (( ${NUMARGS} == 0 )) || hasArg bench; then
-    MAKE_TARGETS="${MAKE_TARGETS} bench"
+    MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
 
 # build cumlcomms library

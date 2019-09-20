@@ -333,9 +333,6 @@ include_directories(
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
-# to avoid benchmark using googletest and picking up c++03 files
-set(BENCHMARK_ENABLE_TESTING OFF)
-add_subdirectory(${GBENCH_DIR} ${PROJECT_BINARY_DIR}/benchmark)
 
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
