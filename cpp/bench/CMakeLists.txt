@@ -43,6 +43,7 @@ set(ML_BENCH_LINK_LIBRARIES
   benchmark
 )
 
+include_directories(${GBENCH_DIR}/include)
 # (please keep the filenames in alphabetical order)
 add_executable(${CUML_SG_BENCH_TARGET}
   sg/dbscan.cu
@@ -51,5 +52,4 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/rf_classifier.cu
   )
 add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
-include_directories(${GBENCH_INSTALL_DIR}/include)
 target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
