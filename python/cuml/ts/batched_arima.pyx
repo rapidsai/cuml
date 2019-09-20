@@ -316,9 +316,7 @@ def batch_invtrans(p, d, q, nb, x, handle=None):
 
 #     return loglike
 
-def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
-    """ Computes and returns the kalman residual """
-    
+def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
     cdef vector[double] vec_loglike
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
@@ -326,7 +324,7 @@ def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, han
     # if cumlHandle is None:
     # cumlHandle = 
 
-    pynvtx_range_push("ll_f")
+    pynvtx_range_push("batched loglikelihood")
     p, d, q = order
 
     num_params = (p+d+q)
@@ -345,18 +343,32 @@ def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, han
 
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    cdef double* d_vs_ptr
-
+    cdef uintptr_t d_vs_ptr
+    cdef double* d_vs_ptr_double
     if dtype != np.float64:
         raise ValueError("Only 64-bit floating point inputs currently supported")
 
-    batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr, vec_loglike, d_vs_ptr, trans)
-    # cdef vector[double] vec_res
+    batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr, vec_loglike, d_vs_ptr_double, trans)
+
+    d_vs_ptr = <uintptr_t>d_vs_ptr_double
+
+    pynvtx_range_pop()
+    return vec_loglike, d_vs_ptr
+
+def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
+    """ Computes and returns the kalman residual """
+    
+    cdef vector[double] vec_loglike
+    cdef uintptr_t d_vs_ptr
+
+    p, d, q = order
 
     cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
 
+    vec_loglike, d_vs_ptr = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
+
     # update_host(handle_[0], d_vs_ptr, (nobs-d) * num_batches, &vs[0,0])
-    updateHost(&vs[0,0], d_vs_ptr, (nobs-d) * num_batches, 0)
+    updateHost(&vs[0,0], <double*>d_vs_ptr, (nobs-d) * num_batches, 0)
     
     return vs
 
@@ -365,42 +377,12 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
     """Computes batched loglikelihood given parameters stored in `x`."""
 
     cdef vector[double] vec_loglike
-    cdef vector[double] vec_y_cm
-    cdef vector[double] vec_x
 
-    # if cumlHandle is None:
-        # cumlHandle = 
-
-    pynvtx_range_push("ll_f")
-    p, d, q = order
-
-    num_params = (p+d+q)
-
-    vec_loglike.resize(num_batches)
-
-    cdef uintptr_t d_y_ptr
-    cdef uintptr_t d_x_ptr
-    # note: make sure you explicitly have d_y_array. Otherwise it gets garbage collected (I think).
-    d_y_array, d_y_ptr, _, _, dtype = input_to_dev_array(y, check_dtype=np.float64)
-    d_x_array, d_x_ptr, _, _, dtype = input_to_dev_array(x, check_dtype=np.float64)
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-
-    cdef double* d_vs_ptr
-
-    if dtype == np.float64:
-        batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr, vec_loglike, d_vs_ptr, trans)
-    else:
-        raise ValueError("Only 64-bit floating point inputs currently supported")
+    vec_loglike, d_vs_ptr = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
 
     loglike = np.zeros(num_batches)
     for i in range(num_batches):
         loglike[i] = vec_loglike[i]
-
-    pynvtx_range_pop()
 
     return loglike
 

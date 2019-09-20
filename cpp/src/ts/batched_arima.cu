@@ -38,13 +38,6 @@ namespace ML {
 
 using std::vector;
 
-void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-              int d, int q, double* d_params, double*& d_vs, bool trans) {
-  std::vector<double> loglike;
-  batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_params, loglike,
-                  d_vs);
-}
-
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* d_params,
                        double*& d_y_p) {}
