@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
