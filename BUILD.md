@@ -75,7 +75,6 @@ $ make install
 ```
 
 To run tests (optional):
-
 ```bash
 $ ./test/ml # Single GPU algorithm tests
 $ ./test/ml_mg # Multi GPU algorithm tests
@@ -89,7 +88,11 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-
+To run c++ benchmarks (optional):
+```bash
+$ ./bench/sg_benchmark  # Single GPU benchmarks
+```
+Refer to `--help` option to know more on its usage
 
 4. Build and install `libcumlcomms` (C++/CUDA library enabling multi-node multi-GPU communications), starting from the repository root folder:
 ```bash
