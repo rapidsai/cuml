@@ -127,12 +127,6 @@ set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest/googletest CACHE STRING
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
 
-set(GBENCH_DIR ${PROJECT_SOURCE_DIR}/external/benchmark CACHE STRING
-  "Path to the google bench repo")
-
-set(GBENCH_LIBNAME "benchmark_main" CACHE STRING
-  "Name of the google bench library")
-
 set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
   "Path to FAISS source directory")
 
