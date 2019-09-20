@@ -31,6 +31,7 @@
 - PR #1087: Accuracy improvement for sqrt/log in RF max_feature
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
+- PR #1116: TSNE CUDA 10.1 Bug Fixes
 
 # cuML 0.9.0 (21 Aug 2019)
 
