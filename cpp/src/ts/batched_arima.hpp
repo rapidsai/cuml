@@ -34,9 +34,6 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      std::vector<double>& loglike, double*& d_vs,
                      bool trans = true);
 
-void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-              int d, int q, double* h_params, double*& d_vs, bool trans);
-
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* h_params,
                        double*& d_y_p);
