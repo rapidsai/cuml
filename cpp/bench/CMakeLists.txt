@@ -32,6 +32,7 @@ if(BUILD_CUML_BENCH)
     sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
+    sg/rf_classifier.cu
   )
 
   add_dependencies(sg ${ClangFormat_TARGET})
