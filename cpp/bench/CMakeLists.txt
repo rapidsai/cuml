@@ -22,9 +22,10 @@ cmake_policy(SET CMP0079 NEW)
 set(GBENCH_DIR ${PROJECT_SOURCE_DIR}/external/benchmark)
 set(GBENCH_BINARY_DIR ${PROJECT_BINARY_DIR}/benchmark)
 set(GBENCH_INSTALL_DIR ${GBENCH_BINARY_DIR}/install)
+set(GBENCH_LIB ${GBENCH_INSTALL_DIR}/lib/libbenchmark.a)
 
 include(ExternalProject)
-ExternalProject_Add(benchmark
+ExternalProject_Add(build_benchmark
   SOURCE_DIR   ${GBENCH_DIR}
   BINARY_DIR   ${GBENCH_BINARY_DIR}/build
   INSTALL_DIR  ${GBENCH_INSTALL_DIR}
@@ -33,11 +34,13 @@ ExternalProject_Add(benchmark
                -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                -DCMAKE_BUILD_TYPE=Release
 )
+add_library(benchmark STATIC IMPORTED)
+set_property(TARGET benchmark PROPERTY IMPORTED_LOCATION ${GBENCH_LIB})
 
 set(CUML_SG_BENCH_TARGET "sg_benchmark")
 set(ML_BENCH_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
-  ${GBENCH_INSTALL_DIR}/lib/libbenchmark.a
+  benchmark
 )
 
 # (please keep the filenames in alphabetical order)
@@ -48,6 +51,5 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/rf_classifier.cu
   )
 add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
-add_dependencies(${CUML_SG_BENCH_TARGET} benchmark)
 include_directories(${GBENCH_INSTALL_DIR}/include)
 target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
