@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 from cuml.benchmark import datagen, algorithms
-from cuml.benchmark.runners import AccuracyComparisonRunner
+from cuml.benchmark.runners import AccuracyComparisonRunner, run_variations
 
 import numpy as np
 import cudf
@@ -26,7 +26,7 @@ import pandas as pd
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
 def test_data_generators(dataset):
     data = datagen.gen_data(dataset, "numpy", n_samples=100, n_features=10)
-    assert isinstance(data, np.array)
+    assert isinstance(data[0], np.ndarray)
     assert data[0].shape[0] == 100
 
 
@@ -54,8 +54,6 @@ def test_data_generator_split():
 
 
 def test_run_variations():
-    from runners import run_variations
-
     algo = algorithms.algorithm_by_name("LogisticRegression")
 
     res = run_variations(
