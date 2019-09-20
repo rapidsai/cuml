@@ -116,6 +116,11 @@ find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
+find_package(JNI)
+if(JNI_FOUND)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/runtime/java)
+endif()
+
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
 
@@ -256,7 +261,8 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 
 # Protobuf
 if (ENABLE_PROTOBUF)
-
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
   set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
   add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
@@ -340,6 +346,7 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/3rdparty/protobuf
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -390,6 +397,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     gpufaisslib
     faisslib)
