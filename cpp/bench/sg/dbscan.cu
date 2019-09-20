@@ -80,10 +80,10 @@ std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = true;
-  p.blobs.cluster_std = (D)1.0;
+  p.blobs.cluster_std = 1.0;
   p.blobs.shuffle = false;
-  p.blobs.center_box_min = (D)-10.0;
-  p.blobs.center_box_max = (D)10.0;
+  p.blobs.center_box_min = -10.0;
+  p.blobs.center_box_max = 10.0;
   p.blobs.seed = 12345ULL;
   p.dbscan.max_bytes_per_batch = 0;
   std::vector<std::pair<int, int>> rowcols = {
@@ -96,7 +96,7 @@ std::vector<Params> getInputs() {
     p.data.ncols = rc.second;
     for (auto nclass : std::vector<int>({2, 4, 8})) {
       p.data.nclasses = nclass;
-      for (auto ep : std::vector<D>({0.1, 1.0})) {
+      for (auto ep : std::vector<double>({0.1, 1.0})) {
         p.dbscan.eps = ep;
         for (auto mp : std::vector<int>({3, 10})) {
           p.dbscan.min_pts = mp;
