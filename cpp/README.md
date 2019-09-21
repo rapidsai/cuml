@@ -47,7 +47,7 @@ After running CMake in a `build` directory, if the `BUILD_*` options were not tu
 
 ```bash
 $ make -j # Build libcuml++ and all tests
-$ make -j bench # Build c++ cuml benchmark
+$ make -j sg_benchmark # Build c++ cuml single gpu benchmark
 $ make -j cuml++ # Build libcuml++
 $ make -j ml # Build ml_test algorithm tests binary
 $ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
