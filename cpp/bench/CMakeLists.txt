@@ -35,6 +35,7 @@ ExternalProject_Add(build_benchmark
                -DCMAKE_BUILD_TYPE=Release
 )
 add_library(benchmark STATIC IMPORTED)
+add_dependencies(benchmark build_benchmark)
 set_property(TARGET benchmark PROPERTY IMPORTED_LOCATION ${GBENCH_LIB})
 
 set(CUML_SG_BENCH_TARGET "sg_benchmark")
