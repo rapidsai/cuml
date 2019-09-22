@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "cuML.hpp"
+#include "cuml.hpp"
 #include "holtwinters_params.h"
 
 namespace ML {

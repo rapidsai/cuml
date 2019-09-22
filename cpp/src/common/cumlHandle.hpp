@@ -27,8 +27,8 @@
 
 #include <common/cuml_comms_int.hpp>
 
-#include <cuML.hpp>
-#include <cuML_api.h>
+#include <cuml.hpp>
+#include <cuml_api.h>
 
 namespace ML {
 

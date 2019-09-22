@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 
 namespace ML {
 
@@ -77,7 +77,7 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 *
 * The Silhouette Coefficient is calculated using the mean intra-cluster distance (a)
 * and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient
-* for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample 
+* for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample
 * and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient
 * is only defined if number of labels is 2 <= n_labels <= n_samples - 1.
 *
@@ -146,7 +146,7 @@ float klDivergence(const cumlHandle &handle, const float *y, const float *y_hat,
 /**
 * Calculates the "entropy" of a labelling
 *
-* This metric is a measure of the purity/polarity of the clustering 
+* This metric is a measure of the purity/polarity of the clustering
 *
 * @param handle: cumlHandle
 * @param y: Array of response variables of the clustering
