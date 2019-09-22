@@ -25,10 +25,10 @@
 #include <cusolverDn.h>
 #include <cusparse.h>
 
-#include "common/cuml_comms_int.hpp"
+#include <common/cuml_comms_int.hpp>
 
-#include "../cuML.hpp"
-#include "../cuML_api.h"
+#include <cuML.hpp>
+#include <cuML_api.h>
 
 namespace ML {
 
