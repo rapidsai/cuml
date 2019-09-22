@@ -32,7 +32,7 @@
 #include <common/rmmAllocatorAdapter.hpp>
 #endif  // HAVE_RMM
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 #include <kmeans/kmeans.hpp>
 
 #ifndef CUDA_RT_CALL

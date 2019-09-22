@@ -23,7 +23,7 @@
 // todo: change utils.h in src_prims
 #include <utils.h>
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 
 namespace ML {
 

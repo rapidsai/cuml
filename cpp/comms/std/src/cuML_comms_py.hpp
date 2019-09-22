@@ -18,7 +18,7 @@
 
 #include <nccl.h>
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 
 namespace ML {
 

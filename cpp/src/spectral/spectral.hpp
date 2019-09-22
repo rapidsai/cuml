@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "cuML.hpp"
+#include "cuml.hpp"
 #include "sparse/coo.h"
 #include "sparse/nvgraph_wrappers.h"
 

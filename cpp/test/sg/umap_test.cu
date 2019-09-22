@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "cuML.hpp"
+#include "cuml.hpp"
 
 #include "distance/distance.h"
 

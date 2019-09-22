@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cuML.hpp"
+#include "cuml.hpp"
 
 #include <nvgraph.h>
 

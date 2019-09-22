@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "dbscan_api.h"
-#include <cuML_api.h>
+#include <cuml_api.h>
 #include "common/cumlHandle.hpp"
 #include "dbscan.hpp"
 

@@ -20,7 +20,7 @@
 
 #include <utils.h>
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 
 namespace ML {
 

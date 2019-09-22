@@ -22,7 +22,7 @@
 #include <ucp/api/ucp.h>
 #endif
 
-#include <cuML.hpp>
+#include <cuml.hpp>
 
 namespace ML {
 

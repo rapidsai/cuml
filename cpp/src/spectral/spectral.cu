@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cuML.hpp"
+#include "cuml.hpp"
 #include "sparse/coo.h"
 #include "sparse/nvgraph_wrappers.h"
 
