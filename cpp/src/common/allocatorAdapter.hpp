@@ -20,9 +20,10 @@
 
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "../../src_prims/utils.h"
+// todo: change utils.h in src_prims
+#include <utils.h>
 
-#include "../cuML.hpp"
+#include <cuML.hpp>
 
 namespace ML {
 

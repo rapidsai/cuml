@@ -18,9 +18,9 @@
 
 #include <rmm/rmm.h>
 
-#include "../../src_prims/utils.h"
+#include <utils.h>
 
-#include "../cuML.hpp"
+#include <cuML.hpp>
 
 namespace ML {
 
