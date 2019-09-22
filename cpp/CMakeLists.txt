@@ -314,6 +314,8 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(
+  include
+  include/cuml
   src
   src_prims
   test/prims
@@ -378,7 +380,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     faisslib)
 
   if(OPENMP_FOUND)
-  
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -423,6 +424,9 @@ endif(BUILD_CUML_EXAMPLES)
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
+        DESTINATION include)
+
 
 ###################################################################################################
 # - doxygen targets -------------------------------------------------------------------------------
