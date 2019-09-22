@@ -429,7 +429,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
         DESTINATION include)
 install(FILES src_prims/utils.h
         DESTINATION include/cuml)
-install(FILE src_prims/common/cuml_allocator.hpp
+install(FILES src_prims/common/cuml_allocator.hpp
         DESTINATION include/cuml/common)
 
 
