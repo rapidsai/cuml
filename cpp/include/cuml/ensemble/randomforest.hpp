@@ -17,7 +17,7 @@
 #pragma once
 #include <treelite/c_api.h>
 #include <map>
-#include "decisiontree/decisiontree.hpp"
+#include "tree/decisiontree.hpp"
 
 namespace ML {
 
