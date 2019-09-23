@@ -29,11 +29,11 @@
 
 #ifdef HAVE_RMM
 #include <rmm/rmm.h>
-#include <common/rmmAllocatorAdapter.hpp>
+#include <cuml/rmmAllocatorAdapter.hpp>
 #endif  //HAVE_RMM
 
-#include <cuml/cuml.hpp>
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/cuml.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \

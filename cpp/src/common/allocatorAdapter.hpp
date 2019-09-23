@@ -20,12 +20,16 @@
 
 #include <thrust/system/cuda/execution_policy.h>
 
-// todo: change utils.h in src_prims
-#include <utils.h>
-
 #include <cuml.hpp>
 
+#include "common/cuml_allocator.hpp"
+// todo: change utils.h in src_prims
+#include "utils.h"
+
 namespace ML {
+
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
 
 template <typename T>
 class stdAllocatorAdapter {

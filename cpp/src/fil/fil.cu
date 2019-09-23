@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "common.cuh"
+#include "common/cuml_allocator.hpp"
 #include "fil.h"
 
 namespace ML {

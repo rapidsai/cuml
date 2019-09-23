@@ -16,16 +16,15 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <memory>
 
-#include <cuda_runtime.h>
-
-#include <common/cuml_allocator.hpp>
+namespace MLCommon {
+class deviceAllocator;
+class hostAllocator;
+};  // namespace MLCommon
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 class cumlHandle_impl;
 
@@ -66,25 +65,25 @@ class cumlHandle {
      * 
      * @param[in] allocator     the MLCommon::deviceAllocator to use for device allocations.
      */
-  void setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator);
+  void setDeviceAllocator(std::shared_ptr<MLCommon::deviceAllocator> allocator);
   /**
      * @brief gets the allocator to use for all device allocations done in cuML.
      * 
      * @returns the MLCommon::deviceAllocator to use for device allocations.
      */
-  std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
+  std::shared_ptr<MLCommon::deviceAllocator> getDeviceAllocator() const;
   /**
      * @brief sets the allocator to use for substantial host allocations done in cuML.
      * 
      * @param[in] allocator     the MLCommon::hostAllocator to use for host allocations.
      */
-  void setHostAllocator(std::shared_ptr<hostAllocator> allocator);
+  void setHostAllocator(std::shared_ptr<MLCommon::hostAllocator> allocator);
   /**
      * @brief gets the allocator to use for substantial host allocations done in cuML.
      * 
      * @returns the MLCommon::hostAllocator to use for host allocations.
      */
-  std::shared_ptr<hostAllocator> getHostAllocator() const;
+  std::shared_ptr<MLCommon::hostAllocator> getHostAllocator() const;
   /**
      * @brief for internal use only.
      */
