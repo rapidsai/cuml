@@ -27,6 +27,9 @@ class cumlHandle_impl;
 using MLCommon::deviceAllocator;
 using MLCommon::hostAllocator;
 
+using MLCommon::defaultDeviceAllocator;
+using MLCommon::defaultHostAllocator;
+
 /**
  * @brief Handle to manage resources needed by cuML algorithms.
  */
