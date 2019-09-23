@@ -52,6 +52,8 @@ option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
+option(BUILD_WITH_CUMLPRIMS "Build C++ components that need cumlprims installed" ON)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -112,6 +114,12 @@ else()
 endif()
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
+# TODO: Specify exact version
+if(BUILD_WITH_CUMLPRIMS)
+  find_package(cumlprims REQUIRED)
+endif(BUILD_WITH_CUMLPRIMS)
+
 find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
@@ -287,6 +295,7 @@ include_directories(
   src
   src_prims
   test/prims
+  ${CUMLPRIMS_INCLUDE_DIRS}
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${GTEST_DIR}/include
@@ -343,6 +352,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    ${CUMLPRIMS_LIBRARIES}
     treelitelib
     dmlclib
     faisslib
