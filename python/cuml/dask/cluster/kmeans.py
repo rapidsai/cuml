@@ -243,8 +243,8 @@ class KMeans(object):
             KMeans.func_score,
             idx,
             self.local_model,
-            f,
-            workers=[w],
+            wf[1],
+            workers=[wf[0]],
             key=key).result() for idx, wf in enumerate(gpu_futures.items())]
 
         return np.sum(scores)
