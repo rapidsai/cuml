@@ -260,8 +260,21 @@ set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/l
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 # Protobuf
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
+if (ENABLE_PROTOBUF)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
+  set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+  set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
+  set(PROTOBUF_PROTOC_EXECUTABLE protoc)
+  set(PROTOBUF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/src")
+  set(PROTOBUF_LIBRARIES libprotobuf)
+  add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
+  include_directories(${PROTOBUF_INCLUDE_DIRS})
+  include_directories(${CMAKE_CURRENT_BINARY_DIR})
+  PROTOBUF_GENERATE_CPP(TREE_PROTO_SRCS TREE_PROTO_HDRS src/tree.proto)
+  list(INSERT SOURCES 0 ${TREE_PROTO_SRCS} ${TREE_PROTO_HDRS})
+endif()
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -384,6 +397,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     gpufaisslib
     faisslib)
