@@ -3,6 +3,9 @@
 ## New Features
 - PR #1071: Selective eigen solver of cuSolver 
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1113: prims: new batched make-symmetric-matrix primitive
+- PR #1112: prims: new batched-gemv primitive
+- PR #855: Added benchmark tools
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
@@ -26,8 +29,10 @@
 - PR #1066: Using proper set of workers to destroy nccl comms
 - PR #1072: Remove pip requirements and setup
 - PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
+- PR #1116: TSNE CUDA 10.1 Bug Fixes
 
 # cuML 0.9.0 (21 Aug 2019)
 
