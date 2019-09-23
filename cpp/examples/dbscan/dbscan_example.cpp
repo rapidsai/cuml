@@ -32,8 +32,8 @@
 #include <common/rmmAllocatorAdapter.hpp>
 #endif  //HAVE_RMM
 
-#include <cuml.hpp>
-#include <dbscan/dbscan.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/cluster/dbscan.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
