@@ -19,9 +19,9 @@ from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 import numpy as np
 
-import cudf
+from uuid import uuid1
 
-import random
+import cudf
 
 
 def concat(dfs):
@@ -95,7 +95,7 @@ class KMeans(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def func_fit(sessionId, dfs, r, **kwargs):
+    def func_fit(idx, sessionId, dfs, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -119,7 +119,7 @@ class KMeans(object):
         return cumlKMeans(handle=handle, **kwargs).fit(df)
 
     @staticmethod
-    def func_transform(model, dfs, r):
+    def func_transform(idx, model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -132,7 +132,7 @@ class KMeans(object):
         return model.transform(df)
 
     @staticmethod
-    def func_predict(model, dfs, r):
+    def func_predict(idx, model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -144,7 +144,7 @@ class KMeans(object):
         return model.predict(df)
 
     @staticmethod
-    def func_score(model, dfs, r):
+    def func_score(idx, model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -168,13 +168,16 @@ class KMeans(object):
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
+        key = uuid1()
+
         kmeans_fit = [self.client.submit(
             KMeans.func_fit,
+            idx,
             comms.sessionId,
-            f,
-            random.random(),
+            wf[1],
             **self.kwargs,
-            workers=[w]) for w, f in gpu_futures.items()]
+            workers=[wf[0]],
+            key=key) for idx, wf in enumerate(gpu_futures.items())]
 
         wait(kmeans_fit)
 
@@ -191,13 +194,16 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
+
+        key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         kmeans_predict = [self.client.submit(
             func,
+            idx,
             self.local_model,
-            f,
-            random.random(),
-            workers=[w]) for w, f in gpu_futures.items()]
+            wf[1],
+            workers=[wf[0]],
+            key=key) for idx, wf in enumerate(gpu_futures.items())]
 
         return to_dask_cudf(kmeans_predict)
 
@@ -229,36 +235,19 @@ class KMeans(object):
         return self.fit(X).transform(X)
 
     def score(self, X):
+
+        key = uuid1()
+
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         scores = [self.client.submit(
             KMeans.func_score,
+            idx,
             self.local_model,
             f,
-            random.random(),
-            workers=[w]).result() for w, f in gpu_futures.items()]
+            workers=[w],
+            key=key).result() for idx, wf in enumerate(gpu_futures.items())]
 
         return np.sum(scores)
 
-    def get_params(self):
-        """
-        Scikit-learn style return parameter state
-        """
-        return self.kwargs
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = self.kwargs
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                self.kwargs[key] = value
-        return self
+    def get_param_names(self):
+        return list(self.kwargs.keys())

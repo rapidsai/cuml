@@ -16,6 +16,7 @@
 from tornado import gen
 from dask.distributed import default_client
 from toolz import first
+from uuid import uuid1
 import dask.dataframe as dd
 from collections import OrderedDict
 
@@ -25,15 +26,16 @@ import random
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf):
+def extract_ddf_partitions(ddf, client=None):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
 
     :param ddf: Dask.dataframe split dataframe partitions into a list of
                futures.
+    :param client: dask.distributed.Client Optional client to use
     """
-    client = default_client()
+    client = default_client() if client is None else client
 
     delayed_ddf = ddf.to_delayed()
     parts = client.compute(delayed_ddf)
@@ -60,7 +62,7 @@ def extract_ddf_partitions(ddf):
     raise gen.Return(worker_to_parts)
 
 
-def get_meta(df):
+def get_meta(idx, df):
     """
     Return the metadata from a single dataframe
     :param df: cudf.dataframe
@@ -70,40 +72,42 @@ def get_meta(df):
     return ret
 
 
-def to_dask_cudf(futures):
+def to_dask_cudf(futures, client=None):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
+    :param client: dask.distributed.Client Optional client to use
     :return: dask.Dataframe a dask.Dataframe
     """
-    c = default_client()
+    c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
     meta = c.submit(get_meta, dfs[0]).result()
     return dd.from_delayed(dfs, meta=meta)
 
 
-def to_dask_df(dask_cudf):
+def to_dask_df(dask_cudf, client=None):
     """
     Convert a Dask-cuDF into a Pandas-backed Dask Dataframe.
-
     :param dask_cudf : dask_cudf.DataFrame
+    :param client: dask.distributed.Client Optional client to use
     :return : dask.DataFrame
     """
 
-    def to_pandas(df, r):
+    def to_pandas(idx, df):
         return df.to_pandas()
 
-    c = default_client()
+    c = default_client() if client is None else client
     delayed_ddf = dask_cudf.to_delayed()
     gpu_futures = c.compute(delayed_ddf)
-    wait(gpu_futures)
 
+    key = uuid1()
     dfs = [c.submit(
         to_pandas,
+        idx,
         f,
-        random.random()) for f in gpu_futures]
+        key=key) for idx. f in enumerate(gpu_futures)]
 
-    meta = c.submit(get_meta, dfs[0]).result()
+    meta = c.submit(get_meta, dfs[0], key=key).result()
 
     return dd.from_delayed(dfs, meta=meta)
