@@ -15,7 +15,7 @@
  */
 
 #include "naive.h"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #include "sparse/coo.h"
 

@@ -18,7 +18,7 @@
 #include <iostream>
 #include "linalg/unary_op.h"
 #include "selection/knn.h"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #pragma once
 

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "neighbors/knn.hpp"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #include "cuda_utils.h"
 

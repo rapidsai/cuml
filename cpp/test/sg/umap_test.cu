@@ -24,7 +24,7 @@
 
 #include "knn.hpp"
 #include "umap/runner.h"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"

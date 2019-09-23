@@ -16,7 +16,7 @@
 
 #include "random/rng.h"
 #include "sys/time.h"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #pragma once
 
