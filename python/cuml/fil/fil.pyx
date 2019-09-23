@@ -50,6 +50,7 @@ cdef extern from "treelite/c_api.h":
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out)
     cdef int TreeliteLoadLightGBMModel(const char* filename, ModelHandle* out)
     cdef int TreeliteLoadProtobufModel(const char* filename, ModelHandle* out)
+    cdef int TreeliteExportProtobufModel(const char* filename, ModelHandle model)
 
 
 cdef class TreeliteModel():
@@ -129,6 +130,15 @@ cdef class TreeliteModel():
         model.set_handle(handle)
         return model
 
+    @staticmethod
+    def export_protobuf(filename, model, handle):
+        filename_bytes = filename.encode("UTF-8")
+        model = TreeliteModel()
+        model.set_handle(handle)
+        res = model.TreeliteExportProtobufModel(filename_bytes, handle)
+        print("################################################################")
+        print(" res : ", res)
+        print("################################################################")
 
 cdef extern from "fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
@@ -261,6 +271,11 @@ cdef class ForestInference_impl():
                       <ModelHandle> model_ptr,
                       &treelite_params)
         return self
+
+    # def load_for_pickling(self, file_name, model_handle):
+        
+
+
 
     def __cdel__(self):
         cdef cumlHandle* handle_ =\

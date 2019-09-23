@@ -18,12 +18,14 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+#include <treelite/tree.h>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
+namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -299,6 +301,22 @@ void build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  std::cout << " ModelHandle model : " << *model << std::endl << std::flush;
+  tl::Model& tl_mod = *(tl::Model*)*model;
+  std::cout << " model num_features in c++ : " << tl_mod.num_feature
+            << std::endl
+            << std::flush;
+  TreeliteExportProtobufModel("./moved_model.buffer", *model);
+}
+
+void save_model(ModelHandle model) {
+  std::cout << " ModelHandle model : " << model << std::endl << std::flush;
+  tl::Model& tl_mod = *(tl::Model*)model;
+  std::cout << " model num_features in c++ : " << tl_mod.num_feature
+            << std::endl
+            << std::flush;
+  TreeliteExportProtobufModel(
+    "/home/nfs/saljain/wtf/cuml/cpp/temp_model.buffer", model);
 }
 
 /**

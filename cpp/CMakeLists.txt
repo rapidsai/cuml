@@ -116,6 +116,11 @@ find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
+find_package(JNI)
+if(JNI_FOUND)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/runtime/java)
+endif()
+
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
 
@@ -234,11 +239,12 @@ add_clang_format(
 # - treelite build --------------------------------------------------------------------------------
 
 include(ExternalProject)
+include(cmake/Utils.cmake)
 
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
-    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DENABLE_PROTOBUF=ON -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 )
 
 add_library(dmlclib STATIC IMPORTED)
@@ -252,6 +258,23 @@ add_dependencies(treelite_runtimelib treelite)
 set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+
+# Protobuf
+if (ENABLE_PROTOBUF)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
+  set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+  set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
+  set(PROTOBUF_PROTOC_EXECUTABLE protoc)
+  set(PROTOBUF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/src")
+  set(PROTOBUF_LIBRARIES libprotobuf)
+  add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
+  include_directories(${PROTOBUF_INCLUDE_DIRS})
+  include_directories(${CMAKE_CURRENT_BINARY_DIR})
+  PROTOBUF_GENERATE_CPP(TREE_PROTO_SRCS TREE_PROTO_HDRS src/tree.proto)
+  list(INSERT SOURCES 0 ${TREE_PROTO_SRCS} ${TREE_PROTO_HDRS})
+endif()
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -323,6 +346,7 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/3rdparty/protobuf
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -373,6 +397,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     gpufaisslib
     faisslib)
