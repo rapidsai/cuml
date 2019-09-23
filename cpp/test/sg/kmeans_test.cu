@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <vector>
-#include "cuml/cluster/kmeans.cu"
+#include "kmeans/kmeans.cu"
 
 namespace ML {
 

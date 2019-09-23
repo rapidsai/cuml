@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 #include "datasets/digits.h"
-#include "cuml/manifold/tsne.cu"
+#include "tsne/tsne.cu"
 
 #include "cuda_utils.h"
 

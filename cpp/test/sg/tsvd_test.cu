@@ -20,7 +20,7 @@
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
-#include "cuml/decomposition/tsvd.h"
+#include "tsvd/tsvd.h"
 
 namespace ML {
 
