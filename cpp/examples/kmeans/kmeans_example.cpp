@@ -29,7 +29,7 @@
 
 #ifdef HAVE_RMM
 #include <rmm/rmm.h>
-#include <common/rmmAllocatorAdapter.hpp>
+#include <cuml/rmmAllocatorAdapter.hpp>
 #endif  // HAVE_RMM
 
 #include <cuml/cuml.hpp>

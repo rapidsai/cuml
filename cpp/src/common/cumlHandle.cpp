@@ -15,8 +15,8 @@
  */
 
 #include "cumlHandle.hpp"
-
 #include "../../src_prims/utils.h"
+#include "common/cuml_allocator.hpp"
 
 //TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
 //      https://github.com/rapidsai/cuml/issues/239 is addressed
