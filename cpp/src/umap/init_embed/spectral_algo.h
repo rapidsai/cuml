@@ -27,7 +27,7 @@
 #include "random/rng.h"
 
 #include <iostream>
-#include "spectral/spectral.hpp"
+#include "cluster/spectral.hpp"
 
 namespace UMAPAlgo {
 
