@@ -140,6 +140,24 @@ set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRI
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 
+set(CUML_INCLUDE_DIR
+     ${PROJECT_SOURCE_DIR}/include/cuml
+     ${PROJECT_SOURCE_DIR}/include/cuml/cluster
+     ${PROJECT_SOURCE_DIR}/include/cuml/datasets
+     ${PROJECT_SOURCE_DIR}/include/cuml/decomposition
+     ${PROJECT_SOURCE_DIR}/include/cuml/ensemble
+     ${PROJECT_SOURCE_DIR}/include/cuml/fil
+     ${PROJECT_SOURCE_DIR}/include/cuml/linear_model
+     ${PROJECT_SOURCE_DIR}/include/cuml/manifold
+     ${PROJECT_SOURCE_DIR}/include/cuml/metrics
+     ${PROJECT_SOURCE_DIR}/include/cuml/neighbors
+     ${PROJECT_SOURCE_DIR}/include/cuml/random_projection
+     ${PROJECT_SOURCE_DIR}/include/cuml/solvers
+     ${PROJECT_SOURCE_DIR}/include/cuml/tree
+     ${PROJECT_SOURCE_DIR}/include/cuml/tsa
+     CACHE STRING
+     "Path to cuml include directories")
+
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
@@ -314,9 +332,7 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(
-  include
-  include/cuml
-  include/cuml/*
+  ${CUML_INCLUDE_DIR}
   src
   src_prims
   test/prims
