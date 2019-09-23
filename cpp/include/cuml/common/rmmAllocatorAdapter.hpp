@@ -17,10 +17,8 @@
 #pragma once
 
 #include <rmm/rmm.h>
-
-#include <utils.h>
-
 #include <cuml.hpp>
+#include <cuml/common/utils.hpp>
 
 namespace ML {
 
