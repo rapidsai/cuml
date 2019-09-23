@@ -85,9 +85,12 @@ class TSNE(Base):
     cuML defaults to this algorithm. A slower but more accurate Exact
     algorithm is also provided.
 
-    PCA Intialization is also enabled for TSNE! It has been shown
-    that spectral initialization preserves global structure similarily to
-    PCA initialization.
+    PCA Intialization is also enabled for TSNE! It has been observed that
+    random initialization is very fast and effective, but it can produce
+    vastly different results even when a random seed is set. This means
+    across many runs of TSNE, expect to get different results. Using PCA
+    intialization partially preserves the global structure of the data, and
+    also overcomes the random intialization problem to some extent.
 
     Parameters
     ----------
@@ -121,7 +124,7 @@ class TSNE(Base):
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
-        many runs. Try using spectral intialization to possible counteract
+        many runs. Try using PCA intialization to possibly counteract
         this problem. It is known that small perturbations can directly
         change the result of the embedding for parallel TSNE implementations.
     method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
@@ -175,6 +178,8 @@ class TSNE(Base):
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
+
+    As suggested, PCA can also help to alleviate this issue.
 
     Reference Implementation
     -------------------------
