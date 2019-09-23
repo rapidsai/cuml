@@ -17,7 +17,7 @@
 #pragma once
 
 #include "common/device_buffer.hpp"
-#include "umap/umapparams.h"
+#include "umapparams.h"
 
 #include "sparse/coo.h"
 
