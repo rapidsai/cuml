@@ -32,8 +32,8 @@
 #include <common/rmmAllocatorAdapter.hpp>
 #endif  // HAVE_RMM
 
-#include <cuml.hpp>
-#include <kmeans/kmeans.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/cluster/kmeans.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
