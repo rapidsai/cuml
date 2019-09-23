@@ -66,8 +66,8 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Transformed parameters
-  double* d_Tar;
-  double* d_Tma;
+  double* d_Tar = nullptr;
+  double* d_Tma = nullptr;
 
   if (trans) {
     batched_jones_transform(handle, p, q, num_batches, false, d_ar, d_ma, d_Tar,
@@ -115,16 +115,11 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   allocator->deallocate(d_ar, p * num_batches, stream);
   allocator->deallocate(d_ma, q * num_batches, stream);
   if (trans) {
+    allocator->deallocate(d_Tar, p * num_batches, stream);
     allocator->deallocate(d_Tma, q * num_batches, stream);
-    allocator->deallocate(d_Tar, q * num_batches, stream);
   }
 
   ML::POP_RANGE();
-}
-
-void update_host(cumlHandle& handle, double* d_vs, int N, double* h_vs) {
-  printf("Copying %p -> %p\n", d_vs, h_vs);
-  MLCommon::updateHost(h_vs, d_vs, N, handle.getStream());
 }
 
 }  // namespace ML

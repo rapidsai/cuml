@@ -40,8 +40,6 @@ cdef extern from "ts/batched_arima.hpp" namespace "ML":
                        int d, int q, double* params,
                        vector[double]& vec_loglike, double* d_vs, bool trans)
 
-  void update_host(cumlHandle& handle, double* d_vs, int N, double* h_vs);
-
 cdef extern from "utils.h" namespace "MLCommon":
   void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
 
@@ -367,7 +365,6 @@ def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, han
 
     vec_loglike, d_vs_ptr = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
 
-    # update_host(handle_[0], d_vs_ptr, (nobs-d) * num_batches, &vs[0,0])
     updateHost(&vs[0,0], <double*>d_vs_ptr, (nobs-d) * num_batches, 0)
     
     return vs
