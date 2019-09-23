@@ -22,8 +22,6 @@ from collections import OrderedDict
 
 from dask.distributed import wait
 
-import random
-
 
 @gen.coroutine
 def extract_ddf_partitions(ddf, client=None):
