@@ -22,7 +22,7 @@
 
 #include "datasets/digits.h"
 
-#include "knn/knn.hpp"
+#include "knn.hpp"
 #include "umap/runner.h"
 #include "umap/umapparams.h"
 
