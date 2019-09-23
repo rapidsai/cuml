@@ -98,6 +98,82 @@ class ARIMAModel:
         return [-2 * lli + 2 * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
+    def _assert_same_d(self, b_order):
+        """Checks that all values of d in batched order are same"""
+        b_d = [d for _, d, _ in b_order]
+        assert (np.array(b_d) == b_d[0]).all()
+
+    def predict_in_sample(self):
+        """Return in-sample prediction on batched series given batched model"""
+
+        p, d, q = self.order[0]
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        vs = residual(self.num_batches, self.num_samples, self.order[0], self.y, x)
+
+        self._assert_same_d(self.order) # We currently assume the same d for all series
+        _, d, _ = self.order[0]
+
+        if d == 0:
+            y_p = self.y - vs
+        elif d == 1:
+            y_diff = np.diff(self.y, axis=0)
+            # Following statsmodel `predict(typ='levels')`, by adding original
+            # signal back to differenced prediction, we retrive a prediction of
+            # the original signal.
+            predict = (y_diff - vs)
+            y_p = self.y[0:-1, :] + predict
+        else:
+            # d>1
+            raise NotImplementedError("Only support d==0,1")
+
+        # Extend prediction by 1 when d==1
+        if d == 1:
+            # forecast a single value to make prediction length of original signal
+            fc1 = np.zeros(self.num_batches)
+            for i in range(self.num_batches):
+                fc1[i] = _fc_single(1, self.order[i], y_diff[:,i],
+                                    vs[:,i], self.mu[i],
+                                    self.ma_params[i],
+                                    self.ar_params[i])
+
+            final_term = self.y[-1, :] + fc1
+
+            # append final term to prediction
+            temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]))
+            temp[:-1, :] = y_p
+            temp[-1, :] = final_term
+            y_p = temp
+
+        self.yp = y_p
+        return y_p
+
+
+
+def _fc_single(num_steps, order, y_diff, vs, mu, ma_params, ar_params):
+
+    p, _, q = order
+
+    y_ = np.zeros(p+num_steps)
+    vs_ = np.zeros(q+num_steps)
+    if p>0:
+        y_[:p] = y_diff[-p:]
+    if q>0:
+        vs_[:q] = vs[-q:]
+
+    fcast = np.zeros(num_steps)
+
+    for i in range(num_steps):
+        mu_star = mu * (1-ar_params.sum())
+        fcast[i] = mu_star
+        if p > 0:
+            fcast[i] += np.dot(ar_params, y_[i:i+p])
+        if q > 0 and i < q:
+            fcast[i] += np.dot(ma_params, vs_[i:i+q])
+        if p > 0:
+            y_[i+p] = fcast[i]
+
+    return fcast
+
 
 def init_x0(order, y):
     pynvtx_range_push("init x0")
@@ -537,3 +613,5 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="bic"):
                     best_ic[i] = ic_i
 
     return (best_model, best_ic)
+
+

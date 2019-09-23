@@ -293,7 +293,7 @@ def testPredict(plot=False):
 
         model = b_arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
 
-        y_b_p = arima.predict_in_sample(model)
+        y_b_p = model.predict_in_sample()
 
         if plot:
             nb_plot = 2
@@ -348,7 +348,7 @@ def testFit_Predict_Forecast(plot=False):
                                   ma0,
                                   opt_disp=-1, h=1e-9)
 
-        y_b = arima.predict_in_sample(batched_model)
+        y_b = batched_model.predict_in_sample()
         y_fc = arima.forecast(batched_model, ns_test)
 
         y_b_p.append(y_b)
@@ -424,7 +424,7 @@ def bench_arima(num_batches=240, plot=False):
     print("Solver iterations (max/min/avg): ", np.max(batched_model.niter), np.min(batched_model.niter),
           np.mean(batched_model.niter))
 
-    yt_b = arima.predict_in_sample(batched_model)
+    yt_b = batched_model.predict_in_sample()
 
     if plot:
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
