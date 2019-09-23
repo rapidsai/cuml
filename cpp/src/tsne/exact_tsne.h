@@ -43,7 +43,7 @@ namespace TSNE {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param new_intialization: Whether to intialize with random numbers.
+ * @input param pca_intialization: Whether to intialize with PCA.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
