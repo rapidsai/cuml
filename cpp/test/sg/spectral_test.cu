@@ -16,7 +16,7 @@
 
 #include "cuml.hpp"
 
-#include "spectral/spectral.hpp"
+#include "cuml/cluster/spectral.hpp"
 
 #include "random/rng.h"
 

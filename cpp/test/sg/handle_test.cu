@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "cuml_api.h"
+#include "cuml/cuml_api.h"
 
 TEST(HandleTest, CreateHandleAndDestroy) {
   cumlHandle_t handle;

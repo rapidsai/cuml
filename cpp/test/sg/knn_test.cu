@@ -19,7 +19,7 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "knn.hpp"
+#include "cuml/neighbors/knn.hpp"
 
 namespace ML {
 
