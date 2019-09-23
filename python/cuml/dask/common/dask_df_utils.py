@@ -106,7 +106,7 @@ def to_dask_df(dask_cudf, client=None):
         to_pandas,
         idx,
         f,
-        key=key) for idx. f in enumerate(gpu_futures)]
+        key=key) for idx, f in enumerate(gpu_futures)]
 
     meta = c.submit(get_meta, dfs[0], key=key).result()
 
