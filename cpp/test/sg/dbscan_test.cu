@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
 #include <vector>
-#include "dbscan/dbscan.hpp"
+#include "cuml/cluster/dbscan.hpp"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"

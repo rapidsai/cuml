@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 #include "datasets/digits.h"
-#include "tsne/tsne.cu"
+#include "cuml/manifold/tsne.cu"
 
 #include "cuda_utils.h"
 
@@ -48,7 +48,7 @@ class TSNETest : public ::testing::Test
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(), n*p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n*p, handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
-    
+
     device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(), n*2);
 
 

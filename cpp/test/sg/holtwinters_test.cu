@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <algorithm>
-#include "holtwinters/holtwinters.h"
+#include "tsa/holtwinters.h"
 #include "time_series_datasets.h"
 
 namespace ML {
