@@ -18,7 +18,6 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include <fil/fil.h>
 #include <treelite/tree.h>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
@@ -267,9 +266,9 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-ModelHandle build_treelite_forest(ModelHandle* model,
-                                  const RandomForestMetaData<T, L>* forest,
-                                  int num_features, int task_category) {
+void build_treelite_forest(ModelHandle* model,
+                           const RandomForestMetaData<T, L>* forest,
+                           int num_features, int task_category) {
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
@@ -295,18 +294,13 @@ ModelHandle build_treelite_forest(ModelHandle* model,
                                               num_output_group);
 
       // The third argument -1 means append to the end of the tree list.
-      // TREELITE_CHECK(
-      //  TreeliteModelBuilderInsertTree(model_builder, tree_builder, 0));
-      std::cout << " TreeliteModelBuilderInsertTree output : "
-                << TreeliteModelBuilderInsertTree(model_builder, tree_builder,
-                                                  0)
-                << std::flush << std::endl;
+      TREELITE_CHECK(
+        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
   }
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
-
   std::cout << " ModelHandle model : " << *model << std::endl << std::flush;
   tl::Model& tl_mod = *(tl::Model*)*model;
   std::cout << " model num_features in c++ : " << tl_mod.num_feature
@@ -640,16 +634,16 @@ template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
 template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
 template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
-template ModelHandle build_treelite_forest<float, int>(
+template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
   int num_features, int task_category);
-template ModelHandle build_treelite_forest<double, int>(
+template void build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
   int num_features, int task_category);
-template ModelHandle build_treelite_forest<float, float>(
+template void build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
   int num_features, int task_category);
-template ModelHandle build_treelite_forest<double, double>(
+template void build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
   int num_features, int task_category);
 }  // End namespace ML
