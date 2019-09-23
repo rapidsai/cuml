@@ -614,42 +614,7 @@ class KMeans(Base):
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-    def get_params(self):
-        """
-        Scikit-learn style return parameter state
-        """
-        params = dict()
-        variables = ['oversampling_factor', 'max_samples_per_batch',
-                     'init', 'max_iter', 'n_clusters', 'random_state',
-                     'tol', 'verbose']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"oversampling_factor": self.oversampling_factor,
-                          "max_samples_per_batch": self.max_samples_per_batch,
-                          "init": self.init,
-                          "max_iter": self.max_iter,
-                          "n_clusters": self.n_clusters,
-                          "random_state": self.random_state,
-                          "tol": self.tol,
-                          "verbose": self.verbose
-                          }
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
+    def get_param_names(self):
+        return ['oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state',
+                'tol', 'verbose']
