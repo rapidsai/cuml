@@ -110,7 +110,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   float *A;
   device_buffer<float> X_C_contiguous(d_alloc, stream);
 
-  if (pca_intialization == true) {
+  if (pca_intialization) {
     if (verbose) printf("[Info] Now performing PCA Intialization!\n");
 
     paramsPCA params;
