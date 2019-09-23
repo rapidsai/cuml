@@ -16,7 +16,7 @@
 #include "../../src_prims/utils.h"
 #include "distances.h"
 #include "exact_kernels.h"
-#include "tsne/tsne.h"
+#include "tsne.h"
 #include "utils.h"
 
 #include "barnes_hut.h"
