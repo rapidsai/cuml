@@ -17,16 +17,15 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include <memory>
-
-namespace MLCommon {
-class deviceAllocator;
-class hostAllocator;
-};  // namespace MLCommon
 
 namespace ML {
 
 class cumlHandle_impl;
+
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
 
 /**
  * @brief Handle to manage resources needed by cuML algorithms.
@@ -63,27 +62,27 @@ class cumlHandle {
   /**
      * @brief sets the allocator to use for all device allocations done in cuML.
      * 
-     * @param[in] allocator     the MLCommon::deviceAllocator to use for device allocations.
+     * @param[in] allocator     the deviceAllocator to use for device allocations.
      */
-  void setDeviceAllocator(std::shared_ptr<MLCommon::deviceAllocator> allocator);
+  void setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator);
   /**
      * @brief gets the allocator to use for all device allocations done in cuML.
      * 
-     * @returns the MLCommon::deviceAllocator to use for device allocations.
+     * @returns the deviceAllocator to use for device allocations.
      */
-  std::shared_ptr<MLCommon::deviceAllocator> getDeviceAllocator() const;
+  std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
   /**
      * @brief sets the allocator to use for substantial host allocations done in cuML.
      * 
-     * @param[in] allocator     the MLCommon::hostAllocator to use for host allocations.
+     * @param[in] allocator     the hostAllocator to use for host allocations.
      */
-  void setHostAllocator(std::shared_ptr<MLCommon::hostAllocator> allocator);
+  void setHostAllocator(std::shared_ptr<hostAllocator> allocator);
   /**
      * @brief gets the allocator to use for substantial host allocations done in cuML.
      * 
-     * @returns the MLCommon::hostAllocator to use for host allocations.
+     * @returns the hostAllocator to use for host allocations.
      */
-  std::shared_ptr<MLCommon::hostAllocator> getHostAllocator() const;
+  std::shared_ptr<hostAllocator> getHostAllocator() const;
   /**
      * @brief for internal use only.
      */
