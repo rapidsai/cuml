@@ -33,7 +33,7 @@ import pandas as pd
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 @pytest.mark.parametrize('n_workers', [1, 2, 4, 8])
-def test_rf_classification(n_workers, partitions_per_worker):
+def test_rf_classification_dask(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
@@ -84,7 +84,7 @@ def test_rf_classification(n_workers, partitions_per_worker):
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 @pytest.mark.parametrize('n_workers', [1, 2, 8])
-def test_rf_regression(n_workers, partitions_per_worker):
+def test_rf_regression_dask(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
