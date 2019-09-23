@@ -1,8 +1,9 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
-- PR #1071: Selective eigen solver of cuSolver 
+- PR #1071: Selective eigen solver of cuSolver
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1104: CUDA 10.1 support
 - PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 - PR #855: Added benchmark tools
@@ -12,7 +13,7 @@
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 - PR #763: Add examples to train_test_split documentation
 - PR #1093: Unified inference kernels for different FIL algorithms
-- PR #1076: Paying off some UMAP / Spectral tech debt. 
+- PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 
