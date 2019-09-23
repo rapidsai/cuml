@@ -29,14 +29,26 @@
 #include "cuda_utils.h"
 
 #include <iostream>
+#define restrict __restrict__
 
 #pragma once
 
 namespace MLCommon {
 namespace Sparse {
 
-/** @brief A Container object for sparse coordinate
- * format.
+/** @brief A Container object for sparse coordinate. There are two motivations
+ * behind using a container for COO arrays.
+ *
+ * The first motivation is that it simplifies code, rather than always having
+ * to pass three arrays as function arguments.
+ *
+ * The second is more subtle, but much more important. The size
+ * of the resulting COO from a sparse operation is often not known ahead of time,
+ * since it depends on the contents of the underlying graph. The COO object can
+ * allocate the underlying arrays lazily so that the object can be created by the
+ * user and passed as an output argument in a sparse primitive. The sparse primitive
+ * would have the responsibility for allocating and populating the output arrays,
+ * while the original caller still maintains ownership of the underlying memory.
  *
  * @tparam T: the type of the value array.
  *
@@ -254,7 +266,8 @@ class COO {
         vals = nullptr;
 
       } catch (Exception &e) {
-        std::cout << "An exception occurred freeing COO memory" << std::endl;
+        std::cout << "An exception occurred freeing COO memory: " << e.what()
+                  << std::endl;
       }
     }
   }
@@ -392,7 +405,7 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
  * @param results array to place results
  */
 template <int TPB_X>
-__global__ void coo_row_count_kernel(int *const rows, int nnz, int *results) {
+__global__ void coo_row_count_kernel(const int *rows, int nnz, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
     atomicAdd(results + rows[row], 1);
@@ -408,7 +421,7 @@ __global__ void coo_row_count_kernel(int *const rows, int nnz, int *results) {
  * @param stream: cuda stream to use
  */
 template <int TPB_X>
-void coo_row_count(int *const rows, int nnz, int *results,
+void coo_row_count(const int *rows, int nnz, int *results,
                    cudaStream_t stream) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -426,7 +439,7 @@ void coo_row_count(int *const rows, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+void coo_row_count(const COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
@@ -435,7 +448,7 @@ void coo_row_count(COO<T> *const in, int *results, cudaStream_t stream = 0) {
 }
 
 template <int TPB_X, typename T>
-__global__ void coo_row_count_nz_kernel(int *const rows, T *const vals, int nnz,
+__global__ void coo_row_count_nz_kernel(const int *rows, const T *vals, int nnz,
                                         int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != 0.0) {
@@ -444,7 +457,7 @@ __global__ void coo_row_count_nz_kernel(int *const rows, T *const vals, int nnz,
 }
 
 template <int TPB_X, typename T>
-__global__ void coo_row_count_scalar_kernel(int *const rows, T *const vals,
+__global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
                                             int nnz, T scalar, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != scalar) {
@@ -462,7 +475,7 @@ __global__ void coo_row_count_scalar_kernel(int *const rows, T *const vals,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_scalar(COO<T> *const in, T scalar, int *results,
+void coo_row_count_scalar(const COO<T> *in, T scalar, int *results,
                           cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -484,7 +497,7 @@ void coo_row_count_scalar(COO<T> *const in, T scalar, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_scalar(int *const rows, T *const vals, int nnz, T scalar,
+void coo_row_count_scalar(const int *rows, const T *vals, int nnz, T scalar,
                           int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -505,7 +518,7 @@ void coo_row_count_scalar(int *const rows, T *const vals, int nnz, T scalar,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_nz(int *const rows, T *const vals, int nnz, int *results,
+void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
                       cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
@@ -523,7 +536,7 @@ void coo_row_count_nz(int *const rows, T *const vals, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_nz(COO<T> *const in, int *results, cudaStream_t stream = 0) {
+void coo_row_count_nz(const COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
@@ -589,7 +602,7 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_scalar(COO<T> *const in, COO<T> *out, T scalar,
+void coo_remove_scalar(const COO<T> *in, COO<T> *out, T scalar,
                        cudaStream_t stream) {
   int *row_count_nz, *row_count;
 
@@ -629,13 +642,13 @@ void coo_remove_scalar(COO<T> *const in, COO<T> *out, T scalar,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_zeros(COO<T> *const in, COO<T> *out, cudaStream_t stream) {
+void coo_remove_zeros(const COO<T> *in, COO<T> *out, cudaStream_t stream) {
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
 template <int TPB_X, typename T>
-__global__ void from_knn_graph_kernel(long *const knn_indices,
-                                      T *const knn_dists, int m, int k,
+__global__ void from_knn_graph_kernel(const long *knn_indices,
+                                      const T *knn_dists, int m, int k,
                                       int *rows, int *cols, T *vals) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < m) {
@@ -660,7 +673,7 @@ __global__ void from_knn_graph_kernel(long *const knn_indices,
  * @param vals: output COO val array
  */
 template <typename T>
-void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               int *rows, int *cols, T *vals) {
   dim3 grid(ceildiv(m, 32), 1, 1);
   dim3 blk(32, 1, 1);
@@ -673,7 +686,7 @@ void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
  * into COO format.
  */
 template <typename T>
-void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
+void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               COO<T> *out) {
   out->allocate(m * k, m, m);
 
@@ -690,7 +703,7 @@ void from_knn(long *const knn_indices, T *const knn_dists, int m, int k,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(T *const rows, int nnz, T *row_ind, int m,
+void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        cudaStream_t stream = 0) {
   T *row_counts;
   MLCommon::allocate(row_counts, m, true);
@@ -717,7 +730,7 @@ void sorted_coo_to_csr(T *const rows, int nnz, T *row_ind, int m,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(COO<T> *const coo, int *row_ind,
+void sorted_coo_to_csr(const COO<T> *coo, int *row_ind,
                        cudaStream_t stream = 0) {
   sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
@@ -732,45 +745,57 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
     int start_idx = row_ind[row];  // each thread processes one row
     int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
-    int nnz = 0;
+    int row_nnz = 0;
+    int out_start_idx = start_idx * 2;
+
     for (int idx = 0; idx < stop_idx - start_idx; idx++) {
-      int out_idx = start_idx * 2 + nnz;
-      int row_lookup = cols[idx + start_idx];
-      int t_start = row_ind[row_lookup];  // Start at
-      int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
+      int cur_row = rows[idx + start_idx];
+      int cur_col = cols[idx + start_idx];
+      T cur_val = vals[idx + start_idx];
+
+      int lookup_row = cur_col;
+      int t_start = row_ind[lookup_row];  // Start at
+      int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
+
       bool found_match = false;
       for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-        // If we find a match, let's get out of the loop
-        if (cols[t_idx] == rows[idx + start_idx] &&
-            rows[t_idx] == cols[idx + start_idx] && vals[t_idx] != 0.0) {
+        // If we find a match, let's get out of the loop. We won't
+        // need to modify the transposed value, since that will be
+        // done in a different thread.
+        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col) {
+          // If it exists already, set transposed value to existing value
           transpose = vals[t_idx];
           found_match = true;
           break;
         }
       }
 
+      // Custom reduction op on value and its transpose, which enables
+      // specialized weighting.
+      // If only simple X+X.T is desired, this op can just sum
+      // the two values.
+      T res = reduction_op(cur_row, cur_col, cur_val, transpose);
+
       // if we didn't find an exact match, we need to add
-      // the transposed value into our current matrix.
+      // the computed res into our current matrix to guarantee
+      // symmetry.
+      // Note that if we did find a match, we don't need to
+      // compute `res` on it here because it will be computed
+      // in a different thread.
       if (!found_match && vals[idx] != 0.0) {
-        orows[out_idx + nnz] = cols[idx + start_idx];
-        ocols[out_idx + nnz] = rows[idx + start_idx];
-        ovals[out_idx + nnz] = vals[idx + start_idx];
-        ++nnz;
+        orows[out_start_idx + row_nnz] = cur_col;
+        ocols[out_start_idx + row_nnz] = cur_row;
+        ovals[out_start_idx + row_nnz] = res;
+        ++row_nnz;
       }
 
-      T val = vals[idx + start_idx];
-
-      // Custom reduction op on value and its transpose
-      T res = reduction_op(rows[idx + start_idx], cols[idx + start_idx], val,
-                           transpose);
-
       if (res != 0.0) {
-        orows[out_idx + nnz] = rows[idx + start_idx];
-        ocols[out_idx + nnz] = cols[idx + start_idx];
-        ovals[out_idx + nnz] = T(res);
-        ++nnz;
+        orows[out_start_idx + row_nnz] = cur_row;
+        ocols[out_start_idx + row_nnz] = cur_col;
+        ovals[out_start_idx + row_nnz] = res;
+        ++row_nnz;
       }
     }
   }
@@ -787,7 +812,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename Lambda>
-void coo_symmetrize(COO<T> *const in, COO<T> *out,
+void coo_symmetrize(const COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream) {
   dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
@@ -820,14 +845,13 @@ void coo_symmetrize(COO<T> *const in, COO<T> *out,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename math_t>
-__global__ static void
-symmetric_find_size(const math_t *__restrict data,
-                    const long *__restrict indices,
-                    const int n, const int k,
-                    int *__restrict row_sizes,
-                    int *__restrict row_sizes2)
-{
-  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+__global__ static void symmetric_find_size(const math_t *restrict data,
+                                           const long *restrict indices,
+                                           const int n, const int k,
+                                           int *restrict row_sizes,
+                                           int *restrict row_sizes2) {
+  const int j =
+    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
@@ -847,12 +871,9 @@ symmetric_find_size(const math_t *__restrict data,
  * @param row_sizes: Input row sum 1 array(n)
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
-__global__ static void
-reduce_find_size(const int n,
-                 const int k,
-                 int *__restrict row_sizes,
-                 const int *__restrict row_sizes2)
-{
+__global__ static void reduce_find_size(const int n, const int k,
+                                        int *restrict row_sizes,
+                                        const int *restrict row_sizes2) {
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
   row_sizes[i] += (row_sizes2[i] + k);
@@ -873,17 +894,14 @@ reduce_find_size(const int n,
  * @param k: Number of n_neighbors
  */
 template <typename math_t>
-__global__ static void
-symmetric_sum(int *__restrict edges,
-              const math_t *__restrict data,
-              const long *__restrict indices,
-              math_t *__restrict VAL,
-              int *__restrict COL,
-              int *__restrict ROW,
-              const int n,
-              const int k)
-{
-  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+__global__ static void symmetric_sum(int *restrict edges,
+                                     const math_t *restrict data,
+                                     const long *restrict indices,
+                                     math_t *restrict VAL, int *restrict COL,
+                                     int *restrict ROW, const int n,
+                                     const int k) {
+  const int j =
+    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
@@ -918,15 +936,11 @@ symmetric_sum(int *__restrict edges,
  * @param stream: Input cuda stream
  */
 template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
-void
-from_knn_symmetrize_matrix(const long *__restrict knn_indices,
-                           const math_t *__restrict knn_dists,
-                           const int n,
-                           const int k,
-                           COO<math_t> *out,
-                           cudaStream_t stream,
-                           std::shared_ptr<deviceAllocator> d_alloc)
-{
+void from_knn_symmetrize_matrix(const long *restrict knn_indices,
+                                const math_t *restrict knn_dists, const int n,
+                                const int k, COO<math_t> *out,
+                                cudaStream_t stream,
+                                std::shared_ptr<deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -937,15 +951,15 @@ from_knn_symmetrize_matrix(const long *__restrict knn_indices,
   int *row_sizes = (int *)d_alloc->allocate(sizeof(int) * n, stream);
   CUDA_CHECK(cudaMemsetAsync(row_sizes, 0, sizeof(int) * n, stream));
 
-  int *edges = (int *)d_alloc->allocate(sizeof(int) * n, stream);
-  CUDA_CHECK(cudaMemsetAsync(edges, 0, sizeof(int) * n, stream));
+  int *row_sizes2 = (int *)d_alloc->allocate(sizeof(int) * n, stream);
+  CUDA_CHECK(cudaMemsetAsync(row_sizes2, 0, sizeof(int) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    knn_dists, knn_indices, n, k, row_sizes, edges);
+    knn_dists, knn_indices, n, k, row_sizes, row_sizes2);
   CUDA_CHECK(cudaPeekAtLastError());
 
   reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-    n, k, row_sizes, edges);
+    n, k, row_sizes, row_sizes2);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
@@ -958,10 +972,14 @@ from_knn_symmetrize_matrix(const long *__restrict knn_indices,
   // (4) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
   // are calculated as the cumulative rolling sum of the previous rows.
-  // Notice reusing old edges memory
+  // Notice reusing old row_sizes2 memory
+  int *edges = row_sizes2;
+  thrust::device_ptr<int> __edges = thrust::device_pointer_cast(edges);
+  thrust::device_ptr<int> __row_sizes = thrust::device_pointer_cast(row_sizes);
+
   // Rolling cumulative sum
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), row_sizes,
-                         row_sizes + n, edges);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
+                         __row_sizes + n, __edges);
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
 
@@ -971,9 +989,8 @@ from_knn_symmetrize_matrix(const long *__restrict knn_indices,
   CUDA_CHECK(cudaPeekAtLastError());
 
   d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);
-  d_alloc->deallocate(edges, sizeof(int) * n, stream);
+  d_alloc->deallocate(row_sizes2, sizeof(int) * n, stream);
 }
-
 
 };  // namespace Sparse
 };  // namespace MLCommon
