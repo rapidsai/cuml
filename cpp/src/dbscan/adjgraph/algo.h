@@ -62,6 +62,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
       core_pts[row] = (vd[row] >= minPts);
     });
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
