@@ -18,6 +18,8 @@
 
 #include <cuda_utils.h>
 #include <limits.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
 #include <cub/cub.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
@@ -348,9 +350,13 @@ class WorkingSet {
     }
 
     // Map the mask to the sorted indices
-    map_to_sorted<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      available, n_rows, available_sorted.data(), f_idx_sorted.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    thrust::device_ptr<bool> av_ptr(available);
+    thrust::device_ptr<bool> av_sorted_ptr(available_sorted.data());
+    thrust::device_ptr<int> idx_ptr(f_idx_sorted.data());
+    thrust::copy(thrust::cuda::par.on(stream),
+                 thrust::make_permutation_iterator(av_ptr, idx_ptr),
+                 thrust::make_permutation_iterator(av_ptr, idx_ptr + n_rows),
+                 av_sorted_ptr);
     if (verbose && n_rows < 20) {
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
                                  n_rows, std::cout);
