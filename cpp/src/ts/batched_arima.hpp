@@ -42,4 +42,8 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
               int d, int q, double* d_params, double*& d_vs, bool trans);
 
+void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
+              int batch_size, int nobs, double* d_y_diff, double* d_vs,
+              double* d_params, double* d_y_fc);
+
 }  // namespace ML

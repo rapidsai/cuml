@@ -124,7 +124,7 @@ class ARIMAModel:
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples - d),
+        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples),
                                                                         self.num_batches), order="F")
         cdef uintptr_t d_y_p_ptr
         d_y_p, d_y_p_ptr, _, _, _ = input_to_dev_array(y_p, check_dtype=np.float64)
@@ -144,26 +144,30 @@ class ARIMAModel:
                                                                        self.num_batches), order="F")
         
         updateHost(&vs[0,0], d_vs_ptr, (self.num_samples-1) * self.num_batches, 0)
-        updateHost(&y_p[0,0], <double*>d_y_p_ptr, (self.num_samples-1) * self.num_batches, 0)
+        updateHost(&y_p[0,0], <double*>d_y_p_ptr, (self.num_samples) * self.num_batches, 0)
 
-        # Extend prediction by 1 when d==1
-        if d == 1:
-            # forecast a single value to make prediction length of original signal
-            y_diff = np.diff(self.y, axis=0)
-            fc1 = np.zeros(self.num_batches)
-            for i in range(self.num_batches):
-                fc1[i] = _fc_single(1, self.order[i], y_diff[:,i],
-                                    vs[:,i], self.mu[i],
-                                    self.ma_params[i],
-                                    self.ar_params[i])
+        # # Extend prediction by 1 when d==1
+        # if d == 1:
+        #     # forecast a single value to make prediction length of original signal
+        #     y_diff = np.diff(self.y, axis=0)
+        #     fc1 = np.zeros(self.num_batches)
+        #     for i in range(self.num_batches):
+        #         fc1[i] = _fc_single(1, self.order[i], y_diff[:,i],
+        #                             vs[:,i], self.mu[i],
+        #                             self.ma_params[i],
+        #                             self.ar_params[i])
 
-            final_term = self.y[-1, :] + fc1
+        #     print("fc1=", fc1)
+        #     final_term = self.y[-1, :] + fc1
+        #     print("final_term=", final_term)
+
+            
 
             # append final term to prediction
-            temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]), order="F")
-            temp[:-1, :] = y_p
-            temp[-1, :] = final_term
-            y_p = temp
+            # temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]), order="F")
+            # temp[:-1, :] = y_p
+            # temp[-1, :] = final_term
+            # y_p = temp
 
         self.yp = y_p
         return y_p
@@ -171,7 +175,7 @@ class ARIMAModel:
 
 
 def _fc_single(num_steps, order, y_diff, vs, mu, ma_params, ar_params):
-
+    """ Forecast for a single series """
     p, _, q = order
 
     y_ = np.zeros(p+num_steps)
@@ -185,11 +189,14 @@ def _fc_single(num_steps, order, y_diff, vs, mu, ma_params, ar_params):
 
     for i in range(num_steps):
         mu_star = mu * (1-ar_params.sum())
+        print("mu_star=", mu_star)
         fcast[i] = mu_star
         if p > 0:
             fcast[i] += np.dot(ar_params, y_[i:i+p])
+            print("p:fcast[{}]={}".format(i, fcast[i]))
         if q > 0 and i < q:
             fcast[i] += np.dot(ma_params, vs_[i:i+q])
+            print("q:fcast[{}]={}".format(i, fcast[i]))
         if p > 0:
             y_[i+p] = fcast[i]
 
