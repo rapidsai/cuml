@@ -22,13 +22,13 @@
 #include <limits>
 
 #include "common/cumlHandle.hpp"
-#include "gram/grammatrix.h"
-#include "gram/kernelfactory.h"
-#include "gram/kernelparams.h"
 #include "kernelcache.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/gemv.h"
 #include "linalg/unary_op.h"
+#include "matrix/grammatrix.h"
+#include "matrix/kernelfactory.h"
+#include "matrix/kernelparams.h"
 #include "smo_sets.h"
 #include "smoblocksolve.h"
 #include "workingset.h"
@@ -70,7 +70,7 @@ class SmoSolver {
  public:
   bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, math_t C, math_t tol,
-            MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel,
+            MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
             float cache_size = 200)
     : handle(handle),
       n_rows(n_rows),
@@ -223,7 +223,7 @@ class SmoSolver {
   math_t C;
   math_t tol;  //!< tolerance for stopping condition
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel;
+  MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
   // Variables to track convergence of training

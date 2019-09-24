@@ -25,11 +25,11 @@
 #include <cublas_v2.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "gram/kernelfactory.h"
 #include "kernelcache.h"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
+#include "matrix/kernelfactory.h"
 #include "smosolver.h"
 #include "svm_model.h"
 #include "svm_parameter.h"
@@ -61,7 +61,7 @@ namespace SVM {
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
-            MLCommon::GramMatrix::KernelParams &kernel_params,
+            MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
@@ -86,8 +86,8 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   MLCommon::Label::getOvrLabels(labels, n_rows, model.unique_labels,
                                 model.n_classes, y.data(), 1, stream);
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
-    MLCommon::GramMatrix::KernelFactory<math_t>::create(
+  MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
+    MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());
   SmoSolver<math_t> smo(handle_impl, param.C, param.tol, kernel,
                         param.cache_size);
@@ -122,13 +122,10 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::GramMatrix::KernelParams &kernel_params,
+                MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds) {
   ASSERT(n_cols == model.n_cols,
          "Parameter n_cols: shall be the same that was used for fitting");
-  //MLCommon::GramMatrix::KernelParams &kernel_params,
-  //math_t *dual_coefs, int n_support, math_t b, math_t *x_support,
-  //math_t *unique_labels, int n_classes, math_t *preds) {
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
 #define N_PRED_BATCH 4096
@@ -144,9 +141,9 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
 
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel =
-    MLCommon::GramMatrix::KernelFactory<math_t>::create(kernel_params,
-                                                        cublas_handle);
+  MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
+    MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params,
+                                                    cublas_handle);
 
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]

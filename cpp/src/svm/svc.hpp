@@ -18,7 +18,7 @@
 
 #include <cublas_v2.h>
 #include "common/cumlHandle.hpp"
-#include "gram/kernelparams.h"
+#include "matrix/kernelparams.h"
 #include "svm_model.h"
 #include "svm_parameter.h"
 
@@ -48,7 +48,7 @@ namespace SVM {
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
-            MLCommon::GramMatrix::KernelParams &kernel_params,
+            MLCommon::Matrix::KernelParams &kernel_params,
             svmModel<math_t> &model);
 
 /**
@@ -74,7 +74,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
-                MLCommon::GramMatrix::KernelParams &kernel_params,
+                MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds);
 
 /**
@@ -110,7 +110,7 @@ class SVC {
  public:
   // Public members for easier access during testing from Python.
 
-  MLCommon::GramMatrix::KernelParams kernel_params;
+  MLCommon::Matrix::KernelParams kernel_params;
   svmParameter param;
   svmModel<math_t> model;
   /**
@@ -124,9 +124,8 @@ class SVC {
    * @param verbose enable verbose output
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
-      MLCommon::GramMatrix::KernelParams kernel_params =
-        MLCommon::GramMatrix::KernelParams{MLCommon::GramMatrix::LINEAR, 3, 1,
-                                           0},
+      MLCommon::Matrix::KernelParams kernel_params =
+        MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
       math_t cache_size = 200, int max_iter = -1, bool verbose = false);
 
   ~SVC();

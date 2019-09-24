@@ -21,10 +21,10 @@
 #include <string>
 #include <vector>
 #include "common/cumlHandle.hpp"
-#include "gram/grammatrix.h"
-#include "gram/kernelmatrices.h"
 #include "linalg/binary_op.h"
 #include "linalg/transpose.h"
+#include "matrix/grammatrix.h"
+#include "matrix/kernelmatrices.h"
 #include "random/make_blobs.h"
 #include "random/rng.h"
 #include "svm/smoblocksolve.h"
@@ -38,7 +38,7 @@
 namespace ML {
 namespace SVM {
 using namespace MLCommon;
-using namespace GramMatrix;
+using namespace Matrix;
 
 template <typename math_t>
 class WorkingSetTest : public ::testing::Test {
@@ -133,23 +133,23 @@ class KernelCacheTest : public ::testing::Test {
   }
 
   // Naive host side kernel implementation used for comparison
-  void ApplyNonlin(GramMatrix::KernelParams params) {
+  void ApplyNonlin(Matrix::KernelParams params) {
     switch (params.kernel) {
-      case GramMatrix::LINEAR:
+      case Matrix::LINEAR:
         break;
-      case GramMatrix::POLYNOMIAL:
+      case Matrix::POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = pow(val, params.degree);
         }
         break;
-      case GramMatrix::TANH:
+      case Matrix::TANH:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = tanh(val);
         }
         break;
-      case GramMatrix::RBF:
+      case Matrix::RBF:
         for (int i = 0; i < n_ws; i++) {
           for (int j = 0; j < n_rows; j++) {
             math_t d = 0;
@@ -184,14 +184,14 @@ class KernelCacheTest : public ::testing::Test {
 TYPED_TEST_CASE_P(KernelCacheTest);
 
 TYPED_TEST_P(KernelCacheTest, EvalTest) {
-  std::vector<GramMatrix::KernelParams> param_vec{
-    GramMatrix::KernelParams{GramMatrix::LINEAR, 3, 1, 0},
-    GramMatrix::KernelParams{GramMatrix::POLYNOMIAL, 2, 1.3, 1},
-    GramMatrix::KernelParams{GramMatrix::TANH, 2, 0.5, 2.4},
-    GramMatrix::KernelParams{GramMatrix::RBF, 2, 0.5, 0}};
+  std::vector<Matrix::KernelParams> param_vec{
+    Matrix::KernelParams{Matrix::LINEAR, 3, 1, 0},
+    Matrix::KernelParams{Matrix::POLYNOMIAL, 2, 1.3, 1},
+    Matrix::KernelParams{Matrix::TANH, 2, 0.5, 2.4},
+    Matrix::KernelParams{Matrix::RBF, 2, 0.5, 0}};
   for (auto params : param_vec) {
-    GramMatrix::GramMatrixBase<TypeParam> *kernel =
-      GramMatrix::KernelFactory<TypeParam>::create(
+    Matrix::GramMatrixBase<TypeParam> *kernel =
+      Matrix::KernelFactory<TypeParam>::create(
         params, this->handle.getImpl().getCublasHandle());
     KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                  this->n_rows, this->n_cols, this->n_ws,
@@ -466,7 +466,7 @@ class SmoSolverTest : public ::testing::Test {
     updateDevice(f_dev, f_host, n_rows, stream);
     updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
 
-    kernel = new GramMatrix::GramMatrixBase<math_t>(cublas_handle);
+    kernel = new Matrix::GramMatrixBase<math_t>(cublas_handle);
   }
 
   void FreeResultBuffers() {
@@ -613,7 +613,7 @@ class SmoSolverTest : public ::testing::Test {
   }
   cumlHandle handle;
   cudaStream_t stream;
-  GramMatrix::GramMatrixBase<math_t> *kernel;
+  Matrix::GramMatrixBase<math_t> *kernel;
   int n_rows = 6;
   const int n_cols = 2;
   int n_ws = 6;

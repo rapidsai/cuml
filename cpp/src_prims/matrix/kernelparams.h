@@ -17,7 +17,7 @@
 #pragma once
 
 namespace MLCommon {
-namespace GramMatrix {
+namespace Matrix {
 
 enum KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
 
@@ -37,5 +37,5 @@ struct KernelParams {
   double coef0;       //!< additive constant in poly and tanh kernels
 };
 
-};  //end namespace GramMatrix
+};  //end namespace Matrix
 };  //end namespace MLCommon

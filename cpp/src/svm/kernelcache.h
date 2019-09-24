@@ -21,7 +21,7 @@
 #include "cache/cache.h"
 #include "common/cumlHandle.hpp"
 #include "common/host_buffer.hpp"
-#include "gram/grammatrix.h"
+#include "matrix/grammatrix.h"
 #include "ml_utils.h"
 
 namespace ML {
@@ -84,7 +84,7 @@ class KernelCache {
 
   cublasHandle_t cublas_handle;
 
-  MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel;
+  MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
 
   const cumlHandle_impl handle;
 
@@ -109,7 +109,7 @@ class KernelCache {
    */
   KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
-              MLCommon::GramMatrix::GramMatrixBase<math_t> *kernel,
+              MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200)
     : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
             cache_size),
