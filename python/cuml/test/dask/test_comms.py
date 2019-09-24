@@ -160,6 +160,7 @@ def test_send_recv(n_trials):
     client.close()
     cluster.close()
 
+
 @pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_recv_any_rank(n_trials):
 
