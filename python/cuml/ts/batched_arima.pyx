@@ -40,6 +40,13 @@ cdef extern from "ts/batched_arima.hpp" namespace "ML":
                        int d, int q, double* params,
                        vector[double]& vec_loglike, double* d_vs, bool trans)
 
+  void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
+                         int nobs, int p, int d, int q, double* d_params, double*& d_vs_ptr,
+                         double* d_y_p)
+
+  void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+                int d, int q, double* d_params, double*& d_vs, bool trans)
+
 cdef extern from "utils.h" namespace "MLCommon":
   void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
 
@@ -74,6 +81,7 @@ class ARIMAModel:
         self.num_batches = y.shape[1]
         self.yp = None
         self.niter = None # number of iterations used during fit
+        self.d_y = None
 
     def __repr__(self):
         return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
@@ -107,28 +115,41 @@ class ARIMAModel:
         """Return in-sample prediction on batched series given batched model"""
 
         p, d, q = self.order[0]
+        
+        cdef double* d_vs_ptr
+        handle = cuml.common.handle.Handle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        vs = residual(self.num_batches, self.num_samples, self.order[0], self.y, x)
+        cdef uintptr_t d_params_ptr
+        d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-        self._assert_same_d(self.order) # We currently assume the same d for all series
-        _, d, _ = self.order[0]
+        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples - d),
+                                                                        self.num_batches), order="F")
+        cdef uintptr_t d_y_p_ptr
+        d_y_p, d_y_p_ptr, _, _, _ = input_to_dev_array(y_p, check_dtype=np.float64)
+        
+        cdef uintptr_t d_y_ptr    
+        if self.d_y is None:
+            d_y, d_y_ptr, _, _, _ = input_to_dev_array(self.y, check_dtype=np.float64)
+            self.d_y = (d_y, d_y_ptr)
+        
+        (_, d_y_ptr) = self.d_y
 
-        if d == 0:
-            y_p = self.y - vs
-        elif d == 1:
-            y_diff = np.diff(self.y, axis=0)
-            # Following statsmodel `predict(typ='levels')`, by adding original
-            # signal back to differenced prediction, we retrive a prediction of
-            # the original signal.
-            predict = (y_diff - vs)
-            y_p = self.y[0:-1, :] + predict
-        else:
-            # d>1
-            raise NotImplementedError("Only support d==0,1")
+        predict_in_sample(handle_[0], <double*>d_y_ptr,
+                          self.num_batches, self.num_samples, p, d, q,
+                          <double*>d_params_ptr, d_vs_ptr, <double*>d_y_p_ptr)
+
+        cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((self.num_samples - d),
+                                                                       self.num_batches), order="F")
+        
+        updateHost(&vs[0,0], d_vs_ptr, (self.num_samples-1) * self.num_batches, 0)
+        updateHost(&y_p[0,0], <double*>d_y_p_ptr, (self.num_samples-1) * self.num_batches, 0)
 
         # Extend prediction by 1 when d==1
         if d == 1:
             # forecast a single value to make prediction length of original signal
+            y_diff = np.diff(self.y, axis=0)
             fc1 = np.zeros(self.num_batches)
             for i in range(self.num_batches):
                 fc1[i] = _fc_single(1, self.order[i], y_diff[:,i],
@@ -139,7 +160,7 @@ class ARIMAModel:
             final_term = self.y[-1, :] + fc1
 
             # append final term to prediction
-            temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]))
+            temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]), order="F")
             temp[:-1, :] = y_p
             temp[-1, :] = final_term
             y_p = temp
@@ -418,6 +439,7 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     cdef uintptr_t d_vs_ptr
+
     cdef double* d_vs_ptr_double
     if dtype != np.float64:
         raise ValueError("Only 64-bit floating point inputs currently supported")
@@ -429,19 +451,31 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     pynvtx_range_pop()
     return vec_loglike, d_vs_ptr
 
-def residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
+def _residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
     """ Computes and returns the kalman residual """
     
     cdef vector[double] vec_loglike
-    cdef uintptr_t d_vs_ptr
+    cdef double* d_vs_ptr
+    cdef uintptr_t d_params_ptr
+    cdef uintptr_t d_y_ptr
 
     p, d, q = order
 
     cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
+    
+    d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
+    d_y, d_y_ptr, _, _, _ = input_to_dev_array(y, check_dtype=np.float64)
 
-    vec_loglike, d_vs_ptr = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
+    if handle is None:
+        handle = cuml.common.handle.Handle()
 
-    updateHost(&vs[0,0], <double*>d_vs_ptr, (nobs-d) * num_batches, 0)
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    residual(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q,
+             <double*>d_params_ptr, d_vs_ptr,
+             trans)
+
+    updateHost(&vs[0,0], d_vs_ptr, (nobs-d) * num_batches, 0)
     
     return vs
 
@@ -554,6 +588,7 @@ def fit(y,
 
     fit_model = ARIMAModel(num_batches*[order], mu, ar, ma, y)
     fit_model.niter = niter
+    fit_model.d_y = (d_y, d_y_ptr)
     return fit_model
 
 

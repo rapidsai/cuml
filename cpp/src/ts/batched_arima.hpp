@@ -24,18 +24,22 @@ namespace ML {
 //! @param y series to fit: shape = (nobs, num_bathces) and expects column major data layout. Memory on Device.
 //! @param num_batches number of time series
 //! @param order ARIMA order (p: number of ar-parameters, d: difference parameter, q: number of ma-parameters)
-//! @param params parameters to evaluate group by series: [mu0, ar.., ma.., mu1, ..] Memory on host.
-//! @param h_vs The residual between model and original signal. shape = (nobs, num_batches) Memory on host.
-//! @param trans run `jones_transform` on params
+//! @param params parameters to evaluate group by series: [mu0, ar.., ma.., mu1, ..] Memory on device.
+//! @param d_vs The residual between model and original signal. shape = (nobs, num_batches) Memory on device.
+//! @param trans run `jones_transform` on params.
 //! @return vector of log likelihood, one for each series (size: num_batches). Memory on host.
 //! @return kalman residual, shape = (nobs, num_batches) Memory on device.
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
-                     int p, int d, int q, double* h_params,
+                     int p, int d, int q, double* d_params,
                      std::vector<double>& loglike, double*& d_vs,
                      bool trans = true);
 
+//! Compute in-sample prediction (size= (nobs - d))
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
-                       int nobs, int p, int d, int q, double* h_params,
-                       double*& d_y_p);
+                       int nobs, int p, int d, int q, double* d_params,
+                       double*& d_vs, double* d_y_p);
+
+void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+              int d, int q, double* d_params, double*& d_vs, bool trans);
 
 }  // namespace ML

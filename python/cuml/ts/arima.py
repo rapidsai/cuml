@@ -121,7 +121,7 @@ def forecast(model, nsteps: int) -> np.ndarray:
     p, d, q = model.order[0]
     x = pack(p, d, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
 
-    vs = batched_arima.residual(model.num_batches, model.num_samples, model.order[0], model.y, x)
+    vs = batched_arima._residual(model.num_batches, model.num_samples, model.order[0], model.y, x)
     # _, vs = run_kalman(model.y, model.order[0], model.num_batches, x)
 
     for i in range(model.num_batches):
