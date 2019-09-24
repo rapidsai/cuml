@@ -596,7 +596,7 @@ void csr_row_op(const T *row_ind, T n_rows, T nnz, Lambda op,
  * @param row_ind the input CSR row_ind array
  * @param total_rows number of vertices in graph
  * @param batchSize number of vertices in current batch
- * @param adj an adjacency array (size batchSize * total_rows)
+ * @param adj an adjacency array (size batchSize x total_rows)
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
  */
@@ -617,6 +617,8 @@ void csr_adj_graph_batched(const T *row_ind, T total_rows, T nnz, T batchSize,
           k += 1;
         }
       }
+
+      __syncthreads();
     },
     stream);
 }
@@ -675,6 +677,11 @@ class WeakCCState {
         std::cout << "Exception freeing memory for WeakCCState: " << e.what()
                   << std::endl;
       }
+
+      xa = nullptr;
+      fa = nullptr;
+      m = nullptr;
+      owner = false;
     }
   }
 };
@@ -694,7 +701,6 @@ __global__ void weak_cc_label_device(Type *labels, const Type *row_ind,
       ci = labels[tid + startVertexId];
 
       Type degree = get_stop_idx(tid, batchSize, nnz, row_ind) - row_ind[tid];
-
       for (int j = 0; j < int(degree);
            j++) {  // TODO: Can't this be calculated from the ex_scan?
         cj = labels[row_ind_ptr[start + j]];
@@ -757,8 +763,10 @@ void weak_cc_label_batched(Type *labels, const Type *row_ind,
   weak_cc_init_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(
     labels, startVertexId, batchSize, MAX_LABEL, filter_op);
   CUDA_CHECK(cudaPeekAtLastError());
+
   do {
     CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
+
     weak_cc_label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
       startVertexId, batchSize);
@@ -767,6 +775,9 @@ void weak_cc_label_batched(Type *labels, const Type *row_ind,
     //** swapping F1 and F2
     MLCommon::updateHost(host_fa, state->fa, N, stream);
     MLCommon::updateHost(host_xa, state->xa, N, stream);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     MLCommon::updateDevice(state->fa, host_xa, N, stream);
     MLCommon::updateDevice(state->xa, host_fa, N, stream);
 
@@ -817,6 +828,7 @@ void weak_cc_batched(Type *labels, const Type *row_ind, const Type *row_ind_ptr,
       labels, state->fa, state->xa, N, MAX_LABEL);
     CUDA_CHECK(cudaPeekAtLastError());
   }
+
   weak_cc_label_batched<Type, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N,
                                      state, startVertexId, batchSize, stream,
                                      filter_op);

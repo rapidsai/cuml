@@ -116,6 +116,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     Type startVertexId = i * batchSize;
     int nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
+
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -134,8 +135,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
+
     MLCommon::Sparse::weak_cc_batched<Type, TPB>(
-      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, batchSize,
+      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts] __device__(Type tid) { return core_pts[tid]; });
     ML::POP_RANGE();
