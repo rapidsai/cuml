@@ -22,7 +22,7 @@
 #include <linalg/gemm.h>
 
 namespace MLCommon {
-namespace GramMatrix {
+namespace Matrix {
 
 /**
  * Base class for general Gram matrices
@@ -157,5 +157,5 @@ class GramMatrixBase {
                                      fin_op, stream, false);
   }
 };
-};  // end namespace GramMatrix
+};  // end namespace Matrix
 };  // end namespace MLCommon

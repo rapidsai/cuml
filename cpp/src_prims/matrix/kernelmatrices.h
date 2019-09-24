@@ -18,11 +18,11 @@
 
 #include <cuda_utils.h>
 #include <distance/distance.h>
-#include <gram/grammatrix.h>
+#include <matrix/grammatrix.h>
 #include <linalg/gemm.h>
 
 namespace MLCommon {
-namespace GramMatrix {
+namespace Matrix {
 
 using namespace MLCommon;
 
@@ -305,5 +305,5 @@ class RBFKernel : public GramMatrixBase<math_t> {
   }
 };
 
-};  // end namespace GramMatrix
+};  // end namespace Matrix
 };  // end namespace MLCommon

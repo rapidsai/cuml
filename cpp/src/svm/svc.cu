@@ -17,11 +17,11 @@
 #include <iostream>
 
 #include "common/device_buffer.hpp"
-#include "gram/kernelfactory.h"
 #include "kernelcache.h"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
+#include "matrix/kernelfactory.h"
 #include "smosolver.h"
 #include "svc.hpp"
 #include "svc_impl.h"
@@ -35,24 +35,24 @@ using namespace MLCommon;
 template void svcFit<float>(const cumlHandle &handle, float *input, int n_rows,
                             int n_cols, float *labels,
                             const svmParameter &param,
-                            MLCommon::GramMatrix::KernelParams &kernel_params,
+                            MLCommon::Matrix::KernelParams &kernel_params,
                             svmModel<float> &model);
 
 template void svcFit<double>(const cumlHandle &handle, double *input,
                              int n_rows, int n_cols, double *labels,
                              const svmParameter &param,
-                             MLCommon::GramMatrix::KernelParams &kernel_params,
+                             MLCommon::Matrix::KernelParams &kernel_params,
                              svmModel<double> &model);
 
-template void svcPredict<float>(
-  const cumlHandle &handle, float *input, int n_rows, int n_cols,
-  MLCommon::GramMatrix::KernelParams &kernel_params,
-  const svmModel<float> &model, float *preds);
+template void svcPredict<float>(const cumlHandle &handle, float *input,
+                                int n_rows, int n_cols,
+                                MLCommon::Matrix::KernelParams &kernel_params,
+                                const svmModel<float> &model, float *preds);
 
-template void svcPredict<double>(
-  const cumlHandle &handle, double *input, int n_rows, int n_cols,
-  MLCommon::GramMatrix::KernelParams &kernel_params,
-  const svmModel<double> &model, double *preds);
+template void svcPredict<double>(const cumlHandle &handle, double *input,
+                                 int n_rows, int n_cols,
+                                 MLCommon::Matrix::KernelParams &kernel_params,
+                                 const svmModel<double> &model, double *preds);
 
 template void svmFreeBuffers(const cumlHandle &handle, svmModel<float> &m);
 
@@ -60,7 +60,7 @@ template void svmFreeBuffers(const cumlHandle &handle, svmModel<double> &m);
 
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
-                 GramMatrix::KernelParams kernel_params, math_t cache_size,
+                 Matrix::KernelParams kernel_params, math_t cache_size,
                  int max_iter, bool verbose)
   : handle(handle),
     param(svmParameter{C, cache_size, max_iter, tol, verbose}),
