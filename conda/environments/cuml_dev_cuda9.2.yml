@@ -23,5 +23,5 @@ dependencies:
 - dask-cuda=0.9*
 - dask-cudf=0.10*
 - nccl>=2.4
-- libcumlprims=0.9*
+- libcumlprims=0.10*
 - statsmodels
