@@ -66,6 +66,11 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
+def func_test_recv_any_rank(sessionId, n_trials, r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_recv_any_rank(handle, n_trials)
+
+
 @pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist():
     cluster = LocalCUDACluster(threads_per_worker=1)
@@ -135,6 +140,39 @@ def test_send_recv(n_trials):
 
     start = time.time()
     dfs = [client.submit(func_test_send_recv,
+                         cb.sessionId,
+                         n_trials,
+                         random.random(),
+                         workers=[w])
+           for wid, w in zip(range(len(cb.worker_addresses)),
+                             cb.worker_addresses)]
+
+    wait(dfs)
+    print("Time: " + str(time.time() - start))
+
+    result = list(map(lambda x: x.result(), dfs))
+
+    print(str(result))
+
+    assert(result)
+
+    cb.destroy()
+    client.close()
+    cluster.close()
+
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+def test_recv_any_rank(n_trials):
+
+    cluster = LocalCUDACluster(threads_per_worker=1)
+    client = Client(cluster)
+
+    cb = CommsContext(comms_p2p=True)
+    cb.init()
+
+    cb = default_comms()
+
+    start = time.time()
+    dfs = [client.submit(func_test_recv_any_rank,
                          cb.sessionId,
                          n_trials,
                          random.random(),

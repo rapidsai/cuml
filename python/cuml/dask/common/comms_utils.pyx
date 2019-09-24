@@ -52,12 +52,15 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                               int size,
                               int rank)
 
+
+
     bool ucx_enabled()
 
 
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms" nogil:
     bool test_collective_allreduce(const cumlHandle &h)
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h, int numTrials)
+    bool test_pointToPoint_recv_any_rank(const cumlHandle& h, int numTrials)
 
 
 def is_ucx_enabled():
@@ -80,6 +83,15 @@ def perform_test_comms_send_recv(handle, n_trials):
     """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_recv_any_rank(handle, n_trials):
+    """
+    Performs a p2p send/recv on the current worker
+    :param handle: Handle handle containing cumlCommunicator to use
+    """
+    cdef const cumlHandle * h = < cumlHandle * > < size_t > handle.getHandle()
+    return test_pointToPoint_recv_any_rank(deref(h), < int > n_trials)
 
 
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):

@@ -111,7 +111,7 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
   return ret;
 }
 
-bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& handle, int numTrials) {
+bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
   const cumlHandle_impl& handle = h.getImpl();
   const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
   const int rank = communicator.getRank();
@@ -126,7 +126,8 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& handle, int numTrials
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, 1, MLCommon::cumlCommunicator::ANY_RANK, 0,
+        communicator.irecv(received_data.data() + request_idx, 1,
+                           MLCommon::cumlCommunicator::ANY_RANK, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }
@@ -168,7 +169,6 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& handle, int numTrials
   }
 
   return ret;
-
 }
 
 };  // namespace Comms
