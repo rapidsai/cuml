@@ -194,10 +194,12 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-      local_handle[i].getImpl(), n_rows, n_cols, n_unique_labels,
+      local_handle[i].getImpl(), n_rows, n_cols,
+      this->rf_params.tree_params.max_features, n_unique_labels,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
-      this->rf_params.tree_params.max_depth);
+      this->rf_params.tree_params.max_depth,
+      this->rf_params.tree_params.shuffle_features);
   }
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
@@ -465,10 +467,12 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      local_handle[i].getImpl(), n_rows, n_cols, 1,
+      local_handle[i].getImpl(), n_rows, n_cols,
+      this->rf_params.tree_params.max_features, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
-      this->rf_params.tree_params.max_depth);
+      this->rf_params.tree_params.max_depth,
+      this->rf_params.tree_params.shuffle_features);
   }
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
