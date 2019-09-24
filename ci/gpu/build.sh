@@ -59,7 +59,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       dask-cuda=0.9 \
       statsmodels \
       xgboost=0.90.rapidsdev1 \
-      rapidsai::cupy>=6.2
+      rapidsai/label/cuda${CUDA_REL}::cupy>=6.2
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
