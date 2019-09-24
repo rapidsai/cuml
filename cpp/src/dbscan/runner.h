@@ -80,7 +80,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = alignTo<size_t>(sizeof(bool), align);
   size_t vdSize = alignTo<size_t>(sizeof(int) * (batchSize + 1), align);
-  size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
+  size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
   if (workspace == NULL) {
     auto size =
@@ -88,8 +88,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     return size;
   }
   // partition the temporary workspace needed for different stages of dbscan
-  Type adjlen = 0;
-  Type curradjlen = 0;
+  Index_ adjlen = 0;
+  Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
   temp += adjSize;
@@ -101,9 +101,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
-  int* vd = (int*)temp;
+  Index_* vd = (Index_*)temp;
   temp += vdSize;
-  Type* ex_scan = (Type*)temp;
+  Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
 
   // Running VertexDeg
@@ -111,8 +111,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
-                                            stream);
+    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+                                              stream);
     Type startVertexId = i * batchSize;
     int nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
@@ -129,6 +129,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
     }
+
+    std::cout << "TYPE: " << sizeof(Type) << std::endl;
 
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,

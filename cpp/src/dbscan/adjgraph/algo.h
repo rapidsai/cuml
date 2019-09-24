@@ -44,7 +44,7 @@ template <typename Type, typename Index_ = int>
 void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   device_ptr<int> dev_vd = device_pointer_cast(data.vd);
-  device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
+  device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
   ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
   exclusive_scan(thrust::cuda::par(alloc).on(stream), dev_vd,
