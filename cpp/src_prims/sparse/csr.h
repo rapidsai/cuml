@@ -611,13 +611,12 @@ void csr_adj_graph_batched(const T *row_ind, T total_rows, T nnz, T batchSize,
       fused_op(row, start_idx, stop_idx);
       int k = 0;
       for (T i = 0; i < total_rows; i++) {
+        // @todo: uncoalesced mem accesses!
         if (adj[batchSize * i + row]) {
           row_ind_ptr[start_idx + k] = i;
           k += 1;
         }
       }
-
-      __syncthreads();
     },
     stream);
 }

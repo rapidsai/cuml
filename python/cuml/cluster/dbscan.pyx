@@ -190,8 +190,6 @@ class DBSCAN(Base):
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
-
-            print("Calling float32 fit!")
             dbscanFit(handle_[0],
                       <float*>input_ptr,
                       <int> n_rows,
@@ -202,7 +200,6 @@ class DBSCAN(Base):
                       <size_t>self.max_bytes_per_batch,
                       <bool>self.verbose)
         else:
-            print("Calling double precision fit!")
             dbscanFit(handle_[0],
                       <double*>input_ptr,
                       <int> n_rows,
