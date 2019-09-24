@@ -45,7 +45,10 @@ class KMeans(object):
     documentation for single-GPU K-Means.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, n_clusters=8, max_iter=300, tol=1e-4,
+                 verbose=0, random_state=1, precompute_distances='auto',
+                 init='scalable-k-means++', n_init=1, algorithm='auto',
+                 client=None):
         """
         Constructor for distributed KMeans model
         handle : cuml.Handle
@@ -81,10 +84,19 @@ class KMeans(object):
             multiple GPUs later.
         """
         self.client = default_client() if client is None else client
-        self.kwargs = kwargs
+        self.max_iter = max_iter
+        self.tol = tol
+        self.random_state = random_state
+        self.precompute_distances = precompute_distances
+        self.n_init = n_init
+        self.algorithm = algorithm
+        self.n_clusters = n_clusters
+        self.init = init
+        self.verbose = verbose
 
     @staticmethod
-    def func_fit(sessionId, dfs, r, **kwargs):
+    def func_fit(sessionId, n_clusters, max_iter, tol, verbose, random_state,
+                 precompute_distances, init, n_init, algorithm, dfs, r):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -93,7 +105,6 @@ class KMeans(object):
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
-
         try:
             from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         except ImportError:
@@ -105,7 +116,16 @@ class KMeans(object):
 
         df = concat(dfs)
 
-        return cumlKMeans(handle=handle, **kwargs).fit(df)
+        return cumlKMeans(handle=handle,
+                          init=init,
+                          max_iter=max_iter,
+                          tol=tol,
+                          random_state=random_state,
+                          n_init=n_init,
+                          algorithm=algorithm,
+                          precompute_distances=precompute_distances,
+                          n_clusters=n_clusters,
+                          verbose=verbose).fit(df)
 
     @staticmethod
     def func_transform(model, dfs, r):
@@ -160,9 +180,17 @@ class KMeans(object):
         kmeans_fit = [self.client.submit(
             KMeans.func_fit,
             comms.sessionId,
+            self.n_clusters,
+            self.max_iter,
+            self.tol,
+            self.verbose,
+            self.random_state,
+            self.precompute_distances,
+            self.init,
+            self.n_init,
+            self.algorithm,
             f,
             random.random(),
-            **self.kwargs,
             workers=[w]) for w, f in gpu_futures.items()]
 
         wait(kmeans_fit)

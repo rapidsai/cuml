@@ -402,13 +402,10 @@ class RandomForestRegressor(Base):
             return self.max_features
         elif self.max_features == 'sqrt':
             return 1/np.sqrt(self.n_cols)
-        elif self.max_features == 'auto':
-            return 1.0
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
         else:
-            raise ValueError("Wrong value passed in for max_features"
-                             " please read the documentation")
+            return 1.0
 
     def fit(self, X, y):
         """
