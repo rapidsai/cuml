@@ -38,9 +38,39 @@ namespace ML {
 
 using std::vector;
 
+void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+              int d, int q, double* d_params, double*& d_vs, bool trans) {
+  std::vector<double> loglike;
+  batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_params, loglike,
+                  d_vs, trans);
+}
+
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* d_params,
-                       double*& d_y_p) {}
+                       double*& d_vs, double* d_y_p) {
+  residual(handle, d_y, num_batches, nobs, p, d, q, d_params, d_vs, false);
+
+  if (d == 0) {
+    auto counting = thrust::make_counting_iterator(0);
+    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+      for (int i = 0; i < nobs; i++) {
+        int it = bid * nobs + i;
+        d_y_p[it] = d_y[it] - d_vs[it];
+      }
+    });
+  } else {
+    auto counting = thrust::make_counting_iterator(0);
+    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+      for (int i = 0; i < nobs - 1; i++) {
+        int it = bid * nobs + i;
+        int itd = bid * (nobs - 1) + i;
+        // note: d_y[it] + (d_y[it + 1] - d_y[it]) - d_vs[itd]
+        //    -> d_y[it+1] - d_vs[itd]
+        d_y_p[itd] = d_y[it + 1] - d_vs[itd];
+      }
+    });
+  }
+}
 
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_params,
