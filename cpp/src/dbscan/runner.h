@@ -129,9 +129,11 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
     }
+
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,
                                 stream);
+
     ML::POP_RANGE();
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");

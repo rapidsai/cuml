@@ -606,17 +606,18 @@ void csr_adj_graph_batched(const T *row_ind, T total_rows, T nnz, T batchSize,
                            Lambda fused_op) {
   csr_row_op<T, TPB_X>(
     row_ind, batchSize, nnz,
-    [fused_op, adj, total_rows, row_ind_ptr, batchSize] __device__(
+    [fused_op, adj, total_rows, row_ind_ptr, batchSize, nnz] __device__(
       T row, T start_idx, T stop_idx) {
       fused_op(row, start_idx, stop_idx);
       int k = 0;
       for (T i = 0; i < total_rows; i++) {
-        // @todo: uncoalesced mem accesses!
         if (adj[batchSize * i + row]) {
           row_ind_ptr[start_idx + k] = i;
           k += 1;
         }
       }
+
+      __syncthreads();
     },
     stream);
 }

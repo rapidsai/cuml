@@ -14,35 +14,65 @@
  * limitations under the License.
  */
 
+#include "common/cumlHandle.hpp"
+
 #include "make_blobs.hpp"
+
 #include "random/make_blobs.h"
+
+#include "linalg/transpose.h"
 
 namespace ML {
 namespace Datasets {
 
 void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const float* centers,
-                const float* cluster_std,
-                const float cluster_std_scalar, bool shuffle,
-                float center_box_min, float center_box_max,
-                uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
+                const float* cluster_std, const float cluster_std_scalar,
+                bool shuffle, float center_box_min, float center_box_max,
+                uint64_t seed, bool col_major) {
+  if (!col_major) {
+    MLCommon::Random::make_blobs(
+      out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+      handle.getStream(), centers, cluster_std, cluster_std_scalar, shuffle,
+      center_box_min, center_box_max, seed);
+
+  } else {
+    cublasHandle_t cublasHandle = handle.getImpl().getCublasHandle();
+
+    MLCommon::device_buffer<float> tmp(handle.getDeviceAllocator(),
+                                       handle.getStream(), n_rows * n_cols);
+    MLCommon::Random::make_blobs(
+      tmp.data(), labels, n_rows, n_cols, n_clusters,
+      handle.getDeviceAllocator(), handle.getStream(), centers, cluster_std,
+      cluster_std_scalar, shuffle, center_box_min, center_box_max, seed);
+    MLCommon::LinAlg::transpose(out, tmp.data(), n_rows, n_cols, cublasHandle,
+                                handle.getStream());
+  }
 }
 
 void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const double* centers,
-                const double* cluster_std,
-                const double cluster_std_scalar, bool shuffle,
-                double center_box_min, double center_box_max,
-                uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
+                const double* cluster_std, const double cluster_std_scalar,
+                bool shuffle, double center_box_min, double center_box_max,
+                uint64_t seed, bool col_major) {
+  if (!col_major) {
+    MLCommon::Random::make_blobs(
+      out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+      handle.getStream(), centers, cluster_std, cluster_std_scalar, shuffle,
+      center_box_min, center_box_max, seed);
+
+  } else {
+    MLCommon::device_buffer<double> tmp(handle.getDeviceAllocator(),
+                                        handle.getStream(), n_rows * n_cols);
+    MLCommon::Random::make_blobs(
+      tmp.data(), labels, n_rows, n_cols, n_clusters,
+      handle.getDeviceAllocator(), handle.getStream(), centers, cluster_std,
+      cluster_std_scalar, shuffle, center_box_min, center_box_max, seed);
+    MLCommon::LinAlg::transpose(out, tmp.data(), n_rows, n_cols,
+                                handle.getImpl().getCublasHandle(),
+                                handle.getStream());
+  }
 }
 
-}  // end namespace Metrics
+}  // namespace Datasets
 }  // end namespace ML
