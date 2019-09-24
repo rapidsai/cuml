@@ -43,6 +43,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+      cudatoolkit=${CUDA_REL} \
       cudf=${MINOR_VERSION} \
       rmm=${MINOR_VERSION} \
       nvstrings=${MINOR_VERSION} \
