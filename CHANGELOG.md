@@ -11,6 +11,7 @@
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #1047: Consistent OPG interface for kmeans, based on internal libcumlprims update
 - PR #763: Add examples to train_test_split documentation
 - PR #1093: Unified inference kernels for different FIL algorithms
 - PR #1076: Paying off some UMAP / Spectral tech debt.
