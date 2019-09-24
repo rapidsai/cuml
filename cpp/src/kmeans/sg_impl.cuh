@@ -76,10 +76,15 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
       sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
+  LOG(params.verbose,
+      "Calling KMeans.fit with %d samples of input data and the initialized "
+      "cluster centers\n",
+      n_samples);
+
   DataT priorClusteringCost = 0;
   for (n_iter = 0; n_iter < params.max_iter; ++n_iter) {
     LOG(params.verbose,
-        "KMeans.fit: Iteration-%d: fitting the model using the initialize "
+        "KMeans.fit: Iteration-%d: fitting the model using the initialized "
         "cluster centers\n",
         n_iter);
 
@@ -348,6 +353,9 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   CUDA_CHECK(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
+  LOG(params.verbose, "KMeans||: psi = %g, log(psi) = %g, niter = %d \n", psi,
+      log(psi), niter);
+
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
     LOG(params.verbose,
@@ -374,9 +382,10 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     // potentialCentroids
     rng.uniform(uniformRands.data(), uniformRands.getSize(0), (DataT)0,
                 (DataT)1, stream);
-    kmeans::detail::SamplingOp<DataT> select_op(
-      psi, n_clusters * params.oversampling_factor, uniformRands.data(),
-      isSampleCentroid.data());
+
+    kmeans::detail::SamplingOp<DataT> select_op(psi, params.oversampling_factor,
+                                                n_clusters, uniformRands.data(),
+                                                isSampleCentroid.data());
 
     auto Cp = kmeans::detail::sampleCentroids(handle, X, minClusterDistance,
                                               isSampleCentroid, select_op,
@@ -395,7 +404,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
-  LOG(params.verbose, "KMeans||: # potential centroids sampled - %d\n",
+  LOG(params.verbose, "KMeans||: total # potential centroids sampled - %d\n",
       potentialCentroids.getSize(0));
 
   if (potentialCentroids.getSize(0) > n_clusters) {
@@ -417,12 +426,37 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 
     DataT inertia = 0;
     int n_iter = 0;
-    ML::kmeans::fit(handle, params, potentialCentroids, centroidsRawData,
-                    inertia, n_iter, workspace);
-  } else {
-    ASSERT(potentialCentroids.getSize(0) == n_clusters,
-           "failed to converge, restart with different seed");
+    KMeansParams default_params;
+    default_params.n_clusters = params.n_clusters;
 
+    ML::kmeans::fit(handle, default_params, potentialCentroids,
+                    centroidsRawData, inertia, n_iter, workspace);
+
+  } else if (potentialCentroids.getSize(0) < n_clusters) {
+    // supplement with random
+    auto n_random_clusters = n_clusters - potentialCentroids.getSize(0);
+
+    LOG(true,
+        "[Warning!] KMeans||: found fewer than %d centroids during "
+        "initialization (found %d centroids, remaining %d centroids will be "
+        "chosen randomly from input samples)\n",
+        n_clusters, potentialCentroids.getSize(0), n_random_clusters);
+
+    // reset buffer to store the chosen centroid
+    centroidsRawData.resize(n_clusters * n_features, stream);
+
+    // generate `n_random_clusters` centroids
+    KMeansParams rand_params;
+    rand_params.init = KMeansParams::InitMethod::Random;
+    rand_params.n_clusters = n_random_clusters;
+    initRandom(handle, rand_params, X, centroidsRawData);
+
+    // copy centroids generated during kmeans|| iteration to the buffer
+    MLCommon::copy(centroidsRawData.data() + n_random_clusters * n_features,
+                   potentialCentroids.data(), potentialCentroids.numElements(),
+                   stream);
+  } else {
+    // found the required n_clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
     MLCommon::copy(centroidsRawData.data(), potentialCentroids.data(),
                    potentialCentroids.numElements(), stream);
@@ -438,8 +472,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
 
   ASSERT(params.oversampling_factor > 0,
-         "oversampling factor must be > 0 (requested %d)",
-         (int)params.oversampling_factor);
+         "oversampling factor must be > 0 (requested %f)",
+         params.oversampling_factor);
 
   ASSERT(memory_type(X) == cudaMemoryTypeDevice,
          "input data must be device accessible");

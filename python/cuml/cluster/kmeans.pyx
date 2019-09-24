@@ -49,7 +49,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
@@ -210,7 +210,7 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    oversampling_factor : int scalable k-means|| oversampling factor
+    oversampling_factor : float scalable k-means|| oversampling factor
     max_samples_per_batch : int maximum number of samples to use for each batch
                                 of the pairwise distance computation.
 
@@ -259,7 +259,7 @@ class KMeans(Base):
         self.cluster_centers_ = None
         self.inertia_ = 0
         self.n_iter_ = 0
-        self.oversampling_factor=int(oversampling_factor)
+        self.oversampling_factor=oversampling_factor
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
