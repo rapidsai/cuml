@@ -580,8 +580,17 @@ class SmoSolverTest : public ::testing::Test {
         for (int j = 0; j < n_cols; j++)
           w[j] += x_support_host[i + n_coefs * j] * dual_coefs_host[i];
       }
-      for (int i = 0; i < n_cols; i++)
-        EXPECT_LT(abs(w[i] - w_exp[i]), epsilon) << "@" << i;
+      // Calculate the cosine similarity between w and w_exp
+      math_t abs_w = 0;
+      math_t abs_w_exp = 0;
+      math_t cs = 0;
+      for (int i = 0; i < n_cols; i++) {
+        abs_w += w[i] * w[i];
+        abs_w_exp += w_exp[i] * w_exp[i];
+        cs += w[i] * w_exp[i];
+      }
+      cs /= sqrt(abs_w * abs_w_exp);
+      EXPECT_GT(cs, 0.99999);
     }
 
     EXPECT_LT(abs(b - b_exp), epsilon);
@@ -653,38 +662,33 @@ std::ostream &operator<<(std::ostream &os, const smoInput<math_t> &b) {
 }
 
 TYPED_TEST(SmoSolverTest, SmoSolveTest) {
-  std::vector<smoInput<TypeParam>> param_vec{
-    {1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
-    {10, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
-    {1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 1}, 100, 1},
+  std::vector<std::pair<smoInput<TypeParam>, smoOutput<TypeParam>>> data{
+    {smoInput<TypeParam>{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
+     smoOutput<TypeParam>{4,                         // n_sv
+                          {-0.6, 1, -1, 0.6},        // dual_coefs
+                          -1.8,                      // b
+                          {-0.4, 1.2},               // w
+                          {1, 1, 2, 2, 1, 2, 2, 3},  // x_support
+                          {0, 2, 3, 5}}},            // support idx
+    {smoInput<TypeParam>{10, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
+     smoOutput<TypeParam>{3, {-2, 4, -2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
+    {smoInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 1}, 100, 1},
+     smoOutput<TypeParam>{3,
+                          {-0.02556136, 0.03979708, -0.01423571},
+                          -1.07739149,
+                          {},
+                          {1, 1, 2, 1, 2, 2},
+                          {0, 2, 3}}}};
 
-  };
-
-  std::vector<smoOutput<TypeParam>> out_vec{
-    {4,
-     {-0.6, 1, -1, 0.6},        // dual_coefs
-     -1.8,                      // b
-     {-0.4, 1.2},               // w
-     {1, 1, 2, 2, 1, 2, 2, 3},  //x_support
-     {0, 2, 3, 5}},             //idx
-    {3, {-2, 4, -2, 0, 0}, -1.0, {-2, 2}, {}, {}},
-    {3,
-     {-0.02556136, 0.03979708, -0.01423571},
-     -1.07739149,
-     {},
-     {1, 1, 2, 1, 2, 2},
-     {0, 2, 3}}
-
-  };
-
-  for (int i = 0; i < param_vec.size(); i++) {
-    auto p = param_vec[i];
-    auto exp = out_vec[i];
+  for (auto d : data) {
+    auto p = d.first;
+    auto exp = d.second;
     SCOPED_TRACE(p);
     GramMatrixBase<TypeParam> *kernel = KernelFactory<TypeParam>::create(
       p.kernel_params, this->handle.getImpl().getCublasHandle());
     SmoSolver<TypeParam> smo(this->handle.getImpl(), p.C, p.tol, kernel);
-    svmModel<TypeParam> model{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+    svmModel<TypeParam> model{0,       this->n_cols, 0, nullptr,
+                              nullptr, nullptr,      0, nullptr};
     smo.Solve(this->x_dev, this->n_rows, this->n_cols, this->y_dev,
               &model.dual_coefs, &model.n_support, &model.x_support,
               &model.support_idx, &model.b, p.max_iter, p.max_inner_iter);
