@@ -43,6 +43,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+      rapidsai/label/cuda${CUDA_REL}::cupy>=6.2 \
       cudatoolkit=${CUDA_REL} \
       cudf=${MINOR_VERSION} \
       rmm=${MINOR_VERSION} \
@@ -56,10 +57,10 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       distributed=2.3.0 \
       dask-ml \
       dask-cudf=${MINOR_VERSION} \
-      dask-cuda=0.9 \
+      dask-cuda=0.10 \
       statsmodels \
       xgboost=0.90.rapidsdev1 \
-      rapidsai/label/cuda${CUDA_REL}::cupy>=6.2
+
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
