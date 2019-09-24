@@ -617,8 +617,6 @@ void csr_adj_graph_batched(const T *row_ind, T total_rows, T nnz, T batchSize,
           k += 1;
         }
       }
-
-      __syncthreads();
     },
     stream);
 }
