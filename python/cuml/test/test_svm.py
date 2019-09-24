@@ -37,6 +37,9 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
     if not equal and report_summary:
         idx = np.argsort(diff)
         print("Largest diffs")
+        a = a.ravel()
+        b = b.ravel()
+        diff = diff.ravel()
         for i in idx[-5:]:
             if (diff[i] > tol):
                 print(diff[i], "at", i, "values", a[i], b[i])
@@ -78,10 +81,11 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
 
     if coef_tol is None:
-        coef_tol = 20*svm1.tol
+        coef_tol = 1e-5
     if svm1.kernel == 'linear':
-        assert array_equal(svm1.coef_, svm2.coef_, coef_tol,
-                           report_summary=report_summary)
+        cs = np.dot(svm1.coef_, svm2.coef_.T) / \
+            (np.linalg.norm(svm1.coef_) * np.linalg.norm(svm2.coef_))
+        assert cs > 1 - coef_tol
 
     svm1_y_hat = to_nparray(svm1.predict(X))
     svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
@@ -202,7 +206,7 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
     sklSVC.fit(X_train, y_train)
 
     compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
-                coef_tol=0.01, report_summary=True)
+                coef_tol=1e-5, report_summary=True)
 
 
 @pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
