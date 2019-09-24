@@ -30,9 +30,6 @@ namespace SVM {
 __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected);
 
-__global__ void map_to_sorted(const bool *available, int n_rows,
-                              bool *available_sorted, const int *idx_sorted);
-
 /** Set availability to true for elements in the upper set, otherwise false.
  * @param [out] available, size [n]
  * @param [in] n number of elements in the working set

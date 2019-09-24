@@ -23,14 +23,6 @@
 namespace ML {
 namespace SVM {
 
-__global__ void map_to_sorted(const bool *available, int n_rows,
-                              bool *available_sorted, const int *idx_sorted) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n_rows) {
-    int idx = idx_sorted[tid];
-    available_sorted[tid] = available[idx];
-  }
-}
 __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
