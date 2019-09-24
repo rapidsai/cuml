@@ -43,6 +43,8 @@ class cumlCommunicator {
   enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
   enum op_t { SUM, PROD, MIN, MAX };
 
+  static const int ANY_RANK = -1;
+
   /**
    * The resulting status of distributed stream synchronization
    */
