@@ -135,9 +135,10 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
+          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
 
