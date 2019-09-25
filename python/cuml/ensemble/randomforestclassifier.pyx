@@ -455,7 +455,8 @@ class RandomForestClassifier(Base):
         self.mod_ptr = self._get_treelite(num_features=self.n_cols)
         cdef uintptr_t model_ptr = <uintptr_t> self.mod_ptr
         self.file_name = './model.buffer'
-        save_model(<ModelHandle> model_ptr, self.file_name)
+        save_model(<ModelHandle> model_ptr, 
+        	       <char*> self.file_name)
 
     def fit(self, X, y):
         """
