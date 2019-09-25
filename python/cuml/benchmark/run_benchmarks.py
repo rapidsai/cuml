@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--input-type', default='numpy')
     parser.add_argument(
         '--input-dimensions',
-        default=[64, 256, 512],
+        default=[20],
         nargs='+',
         type=int,
         help='Data dimension sizes (may provide multiple sizes)',
@@ -141,6 +141,15 @@ if __name__ == '__main__':
         '--raise-on-error',
         action='store_true',
         help='Throw exception on a failed benchmark',
+    )
+    parser.add_argument(
+        '--fil-algorithms',
+        default=['xgboost_cpu', 'xgboost_gpu', 'treelite', 'sklearn'],
+        nargs='+',
+        type=str,
+        help='''Algorithms to run when benchmarking FIL, only used when FIL is
+                in the algorithms list. Possible choices are: 
+                xgboost_cpu, xgboost_gpu, treelite, sklearn ''',
     )
     parser.add_argument(
         'algorithms',
@@ -177,6 +186,7 @@ if __name__ == '__main__':
         # Run all by default
         algos_to_run = algorithms.all_algorithms()
 
+    print(args.fil_algorithms)
     results_df = runners.run_variations(
         algos_to_run,
         dataset_name=args.dataset,
@@ -186,7 +196,8 @@ if __name__ == '__main__':
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
-        raise_on_error=args.raise_on_error
+        raise_on_error=args.raise_on_error,
+        fil_algorithms=args.fil_algorithms
     )
 
     if args.csv:

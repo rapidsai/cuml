@@ -69,6 +69,72 @@ class SpeedupComparisonRunner:
             **cuml_param_overrides
         )
 
+    def _run_one_size_fil(
+        self,
+        algo_pair,
+        n_samples,
+        n_features,
+        param_overrides={},
+        cuml_param_overrides={},
+        cpu_param_overrides={},
+        run_cpu=True,
+        fil_algorithms=[],
+    ):
+        data = datagen.gen_data(
+            self.dataset_name,
+            self.input_type,
+            n_samples,
+            n_features,
+            test_fraction=0.10,
+        )
+        print("data type: ", data[0].__class__)
+
+        result = dict(
+            n_samples=n_samples,
+            n_features=n_features,
+            **param_overrides,
+            **cuml_param_overrides
+        )
+        
+        algo_pair.prepare_xgboost(data, **param_overrides)
+
+        if run_cpu and "sklearn" in fil_algorithms:
+            algo_pair.prepare_sklearn(data, **param_overrides)
+        if run_cpu and "treelite" in fil_algorithms: 
+            algo_pair.prepare_treelite(data, **param_overrides)
+        algo_pair.prepare_cuml(data, **param_overrides, **cuml_param_overrides)
+
+        if run_cpu and "sklearn" in fil_algorithms:
+            skl_start = time.time()
+            algo_pair.run_sklearn(data)
+            skl_elapsed = time.time() - skl_start
+            result["skl_time"] = skl_elapsed
+
+        if run_cpu and "xgboost_cpu" in fil_algorithms: 
+            xgb_cpu_start = time.time()
+            algo_pair.run_xgboost_cpu(data)
+            xgb_cpu_elapsed = time.time() - xgb_cpu_start
+            result["xgb_cpu_time"] = xgb_cpu_elapsed
+
+        if "xgboost_gpu" in fil_algorithms: 
+            xgb_gpu_start = time.time()
+            algo_pair.run_xgboost_gpu(data)
+            xgb_gpu_elapsed = time.time() - xgb_gpu_start
+            result["xgb_gpu_time"] = xgb_gpu_elapsed
+
+        if run_cpu and "treelite" in fil_algorithms: 
+            tl_start = time.time()
+            algo_pair.run_treelite(data)
+            tl_elapsed = time.time() - tl_start
+            result["tl_time"] = tl_elapsed
+
+        cu_start = time.time()
+        algo_pair.run_cuml(data)
+        cu_elapsed = time.time() - cu_start
+        result["cu_time"] = cu_elapsed
+
+        return result
+
     def run(
         self,
         algo_pair,
@@ -77,23 +143,38 @@ class SpeedupComparisonRunner:
         cpu_param_overrides={},
         *,
         run_cpu=True,
-        raise_on_error=False
+        raise_on_error=False,
+        fil_algorithms=[],
     ):
         all_results = []
         for ns in self.bench_rows:
             for nf in self.bench_dims:
                 try:
-                    all_results.append(
-                        self._run_one_size(
-                            algo_pair,
-                            ns,
-                            nf,
-                            param_overrides,
-                            cuml_param_overrides,
-                            cpu_param_overrides,
-                            run_cpu,
+                    if algo_pair.name == "FIL":
+                        all_results.append(
+                            self._run_one_size_fil(
+                                algo_pair,
+                                ns,
+                                nf,
+                                param_overrides,
+                                cuml_param_overrides,
+                                cpu_param_overrides,
+                                run_cpu,
+                                fil_algorithms,
+                            )
                         )
-                    )
+                    else:
+                        all_results.append(
+                            self._run_one_size(
+                                algo_pair,
+                                ns,
+                                nf,
+                                param_overrides,
+                                cuml_param_overrides,
+                                cpu_param_overrides,
+                                run_cpu,
+                            )
+                        )
                 except Exception as e:
                     print(
                         "Failed to run with %d samples, %d features: %s"
@@ -185,6 +266,77 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             **cuml_param_overrides
         )
 
+    def _run_one_size_fil(
+        self,
+        algo_pair,
+        n_samples,
+        n_features,
+        param_overrides={},
+        cuml_param_overrides={},
+        cpu_param_overrides={},
+        run_cpu=True,
+        fil_algorithms=[],
+    ):
+        data = datagen.gen_data(
+            self.dataset_name,
+            self.input_type,
+            n_samples,
+            n_features,
+            test_fraction=0.10,
+        )
+        print("data type: ", data[0].__class__)
+
+        result = dict(
+            n_samples=n_samples,
+            n_features=n_features,
+            **param_overrides,
+            **cuml_param_overrides
+        )
+        
+        algo_pair.prepare_xgboost(data, **param_overrides)
+
+        if run_cpu and "sklearn" in fil_algorithms:
+            algo_pair.prepare_sklearn(data, **param_overrides)
+        if run_cpu and "treelite" in fil_algorithms: 
+            algo_pair.prepare_treelite(data, **param_overrides)
+        algo_pair.prepare_cuml(data, **param_overrides)
+
+        if run_cpu and "sklearn" in fil_algorithms:
+            skl_start = time.time()
+            skl_preds = algo_pair.run_sklearn(data)
+            skl_elapsed = time.time() - skl_start
+            result["skl_time"] = skl_elapsed
+            result["skl_acc"] = algo_pair.accuracy_function(skl_preds, data[1])
+
+        if run_cpu and "xgboost_cpu" in fil_algorithms: 
+            xgb_cpu_start = time.time()
+            xgb_cpu_preds = algo_pair.run_xgboost_cpu(data)
+            xgb_cpu_elapsed = time.time() - xgb_cpu_start
+            result["xgb_cpu_time"] = xgb_cpu_elapsed
+            result["xgb_cpu_acc"] = algo_pair.accuracy_function(xgb_cpu_preds > 0.5, data[1])
+
+        if "xgboost_gpu" in fil_algorithms: 
+            xgb_gpu_start = time.time()
+            xgb_gpu_preds = algo_pair.run_xgboost_gpu(data)
+            xgb_gpu_elapsed = time.time() - xgb_gpu_start
+            result["xgb_gpu_time"] = xgb_gpu_elapsed
+            result["xgb_gpu_acc"] = algo_pair.accuracy_function(xgb_gpu_preds > 0.5, data[1])
+
+        if run_cpu and "treelite" in fil_algorithms: 
+            tl_start = time.time()
+            tl_preds = algo_pair.run_treelite(data)
+            tl_elapsed = time.time() - tl_start
+            result["tl_time"] = tl_elapsed
+            result["tl_acc"] = algo_pair.accuracy_function(tl_preds > 0.5, data[1])
+
+        cu_start = time.time()
+        cuml_preds = algo_pair.run_cuml(data)
+        cu_elapsed = time.time() - cu_start
+        result["cu_time"] = cu_elapsed
+        result["cuml_acc"] = algo_pair.accuracy_function(cuml_preds > 0.5, data[1])
+
+        return result
+
 
 def run_variations(
     algos,
@@ -196,6 +348,7 @@ def run_variations(
     input_type="numpy",
     run_cpu=True,
     raise_on_error=False,
+    fil_algorithms=[],
 ):
     """
     Runs each algo in `algos` once per
@@ -219,6 +372,8 @@ def run_variations(
       Dicts containing parameters to pass to __init__ of the cuml algo only.
     run_cpu : boolean
       If True, run the cpu-based algorithm for comparison
+    fil_algorithms : list of str
+      List contating the algorithms to run for FIL benchmarking other than cuml
     """
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
@@ -229,13 +384,23 @@ def run_variations(
         print("Running %s..." % (algo.name))
         for param_overrides in param_override_list:
             for cuml_param_overrides in cuml_param_override_list:
-                results = runner.run(
-                    algo,
-                    param_overrides,
-                    cuml_param_overrides,
-                    run_cpu=run_cpu,
-                    raise_on_error=raise_on_error,
-                )
+                if algo.name == "FIL":
+                    results = runner.run(
+                        algo,
+                        param_overrides,
+                        cuml_param_overrides,
+                        run_cpu=run_cpu,
+                        raise_on_error=raise_on_error,
+                        fil_algorithms=fil_algorithms,
+                    )
+                else: 
+                    results = runner.run(
+                        algo,
+                        param_overrides,
+                        cuml_param_overrides,
+                        run_cpu=run_cpu,
+                        raise_on_error=raise_on_error,
+                    )
                 for r in results:
                     all_results.append(
                         {'algo': algo.name, 'input': input_type, **r}
