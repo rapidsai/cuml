@@ -52,8 +52,6 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                               int size,
                               int rank)
 
-
-
     bool ucx_enabled()
 
 
