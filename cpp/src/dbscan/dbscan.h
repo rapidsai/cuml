@@ -24,9 +24,6 @@ namespace ML {
 
 using namespace Dbscan;
 
-static const size_t DEFAULT_MAX_MEM_BYTES_D = 13e9;
-static const size_t DEFAULT_MAX_MEM_BYTES_S = 13e8;
-
 // Default max mem set to a reasonable value for a 16gb card.
 
 template <typename T, typename Index_ = int>
@@ -54,14 +51,6 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   int algoVd = 1;
   int algoAdj = 1;
   int algoCcl = 2;
-
-  if (max_bytes_per_batch <= 0) {
-    if (sizeof(T) >= 64) {
-      max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES_D;
-    } else {
-      max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES_S;
-    }
-  }
 
   // @todo: Query device for remaining memory
   Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_bytes_per_batch);
