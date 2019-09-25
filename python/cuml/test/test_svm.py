@@ -49,7 +49,7 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
 
 
 def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
-                cmp_sv=False, dcoef_tol=None, n_wrong_tol=0,
+                cmp_sv=False, dcoef_tol=None, accuracy_tol=None,
                 report_summary=False):
     """ Compares two svm classifiers
     Parameters:
@@ -67,14 +67,53 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     dcoef_tol: float, default: do not compare dual coefficients
         tolerance used to compare dual coefs
     """
+
+    n = X.shape[0]
+    svm1_y_hat = to_nparray(svm1.predict(X))
+    svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
+    accuracy1 = (n-svm1_n_wrong)*100/n
+    svm2_y_hat = to_nparray(svm2.predict(X))
+    svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
+    accuracy2 = (n-svm2_n_wrong)*100/n
+
+    if accuracy_tol is None:
+        if n >= 250 and (accuracy1 + accuracy2)/2 <= 75:
+            # 1% accuracy tolerance for not so accurate SVM on "large" dataset
+            accuracy_tol = 1
+        else:
+            accuracy_tol = 0.1
+
+    assert abs(accuracy1 - accuracy2) <= accuracy_tol
+    print(accuracy1, n)
+
     n_support1 = np.sum(svm1.n_support_)
     n_support2 = np.sum(svm2.n_support_)
+
     if n_sv_tol is None:
         n_sv_tol = max(2, n_support1*0.02)
-    assert abs(n_support1-n_support2) <= n_sv_tol
-
     if b_tol is None:
         b_tol = 30*svm1.tol
+
+    if accuracy1 < 50:
+        # Increase error margin for classifiers that are not accurate.
+        # Altough analitycally the classifier should always be the same,
+        # we fit only until we reach a certain numerical tolerance, and
+        # therefore the resulting SVM's can be different. We increase the
+        # tolerance in these cases.
+        #
+        # A good example is the gaussian dataset with linear classifier:
+        # the classes are concentric blobs, and we cannot separate that with a
+        # straight line. When we have a large number of data points, then
+        # any separating hyperplane that goes through the center would be good.
+        n_sv_tol *= 10
+        b_tol *= 10
+        if n >= 250:
+            coef_tol = 2  # allow any direction
+        else:
+            coef_tol *= 10
+
+    assert abs(n_support1-n_support2) <= n_sv_tol
+
     if abs(svm2.intercept_) > 1e-6:
         assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
     else:
@@ -86,12 +125,6 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         cs = np.dot(svm1.coef_, svm2.coef_.T) / \
             (np.linalg.norm(svm1.coef_) * np.linalg.norm(svm2.coef_))
         assert cs > 1 - coef_tol
-
-    svm1_y_hat = to_nparray(svm1.predict(X))
-    svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
-    svm2_y_hat = to_nparray(svm2.predict(X))
-    svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
-    assert svm1_n_wrong - svm2_n_wrong <= n_wrong_tol
 
     if cmp_sv or (dcoef_tol is not None):
         sidx1 = np.argsort(to_nparray(svm1.support_))
