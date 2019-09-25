@@ -60,7 +60,7 @@ def extract_ddf_partitions(ddf, client=None):
     raise gen.Return(worker_to_parts)
 
 
-def get_meta(idx, df):
+def get_meta(df):
     """
     Return the metadata from a single dataframe
     :param df: cudf.dataframe
@@ -92,7 +92,7 @@ def to_dask_df(dask_cudf, client=None):
     :return : dask.DataFrame
     """
 
-    def to_pandas(idx, df):
+    def to_pandas(df):
         return df.to_pandas()
 
     c = default_client() if client is None else client
@@ -102,10 +102,9 @@ def to_dask_df(dask_cudf, client=None):
     key = uuid1()
     dfs = [c.submit(
         to_pandas,
-        idx,
         f,
-        key=key) for idx, f in enumerate(gpu_futures)]
+        key="%s-%s" % (key, idx)) for idx, f in enumerate(gpu_futures)]
 
-    meta = c.submit(get_meta, dfs[0], key=key).result()
+    meta = c.submit(get_meta, dfs[0]).result()
 
     return dd.from_delayed(dfs, meta=meta)

@@ -95,7 +95,7 @@ class KMeans(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def func_fit(idx, sessionId, dfs, **kwargs):
+    def func_fit(sessionId, dfs, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -119,7 +119,7 @@ class KMeans(object):
         return cumlKMeans(handle=handle, **kwargs).fit(df)
 
     @staticmethod
-    def func_transform(idx, model, dfs):
+    def func_transform(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -132,7 +132,7 @@ class KMeans(object):
         return model.transform(df)
 
     @staticmethod
-    def func_predict(idx, model, dfs):
+    def func_predict(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -144,7 +144,7 @@ class KMeans(object):
         return model.predict(df)
 
     @staticmethod
-    def func_score(idx, model, dfs):
+    def func_score(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -169,15 +169,14 @@ class KMeans(object):
         comms.init(workers=workers)
 
         key = uuid1()
-
         kmeans_fit = [self.client.submit(
             KMeans.func_fit,
-            idx,
             comms.sessionId,
             wf[1],
             **self.kwargs,
             workers=[wf[0]],
-            key=key) for idx, wf in enumerate(gpu_futures.items())]
+            key="%s-%s" % (key, idx))
+            for idx, wf in enumerate(gpu_futures.items())]
 
         wait(kmeans_fit)
 
@@ -199,11 +198,11 @@ class KMeans(object):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         kmeans_predict = [self.client.submit(
             func,
-            idx,
             self.local_model,
             wf[1],
             workers=[wf[0]],
-            key=key) for idx, wf in enumerate(gpu_futures.items())]
+            key="%s-%s" % (key, idx))
+            for idx, wf in enumerate(gpu_futures.items())]
 
         return to_dask_cudf(kmeans_predict)
 
@@ -237,15 +236,14 @@ class KMeans(object):
     def score(self, X):
 
         key = uuid1()
-
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         scores = [self.client.submit(
             KMeans.func_score,
-            idx,
             self.local_model,
             wf[1],
             workers=[wf[0]],
-            key=key).result() for idx, wf in enumerate(gpu_futures.items())]
+            key="%-%s" % (key, idx)).result()
+                  for idx, wf in enumerate(gpu_futures.items())]
 
         return np.sum(scores)
 
