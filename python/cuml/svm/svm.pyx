@@ -34,7 +34,7 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
 
-cdef extern from "gram/kernelparams.h" namespace "MLCommon::GramMatrix":
+cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
