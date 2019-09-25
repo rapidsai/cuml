@@ -43,23 +43,23 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
-      rapidsai/label/cuda${CUDA_REL}::cupy>=6.2 \
-      cudatoolkit=${CUDA_REL} \
-      cudf=${MINOR_VERSION} \
-      rmm=${MINOR_VERSION} \
-      nvstrings=${MINOR_VERSION} \
-      libcumlprims=${MINOR_VERSION} \
-      lapack \
-      cmake==3.14.3 \
-      umap-learn \
-      nccl>=2.4 \
-      dask=2.3.0 \
-      distributed=2.3.0 \
-      dask-ml \
-      dask-cudf=${MINOR_VERSION} \
-      dask-cuda=${MINOR_VERSION} \
-      statsmodels \
-      xgboost=0.90.rapidsdev1
+      "rapidsai/label/cuda${CUDA_REL}::cupy>=6.2" \
+      "cudatoolkit=${CUDA_REL}" \
+      "cudf=${MINOR_VERSION}" \
+      "rmm=${MINOR_VERSION}" \
+      "nvstrings=${MINOR_VERSION}" \
+      "libcumlprims=${MINOR_VERSION}" \
+      "lapack" \
+      "cmake==3.14.3" \
+      "umap-learn" \
+      "nccl>=2.4" \
+      "dask=2.3.0" \
+      "distributed=2.3.0" \
+      "dask-ml" \
+      "dask-cudf=${MINOR_VERSION}" \
+      "dask-cuda=${MINOR_VERSION}" \
+      "statsmodels" \
+      "xgboost=0.90.rapidsdev1"
 
 
 # installing libclang separately so it doesn't get installed from conda-forge
