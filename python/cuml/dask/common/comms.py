@@ -58,7 +58,7 @@ if is_ucx_enabled() and has_ucp():
 
 
 async def _connection_func(ep, listener):
-    print(ep)
+    pass
 
 
 def worker_state(sessionId=None):
@@ -128,11 +128,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
         print("NCCL Initialization took: %f seconds." % end)
 
     if comms_p2p:
-
-        print("Building endpoints")
         await _func_ucp_create_endpoints(sessionId, worker_info)
-
-        print("Done awaiting")
         _func_build_handle_p2p(sessionId)
     else:
         _func_build_handle(sessionId)
@@ -171,15 +167,12 @@ async def _func_ucp_create_listener(sessionId, r):
         listener = ucp.start_listener(_connection_func, 0, is_coroutine=True)
         worker_state(sessionId)["ucp_listener"] = listener
 
-        print("Started listener")
         while not listener.done():
             await listener.coroutine
             await asyncio.sleep(1)
 
         del worker_state(sessionId)["ucp_listener"]
         del listener
-
-        print("Listener done.")
 
         ucp.fin()
 
@@ -265,20 +258,15 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     dask_worker = get_worker()
     local_address = dask_worker.address
 
-    print(str(worker_info))
-
     eps = [None] * len(worker_info)
-
     count = 1
 
     for k in worker_info:
         if str(k) != str(local_address):
 
             ip, port = parse_host_port(k)
-            print("Building endpoint: " + str(ip) + "-" + str(worker_info[k]["p"]) + ", k=" + str(k))
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"], timeout=5)
-
-            print("Done")
+            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
+                                        timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
 
@@ -421,8 +409,6 @@ class CommsContext:
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
         self.uniqueId = nccl.get_unique_id()
-
-        print(str(self.worker_addresses))
 
         self.client.run(_func_init_all,
                         self.sessionId,
