@@ -183,6 +183,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 
   inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
 
+  std::cout << "Injected UCX comms: " << ucp_worker << std::endl;
 #else
   inject_comms(*handle, comm, size, rank);
 #endif
@@ -219,6 +220,7 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
     _rank(rank),
     _next_request_id(0) {
   initialize();
+  std::cout << "_ucp_worker " << _ucp_worker << std::endl;
 }
 #endif
 
