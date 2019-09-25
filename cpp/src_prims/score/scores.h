@@ -118,14 +118,37 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              cudaStream_t stream) {
   const int TMP_SIZE = MAX_BATCH_SIZE * n;
 
-  size_t workspaceSize =
-    0;  // EucUnexpandedL2Sqrt does not require workspace (may need change for other distances)
+  // Determine workspace size and allocate memory only if size > 0
+  // Notice since we find distances by batches, the workspace size
+  // is much smaller
+  const size_t workspaceSize = MLCommon:Distance::getWorkspaceSize< \
+                                  distance_type,math_t, math_t, math_t>( \
+                                  X, X, MAX_BATCH_SIZE, n, m);
+  void *workspace = NULL;
+  if (workspaceSize > 0)
+    workspace = (void*) d_alloc->allocate(workspaceSize, stream);
+
+
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-  bool bAllocWorkspace = false;
 
   math_t *d_pdist_tmp =
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
+
+  // Also figure out workspace for column sorting
+  // Likewise since only batches are computed, the workspace is small
+  bool need_workspace = false;
+  size_t sort_workspace_size = 0;
+  void *sort_workspace = NULL;
+
+  MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp,
+                                         MAX_BATCH_SIZE, n,
+                                         need_workspace, NULL, sort_workspace_size,
+                                         stream);
+
+  if (need_workspace and sort_workspace_size > 0)
+    sort_workspace = (void*) d_alloc->allocate(sort_workspace_size, stream);
+      
 
   long *ind_X_embedded =
     get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
@@ -141,13 +164,13 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
-      &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, (void *)nullptr,
+      &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, workspace,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
-                                           n, bAllocWorkspace, NULL,
-                                           workspaceSize, stream);
+                                           n, need_workspace, sort_workspace,
+                                           sort_workspace_size, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     t_tmp = 0.0;
@@ -177,6 +200,13 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   d_alloc->deallocate(d_pdist_tmp, TMP_SIZE * sizeof(math_t), stream);
   d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
+
+  // Free workspace
+  if (workspaceSize > 0)
+    d_alloc->deallocate(workspace, workspaceSize, stream);
+
+  if (need_workspace and sort_workspace_size > 0)
+    d_alloc->deallocate(sort_workspace, sort_workspace_size, stream);
 
   return t;
 }
