@@ -22,6 +22,7 @@
 import ctypes
 import math
 import numpy as np
+import os
 import warnings
 
 from numba import cuda
@@ -41,6 +42,10 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
+
+cdef extern from "treelite/tree.h":
+    cdef struct Model:
+        pass
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -183,6 +188,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int) except +
 
+    cdef void save_model(ModelHandle, char*)
 
 class RandomForestClassifier(Base):
     """
@@ -349,6 +355,8 @@ class RandomForestClassifier(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
         self.n_streams = n_streams
+        self.file_name = None
+        self.pickle = False
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -376,8 +384,17 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[double, int]*>params_t64
 
         state['verbose'] = self.verbose
+        self._get_fil_mod()
+        print("state : ", state)
+        state["pickle"] = True
+        state["mod_ptr"] = self.mod_ptr
 
-        if self.dtype == np.float32:
+        state["file_name"] = self.file_name
+        print(" file_name in getstate : ", self.file_name)
+        print(" params_t in getstate : ", rf_forest.rf_params)
+        print(" state['dtype'] : ", state["dtype"])
+
+        if self["dtype"] == np.float32:
             state["rf_params"] = rf_forest.rf_params
             del state["rf_forest"]
         else:
@@ -393,6 +410,7 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
         free(rf_forest)
         free(rf_forest64)
+        os.remove(self.file_name)
 
     def __setstate__(self, state):
 
@@ -403,7 +421,16 @@ class RandomForestClassifier(Base):
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
 
-        if self.dtype == np.float32:
+        print("state in set state : ", state)
+        print(" state['dtype'] in set state: ", state["dtype"])
+
+        self.pickle = state["pickle"]
+        print(" self.pickle is : ", self.pickle)
+
+        self.file_name = state["file_name"]
+        print(" file_name in setstate : ", self.file_name)
+
+        if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
         else:
@@ -423,6 +450,12 @@ class RandomForestClassifier(Base):
         else:
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
+
+    def _get_fil_mod(self):
+        self.mod_ptr = self._get_treelite(num_features=self.n_cols)
+        cdef uintptr_t model_ptr = <uintptr_t> self.mod_ptr
+        self.file_name = './model.buffer'
+        save_model(<ModelHandle> model_ptr, self.file_name)
 
     def fit(self, X, y):
         """
@@ -528,6 +561,14 @@ class RandomForestClassifier(Base):
         del(X_m)
         del(y_m)
         return self
+
+    def _predict_model_pickle(self, X):
+        self.fil_model = ForestInference.load(filename=self.file_name,
+                                              output_class=True,
+                                              algo='BATCH_TREE_REORG',
+                                              model_type="protobuf")
+        preds = self.fil_model.predict(X)
+        return preds
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, num_classes):
@@ -640,7 +681,10 @@ class RandomForestClassifier(Base):
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if self.dtype == np.float64:
+        if self.pickle:
+            preds = self._predict_model_pickle(X)
+
+        elif self.dtype == np.float64:
             raise TypeError("GPU predict model only accepts float32 dtype"
                             " as input, convert the data to float32 or "
                             "use the CPU predict with `predict_model='CPU'`.")
@@ -862,7 +906,6 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
-        cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
             build_treelite_forest(& cuml_model_ptr,
                                   rf_forest,

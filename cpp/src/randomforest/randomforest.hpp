@@ -114,6 +114,8 @@ void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category);
 
+void save_model(ModelHandle model, const char* file_name);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
