@@ -131,7 +131,7 @@ def test_allreduce():
 @pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_send_recv(n_trials):
 
-    cluster = LocalCUDACluster(threads_per_worker=1, interface="enp5s0")
+    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     cb = CommsContext(comms_p2p=True)
