@@ -76,7 +76,7 @@ conda list
 # BUILD - Build libcuml, cuML, and prims from source
 ################################################################################
 
-logger "Setting LD_LIBRARY_PATH to ${CONDA_PREFIX}/lib..."
+logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
