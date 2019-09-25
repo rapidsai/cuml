@@ -429,9 +429,9 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmFIL(
-            xgb, 
+            xgb if has_xgboost() else None, 
             sklearn.ensemble.RandomForestClassifier,
-            tl,
+            tl if has_treelite() else None,
             cuml.ForestInference,
             shared_args={"max_depth": 10, "n_estimators": 10},
             cuml_args=dict(algo="BATCH_TREE_REORG", output_class=True, threshold=0.50),
