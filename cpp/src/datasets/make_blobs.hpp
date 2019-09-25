@@ -48,7 +48,7 @@ namespace Datasets {
  * @param center_box_max max value of the box from which to pick the cluster
  * centers. Useful only if 'centers' is nullptr
  * @param seed seed for the RNG
- * @param row_major return data in row_major ordering
+ * @param col_major return data in row or column major ordering
  */
 void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const float* centers = nullptr,
