@@ -88,8 +88,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     return size;
   }
   // partition the temporary workspace needed for different stages of dbscan
-  Index_ adjlen = 0;
-  Index_ curradjlen = 0;
+  Type adjlen = 0;
+  Type curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
   temp += adjSize;
@@ -101,9 +101,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
-  Index_* vd = (Index_*)temp;
+  int* vd = (int*)temp;
   temp += vdSize;
-  Index_* ex_scan = (Index_*)temp;
+  Type* ex_scan = (Type*)temp;
   temp += exScanSize;
 
   // Running VertexDeg
@@ -111,8 +111,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
-                                              stream);
+    MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
+                                            stream);
     Type startVertexId = i * batchSize;
     int nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
