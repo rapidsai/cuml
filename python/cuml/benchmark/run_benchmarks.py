@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--input-type', default='numpy')
     parser.add_argument(
         '--input-dimensions',
-        default=[20],
+        default=[64, 256, 512],
         nargs='+',
         type=int,
         help='Data dimension sizes (may provide multiple sizes)',
@@ -186,7 +186,6 @@ if __name__ == '__main__':
         # Run all by default
         algos_to_run = algorithms.all_algorithms()
 
-    print(args.fil_algorithms)
     results_df = runners.run_variations(
         algos_to_run,
         dataset_name=args.dataset,
