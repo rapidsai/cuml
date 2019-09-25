@@ -71,7 +71,6 @@ class KalmanContext {
   int m_q = 0;
   int m_num_batches = 0;
   // double* d_ys = nullptr;
-  double* d_vs = nullptr;
   double* d_Fs = nullptr;
   double* d_loglike = nullptr;
   double* d_sigma2 = nullptr;
@@ -117,7 +116,6 @@ KalmanContext* KALMAN_CTX = nullptr;
 KalmanContext::KalmanContext(int p, int q, int num_batches, cumlHandle& handle)
   : m_p(p), m_q(q), m_num_batches(num_batches) {
   // d_ys = nullptr;
-  d_vs = nullptr;
   d_Fs = nullptr;
   d_loglike = nullptr;
   d_sigma2 = nullptr;
@@ -145,7 +143,6 @@ KalmanContext::~KalmanContext() noexcept(false) {
   ////////////////////////////////////////////////////////////
   // free memory
   // if (d_ys != nullptr) allocator->deallocate(d_ys, 0, 0);
-  if (d_vs != nullptr) allocator->deallocate(d_vs, 0, 0);
   if (d_Fs != nullptr) allocator->deallocate(d_Fs, 0, 0);
   if (d_sigma2 != nullptr) allocator->deallocate(d_sigma2, 0, 0);
   if (d_loglike != nullptr) allocator->deallocate(d_loglike, 0, 0);
@@ -570,7 +567,7 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
                            const double* d_b_ar_params,
                            const double* d_b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& h_loglike_b,
-                           double*& d_vs, bool initP_with_kalman_iterations) {
+                           double* d_vs, bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE("batched_akalman_filter");
 
   if (KALMAN_CTX == nullptr) {
@@ -627,22 +624,20 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
 
   ////////////////////////////////////////////////////////////
   // Computation
-  KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_vs, ys_len * num_batches);
   KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_Fs, ys_len * num_batches);
 
   KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_sigma2, num_batches);
   KALMAN_CTX->allocate_if_zero(KALMAN_CTX->d_loglike, num_batches);
 
-  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, KALMAN_CTX->d_vs,
-                         KALMAN_CTX->d_Fs, KALMAN_CTX->d_loglike,
-                         KALMAN_CTX->d_sigma2, initP_with_kalman_iterations);
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, KALMAN_CTX->d_Fs,
+                         KALMAN_CTX->d_loglike, KALMAN_CTX->d_sigma2,
+                         initP_with_kalman_iterations);
 
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
   h_loglike_b.resize(num_batches);
   updateHost(h_loglike_b.data(), KALMAN_CTX->d_loglike, num_batches, 0);
 
-  d_vs = KALMAN_CTX->d_vs;
   ML::POP_RANGE();
 }
 
