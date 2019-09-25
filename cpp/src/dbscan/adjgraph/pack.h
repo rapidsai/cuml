@@ -26,16 +26,16 @@ struct Pack {
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of poTypes
      */
-  Index_ *vd;
+  int *vd;
   /** the adjacency matrix */
   bool *adj;
   /** the adjacency graph */
-  Index_ *adj_graph;
+  Type *adj_graph;
 
   Type adjnnz;
 
   /** exculusive scan generated from vd */
-  Index_ *ex_scan;
+  Type *ex_scan;
   /** array to store whether a vertex is core poType or not */
   bool *core_pts;
   /** number of poTypes in the dataset */
