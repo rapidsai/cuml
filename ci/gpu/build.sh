@@ -76,8 +76,18 @@ conda list
 # BUILD - Build libcuml, cuML, and prims from source
 ################################################################################
 
+logger "Setting LD_LIBRARY_PATH to ${CONDA_PREFIX}/lib..."
+
+export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+
 logger "Build libcuml..."
 $WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
+
+logger "Resetting LD_LIBRARY_PATH..."
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+export LD_LIBRARY_PATH_CACHED=""
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
