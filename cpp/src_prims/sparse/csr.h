@@ -675,11 +675,6 @@ class WeakCCState {
         std::cout << "Exception freeing memory for WeakCCState: " << e.what()
                   << std::endl;
       }
-
-      xa = nullptr;
-      fa = nullptr;
-      m = nullptr;
-      owner = false;
     }
   }
 };
@@ -773,9 +768,6 @@ void weak_cc_label_batched(Type *labels, const Type *row_ind,
     //** swapping F1 and F2
     MLCommon::updateHost(host_fa, state->fa, N, stream);
     MLCommon::updateHost(host_xa, state->xa, N, stream);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
     MLCommon::updateDevice(state->fa, host_xa, N, stream);
     MLCommon::updateDevice(state->xa, host_fa, N, stream);
 
