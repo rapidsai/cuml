@@ -46,8 +46,8 @@ void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 }
 
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
-              int batch_size, int nobs, double* d_y_diff, double* d_vs,
-              double* d_params, double* d_y_fc) {
+              int batch_size, int nobs, double* d_y, double* d_y_diff,
+              double* d_vs, double* d_params, double* d_y_fc) {
   auto alloc = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
   double* d_y_ = (double*)alloc->allocate((p + num_steps) * batch_size, stream);
@@ -78,7 +78,7 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
       ar_sum += ar_i;
     }
     double mu_star = mu_ib * (1 - ar_sum);
-    printf("%d: mu_star=%f\n", bid, mu_star);
+
     for (int i = 0; i < num_steps; i++) {
       auto it = num_steps * bid + i;
       d_y_fc[it] = mu_star;
@@ -86,25 +86,41 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
         double dot_ar_y = 0.0;
         for (int ip = 0; ip < p; ip++) {
           dot_ar_y +=
-            d_params[N * bid + d + ip] * d_y_[(p + num_steps) * bid + ip];
+            d_params[N * bid + d + ip] * d_y_[(p + num_steps) * bid + i + ip];
         }
         d_y_fc[it] += dot_ar_y;
-        printf("(%d) p:d_y_fc[%d]=%f\n", bid, it, d_y_fc[it]);
       }
-      if (q > 0) {
+      if (q > 0 && i < q) {
         double dot_ma_y = 0.0;
         for (int iq = 0; iq < q; iq++) {
-          dot_ma_y +=
-            d_params[N * bid + d + p + iq] * d_vs_[(q + num_steps) * bid + iq];
+          dot_ma_y += d_params[N * bid + d + p + iq] *
+                      d_vs_[(q + num_steps) * bid + i + iq];
         }
         d_y_fc[it] += dot_ma_y;
-        printf("(%d) q:d_y_fc[%d]=%f\n", bid, it, d_y_fc[it]);
       }
       if (p > 0) {
         d_y_[(p + num_steps) * bid + i + p] = d_y_fc[it];
       }
     }
   });
+
+  // undifference
+  if (d > 0) {
+    thrust::for_each(counting, counting + batch_size, [=] __device__(int bid) {
+      for (int i = 0; i < num_steps; i++) {
+        // Undifference via cumsum, using last 'y' as initial value, in cumsum.
+        // Then drop that first value.
+        // In python:
+        // xi = np.append(y[-1], fc)
+        // return np.cumsum(xi)[1:]
+        if (i == 0) {
+          d_y_fc[bid * num_steps] += d_y[bid * nobs + (nobs - 1)];
+        } else {
+          d_y_fc[bid * num_steps + i] += d_y_fc[bid * num_steps + i - 1];
+        }
+      }
+    });
+  }
 }
 
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
@@ -143,13 +159,13 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
   if (d == 1) {
     double* d_y_fc = (double*)handle.getDeviceAllocator()->allocate(
       sizeof(double) * num_batches, handle.getStream());
-    forecast(handle, 1, p, d, q, num_batches, nobs, d_y_diff, d_vs, d_params,
-             d_y_fc);
-    // add forecast to original signal (undo-differencing) and append to end of in-sample prediction
+    forecast(handle, 1, p, d, q, num_batches, nobs, d_y, d_y_diff, d_vs,
+             d_params, d_y_fc);
+
+    // append forecast to end of in-sample prediction
     auto counting = thrust::make_counting_iterator(0);
     thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-      d_y_p[bid * nobs + (nobs - 1)] =
-        d_y[bid * nobs + (nobs - 1)] + d_y_fc[bid];
+      d_y_p[bid * nobs + (nobs - 1)] = d_y_fc[bid];
     });
   }
 }

@@ -47,6 +47,10 @@ cdef extern from "ts/batched_arima.hpp" namespace "ML":
   void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
                 int d, int q, double* d_params, double*& d_vs, bool trans)
 
+  void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
+                int batch_size, int nobs, double* d_y, double* d_y_diff, double* d_vs,
+                double* d_params, double* d_y_fc)
+
 cdef extern from "utils.h" namespace "MLCommon":
   void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
 
@@ -146,61 +150,53 @@ class ARIMAModel:
         updateHost(&vs[0,0], d_vs_ptr, (self.num_samples-1) * self.num_batches, 0)
         updateHost(&y_p[0,0], <double*>d_y_p_ptr, (self.num_samples) * self.num_batches, 0)
 
-        # # Extend prediction by 1 when d==1
-        # if d == 1:
-        #     # forecast a single value to make prediction length of original signal
-        #     y_diff = np.diff(self.y, axis=0)
-        #     fc1 = np.zeros(self.num_batches)
-        #     for i in range(self.num_batches):
-        #         fc1[i] = _fc_single(1, self.order[i], y_diff[:,i],
-        #                             vs[:,i], self.mu[i],
-        #                             self.ma_params[i],
-        #                             self.ar_params[i])
-
-        #     print("fc1=", fc1)
-        #     final_term = self.y[-1, :] + fc1
-        #     print("final_term=", final_term)
-
-            
-
-            # append final term to prediction
-            # temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]), order="F")
-            # temp[:-1, :] = y_p
-            # temp[-1, :] = final_term
-            # y_p = temp
-
         self.yp = y_p
         return y_p
 
 
+    def forecast(self, nsteps: int) -> np.ndarray:
+        """Forecast the given model `nsteps` into the future."""
 
-def _fc_single(num_steps, order, y_diff, vs, mu, ma_params, ar_params):
-    """ Forecast for a single series """
-    p, _, q = order
+        p, d, q = self.order[0]
+        
+        cdef double* d_vs_ptr
+        handle = cuml.common.handle.Handle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    y_ = np.zeros(p+num_steps)
-    vs_ = np.zeros(q+num_steps)
-    if p>0:
-        y_[:p] = y_diff[-p:]
-    if q>0:
-        vs_[:q] = vs[-q:]
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
+        cdef uintptr_t d_params_ptr
+        d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-    fcast = np.zeros(num_steps)
+        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples),
+                                                                        self.num_batches), order="F")
+        cdef uintptr_t d_y_p_ptr
+        d_y_p, d_y_p_ptr, _, _, _ = input_to_dev_array(y_p, check_dtype=np.float64)
+        
+        cdef uintptr_t d_y_ptr    
+        if self.d_y is None:
+            d_y, d_y_ptr, _, _, _ = input_to_dev_array(self.y, check_dtype=np.float64)
+            self.d_y = (d_y, d_y_ptr)
+            
+        (_, d_y_ptr) = self.d_y
 
-    for i in range(num_steps):
-        mu_star = mu * (1-ar_params.sum())
-        print("mu_star=", mu_star)
-        fcast[i] = mu_star
-        if p > 0:
-            fcast[i] += np.dot(ar_params, y_[i:i+p])
-            print("p:fcast[{}]={}".format(i, fcast[i]))
-        if q > 0 and i < q:
-            fcast[i] += np.dot(ma_params, vs_[i:i+q])
-            print("q:fcast[{}]={}".format(i, fcast[i]))
-        if p > 0:
-            y_[i+p] = fcast[i]
+        residual(handle_[0], <double*>d_y_ptr, self.num_batches, self.num_samples, p, d, q,
+                 <double*>d_params_ptr, d_vs_ptr,
+                 False)
 
-    return fcast
+        y_diff = np.diff(self.y, axis=0)
+        cdef uintptr_t d_y_diff_ptr
+        d_y_diff, d_y_diff_ptr, _, _, _ = input_to_dev_array(y_diff, check_dtype=np.float64)
+
+        cdef np.ndarray[double, ndim=2, mode="fortran"] y_fc = np.zeros((nsteps, self.num_batches), order="F")
+        cdef uintptr_t d_y_fc_ptr
+        d_y_fc, d_y_fc_ptr, _, _, _ = input_to_dev_array(y_fc, check_dtype=np.float64)
+
+        forecast(handle_[0], nsteps, p, d, q, self.num_batches, self.num_samples, <double*> d_y_ptr,
+                 <double*>d_y_diff_ptr, d_vs_ptr, <double*>d_params_ptr, <double*> d_y_fc_ptr)
+
+        updateHost(&y_fc[0,0], <double*>d_y_fc_ptr, nsteps * self.num_batches, 0)
+
+        return y_fc
 
 
 def init_x0(order, y):

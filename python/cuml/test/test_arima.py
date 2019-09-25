@@ -357,6 +357,31 @@ def testPredict(plot=False):
 
         # print("l2_error(p={}):".format(p), l2_error_predict)
 
+def testForecast(plot=False):
+    _, y = get_data()
+
+    mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
+    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])], [np.array([ 0.0309027562133337, -0.0191533926207157]), np.array([-0.0386322768036704, -0.0330133336831984])]]
+    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])], [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+
+    y_fc_ref = [np.array([[8291.97380664, 7993.55508519, 7773.33550351],
+                          [7648.10631132, 7574.38185979, 7362.6238661]]),
+                np.array([[7609.91057747, 7800.22971962, 7473.00968599],
+                          [8016.79544837, 7472.39902223, 7400.83781943]])]
+
+    for p in range(1, 3):
+        order = (p, 1, 1)
+
+        nb = 2
+
+        model = b_arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
+
+        y_b_fc = model.forecast(3)
+
+        # print("y_b_fc:", y_b_fc.T)
+        np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
+
+
 def testFit_Predict_Forecast(plot=False):
     """
     Full integration test: Tests fit followed by in-sample prediction and out-of-sample forecast
@@ -393,7 +418,7 @@ def testFit_Predict_Forecast(plot=False):
                                   opt_disp=-1, h=1e-9)
 
         y_b = batched_model.predict_in_sample()
-        y_fc = arima.forecast(batched_model, ns_test)
+        y_fc = batched_model.forecast(ns_test)
 
         y_b_p.append(y_b)
         y_f_p.append(y_fc)
@@ -512,6 +537,7 @@ if __name__ == "__main__":
     testResidual()
     testFit()
     testPredict()
+    testForecast()
     testFit_Predict_Forecast()
     test_arima_start_params()
     
