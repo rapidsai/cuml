@@ -56,8 +56,8 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     -----------
     svm1 : svm classifier
     svm2 : svm classifier
-    n_sv_tol : float, default 1%
-        tolerance while comparing the number of support vectors
+    accuracy_tol : float, default 0.1%
+        tolerance while comparing the prediction accuracy
     b_tol : float
         tolerance while comparing the constant in the decision functions
     coef_tol: float
@@ -96,7 +96,7 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
 
     if accuracy1 < 50:
         # Increase error margin for classifiers that are not accurate.
-        # Altough analitycally the classifier should always be the same,
+        # Although analytically the classifier should always be the same,
         # we fit only until we reach a certain numerical tolerance, and
         # therefore the resulting SVM's can be different. We increase the
         # tolerance in these cases.
@@ -226,10 +226,15 @@ def test_svm_skl_cmp_kernels(params):
 ])
 @pytest.mark.parametrize('dataset', ['classification2', 'gaussian', 'blobs'])
 @pytest.mark.parametrize('n_rows', [3, unit_param(100), quality_param(1000),
-                                    stress_param(10000)])
+                                    stress_param(5000)])
 @pytest.mark.parametrize('n_cols', [2, unit_param(100), quality_param(1000),
                          stress_param(1000)])
 def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
+    if (params['kernel'] == 'linear' and
+            dataset in ['gaussian', 'classification2'] and
+            n_rows > 1000 and n_cols >= 1000):
+        # linear kernel will not fit the gaussian dataset, but takes very long
+        return
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
 
     cuSVC = cuml.svm.SVC(**params)
