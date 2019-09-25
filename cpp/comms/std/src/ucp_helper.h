@@ -21,10 +21,9 @@
 
 static const ucp_tag_t default_tag_mask = -1;
 
-static const ucp_tag_t any_rank_tag_mask = ((uint32_t)0x00000000 | (uint32_t)0xffffffff);
+static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
 
 static const int UCP_ANY_RANK = -1;
-
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -48,14 +47,14 @@ static void recv_handle(void *request, ucs_status_t status,
  */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, int rank) {
-
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to send UCX data message (%d)\n",
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request),
+           "unable to send UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
     /**
    * If the request didn't fail, but it's not OK, it is in flight.
@@ -84,15 +83,17 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
   ucp_tag_t tag_mask = default_tag_mask;
-  if(sender_rank == UCP_ANY_RANK)
+  if (sender_rank == UCP_ANY_RANK) {
+    std::cout << "Setting any rank tag mask" << std::endl;
     tag_mask = any_rank_tag_mask;
+  }
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
-    worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask,
-    recv_handle);
+    worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to receive UCX data message (%d)\n",
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request),
+           "unable to receive UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
   }
 
