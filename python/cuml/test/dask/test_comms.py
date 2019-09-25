@@ -26,6 +26,7 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+from cuml.dask.common import perform_test_comms_recv_any_rank
 
 pytestmark = pytest.mark.mg
 
@@ -130,13 +131,11 @@ def test_allreduce():
 @pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_send_recv(n_trials):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
+    cluster = LocalCUDACluster(threads_per_worker=1, interface="enp5s0")
     client = Client(cluster)
 
     cb = CommsContext(comms_p2p=True)
     cb.init()
-
-    cb = default_comms()
 
     start = time.time()
     dfs = [client.submit(func_test_send_recv,
@@ -169,8 +168,6 @@ def test_recv_any_rank(n_trials):
 
     cb = CommsContext(comms_p2p=True)
     cb.init()
-
-    cb = default_comms()
 
     start = time.time()
     dfs = [client.submit(func_test_recv_any_rank,

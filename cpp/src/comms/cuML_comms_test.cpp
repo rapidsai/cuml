@@ -140,6 +140,7 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
       }
     }
 
+    std::cout << "Waiting..." << std::endl;
     communicator.waitall(requests.size(), requests.data());
     communicator.barrier();
 
@@ -160,7 +161,6 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
         }
         std::cout << "]" << std::endl;
       }
-
       communicator.barrier();
     }
 
