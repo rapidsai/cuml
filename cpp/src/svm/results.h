@@ -27,11 +27,11 @@
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
-#include "kernelcache.h"
 #include "linalg/binary_op.h"
 #include "linalg/init.h"
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"
+#include "matrix/matrix.h"
 #include "ws_util.h"
 
 namespace ML {
@@ -120,8 +120,8 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    get_rows<<<MLCommon::ceildiv(n_support * n_cols, TPB), TPB, 0, stream>>>(
-      x, n_rows, n_cols, x_support, n_support, idx);
+    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+                               stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
   }
