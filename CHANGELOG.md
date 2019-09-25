@@ -16,6 +16,7 @@
 - PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
 
 ## Bug Fixes
 
