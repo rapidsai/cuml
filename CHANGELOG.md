@@ -1,8 +1,12 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
-
+- PR #1071: Selective eigen solver of cuSolver
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1104: CUDA 10.1 support
+- PR #1113: prims: new batched make-symmetric-matrix primitive
+- PR #1112: prims: new batched-gemv primitive
+- PR #855: Added benchmark tools
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
 
@@ -10,8 +14,10 @@
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
 - PR #763: Add examples to train_test_split documentation
-- PR #1076: Paying off some UMAP / Spectral tech debt. 
+- PR #1093: Unified inference kernels for different FIL algorithms
+- PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 
 ## Bug Fixes
 
@@ -22,9 +28,13 @@
 - PR #991: Barnes Hut TSNE Memory Issue Fixes
 - PR #1075: Pinning Dask version for consistent CI results
 - PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1066: Using proper set of workers to destroy nccl comms
 - PR #1072: Remove pip requirements and setup
 - PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
 - PR #1088: Change straggling numba python allocations to use RMM
+- PR #1106: Pinning Distributed version to match Dask for consistent CI results
+- PR #1116: TSNE CUDA 10.1 Bug Fixes
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -57,6 +67,9 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+- PR #926: Wrapper for FIL
+- PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
