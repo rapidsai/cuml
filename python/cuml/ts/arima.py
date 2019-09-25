@@ -114,36 +114,6 @@ def diffAndCenter(y: np.ndarray,
 #     model.yp = y_p
 #     return y_p
 
-def forecast(model, nsteps: int) -> np.ndarray:
-    """Forecast the given model `nsteps` into the future."""
-    y_fc_b = np.zeros((nsteps, model.num_batches))
-
-    p, d, q = model.order[0]
-    x = pack(p, d, q, model.num_batches, model.mu, model.ar_params, model.ma_params)
-
-    vs = batched_arima._residual(model.num_batches, model.num_samples, model.order[0], model.y, x)
-    # _, vs = run_kalman(model.y, model.order[0], model.num_batches, x)
-
-    for i in range(model.num_batches):
-        p, d, q = model.order[i]
-        vsi = vs[:,i]
-        ydiff_i = np.diff(model.y[:, i],axis=0)
-        fc = batched_arima._fc_single(nsteps, (p,d,q), ydiff_i, vsi,
-                                      model.mu[i], model.ma_params[i],
-                                      model.ar_params[i])
-
-        if model.order[i][1] > 0: # d > 0
-            fc = undifference(fc, model.y[-1,i])[1:]
-
-        y_fc_b[:, i] = fc[:]
-
-    return y_fc_b
-
-
-def undifference(x, x0):
-    # set_trace()
-    xi = np.append(x0, x)
-    return np.cumsum(xi)
 
 
 
