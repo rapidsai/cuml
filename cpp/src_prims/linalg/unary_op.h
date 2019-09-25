@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include "cuda_utils.h"
 #include "vectorized.h"
 
@@ -72,29 +71,29 @@ template <typename InType, typename Lambda, typename IdxType = int,
 void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,
              cudaStream_t stream) {
   if (len <= 0) return;  //silently skip in case of 0 length input
-  constexpr auto minSize =
-    sizeof(InType) < sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
-  size_t bytes = len * minSize;
+  constexpr auto maxSize =
+    sizeof(InType) >= sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
+  size_t bytes = len * maxSize;
   uint64_t inAddr = uint64_t(in);
   uint64_t outAddr = uint64_t(out);
-  if (16 / minSize && bytes % 16 == 0 && inAddr % 16 == 0 &&
+  if (16 / maxSize && bytes % 16 == 0 && inAddr % 16 == 0 &&
       outAddr % 16 == 0) {
-    unaryOpImpl<InType, 16 / minSize, Lambda, OutType, IdxType, TPB>(
+    unaryOpImpl<InType, 16 / maxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (8 / minSize && bytes % 8 == 0 && inAddr % 8 == 0 &&
+  } else if (8 / maxSize && bytes % 8 == 0 && inAddr % 8 == 0 &&
              outAddr % 8 == 0) {
-    unaryOpImpl<InType, 8 / minSize, Lambda, OutType, IdxType, TPB>(
+    unaryOpImpl<InType, 8 / maxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (4 / minSize && bytes % 4 == 0 && inAddr % 4 == 0 &&
+  } else if (4 / maxSize && bytes % 4 == 0 && inAddr % 4 == 0 &&
              outAddr % 4 == 0) {
-    unaryOpImpl<InType, 4 / minSize, Lambda, OutType, IdxType, TPB>(
+    unaryOpImpl<InType, 4 / maxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (2 / minSize && bytes % 2 == 0 && inAddr % 2 == 0 &&
+  } else if (2 / maxSize && bytes % 2 == 0 && inAddr % 2 == 0 &&
              outAddr % 2 == 0) {
-    unaryOpImpl<InType, 2 / minSize, Lambda, OutType, IdxType, TPB>(
+    unaryOpImpl<InType, 2 / maxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (1 / minSize) {
-    unaryOpImpl<InType, 1 / minSize, Lambda, OutType, IdxType, TPB>(
+  } else if (1 / maxSize) {
+    unaryOpImpl<InType, 1 / maxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
   } else {
     unaryOpImpl<InType, 1, Lambda, OutType, IdxType, TPB>(out, in, len, op,
