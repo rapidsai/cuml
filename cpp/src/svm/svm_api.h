@@ -16,7 +16,6 @@
 #pragma once
 
 #include <cuML_api.h>
-#include "gram/kernelparams.h"
 
 enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH };
 
