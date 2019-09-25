@@ -27,14 +27,15 @@ from sklearn.datasets import make_blobs as skl_make_blobs
 
 import numpy as np
 
-import random
+from uuid import uuid1
 import math
 
 
-def create_df(f, m, n, centers, cluster_std, random_state, dtype, r):
+def create_df(m, n, centers, cluster_std, random_state, dtype):
     """
     Returns Dask Dataframes on device for X and y.
     """
+    print("%s-%s" % (m, n))
     X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                           random_state=random_state)
     X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
@@ -47,11 +48,11 @@ def get_meta(df):
     return ret
 
 
-def get_X(t, r):
+def get_X(t):
     return t[0]
 
 
-def get_labels(t, r):
+def get_labels(t):
     return t[1]
 
 
@@ -89,8 +90,8 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     workers = list(client.has_what().keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
-
-    parts = (workers * math.ceil(n_parts / len(workers)))[:n_parts]
+    parts_workers = (workers * n_parts)[:n_parts]
+    rows_per_part = math.ceil(nrows/n_parts)
 
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
@@ -99,20 +100,27 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     if verbose:
         print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
-              (math.ceil(nrows/len(workers)), len(parts), len(workers), nrows))
+              (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
 
+    key = str(uuid1())
     # Create dfs on each worker (gpu)
-    dfs = [client.submit(create_df, n, math.ceil(nrows/n_parts), ncols,
-                         centers, cluster_std, random_state, dtype,
-                         random.random(),
-                         workers=[worker])
-           for worker, n in list(zip(parts, range(n_parts)))]
+    dfs = []
+    for idx, worker in enumerate(parts_workers):
+        worker_rows = rows_per_part \
+            if rows_per_part*(idx+1) <= nrows \
+            else nrows - (rows_per_part*(idx+1))
 
-    # Wait for completion
-    dask_wait(dfs)
+        dfs.append(client.submit(create_df, worker_rows, ncols,
+                                 centers, cluster_std, random_state, dtype,
+                                 key="%s-%s" % (key, idx),
+                                 workers=[worker]))
 
-    X = [client.submit(get_X, f, random.random()) for f in dfs]
-    y = [client.submit(get_labels, f, random.random()) for f in dfs]
+    x_key = str(uuid1())
+    y_key = str(uuid1())
+    X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
+         for idx, f in enumerate(dfs)]
+    y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
+         for idx, f in enumerate(dfs)]
 
     meta_X = client.submit(get_meta, X[0]).result()
     X_cudf = from_delayed(X, meta=meta_X)
