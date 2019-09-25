@@ -261,9 +261,15 @@ class RandomForestClassifier(Base):
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : int or float or string or None (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
+                   If int then max_features/n_features.
+                   If float then max_features is a fraction.
+                   If 'auto' then max_features=1/sqrt(n_features).
+                   If 'sqrt' then max_features=1/sqrt(n_features).
+                   If 'log2' then max_features=log2(n_features)/n_features.
+                   If None, then max_features=1/sqrt(n_features).
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
@@ -285,7 +291,7 @@ class RandomForestClassifier(Base):
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=16, handle=None,
-                 max_features=1.0, n_bins=8, n_streams=8,
+                 max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
@@ -403,7 +409,6 @@ class RandomForestClassifier(Base):
         else:
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <size_t>rf_forest64
-
         self.__dict__.update(state)
 
     def _get_max_feat_val(self):
@@ -411,12 +416,13 @@ class RandomForestClassifier(Base):
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
             return self.max_features
-        elif self.max_features == 'sqrt':
+        elif self.max_features == 'sqrt' or self.max_features == 'auto':
             return 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
         else:
-            return 1.0
+            raise ValueError("Wrong value passed in for max_features"
+                             " please read the documentation")
 
     def fit(self, X, y):
         """
