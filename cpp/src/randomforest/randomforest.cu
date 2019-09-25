@@ -288,6 +288,7 @@ void build_treelite_forest(ModelHandle* model,
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
+
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
     if (tree_ptr->sparsetree.size() != 0) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
@@ -301,22 +302,15 @@ void build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
-  std::cout << " ModelHandle model : " << *model << std::endl << std::flush;
-  tl::Model& tl_mod = *(tl::Model*)*model;
-  std::cout << " model num_features in c++ : " << tl_mod.num_feature
-            << std::endl
-            << std::flush;
-  TreeliteExportProtobufModel("./moved_model.buffer", *model);
 }
 
-void save_model(ModelHandle model) {
+void save_model(ModelHandle model, char* file_name) {
   std::cout << " ModelHandle model : " << model << std::endl << std::flush;
   tl::Model& tl_mod = *(tl::Model*)model;
   std::cout << " model num_features in c++ : " << tl_mod.num_feature
             << std::endl
             << std::flush;
-  TreeliteExportProtobufModel(
-    "/home/nfs/saljain/wtf/cuml/cpp/temp_model.buffer", model);
+  TreeliteExportProtobufModel(file_name, model);
 }
 
 /**
