@@ -59,15 +59,12 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       dask-cudf=${MINOR_VERSION} \
       dask-cuda=0.10 \
       statsmodels \
-      xgboost=0.90.rapidsdev1 \
+      xgboost=0.90.rapidsdev1
 
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
       libclang
-
-conda install -c conda-forge \
-      openblas
 
 logger "Check versions..."
 python --version
