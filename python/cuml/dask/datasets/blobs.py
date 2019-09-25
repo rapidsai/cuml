@@ -21,7 +21,6 @@ import pandas as pd
 import cudf
 
 from dask.distributed import default_client
-from dask.distributed import wait as dask_wait
 
 from sklearn.datasets import make_blobs as skl_make_blobs
 
@@ -35,7 +34,6 @@ def create_df(m, n, centers, cluster_std, random_state, dtype):
     """
     Returns Dask Dataframes on device for X and y.
     """
-    print("%s-%s" % (m, n))
     X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                           random_state=random_state)
     X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
