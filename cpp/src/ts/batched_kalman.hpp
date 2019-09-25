@@ -38,7 +38,7 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
                            const double* d_b_ar_params,
                            const double* d_b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& loglike_b,
-                           double*& d_vs,
+                           double* d_vs,
                            bool initP_with_kalman_iterations = false);
 
 //! NVTX Wrapper function creating a range.

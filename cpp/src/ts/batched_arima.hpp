@@ -31,16 +31,16 @@ namespace ML {
 //! @return kalman residual, shape = (nobs, num_batches) Memory on device.
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_params,
-                     std::vector<double>& loglike, double*& d_vs,
+                     std::vector<double>& loglike, double* d_vs,
                      bool trans = true);
 
 //! Compute in-sample prediction (size= (nobs - d))
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* d_params,
-                       double*& d_vs, double* d_y_p);
+                       double* d_vs, double* d_y_p);
 
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-              int d, int q, double* d_params, double*& d_vs, bool trans);
+              int d, int q, double* d_params, double* d_vs, bool trans);
 
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
               int batch_size, int nobs, double* d_y, double* d_y_diff,
