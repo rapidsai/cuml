@@ -48,7 +48,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       cudf=${MINOR_VERSION} \
       rmm=${MINOR_VERSION} \
       nvstrings=${MINOR_VERSION} \
-      libcumlprims=0.10 \
+      libcumlprims=${MINOR_VERSION} \
       lapack \
       cmake==3.14.3 \
       umap-learn \
@@ -57,7 +57,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       distributed=2.3.0 \
       dask-ml \
       dask-cudf=${MINOR_VERSION} \
-      dask-cuda=0.10 \
+      dask-cuda=${MINOR_VERSION} \
       statsmodels \
       xgboost=0.90.rapidsdev1
 
