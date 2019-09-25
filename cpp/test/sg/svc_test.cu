@@ -443,6 +443,13 @@ struct smoOutput {
 };
 
 template <typename math_t>
+struct svmTol {
+  math_t b;
+  math_t cs;
+  int n_sv;
+};
+
+template <typename math_t>
 class SmoSolverTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -543,9 +550,13 @@ class SmoSolverTest : public ::testing::Test {
                     math_t *w_exp, math_t *x_support_exp, int *idx_exp,
                     int n_coefs, int n_cols, math_t *dual_coefs_d = nullptr,
                     math_t b = 0, math_t *x_support_d = nullptr,
-                    int *idx_d = nullptr, math_t epsilon = 0.001) {
-    int n_sv_diff = n_coefs_exp * 0.01;
-    if (n_coefs_exp > 10 && n_sv_diff < 3) n_sv_diff = 3;
+                    int *idx_d = nullptr, math_t b_tol = 0.001,
+                    math_t cs_tol = 0.99999, int n_sv_diff = -1,
+                    math_t ay_tol = 1e-5f) {
+    if (n_sv_diff == -1) {
+      n_sv_diff = n_coefs_exp * 0.01;
+      if (n_coefs_exp > 10 && n_sv_diff < 3) n_sv_diff = 3;
+    }
     EXPECT_LE(abs(n_coefs - n_coefs_exp), n_sv_diff);
     if (dual_coefs_exp) {
       EXPECT_TRUE(devArrMatchHost(dual_coefs_exp, dual_coefs_d, n_coefs,
@@ -559,7 +570,7 @@ class SmoSolverTest : public ::testing::Test {
       ay += dual_coefs_host[i];
     }
     // Test if \sum \alpha_i y_i = 0
-    EXPECT_LT(abs(ay), 1.0e-5f);
+    EXPECT_LT(abs(ay), ay_tol);
 
     if (x_support_exp) {
       EXPECT_TRUE(devArrMatchHost(x_support_exp, x_support_d, n_coefs * n_cols,
@@ -590,16 +601,17 @@ class SmoSolverTest : public ::testing::Test {
         cs += w[i] * w_exp[i];
       }
       cs /= sqrt(abs_w * abs_w_exp);
-      EXPECT_GT(cs, 0.99999);
+      EXPECT_GT(cs, cs_tol);
     }
 
-    EXPECT_LT(abs(b - b_exp), epsilon);
+    EXPECT_LT(abs(b - b_exp), b_tol);
 
     delete[] dual_coefs_host;
     delete[] x_support_host;
   }
 
-  void checkResults(svmModel<math_t> model, smoOutput<math_t> expected) {
+  void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
+                    svmTol<math_t> tol = svmTol<math_t>{0.001, 0.99999, -1}) {
     math_t *dcoef_exp =
       expected.dual_coefs.size() > 0 ? expected.dual_coefs.data() : nullptr;
     math_t *w_exp = expected.w.size() > 0 ? expected.w.data() : nullptr;
@@ -609,7 +621,8 @@ class SmoSolverTest : public ::testing::Test {
 
     checkResults(expected.n_support, dcoef_exp, expected.b, w_exp, x_sv_exp,
                  idx_exp, model.n_support, model.n_cols, model.dual_coefs,
-                 model.b, model.x_support, model.support_idx);
+                 model.b, model.x_support, model.support_idx, tol.b, tol.cs,
+                 tol.n_sv);
   }
   cumlHandle handle;
   cudaStream_t stream;
@@ -866,6 +879,12 @@ TYPED_TEST(SmoSolverTest, Blobs) {
        {}}},
     {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.001, 0}, 100, 1000},
      smoOutput<TypeParam>{41, {}, -0.0077539393, {}, {}, {}}}};
+
+  std::vector<svmTol<TypeParam>> tolerance{
+    svmTol<TypeParam>{1e-3, 0.99999, -1}, svmTol<TypeParam>{1e-3, 0.99999, -1},
+    svmTol<TypeParam>{1e-3, 0.99999, -1}, svmTol<TypeParam>{0.05, 0.95, 10},
+    svmTol<TypeParam>{0.05, 0.95, 8}};
+  int i = 0;
   auto allocator = this->handle.getDeviceAllocator();
   for (auto d : data) {
     auto p = d.first;
@@ -878,7 +897,9 @@ TYPED_TEST(SmoSolverTest, Blobs) {
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
     //std::cout << p << ": " << svc.model.n_support << " " << svc.model.b << "\n";
     auto exp = d.second;
-    this->checkResults(svc.model, exp);
+    svmTol<TypeParam> tol = tolerance[i];
+    i++;
+    this->checkResults(svc.model, exp, tol);
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
     svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
