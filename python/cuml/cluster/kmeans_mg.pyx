@@ -43,8 +43,8 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans" nogil:
-
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
+        "ML::kmeans" nogil:
     cdef struct KMeansParams:
         int n_clusters,
         InitMethod init
@@ -56,6 +56,8 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans" nogil:
         int oversampling_factor,
         int batch_size,
         bool inertia_check
+
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
 
     cdef void fit(cumlHandle& handle,
                   KMeansParams& params,
