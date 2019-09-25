@@ -22,37 +22,11 @@
 #include "common/cumlHandle.hpp"
 #include "common/host_buffer.hpp"
 #include "matrix/grammatrix.h"
+#include "matrix/matrix.h"
 #include "ml_utils.h"
 
 namespace ML {
 namespace SVM {
-
-/**
- * @brief Collect rows of the training data into contiguous space
- *
- * The working set is a subset of all the training examples. Here we collect
- * all the training vectors that are in the working set.
- *
- * @param [in] x training data in column major format, size [n_rows x n_cols]
- * @param [in] n_rows
- * @param [in] n_cols
- * @param [out] x_ws training vectors in the working set in column major format, size [n_ws x n_cols]
- * @param [in] n_ws the number of elements in the working set
- * @param [in] ws_idx working set indices (row indices of x), size [n_ws]
- */
-template <typename math_t>
-__global__ void get_rows(const math_t *x, int n_rows, int n_cols, math_t *x_ws,
-                         int n_ws, const int *ws_idx) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int ws_row = tid % n_ws;  // row idx
-  if (tid < n_ws * n_cols) {
-    int x_row = ws_idx[ws_row];  // row in the original matrix
-    int col = tid / n_ws;        // col idx
-    if (x_row + col * n_rows < n_rows * n_cols) {
-      x_ws[tid] = x[x_row + col * n_rows];
-    }
-  }
-}
 
 /**
 * @brief Buffer to store a kernel tile
@@ -130,27 +104,6 @@ class KernelCache {
   ~KernelCache(){};
 
   /**
- * @brief Collect rows of the training data into contiguous space
- *
- * The working set is a subset of all the training examples. Here we collect
- * all the training vectors that are in the working set.
- *
- * @param [out] x_ws training vectors in the working set in column major format,
- *     size [n x n_cols]
- * @param [in] n the number of elements in the working set
- * @param [in] ws_idx working set indices (row indices of x), size [n_ws]
- * @param [in] stream
- */
-  void CollectRows(math_t *x_ws, int n, const int *ws_idx,
-                   cudaStream_t stream) {
-    if (n > 0) {
-      get_rows<<<MLCommon::ceildiv(n * n_cols, TPB), TPB, 0, stream>>>(
-        x, n_rows, n_cols, x_ws, n, ws_idx);
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-  }
-
-  /**
    * @brief Get all the kernel matrix rows for the working set.
    * @param ws_idx indices of the working set
    * @return pointer to the kernel tile [ n_rows x n_ws] K_j,i = K(x_j, x_q)
@@ -175,7 +128,8 @@ class KernelCache {
                              stream);  // cache stream
 
         // collect training vectors for kernel elements that needs to be calculated
-        CollectRows(x_ws.data(), non_cached, ws_idx_new, stream);
+        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
+                                   non_cached, stream, false);
         math_t *tile_new = tile.data() + n_cached * n_rows;
         (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
@@ -185,7 +139,8 @@ class KernelCache {
     } else {
       if (n_ws > 0) {
         // collect all the feature vectors in the working set
-        CollectRows(x_ws.data(), n_ws, ws_idx, stream);
+        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx, n_ws,
+                                   stream, false);
         (*kernel)(x, n_rows, n_cols, x_ws.data(), n_ws, tile.data(), stream);
       }
     }
