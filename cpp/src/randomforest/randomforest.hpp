@@ -114,8 +114,6 @@ void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category);
 
-void save_model(ModelHandle model, const char* file_name);
-
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
@@ -158,6 +156,8 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, CRITERION split_criterion,
                            bool quantile_per_tree, int cfg_n_streams);
+
+void save_model(ModelHandle model, const char* file_name);
 
 // ----------------------------- Regression ----------------------------------- //
 

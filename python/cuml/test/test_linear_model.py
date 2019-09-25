@@ -85,6 +85,8 @@ def test_linear_models(datatype, X_type, y_type,
 
         # fit and predict cuml linear regression model
         cuols.fit(X_cudf, y_cudf)
+        import pdb
+        pdb.set_trace()
         cuols_predict = cuols.predict(X_cudf_test).to_array()
 
         # fit and predict cuml ridge regression model
@@ -99,6 +101,8 @@ def test_linear_models(datatype, X_type, y_type,
 
         # fit and predict cuml ridge regression model
         curidge.fit(X_train, y_train)
+        import pdb
+        pdb.set_trace()
         curidge_predict = curidge.predict(X_test).to_array()
 
     if nrows < 500000:
