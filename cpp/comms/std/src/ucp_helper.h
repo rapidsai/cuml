@@ -83,10 +83,8 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
   ucp_tag_t tag_mask = default_tag_mask;
-  if (sender_rank == UCP_ANY_RANK) {
-    std::cout << "Setting any rank tag mask" << std::endl;
+  if (sender_rank == UCP_ANY_RANK)
     tag_mask = any_rank_tag_mask;
-  }
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
