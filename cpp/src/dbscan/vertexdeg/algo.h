@@ -37,6 +37,9 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
               index_t startVertexId, index_t batchSize, cudaStream_t stream) {
   data.resetArray(stream, batchSize + 1);
 
+  ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8,
+         "index_t should be 4 or 8 bytes");
+
   index_t m = data.N;
   index_t n = min(data.N - startVertexId, batchSize);
   index_t k = data.D;

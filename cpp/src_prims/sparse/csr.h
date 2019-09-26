@@ -763,6 +763,9 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
                            WeakCCState<Index_> *state, Index_ startVertexId,
                            Index_ batchSize, cudaStream_t stream,
                            Lambda filter_op) {
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
+         "Index_ should be 4 or 8 bytes");
+
   bool host_m;
   bool *host_fa = (bool *)malloc(sizeof(bool) * N);
   bool *host_xa = (bool *)malloc(sizeof(bool) * N);
