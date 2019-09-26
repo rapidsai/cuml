@@ -60,6 +60,9 @@ option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
+set(PARALLEL_LEVEL "" CACHE STRING
+    "Sub-projects parallel level for compilation. Currently only affects FAISS" )
+
 option(NVTX "Enable nvtx markers" OFF)
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
@@ -262,9 +265,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   ExternalProject_Add(faiss
     SOURCE_DIR "${FAISS_DIR}"
-    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS}
+    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS} -v
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faissbuild/
-    BUILD_COMMAND $(MAKE) -j
+    BUILD_COMMAND $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
     INSTALL_COMMAND $(MAKE) -s install > /dev/null
     BUILD_IN_SOURCE 1
     PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
