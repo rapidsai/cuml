@@ -36,8 +36,8 @@ static const int TPB = 256;
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
  */
-template <typename Type, typename Index_ = long>
-__global__ void relabelForSkl(Index_* labels, Index_ N, Type MAX_LABEL) {
+template <typename Index_ = long>
+__global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
     labels[tid] = -1;
@@ -49,12 +49,12 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Type MAX_LABEL) {
  * Turn the non-monotonic labels from weak_cc primitive into
  * an array of labels drawn from a monotonically increasing set.
  */
-template <typename Type, typename Index_ = long>
-void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
-  Type MAX_LABEL = std::numeric_limits<Type>::max();
+template <typename Index_ = long>
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(int val) { return val == MAX_LABEL; });
+    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
 }
 
 /* @param N number of points
@@ -80,7 +80,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize = alignTo<size_t>(sizeof(int) * (batchSize + 1), align);
+  size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
   size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
   if (workspace == NULL) {
@@ -152,7 +152,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
-      [core_pts] __device__(Type tid) { return core_pts[tid]; });
+      [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
     ML::POP_RANGE();
   }
 
@@ -160,7 +160,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   if (algoCcl == 2) final_relabel(labels, N, stream);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   size_t nblks = ceildiv<size_t>(N, TPB);
-  relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
+  relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
   return (size_t)0;
