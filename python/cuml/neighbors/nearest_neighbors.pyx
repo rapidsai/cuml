@@ -42,6 +42,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+from librmm_cffi import librmm as rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -444,8 +445,8 @@ class NearestNeighbors(Base):
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = cuda.to_device(zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = cuda.to_device(zeros(N*k, dtype=np.float32, order="C"))
+        I_ndarr = rmm.to_device(zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = rmm.to_device(zeros(N*k, dtype=np.float32, order="C"))
 
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)

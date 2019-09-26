@@ -68,8 +68,6 @@ template <typename T, int TPB_X>
 void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               cudaStream_t stream  // size = nnz*2
 ) {
-  dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
-  dim3 blk_n(TPB_X, 1, 1);
 
   int *row_ind;
   MLCommon::allocate(row_ind, in_coo->n_rows);
@@ -94,12 +92,12 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
 }
 
 /**
-         * Combine a fuzzy simplicial set with another fuzzy simplicial set
-         * generated from categorical data using categorical distances. The target
-         * data is assumed to be categorical label data (a vector of labels),
-         * and this will update the fuzzy simplicial set to respect that label
-         * data.
-         */
+ * Combine a fuzzy simplicial set with another fuzzy simplicial set
+ * generated from categorical data using categorical distances. The target
+ * data is assumed to be categorical label data (a vector of labels),
+ * and this will update the fuzzy simplicial set to respect that label
+ * data.
+ */
 template <typename T, int TPB_X>
 void categorical_simplicial_set_intersection(COO<T> *graph_coo, T *target,
                                              cudaStream_t stream,
@@ -162,9 +160,9 @@ __global__ void sset_intersection_kernel(int *row_ind1, int *cols1, T *vals1,
 }
 
 /**
-         * Computes the CSR column index pointer and values
-         * for the general simplicial set intersecftion.
-         */
+ * Computes the CSR column index pointer and values
+ * for the general simplicial set intersecftion.
+ */
 template <typename T, int TPB_X>
 void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
                                          int *row2_ind, COO<T> *in2,
@@ -180,8 +178,8 @@ void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
   result->allocate(result_nnz, in1->n_rows);
 
   /**
-             * Element-wise sum of two simplicial sets
-             */
+   * Element-wise sum of two simplicial sets
+   */
   MLCommon::Sparse::csr_add_finalize<float, 32>(
     row1_ind, in1->cols, in1->vals, in1->nnz, row2_ind, in2->cols, in2->vals,
     in2->nnz, in1->n_rows, result_ind, result->cols, result->vals, stream);
@@ -238,8 +236,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                                   COO<T> *rgraph_coo, COO<T> *final_coo,
                                   UMAPParams *params, cudaStream_t stream) {
   /**
-             * Calculate kNN for Y
-             */
+   * Calculate kNN for Y
+   */
   long *y_knn_indices;
   T *y_knn_dists;
 
@@ -266,8 +264,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   }
 
   /**
-             * Compute fuzzy simplicial set
-             */
+   * Compute fuzzy simplicial set
+   */
   COO<T> ygraph_coo;
   FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices, y_knn_dists,
                                params->target_n_neighbors, &ygraph_coo, params,
@@ -283,8 +281,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   }
 
   /**
-             * Compute general simplicial set intersection.
-             */
+   * Compute general simplicial set intersection.
+   */
   int *xrow_ind, *yrow_ind;
   MLCommon::allocate(xrow_ind, rgraph_coo->n_rows, true);
   MLCommon::allocate(yrow_ind, ygraph_coo.n_rows, true);
@@ -304,8 +302,8 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   CUDA_CHECK(cudaFree(yrow_ind));
 
   /**
-             * Remove zeros
-             */
+   * Remove zeros
+   */
   COO<T> out;
   coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
 
