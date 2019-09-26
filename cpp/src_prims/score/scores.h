@@ -121,7 +121,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   // Determine workspace size and allocate memory only if size > 0
   // Notice since we find distances by batches, the workspace size
   // is much smaller
-  const size_t workspaceSize = MLCommon:Distance::getWorkspaceSize< \
+  const size_t workspaceSize = MLCommon::Distance::getWorkspaceSize< \
                                   distance_type,math_t, math_t, math_t>( \
                                   X, X, MAX_BATCH_SIZE, n, m);
   void *workspace = NULL;
