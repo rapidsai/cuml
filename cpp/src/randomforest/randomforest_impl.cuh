@@ -172,29 +172,27 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
                           RandomForestMetaData<T, int>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
+  const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
+  ASSERT(n_streams <= handle.getNumInternalStreams(),
+         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         n_streams, handle.getNumInternalStreams());
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
-  cudaStream_t stream = user_handle.getStream();
-  cumlHandle local_handle[n_streams];
-  cudaStream_t local_stream[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&local_stream[i]));
-    local_handle[i].setStream(local_stream[i]);
-  }
+  cudaStream_t stream = handle.getStream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
+    auto s = handle.getInternalStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
-      handle.getDeviceAllocator(), stream, n_sampled_rows);
+      handle.getDeviceAllocator(), s, n_sampled_rows);
   }
 
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-      local_handle[i].getImpl(), n_rows, n_cols,
+      handle, handle.getInternalStream(i), n_rows, n_cols,
       this->rf_params.tree_params.max_features, n_unique_labels,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
@@ -225,8 +223,8 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
 
     this->prepare_fit_per_tree(i, n_rows, n_sampled_rows, rowids,
                                tempmem[stream_id]->num_sms,
-                               local_handle[stream_id].getStream(),
-                               local_handle[stream_id].getDeviceAllocator());
+                               tempmem[stream_id]->stream,
+                               handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -236,28 +234,23 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
          Expectation: Each tree node will contain (a) # n_sampled_rows and
          (b) a pointer to a list of row numbers w.r.t original data.
     */
-    cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
-                 myhandle.getImpl().getHostAllocator(),
-                 myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
+    trees[i].fit(handle.getDeviceAllocator(),
+                 handle.getHostAllocator(),
+                 tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
-    selected_rows[i]->release(stream);
+    auto s = tempmem[i]->stream;
+    CUDA_CHECK(cudaStreamSynchronize(s));
+    selected_rows[i]->release(s);
     tempmem[i].reset();
     delete selected_rows[i];
   }
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(local_handle[i].getStream()));
-  }
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(local_stream[i]));
-  }
   CUDA_CHECK(cudaStreamSynchronize(user_handle.getStream()));
 }
 
@@ -445,29 +438,27 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
                          RandomForestMetaData<T, T>*& forest) {
   this->error_checking(input, labels, n_rows, n_cols, false);
 
+  const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
+  ASSERT(n_streams <= handle.getNumInternalStreams(),
+         "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
+         n_streams, handle.getNumInternalStreams());
 
-  const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
-  cumlHandle local_handle[n_streams];
-  cudaStream_t local_stream[n_streams];
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&local_stream[i]));
-    local_handle[i].setStream(local_stream[i]);
-  }
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
+    auto s = handle.getInternalStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
-      handle.getDeviceAllocator(), stream, n_sampled_rows);
+      handle.getDeviceAllocator(), s, n_sampled_rows);
   }
 
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      local_handle[i].getImpl(), n_rows, n_cols,
+      handle, handle.getInternalStream(i), n_rows, n_cols,
       this->rf_params.tree_params.max_features, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
@@ -493,12 +484,11 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
-    unsigned int* rowids;
-    rowids = selected_rows[stream_id]->data();
+    unsigned int* rowids = selected_rows[stream_id]->data();
     this->prepare_fit_per_tree(i, n_rows, n_sampled_rows, rowids,
                                tempmem[stream_id]->num_sms,
-                               local_handle[stream_id].getStream(),
-                               local_handle[stream_id].getDeviceAllocator());
+                               tempmem[stream_id]->stream,
+                               handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -507,29 +497,24 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
          used to build the bootstrapped sample. Expectation: Each tree node will contain
          (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
     */
-    cumlHandle& myhandle = local_handle[stream_id];
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(myhandle.getImpl().getDeviceAllocator(),
-                 myhandle.getImpl().getHostAllocator(),
-                 myhandle.getImpl().getStream(), input, n_cols, n_rows, labels,
+    trees[i].fit(handle.getDeviceAllocator(),
+                 handle.getHostAllocator(),
+                 tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
-    selected_rows[i]->release(stream);
+    auto s = tempmem[i]->stream;
+    CUDA_CHECK(cudaStreamSynchronize(s));
+    selected_rows[i]->release(s);
     tempmem[i].reset();
     delete selected_rows[i];
   }
 
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(local_handle[i].getStream()));
-  }
-  for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(local_stream[i]));
-  }
-  CUDA_CHECK(cudaStreamSynchronize(user_handle.getStream()));
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 /**
