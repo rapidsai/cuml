@@ -118,37 +118,11 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              cudaStream_t stream) {
   const int TMP_SIZE = MAX_BATCH_SIZE * n;
 
-  // Determine workspace size and allocate memory only if size > 0
-  // Notice since we find distances by batches, the workspace size
-  // is much smaller
-  const size_t workspaceSize = MLCommon::Distance::getWorkspaceSize< \
-                                  distance_type,math_t, math_t, math_t>( \
-                                  X, X, MAX_BATCH_SIZE, n, m);
-  void *workspace = NULL;
-  if (workspaceSize > 0)
-    workspace = (void*) d_alloc->allocate(workspaceSize, stream);
-
-
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
   math_t *d_pdist_tmp =
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
-
-  // Also figure out workspace for column sorting
-  // Likewise since only batches are computed, the workspace is small
-  bool need_workspace = false;
-  size_t sort_workspace_size = 0;
-  void *sort_workspace = NULL;
-
-  MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp,
-                                         MAX_BATCH_SIZE, n,
-                                         need_workspace, NULL, sort_workspace_size,
-                                         stream);
-
-  if (need_workspace and sort_workspace_size > 0)
-    sort_workspace = (void*) d_alloc->allocate(sort_workspace_size, stream);
-      
 
   long *ind_X_embedded =
     get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
@@ -158,20 +132,52 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   double *d_t = (double *)d_alloc->allocate(sizeof(double), stream);
 
   int toDo = n;
-  while (toDo > 0) {
+  while (toDo > 0)
+  {
     int batchSize = min(toDo, MAX_BATCH_SIZE);
     // Takes at most MAX_BATCH_SIZE vectors at a time
-
+    
+    
+    // Determine distance workspace size
+    char *distance_workspace = nullptr;
+    size_t distance_workspace_size = \
+      MLCommon::Distance::getWorkspaceSize<distance_type, math_t, math_t, math_t>(
+        &X[(n - toDo) * m], X, batchSize, n, m);
+    
+    if (distance_workspace_size != 0)
+      distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
+    
+    // Find distances
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
-      &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, workspace,
-      workspaceSize, stream);
+      &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, (void*)distance_workspace,
+      distance_workspace_size, stream);
     CUDA_CHECK(cudaPeekAtLastError());
-
+    
+    // Free workspace
+    if (distance_workspace_size != 0)
+      d_alloc->deallocate(distance_workspace, distance_workspace_size, stream);
+    
+    
+    // Determine sort columns workspace
+    bool need_workspace = false;
+    size_t sort_workspace_size = 0;
     MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
-                                           n, need_workspace, sort_workspace,
+                                           n, need_workspace, NULL,
                                            sort_workspace_size, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+    if (need_workspace)
+    {
+      char *sort_workspace = (char*) d_alloc->allocate(sort_workspace_size, stream);
+      
+      MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
+                                             n, need_workspace, (void*)sort_workspace,
+                                             sort_workspace_size, stream);
+      
+      CUDA_CHECK(cudaPeekAtLastError());
+      d_alloc->deallocate(sort_workspace, sort_workspace_size, stream);
+    }
+    
 
     t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
@@ -204,9 +210,6 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   // Free workspace
   if (workspaceSize > 0)
     d_alloc->deallocate(workspace, workspaceSize, stream);
-
-  if (need_workspace and sort_workspace_size > 0)
-    d_alloc->deallocate(sort_workspace, sort_workspace_size, stream);
 
   return t;
 }
