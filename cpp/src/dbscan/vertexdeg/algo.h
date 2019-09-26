@@ -33,7 +33,7 @@ namespace Algo {
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
 template <typename value_t, typename index_t = long>
-void launcher(const ML::cumlHandle_impl& handle, Pack<value_t, index_t> data,
+void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
               index_t startVertexId, index_t batchSize, cudaStream_t stream) {
   data.resetArray(stream, batchSize + 1);
 
@@ -41,7 +41,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t, index_t> data,
   index_t n = min(data.N - startVertexId, batchSize);
   index_t k = data.D;
 
-  unsigned long long* vd = data.vd;
+  index_t *vd = data.vd;
 
   value_t eps2 = data.eps * data.eps;
 
@@ -60,14 +60,21 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t, index_t> data,
   auto fused_op = [vd, n] __device__(index_t global_c_idx, bool in_neigh) {
     // fused construction of vertex degree
     index_t batch_vertex = global_c_idx - (n * (global_c_idx / n));
-    atomicAdd(vd + batch_vertex, in_neigh);
-    atomicAdd(vd + n, in_neigh);
+
+    if (sizeof(index_t) == 4) {
+      atomicAdd((int *)(vd + batch_vertex), (int)in_neigh);
+      atomicAdd((int *)(vd + n), (int)in_neigh);
+    } else if (sizeof(index_t) == 8) {
+      atomicAdd((unsigned long long *)(vd + batch_vertex),
+                (unsigned long long)in_neigh);
+      atomicAdd((unsigned long long *)(vd + n), (unsigned long long)in_neigh);
+    }
   };
 
   MLCommon::Distance::epsilon_neighborhood<distance_type, value_t,
                                            decltype(fused_op), index_t>(
     data.x, data.x + startVertexId * k, data.adj, m, n, k, eps2,
-    (void*)workspace.data(), workspaceSize, stream, fused_op);
+    (void *)workspace.data(), workspaceSize, stream, fused_op);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

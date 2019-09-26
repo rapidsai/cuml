@@ -26,7 +26,7 @@ struct Pack {
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of points
      */
-  unsigned long long *vd;
+  Index_ *vd;
   /** the adjacency matrix */
   bool *adj;
   /** input dataset */

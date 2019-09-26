@@ -43,7 +43,7 @@ static const int TPB_X = 256;
 template <typename Type, typename Index_ = long>
 void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
-  device_ptr<unsigned long long> dev_vd = device_pointer_cast(data.vd);
+  device_ptr<Index_> dev_vd = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
   ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
@@ -52,7 +52,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
 
   bool *core_pts = data.core_pts;
   int minPts = data.minPts;
-  unsigned long long *vd = data.vd;
+  Index_ *vd = data.vd;
 
   MLCommon::Sparse::csr_adj_graph_batched<Index_, TPB_X>(
     data.ex_scan, data.N, data.adjnnz, batchSize, data.adj, data.adj_graph,
