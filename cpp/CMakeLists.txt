@@ -238,12 +238,32 @@ add_clang_format(
 ###################################################################################################
 # - treelite build --------------------------------------------------------------------------------
 
+set(TREELITE_PROTOBUF_CMAKE_PATH
+  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")                                                         
+file(READ
+  "${TREELITE_PROTOBUF_CMAKE_PATH}"
+  PROTOBUF_CMAKE_TXT)
+string(REGEX REPLACE
+  "include_directories\\([ ]*\n"
+  "include_directories(\${protobuf_source_dir}/src\n"
+  PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
+file(WRITE "${TREELITE_DIR}/CMakeLists.txt" "${PROTOBUF_CMAKE_TXT}")
+
 include(ExternalProject)
+# include(cmake/Utils.cmake)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
+add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
+set(PROTOBUF_LIBRARIES libprotobuf)
+add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
 
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
-    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    CMAKE_ARGS -DENABLE_PROTOBUF=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 )
 
 add_library(dmlclib STATIC IMPORTED)
@@ -296,6 +316,7 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/3rdparty/protobuf
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -347,6 +368,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     faisslib
     )
