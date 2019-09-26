@@ -23,6 +23,7 @@ import numpy as np
 from dask.distributed import default_client, wait
 
 import math
+from uuid import uuid1
 import random
 
 
@@ -121,7 +122,6 @@ class RandomForestRegressor:
         self,
         n_estimators=10,
         max_depth=-1,
-        handle=None,
         max_features="auto",
         n_bins=8,
         split_algo=1,
@@ -198,16 +198,13 @@ class RandomForestRegressor:
                 self.n_estimators_per_worker[i] + 1
             )
 
-        if handle is None:
-            handle = cuml.Handle(n_streams)
-
+        key = str(uuid1())
         self.rfs = {
             worker: c.submit(
                 RandomForestRegressor._func_build_rf,
-                n,
                 self.n_estimators_per_worker[n],
                 max_depth,
-                handle,
+                n_streams,
                 max_features,
                 n_bins,
                 split_algo,
@@ -218,10 +215,9 @@ class RandomForestRegressor:
                 min_rows_per_node,
                 rows_sample,
                 max_leaves,
-                n_streams,
                 accuracy_metric,
                 quantile_per_tree,
-                random.random(),
+                key="%s-%s" % (key, n),
                 workers=[worker],
             )
             for n, worker in enumerate(workers)
@@ -235,10 +231,9 @@ class RandomForestRegressor:
 
     @staticmethod
     def _func_build_rf(
-        n,
         n_estimators,
         max_depth,
-        handle,
+        n_streams,
         max_features,
         n_bins,
         split_algo,
@@ -249,16 +244,14 @@ class RandomForestRegressor:
         min_rows_per_node,
         rows_sample,
         max_leaves,
-        n_streams,
         accuracy_metric,
         quantile_per_tree,
-        r,
     ):
 
         return cuRFR(
             n_estimators=n_estimators,
             max_depth=max_depth,
-            handle=handle,
+            handle=None,
             max_features=max_features,
             n_bins=n_bins,
             split_algo=split_algo,
