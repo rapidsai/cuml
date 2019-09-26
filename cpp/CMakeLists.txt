@@ -253,7 +253,7 @@ string(REGEX REPLACE
   "include_directories(\${protobuf_source_dir}/src\n"
   PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
 
-file(WRITE "${TREELITE_DIR}/CMakeLists.txt" "${PROTOBUF_CMAKE_TXT}")
+file(WRITE "${TREELITE_PROTOBUF_CMAKE_PATH}" "${PROTOBUF_CMAKE_TXT}")
 
 include(ExternalProject)
 # include(cmake/Utils.cmake)
