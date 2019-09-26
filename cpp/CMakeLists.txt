@@ -244,11 +244,15 @@ set(TREELITE_PROTOBUF_CMAKE_PATH
 file(READ
   "${TREELITE_PROTOBUF_CMAKE_PATH}"
   PROTOBUF_CMAKE_TXT)
+string(REGEX REPLACE "\\$\\{protobuf_source_dir\\}/src"
+  ""
+  PROTOBUF_CMAKE_TXT "${PROTOBUF_CMAKE_TXT}")
+
 string(REGEX REPLACE
-  "${protobuf_source_dir}/src"
-  "include_directories\([ ]*\n"
+  "include_directories\\([ ]*\n"
   "include_directories(\${protobuf_source_dir}/src\n"
   PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
+
 file(WRITE "${TREELITE_DIR}/CMakeLists.txt" "${PROTOBUF_CMAKE_TXT}")
 
 include(ExternalProject)
