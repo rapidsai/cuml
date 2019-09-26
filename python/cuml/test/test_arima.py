@@ -129,7 +129,9 @@ def test_log_likelihood():
          1.0245662700e-04, -1.4321914400e+00]
     ll = arima.ll_f(2, len(t), (1, 1, 1), y, np.array(x))
     np.set_printoptions(precision=14)
-    print("ll=", ll)
+    ll_ref = np.array([-418.2732740315433, -413.7692130741877])
+    # print("ll=", ll)
+    np.testing.assert_allclose(ll, ll_ref)
 
 def test_gradient_ref():
     x = np.array([-1.2704761899e+02, 3.8009511900e-02, -1.3518602400e+00, -1.2040476199e+02,
@@ -138,8 +140,10 @@ def test_gradient_ref():
     _, y = get_data()
     np.set_printoptions(precision=14)
     g = arima.ll_gf(2, len(t), 3, (1, 1, 1), y, x)
-    print("g=", g)
-
+    g_ref = np.array([-7.16227077646181e-04, -4.09565927839139e+00, -4.10715017551411e+00,
+                      -1.02602371043758e-03, -4.46265460141149e+00, -4.18378931499319e+00])
+    # print("g=", g)
+    np.testing.assert_allclose(g, g_ref)
 
 def test_gradient():
     """test gradient implementation"""
@@ -557,6 +561,7 @@ if __name__ == "__main__":
     test_arima_start_params()
     
     test_gradient()
+    test_gradient_ref()
     test_transform()
     test_stationarity()
 
