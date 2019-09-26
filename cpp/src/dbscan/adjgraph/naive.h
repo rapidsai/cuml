@@ -31,8 +31,8 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   int k = 0;
   Index_ N = data.N;
-  MLCommon::host_buffer<unsigned long long> host_vd(handle.getHostAllocator(),
-                                                    stream, batchSize + 1);
+  MLCommon::host_buffer<Index_> host_vd(handle.getHostAllocator(), stream,
+                                        batchSize + 1);
   MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream,
                                             batchSize);
   MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream,

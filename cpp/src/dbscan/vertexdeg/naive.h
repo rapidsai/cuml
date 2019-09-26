@@ -52,17 +52,23 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   Index_ D = data.D;
   Type *x = data.x;
   bool *adj = data.adj;
-  unsigned long long *vd = data.vd;
+  Index_ *vd = data.vd;
   for (Index_ d = 0; d < D; ++d) {
     Type a = __ldg(x + (row + startVertexId) * D + d);
     Type b = __ldg(x + col * D + d);
     Type diff = a - b;
     sum += (diff * diff);
   }
-  unsigned long long res = (sum <= eps2);
+  Index_ res = (sum <= eps2);
   adj[row * N + col] = res;
-  atomicAdd(vd + row, res);
-  atomicAdd(vd + batchSize, res);
+
+  if (sizeof(Index_) == 4) {
+    atomicAdd((int *)(vd + row), (int)res);
+    atomicAdd((int *)(vd + batchSize), (int)res);
+  } else if (sizeof(Index_) == 8) {
+    atomicAdd((unsigned long long *)(vd + row), (unsigned long long)res);
+    atomicAdd((unsigned long long *)(vd + batchSize), (unsigned long long)res);
+  }
 }
 
 template <typename Type, typename Index_ = long>

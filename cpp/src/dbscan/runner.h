@@ -90,7 +90,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   }
   // partition the temporary workspace needed for different stages of dbscan
   Index_ adjlen = 0;
-  unsigned long long curradjlen = 0;
+  Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
   temp += adjSize;
@@ -102,7 +102,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
-  unsigned long long* vd = (unsigned long long*)temp;
+  Index_* vd = (Index_*)temp;
   temp += vdSize;
   Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
@@ -158,7 +158,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
-  Type MAX_LABEL = std::numeric_limits<Type>::max();
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());

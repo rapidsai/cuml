@@ -25,7 +25,7 @@ namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Type, typename Index_ = int>
-void run(const ML::cumlHandle_impl& handle, bool* adj, unsigned long long* vd,
+void run(const ML::cumlHandle_impl& handle, bool* adj, Index_* vd,
          Index_* adj_graph, Index_ adjnnz, Index_* ex_scan, Index_ N,
          Type minpts, bool* core_pts, int algo, Index_ batchSize,
          cudaStream_t stream) {
