@@ -205,9 +205,6 @@ def convert_dtype(X, to_dtype=np.float32):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
-        if hasattr(X, 'dtype') and np.dtype(X.dtype) == to_dtype or \
-                hasattr(X, 'typestr') and np.dtype(X.typestr) == to_dtype:
-            return X
         if has_cupy():
             import cupy as cp
             X_m = cp.asarray(X)
