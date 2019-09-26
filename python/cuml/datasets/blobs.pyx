@@ -47,8 +47,7 @@ cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
                          bool shuffle,
                          float center_box_min,
                          float center_box_max,
-                         uint64_t seed,
-                         bool col_major) except +
+                         uint64_t seed) except +
 
     cdef void make_blobs(cumlHandle& handle,
                          double* out,
@@ -62,8 +61,7 @@ cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
                          bool shuffle,
                          double center_box_min,
                          double center_box_max,
-                         uint64_t seed,
-                         bool col_major) except +
+                         uint64_t seed) except +
 
 inp_to_dtype = {
     'single': np.float32,
@@ -203,8 +201,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <bool> shuffle,
                    <float> center_box_min,
                    <float> center_box_max,
-                   <uint64_t> random_state,
-                   False)
+                   <uint64_t> random_state)
 
     else:
         make_blobs(handle_[0],
@@ -219,7 +216,6 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <bool> shuffle,
                    <double> center_box_min,
                    <double> center_box_max,
-                   <uint64_t> random_state,
-                   False)
+                   <uint64_t> random_state)
 
     return out, labels

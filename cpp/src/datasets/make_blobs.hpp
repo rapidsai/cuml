@@ -55,14 +55,14 @@ void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
                 const float* cluster_std = nullptr,
                 const float cluster_std_scalar = 1.f, bool shuffle = true,
                 float center_box_min = 10.f, float center_box_max = 10.f,
-                uint64_t seed = 0ULL, bool col_major = false);
+                uint64_t seed = 0ULL);
 
 void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const double* centers = nullptr,
                 const double* cluster_std = nullptr,
                 const double cluster_std_scalar = 1.f, bool shuffle = true,
                 double center_box_min = 10.f, double center_box_max = 10.f,
-                uint64_t seed = 0ULL, bool col_major = false);
+                uint64_t seed = 0ULL);
 /** @} */
 
 }  // namespace Datasets
