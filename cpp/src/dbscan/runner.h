@@ -106,17 +106,15 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   Type* ex_scan = (Type*)temp;
   temp += exScanSize;
 
-  std::cout << "SIZEOF TYPE: " << sizeof(Type) << std::endl;
-
   // Running VertexDeg
-  MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
+  MLCommon::Sparse::WeakCCState<Index_> state(xa, fa, m);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
     MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
                                             stream);
     Type startVertexId = i * batchSize;
-    int nPoints = min(N - startVertexId, batchSize);
+    Index_ nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
 
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
@@ -140,7 +138,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
-    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
+    MLCommon::Sparse::weak_cc_batched<Type, Index_, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts] __device__(Type tid) { return core_pts[tid]; });
