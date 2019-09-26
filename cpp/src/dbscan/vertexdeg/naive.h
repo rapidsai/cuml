@@ -74,6 +74,9 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
 template <typename Type, typename Index_ = long>
 void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
               cudaStream_t stream) {
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
+         "index_t should be 4 or 8 bytes");
+
   dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),
             1);
   dim3 blk(TPB_X, TPB_Y, 1);
