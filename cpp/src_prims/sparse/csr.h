@@ -645,13 +645,13 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
  */
-template <typename T, typename Index_, int TPB_X = 32,
-          typename Lambda = auto(T, T, T)->void>
-void csr_adj_graph(const T *row_ind, Index_ total_rows, Index_ nnz,
+template <typename Index_, int TPB_X = 32,
+          typename Lambda = auto(Index_, Index_, Index_)->void>
+void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                    const bool *adj, Index_ *row_ind_ptr, cudaStream_t stream,
                    Lambda fused_op) {
-  csr_adj_graph_batched<T, TPB_X>(row_ind, total_rows, nnz, total_rows, adj,
-                                  row_ind_ptr, stream, fused_op);
+  csr_adj_graph_batched<Index_, TPB_X>(row_ind, total_rows, nnz, total_rows,
+                                       adj, row_ind_ptr, stream, fused_op);
 }
 
 template <typename T = long>
@@ -740,7 +740,7 @@ __global__ void weak_cc_init_label_kernel(Index_ *labels, Index_ startVertexId,
                                           Lambda filter_op) {
   /** F1 and F2 in the paper correspond to fa and xa */
   /** Cd in paper corresponds to db_cluster */
-  int tid = threadIdx.x + blockIdx.x * TPB_X;
+  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < batchSize) {
     if (filter_op(tid) && labels[tid + startVertexId] == MAX_LABEL)
       labels[startVertexId + tid] = Index_(startVertexId + tid + 1);
@@ -750,7 +750,7 @@ __global__ void weak_cc_init_label_kernel(Index_ *labels, Index_ startVertexId,
 template <typename Index_, int TPB_X = 32>
 __global__ void weak_cc_init_all_kernel(Index_ *labels, bool *fa, bool *xa,
                                         Index_ N, Index_ MAX_LABEL) {
-  int tid = threadIdx.x + blockIdx.x * TPB_X;
+  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     labels[tid] = MAX_LABEL;
     fa[tid] = true;
@@ -874,7 +874,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      WeakCCState<Index_> *state, cudaStream_t stream) {
   weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, startVertexId,
                   batchSize, state, stream,
-                  [] __device__(int tid) { return true; });
+                  [] __device__(Index_ tid) { return true; });
 }
 
 /**
@@ -931,12 +931,12 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param stream the cuda stream to use
  * should get considered for labeling.
  */
-template <typename Type = int, typename Index_, int TPB_X = 32>
-void weak_cc(Type *labels, const Type *row_ind, const Index_ *row_ind_ptr,
+template <typename Index_, int TPB_X = 32>
+void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N, cudaStream_t stream) {
   WeakCCState<Index_> state(N);
-  weak_cc_batched<Type, Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0,
-                                       N, stream, [](int t) { return true; });
+  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
+                                 stream, [](Index_) { return true; });
 }
 
 };  // namespace Sparse

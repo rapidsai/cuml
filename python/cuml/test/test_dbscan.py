@@ -22,7 +22,7 @@ import pandas as pd
 import cudf
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern, clusters_equal
+from cuml.test.utils import fit_predict, get_pattern
 
 from sklearn.metrics import adjusted_rand_score
 
