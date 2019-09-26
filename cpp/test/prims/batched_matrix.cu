@@ -128,15 +128,16 @@ class BatchedMatrixTest
     // allocate(Bbi, 4*num_batches);
     // T* Zbi;
     // allocate(Zbi, 2*num_batches);
-    // ML::cumlHandle handle;
     auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
-    auto memory_pool =
-      std::make_shared<BatchedMatrixMemoryPool>(num_batches, allocator);
+    // cublasH
+    cublasHandle_t handle;
+    CUBLAS_CHECK(cublasCreate(&handle));
+    cudaStream_t stream = 0;
 
-    BatchedMatrix AbM(2, 2, num_batches, memory_pool);
-    BatchedMatrix BbM(2, 2, num_batches, memory_pool);
-    BatchedMatrix ZbM(1, 2, num_batches, memory_pool);
-    BatchedMatrix ZbM_col(2, 1, num_batches, memory_pool);
+    BatchedMatrix AbM(2, 2, num_batches, handle, allocator, stream);
+    BatchedMatrix BbM(2, 2, num_batches, handle, allocator, stream);
+    BatchedMatrix ZbM(1, 2, num_batches, handle, allocator, stream);
+    BatchedMatrix ZbM_col(2, 1, num_batches, handle, allocator, stream);
 
     for (int i = 0; i < num_batches; i++) {
       updateDevice(AbM[i], A.data(), 4, 0);

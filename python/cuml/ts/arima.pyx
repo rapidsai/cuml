@@ -442,8 +442,8 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     cdef uintptr_t d_vs_ptr
     cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
     # note: make sure you explicitly have d_y_array. Otherwise it gets garbage collected (I think).
-    d_y_array, d_y_ptr, _, _, dtype = input_to_dev_array(y, check_dtype=np.float64)
-    d_x_array, d_x_ptr, _, _, dtype = input_to_dev_array(x, check_dtype=np.float64)
+    d_y_array, d_y_ptr, _, _, dtype_y = input_to_dev_array(y, check_dtype=np.float64)
+    d_x_array, d_x_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
     d_vs, d_vs_ptr, _, _, _ = input_to_dev_array(vs, check_dtype=np.float64)
     
 
@@ -452,14 +452,14 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
 
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    if dtype != np.float64:
+    if dtype_y != np.float64:
         raise ValueError("Only 64-bit floating point inputs currently supported")
 
     batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr,
                     vec_loglike, <double*>d_vs_ptr, trans)
 
     pynvtx_range_pop()
-    return vec_loglike, d_vs
+    return vec_loglike
 
 def _residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
     """ Computes and returns the kalman residual """
@@ -496,7 +496,7 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
 
     cdef vector[double] vec_loglike
 
-    vec_loglike, d_vs = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
+    vec_loglike = _batched_loglike(num_batches, nobs, order, y, x, trans, handle)
 
     loglike = np.zeros(num_batches)
     for i in range(num_batches):

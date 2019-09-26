@@ -29,6 +29,7 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <common/cumlHandle.hpp>
 #include <cuML.hpp>
 
 namespace MLCommon {
@@ -56,179 +57,81 @@ struct pair_hash {
 //! An allocation function for `BatchedMatrixMemory`. Written as a free function because I had trouble
 //! getting the __device__ lambda to compile as a member function of the `BatchedMatrixMemory`
 //! struct.
-void BMM_Allocate(std::pair<int, int> shape, int num_batches, double*& A_dense,
-                  double**& A_array, bool setZero,
-                  std::shared_ptr<ML::deviceAllocator> allocator) {
+std::pair<double*, double**> BMM_Allocate(
+  std::pair<int, int> shape, int num_batches, bool setZero,
+  std::shared_ptr<ML::deviceAllocator> allocator) {
   int m = shape.first;
   int n = shape.second;
 
   // Allocate dense batched matrix and possibly set to zero
-  A_dense =
+  double* A_dense =
     (double*)allocator->allocate(sizeof(double) * m * n * num_batches, 0);
   if (setZero)
     CUDA_CHECK(cudaMemset(A_dense, 0, sizeof(double) * m * n * num_batches));
 
   // allocate and fill array of pointers to each batch matrix
-  A_array = (double**)allocator->allocate(sizeof(double*) * num_batches, 0);
+  double** A_array =
+    (double**)allocator->allocate(sizeof(double*) * num_batches, 0);
   // fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
     A_array[bid] = &(A_dense[bid * m * n]);
   });
+  return std::make_pair(A_dense, A_array);
 }
-
-//! A Memory object to store a batched matrix both as a dense pointer and as an
-//! array of pointers to each individual matrix.
-struct BatchedMatrixMemory {
-  //! Constructor
-  //! @param shape The (M x N) shape of each matrix.
-  //! @param num_batches The number of (equally-sized) matrices.
-  //! @param setZero Should the matrices be initialized to zero?
-  BatchedMatrixMemory(std::pair<int, int> shape, int num_batches, bool setZero,
-                      std::shared_ptr<ML::deviceAllocator> allocator) {
-    BMM_Allocate(shape, num_batches, A_dense, A_array, setZero, allocator);
-    // std::cout << "Allocate (" << shape.first << "," << shape.second << "):" << A_array << "\n";
-    in_use = true;
-  }
-
- public:
-  //! Pointer to block of memory holding all matrices.
-  double* A_dense;
-  //! Array of pointers to each matrix.
-  double** A_array;
-  //! Is this memory currently active or can it be reclaimed by pool allocator?
-  bool in_use;
-};
-
-// A pool allocator for `BatchedMatrix` objects.
-class BatchedMatrixMemoryPool {
- public:
-  BatchedMatrixMemoryPool(int num_batches,
-                          std::shared_ptr<ML::deviceAllocator> allocator)
-    : m_num_batches(num_batches), m_allocator(allocator) {
-    CUBLAS_CHECK(cublasCreate(&m_cublasHandle));
-  }
-
-  ~BatchedMatrixMemoryPool() {
-    for (auto& kv : m_pool) {
-      for (auto& v : kv.second) {
-        // std::cout << "cudaFree Deallocating\n";
-        cudaFreeT(v.A_array);
-        cudaFreeT(v.A_dense);
-      }
-    }
-    CUBLAS_CHECK(cublasDestroy(m_cublasHandle));
-  }
-
-  std::pair<double*, double**> get(std::pair<int, int> shape,
-                                   bool setZero = false) {
-    auto mempool_for_shape = m_pool.find(shape);
-    // if mempool empty for this shape, create first entry
-    if (mempool_for_shape == m_pool.end()) {
-      BatchedMatrixMemory mem(shape, m_num_batches, setZero, m_allocator);
-      m_pool[shape] = {mem};
-      return std::make_pair(mem.A_dense, mem.A_array);
-    } else {
-      // Look for an empty (in_use==false) slot for this shape.
-      auto& shape_pool = m_pool[shape];
-      bool found_ununsed_entry = false;
-      for (auto& m : shape_pool) {
-        if (m.in_use == false) {
-          // std::cout << "Re-Use("  << shape.first << "," << shape.second << "):" << m.A_array << "\n";
-          found_ununsed_entry = true;
-          m.in_use = true;
-          if (setZero) {
-            CUDA_CHECK(cudaMemset(m.A_dense, 0.0,
-                                  shape.first * shape.second * m_num_batches));
-          }
-          return std::make_pair(m.A_dense, m.A_array);
-        }
-      }
-      if (!found_ununsed_entry) {
-        // Create a new memory slot because no entries are free.
-        BatchedMatrixMemory mem(shape, m_num_batches, setZero, m_allocator);
-        shape_pool.push_back(mem);
-        return std::make_pair(mem.A_dense, mem.A_array);
-      }
-    }
-    throw std::runtime_error("ERROR: BMMP::Unreachable place!");
-  }
-
-  // Free the entry with this shape and pointer for re-use.
-  void remove(std::pair<int, int> shape, double** A_array) {
-    auto& shape_pool = m_pool.at(shape);
-    bool found_array = false;
-    for (auto& m : shape_pool) {
-      if (m.A_array == A_array) {
-        found_array = true;
-        m.in_use = false;
-        break;
-      }
-    }
-    if (!found_array) {
-      std::cout << "ERROR, Couldnt find:(" << shape.first << "," << shape.second
-                << "): " << A_array << ")\n";
-      throw std::runtime_error("ERROR: Tried to remove an array not in pool");
-    }
-  }
-
-  const cublasHandle_t& cublasHandle() const { return m_cublasHandle; }
-
-  std::shared_ptr<ML::deviceAllocator> allocator() { return m_allocator; }
-
- private:
-  //! The memory pool, organized by matrix shape.
-  std::unordered_map<std::pair<int, int>, std::vector<BatchedMatrixMemory>,
-                     pair_hash>
-    m_pool;
-
-  //! The number of matrices in the batch
-  int m_num_batches;
-  //! The cublas handle
-  cublasHandle_t m_cublasHandle;
-  //! device allocator
-  std::shared_ptr<ML::deviceAllocator> m_allocator;
-};
 
 //! The BatchedMatrix class provides storage and a number of linear operations on collections (batches) of matrices of identical shape.
 class BatchedMatrix {
  public:
-  //! If the matrix is deleted, we remove it from the pool.
-  //! @param A The matrix to remove
-  void remove(double** A) { m_pool->remove(m_shape, A); }
-
   //! Constructor that allocates memory using the memory pool.
   //! @param m Number of rows
   //! @param n Number of columns
   //! @param num_batches Number of matrices in the batch
   //! @param pool The memory pool
   //! @param setZero Should matrix be zeroed on allocation?
-  BatchedMatrix(int m, int n, int num_batches,
-                std::shared_ptr<BatchedMatrixMemoryPool> pool,
-                bool setZero = false)
-    : m_num_batches(num_batches), m_pool(pool) {
+  BatchedMatrix(int m, int n, int num_batches, cublasHandle_t cublasHandle,
+                std::shared_ptr<ML::deviceAllocator> allocator,
+                cudaStream_t stream = 0, bool setZero = true)
+    : m_num_batches(num_batches),
+      m_allocator(allocator),
+      m_cublasHandle(cublasHandle),
+      m_stream(stream) {
     m_shape = std::make_pair(m, n);
 
-    // get memory from memory pool
-    auto memory = m_pool->get(m_shape, setZero);
-    m_A_dense = memory.first;
+    // allocate memory
+    auto memory = BMM_Allocate(m_shape, num_batches, setZero, allocator);
 
     // Take these references to extract them from member-storage for the
     // lambda below. There are better C++14 ways to do this, but I'll keep it C++11 for now.
     auto& shape = m_shape;
-    auto& this_pool = m_pool;
 
     // note: we create this "free" function with explicit copies to ensure that the
     // pool-removal function gets called with the correct values.
-    auto f = [shape, this_pool](double** A) { this_pool->remove(shape, A); };
+    auto f1 = [allocator, num_batches, shape, stream](double* A) {
+      allocator->deallocate(
+        A, num_batches * shape.first * shape.second * sizeof(double), stream);
+    };
 
-    // When this shared pointer count goes to 0, `f` is called which set this
-    // pointer to "unused" in the memory pool.
-    m_A_batches = std::shared_ptr<double*>(memory.second, f);
+    auto f2 = [allocator, num_batches, stream](double** A) {
+      allocator->deallocate(A, sizeof(double*) * num_batches, stream);
+    };
+
+    // When this shared pointer count goes to 0, `f` is called to deallocate the memory
+    m_A_dense = std::shared_ptr<double>(memory.first, f1);
+    m_A_batches = std::shared_ptr<double*>(memory.second, f2);
   }
 
   //! Return batches
   size_t batches() const { return m_num_batches; }
+
+  //! Return cublas handle
+  cublasHandle_t cublasHandle() const { return m_cublasHandle; }
+
+  //! Return allocator
+  std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
+
+  //! return stream
+  cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
   const std::pair<int, int>& shape() const { return m_shape; }
@@ -239,7 +142,7 @@ class BatchedMatrix {
   //! Return specific matrix pointer
   //! @param id Return the pointer to `id` matrix.
   double* operator[](int id) const {
-    return &(m_A_dense[id * m_shape.first * m_shape.second]);
+    return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
   }
 
   //! Stack the matrix by columns creating a long vector
@@ -247,7 +150,8 @@ class BatchedMatrix {
     int m = m_shape.first;
     int n = m_shape.second;
     int r = m * n;
-    BatchedMatrix toVec(r, 1, m_num_batches, m_pool);
+    BatchedMatrix toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
+                        m_stream);
     cudaMemcpy(toVec[0], this->operator[](0),
                m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
     return toVec;
@@ -258,20 +162,18 @@ class BatchedMatrix {
   //! @param n Number of desired columns
   BatchedMatrix mat(int m, int n) const {
     int r = m_shape.first * m_shape.second;
-    BatchedMatrix toMat(m, n, m_num_batches, m_pool);
+    BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
+                        m_stream);
     cudaMemcpy(toMat[0], this->operator[](0),
                m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
     return toMat;
   }
 
-  //! Return the memory pool.
-  std::shared_ptr<BatchedMatrixMemoryPool> pool() const { return m_pool; }
-
   //! Visualize the first matrix.
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_num_batches;
     std::vector<double> A(len);
-    updateHost(A.data(), m_A_dense, len, 0);
+    updateHost(A.data(), m_A_dense.get(), len, 0);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
       for (int j = 0; j < m_shape.second; j++) {
@@ -286,9 +188,10 @@ class BatchedMatrix {
   //! @param m Number of rows/columns of matrix
   //! @param num_batches Number of matrices in batch
   //! @param pool Memory pool
-  static BatchedMatrix Identity(int m, int num_batches,
-                                std::shared_ptr<BatchedMatrixMemoryPool> pool) {
-    BatchedMatrix I(m, m, num_batches, pool, true);
+  static BatchedMatrix Identity(int m, int num_batches, cublasHandle_t handle,
+                                std::shared_ptr<ML::deviceAllocator> allocator,
+                                cudaStream_t stream) {
+    BatchedMatrix I(m, m, num_batches, handle, allocator, stream, true);
 
     identity_matrix_kernel<<<num_batches, std::min(1024, m)>>>(I.data(), m);
 
@@ -303,13 +206,14 @@ class BatchedMatrix {
   std::shared_ptr<double*> m_A_batches;
 
   //! Data pointer to first element of dense matrix data.
-  double* m_A_dense;
+  std::shared_ptr<double> m_A_dense;
 
   //! Number of matrices in batch
   size_t m_num_batches;
 
-  //! memory pool allocator
-  std::shared_ptr<BatchedMatrixMemoryPool> m_pool;
+  std::shared_ptr<deviceAllocator> m_allocator;
+  cublasHandle_t m_cublasHandle;
+  cudaStream_t m_stream;
 };
 
 //! Computes batched kronecker prodcut between AkB <- A (x) B
@@ -390,14 +294,15 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   }
 
   auto num_batches = A.batches();
-  auto& handle = A.pool()->cublasHandle();
+  const auto& handle = A.cublasHandle();
 
   // set transpose
   cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Create C(m,n)
-  BatchedMatrix C(m, n, num_batches, A.pool());
+  BatchedMatrix C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+                  A.stream());
 
   double alpha = 1.0;
   double beta = 0.0;
@@ -442,7 +347,8 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
   int m = A.shape().first;
   int n = A.shape().second;
 
-  BatchedMatrix C(m, n, num_batches, A.pool());
+  BatchedMatrix C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+                  A.stream());
 
   LinAlg::binaryOp(C[0], A[0], B[0], m * n * num_batches, binary_op, 0);
 
@@ -481,15 +387,15 @@ BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
 //! @return A\b
 BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   auto num_batches = A.batches();
-  auto& handle = A.pool()->cublasHandle();
+  const auto& handle = A.cublasHandle();
 
   int n = A.shape().first;
-  int* P =
-    (int*)A.pool()->allocator()->allocate(sizeof(int) * n * num_batches, 0);
-  int* info =
-    (int*)A.pool()->allocator()->allocate(sizeof(int) * num_batches, 0);
+  auto allocator = A.allocator();
+  int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, 0);
+  int* info = (int*)allocator->allocate(sizeof(int) * num_batches, 0);
 
-  BatchedMatrix Ainv(n, n, num_batches, A.pool());
+  BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
+                     A.stream());
 
   CUBLAS_CHECK(
     cublasDgetrfBatched(handle, n, A.data(), n, P, info, num_batches));
@@ -498,8 +404,8 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
 
   BatchedMatrix x = Ainv * b;
 
-  A.pool()->allocator()->deallocate(P, sizeof(int) * n * num_batches, 0);
-  A.pool()->allocator()->deallocate(info, sizeof(int) * num_batches, 0);
+  allocator->deallocate(P, sizeof(int) * n * num_batches, 0);
+  allocator->deallocate(info, sizeof(int) * num_batches, 0);
 
   return x;
 }
@@ -519,7 +425,8 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int km = m * p;
   int kn = n * q;
 
-  BatchedMatrix AkB(km, kn, A.batches(), A.pool());
+  BatchedMatrix AkB(km, kn, A.batches(), A.cublasHandle(), A.allocator(),
+                    A.stream());
 
   // run kronecker...
   dim3 threads(std::min(p, 32), std::min(q, 32));
