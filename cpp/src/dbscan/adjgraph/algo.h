@@ -54,7 +54,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
   int minPts = data.minPts;
   int *vd = data.vd;
 
-  MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(
+  MLCommon::Sparse::csr_adj_graph_batched<Type, Index_, TPB_X>(
     data.ex_scan, data.N, data.adjnnz, batchSize, data.adj, data.adj_graph,
     stream,
     [core_pts, minPts, vd] __device__(Type row, Type start_idx, Type stop_idx) {

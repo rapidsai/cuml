@@ -225,7 +225,7 @@ TEST_P(CSRRowOpTest, Result) {
   updateDevice(ex_scan, *&ex_scan_h, 4, stream);
   updateDevice(verify, *&verify_h, 10, stream);
 
-  csr_row_op<int, 32>(
+  csr_row_op<int, int, 32>(
     ex_scan, 4, 10,
     [result] __device__(int row, int start_idx, int stop_idx) {
       for (int i = start_idx; i < stop_idx; i++) result[i] = row;
@@ -263,7 +263,7 @@ TEST_P(AdjGraphTest, Result) {
   updateDevice(adj, *&adj_h, 18, stream);
   updateDevice(verify, *&verify_h, 9, stream);
 
-  csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
+  csr_adj_graph_batched<int, int, 32>(row_ind, 6, 9, 3, adj, result, stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
 
@@ -304,8 +304,8 @@ TEST_P(WeakCCTest, Result) {
   updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
   updateDevice(verify, *&verify_h1, 6, stream);
 
-  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
-                           stream);
+  weak_cc_batched<int, int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3,
+                                &state, stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
@@ -316,8 +316,8 @@ TEST_P(WeakCCTest, Result) {
   updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
   updateDevice(verify, *&verify_h2, 6, stream);
 
-  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state,
-                           stream);
+  weak_cc_batched<int, int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3,
+                                &state, stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
