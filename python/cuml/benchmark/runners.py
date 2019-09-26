@@ -299,7 +299,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             algo_pair.prepare_sklearn(data, **param_overrides)
         if run_cpu and "treelite" in fil_algorithms: 
             algo_pair.prepare_treelite(data, **param_overrides)
-        algo_pair.prepare_cuml(data, **param_overrides)
+        algo_pair.prepare_cuml(data, **param_overrides, **cuml_param_overrides)
 
         if run_cpu and "sklearn" in fil_algorithms:
             skl_start = time.time()
@@ -333,7 +333,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         cuml_preds = algo_pair.run_cuml(data)
         cu_elapsed = time.time() - cu_start
         result["cu_time"] = cu_elapsed
-        result["cuml_acc"] = algo_pair.accuracy_function(cuml_preds > 0.5, data[1])
+        result["cuml_acc"] = algo_pair.accuracy_function(cuml_preds, data[1])
 
         return result
 
@@ -384,23 +384,14 @@ def run_variations(
         print("Running %s..." % (algo.name))
         for param_overrides in param_override_list:
             for cuml_param_overrides in cuml_param_override_list:
-                if algo.name == "FIL":
-                    results = runner.run(
-                        algo,
-                        param_overrides,
-                        cuml_param_overrides,
-                        run_cpu=run_cpu,
-                        raise_on_error=raise_on_error,
-                        fil_algorithms=fil_algorithms,
-                    )
-                else: 
-                    results = runner.run(
-                        algo,
-                        param_overrides,
-                        cuml_param_overrides,
-                        run_cpu=run_cpu,
-                        raise_on_error=raise_on_error,
-                    )
+                results = runner.run(
+                    algo,
+                    param_overrides,
+                    cuml_param_overrides,
+                    run_cpu=run_cpu,
+                    raise_on_error=raise_on_error,
+                    fil_algorithms=fil_algorithms,
+                )
                 for r in results:
                     all_results.append(
                         {'algo': algo.name, 'input': input_type, **r}

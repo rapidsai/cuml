@@ -171,7 +171,7 @@ class AlgorithmFIL:
            Function that returns a scalar representing accuracy
         """
 
-        XGOBOOST_MODEL_PATH = './'
+        self.save_model_path = './'
         if name:
             self.name = name
         else:
@@ -185,8 +185,8 @@ class AlgorithmFIL:
         self.cuml_args = cuml_args
         self.data_prep_hook = data_prep_hook
         self.accuracy_function = accuracy_function
-        self.model_path = os.path.join(XGOBOOST_MODEL_PATH, "xgb.model")
-        self.tl_path = os.path.join(XGOBOOST_MODEL_PATH, "treelite_model.so")
+        self.model_path = os.path.join(self.save_model_path, "xgb.model")
+        self.tl_path = os.path.join(self.save_model_path, "treelite_model.so")
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -224,6 +224,7 @@ class AlgorithmFIL:
         if self.tl_class is None:
             raise ValueError("No treelite implementation for %s" % self.name)          
         
+        os.environ["TREELITE_BIND_THREADS"] = "0"
         model = self.tl_class.Model.from_xgboost(self.xgb_tree)
         if os.path.exists(self.tl_path):
             os.remove(self.tl_path)
@@ -236,7 +237,7 @@ class AlgorithmFIL:
         """Prepares the cuml algorithm for FIL benchmarking"""
         """This function depends on prepare_xgboost function"""
         if self.cuml_class is None:
-            raise ValueError("No cuml implementation for %s" % self.name)                  
+            raise ValueError("No cuml implementation for %s" % self.name)
         all_args = {**self.shared_args, **self.cuml_args}
         all_args = {**all_args, **override_args}
         self.cuml_tree = cuml.ForestInference.load(self.model_path, all_args)
@@ -283,6 +284,7 @@ class AlgorithmFIL:
         if self.tl_class is None:
             raise ValueError("No treelite implementation for %s" % self.name)
 
+        os.environ["TREELITE_BIND_THREADS"] = "0"
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         tl_pred = self.tl_tree.predict(self.tl_batch)
