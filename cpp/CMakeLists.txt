@@ -260,14 +260,6 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake
 set(PROTOBUF_LIBRARIES libprotobuf)
 add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
-set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
-set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
-add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
-set(PROTOBUF_LIBRARIES libprotobuf)
-add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
-
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
