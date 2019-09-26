@@ -24,6 +24,8 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
+from sklearn.metrics import adjusted_rand_score
+
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -104,5 +106,6 @@ def test_dbscan_sklearn_comparison(name, nrows):
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
         sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                                'sk_DBSCAN', X)
-        assert(sk_n_clusters == cu_n_clusters)
-        clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+
+        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+        assert(score == 1.0)
