@@ -36,7 +36,7 @@ static const int TPB = 256;
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
  */
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 __global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
@@ -49,7 +49,7 @@ __global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
  * Turn the non-monotonic labels from weak_cc primitive into
  * an array of labels drawn from a monotonically increasing set.
  */
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
   Type MAX_LABEL = std::numeric_limits<Type>::max();
   MLCommon::Label::make_monotonic(
@@ -69,7 +69,7 @@ void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type, typename Type_f, typename Index_ = int>
+template <typename Type, typename Type_f, typename Index_ = long>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Type minPts, Type* labels, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
@@ -105,6 +105,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += vdSize;
   Type* ex_scan = (Type*)temp;
   temp += exScanSize;
+
+  std::cout << "SIZEOF TYPE: " << sizeof(Type) << std::endl;
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
@@ -148,7 +150,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
   Type MAX_LABEL = std::numeric_limits<Type>::max();
-  int nblks = ceildiv<int>(N, TPB);
+  size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();

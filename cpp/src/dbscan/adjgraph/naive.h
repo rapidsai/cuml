@@ -26,13 +26,13 @@ namespace Dbscan {
 namespace AdjGraph {
 namespace Naive {
 
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   int k = 0;
-  int N = data.N;
+  Index_ N = data.N;
   MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream,
-                                     batchSize + 1);
+                                      batchSize + 1);
   MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream,
                                             batchSize);
   MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream,

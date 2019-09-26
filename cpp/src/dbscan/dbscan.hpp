@@ -19,8 +19,6 @@
 
 namespace ML {
 
-static const size_t DEFAULT_MAX_MEM_BYTES_D = 13e9;
-static const size_t DEFAULT_MAX_MEM_BYTES_S = 13e8;
 
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
@@ -38,14 +36,12 @@ static const size_t DEFAULT_MAX_MEM_BYTES_S = 13e8;
  * @param[in] verbose: print useful information as algorithm executes
  * @{
  */
-void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES_S,
-               bool verbose = false);
-void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-               double eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES_D,
-               bool verbose = false);
+void dbscanFit(const cumlHandle &handle, float *input, long n_rows,
+               long n_cols, float eps, int min_pts, int *labels,
+               size_t max_bytes_per_batch, bool verbose = false);
+void dbscanFit(const cumlHandle &handle, double *input, long n_rows,
+               long n_cols, double eps, int min_pts, int *labels,
+               size_t max_bytes_per_batch, bool verbose = false);
 /** @} */
 
 }  // namespace ML

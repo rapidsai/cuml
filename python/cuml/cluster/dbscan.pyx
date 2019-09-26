@@ -192,8 +192,8 @@ class DBSCAN(Base):
         if self.dtype == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
+                      <long> n_rows,
+                      <long> n_cols,
                       <float> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
@@ -202,8 +202,8 @@ class DBSCAN(Base):
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
+                      <long> n_rows,
+                      <long> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
