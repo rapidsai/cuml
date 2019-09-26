@@ -35,7 +35,6 @@ if(BUILD_CUML_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         treelite_runtimelib
         ${CUML_CPP_TARGET}
@@ -90,7 +89,6 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
         pthread
@@ -122,7 +120,6 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
-        gpufaisslib
         faisslib
         ${ZLIB_LIBRARIES}
     )
