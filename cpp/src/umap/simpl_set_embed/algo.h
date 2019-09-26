@@ -290,8 +290,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 template <int TPB_X, typename T>
 void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
               T *embedding, cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
 
   int nnz = in->nnz;
 

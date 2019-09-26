@@ -203,8 +203,6 @@ class KMeans(Base):
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    precompute_distances : boolean (default = 'auto')
-        Not supported yet.
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
@@ -212,15 +210,9 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    n_init : int (default = 1)
-        Number of times intialization is run. More is slower,
-        but can be better.
-    algorithm : "auto"
-        Currently uses full EM, but will support others later.
-    n_gpu : int (default = 1)
-        Number of GPUs to use. Currently uses single GPU, but will support
-        multiple GPUs later.
-
+    oversampling_factor : int scalable k-means|| oversampling factor
+    max_samples_per_batch : int maximum number of samples to use for each batch
+                                of the pairwise distance computation.
 
     Attributes
     ----------
@@ -252,26 +244,23 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, precompute_distances='auto',
-                 init='scalable-k-means++', n_init=1, algorithm='auto',
-                 n_gpu=1):
+                 verbose=0, random_state=1, init='scalable-k-means++',
+                 oversampling_factor=2.0, max_samples_per_batch=1<<15):
         super(KMeans, self).__init__(handle, verbose)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
-        self.precompute_distances = precompute_distances
         self.init = init
-        self.n_init = n_init
         self.copy_x = None
         self.n_jobs = None
-        self.algorithm = algorithm
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
         self.cluster_centers_ = None
-        self.n_gpu = n_gpu
         self.inertia_ = 0
         self.n_iter_ = 0
+        self.oversampling_factor=int(oversampling_factor)
+        self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
         params.n_clusters = self.n_clusters
@@ -309,6 +298,8 @@ class KMeans(Base):
         params.verbose = self.verbose
         params.seed = self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+        params.batch_size=self.max_samples_per_batch
+        params.oversampling_factor=self.oversampling_factor
         self._params = params
 
     def fit(self, X):
@@ -613,18 +604,14 @@ class KMeans(Base):
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
+    def get_params(self):
         """
         Scikit-learn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
         """
         params = dict()
-        variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
-                     'n_init', 'n_jobs', 'precompute_distances',
-                     'random_state', 'tol', 'verbose']
+        variables = ['oversampling_factor', 'max_samples_per_batch', 'copy_x',
+                     'init', 'max_iter', 'n_clusters', 'random_state',
+                     'tol', 'verbose']
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
@@ -640,14 +627,12 @@ class KMeans(Base):
         """
         if not params:
             return self
-        current_params = {"algorithm": self.algorithm,
+        current_params = {"oversampling_factor": self.oversampling_factor,
+                          "max_samples_per_batch": self.max_samples_per_batch,
                           "copy_x": self.copy_x,
                           "init": self.init,
                           "max_iter": self.max_iter,
                           "n_clusters": self.n_clusters,
-                          "n_init": self.n_init,
-                          "n_jobs": self.n_jobs,
-                          "precompute_distances": self.precompute_distances,
                           "random_state": self.random_state,
                           "tol": self.tol,
                           "verbose": self.verbose
