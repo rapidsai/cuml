@@ -29,7 +29,7 @@ namespace Naive {
 template <typename Type, typename Index_ = long>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
-  int k = 0;
+  Index_ k = 0;
   Index_ N = data.N;
   MLCommon::host_buffer<Index_> host_vd(handle.getHostAllocator(), stream,
                                         batchSize + 1);
