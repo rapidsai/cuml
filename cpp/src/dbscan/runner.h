@@ -37,7 +37,7 @@ static const int TPB = 256;
  * 2. Subtract 1 from all other labels.
  */
 template <typename Type, typename Index_ = long>
-__global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
+__global__ void relabelForSkl(Index_* labels, Index_ N, Type MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
     labels[tid] = -1;
@@ -71,8 +71,9 @@ void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
  */
 template <typename Type, typename Type_f, typename Index_ = long>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Type minPts, Type* labels, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
+           Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
+           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
+           bool verbose = false) {
   const size_t align = 256;
   Index_ batchSize = ceildiv(N, nBatches);
   size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
@@ -88,8 +89,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     return size;
   }
   // partition the temporary workspace needed for different stages of dbscan
-  Type adjlen = 0;
-  Type curradjlen = 0;
+  Index_ adjlen = 0;
+  unsigned long long curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
   temp += adjSize;
@@ -101,9 +102,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
-  int* vd = (int*)temp;
+  unsigned long long* vd = (unsigned long long*)temp;
   temp += vdSize;
-  Type* ex_scan = (Type*)temp;
+  Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
 
   // Running VertexDeg
@@ -111,12 +112,18 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
-                                            stream);
-    Type startVertexId = i * batchSize;
+    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+                                              stream);
+
+    Index_ startVertexId = i * batchSize;
     Index_ nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
 
+    if (verbose)
+      std::cout << "- Iteration " << i + 1 << " / " << nBatches
+                << ". Batch size is " << nPoints << " samples." << std::endl;
+
+    if (verbose) std::cout << "Computing vertex degrees" << std::endl;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -130,6 +137,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adj_graph.resize(adjlen, stream);
     }
 
+    if (verbose) std::cout << "Computing adjacency graph" << std::endl;
+
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,
                                 stream);
@@ -138,7 +147,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
-    MLCommon::Sparse::weak_cc_batched<Type, Index_, TPB>(
+    if (verbose) std::cout << "Computing connected components" << std::endl;
+
+    MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts] __device__(Type tid) { return core_pts[tid]; });
