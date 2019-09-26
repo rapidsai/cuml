@@ -708,7 +708,7 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
         cj = labels[j_ind];
         if (ci < cj) {
           if (sizeof(Index_) == 4)
-            atomicMin((unsigned long long int *)(labels + j_ind), (int)ci);
+            atomicMin((int *)(labels + j_ind), (int)ci);
           else if (sizeof(Index_) == 8)
             atomicMin((unsigned long long int *)(labels + j_ind),
                       (unsigned long long int)ci);
@@ -721,8 +721,7 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
       }
       if (ci_mod) {
         if (sizeof(Index_) == 4)
-          atomicMin((unsigned long long int *)(labels + startVertexId + tid),
-                    (int)ci);
+          atomicMin((int *)(labels + startVertexId + tid), (int)ci);
         else if (sizeof(Index_) == 8)
           atomicMin((unsigned long long int *)(labels + startVertexId + tid),
                     (unsigned long long int)ci);
