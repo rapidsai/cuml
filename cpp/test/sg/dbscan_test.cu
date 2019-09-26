@@ -72,7 +72,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, nullptr, nullptr, params.cluster_std, true,
-               -10.0f, 10.0f, 1234ULL, false);
+               -10.0f, 10.0f, 1234ULL);
 
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_row);
