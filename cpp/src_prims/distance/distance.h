@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda_runtime_api.h>
 #include <cutlass/shape.h>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
@@ -152,10 +153,21 @@ template <DistanceType distanceType, typename InType, typename AccType,
 size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
-  constexpr bool is_allocated = distanceType <= EucExpandedCosine;
-  if (is_allocated) {
+
+  #if CUDART_VERSION >= 10010
+    // EucUnexpandedL2Sqrt and EucExpandedL2Sqrt do not require workspace
+    const bool requires_allocation = (distanceType != EucUnexpandedL2Sqrt or \
+      distanceType != EucExpandedL2Sqrt);
+  #else
+    // This works for other CUDA versions
+    const bool requires_allocation = distanceType <= EucExpandedCosine;
+  #endif
+
+  if (requires_allocation)
+  {
     worksize += m * sizeof(AccType);
-    if (x != y) worksize += n * sizeof(AccType);
+    if (x != y)
+      worksize += n * sizeof(AccType);
   }
   return worksize;
 }
