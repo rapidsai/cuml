@@ -293,6 +293,7 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
 
   // fill in forest-dependent params
   params->cols = model.num_feature;
+  std::cout << " # feature : " << model.num_feature << std::endl << std::flush;
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -313,13 +314,16 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
            param.pred_transform.c_str());
   }
   params->ntrees = model.trees.size();
-
+  std::cout << " params->ntrees : " << params->ntrees << std::endl
+            << std::flush;
   int depth = 0;
   for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
+  std::cout << " depth : " << depth << std::endl << std::flush;
   params->depth = depth;
 
   // convert the nodes
   int num_nodes = forest_num_nodes(params->ntrees, params->depth);
+  std::cout << " num_nodes : " << num_nodes << std::endl << std::flush;
   pnodes->resize(num_nodes, dense_node_t{0, 0});
   for (int i = 0; i < model.trees.size(); ++i) {
     tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
@@ -337,8 +341,11 @@ void init_dense(const cumlHandle& h, forest_t* pf,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
+  std::cout << " ########################################### : " << std::endl
+            << std::flush;
   forest_params_t params;
   std::vector<dense_node_t> nodes;
+  std::cout << " tl_params : " << tl_params << std::endl << std::flush;
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
   init_dense(handle, pforest, &params);
   // sync is necessary as nodes is used in init_dense(),

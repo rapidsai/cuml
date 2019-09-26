@@ -16,3 +16,5 @@
 
 from cuml.fil.fil import ForestInference
 from cuml.fil import fil
+
+from cuml.fil.fil import TreeliteModel

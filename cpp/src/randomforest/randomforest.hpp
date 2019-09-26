@@ -159,6 +159,8 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            float rows_sample, CRITERION split_criterion,
                            bool quantile_per_tree, int cfg_n_streams);
 
+void save_model(ModelHandle model, const char* file_name);
+
 // ----------------------------- Regression ----------------------------------- //
 
 typedef RandomForestMetaData<float, float> RandomForestRegressorF;

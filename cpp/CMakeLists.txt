@@ -260,6 +260,14 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake
 set(PROTOBUF_LIBRARIES libprotobuf)
 add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
+add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
+set(PROTOBUF_LIBRARIES libprotobuf)
+add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
+
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
@@ -316,6 +324,7 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/3rdparty/protobuf
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -367,6 +376,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     faisslib
     )

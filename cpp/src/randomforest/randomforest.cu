@@ -310,7 +310,8 @@ void save_model(ModelHandle model) {
   std::cout << " model num_features in c++ : " << tl_mod.num_feature
             << std::endl
             << std::flush;
-  TreeliteExportProtobufModel(model);
+  file_name = './model.buffer'
+  TreeliteExportProtobufModel(file_name, model);
 }
 
 /**
