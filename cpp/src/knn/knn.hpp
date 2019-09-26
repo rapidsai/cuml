@@ -19,7 +19,6 @@
 #include "common/cumlHandle.hpp"
 
 #include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/IndexProxy.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <faiss/Heap.h>
@@ -79,9 +78,9 @@ class kNN {
 
  public:
   /**
-	     * Build a kNN object for training and querying a k-nearest neighbors model.
-	     * @param D     number of features in each vector
-	     */
+       * Build a kNN object for training and querying a k-nearest neighbors model.
+       * @param D     number of features in each vector
+       */
   kNN(const cumlHandle &handle, int D, bool verbose = false);
   ~kNN();
 
@@ -107,15 +106,15 @@ class kNN {
   void fit(float **input, int *sizes, int N);
 
   /**
-		 * Chunk a host array up into one or many GPUs (determined by the provided
-		 * list of gpu ids) and fit a knn model.
-		 *
-		 * @param ptr       an array in host memory to chunk over devices
-		 * @param n         number of elements in ptr
-		 * @param gpus      array of device ids for chunking the ptr
-		 * @param n_chunks  number of elements in gpus
-		 * @param out       host pointer to copy output
-		 */
+     * Chunk a host array up into one or many GPUs (determined by the provided
+     * list of gpu ids) and fit a knn model.
+     *
+     * @param ptr       an array in host memory to chunk over devices
+     * @param n         number of elements in ptr
+     * @param gpus      array of device ids for chunking the ptr
+     * @param n_chunks  number of elements in gpus
+     * @param out       host pointer to copy output
+     */
   void fit_from_host(float *ptr, int n, int *devices, int n_chunks);
 };
 };  // namespace ML
