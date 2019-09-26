@@ -34,15 +34,15 @@ enum DistanceType {
   /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
   EucExpandedL2 = 0,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucExpandedL2Sqrt,
+  EucExpandedL2Sqrt = 1,
   /** cosine distance */
-  EucExpandedCosine,
+  EucExpandedCosine = 2,
   /** L1 distance */
-  EucUnexpandedL1,
+  EucUnexpandedL1 = 3,
   /** evaluate as dist_ij += (x_ik - y-jk)^2 */
-  EucUnexpandedL2,
+  EucUnexpandedL2 = 4,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucUnexpandedL2Sqrt,
+  EucUnexpandedL2Sqrt = 5,
 };
 
 namespace {
@@ -169,6 +169,7 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
     if (x != y)
       worksize += n * sizeof(AccType);
   }
+  printf("Workspace = %d\n", worksize);
   return worksize;
 }
 
