@@ -16,7 +16,6 @@
 
 from cuml.dask.common import extract_ddf_partitions
 from cuml.ensemble import RandomForestClassifier as cuRFC
-import cuml
 import cudf
 
 from dask.distributed import default_client, wait
@@ -24,7 +23,6 @@ import math
 import random
 import numpy as np
 
-import random
 from uuid import uuid1
 
 
