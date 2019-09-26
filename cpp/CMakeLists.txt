@@ -239,12 +239,14 @@ add_clang_format(
 # - treelite build --------------------------------------------------------------------------------
 
 set(TREELITE_PROTOBUF_CMAKE_PATH
-  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")                                                         
+  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")     
+
 file(READ
   "${TREELITE_PROTOBUF_CMAKE_PATH}"
   PROTOBUF_CMAKE_TXT)
 string(REGEX REPLACE
-  "include_directories\\([ ]*\n"
+  "${protobuf_source_dir}/src"
+  "include_directories\([ ]*\n"
   "include_directories(\${protobuf_source_dir}/src\n"
   PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
 file(WRITE "${TREELITE_DIR}/CMakeLists.txt" "${PROTOBUF_CMAKE_TXT}")
@@ -277,6 +279,7 @@ add_dependencies(treelite_runtimelib treelite)
 set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------

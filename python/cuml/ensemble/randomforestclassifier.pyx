@@ -584,7 +584,7 @@ class RandomForestClassifier(Base):
                                             task_category=num_classes)
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
