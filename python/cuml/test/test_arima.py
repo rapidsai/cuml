@@ -125,6 +125,22 @@ def test_log_likelihood():
         np.testing.assert_almost_equal(ll, ref_ll[p-1])
 
 
+    x = [-1.2704761899e+02,  3.8009501900e-02, -1.3518602400e+00, -1.2040476199e+02,
+         1.0245662700e-04, -1.4321914400e+00]
+    ll = arima.ll_f(2, len(t), (1, 1, 1), y, np.array(x))
+    np.set_printoptions(precision=14)
+    print("ll=", ll)
+
+def test_gradient_ref():
+    x = np.array([-1.2704761899e+02, 3.8009511900e-02, -1.3518602400e+00, -1.2040476199e+02,
+                  1.0246662700e-04, -1.4321914400e+00])
+
+    _, y = get_data()
+    np.set_printoptions(precision=14)
+    g = arima.ll_gf(2, len(t), 3, (1, 1, 1), y, x)
+    print("g=", g)
+
+
 def test_gradient():
     """test gradient implementation"""
     num_samples = 100
