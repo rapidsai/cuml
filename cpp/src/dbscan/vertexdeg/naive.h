@@ -52,14 +52,14 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   Index_ D = data.D;
   Type *x = data.x;
   bool *adj = data.adj;
-  int *vd = data.vd;
+  unsigned long long *vd = data.vd;
   for (Index_ d = 0; d < D; ++d) {
     Type a = __ldg(x + (row + startVertexId) * D + d);
     Type b = __ldg(x + col * D + d);
     Type diff = a - b;
     sum += (diff * diff);
   }
-  int res = (sum <= eps2);
+  unsigned long long res = (sum <= eps2);
   adj[row * N + col] = res;
   atomicAdd(vd + row, res);
   atomicAdd(vd + batchSize, res);

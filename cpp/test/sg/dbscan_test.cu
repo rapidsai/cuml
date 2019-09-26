@@ -42,9 +42,9 @@ using namespace std;
 
 template <typename T>
 struct DbscanInputs {
-  int n_row;
-  int n_col;
-  int n_centers;
+  long n_row;
+  long n_col;
+  long n_centers;
   T cluster_std;
   T eps;
   int min_pts;
@@ -67,8 +67,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
 
     device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
                          params.n_row * params.n_col);
-    device_buffer<int> l(handle.getDeviceAllocator(), handle.getStream(),
-                         params.n_row);
+    device_buffer<long> l(handle.getDeviceAllocator(), handle.getStream(),
+                          params.n_row);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, nullptr, nullptr, params.cluster_std, true,
@@ -108,26 +108,26 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
 
  protected:
   DbscanInputs<T> params;
-  int *labels, *labels_ref;
+  long *labels, *labels_ref;
 
   double score;
 };
 
 const std::vector<DbscanInputs<float>> inputsf2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e8, 1234ULL}};
+  {50000l, 16l, 5l, 0.01, 2, 2, (size_t)13e8, 1234ULL},
+  {500l, 16l, 5l, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000l, 1000l, 10l, 0.01, 2, 2, (size_t)13e8, 1234ULL},
+  {50000l, 16l, 5l, 0.01, 2, 2, (size_t)13e8, 1234ULL},
+  {20000l, 10000l, 10l, 0.01, 2, 2, (size_t)13e8, 1234ULL},
+  {20000l, 100l, 5000l, 0.01, 2, 2, (size_t)13e8, 1234ULL}};
 
 const std::vector<DbscanInputs<double>> inputsd2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e9, 1234ULL}};
+  {50000l, 16l, 5l, 0.01, 2, 2, (size_t)13e9, 1234ULL},
+  {500l, 16l, 5l, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000l, 1000l, 10l, 0.01, 2, 2, (size_t)13e9, 1234ULL},
+  {100l, 10000l, 10l, 0.01, 2, 2, (size_t)13e9, 1234ULL},
+  {20000l, 10000l, 10l, 0.01, 2, 2, (size_t)13e9, 1234ULL},
+  {20000l, 100l, 5000l, 0.01, 2, 2, (size_t)13e9, 1234ULL}};
 
 typedef DbscanTest<float> DbscanTestF;
 TEST_P(DbscanTestF, Result) { ASSERT_TRUE(score == 1.0); }

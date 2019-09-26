@@ -25,7 +25,6 @@ namespace ML {
 using namespace Dbscan;
 static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
 
-
 // Default max mem set to a reasonable value for a 16gb card.
 
 template <typename T, typename Index_ = long>
@@ -36,8 +35,7 @@ Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
   ///TODO: in future, when we bump up the underlying cutlass version, this should go away
   // paving way to cudaMemGetInfo based workspace allocation
 
-  if(max_bytes_per_batch <= 0)
-    max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
+  if (max_bytes_per_batch <= 0) max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
 
   while (true) {
     size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
@@ -50,7 +48,7 @@ Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
 
 template <typename T, typename Index_ = long>
 void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
-    Index_ n_cols, T eps, int min_pts, int *labels,
+                   Index_ n_cols, T eps, int min_pts, Index_ *labels,
                    size_t max_bytes_per_batch, cudaStream_t stream,
                    bool verbose) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
@@ -77,7 +75,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream,
                                           workspaceSize);
   Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
-              algoAdj, algoCcl, workspace.data(), n_batches, stream);
+              algoAdj, algoCcl, workspace.data(), n_batches, stream, verbose);
   ML::POP_RANGE();
 }
 

@@ -31,20 +31,20 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   int k = 0;
   Index_ N = data.N;
-  MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream,
-                                      batchSize + 1);
+  MLCommon::host_buffer<unsigned long long> host_vd(handle.getHostAllocator(),
+                                                    stream, batchSize + 1);
   MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream,
                                             batchSize);
   MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream,
                                        batchSize * N);
-  MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream,
-                                           batchSize);
+  MLCommon::host_buffer<Index_> host_ex_scan(handle.getHostAllocator(), stream,
+                                             batchSize);
   MLCommon::updateHost(host_adj.data(), data.adj, batchSize * N, stream);
   MLCommon::updateHost(host_vd.data(), data.vd, batchSize + 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   size_t adjgraph_size = size_t(host_vd[batchSize]);
-  MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream,
-                                             adjgraph_size);
+  MLCommon::host_buffer<Index_> host_adj_graph(handle.getHostAllocator(),
+                                               stream, adjgraph_size);
   for (Index_ i = 0; i < batchSize; i++) {
     for (Index_ j = 0; j < N; j++) {
       if (host_adj[i * N + j]) {
@@ -55,7 +55,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
   }
   for (Index_ i = 0; i < batchSize; i++)
     host_core_pts[i] = (host_vd[i] >= data.minPts);
-  host_ex_scan[0] = Type(0);
+  host_ex_scan[0] = Index_(0);
   for (Index_ i = 1; i < batchSize; i++)
     host_ex_scan[i] = host_ex_scan[i - 1] + host_vd[i - 1];
   MLCommon::updateDevice(data.adj_graph, host_adj_graph.data(), adjgraph_size,
