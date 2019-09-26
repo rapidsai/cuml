@@ -207,10 +207,6 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
 
-  // Free workspace
-  if (workspaceSize > 0)
-    d_alloc->deallocate(workspace, workspaceSize, stream);
-
   return t;
 }
 
