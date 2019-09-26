@@ -19,7 +19,7 @@
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 struct Pack {
   /**
      * vertex degree array

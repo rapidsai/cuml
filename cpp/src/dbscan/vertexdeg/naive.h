@@ -38,7 +38,7 @@ static const int TPB_Y = 8;
  * @param N number of rows
  * @param D number of columns
  */
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
                                      Index_ startVertexId, Index_ batchSize) {
   const Type Zero = (Type)0;
@@ -65,7 +65,7 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   atomicAdd(vd + batchSize, res);
 }
 
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
               cudaStream_t stream) {
   dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),

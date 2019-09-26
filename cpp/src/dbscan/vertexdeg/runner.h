@@ -24,7 +24,7 @@
 namespace Dbscan {
 namespace VertexDeg {
 
-template <typename Type_f, typename Index_ = int>
+template <typename Type_f, typename Index_ = long>
 void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type_f* x,
          Type_f eps, Index_ N, Index_ D, int algo, Index_ startVertexId,
          Index_ batchSize, cudaStream_t stream) {
