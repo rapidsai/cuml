@@ -239,32 +239,27 @@ add_clang_format(
 # - treelite build --------------------------------------------------------------------------------
 
 set(TREELITE_PROTOBUF_CMAKE_PATH
-  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")     
+  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")
 
+# Modify the treelite cmake files to change the order of include files
+# This prevents us from picking up the incorrect version of protobuf libraries
 file(READ
   "${TREELITE_PROTOBUF_CMAKE_PATH}"
   PROTOBUF_CMAKE_TXT)
-string(REGEX REPLACE "\\$\\{protobuf_source_dir\\}/src"
-  ""
-  PROTOBUF_CMAKE_TXT "${PROTOBUF_CMAKE_TXT}")
 
+string(REGEX REPLACE "\\$\\{protobuf_source_dir\\}/src" "" PROTOBUF_CMAKE_TXT "${PROTOBUF_CMAKE_TXT}")
 string(REGEX REPLACE
   "include_directories\\([ ]*\n"
-  "include_directories(\${protobuf_source_dir}/src\n"
+  "include_directories(\n \${protobuf_source_dir}/src\n"
   PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
 
 file(WRITE "${TREELITE_PROTOBUF_CMAKE_PATH}" "${PROTOBUF_CMAKE_TXT}")
 
 include(ExternalProject)
-# include(cmake/Utils.cmake)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
 set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
-set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
-add_subdirectory(${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake)
-set(PROTOBUF_LIBRARIES libprotobuf)
-add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
 
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
@@ -272,18 +267,32 @@ ExternalProject_Add(treelite
     CMAKE_ARGS -DENABLE_PROTOBUF=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 )
 
+# On some distributions (e.g. CentOS), treelite will output to lib64 instead of lib
+# Unwinding this is tricky, so we just copy the library to make it usable
+set(LIB64_TREELITE ${TREELITE_DIR}/lib64/libtreelite.a)
+set(LIB64_PROTOBUF ${TREELITE_DIR}/lib64/libprotobuf.a)
+add_custom_command(TARGET treelite
+  POST_BUILD
+  COMMAND bash -c '(\[[ -e ${LIB64_TREELITE} ]\] && cp ${LIB64_TREELITE} ${TREELITE_DIR}/lib/) || true'
+  COMMAND bash -c '(\[[ -e ${LIB64_PROTOBUF} ]\] && cp ${LIB64_PROTOBUF} ${TREELITE_DIR}/lib/) || true'
+  COMMAND echo "Copied libtreelite.a and libprotobuf.a"
+  BYPRODUCTS ${TREELITE_DIR}/lib/libtreelite.a ${TREELITE_DIR}/lib/libprotobuf.a
+)
+
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
+add_library(protobuf STATIC IMPORTED)
 add_library(treelite_runtimelib SHARED IMPORTED)
 
 add_dependencies(dmlclib treelite)
 add_dependencies(treelitelib treelite)
 add_dependencies(treelite_runtimelib treelite)
+add_dependencies(protobuf treelite)
 
 set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
+set_property(TARGET protobuf PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libprotobuf.a)
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
-
 
 ###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
@@ -375,7 +384,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
-    ${PROTOBUF_LIBRARIES}
+    protobuf
     dmlclib
     faisslib
     )
