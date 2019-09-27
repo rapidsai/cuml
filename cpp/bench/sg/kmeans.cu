@@ -98,6 +98,8 @@ std::vector<Params> getInputs() {
     {160000, 64},
     {320000, 64},
     {640000, 64},
+    {80000, 500},
+    {160000, 2000},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
