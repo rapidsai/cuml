@@ -28,6 +28,7 @@ import warnings
 from numba import cuda
 
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -89,8 +90,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef cppclass RandomForestMetaData[T, L]:
         void* trees
         RF_params rf_params
-
-    cdef void save_model(ModelHandle)
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
@@ -189,6 +188,9 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     CRITERION,
                                     bool,
                                     int) except +
+
+    cdef vector[unsigned char] save_model(ModelHandle)
+    cdef void write_model_to_file(vector[unsigned char])
 
 
 class RandomForestClassifier(Base):
@@ -376,7 +378,6 @@ class RandomForestClassifier(Base):
         state = self.__dict__.copy()
         del state['handle']
         self._get_fil_mod()
-        print("state : ", state)
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -387,14 +388,11 @@ class RandomForestClassifier(Base):
 
         state['verbose'] = self.verbose
         self._get_fil_mod()
-        print("state : ", state)
         state["pickle"] = True
         state["mod_ptr"] = self.mod_ptr
 
         state["file_name"] = self.file_name
-        print(" file_name in getstate : ", self.file_name)
-        print(" params_t in getstate : ", rf_forest.rf_params)
-        print(" state['dtype'] : ", state["dtype"])
+        state["mod_byte_data"] = self.mod_byte_data
 
         if state["dtype"] == np.float32:
             state["rf_params"] = rf_forest.rf_params
@@ -405,15 +403,6 @@ class RandomForestClassifier(Base):
 
         return state
 
-    def __del__(self):
-        cdef RandomForestMetaData[float, int]* rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-        cdef RandomForestMetaData[double, int]* rf_forest64 = \
-            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-        free(rf_forest)
-        free(rf_forest64)
-        os.remove(self.file_name)
-
     def __setstate__(self, state):
 
         super(RandomForestClassifier, self).__init__(handle=None,
@@ -422,13 +411,11 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
-        print("state in set state : ", state)
-        print(" state['dtype'] in set state: ", state["dtype"])
         self.pickle = state["pickle"]
-        print(" self.pickle is : ", self.pickle)
 
         self.file_name = state["file_name"]
-        print(" file_name in setstate : ", self.file_name)
+
+        self.mod_byte_data = state["mod_byte_data"]
 
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
@@ -456,7 +443,7 @@ class RandomForestClassifier(Base):
         self.mod_ptr = self._get_treelite(num_features=self.n_cols)
         cdef uintptr_t model_ptr = <uintptr_t> self.mod_ptr
         self.file_name = './model.buffer'
-        save_model(<ModelHandle> model_ptr)
+        self.mod_byte_data = save_model(<ModelHandle> model_ptr)
 
     def fit(self, X, y):
         """
@@ -558,14 +545,15 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
         # make sure that the `fit` is complete before the following delete
         # call happens
-        print(" self.rf_forest : ", self.rf_forest)
         self.handle.sync()
         del(X_m)
         del(y_m)
         return self
 
     def _predict_model_pickle(self, X):
-        self.fil_model = ForestInference.load(filename=self.file_name,
+
+        write_model_to_file(<vector[unsigned char]> self.mod_byte_data)
+        self.fil_model = ForestInference.load(filename="model.buffer",
                                               output_class=True,
                                               algo='BATCH_TREE_REORG',
                                               model_type="protobuf")
@@ -588,7 +576,6 @@ class RandomForestClassifier(Base):
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
-        print(" tl_to_fil_model : ", tl_to_fil_model)
         preds = tl_to_fil_model.predict(X)
         return preds
 
@@ -920,5 +907,4 @@ class RandomForestClassifier(Base):
 
         self.mod_ptr = <size_t> cuml_model_ptr
 
-        print(" model handle type in _get_treelite : ", (self.mod_ptr))
         return ctypes.c_void_p(self.mod_ptr).value

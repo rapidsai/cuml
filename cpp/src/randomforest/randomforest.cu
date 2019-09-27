@@ -19,12 +19,16 @@
 #define omp_get_max_threads() 1
 #endif
 #include <treelite/tree.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace std;
 namespace tl = treelite;
 
 /**
@@ -304,14 +308,21 @@ void build_treelite_forest(ModelHandle* model,
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
 }
 
-void save_model(ModelHandle model) {
-  std::cout << " ModelHandle model : " << model << std::endl << std::flush;
-  tl::Model& tl_mod = *(tl::Model*)model;
-  std::cout << " model num_features in c++ : " << tl_mod.num_feature
-            << std::endl
-            << std::flush;
+std::vector<unsigned char> save_model(ModelHandle model) {
   char* file_name = "./model.buffer";
   TreeliteExportProtobufModel(file_name, model);
+  std::ifstream in(file_name, std::ifstream::ate | std::ifstream::binary);
+  in.seekg(0, std::ios::end);
+  int size_of_file = in.tellg();
+  vector<unsigned char> bytes_info(size_of_file, 0);
+  ifstream infile("./model.buffer", ios::in | ios::binary);
+  infile.read((char*)&bytes_info[0], bytes_info.size());
+  return bytes_info;
+}
+
+void write_model_to_file(std::vector<unsigned char> data) {
+  std::ofstream file("./model.buffer", std::ios::binary);
+  file.write((char*)&data[0], data.size());
 }
 
 /**
