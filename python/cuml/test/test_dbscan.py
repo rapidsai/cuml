@@ -73,8 +73,8 @@ def test_dbscan(datatype, input_type, use_handle,
     if nrows < 500000:
         skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
         sk_labels = skdbscan.fit_predict(X)
-        for i in range(X.shape[0]):
-            assert cu_labels[i] == sk_labels[i]
+        score = adjusted_rand_score(cu_labels, sk_labels)
+        assert score == 1
 
 
 @pytest.mark.parametrize("name", [
