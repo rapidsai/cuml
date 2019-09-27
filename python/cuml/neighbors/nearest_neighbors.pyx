@@ -83,6 +83,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         int n_chunks
     ) except +
 
+
 class NearestNeighbors(Base):
     """
     NearestNeighbors is an unsupervised algorithm for querying neighborhoods
