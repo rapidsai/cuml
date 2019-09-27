@@ -53,9 +53,9 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
 
     cdef cppclass cumlHandle:
         cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-        cuml.common.cuda._Stream getStream()
+        void setStream(cuml.common.cuda._Stream s) except +
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
+        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "knn/knn.hpp" namespace "ML":
 
@@ -70,7 +70,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         long *res_I,
         float *res_D,
         int k
-    )
+    ) except +
 
     void chunk_host_array(
         cumlHandle &handle,
@@ -81,7 +81,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         float **output,
         int *sizes,
         int n_chunks
-    )
+    ) except +
 
 
 class NearestNeighbors(Base):
