@@ -240,6 +240,9 @@ def convert_dtype(X, to_dtype=np.float32):
                                 "in data loss.")
             return X_m
 
+    elif isinstance(X, cudf.Series):
+        return X.astype(to_dtype)
+
     elif cuda.is_cuda_array(X):
         if has_cupy():
             import cupy as cp
@@ -249,11 +252,13 @@ def convert_dtype(X, to_dtype=np.float32):
         else:
             warnings.warn("Using cuDF for dtype conversion, install"
                           "CuPy for faster data conversion.")
-
-            X_df = cudf.DataFrame()
-            X = X_df.from_gpu_matrix(X)
-            X = convert_dtype(X, to_dtype=to_dtype)
-            return X.as_gpu_matrix()
+            if (len(X.shape) == 1):
+                return cudf.Series(X).astype(to_dtype).to_gpu_array()
+            else:
+                X_df = cudf.DataFrame()
+                X = X_df.from_gpu_matrix(X)
+                X = convert_dtype(X, to_dtype=to_dtype)
+                return X.as_gpu_matrix()
 
     elif isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)

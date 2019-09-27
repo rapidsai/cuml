@@ -62,6 +62,7 @@ if(BUILD_CUML_TESTS)
       sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
+      sg/svc_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu
@@ -133,6 +134,7 @@ if(BUILD_PRIMS_TESTS)
       prims/batched/gemv.cu
       prims/binary_op.cu
       prims/ternary_op.cu
+      prims/cache.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu
