@@ -30,7 +30,8 @@ template <typename InType, typename IdxType, typename OutType>
 void binaryOpLaunch(OutType *out, const InType *in1, const InType *in2,
                     IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(T a, T b) { return a + b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -48,8 +49,8 @@ class BinaryOpTest
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(in2, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref, in1, in2, len);
     binaryOpLaunch(out, in1, in2, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -89,7 +90,7 @@ INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+  {0.000001f, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
 TEST_P(BinaryOpTestF_i32_D, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
