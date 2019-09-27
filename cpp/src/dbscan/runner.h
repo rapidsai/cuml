@@ -121,10 +121,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     if (nPoints <= 0) continue;
 
     if (verbose)
-      std::cout << "- Iteration " << i + 1 << "  " << nBatches
+      std::cout << "- Iteration " << i + 1 << " out of " << nBatches
                 << ". Batch size is " << nPoints << " samples." << std::endl;
 
-    if (verbose) std::cout << "Compting vertex degrees" << std::endl;
+    if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -132,8 +132,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     if (verbose)
-      std::cout << "Computing adjacency graph of size " << curradjlen
-                << std::endl;
+      std::cout << "--> Computing adjacency graph of size " << curradjlen
+                << " samples." << std::endl;
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > adjlen || adj_graph.data() == NULL) {
@@ -149,13 +149,15 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
-    if (verbose) std::cout << "Compuing connected components" << std::endl;
+    if (verbose) std::cout << "--> Compuing connected components" << std::endl;
 
     MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
     ML::POP_RANGE();
+
+    if (verbose) std::cout << " " << std::endl;
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
@@ -165,6 +167,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
+
+  if (verbose) std::cout << "Done." << std::endl;
   return (size_t)0;
 }
 }  // namespace Dbscan
