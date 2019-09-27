@@ -196,7 +196,7 @@ class KMeans(Base):
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
         If True, prints diagnositc information.
@@ -210,7 +210,7 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    oversampling_factor : float scalable k-means|| oversampling factor
+    oversampling_factor : float64 scalable k-means|| oversampling factor
     max_samples_per_batch : int maximum number of samples to use for each batch
                                 of the pairwise distance computation.
     oversampling_factor : int (default = 2) The amount of points to sample

@@ -53,7 +53,7 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
