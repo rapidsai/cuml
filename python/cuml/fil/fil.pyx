@@ -49,10 +49,10 @@ cdef extern from "treelite/c_api.h":
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteLoadLightGBMModel(const char* filename, ModelHandle* out) \
-        except +
-    cdef int TreeliteLoadProtobufModel(const char* filename, ModelHandle* out) \
-        except +
+    cdef int TreeliteLoadLightGBMModel(const char* filename,
+                                       ModelHandle* out) except +
+    cdef int TreeliteLoadProtobufModel(const char* filename,
+                                       ModelHandle* out) except +
 
 
 cdef class TreeliteModel():
