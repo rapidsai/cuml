@@ -45,6 +45,7 @@
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
+- PR #1132: DBSCAN Batching Bug Fix
 
 # cuML 0.9.0 (21 Aug 2019)
 
