@@ -81,6 +81,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
+        int seed
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -181,6 +182,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float,
+                                    int,
                                     CRITERION,
                                     bool,
                                     int) except +
@@ -302,7 +304,8 @@ class RandomForestClassifier(Base):
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None, 
+                 int seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -353,6 +356,7 @@ class RandomForestClassifier(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
         self.n_streams = n_streams
+        self.seed = seed
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -497,6 +501,7 @@ class RandomForestClassifier(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
+                                     <int> self.seed,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
