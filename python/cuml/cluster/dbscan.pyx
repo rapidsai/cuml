@@ -186,10 +186,11 @@ class DBSCAN(Base):
                                check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
+        cdef uintptr_t labels_ptr
         if self.dtype == np.float32:
+            self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+            labels_ptr = get_cudf_column_ptr(self.labels_)
             dbscanFit(handle_[0],
                       <float*>input_ptr,
                       <int> n_rows,
@@ -200,6 +201,8 @@ class DBSCAN(Base):
                       <size_t>self.max_bytes_per_batch,
                       <bool>self.verbose)
         else:
+            self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int64))
+            labels_ptr = get_cudf_column_ptr(self.labels_)
             dbscanFit(handle_[0],
                       <double*>input_ptr,
                       <long> n_rows,
