@@ -139,7 +139,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     
     
     // Determine distance workspace size
-    /*
+    
     char *distance_workspace = nullptr;
     size_t distance_workspace_size = \
       MLCommon::Distance::getWorkspaceSize<distance_type, math_t, math_t, math_t>(
@@ -158,12 +158,12 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     // Free workspace
     if (distance_workspace_size != 0)
       d_alloc->deallocate(distance_workspace, distance_workspace_size, stream);
-    */
+    
     
     
     
     // Determine sort columns workspace
-    /*
+    
     bool need_workspace = false;
     size_t sort_workspace_size = 0;
     MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
@@ -195,7 +195,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 
     updateHost(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    */
+    
 
     t += t_tmp;
 
