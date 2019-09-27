@@ -121,7 +121,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     if (nPoints <= 0) continue;
 
     if (verbose)
-      std::cout << "- Iteration " << i + 1 << " out of " << nBatches
+      std::cout << "- Iteration " << i + 1 << " / " << nBatches
                 << ". Batch size is " << nPoints << " samples." << std::endl;
 
     if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
@@ -149,7 +149,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
-    if (verbose) std::cout << "--> Compuing connected components" << std::endl;
+    if (verbose) std::cout << "--> Computing connected components" << std::endl;
 
     MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
