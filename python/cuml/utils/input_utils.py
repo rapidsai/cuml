@@ -29,6 +29,9 @@ from numba import cuda
 from librmm_cffi import librmm as rmm
 
 
+inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
+
+
 def get_dev_array_ptr(ary):
     """
     Returns ctype pointer of a numba style device array
@@ -78,11 +81,49 @@ def input_to_dev_array(X, order='F', deepcopy=False,
         reference unless deepcopy=True
     * numba device array - returns a reference unless deepcopy=True
 
-    Returns: namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
+    Parameters
+        ----------
 
-    `dev_array` is a new device array if the input was not a numba device
+    X:
+        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+        cuda_array_interface compliant array like CuPy or pytorch.
+
+    order: string (default: 'F')
+        Whether to return a F-major or C-major array. Used to check the order
+        of the input. If fail_on_order=True method will raise ValueError,
+        otherwise it will convert X to be of order `order`.
+
+    deepcopy: boolean (default: False)
+        Set to True to always return a deep copy of X.
+
+    check_dtype: np.dtype (default: False)
+        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
+
+    convert_to_dtype: np.dtype (default: False)
+        Set to a dtype if you want X to be converted to that dtype if it is
+        not that dtype already.
+
+    check_cols: int (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    check_rows: boolean (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    fail_on_order: boolean (default: False)
+        Set to True if you want the method to raise a ValueError if X is not
+        of order `order`.
+
+
+    Returns
+    -------
+    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
+
+        A new device array if the input was not a numba device
         array. It is a reference to the input X if it was a numba device array
         or cuda array interface compliant (like cupy)
+
     """
 
     if convert_to_dtype:
@@ -175,10 +216,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     X_ptr = get_dev_array_ptr(X_m)
 
-    result = namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
-
-    return result(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
-                  dtype=dtype)
+    return inp_array(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
+                     dtype=dtype)
 
 
 def convert_dtype(X, to_dtype=np.float32):
@@ -266,9 +305,46 @@ def input_to_host_array(X, order='F', deepcopy=False,
         reference unless deepcopy=True
     * numba device array - returns a reference unless deepcopy=True
 
-    Returns: namedtuple('host_array', 'array pointer n_rows n_cols dtype')
+    Parameters
+        ----------
 
-    `host_array` is a new device array if the input was not a NumPy device
+    X:
+        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+        cuda_array_interface compliant array like CuPy or pytorch.
+
+    order: string (default: 'F')
+        Whether to return a F-major or C-major array. Used to check the order
+        of the input. If fail_on_order=True method will raise ValueError,
+        otherwise it will convert X to be of order `order`.
+
+    deepcopy: boolean (default: False)
+        Set to True to always return a deep copy of X.
+
+    check_dtype: np.dtype (default: False)
+        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
+
+    convert_to_dtype: np.dtype (default: False)
+        Set to a dtype if you want X to be converted to that dtype if it is
+        not that dtype already.
+
+    check_cols: int (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    check_rows: boolean (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    fail_on_order: boolean (default: False)
+        Set to True if you want the method to raise a ValueError if X is not
+        of order `order`.
+
+
+    Returns
+    -------
+    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
+
+    `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
 
@@ -336,7 +412,5 @@ def input_to_host_array(X, order='F', deepcopy=False,
 
     X_ptr = X_m.ctypes.data
 
-    result = namedtuple('host_array', 'array pointer n_rows n_cols dtype')
-
-    return result(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
-                  dtype=dtype)
+    return inp_array(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
+                     dtype=dtype)
