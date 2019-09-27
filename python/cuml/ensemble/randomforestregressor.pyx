@@ -26,6 +26,7 @@ import warnings
 
 from numba import cuda
 
+from cuml.common.handle import Handle
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -304,6 +305,8 @@ class RandomForestRegressor(Base):
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
+
+        handle = Handle(n_streams)
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
@@ -402,10 +405,13 @@ class RandomForestRegressor(Base):
             return self.max_features
         elif self.max_features == 'sqrt':
             return 1/np.sqrt(self.n_cols)
+        elif self.max_features == 'auto':
+            return 1.0
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
         else:
-            return 1.0
+            raise ValueError("Wrong value passed in for max_features"
+                             " please read the documentation")
 
     def fit(self, X, y):
         """

@@ -24,8 +24,8 @@ template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
   const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-  const cudaStream_t stream_in, int N, int Ncols, int n_unique, int n_bins,
-  const int split_algo, int depth) {
+  const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
+  int n_bins, const int split_algo, int depth, bool col_shuffle) {
   stream = stream_in;
   splitalgo = split_algo;
 
@@ -33,22 +33,26 @@ TemporaryMemory<T, L>::TemporaryMemory(
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
-  LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
+  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
+                    col_shuffle);
 }
 
 template <class T, class L>
-TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N,
-                                       int Ncols, int n_unique, int n_bins,
-                                       const int split_algo, int depth) {
+TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle,
+                                       cudaStream_t stream_in, int N, int Ncols,
+                                       float colper, int n_unique, int n_bins,
+                                       const int split_algo, int depth,
+                                       bool col_shuffle) {
   //Assign Stream from cumlHandle
-  stream = handle.getStream();
+  stream = stream_in;
   splitalgo = split_algo;
 
   max_shared_mem = MLCommon::getSharedMemPerBlock();
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = handle.getDeviceAllocator();
   host_allocator = handle.getHostAllocator();
-  LevelMemAllocator(N, Ncols, n_unique, n_bins, depth, split_algo);
+  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
+                    col_shuffle);
 }
 
 template <class T, class L>
@@ -64,14 +68,17 @@ void TemporaryMemory<T, L>::print_info() {
 
 template <class T, class L>
 void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
-                                              int n_unique, int nbins,
-                                              int depth, const int split_algo) {
+                                              float colper, int n_unique,
+                                              int nbins, int depth,
+                                              const int split_algo,
+                                              bool col_shuffle) {
   if (depth > 20 || (depth == -1)) {
     max_nodes_per_level = pow(2, 20);
   } else {
     max_nodes_per_level = pow(2, depth);
   }
   int maxnodes = max_nodes_per_level;
+  int ncols_sampled = (int)(ncols * colper);
   d_flags =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
   h_split_colidx =
@@ -99,10 +106,10 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   d_outgain =
     new MLCommon::device_buffer<float>(device_allocator, stream, maxnodes);
   if (split_algo == 0) {
-    d_globalminmax = new MLCommon::device_buffer<T>(device_allocator, stream,
-                                                    2 * maxnodes * ncols);
+    d_globalminmax = new MLCommon::device_buffer<T>(
+      device_allocator, stream, 2 * maxnodes * ncols_sampled);
     h_globalminmax = new MLCommon::host_buffer<T>(host_allocator, stream,
-                                                  2 * maxnodes * ncols);
+                                                  2 * maxnodes * ncols_sampled);
     totalmem += maxnodes * ncols * sizeof(T);
   } else {
     h_quantile =
@@ -113,22 +120,35 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  d_colids =
-    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
+  if (col_shuffle == true) {
+    d_colids = new MLCommon::device_buffer<unsigned int>(
+      device_allocator, stream, ncols_sampled * maxnodes);
+    h_colids = new MLCommon::host_buffer<unsigned int>(
+      host_allocator, stream, ncols_sampled * maxnodes);
 
+  } else {
+    d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                         stream, ncols);
+    d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                           stream, maxnodes);
+    h_colids =
+      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
+    h_colstart =
+      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
+  }
   totalmem += nrows * 2 * sizeof(unsigned int);
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * sizeof(float);
   totalmem += 3 * maxnodes * sizeof(T);
-  totalmem += ncols * sizeof(int);
+  totalmem += (ncols + maxnodes) * sizeof(int);
   //Regression
   if (typeid(L) == typeid(T)) {
-    d_mseout = new MLCommon::device_buffer<T>(device_allocator, stream,
-                                              2 * nbins * ncols * maxnodes);
-    d_predout = new MLCommon::device_buffer<T>(device_allocator, stream,
-                                               nbins * ncols * maxnodes);
+    d_mseout = new MLCommon::device_buffer<T>(
+      device_allocator, stream, 2 * nbins * ncols_sampled * maxnodes);
+    d_predout = new MLCommon::device_buffer<T>(
+      device_allocator, stream, nbins * ncols_sampled * maxnodes);
     d_count = new MLCommon::device_buffer<unsigned int>(
-      device_allocator, stream, nbins * ncols * maxnodes);
+      device_allocator, stream, nbins * ncols_sampled * maxnodes);
     d_parent_pred =
       new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes);
     d_parent_count = new MLCommon::device_buffer<unsigned int>(
@@ -137,26 +157,26 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
       new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
     d_child_count = new MLCommon::device_buffer<unsigned int>(
       device_allocator, stream, 2 * maxnodes);
-    h_mseout = new MLCommon::host_buffer<T>(host_allocator, stream,
-                                            2 * nbins * ncols * maxnodes);
+    h_mseout = new MLCommon::host_buffer<T>(
+      host_allocator, stream, 2 * nbins * ncols_sampled * maxnodes);
     h_predout = new MLCommon::host_buffer<T>(host_allocator, stream,
-                                             nbins * ncols * maxnodes);
-    h_count = new MLCommon::host_buffer<unsigned int>(host_allocator, stream,
-                                                      nbins * ncols * maxnodes);
+                                             nbins * ncols_sampled * maxnodes);
+    h_count = new MLCommon::host_buffer<unsigned int>(
+      host_allocator, stream, nbins * ncols_sampled * maxnodes);
     h_child_pred =
       new MLCommon::host_buffer<T>(host_allocator, stream, 2 * maxnodes);
     h_child_count = new MLCommon::host_buffer<unsigned int>(
       host_allocator, stream, 2 * maxnodes);
 
-    totalmem += 3 * nbins * ncols * maxnodes * sizeof(T);
-    totalmem += nbins * ncols * maxnodes * sizeof(unsigned int);
+    totalmem += 3 * nbins * ncols_sampled * maxnodes * sizeof(T);
+    totalmem += nbins * ncols_sampled * maxnodes * sizeof(unsigned int);
     totalmem += 3 * maxnodes * sizeof(T);
     totalmem += 3 * maxnodes * sizeof(unsigned int);
   }
 
   //Classification
   if (typeid(L) == typeid(int)) {
-    size_t histcount = ncols * nbins * n_unique * maxnodes;
+    size_t histcount = ncols_sampled * nbins * n_unique * maxnodes;
     d_histogram = new MLCommon::device_buffer<unsigned int>(device_allocator,
                                                             stream, histcount);
     h_histogram = new MLCommon::host_buffer<unsigned int>(host_allocator,
@@ -212,6 +232,9 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   if (h_globalminmax != nullptr) h_globalminmax->release(stream);
   d_sample_cnt->release(stream);
   d_colids->release(stream);
+  if (d_colstart != nullptr) d_colstart->release(stream);
+  h_colids->release(stream);
+  if (h_colstart != nullptr) h_colstart->release(stream);
   delete h_new_node_flags;
   delete d_new_node_flags;
   delete h_split_colidx;
@@ -231,6 +254,9 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   if (h_globalminmax != nullptr) delete h_globalminmax;
   delete d_sample_cnt;
   delete d_colids;
+  delete h_colids;
+  if (d_colstart != nullptr) delete d_colstart;
+  if (h_colstart != nullptr) delete h_colstart;
   //Classification
   if (typeid(L) == typeid(int)) {
     h_histogram->release(stream);

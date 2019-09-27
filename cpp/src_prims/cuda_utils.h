@@ -616,4 +616,47 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
 #endif
 }
 
+/**
+ * @brief Warp-level sum reduction
+ * @param val input value
+ * @return only the lane0 will contain valid reduced result
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the warp must enter this
+ *       function together
+ * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T>
+DI T warpReduce(T val) {
+#pragma unroll
+  for (int i = WarpSize / 2; i > 0; i >>= 1) {
+    T tmp = shfl(val, laneId() + i);
+    val += tmp;
+  }
+  return val;
+}
+
+/**
+ * @brief 1-D block-level sum reduction
+ * @param val input value
+ * @param smem shared memory region needed for storing intermediate results. It
+ *             must alteast be of size: `sizeof(T) * nWarps`
+ * @return only the thread0 will contain valid reduced result
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the block must enter this
+ *       function together
+ * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T>
+DI T blockReduce(T val, char *smem) {
+  auto *sTemp = reinterpret_cast<T *>(smem);
+  int nWarps = (blockDim.x + WarpSize - 1) / WarpSize;
+  int lid = laneId();
+  int wid = threadIdx.x / WarpSize;
+  val = warpReduce(val);
+  if (lid == 0) sTemp[wid] = val;
+  __syncthreads();
+  val = lid < nWarps ? sTemp[lid] : T(0);
+  return warpReduce(val);
+}
+
 }  // namespace MLCommon

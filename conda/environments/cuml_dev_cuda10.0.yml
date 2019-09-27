@@ -9,7 +9,7 @@ dependencies:
 - libclang=8.0.0
 - cmake=3.14.5
 - numba=0.45*
-# - cupy>=6*
+- rapidsai/label/cuda10.0::cupy>=6*
 - cudf=0.10*
 - rmm=0.10*
 - cython>=0.29,<0.30
@@ -23,5 +23,5 @@ dependencies:
 - dask-cuda=0.9*
 - dask-cudf=0.10*
 - nccl>=2.4
-- libcumlprims=0.9*
+- libcumlprims=0.10*
 - statsmodels
