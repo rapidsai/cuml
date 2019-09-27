@@ -30,6 +30,8 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+
+from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -322,6 +324,8 @@ class RandomForestClassifier(Base):
 
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0")
+
+        handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 

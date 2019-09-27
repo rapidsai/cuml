@@ -19,23 +19,23 @@
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = long>
 struct Pack {
   /**
      * vertex degree array
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of poTypes
      */
-  int *vd;
+  Index_ *vd;
   /** the adjacency matrix */
   bool *adj;
   /** the adjacency graph */
-  Type *adj_graph;
+  Index_ *adj_graph;
 
-  Type adjnnz;
+  Index_ adjnnz;
 
   /** exculusive scan generated from vd */
-  Type *ex_scan;
+  Index_ *ex_scan;
   /** array to store whether a vertex is core poType or not */
   bool *core_pts;
   /** number of poTypes in the dataset */
