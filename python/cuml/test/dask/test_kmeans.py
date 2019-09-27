@@ -33,33 +33,32 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
         client = Client(cluster)
 
     from cuml.dask.cluster import KMeans as cumlKMeans
-    from dask_ml.cluster import KMeans as dmlKMeans
 
-    from cuml.test.dask.utils import dask_make_blobs
+    from cuml.dask.datasets import make_blobs
 
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters, n_parts,
-                                   cluster_std=0.1, verbose=True,
-                                   random_state=10)
+    from cuml.dask.common import to_dask_df
 
-    wait(X_cudf)
+    X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
+                           cluster_std=0.01, verbose=True,
+                           random_state=10)
+
+    X_df = to_dask_df(X_cudf)
+
+    wait(X_df)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
-    daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters,
-                             random_state=10)
 
     cumlModel.fit(X_cudf)
-    daskmlModel1.fit(X_df)
 
     cumlLabels = cumlModel.predict(X_cudf)
-    daskmlLabels1 = daskmlModel1.predict(X_df)
 
     from sklearn.metrics import adjusted_rand_score
 
     cumlPred = cumlLabels.compute().to_pandas().values
-    daskmlPred1 = daskmlLabels1.compute()
+    labels = y.compute().to_pandas().values
 
-    score = adjusted_rand_score(cumlPred, daskmlPred1)
+    score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
 
     if owns_cluster:
         client.close()
