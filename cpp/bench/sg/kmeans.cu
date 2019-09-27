@@ -47,16 +47,14 @@ class KMeans : public BlobsFixture<D> {
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
-                              this->params.ncols, centroids, labels, inertia,
-                              nIter);
+                              this->params.ncols, centroids, this->data.y,
+                              inertia, nIter);
     }
   }
 
   void allocateBuffers(const ::benchmark::State& state) override {
     auto allocator = this->handle->getDeviceAllocator();
     auto stream = this->handle->getStream();
-    labels =
-      (int*)allocator->allocate(this->params.nrows * sizeof(int), stream);
     centroids = (D*)allocator->allocate(
       this->params.nclasses * this->params.ncols * sizeof(D), stream);
   }
@@ -67,12 +65,10 @@ class KMeans : public BlobsFixture<D> {
     allocator->deallocate(
       centroids, this->params.nclasses * this->params.ncols * sizeof(D),
       stream);
-    allocator->deallocate(labels, this->params.nrows * sizeof(int), stream);
   }
 
  private:
   ML::kmeans::KMeansParams kParams;
-  int* labels;
   D* centroids;
   D inertia;
   int nIter;
