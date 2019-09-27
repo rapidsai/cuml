@@ -31,15 +31,24 @@ namespace Matrix {
 using namespace std;
 
 /**
- * @brief copy operation for matrices.
- * @param in: input matrix
- * @param out: output matrix
- * @param n_rows: number of rows of output matrix
- * @param n_cols: number of columns of output matrix
+ * @brief Copy selected rows of the input matrix into contiguous space.
+ *
+ * On exit out[i + k*n_rows] = in[indices[i] + k*n_rows],
+ * where i = 0..n_rows_indices-1, and k = 0..n_cols-1.
+ *
+ * @param in input matrix
+ * @param n_rows number of rows of output matrix
+ * @param n_cols number of columns of output matrix
+ * @param out output matrix
+ * @param indices of the rows to be copied
+ * @param n_rows_indices number of rows to copy
+ * @param stream cuda stream
+ * @param rowMajor, whether the matrix has row major layout
  */
 template <typename m_t>
-void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out, int *indices,
-              int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
+void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
+              const int *indices, int n_rows_indices, cudaStream_t stream,
+              bool rowMajor = false) {
   if (rowMajor) {
     ASSERT(false, "matrix.h: row major is not supported yet!");
   }
