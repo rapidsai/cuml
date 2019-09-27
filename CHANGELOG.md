@@ -16,6 +16,7 @@
 - PR #1093: Unified inference kernels for different FIL algorithms
 - PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1108: input_to_host_array function in input_utils for input processing to host arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
