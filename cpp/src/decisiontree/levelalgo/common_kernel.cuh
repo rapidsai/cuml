@@ -17,6 +17,120 @@
 #include "cuda_utils.h"
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
+#include "stats/minmax.h"
+
+DI unsigned int get_column_id(const unsigned int* __restrict__ colids,
+                              const int colstart_local, const int Ncols,
+                              const int ncols_sampled, const int colcnt,
+                              const unsigned int local_flag) {
+  unsigned int col;
+  if (colstart_local != -1) {
+    col = colids[(colstart_local + colcnt) % Ncols];
+  } else {
+    col = colids[local_flag * ncols_sampled + colcnt];
+  }
+  return col;
+}
+template <typename T, typename E>
+__global__ void minmax_init_kernel(T* minmax, const int len, const int n_nodes,
+                                   const T init_val) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < 2 * len) {
+    bool ifmin = (((int)(tid / n_nodes) % 2) == 0);
+    *(E*)&minmax[tid] = (ifmin) ? MLCommon::Stats::encode(init_val)
+                                : MLCommon::Stats::encode(-init_val);
+  }
+}
+
+template <typename T, typename E>
+__global__ void minmax_decode_kernel(T* minmax, const int len) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < 2 * len) {
+    minmax[tid] = MLCommon::Stats::decode(*(E*)&minmax[tid]);
+  }
+}
+
+//This kernel calculates minmax at node level
+template <typename T, typename E>
+__global__ void get_minmax_kernel(const T* __restrict__ data,
+                                  const unsigned int* __restrict__ flags,
+                                  const unsigned int* __restrict__ colids,
+                                  const unsigned int* __restrict__ colstart,
+                                  const int nrows, const int Ncols,
+                                  const int ncols_sampled, const int n_nodes,
+                                  T init_min_val, T* minmax) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int local_flag = LEAF;
+  int colstart_local = -1;
+  extern __shared__ char shared_mem_minmax[];
+  T* shmem_minmax = (T*)shared_mem_minmax;
+  if (tid < nrows) {
+    local_flag = flags[tid];
+  }
+  if (local_flag != LEAF && colstart != nullptr) {
+    colstart_local = colstart[local_flag];
+  }
+  for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    for (int i = threadIdx.x; i < 2 * n_nodes; i += blockDim.x) {
+      *(E*)&shmem_minmax[i] = (i < n_nodes)
+                                ? MLCommon::Stats::encode(init_min_val)
+                                : MLCommon::Stats::encode(-init_min_val);
+    }
+
+    __syncthreads();
+    if (local_flag != LEAF) {
+      int col = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                              colcnt, local_flag);
+      T local_data = data[col * nrows + tid];
+      if (!isnan(local_data)) {
+        //Min max values are saved in shared memory and global memory as per the shuffled colids.
+        MLCommon::Stats::atomicMinBits<T, E>(&shmem_minmax[local_flag],
+                                             local_data);
+        MLCommon::Stats::atomicMaxBits<T, E>(
+          &shmem_minmax[local_flag + n_nodes], local_data);
+      }
+    }
+    __syncthreads();
+
+    //finally, perform global mem atomics
+    for (int i = threadIdx.x; i < n_nodes; i += blockDim.x) {
+      atomicMin((E*)&minmax[i + 2 * n_nodes * colcnt], *(E*)&shmem_minmax[i]);
+      atomicMax((E*)&minmax[i + n_nodes + 2 * n_nodes * colcnt],
+                *(E*)&shmem_minmax[i + n_nodes]);
+    }
+    __syncthreads();
+  }
+}
+
+template <typename T, typename E>
+__global__ void get_minmax_kernel_global(
+  const T* __restrict__ data, const unsigned int* __restrict__ flags,
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_nodes, T* minmax) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int local_flag = LEAF;
+  if (tid < nrows) {
+    local_flag = flags[tid];
+    if (local_flag != LEAF) {
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
+      for (int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+        int coloff = 2 * n_nodes * colcnt;
+        int col = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                                colcnt, local_flag);
+        T local_data = data[col * nrows + tid];
+        if (!isnan(local_data)) {
+          //Min max values are saved in shared memory and global memory as per the shuffled colids.
+          MLCommon::Stats::atomicMinBits<T, E>(&minmax[coloff + local_flag],
+                                               local_data);
+          MLCommon::Stats::atomicMaxBits<T, E>(
+            &minmax[coloff + n_nodes + local_flag], local_data);
+        }
+      }
+    }
+  }
+}
 //Setup how many times a sample is being used.
 //This is due to bootstrap nature of Random Forest.
 __global__ void setup_counts_kernel(unsigned int* sample_cnt,
@@ -44,12 +158,14 @@ __global__ void setup_flags_kernel(const unsigned int* __restrict__ sample_cnt,
 // This make actual split. A split is done using bits.
 //Least significant Bit 0 means left and 1 means right.
 //As a result a max depth of 32 is supported for now.
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void split_level_kernel(
-  const T* __restrict__ data, const T* __restrict__ quantile,
+  const T* __restrict__ data, const T* __restrict__ question_ptr,
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart,
   const int* __restrict__ split_col_index,
-  const int* __restrict__ split_bin_index, const int nrows, const int ncols,
-  const int nbins, const int n_nodes,
+  const int* __restrict__ split_bin_index, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
   const unsigned int* __restrict__ new_node_flags,
   unsigned int* __restrict__ flags) {
   unsigned int threadid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -62,8 +178,14 @@ __global__ void split_level_kernel(
       unsigned int local_leaf_flag = new_node_flags[local_flag];
       if (local_leaf_flag != LEAF) {
         int colidx = split_col_index[local_flag];
-        T quesval = quantile[colidx * nbins + split_bin_index[local_flag]];
-        T local_data = data[colidx * nrows + tid];
+        int local_colstart = -1;
+        if (colstart != nullptr) local_colstart = colstart[local_flag];
+        int colid = get_column_id(colids, local_colstart, Ncols, ncols_sampled,
+                                  colidx, local_flag);
+        QuestionType question(question_ptr, colid, colidx, n_nodes, local_flag,
+                              nbins);
+        T quesval = question(split_bin_index[local_flag]);
+        T local_data = data[colid * nrows + tid];
         //The inverse comparision here to push right instead of left
         if (local_data <= quesval) {
           local_flag = local_leaf_flag << 1;
@@ -98,4 +220,29 @@ struct ReducePair {
     }
     return retval;
   }
+};
+
+template <typename T>
+struct QuantileQues {
+  const T* __restrict__ quantile;
+  DI QuantileQues(const T* __restrict__ quantile_ptr, const unsigned int colid,
+                  const unsigned int colcnt, const int n_nodes,
+                  const unsigned int nodeid, const int nbins)
+    : quantile(quantile_ptr + colid * nbins) {}
+
+  DI T operator()(const int binid) { return quantile[binid]; }
+};
+
+template <typename T>
+struct MinMaxQues {
+  T min, delta;
+  DI MinMaxQues(const T* __restrict__ minmax_ptr, const unsigned int colid,
+                const unsigned int colcnt, const int n_nodes,
+                const unsigned int nodeid, const int nbins) {
+    int off = colcnt * 2 * n_nodes + nodeid;
+    min = minmax_ptr[off];
+    delta = (minmax_ptr[off + n_nodes] - min) / nbins;
+  }
+
+  DI T operator()(const int binid) { return (min + (binid + 1) * delta); }
 };

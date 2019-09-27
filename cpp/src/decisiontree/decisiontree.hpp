@@ -17,6 +17,7 @@
 #pragma once
 #include <common/cumlHandle.hpp>
 #include "algo_helper.h"
+#include "flatnode.h"
 
 namespace ML {
 
@@ -33,7 +34,6 @@ struct DecisionTreeParams {
   int max_leaves;
   /**
    * Ratio of number of features (columns) to consider per node split.
-   * TODO SKL's default is sqrt(n_cols)
    */
   float max_features;
   /**
@@ -61,6 +61,10 @@ struct DecisionTreeParams {
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion;
+  /**
+   * Weahther to fully reshuffle the features for subsampling at each tree node. Default is one shuffle per depth with random start point in the shuffled feature list per node
+   */
+  bool shuffle_features;
 };
 
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
@@ -69,32 +73,19 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_min_rows_per_node = 2,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
-                     bool cfg_quantile_per_tree = false);
+                     bool cfg_quantile_per_tree = false,
+                     bool cfg_shuffle_features = false);
 void validity_check(const DecisionTreeParams params);
 void print(const DecisionTreeParams params);
 
-template <class T>
-struct Question {
-  int column;
-  T value;
-};
-
-template <class T, class L>
-struct TreeNode {
-  TreeNode<T, L> *left;
-  TreeNode<T, L> *right;
-  L prediction;
-  Question<T> question;
-  T split_metric_val;
-};
-
 template <class T, class L>
 struct TreeMetaDataNode {
+  int treeid;
   int depth_counter;
   int leaf_counter;
   double prepare_time;
   double train_time;
-  TreeNode<T, L> *root;
+  std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 
 template <class T, class L>

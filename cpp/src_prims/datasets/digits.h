@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <vector>
 
+namespace MLCommon{
+namespace Datasets {
+namespace Digits {
 const std::vector<float> digits = {
   0.00,  0.00,  5.00,  13.00, 9.00,  1.00,  0.00,  0.00,  0.00,  0.00,  13.00,
   15.00, 10.00, 15.00, 5.00,  0.00,  0.00,  3.00,  15.00, 2.00,  0.00,  11.00,
@@ -10475,7 +10480,7 @@ const std::vector<float> digits = {
   12.00, 1.00,  0.00,
 };
 
-std::vector<float> distances = {
+static const std::vector<float> distances = {
   0.000,    120.000,  164.000,  172.000,  176.000,  0.000,    203.000, 377.000,
   379.000,  387.000,  0.000,    304.000,  611.000,  644.000,  673.000, 0.000,
   197.000,  232.000,  371.000,  394.000,  0.000,    340.000,  471.000, 475.000,
@@ -11602,7 +11607,7 @@ std::vector<float> distances = {
   763.000,
 };
 
-std::vector<long> indices = {
+static const std::vector<long> indices = {
   0,    877,  1365, 1541, 1167, 1,    93,   1120, 1112, 1050, 2,    57,   51,
   50,   115,  3,    259,  1498, 1518, 475,  4,    1777, 100,  1735, 1244, 5,
   149,  73,   233,  199,  6,    82,   66,   88,   58,   7,    1201, 44,   1164,
@@ -12296,7 +12301,7 @@ std::vector<long> indices = {
   1794, 148,  248,  1763, 242,  1795, 254,  251,  1792, 849,  1796, 1705, 1781,
   183,  248};
 
-std::vector<float> Y = {
+static const std::vector<float> Y = {
   9.7627,   43.0379,  20.5527,  8.9766,   -15.2690, 29.1788,  -12.4826,
   78.3546,  92.7326,  -23.3117, 58.3450,  5.7790,   13.6089,  85.1193,
   -85.7928, -82.5741, -95.9563, 66.5240,  55.6314,  74.0024,  95.7237,
@@ -12813,7 +12818,7 @@ std::vector<float> Y = {
   -74.9156, 22.0924,  -51.9296,
 };
 
-std::vector<float> VAL_vector = {
+static const std::vector<float> VAL_vector = {
   0.001336, 0.001336, 0.001336, 0.000668, 0.001336, 0.000668, 0.000668,
   0.000668, 0.001336, 0.001336, 0.000668, 0.000668, 0.000668, 0.001336,
   0.001336, 0.000668, 0.001336, 0.000668, 0.000668, 0.001336, 0.001336,
@@ -14535,7 +14540,7 @@ std::vector<float> VAL_vector = {
 
 };
 
-std::vector<int> ROW_vector = {
+static const std::vector<int> ROW_vector = {
   0,    0,    0,    0,    0,    0,    0,    0,    1,    1,    1,    1,    1,
   2,    2,    2,    2,    2,    2,    3,    3,    3,    3,    3,    3,    4,
   4,    4,    4,    4,    5,    5,    5,    5,    5,    6,    6,    6,    6,
@@ -15464,7 +15469,7 @@ std::vector<int> ROW_vector = {
 
 };
 
-std::vector<int> COL_vector = {
+static const std::vector<int> COL_vector = {
   0,    877,  1365, 1541, 1167, 464,  855,  1029, 1,    93,   1120, 1112, 1050,
   2,    57,   51,   50,   115,  502,  3,    259,  1498, 1518, 475,  1670, 4,
   1777, 100,  1735, 1244, 5,    149,  73,   233,  199,  6,    82,   66,   88,
@@ -16392,3 +16397,9 @@ std::vector<int> COL_vector = {
   1792, 849,  9,    1186, 1796, 1705, 1781, 183,  248,
 
 };
+
+static const int n_samples = 1797;
+static const int n_features = 64;
+} // END Digits
+} // END Datasets
+} // END MLCommon

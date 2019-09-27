@@ -36,8 +36,8 @@ static const int TPB = 256;
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
  */
-template <typename Type, typename Index_ = int>
-__global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
+template <typename Index_ = long>
+__global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
     labels[tid] = -1;
@@ -49,12 +49,12 @@ __global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
  * Turn the non-monotonic labels from weak_cc primitive into
  * an array of labels drawn from a monotonically increasing set.
  */
-template <typename Type, typename Index_ = int>
-void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
-  Type MAX_LABEL = std::numeric_limits<Type>::max();
+template <typename Index_ = long>
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(int val) { return val == MAX_LABEL; });
+    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
 }
 
 /* @param N number of points
@@ -69,18 +69,19 @@ void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type, typename Type_f, typename Index_ = int>
+template <typename Type, typename Type_f, typename Index_ = long>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Type minPts, Type* labels, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
+           Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
+           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
+           bool verbose = false) {
   const size_t align = 256;
   Index_ batchSize = ceildiv(N, nBatches);
   size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
   size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize = alignTo<size_t>(sizeof(int) * (batchSize + 1), align);
-  size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
+  size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
+  size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
   if (workspace == NULL) {
     auto size =
@@ -88,8 +89,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     return size;
   }
   // partition the temporary workspace needed for different stages of dbscan
-  Type adjlen = 0;
-  Type curradjlen = 0;
+  Index_ adjlen = 0;
+  Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
   temp += adjSize;
@@ -101,21 +102,28 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
-  int* vd = (int*)temp;
+  Index_* vd = (Index_*)temp;
   temp += vdSize;
-  Type* ex_scan = (Type*)temp;
+  Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
 
   // Running VertexDeg
-  MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
+  MLCommon::Sparse::WeakCCState<Index_> state(xa, fa, m);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(),
-                                            stream);
-    Type startVertexId = i * batchSize;
-    int nPoints = min(N - startVertexId, batchSize);
+    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+                                              stream);
+
+    Index_ startVertexId = i * batchSize;
+    Index_ nPoints = min(N - startVertexId, batchSize);
     if (nPoints <= 0) continue;
+
+    if (verbose)
+      std::cout << "- Iteration " << i + 1 << " / " << nBatches
+                << ". Batch size is " << nPoints << " samples." << std::endl;
+
+    if (verbose) std::cout << "Computing vertex degrees" << std::endl;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -128,24 +136,31 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
     }
+
+    if (verbose) std::cout << "Computing adjacency graph" << std::endl;
+
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,
                                 stream);
+
     ML::POP_RANGE();
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
-      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, batchSize,
+
+    if (verbose) std::cout << "Computing connected components" << std::endl;
+
+    MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
+      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
-      [core_pts] __device__(Type tid) { return core_pts[tid]; });
+      [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
     ML::POP_RANGE();
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
-  Type MAX_LABEL = std::numeric_limits<Type>::max();
-  int nblks = ceildiv<int>(N, TPB);
-  relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  size_t nblks = ceildiv<size_t>(N, TPB);
+  relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
   return (size_t)0;

@@ -68,6 +68,12 @@ struct predict_params {
   int ntrees;
   int depth;
   int cols;
+  algo_t algo;
+
+  // Parameters filled and used only by infer().
+  int pitch;
+  int tree_stride;
+  int max_items;
 
   // Data parameters.
   float* preds;
@@ -77,6 +83,9 @@ struct predict_params {
   // Other parameters.
   int max_shm;
 };
+
+// infer() calls the inference kernel with the parameters on the stream
+void infer(predict_params ps, cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML
