@@ -24,9 +24,6 @@ namespace ML {
 
 using namespace Dbscan;
 
-// @todo
-// In the below 2 calls, the Index type has been hard-coded to `int64_t`
-// We should pick the right Index type based on the input dimensions.
 void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
                float eps, int min_pts, int *labels, size_t max_bytes_per_batch,
                bool verbose) {
