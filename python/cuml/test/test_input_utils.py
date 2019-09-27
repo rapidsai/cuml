@@ -73,7 +73,7 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
 def test_input_to_host_array(dtype, input_type, num_rows, num_cols):
     input_data, real_data = get_input(input_type, num_rows, num_cols, dtype)
 
-    if input_data is None:
+    if not has_cupy:
         pytest.skip('cupy not installed')
 
     X, X_ptr, n_rows, n_cols, dtype = input_to_host_array(input_data)
@@ -99,7 +99,7 @@ def test_dtype_check(dtype, check_dtype, input_type):
 
     input_data, real_data = get_input(input_type, 10, 10, dtype)
 
-    if input_data is None:
+    if not has_cupy:
         pytest.skip('cupy not installed')
 
     if dtype == check_dtype:
@@ -133,7 +133,7 @@ def test_convert_inputs(from_dtype, to_dtype, input_type, num_rows, num_cols):
     input_data, real_data = get_input(input_type, num_rows, num_cols,
                                       from_dtype, out_dtype=to_dtype)
 
-    if input_data is None:
+    if not has_cupy:
         pytest.skip('cupy not installed')
 
     converted_data = convert_dtype(input_data, to_dtype=to_dtype)
