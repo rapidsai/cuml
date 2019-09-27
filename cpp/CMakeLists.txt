@@ -266,7 +266,8 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 if(BUILD_CUML_CPP_LIBRARY)
 
   ExternalProject_Add(faiss
-    SOURCE_DIR "${FAISS_DIR}"
+    GIT_REPOSITORY    https://github.com/apache/arrow.git
+    GIT_TAG           656368b5eda4d376177a3355673d217fa95000b6
     CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS} -v
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faissbuild/
     BUILD_COMMAND $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
