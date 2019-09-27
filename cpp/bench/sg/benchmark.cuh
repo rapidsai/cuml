@@ -35,7 +35,7 @@ class Fixture : public ::benchmark::Fixture {
 
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle);
+    handle.reset(new cumlHandle(NumStreams));
     handle->setStream(stream);
     allocateData(state);
     allocateBuffers(state);
@@ -79,6 +79,11 @@ class Fixture : public ::benchmark::Fixture {
   DatasetParams params;
   std::unique_ptr<cumlHandle> handle;
   cudaStream_t stream;
+
+  ///@todo: ideally, this should be determined at runtime based on the inputs
+  ///       passed to the fixture. That will require a whole lot of plumbing of
+  ///       interfaces. Thus, as a quick workaround, defining this static var.
+  static const int NumStreams = 16;
 };  // end class Fixture
 
 /**
