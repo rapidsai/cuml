@@ -708,10 +708,9 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
         cj = labels[j_ind];
         if (ci < cj) {
           if (sizeof(Index_) == 4)
-            atomicMin((int *)(labels + j_ind), (int)ci);
+            atomicMin((unsigned int *)(labels + j_ind), ci);
           else if (sizeof(Index_) == 8)
-            atomicMin((unsigned long long int *)(labels + j_ind),
-                      (unsigned long long int)ci);
+            atomicMin((unsigned long long int *)(labels + j_ind), ci);
           xa[j_ind] = true;
           m[0] = true;
         } else if (ci > cj) {
@@ -721,10 +720,10 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
       }
       if (ci_mod) {
         if (sizeof(Index_) == 4)
-          atomicMin((int *)(labels + startVertexId + tid), (int)ci);
+          atomicMin((unsigned int *)(labels + startVertexId + tid), ci);
         else if (sizeof(Index_) == 8)
           atomicMin((unsigned long long int *)(labels + startVertexId + tid),
-                    (unsigned long long int)ci);
+                    ci);
 
         xa[startVertexId + tid] = true;
         m[0] = true;
@@ -742,7 +741,7 @@ __global__ void weak_cc_init_label_kernel(Index_ *labels, Index_ startVertexId,
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < batchSize) {
     if (filter_op(tid) && labels[tid + startVertexId] == MAX_LABEL)
-      labels[startVertexId + tid] = Index_(startVertexId + tid + 1);
+      labels[startVertexId + tid] = startVertexId + tid + 1;
   }
 }
 
