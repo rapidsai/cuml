@@ -22,7 +22,9 @@ import pandas as pd
 import cudf
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern, clusters_equal
+from cuml.test.utils import fit_predict, get_pattern
+
+from sklearn.metrics import adjusted_rand_score
 
 
 def unit_param(*args, **kwargs):
@@ -53,11 +55,11 @@ def test_dbscan(datatype, input_type, use_handle,
                 nrows, ncols, max_bytes_per_batch):
     n_samples = nrows
     n_feats = ncols
-    X, y = make_blobs(n_samples=n_samples,
+    X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
                       n_features=n_feats, random_state=0)
 
     handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=0.5, min_samples=2,
+    cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
                         max_bytes_per_batch=max_bytes_per_batch)
 
     if input_type == 'dataframe':
@@ -69,7 +71,7 @@ def test_dbscan(datatype, input_type, use_handle,
         cu_labels = cudbscan.fit_predict(X)
 
     if nrows < 500000:
-        skdbscan = skDBSCAN(eps=0.5, min_samples=2)
+        skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
         sk_labels = skdbscan.fit_predict(X)
         for i in range(X.shape[0]):
             assert cu_labels[i] == sk_labels[i]
@@ -104,5 +106,6 @@ def test_dbscan_sklearn_comparison(name, nrows):
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
         sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                                'sk_DBSCAN', X)
-        assert(sk_n_clusters == cu_n_clusters)
-        clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+
+        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+        assert(score == 1.0)
