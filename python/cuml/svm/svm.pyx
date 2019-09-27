@@ -88,10 +88,10 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
-        math_t *preds)
+        math_t *preds) except +
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
-                                     svmModel[math_t] &m)
+                                     svmModel[math_t] &m) except +
 
 
 class SVC(Base):
