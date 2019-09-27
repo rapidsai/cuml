@@ -235,48 +235,36 @@ add_clang_format(
   DSTDIR ${PROJECT_BINARY_DIR}/clang-format
   SRCDIR ${PROJECT_SOURCE_DIR})
 
+
 ###################################################################################################
 # - treelite build --------------------------------------------------------------------------------
-
-set(TREELITE_PROTOBUF_CMAKE_PATH
-  "${PROJECT_SOURCE_DIR}/external/treelite/3rdparty/protobuf/cmake/CMakeLists.txt")
-
-# Modify the treelite cmake files to change the order of include files
-# This prevents us from picking up the incorrect version of protobuf libraries
-file(READ
-  "${TREELITE_PROTOBUF_CMAKE_PATH}"
-  PROTOBUF_CMAKE_TXT)
-
-string(REGEX REPLACE "\\$\\{protobuf_source_dir\\}/src" "" PROTOBUF_CMAKE_TXT "${PROTOBUF_CMAKE_TXT}")
-string(REGEX REPLACE
-  "include_directories\\([ ]*\n"
-  "include_directories(\n \${protobuf_source_dir}/src\n"
-  PROTOBUF_CMAKE_TXT ${PROTOBUF_CMAKE_TXT})
-
-file(WRITE "${TREELITE_PROTOBUF_CMAKE_PATH}" "${PROTOBUF_CMAKE_TXT}")
-
+find_package(Protobuf REQUIRED)
 include(ExternalProject)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-set(CMAKE_CPP_FLAGS "${CMAKE_CPP_FLAGS} -fPIC")
-set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+# Modify the treelite CMakeLists.txt in-place to use the installed protobuf
+set(TREELITE_CMAKE_PATH
+  "${PROJECT_SOURCE_DIR}/../thirdparty/treelite/CMakeLists.txt")
+file(READ "${TREELITE_CMAKE_PATH}" TREELITE_CMAKE_TXT)
+
+string(REGEX REPLACE
+  # Treelite has a long block defining protobuf vars that we wipe out
+  "if \\(ENABLE_PROTOBUF\\).*\
+add_definitions\\(-DTREELITE_PROTOBUF_SUPPORT\\)"
+
+  # and replace with the more standard find_package for installed protobuf libs
+  "if (ENABLE_PROTOBUF) \n\
+  # Modified by cuml \n\
+  set(Protobuf_USE_STATIC_LIBS ON)\n\
+  find_package(Protobuf REQUIRED)"
+  
+  TREELITE_CMAKE_TXT
+  "${TREELITE_CMAKE_TXT}")
+file(WRITE "${TREELITE_CMAKE_PATH}" "${TREELITE_CMAKE_TXT}")
 
 ExternalProject_Add(treelite
     PREFIX ${TREELITE_DIR}
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
     CMAKE_ARGS -DENABLE_PROTOBUF=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-)
-
-# On some distributions (e.g. CentOS), treelite will output to lib64 instead of lib
-# Unwinding this is tricky, so we just copy the library to make it usable
-set(LIB64_TREELITE ${TREELITE_DIR}/lib64/libtreelite.a)
-set(LIB64_PROTOBUF ${TREELITE_DIR}/lib64/libprotobuf.a)
-add_custom_command(TARGET treelite
-  POST_BUILD
-  COMMAND bash -c '(\[[ -e ${LIB64_TREELITE} ]\] && cp ${LIB64_TREELITE} ${TREELITE_DIR}/lib/) || true'
-  COMMAND bash -c '(\[[ -e ${LIB64_PROTOBUF} ]\] && cp ${LIB64_PROTOBUF} ${TREELITE_DIR}/lib/) || true'
-  COMMAND echo "Copied libtreelite.a and libprotobuf.a"
-  BYPRODUCTS ${TREELITE_DIR}/lib/libtreelite.a ${TREELITE_DIR}/lib/libprotobuf.a
 )
 
 add_library(dmlclib STATIC IMPORTED)
@@ -289,9 +277,9 @@ add_dependencies(treelitelib treelite)
 add_dependencies(treelite_runtimelib treelite)
 add_dependencies(protobuf treelite)
 
+
 set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-set_property(TARGET protobuf PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libprotobuf.a)
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 ###################################################################################################
@@ -332,7 +320,6 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/3rdparty/protobuf
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -384,13 +371,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     treelitelib
-    protobuf
+    ${PROTOBUF_LIBRARIES}
     dmlclib
     faisslib
     )
 
   if(OPENMP_FOUND)
-
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
