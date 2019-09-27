@@ -8,6 +8,8 @@
 - PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 - PR #855: Added benchmark tools
+- PR #892: General Gram matrices prim
+- PR #912: Support Vector Machine
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
