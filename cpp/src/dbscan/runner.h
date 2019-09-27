@@ -124,7 +124,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       std::cout << "- Iteration " << i + 1 << "  " << nBatches
                 << ". Batch size is " << nPoints << " samples." << std::endl;
 
-    if (verbose) std::cout << "Computing vertex degrees" << std::endl;
+    if (verbose) std::cout << "Compting vertex degrees" << std::endl;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
