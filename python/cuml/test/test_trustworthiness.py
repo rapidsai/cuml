@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import faulthandler
+faulthandler.enable()
+
 import pytest
 from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
