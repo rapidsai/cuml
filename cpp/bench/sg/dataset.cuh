@@ -98,7 +98,7 @@ struct Dataset {
     if (!p.rowMajor) {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
-    MLCommon::Random::make_blobs<D, int>(
+    MLCommon::Random::make_blobs<D, L>(
       tmpX, y, p.nrows, p.ncols, p.nclasses, allocator, stream, nullptr,
       nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
       D(b.center_box_max), b.seed);

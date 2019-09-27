@@ -36,10 +36,10 @@ struct Params {
 };
 
 template <typename D>
-class Dbscan : public BlobsFixture<D> {
+class Dbscan : public BlobsFixture<D, long> {
  public:
   Dbscan(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), dParams(p.dbscan) {
+    : BlobsFixture<D, long>(p.data, p.blobs), dParams(p.dbscan) {
     this->SetName(name.c_str());
   }
 
@@ -53,27 +53,13 @@ class Dbscan : public BlobsFixture<D> {
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       dbscanFit(handle, this->data.X, this->params.nrows, this->params.ncols,
-                D(dParams.eps), dParams.min_pts, labels,
+                D(dParams.eps), dParams.min_pts, this->data.y,
                 dParams.max_bytes_per_batch);
     }
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    labels =
-      (long*)allocator->allocate(this->params.nrows * sizeof(int), stream);
-  }
-
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    allocator->deallocate(labels, this->params.nrows * sizeof(int), stream);
-  }
-
  private:
   AlgoParams dParams;
-  long* labels;
 };
 
 std::vector<Params> getInputs() {
