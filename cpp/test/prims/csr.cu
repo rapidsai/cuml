@@ -321,6 +321,8 @@ TEST_P(WeakCCTest, Result) {
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
+  cudaStreamSynchronize(stream);
+
   cudaStreamDestroy(stream);
 
   CUDA_CHECK(cudaFree(row_ind));
