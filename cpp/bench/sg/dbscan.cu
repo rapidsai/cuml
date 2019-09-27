@@ -62,7 +62,7 @@ class Dbscan : public BlobsFixture<D> {
     auto allocator = this->handle->getDeviceAllocator();
     auto stream = this->handle->getStream();
     labels =
-      (int*)allocator->allocate(this->params.nrows * sizeof(int), stream);
+      (long*)allocator->allocate(this->params.nrows * sizeof(int), stream);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
@@ -73,7 +73,7 @@ class Dbscan : public BlobsFixture<D> {
 
  private:
   AlgoParams dParams;
-  int* labels;
+  long* labels;
 };
 
 std::vector<Params> getInputs() {
