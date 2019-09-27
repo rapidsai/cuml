@@ -59,6 +59,15 @@ double adjustedRandIndex(const cumlHandle &handle, const long *y,
     handle.getDeviceAllocator(), handle.getStream());
 }
 
+double adjustedRandIndex(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range) {
+  return MLCommon::Metrics::computeAdjustedRandIndex(
+    y, y_hat, n, lower_class_range, upper_class_range,
+    handle.getDeviceAllocator(), handle.getStream());
+}
+
 double klDivergence(const cumlHandle &handle, const double *y,
                     const double *y_hat, int n) {
   return MLCommon::Metrics::klDivergence(

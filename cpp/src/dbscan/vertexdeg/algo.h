@@ -41,7 +41,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
          "index_t should be 4 or 8 bytes");
 
   index_t m = data.N;
-  index_t n = min(data.N - startVertexId, batchSize);
+  index_t n = batchSize;
   index_t k = data.D;
 
   index_t *vd = data.vd;
@@ -60,17 +60,17 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
 
   if (workspaceSize != 0) workspace.resize(workspaceSize, stream);
 
-  auto fused_op = [vd, n] __device__(index_t global_c_idx, bool in_neigh) {
+  auto fused_op = [vd, n, batchSize] __device__(index_t global_c_idx,
+                                                bool in_neigh) {
     // fused construction of vertex degree
-    index_t batch_vertex = global_c_idx - (n * (global_c_idx / n));
+    index_t batch_vertex = fmod(global_c_idx, n);
 
     if (sizeof(index_t) == 4) {
-      atomicAdd((int *)(vd + batch_vertex), (int)in_neigh);
-      atomicAdd((int *)(vd + n), (int)in_neigh);
+      atomicAdd((unsigned int *)(vd + batch_vertex), in_neigh);
+      atomicAdd((unsigned int *)(vd + n), in_neigh);
     } else if (sizeof(index_t) == 8) {
-      atomicAdd((unsigned long long *)(vd + batch_vertex),
-                (unsigned long long)in_neigh);
-      atomicAdd((unsigned long long *)(vd + n), (unsigned long long)in_neigh);
+      atomicAdd((unsigned long long *)(vd + batch_vertex), in_neigh);
+      atomicAdd((unsigned long long *)(vd + n), in_neigh);
     }
   };
 
