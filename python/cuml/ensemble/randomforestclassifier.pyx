@@ -377,7 +377,7 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self._get_fil_mod()
+        self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -387,7 +387,6 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[double, int]*>params_t64
 
         state['verbose'] = self.verbose
-        self._get_fil_mod()
         state["pickle"] = True
         state["mod_ptr"] = self.mod_ptr
 
@@ -439,7 +438,7 @@ class RandomForestClassifier(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-    def _get_fil_mod(self):
+    def _get_model_info(self):
         self.mod_ptr = self._get_treelite(num_features=self.n_cols)
         cdef uintptr_t model_ptr = <uintptr_t> self.mod_ptr
         self.file_name = './model.buffer'
@@ -550,12 +549,12 @@ class RandomForestClassifier(Base):
         del(y_m)
         return self
 
-    def _predict_model_pickle(self, X):
-
+    def _predict_model_with_pickling(self, X,
+                                     algo='BATCH_TREE_REORG'):
         write_model_to_file(<vector[unsigned char]> self.mod_byte_data)
-        self.fil_model = ForestInference.load(filename="model.buffer",
+        self.fil_model = ForestInference.load(filename=self.file_name,
                                               output_class=True,
-                                              algo='BATCH_TREE_REORG',
+                                              algo=algo,
                                               model_type="protobuf")
         preds = self.fil_model.predict(X)
         return preds
@@ -670,7 +669,7 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         if self.pickle:
-            preds = self._predict_model_pickle(X)
+            preds = self._predict_model_with_pickling(X)
 
         elif self.dtype == np.float64:
             raise TypeError("GPU predict model only accepts float32 dtype"

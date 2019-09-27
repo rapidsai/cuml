@@ -13,13 +13,13 @@
 # limitations under the License.
 #
 
-import pytest
 import cuml
 from cuml.test.utils import array_equal
 import numpy as np
-from sklearn.datasets import load_iris
-from sklearn.datasets import make_regression
 import pickle
+import pytest
+from sklearn.datasets import load_iris
+from sklearn.datasets import make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 
 regression_models = dict(
@@ -61,6 +61,14 @@ umap_model = dict(
     UMAP=cuml.UMAP()
 )
 
+rf_classification_model = dict(
+    rfc=cuml.RandomForestClassifier()
+)
+
+rf_regression_model = dict(
+    rfr=cuml.RandomForestRegressor()
+)
+
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -99,6 +107,55 @@ def make_dataset(datatype, nrows, ncols):
     y_train = np.asarray(y[:train_rows, ]).astype(datatype)
 
     return X_train, y_train, X_test
+
+
+def make_classification_dataset(datatype, nrows, ncols, n_info):
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=0, n_classes=2)
+    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
+    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
+    y_train = np.asarray(y[:train_rows, ]).astype(np.int32)
+
+    return X_train, y_train, X_test
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('model', rf_regression_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_rf_regression_pickle(tmpdir, datatype, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
+
+    model.fit(X_train, y_train)
+    cu_before_pickle_predict = np.asarray(model.predict(X_test))
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_predict = np.asarray(cu_after_pickle_model.predict(X_test))
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('model', rf_classification_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(7)])
+@pytest.mark.parametrize('n_info', [unit_param(5)])
+def test_rf_classification_pickle(tmpdir, datatype, model,
+                                  nrows, ncols, n_info):
+    X_train, y_train, X_test = make_classification_dataset(datatype, nrows,
+                                                           ncols, n_info)
+
+    model.fit(X_train, y_train)
+    cu_before_pickle_predict = np.asarray(model.predict(X_test))
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_predict = np.asarray(cu_after_pickle_model.predict(X_test))
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
