@@ -70,9 +70,12 @@ void random_uniformInt(int treeid, unsigned int* data, int len, int n_rows,
 template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
-  const int num_sms, const cudaStream_t stream,
+  int seed, const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
-  srand(tree_id * 1000);
+  int rs = tree_id * 1000;
+  if (seed != -1) rs = seed * 1000;
+
+  srand(rs * 1000);
   if (rf_params.bootstrap) {
     random_uniformInt(tree_id, selected_rows, n_sampled_rows, n_rows, num_sms,
                       stream);
@@ -221,10 +224,10 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     unsigned int* rowids;
     rowids = selected_rows[stream_id]->data();
 
-    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows, rowids,
-                               tempmem[stream_id]->num_sms,
-                               tempmem[stream_id]->stream,
-                               handle.getDeviceAllocator());
+    this->prepare_fit_per_tree(
+      i, n_rows, n_sampled_rows, rowids, (this->rf_params.seed + i),
+      tempmem[stream_id]->num_sms, tempmem[stream_id]->stream,
+      handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -236,8 +239,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.getDeviceAllocator(),
-                 handle.getHostAllocator(),
+    trees[i].fit(handle.getDeviceAllocator(), handle.getHostAllocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, tempmem[stream_id]);
@@ -485,10 +487,10 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
     unsigned int* rowids = selected_rows[stream_id]->data();
-    this->prepare_fit_per_tree(i, n_rows, n_sampled_rows, rowids,
-                               tempmem[stream_id]->num_sms,
-                               tempmem[stream_id]->stream,
-                               handle.getDeviceAllocator());
+    this->prepare_fit_per_tree(
+      i, n_rows, n_sampled_rows, rowids, (this->rf_params.seed + i),
+      tempmem[stream_id]->num_sms, tempmem[stream_id]->stream,
+      handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -499,8 +501,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.getDeviceAllocator(),
-                 handle.getHostAllocator(),
+    trees[i].fit(handle.getDeviceAllocator(), handle.getHostAllocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  tempmem[stream_id]);
