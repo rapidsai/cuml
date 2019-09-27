@@ -88,6 +88,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adjSize + corePtsSize + 2 * xaSize + mSize + vdSize + exScanSize;
     return size;
   }
+
   // partition the temporary workspace needed for different stages of dbscan
   Index_ adjlen = 0;
   Index_ curradjlen = 0;
@@ -120,7 +121,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     if (nPoints <= 0) continue;
 
     if (verbose)
-      std::cout << "- Iteration " << i + 1 << " / " << nBatches
+      std::cout << "- Iteration " << i + 1 << "  " << nBatches
                 << ". Batch size is " << nPoints << " samples." << std::endl;
 
     if (verbose) std::cout << "Computing vertex degrees" << std::endl;
@@ -130,14 +131,15 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUDA_CHECK(cudaStreamSynchronize(stream));
     ML::POP_RANGE();
 
+    if (verbose)
+      std::cout << "Computing adjacency graph of size " << curradjlen
+                << std::endl;
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > adjlen || adj_graph.data() == NULL) {
       adjlen = curradjlen;
       adj_graph.resize(adjlen, stream);
     }
-
-    if (verbose) std::cout << "Computing adjacency graph" << std::endl;
 
     AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
                                 ex_scan, N, minPts, core_pts, algoAdj, nPoints,
