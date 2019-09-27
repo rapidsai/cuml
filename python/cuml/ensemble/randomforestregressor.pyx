@@ -139,12 +139,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[float, float]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, double]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
