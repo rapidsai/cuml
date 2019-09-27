@@ -65,6 +65,8 @@ void binaryOpImpl(OutType *out, const InType *in1, const InType *in2,
  * @param len number of elements in the input array
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
+ * @note Lambda must be a functor with the following signature:
+ *       `OutType func(const InType& val1, const InType& val2);`
  */
 template <typename InType, typename Lambda, typename OutType = InType,
           typename IdxType = int, int TPB = 256>
