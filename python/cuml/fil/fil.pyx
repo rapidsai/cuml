@@ -41,15 +41,18 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     cdef int TreeliteLoadXGBoostModel(const char* filename,
-                                      ModelHandle* out)
+                                      ModelHandle* out) except +
     cdef int TreeliteLoadXGBoostModelFromMemoryBuffer(const void* buf,
                                                       size_t len,
-                                                      ModelHandle* out)
-    cdef int TreeliteFreeModel(ModelHandle handle)
-    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out)
-    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out)
-    cdef int TreeliteLoadLightGBMModel(const char* filename, ModelHandle* out)
-    cdef int TreeliteLoadProtobufModel(const char* filename, ModelHandle* out)
+                                                      ModelHandle* out) \
+        except +
+    cdef int TreeliteFreeModel(ModelHandle handle) except +
+    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
+    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
+    cdef int TreeliteLoadLightGBMModel(const char* filename, ModelHandle* out) \
+        except +
+    cdef int TreeliteLoadProtobufModel(const char* filename, ModelHandle* out) \
+        except +
 
 
 cdef class TreeliteModel():

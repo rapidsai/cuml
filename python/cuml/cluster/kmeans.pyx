@@ -61,7 +61,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           float *centroids,
                           int *labels,
                           float &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,
@@ -71,7 +71,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           double *centroids,
                           int *labels,
                           double &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -80,7 +80,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      float &inertia)
+                      float &inertia) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -89,7 +89,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      double &inertia)
+                      double &inertia) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -98,7 +98,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        float *X_new)
+                        float *X_new) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -107,7 +107,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        double *X_new)
+                        double *X_new) except +
 
 
 class KMeans(Base):
