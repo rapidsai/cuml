@@ -67,7 +67,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml++..."
-$WORKSPACE/build.sh clean libcuml cuml prims -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 ################################################################################
 # TEST - Run MG GoogleTest and py.tests for libcuml++ and cuML
