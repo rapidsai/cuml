@@ -87,9 +87,7 @@ std::vector<Params> getInputs() {
   p.blobs.seed = 12345ULL;
   p.dbscan.max_bytes_per_batch = 0;
   std::vector<std::pair<int, int>> rowcols = {
-    {10000, 81},
-    {20000, 128},
-    {40000, 128},
+    {10000, 81}, {20000, 128}, {40000, 128}, {50000, 128}, {100000, 128},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
