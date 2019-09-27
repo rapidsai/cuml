@@ -17,6 +17,7 @@
 - PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 - PR #855: Added benchmark tools
+- PR #1149 Add YYMMDD to version tag for nightly conda packages
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
 
