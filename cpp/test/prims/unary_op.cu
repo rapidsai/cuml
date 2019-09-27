@@ -45,10 +45,8 @@ class UnaryOpTest
     Random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-
     auto len = params.len;
     auto scalar = params.scalar;
-
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
