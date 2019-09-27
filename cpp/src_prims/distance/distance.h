@@ -156,8 +156,9 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
 
   #if CUDART_VERSION >= 10010
     // EucUnexpandedL2Sqrt and EucExpandedL2Sqrt do not require workspace
-    const bool requires_allocation = (distanceType != EucUnexpandedL2Sqrt or \
-      distanceType != EucExpandedL2Sqrt);
+    // const bool requires_allocation = (distanceType != EucUnexpandedL2Sqrt or \
+    //  distanceType != EucExpandedL2Sqrt);
+    const bool requires_allocation = true;
   #else
     // This works for other CUDA versions
     const bool requires_allocation = distanceType <= EucExpandedCosine;
