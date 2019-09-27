@@ -90,6 +90,7 @@ def test_rf_classification(datatype, split_algo,
     assert fil_acc >= (cuml_acc - 0.02)
     assert fil_acc >= (sk_acc - 0.07)
 
+
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
 @pytest.mark.parametrize('ncols', [unit_param(16), quality_param(200),
