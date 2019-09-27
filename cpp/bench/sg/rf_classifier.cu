@@ -62,7 +62,7 @@ class RFClassifier : public BlobsFixture<D> {
       CudaEventTimer timer(handle, state, true, stream);
       mPtr->trees = nullptr;
       fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
-          labels, this->params.nclasses, rfParams);
+          this->data.y, this->params.nclasses, rfParams);
       CUDA_CHECK(cudaStreamSynchronize(stream));
       delete[] mPtr->trees;
     }
