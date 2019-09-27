@@ -213,6 +213,18 @@ class KMeans(Base):
     oversampling_factor : float scalable k-means|| oversampling factor
     max_samples_per_batch : int maximum number of samples to use for each batch
                                 of the pairwise distance computation.
+    oversampling_factor : int (default = 2) The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768) The number of data
+        samples to use for batches of the pairwise distance computation.
+        This computation is done throughout both fit predict. The default
+        should suit most cases. The total number of elements in the batched
+        pairwise distance computation is max_samples_per_batch * n_clusters.
+        It might become necessary to lower this number when n_clusters
+        becomes prohibitively large.
 
     Attributes
     ----------
@@ -251,8 +263,6 @@ class KMeans(Base):
         self.verbose = verbose
         self.random_state = random_state
         self.init = init
-        self.copy_x = None
-        self.n_jobs = None
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
@@ -604,43 +614,7 @@ class KMeans(Base):
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-    def get_params(self):
-        """
-        Scikit-learn style return parameter state
-        """
-        params = dict()
-        variables = ['oversampling_factor', 'max_samples_per_batch', 'copy_x',
-                     'init', 'max_iter', 'n_clusters', 'random_state',
-                     'tol', 'verbose']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"oversampling_factor": self.oversampling_factor,
-                          "max_samples_per_batch": self.max_samples_per_batch,
-                          "copy_x": self.copy_x,
-                          "init": self.init,
-                          "max_iter": self.max_iter,
-                          "n_clusters": self.n_clusters,
-                          "random_state": self.random_state,
-                          "tol": self.tol,
-                          "verbose": self.verbose
-                          }
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
+    def get_param_names(self):
+        return ['oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state',
+                'tol', 'verbose']
