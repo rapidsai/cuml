@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cmath>
 #include <cuML.hpp>
 #include <randomforest/randomforest.hpp>
 #include <utility>
@@ -68,21 +69,7 @@ class RFClassifier : public BlobsFixture<D> {
     }
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    labels =
-      (int*)allocator->allocate(this->params.nrows * sizeof(int), stream);
-  }
-
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    allocator->deallocate(labels, this->params.nrows * sizeof(int), stream);
-  }
-
  private:
-  int* labels;
   RFClassifierModel<D> model;
   RF_params rfParams;
 };
@@ -103,7 +90,6 @@ std::vector<Params> getInputs() {
   p.rf.bootstrap = true;
   p.rf.rows_sample = 1.f;
   p.rf.tree_params.max_leaves = 1 << 20;
-  p.rf.tree_params.max_features = 1.f;
   p.rf.tree_params.min_rows_per_node = 3;
   p.rf.tree_params.n_bins = 32;
   p.rf.tree_params.bootstrap_features = true;
@@ -123,6 +109,7 @@ std::vector<Params> getInputs() {
     p.data.nrows = rc.nrows;
     p.data.ncols = rc.ncols;
     p.data.nclasses = rc.nclasses;
+    p.rf.tree_params.max_features = 1.f / std::sqrt(float(rc.ncols));
     for (auto max_depth : std::vector<int>({8, 10})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
