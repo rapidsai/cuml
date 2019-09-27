@@ -33,7 +33,7 @@ import pandas as pd
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 @pytest.mark.parametrize('n_workers', [1, 2, 4, 8])
-def test_rf_classification(n_workers, partitions_per_worker):
+def test_rf_classification_dask(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
@@ -44,6 +44,7 @@ def test_rf_classification(n_workers, partitions_per_worker):
                                n_clusters_per_class=1, n_informative=10,
                                random_state=123, n_classes=5)
 
+    X = X.astype(np.float32)
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
@@ -83,7 +84,7 @@ def test_rf_classification(n_workers, partitions_per_worker):
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 @pytest.mark.parametrize('n_workers', [1, 2, 8])
-def test_rf_regression(n_workers, partitions_per_worker):
+def test_rf_regression_dask(n_workers, partitions_per_worker):
     if dask_cuda.utils.get_n_gpus() < n_workers:
         pytest.skip("too few GPUs")
 
@@ -92,6 +93,9 @@ def test_rf_regression(n_workers, partitions_per_worker):
 
     X, y = make_regression(n_samples=40000, n_features=20,
                            n_informative=10, random_state=123)
+
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 
