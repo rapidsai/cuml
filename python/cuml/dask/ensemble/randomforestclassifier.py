@@ -23,6 +23,8 @@ import math
 import random
 import numpy as np
 
+from uuid import uuid1
+
 
 class RandomForestClassifier:
     """
@@ -114,7 +116,6 @@ class RandomForestClassifier:
         self,
         n_estimators=10,
         max_depth=-1,
-        handle=None,
         max_features=1.0,
         n_bins=8,
         split_algo=1,
@@ -193,13 +194,13 @@ class RandomForestClassifier:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        key = str(uuid1())
         self.rfs = {
             worker: c.submit(
                 RandomForestClassifier._func_build_rf,
-                n,
                 self.n_estimators_per_worker[n],
                 max_depth,
-                handle,
+                n_streams,
                 max_features,
                 n_bins,
                 split_algo,
@@ -211,16 +212,13 @@ class RandomForestClassifier:
                 verbose,
                 rows_sample,
                 max_leaves,
-                n_streams,
                 quantile_per_tree,
                 dtype,
-                random.random(),
+                key="%s-%s" % (key, n),
                 workers=[worker],
             )
             for n, worker in enumerate(workers)
         }
-
-        print(str(self.rfs))
 
         rfs_wait = list()
         for r in self.rfs.values():
@@ -230,10 +228,9 @@ class RandomForestClassifier:
 
     @staticmethod
     def _func_build_rf(
-        n,
         n_estimators,
         max_depth,
-        handle,
+        n_streams,
         max_features,
         n_bins,
         split_algo,
@@ -245,15 +242,13 @@ class RandomForestClassifier:
         verbose,
         rows_sample,
         max_leaves,
-        n_streams,
         quantile_per_tree,
         dtype,
-        r,
     ):
         return cuRFC(
             n_estimators=n_estimators,
             max_depth=max_depth,
-            handle=handle,
+            handle=None,
             max_features=max_features,
             n_bins=n_bins,
             split_algo=split_algo,
