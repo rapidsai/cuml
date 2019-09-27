@@ -48,11 +48,11 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
-                        int n_rows,
-                        int n_cols,
+                        long n_rows,
+                        long n_cols,
                         double eps,
                         int min_pts,
-                        int *labels,
+                        long *labels,
                         size_t max_bytes_per_batch,
                         bool verbose) except +
 
@@ -202,11 +202,11 @@ class DBSCAN(Base):
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
+                      <long> n_rows,
+                      <long> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
-                      <int*> labels_ptr,
+                      <long*> labels_ptr,
                       <size_t> self.max_bytes_per_batch,
                       <bool>self.verbose)
         # make sure that the `dbscanFit` is complete before the following
