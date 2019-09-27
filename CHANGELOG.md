@@ -24,6 +24,7 @@
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
+- PR #1165: Adding except + in all remaining cython
 
 ## Bug Fixes
 
