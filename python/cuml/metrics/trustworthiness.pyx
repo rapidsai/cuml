@@ -23,6 +23,9 @@ import cudf
 import numpy as np
 import warnings
 
+import faulthandler
+faulthandler.enable()
+
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
@@ -100,11 +103,11 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                            convert_to_dtype=(np.float32 if convert_dtype
                                              else None))
 
-    cdef cumlHandle* handle_ = <cumlHandle*>0
-    if handle is None:
-        handle_ = <cumlHandle*><size_t>(new cumlHandle())
-    else:
-        handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    assert(handle_ != NULL)
+    assert(<void*>d_X_ptr != NULL)
+    assert(<void*>d_X_embedded_ptr != NULL)
 
     if metric == 'euclidean':
         res = trustworthiness_score[float, euclidean](handle_[0],
