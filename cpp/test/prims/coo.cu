@@ -241,8 +241,6 @@ TEST_P(COORowCount, Result) {
   updateDevice(in_rows, *&in_rows_h, 5, 0);
   updateDevice(verify, *&verify_h, 5, 0);
 
-  dim3 grid(ceildiv(5, 32), 1, 1);
-  dim3 blk(32, 1, 1);
   coo_row_count<32>(in_rows, 5, results, 0);
   cudaDeviceSynchronize();
 
@@ -270,8 +268,6 @@ TEST_P(COORowCountNonzero, Result) {
   updateDevice(verify, *&verify_h, 5, 0);
   updateDevice(in_vals, *&in_vals_h, 5, 0);
 
-  dim3 grid(ceildiv(5, 32), 1, 1);
-  dim3 blk(32, 1, 1);
   coo_row_count_nz<32, float>(in_rows, in_vals, 5, results);
   cudaDeviceSynchronize();
 
