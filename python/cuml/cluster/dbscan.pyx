@@ -38,21 +38,21 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,
-                        int n_rows,
-                        int n_cols,
+                        long n_rows,
+                        long n_cols,
                         float eps,
                         int min_pts,
-                        int *labels,
+                        long *labels,
                         size_t max_bytes_per_batch,
                         bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
-                        int n_rows,
-                        int n_cols,
+                        long n_rows,
+                        long n_cols,
                         double eps,
                         int min_pts,
-                        int *labels,
+                        long *labels,
                         size_t max_bytes_per_batch,
                         bool verbose) except +
 
@@ -186,27 +186,27 @@ class DBSCAN(Base):
                                check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int64))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
+                      <long> n_rows,
+                      <long> n_cols,
                       <float> self.eps,
                       <int> self.min_samples,
-                      <int*> labels_ptr,
+                      <long*> labels_ptr,
                       <size_t>self.max_bytes_per_batch,
                       <bool>self.verbose)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
+                      <long> n_rows,
+                      <long> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
-                      <int*> labels_ptr,
+                      <long*> labels_ptr,
                       <size_t> self.max_bytes_per_batch,
                       <bool>self.verbose)
         # make sure that the `dbscanFit` is complete before the following

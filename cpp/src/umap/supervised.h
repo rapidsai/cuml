@@ -68,8 +68,6 @@ template <typename T, int TPB_X>
 void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               cudaStream_t stream  // size = nnz*2
 ) {
-  dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
-  dim3 blk_n(TPB_X, 1, 1);
 
   int *row_ind;
   MLCommon::allocate(row_ind, in_coo->n_rows);
