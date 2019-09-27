@@ -17,7 +17,9 @@
 - PR #1093: Unified inference kernels for different FIL algorithms
 - PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1108: input_to_host_array function in input_utils for input processing to host arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
 
 ## Bug Fixes
@@ -36,6 +38,7 @@
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
+- PR #1132: DBSCAN Batching Bug Fix
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -95,6 +98,7 @@
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
+- PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
 
 ## Bug Fixes
 
