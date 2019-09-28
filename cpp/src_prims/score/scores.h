@@ -99,9 +99,9 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
 }
   
   
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__"); \
-  printf("[%d] %s\n", __LINE__, __FILE__"); \
-  printf("[%d] %s\n", __LINE__, __FILE__")
+#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__)
 
 /**
  * @brief Compute the trustworthiness score
