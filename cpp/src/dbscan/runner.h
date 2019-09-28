@@ -36,7 +36,7 @@ static const int TPB = 256;
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
  */
-template <typename Index_ = long>
+template <typename Index_ = int>
 __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
@@ -49,7 +49,7 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  * Turn the non-monotonic labels from weak_cc primitive into
  * an array of labels drawn from a monotonically increasing set.
  */
-template <typename Index_ = long>
+template <typename Index_ = int>
 void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
@@ -69,13 +69,25 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type, typename Type_f, typename Index_ = long>
+template <typename Type, typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
            bool verbose = false) {
   const size_t align = 256;
-  Index_ batchSize = ceildiv(N, nBatches);
+  size_t batchSize = ceildiv<size_t>(N, nBatches);
+
+  /**
+   * Note on coupling between data types:
+   * - adjacency graph has a worst case size of N * batchSize elements. Thus,
+   * if N is very close to being greater than the maximum 32-bit IdxType type used, a
+   * 64-bit IdxType should probably be used instead.
+   * - exclusive scan is the CSR row index for the adjacency graph and its values have a
+   * risk of overflowing when N * batchSize becomes larger what can be stored in IdxType
+   * - the vertex degree array has a worst case of each element having all other
+   * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
+   * overflow.
+   */
   size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
   size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
@@ -83,13 +95,23 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
   size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
+  // TODO: We should ASSERT that N * batchSize is greater than the maximum value used
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+
+  ASSERT(
+    N * batchSize < MAX_LABEL,
+    "An overflow occurred with the current choice of precision "
+    "and the number of samples. (Max allowed batch size is %d, but was %d)",
+    MAX_LABEL / N, batchSize);
+
   if (workspace == NULL) {
     auto size =
       adjSize + corePtsSize + 2 * xaSize + mSize + vdSize + exScanSize;
     return size;
   }
 
-  // partition the temporary workspace needed for different stages of dbscan
+  // partition the temporary workspace needed for different stages of dbscan.
+
   Index_ adjlen = 0;
   Index_ curradjlen = 0;
   char* temp = (char*)workspace;
@@ -117,7 +139,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
                                               stream);
 
     Index_ startVertexId = i * batchSize;
-    Index_ nPoints = min(N - startVertexId, batchSize);
+    Index_ nPoints = min(size_t(N - startVertexId), batchSize);
     if (nPoints <= 0) continue;
 
     if (verbose)
@@ -162,7 +184,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2) final_relabel(labels, N, stream);
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   size_t nblks = ceildiv<size_t>(N, TPB);
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());

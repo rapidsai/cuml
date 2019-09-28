@@ -326,7 +326,7 @@ void pairwiseDistance(const Type *x, const Type *y, Type *dist, Index_ m,
  *                  the epsilon neighborhood.
  */
 template <DistanceType distanceType, typename T, typename Lambda,
-          typename Index_ = long, typename OutputTile_ = OutputTile_8x128x128>
+          typename Index_ = int, typename OutputTile_ = OutputTile_8x128x128>
 size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                             Index_ n, Index_ k, T eps, void *workspace,
                             size_t worksize, cudaStream_t stream,

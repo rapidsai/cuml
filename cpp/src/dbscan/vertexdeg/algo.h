@@ -32,7 +32,7 @@ namespace Algo {
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
-template <typename value_t, typename index_t = long>
+template <typename value_t, typename index_t = int>
 void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
               index_t startVertexId, index_t batchSize, cudaStream_t stream) {
   data.resetArray(stream, batchSize + 1);
