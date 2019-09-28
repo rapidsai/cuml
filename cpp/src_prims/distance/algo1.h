@@ -30,10 +30,6 @@
 
 #include <type_traits>
 
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__)
-
 namespace MLCommon {
 namespace Distance {
 
@@ -69,14 +65,12 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                    const InType *pB, OutType *pD, bool enable_sqrt,
                    AccType *workspace, size_t worksize, FinalLambda fin_op,
                    NormLambda norm_op, cudaStream_t stream, bool isRowMajor) {
-  WHERE();
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
   EffOutType *pDCast =
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
   
-            WHERE();
   if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
       (worksize < m * sizeof(AccType))) {
     THROW("workspace size error");
@@ -95,11 +89,12 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     norm_op);
     LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, isRowMajor, stream,
                     norm_op);
+    CUDA_CHECK(cudaPeekAtLastError());
   } else {
     LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
                     norm_op);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
-            WHERE();
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef cutlass::gemm::ThreadMultiplyAdd<
@@ -125,7 +120,6 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   typedef ExpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
             
-            WHERE();
 
   cublasOperation_t transa, transb;
   const InType *aPtr, *bPtr;
@@ -156,7 +150,6 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     cvec = row_vec;
     rvec = col_vec;
   }
-            WHERE();
             
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
@@ -168,7 +161,8 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
-            WHERE();
+            
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // end namespace Distance
