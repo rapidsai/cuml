@@ -155,7 +155,6 @@ template <DistanceType distanceType, typename InType, typename AccType,
 size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
-  WHERE();
             
   switch (distanceType)
   {
@@ -215,7 +214,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   
   // Check for correct workspace size
   const size_t correct_workspace = \
-    getWorkspaceSize<distance_type, InType, AccType, OutType>(x, y, m, n, k);
+    getWorkspaceSize<distanceType, InType, AccType, OutType>(x, y, m, n, k);
   ASSERT(worksize >= correct_workspace,
          "Workspace size is incorrect. Current size is %zu, but correct size is"
          " %zu. Error at line = %d, file = %s\n", worksize, correct_workspace,
