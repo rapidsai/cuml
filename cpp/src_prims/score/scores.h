@@ -82,8 +82,11 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
                       cudaStream_t stream) {
   long *d_pred_I =
     (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
+  ASSERT(d_pred_I != NULL, "No more GPU memory at line = %d, file = %s\n", __LINE__, __FILE__);
+  
   math_t *d_pred_D =
     (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
+  ASSERT(d_pred_D != NULL, "No more GPU memory at line = %d, file = %s\n", __LINE__, __FILE__);
 
   float **ptrs = new float *[1];
   ptrs[0] = input;
@@ -129,14 +132,18 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 
   math_t *d_pdist_tmp =
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
+  ASSERT(d_pdist_tmp != NULL, "No more GPU memory at line = %d, file = %s\n", __LINE__, __FILE__);
+  
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
-
+  ASSERT(d_ind_X_tmp != NULL, "No more GPU memory at line = %d, file = %s\n", __LINE__, __FILE__);
+  
   long *ind_X_embedded =
     get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
 
   double t_tmp = 0.0;
   double t = 0.0;
   double *d_t = (double *)d_alloc->allocate(sizeof(double), stream);
+  ASSERT(d_t != NULL, "No more GPU memory at line = %d, file = %s\n", __LINE__, __FILE__);
   
   WHERE();
   
