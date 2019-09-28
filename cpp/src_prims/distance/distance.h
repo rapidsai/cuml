@@ -45,9 +45,9 @@ enum DistanceType {
   EucUnexpandedL2Sqrt = 5,
 };
   
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__"); \
-  printf("[%d] %s\n", __LINE__, __FILE__"); \
-  printf("[%d] %s\n", __LINE__, __FILE__")
+#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__)
 
 namespace {
 template <DistanceType distanceType, typename InType, typename AccType,
