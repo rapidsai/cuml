@@ -116,6 +116,11 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
                              cudaStream_t stream) {
+  #define WHERE printf("[%d] %s\n", __LINE__, __FILE__"); \
+    printf("[%d] %s\n", __LINE__, __FILE__"); \
+    printf("[%d] %s\n", __LINE__, __FILE__")
+  
+  WHERE();  
   const int TMP_SIZE = MAX_BATCH_SIZE * n;
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
@@ -130,7 +135,9 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   double t_tmp = 0.0;
   double t = 0.0;
   double *d_t = (double *)d_alloc->allocate(sizeof(double), stream);
-
+  
+  WHERE();
+  
   int toDo = n;
   while (toDo > 0)
   {
@@ -144,6 +151,8 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     size_t distance_workspace_size = \
       MLCommon::Distance::getWorkspaceSize<distance_type, math_t, math_t, math_t>(
         &X[(n - toDo) * m], X, batchSize, n, m);
+    
+    WHERE();
     
     if (distance_workspace_size != 0)
       distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
@@ -163,6 +172,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     
     
     // Determine sort columns workspace
+    WHERE();
     
     bool need_workspace = false;
     size_t sort_workspace_size = 0;
@@ -174,6 +184,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     {
       char *sort_workspace = (char*) d_alloc->allocate(sort_workspace_size, stream);
       
+      WHERE(); 
       MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
                                              n, need_workspace, (void*)sort_workspace,
                                              sort_workspace_size, stream);
@@ -200,6 +211,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     t += t_tmp;
 
     toDo -= batchSize;
+    WHERE(); 
   }
 
   t =
@@ -211,7 +223,8 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   d_alloc->deallocate(d_pdist_tmp, TMP_SIZE * sizeof(math_t), stream);
   d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
-
+  
+  WHERE();
   return t;
 }
 
