@@ -81,7 +81,6 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
 
   InType *col_vec = workspace;
   InType *row_vec = workspace;
-            WHERE();
             
   if (pA != pB) {
     row_vec += m;
