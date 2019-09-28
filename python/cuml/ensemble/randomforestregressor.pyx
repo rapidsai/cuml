@@ -288,7 +288,7 @@ class RandomForestRegressor(Base):
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None, int seed=-1):
+                 quantile_per_tree=False, criterion=None, seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
