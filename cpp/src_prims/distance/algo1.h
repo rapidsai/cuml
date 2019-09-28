@@ -78,8 +78,6 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     EffOutType;
   EffOutType *pDCast =
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
-  
-                    WHERE();
                     
   if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
       (worksize < m * sizeof(AccType))) {
@@ -98,13 +96,13 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     norm_op);
     LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, isRowMajor, stream,
                     norm_op);
-    CUDA_CHECK(cudaPeekAtLastError());
-  } else {
+  }
+  else {
     LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
                     norm_op);
-    CUDA_CHECK(cudaPeekAtLastError());
   }
-                    WHERE();
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef cutlass::gemm::ThreadMultiplyAdd<
@@ -173,7 +171,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     fin_op, stream);
             
   CUDA_CHECK(cudaPeekAtLastError());
-                    WHERE();
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
