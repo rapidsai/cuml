@@ -13,24 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
-
-from libcpp.memory cimport shared_ptr
-cimport cuml.common.cuda
-
-
-cdef extern from "cuML.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        cumlHandle(int ns) except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
+from cuml.svm.svm import SVC

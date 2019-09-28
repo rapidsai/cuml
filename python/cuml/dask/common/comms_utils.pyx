@@ -35,7 +35,7 @@ cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
     cdef cppclass cumlCommunicator
 
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
+cdef extern from "cuML.hpp" namespace "ML":
     cdef cppclass cumlHandle:
         cumlHandle() except +
 
@@ -45,19 +45,20 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                          void *ucp_worker,
                          void *eps,
                          int size,
-                         int rank)
+                         int rank) except +
 
     void inject_comms_py_coll(cumlHandle *handle,
                               ncclComm_t comm,
                               int size,
-                              int rank)
+                              int rank) except +
 
     bool ucx_enabled()
 
 
-cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms" nogil:
-    bool test_collective_allreduce(const cumlHandle &h)
-    bool test_pointToPoint_simple_send_recv(const cumlHandle &h, int numTrials)
+cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms":
+    bool test_collective_allreduce(const cumlHandle &h) except +
+    bool test_pointToPoint_simple_send_recv(const cumlHandle &h,
+                                            int numTrials) except +
 
 
 def is_ucx_enabled():
