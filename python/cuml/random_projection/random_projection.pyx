@@ -56,16 +56,17 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
     # Function used to fit the model
     cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
-                          paramsRPROJ* params)
+                          paramsRPROJ* params) except +
 
     # Function used to apply data transformation
     cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
-                                paramsRPROJ* params)
+                                paramsRPROJ* params) except +
 
     # Function used to compute the Johnson Lindenstrauss minimal distance
     cdef size_t c_johnson_lindenstrauss_min_dim \
-        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples, double eps)
+        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples,
+                                             double eps) except +
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):

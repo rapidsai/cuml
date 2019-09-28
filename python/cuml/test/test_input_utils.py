@@ -111,6 +111,10 @@ def test_dtype_check(dtype, check_dtype, input_type):
             _, _, _, _, got_dtype = \
                 input_to_dev_array(input_data, check_dtype=check_dtype)
 
+    with pytest.raises(ValueError):
+        _, _, _, _, got_dtype = \
+            input_to_dev_array(input_data, check_dtype='float32')
+
 
 @pytest.mark.parametrize('num_rows', [1, 100])
 @pytest.mark.parametrize('num_cols', [1, 100])

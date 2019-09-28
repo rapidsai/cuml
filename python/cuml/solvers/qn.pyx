@@ -55,7 +55,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnFit(cumlHandle& cuml_handle,
                double *X,
@@ -75,7 +75,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
@@ -86,7 +86,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    float *params,
                    bool X_col_major,
                    int loss_type,
-                   float *preds)
+                   float *preds) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    double *X,
@@ -97,7 +97,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    double *params,
                    bool X_col_major,
                    int loss_type,
-                   double *preds)
+                   double *preds) except +
 
 
 class QN(Base):
