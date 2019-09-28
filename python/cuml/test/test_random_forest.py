@@ -146,3 +146,18 @@ def test_rf_regression(datatype, split_algo,
     print(fil_r2, cu_r2, sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
     assert fil_r2 >= (sk_r2 - 0.07)
+
+
+def test_save_protobuf(tmp_path):
+    # Simple placeholder test just to confirm that linking works
+    nrows = 100
+    ncols = 10
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               random_state=123, n_classes=2)
+    model = curfc()
+    model.fit(X, y.astype(np.int32))
+    out_path = tmp_path / "demo.proto"
+    model.save_treelite_protobuf(bytes(out_path), ncols)
+    file_size = out_path.stat().st_size
+    # Just check that
+    assert file_size > 0

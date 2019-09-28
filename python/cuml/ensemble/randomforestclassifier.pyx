@@ -89,7 +89,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
-    cdef void save_model(ModelHandle, char*)
+    cdef void save_model_protobuf(ModelHandle, char*)
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
@@ -878,3 +878,10 @@ class RandomForestClassifier(Base):
                                   <int> task_category)
         self.mod_ptr = <size_t> cuml_model_ptr
         return ctypes.c_void_p(self.mod_ptr)
+
+    def save_treelite_protobuf(self, const char* file_name, num_features):
+        """Saves the trained model in treelite format to filename"""
+        tl = self._get_treelite(num_features)
+        print("saving model to: ", file_name)
+        save_model_protobuf(<ModelHandle>tl, file_name)
+

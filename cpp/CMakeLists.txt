@@ -255,7 +255,9 @@ add_definitions\\(-DTREELITE_PROTOBUF_SUPPORT\\)"
   "if (ENABLE_PROTOBUF) \n\
   # Modified by cuml \n\
   set(Protobuf_USE_STATIC_LIBS ON)\n\
-  find_package(Protobuf REQUIRED)"
+  find_package(Protobuf REQUIRED)\n\
+  add_definitions(-DTREELITE_PROTOBUF_SUPPORT)\n\
+"
   
   TREELITE_CMAKE_TXT
   "${TREELITE_CMAKE_TXT}")
