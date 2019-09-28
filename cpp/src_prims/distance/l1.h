@@ -113,6 +113,7 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
       return err;
     },
     fin_op, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 }  // namespace Distance
 }  // namespace MLCommon
