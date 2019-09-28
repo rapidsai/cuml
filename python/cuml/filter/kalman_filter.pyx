@@ -56,7 +56,7 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                                        float*,
                                        float*,
                                        float*,
-                                       float*)
+                                       float*) except +
 
     cdef void init_f32(Variables[float]&,
                        int,
@@ -71,12 +71,12 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                        float*,
                        float*,
                        void*,
-                       size_t&)
+                       size_t&) except +
 
-    cdef void predict_f32(Variables[float]&)
+    cdef void predict_f32(Variables[float]&) except +
 
     cdef void update_f32(Variables[float]&,
-                         float*)
+                         float*) except +
 
     cdef size_t get_workspace_size_f64(Variables[double]&,
                                        int,
@@ -89,7 +89,7 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                                        double*,
                                        double*,
                                        double*,
-                                       double*)
+                                       double*) except +
 
     cdef void init_f64(Variables[double]&,
                        int,
@@ -104,12 +104,12 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                        double*,
                        double*,
                        void*,
-                       size_t&)
+                       size_t&) except +
 
-    cdef void predict_f64(Variables[double]&)
+    cdef void predict_f64(Variables[double]&) except +
 
     cdef void update_f64(Variables[double]&,
-                         double*)
+                         double*) except +
 
 
 class KalmanFilter(Base):
