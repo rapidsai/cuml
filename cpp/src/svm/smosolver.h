@@ -231,7 +231,7 @@ class SmoSolver {
   int n_small_diff;
 
   bool CheckStoppingCondition(math_t diff) {
-    // TODO improve stopping condition to detect oscillationsq, see Issue #947
+    // TODO improve stopping condition to detect oscillations, see Issue #947
     bool keep_going = true;
     if (abs(diff - diff_prev) < 0.001 * tol) {
       n_small_diff++;
@@ -239,9 +239,13 @@ class SmoSolver {
       diff_prev = diff;
       n_small_diff = 0;
     }
-    if (diff < tol || n_small_diff > 10) {
+    if (n_small_diff > 1000) {
+      if (verbose) {
+        std::cout << "SMO error: Stopping due to unchanged diff\n";
+      }
       keep_going = false;
     }
+    if (diff < tol) keep_going = false;
     // ASSERT(!isnan(diff), "SMO: NaN found during fitting")
     if (isnan(diff)) {
       std::cout << "SMO error: NaN found during fitting\n";
