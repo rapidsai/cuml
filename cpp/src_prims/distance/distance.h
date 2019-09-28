@@ -44,10 +44,7 @@ enum DistanceType {
   /** same as above, but inside the epilogue, perform square root operation */
   EucUnexpandedL2Sqrt = 5,
 };
-  
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__)
+
 
 namespace {
 template <DistanceType distanceType, typename InType, typename AccType,
@@ -66,7 +63,6 @@ struct DistanceImpl<EucExpandedL2, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     euclideanAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
       stream, isRowMajor);
@@ -80,7 +76,6 @@ struct DistanceImpl<EucExpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     euclideanAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op, stream,
       isRowMajor);
@@ -94,7 +89,6 @@ struct DistanceImpl<EucExpandedCosine, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     cosineAlgo1<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, (AccType *)workspace, worksize, fin_op, stream,
       isRowMajor);
@@ -108,7 +102,6 @@ struct DistanceImpl<EucUnexpandedL2, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, false, fin_op, stream, isRowMajor);
   }
@@ -121,7 +114,6 @@ struct DistanceImpl<EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, true, fin_op, stream, isRowMajor);
   }
@@ -134,7 +126,6 @@ struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-      WHERE();
     l1Impl<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
       m, n, k, x, y, dist, fin_op, stream, isRowMajor);
   }
@@ -183,10 +174,6 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
       // No workspace needed as no row norms are added
       break;
   }
-            
-  printf("Workspace = %d\n", worksize);
-  printf("Workspace = %d\n", worksize);
-  printf("Workspace = %d\n", worksize);
   
   return worksize;
 }
@@ -222,7 +209,22 @@ template <DistanceType distanceType, typename InType, typename AccType,
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
-  WHERE();
+            
+  ASSERT(x != NULL and y != NULL and dist != NULL,
+         "Data is NULL at line = %d, file = %s\n", __LINE__, __FILE__);
+  
+  // Check for correct workspace size
+  const size_t correct_workspace = \
+    getWorkspaceSize<distance_type, InType, AccType, OutType>(x, y, m, n, k);
+  ASSERT(worksize >= correct_workspace,
+         "Workspace size is incorrect. Current size is %zu, but correct size is"
+         " %zu. Error at line = %d, file = %s\n", worksize, correct_workspace,
+         __LINE__, __FILE__);
+            
+  if (correct_workspace > 0)
+    ASSERT(workspace != NULL,
+           "Workspace is NULL at line = %d, file = %s\n", __LINE__, __FILE__);
+  
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
                Index_>
     distImpl;
@@ -258,15 +260,10 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               cudaStream_t stream, bool isRowMajor = true) {
             
-  WHERE();
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
-  assert(x != NULL and y != NULL and dist != NULL);
-  printf("Worksize = %d, is null = %d\n", worksize, workspace == NULL);
-  printf("Worksize = %d, is null = %d\n", worksize, workspace == NULL);
-  
-   WHERE();
+
   distance<distanceType, InType, AccType, OutType, OutputTile_,
            decltype(default_fin_op), Index_>(x, y, dist, m, n, k, workspace,
                                              worksize, default_fin_op, stream,
