@@ -35,6 +35,11 @@
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
 
+#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
+  CUDA_CHECK(cudaPeekAtLastError())
+
 namespace MLCommon {
 namespace Score {
 
@@ -100,11 +105,6 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
 }
-  
-  
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__)
 
 /**
  * @brief Compute the trustworthiness score
