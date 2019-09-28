@@ -24,10 +24,6 @@
 #include <cutlass/shape.h>
 #include <type_traits>
 
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__)
-
 namespace MLCommon {
 namespace Distance {
 
@@ -59,7 +55,6 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     AccType *workspace, size_t &worksize, FinalLambda fin_op,
                     cudaStream_t stream, bool isRowMajor) {
-  WHERE();
                     
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
@@ -96,7 +91,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
                     
-                    WHERE();
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -163,6 +157,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // end namespace Distance
