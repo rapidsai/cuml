@@ -30,7 +30,7 @@ class rf {
   virtual ~rf() = default;
   void prepare_fit_per_tree(
     int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
-    int seed, int num_sms, const cudaStream_t stream,
+    int num_sms, const cudaStream_t stream,
     const std::shared_ptr<deviceAllocator> device_allocator);
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
