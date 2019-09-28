@@ -85,6 +85,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
+    cdef void save_model(ModelHandle, char*)
+
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, float]*,
                   float*,

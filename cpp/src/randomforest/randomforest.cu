@@ -304,13 +304,8 @@ void build_treelite_forest(ModelHandle* model,
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
 }
 
-void save_model(ModelHandle model) {
-  std::cout << " ModelHandle model : " << model << std::endl << std::flush;
+void save_model_protobuf(ModelHandle model, const char* file_name) {
   tl::Model& tl_mod = *(tl::Model*)model;
-  std::cout << " model num_features in c++ : " << tl_mod.num_feature
-            << std::endl
-            << std::flush;
-  char* file_name = "./model.buffer";
   TreeliteExportProtobufModel(file_name, model);
 }
 
