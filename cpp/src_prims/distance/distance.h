@@ -24,6 +24,11 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
+#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
+  CUDA_CHECK(cudaPeekAtLastError())
+
 namespace MLCommon {
 namespace Distance {
 
@@ -173,7 +178,8 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
       // No workspace needed as no row norms are added
       break;
   }
-  
+  printf("Worksize = %d\n", worksize);
+  printf("Worksize = %d\n", worksize);
   return worksize;
 }
 
@@ -262,12 +268,14 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
-
+  
   distance<distanceType, InType, AccType, OutType, OutputTile_,
            decltype(default_fin_op), Index_>(x, y, dist, m, n, k, workspace,
                                              worksize, default_fin_op, stream,
                                              isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
+            
+            WHERE();
 }
 
 /**
