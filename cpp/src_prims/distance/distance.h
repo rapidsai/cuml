@@ -166,22 +166,24 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
   size_t worksize = 0;
   WHERE();
             
-  #if CUDART_VERSION >= 10010
-    // EucUnexpandedL2Sqrt and EucExpandedL2Sqrt do not require workspace
-    // const bool requires_allocation = (distanceType != EucUnexpandedL2Sqrt or \
-    //  distanceType != EucExpandedL2Sqrt);
-    const bool requires_allocation = true;
-  #else
-    // This works for other CUDA versions
-    const bool requires_allocation = distanceType <= EucExpandedCosine;
-  #endif
-
-  if (requires_allocation)
+  switch (distanceType)
   {
-    worksize += m * sizeof(AccType);
-    if (x != y)
-      worksize += n * sizeof(AccType);
+    case EucExpandedL2:
+    case EucExpandedL2Sqrt:
+    case EucExpandedCosine:
+      // Needs workspace for row norms
+      worksize += sizeof(AccType) * m;
+      if (x != y) // Not symmetric so row norms are not repeatted
+        worksize += sizeof(AccType) * n;
+      break;
+    
+    case EucUnexpandedL1:
+    case EucUnexpandedL2:
+    case EucUnexpandedL2Sqrt:
+      // No workspace needed as no row norms are added
+      break;
   }
+            
   printf("Workspace = %d\n", worksize);
   printf("Workspace = %d\n", worksize);
   printf("Workspace = %d\n", worksize);
