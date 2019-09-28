@@ -97,6 +97,11 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
 }
+  
+  
+#define WHERE printf("[%d] %s\n", __LINE__, __FILE__"); \
+  printf("[%d] %s\n", __LINE__, __FILE__"); \
+  printf("[%d] %s\n", __LINE__, __FILE__")
 
 /**
  * @brief Compute the trustworthiness score
@@ -116,9 +121,6 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
                              cudaStream_t stream) {
-  #define WHERE printf("[%d] %s\n", __LINE__, __FILE__"); \
-    printf("[%d] %s\n", __LINE__, __FILE__"); \
-    printf("[%d] %s\n", __LINE__, __FILE__")
   
   WHERE();  
   const int TMP_SIZE = MAX_BATCH_SIZE * n;
