@@ -30,6 +30,13 @@
 
 #include <type_traits>
 
+#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+  printf("[%d] %s\n", __LINE__, __FILE__); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
+  CUDA_CHECK(cudaPeekAtLastError())
+
+
+
 namespace MLCommon {
 namespace Distance {
 
@@ -71,6 +78,8 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   EffOutType *pDCast =
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
   
+                    WHERE();
+                    
   if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
       (worksize < m * sizeof(AccType))) {
     THROW("workspace size error");
@@ -94,6 +103,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     norm_op);
     CUDA_CHECK(cudaPeekAtLastError());
   }
+                    WHERE();
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef cutlass::gemm::ThreadMultiplyAdd<
@@ -162,6 +172,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     fin_op, stream);
             
   CUDA_CHECK(cudaPeekAtLastError());
+                    WHERE();
 }
 
 };  // end namespace Distance
