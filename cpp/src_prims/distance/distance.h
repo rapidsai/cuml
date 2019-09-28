@@ -24,10 +24,11 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  CUDA_CHECK(cudaStreamSynchronize(stream)); \
-  CUDA_CHECK(cudaPeekAtLastError())
+// #define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+//   printf("[%d] %s\n", __LINE__, __FILE__); \
+//   CUDA_CHECK(cudaStreamSynchronize(stream)); \
+//   CUDA_CHECK(cudaPeekAtLastError())
+#define WHERE() ;
 
 namespace MLCommon {
 namespace Distance {
@@ -178,8 +179,8 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
       // No workspace needed as no row norms are added
       break;
   }
-  printf("Worksize = %d\n", worksize);
-  printf("Worksize = %d\n", worksize);
+//   printf("Worksize = %d\n", worksize);
+//   printf("Worksize = %d\n", worksize);
   return worksize;
 }
 
