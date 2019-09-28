@@ -48,11 +48,11 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
-                        long n_rows,
-                        long n_cols,
+                        int n_rows,
+                        int n_cols,
                         double eps,
                         int min_pts,
-                        long *labels,
+                        int *labels,
                         size_t max_bytes_per_batch,
                         bool verbose) except +
 
@@ -187,10 +187,10 @@ class DBSCAN(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t labels_ptr
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+
         if self.dtype == np.float32:
-            self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
-            labels_ptr = get_cudf_column_ptr(self.labels_)
             dbscanFit(handle_[0],
                       <float*>input_ptr,
                       <int> n_rows,
@@ -201,15 +201,13 @@ class DBSCAN(Base):
                       <size_t>self.max_bytes_per_batch,
                       <bool>self.verbose)
         else:
-            self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int64))
-            labels_ptr = get_cudf_column_ptr(self.labels_)
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <long> n_rows,
-                      <long> n_cols,
+                      <int> n_rows,
+                      <int> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
-                      <long*> labels_ptr,
+                      <int*> labels_ptr,
                       <size_t> self.max_bytes_per_batch,
                       <bool>self.verbose)
         # make sure that the `dbscanFit` is complete before the following

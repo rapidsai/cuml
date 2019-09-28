@@ -38,7 +38,7 @@ static const int TPB_Y = 8;
  * @param N number of rows
  * @param D number of columns
  */
-template <typename Type, typename Index_ = long>
+template <typename Type, typename Index_ = int>
 __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
                                      Index_ startVertexId, Index_ batchSize) {
   const Type Zero = (Type)0;

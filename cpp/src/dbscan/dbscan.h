@@ -27,7 +27,7 @@ static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
 
 // Default max mem set to a reasonable value for a 16gb card.
 
-template <typename T, typename Index_ = long>
+template <typename T, typename Index_ = int>
 Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
   Index_ n_batches = 1;
   // There seems to be a weird overflow bug with cutlass gemm kernels
@@ -37,16 +37,27 @@ Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
 
   if (max_bytes_per_batch <= 0) max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
 
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+
   while (true) {
     size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-    if (batchSize * n_rows * sizeof(T) < max_bytes_per_batch || batchSize == 1)
+    if (((batchSize * n_rows * sizeof(T) < max_bytes_per_batch) &&
+         /**
+          * Though single precision can be faster per execution of each kernel,
+          * there's a trade-off to be made between using single precision with
+          * many more batches (which become smaller as n_rows grows) and using
+          * double precision, which will have less batches but could become 8-10x
+          * slower per batch.
+          */
+         (batchSize * n_rows < MAX_LABEL)) ||
+        batchSize == 1)
       break;
     ++n_batches;
   }
   return n_batches;
 }
 
-template <typename T, typename Index_ = long>
+template <typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, int min_pts, Index_ *labels,
                    size_t max_bytes_per_batch, cudaStream_t stream,
