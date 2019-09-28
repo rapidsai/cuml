@@ -237,6 +237,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
                isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -274,9 +275,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
            decltype(default_fin_op), Index_>(x, y, dist, m, n, k, workspace,
                                              worksize, default_fin_op, stream,
                                              isRowMajor);
-  CUDA_CHECK(cudaPeekAtLastError());
-            
-            WHERE();
 }
 
 /**
