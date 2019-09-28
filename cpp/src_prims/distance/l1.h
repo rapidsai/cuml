@@ -18,10 +18,11 @@
 #include "linalg/custom_accum.h"
 #include "linalg/gemm.h"
 
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  CUDA_CHECK(cudaStreamSynchronize(stream)); \
-  CUDA_CHECK(cudaPeekAtLastError())
+// #define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+//   printf("[%d] %s\n", __LINE__, __FILE__); \
+//   CUDA_CHECK(cudaStreamSynchronize(stream)); \
+//   CUDA_CHECK(cudaPeekAtLastError())
+#define WHERE() ;
 
 #include <type_traits>
 
