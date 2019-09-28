@@ -24,10 +24,11 @@
 #include <cutlass/shape.h>
 #include <type_traits>
 
-#define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  CUDA_CHECK(cudaStreamSynchronize(stream)); \
-  CUDA_CHECK(cudaPeekAtLastError())
+// #define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
+//   printf("[%d] %s\n", __LINE__, __FILE__); \
+//   CUDA_CHECK(cudaStreamSynchronize(stream)); \
+//   CUDA_CHECK(cudaPeekAtLastError())
+#define WHERE() ;
 
 namespace MLCommon {
 namespace Distance {
