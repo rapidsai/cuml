@@ -120,8 +120,7 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
     },
     fin_op, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-                    
-                    WHERE();
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 }  // namespace Distance
 }  // namespace MLCommon
