@@ -304,8 +304,8 @@ class RandomForestClassifier(Base):
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None, 
-                 int seed=-1):
+                 random_state=None, warm_start=None, class_weight=None,
+                 seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
