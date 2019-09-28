@@ -70,10 +70,10 @@ void random_uniformInt(int treeid, unsigned int* data, int len, int n_rows,
 template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
-  int seed, const int num_sms, const cudaStream_t stream,
+  const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
-  int rs = tree_id * 1000;
-  if (seed != -1) rs = seed * 1000;
+  int rs = tree_id;
+  if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
   srand(rs * 1000);
   if (rf_params.bootstrap) {
@@ -225,9 +225,8 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
     rowids = selected_rows[stream_id]->data();
 
     this->prepare_fit_per_tree(
-      i, n_rows, n_sampled_rows, rowids, (this->rf_params.seed + i),
-      tempmem[stream_id]->num_sms, tempmem[stream_id]->stream,
-      handle.getDeviceAllocator());
+      i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
+      tempmem[stream_id]->stream, handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -488,9 +487,8 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
     int stream_id = omp_get_thread_num();
     unsigned int* rowids = selected_rows[stream_id]->data();
     this->prepare_fit_per_tree(
-      i, n_rows, n_sampled_rows, rowids, (this->rf_params.seed + i),
-      tempmem[stream_id]->num_sms, tempmem[stream_id]->stream,
-      handle.getDeviceAllocator());
+      i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
+      tempmem[stream_id]->stream, handle.getDeviceAllocator());
 
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
