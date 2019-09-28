@@ -69,8 +69,6 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                 FinalLambda, decltype(norm_op), Index_>(
     m, n, k, pA, pB, pD, enable_sqrt, workspace, worksize, fin_op, norm_op,
     stream, isRowMajor);
-                    
-                    WHERE();
 }
 
 /**
@@ -166,7 +164,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     },
     fin_op, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-                    WHERE();
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
