@@ -71,11 +71,13 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the predicted class labels.
  *    Size [n_rows]. Should be allocated on entry.
+ * @param [in] buffer_size size of temporary buffer in MiB
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,
-                const svmModel<math_t> &model, math_t *preds);
+                const svmModel<math_t> &model, math_t *preds,
+                math_t buffer_size);
 
 /**
  * Deallocate device buffers in the svmModel struct.
