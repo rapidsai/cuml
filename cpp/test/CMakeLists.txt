@@ -154,6 +154,8 @@ if(BUILD_PRIMS_TESTS)
         pthread
         faisslib
         ${ZLIB_LIBRARIES}
+        OpenMP::OpenMP_CXX
+        Threads::Threads
     )
 
     # (please keep the filenames in alphabetical order)
