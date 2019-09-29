@@ -56,6 +56,27 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         size_t max_bytes_per_batch,
                         bool verbose) except +
 
+    cdef void dbscanFit(cumlHandle& handle,
+                        float *input,
+                        long n_rows,
+                        long n_cols,
+                        double eps,
+                        int min_pts,
+                        long *labels,
+                        size_t max_bytes_per_batch,
+                        bool verbose) except +
+
+    cdef void dbscanFit(cumlHandle& handle,
+                        double *input,
+                        long n_rows,
+                        long n_cols,
+                        double eps,
+                        int min_pts,
+                        long *labels,
+                        size_t max_bytes_per_batch,
+                        bool verbose) except +
+
+
 
 class DBSCAN(Base):
     """
@@ -164,7 +185,7 @@ class DBSCAN(Base):
         if attr == 'labels_array':
             return self.labels_._column._data.mem
 
-    def fit(self, X):
+    def fit(self, X, out_dtype="auto"):
         """
         Perform DBSCAN clustering from features.
 
@@ -174,10 +195,22 @@ class DBSCAN(Base):
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
+        out_dtype: dtype Determines the precision of the output labels array.
+                         default: "auto". Valid values are { "auto", "int32",
+                         np.int32, "int64", np.int64}
         """
 
         if self.labels_ is not None:
             del self.labels_
+
+        if out_dtype == "auto":
+            out_dtype = np.int32 if X.shape[0] < 1e6 else np.int64
+        elif out_dtype not in ["int32", np.int32, "int64", np.int64]:
+            raise ValueError("Invalid value for out_dtype. "
+                             "Valid values are {'auto', 'int32', 'int64', "
+                             "np.int32, np.int64}")
+
+
 
         cdef uintptr_t input_ptr
 
@@ -187,36 +220,60 @@ class DBSCAN(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=out_dtype))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
-            dbscanFit(handle_[0],
-                      <float*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <float> self.eps,
-                      <int> self.min_samples,
-                      <int*> labels_ptr,
-                      <size_t>self.max_bytes_per_batch,
-                      <bool>self.verbose)
+            if out_dtype is "int32" or out_dtype is np.int32:
+                dbscanFit(handle_[0],
+                          <float*>input_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <float> self.eps,
+                          <int> self.min_samples,
+                          <int*> labels_ptr,
+                          <size_t>self.max_bytes_per_batch,
+                          <bool>self.verbose)
+            else:
+                dbscanFit(handle_[0],
+                          <float*>input_ptr,
+                          <long> n_rows,
+                          <long> n_cols,
+                          <float> self.eps,
+                          <int> self.min_samples,
+                          <long*> labels_ptr,
+                          <size_t>self.max_bytes_per_batch,
+                          <bool>self.verbose)
+
         else:
-            dbscanFit(handle_[0],
-                      <double*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <double> self.eps,
-                      <int> self.min_samples,
-                      <int*> labels_ptr,
-                      <size_t> self.max_bytes_per_batch,
-                      <bool>self.verbose)
+            if out_dtype is "int32" or out_dtype is np.int32:
+                dbscanFit(handle_[0],
+                          <double*>input_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <double> self.eps,
+                          <int> self.min_samples,
+                          <int*> labels_ptr,
+                          <size_t> self.max_bytes_per_batch,
+                          <bool>self.verbose)
+            else:
+                dbscanFit(handle_[0],
+                          <double*>input_ptr,
+                          <long> n_rows,
+                          <long> n_cols,
+                          <double> self.eps,
+                          <int> self.min_samples,
+                          <long*> labels_ptr,
+                          <size_t> self.max_bytes_per_batch,
+                          <bool>self.verbose)
+
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens
         self.handle.sync()
         del(X_m)
         return self
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, out_dtype="auto"):
         """
         Performs clustering on input_gdf and returns cluster labels.
 
@@ -232,7 +289,7 @@ class DBSCAN(Base):
         y : cuDF Series, shape (n_samples)
           cluster labels
         """
-        self.fit(X)
+        self.fit(X, out_dtype)
         return self.labels_
 
     def get_param_names(self):

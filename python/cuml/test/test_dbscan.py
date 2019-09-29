@@ -51,8 +51,13 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
                          stress_param(1000)])
+@pytest.mark.parametrize('out_dtype', [unit_param("int32"),
+                                       unit_param(np.int32),
+                                       unit_param("int64"),
+                                       unit_param(np.int64), unit_param("auto"),
+                                       quality_param("auto"), stress_param("auto")])
 def test_dbscan(datatype, input_type, use_handle,
-                nrows, ncols, max_bytes_per_batch):
+                nrows, ncols, max_bytes_per_batch, out_dtype):
     n_samples = nrows
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
@@ -66,9 +71,9 @@ def test_dbscan(datatype, input_type, use_handle,
         X = pd.DataFrame(
             {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X)
-        cu_labels = cudbscan.fit_predict(X_cudf)
+        cu_labels = cudbscan.fit_predict(X_cudf, out_dtype=out_dtype)
     else:
-        cu_labels = cudbscan.fit_predict(X)
+        cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
         skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
@@ -109,3 +114,10 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
         score = adjusted_rand_score(sk_y_pred, cu_y_pred)
         assert(score == 1.0)
+
+@pytest.mark.xfail(strict=True, raises=ValueError)
+def test_dbscan_out_dtype_fails_invalid_input():
+    X, _ = make_blobs(n_samples=100)
+
+    cudbscan = cuDBSCAN()
+    cudbscan.fit_predict(X, out_dtype="bad_input")
