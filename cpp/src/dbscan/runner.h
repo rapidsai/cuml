@@ -95,13 +95,13 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
   size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
-  // TODO: We should ASSERT that N * batchSize is greater than the maximum value used
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
   ASSERT(
     N * batchSize < MAX_LABEL,
     "An overflow occurred with the current choice of precision "
-    "and the number of samples. (Max allowed batch size is %d, but was %d)",
+    "and the number of samples. (Max allowed batch size is %d, but was %d). "
+    "Consider using double precision for the output labels.",
     MAX_LABEL / N, batchSize);
 
   if (workspace == NULL) {
