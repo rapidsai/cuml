@@ -167,6 +167,8 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
       distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
     
     // Find distances
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
       &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, (void*)distance_workspace,
@@ -205,6 +207,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 
     t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     int work = batchSize * n_neighbors;
     int n_blocks = work / N_THREADS + 1;
