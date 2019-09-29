@@ -35,7 +35,7 @@ void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
 }
 
 void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
-                int64_t n_rows, long n_cols, int64_t n_clusters,
+                int64_t n_rows, int64_t n_cols, int64_t n_clusters,
                 const double* centers, const double* cluster_std,
                 const double cluster_std_scalar, bool shuffle,
                 double center_box_min, double center_box_max, uint64_t seed) {
