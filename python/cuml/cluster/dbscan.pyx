@@ -43,7 +43,7 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         float eps,
                         int min_pts,
                         int *labels,
-                        size_t max_bytes_per_batch,
+                        size_t max_mbytes_per_batch,
                         bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
@@ -53,7 +53,7 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int *labels,
-                        size_t max_bytes_per_batch,
+                        size_t max_mbytes_per_batch,
                         bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
@@ -63,7 +63,7 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         long *labels,
-                        size_t max_bytes_per_batch,
+                        size_t max_mbytes_per_batch,
                         bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
@@ -73,7 +73,7 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         long *labels,
-                        size_t max_bytes_per_batch,
+                        size_t max_mbytes_per_batch,
                         bool verbose) except +
 
 
@@ -129,7 +129,7 @@ class DBSCAN(Base):
         considered as an important core point (including the point itself).
     verbose : bool
         Whether to print debug spews
-    max_bytes_per_batch : (optional) int64
+    max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of bytes for the
         pairwise distance computation. This enables the trade-off between
         runtime and memory usage for making the N^2 pairwise distance
@@ -169,17 +169,17 @@ class DBSCAN(Base):
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
-                 max_bytes_per_batch=None):
+                 max_mbytes_per_batch=None):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
-        self.max_bytes_per_batch = max_bytes_per_batch
+        self.max_mbytes_per_batch = max_mbytes_per_batch
         self.verbose = verbose
 
         # C++ API expects this to be numeric.
-        if self.max_bytes_per_batch is None:
-            self.max_bytes_per_batch = 0
+        if self.max_mbytes_per_batch is None:
+            self.max_mbytes_per_batch = 0
 
     def __getattr__(self, attr):
         if attr == 'labels_array':
@@ -196,8 +196,9 @@ class DBSCAN(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
         out_dtype: dtype Determines the precision of the output labels array.
-                         default: "auto". Valid values are { "auto", "int32",
-                         np.int32, "int64", np.int64}
+            default: "auto". Valid values are { "auto", "int32", np.int32,
+            "int64", np.int64}. When the number of samples exceed
+
         """
 
         if self.labels_ is not None:
@@ -209,8 +210,6 @@ class DBSCAN(Base):
             raise ValueError("Invalid value for out_dtype. "
                              "Valid values are {'auto', 'int32', 'int64', "
                              "np.int32, np.int64}")
-
-
 
         cdef uintptr_t input_ptr
 
@@ -232,7 +231,7 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
-                          <size_t>self.max_bytes_per_batch,
+                          <size_t>self.max_mbytes_per_batch,
                           <bool>self.verbose)
             else:
                 dbscanFit(handle_[0],
@@ -242,7 +241,7 @@ class DBSCAN(Base):
                           <float> self.eps,
                           <int> self.min_samples,
                           <long*> labels_ptr,
-                          <size_t>self.max_bytes_per_batch,
+                          <size_t>self.max_mbytes_per_batch,
                           <bool>self.verbose)
 
         else:
@@ -254,7 +253,7 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <int*> labels_ptr,
-                          <size_t> self.max_bytes_per_batch,
+                          <size_t> self.max_mbytes_per_batch,
                           <bool>self.verbose)
             else:
                 dbscanFit(handle_[0],
@@ -264,7 +263,7 @@ class DBSCAN(Base):
                           <double> self.eps,
                           <int> self.min_samples,
                           <long*> labels_ptr,
-                          <size_t> self.max_bytes_per_batch,
+                          <size_t> self.max_mbytes_per_batch,
                           <bool>self.verbose)
 
         # make sure that the `dbscanFit` is complete before the following

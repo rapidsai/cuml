@@ -23,25 +23,24 @@
 namespace ML {
 
 using namespace Dbscan;
-static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
+static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
 // Default max mem set to a reasonable value for a 16gb card.
-
 template <typename T, typename Index_ = int>
-Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
+Index_ computeBatchCount(Index_ n_rows, size_t max_mbytes_per_batch) {
   Index_ n_batches = 1;
   // There seems to be a weird overflow bug with cutlass gemm kernels
   // hence, artifically limiting to a smaller batchsize!
   ///TODO: in future, when we bump up the underlying cutlass version, this should go away
   // paving way to cudaMemGetInfo based workspace allocation
 
-  if (max_bytes_per_batch <= 0) max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
+  if (max_mbytes_per_batch <= 0) max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
   while (true) {
     size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-    if (((batchSize * n_rows * sizeof(T) < max_bytes_per_batch) &&
+    if (((batchSize * n_rows * sizeof(T) * 1e-6 < max_mbytes_per_batch) &&
          /**
           * Though single precision can be faster per execution of each kernel,
           * there's a trade-off to be made between using single precision with
@@ -60,7 +59,7 @@ Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
 template <typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, int min_pts, Index_ *labels,
-                   size_t max_bytes_per_batch, cudaStream_t stream,
+                   size_t max_mbytes_per_batch, cudaStream_t stream,
                    bool verbose) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   int algoVd = 1;
@@ -68,14 +67,14 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   int algoCcl = 2;
 
   // @todo: Query device for remaining memory
-  Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_bytes_per_batch);
+  Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_mbytes_per_batch);
 
   if (verbose) {
     Index_ batchSize = ceildiv<Index_>(n_rows, n_batches);
     if (n_batches > 1) {
       std::cout << "Running batched training on " << n_batches
                 << " batches w/ ";
-      std::cout << batchSize * n_rows * sizeof(T) << " bytes." << std::endl;
+      std::cout << batchSize * n_rows * sizeof(T) * 1e-6 << " megabytes." << std::endl;
     }
   }
 
