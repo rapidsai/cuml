@@ -31,6 +31,6 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
     cdef cppclass cumlHandle:
         cumlHandle() except +
         cumlHandle(int ns) except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-        cuml.common.cuda._Stream getStream()
+        void setStream(cuml.common.cuda._Stream s) except +
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
+        cuml.common.cuda._Stream getStream() except +

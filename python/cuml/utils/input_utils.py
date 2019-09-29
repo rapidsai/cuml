@@ -174,16 +174,24 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     dtype = X_m.dtype
 
     if check_dtype:
-        if isinstance(check_dtype, type):
+        if isinstance(check_dtype, type) or isinstance(check_dtype, np.dtype):
             if dtype != check_dtype:
                 del X_m
                 raise TypeError("Expected " + str(check_dtype) + "input but" +
                                 " got " + str(dtype) + " instead.")
-        elif isinstance(check_dtype, Collection):
+        elif isinstance(check_dtype, Collection) and \
+                not isinstance(check_dtype, str):
+            # The 'not isinstance(check_dtype, string)' condition is needed,
+            # because the 'float32' string is a Collection, but in this
+            # branch we only want to process collections like
+            # [np.float32, np.float64].
             if dtype not in check_dtype:
                 del X_m
                 raise TypeError("Expected input to be of type in " +
                                 str(check_dtype) + " but got " + str(dtype))
+        else:
+            raise ValueError("Expected a type as check_dtype arg, but got " +
+                             str(check_dtype))
 
     n_rows = X_m.shape[0]
     if len(X_m.shape) > 1:
