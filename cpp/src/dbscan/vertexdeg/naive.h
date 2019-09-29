@@ -71,7 +71,7 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   }
 }
 
-template <typename Type, typename Index_ = long>
+template <typename Type, typename Index_ = int>
 void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
               cudaStream_t stream) {
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
