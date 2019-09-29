@@ -231,6 +231,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
     ASSERT(workspace != NULL,
            "Workspace is NULL at line = %d, file = %s\n", __LINE__, __FILE__);
   
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
                Index_>
     distImpl;
