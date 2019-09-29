@@ -34,7 +34,7 @@
 //   printf("[%d] %s\n", __LINE__, __FILE__); \
 //   CUDA_CHECK(cudaStreamSynchronize(stream)); \
 //   CUDA_CHECK(cudaPeekAtLastError())
-#define WHERE() ;
+// #define WHERE() ;
 
 
 
@@ -73,6 +73,9 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                    const InType *pB, OutType *pD, bool enable_sqrt,
                    AccType *workspace, size_t worksize, FinalLambda fin_op,
                    NormLambda norm_op, cudaStream_t stream, bool isRowMajor) {
+  
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -86,7 +89,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   if (workspace == nullptr) {
     THROW("workspace is null");
   }
-
+                    
   InType *col_vec = workspace;
   InType *row_vec = workspace;
             
