@@ -248,25 +248,9 @@ add_clang_format(
   SRCDIR ${PROJECT_SOURCE_DIR})
 
 ##############################################################################
-# - Google Test Build  -------------------------------------------------------
+# - FAISS Build  -------------------------------------------------------------
 
 include(ExternalProject)
-
-# ExternalProject_Add(googletest
-#   GIT_REPOSITORY    https://github.com/google/googletest.git
-#   GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
-#   PREFIX            ${GTEST_DIR}
-#   CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-#                     -DBUILD_SHARED_LIBS=OFF
-#                     -DCMAKE_INSTALL_LIBDIR=lib
-# )
-
-# add_library(gtest_mainlib STATIC IMPORTED)
-# add_dependencies(gtest_mainlib googletest)
-# set_property(TARGET gtest_mainlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-
-##############################################################################
-# - FAISS Build  -------------------------------------------------------------
 
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
