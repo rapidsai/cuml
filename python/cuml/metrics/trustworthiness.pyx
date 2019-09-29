@@ -42,7 +42,8 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        T* X_embedded,
                                                        int n, int m,
                                                        int d,
-                                                       int n_neighbors)
+                                                       int n_neighbors) \
+        except +
 
 
 def _get_array_ptr(obj):

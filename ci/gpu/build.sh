@@ -82,7 +82,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench --multigpu -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 
