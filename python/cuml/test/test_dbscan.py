@@ -55,9 +55,8 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                                        unit_param(np.int32),
                                        unit_param("int64"),
                                        unit_param(np.int64),
-                                       unit_param("auto"),
-                                       quality_param("auto"),
-                                       stress_param("auto")])
+                                       quality_param("int32"),
+                                       stress_param("int32")])
 def test_dbscan(datatype, input_type, use_handle,
                 nrows, ncols, max_mbytes_per_batch, out_dtype):
     n_samples = nrows
