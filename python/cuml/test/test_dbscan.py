@@ -56,7 +56,8 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                                        unit_param("int64"),
                                        unit_param(np.int64),
                                        unit_param("auto"),
-                                       quality_param("auto"), stress_param("auto")])
+                                       quality_param("auto"),
+                                       stress_param("auto")])
 def test_dbscan(datatype, input_type, use_handle,
                 nrows, ncols, max_mbytes_per_batch, out_dtype):
     n_samples = nrows
@@ -82,12 +83,10 @@ def test_dbscan(datatype, input_type, use_handle,
         score = adjusted_rand_score(cu_labels, sk_labels)
         assert score == 1
 
-    if out_dtype is "int32" or out_dtype is np.int32:
+    if out_dtype == "int32" or out_dtype == np.int32:
         assert cu_labels.dtype == np.int32
-    elif out_dtype is "int64" or out_dtype is np.int64:
+    elif out_dtype == "int64" or out_dtype == np.int64:
         assert cu_labels.dtype == np.int64
-    else: # out_dtype was "auto" and we shouldn't have any inputs > threshold
-        assert cu_labels.dtype == np.int32
 
 
 @pytest.mark.parametrize("name", [
@@ -122,6 +121,7 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
         score = adjusted_rand_score(sk_y_pred, cu_y_pred)
         assert(score == 1.0)
+
 
 @pytest.mark.xfail(strict=True, raises=ValueError)
 def test_dbscan_out_dtype_fails_invalid_input():
