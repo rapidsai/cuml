@@ -76,6 +76,7 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         size_t max_mbytes_per_batch,
                         bool verbose) except +
 
+
 class DBSCAN(Base):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
