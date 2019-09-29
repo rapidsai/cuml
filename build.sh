@@ -32,7 +32,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g            - build for debug
    -n            - no install step
    --allgpuarch  - build for all supported GPU architectures
-   --multigpu    - Build cuml with multigpu support (requires libcumlMG and CUDA >=10.0)
+   --singlegpu   - Build cuml without multigpu support (multigpu requires libcumlprims)
    -h            - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -90,7 +90,9 @@ fi
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
-if hasArg --multigpu; then
+if ahasArg --singlegpu; then
+    MULTIGPU=
+else
     MULTIGPU=--multigpu
 fi
 if hasArg deep-clean || hasArg clean; then
@@ -110,7 +112,6 @@ if (( ${CLEAN} == 1 )); then
   fi
     done
 fi
-
 
 ################################################################################
 # Configure for building all C++ targets
@@ -136,33 +137,36 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
 fi
 
 # Run all make targets at once
+
 MAKE_TARGETS=
-if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
+if hasArg libcuml; then
     MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
 fi
-if (( ${NUMARGS} == 0 )) || hasArg prims; then
+if hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
-if (( ${NUMARGS} == 0 )) || hasArg bench; then
+if hasArg bench; then
     MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
 
+
+# If there are no targets specified when calling build.sh, it will
+# just call `make -j`. This avoids a lot of extra printing
+cd ${LIBCUML_BUILD_DIR}
+make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+
 # build cumlcomms library
-if [ "${MAKE_TARGETS}" != "" ]; then
-    cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+mkdir -p ${CUML_COMMS_BUILD_DIR}
+cd ${CUML_COMMS_BUILD_DIR}
 
-    mkdir -p ${CUML_COMMS_BUILD_DIR}
-    cd ${CUML_COMMS_BUILD_DIR}
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+      -DWITH_UCX=OFF \
+      -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
+      -DNCCL_PATH=${INSTALL_PREFIX} ..
 
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
-          -DNCCL_PATH=${INSTALL_PREFIX} ..
+cd ${CUML_COMMS_BUILD_DIR}
+make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
-    cd ${CUML_COMMS_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
-fi
 
 # Build and (optionally) install the cuml Python package
 if (( ${NUMARGS} == 0 )) || hasArg cuml; then
