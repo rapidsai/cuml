@@ -23,6 +23,9 @@
 #include <iostream>
 
 #include <cublas_v2.h>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "kernelcache.h"
@@ -30,6 +33,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
+#include "matrix/matrix.h"
 #include "smosolver.h"
 #include "svm_model.h"
 #include "svm_parameter.h"
@@ -138,13 +142,20 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                                     n_batch * model.n_support);
   MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
                                     n_rows);
+  MLCommon::device_buffer<math_t> x_rbf(handle_impl.getDeviceAllocator(),
+                                        stream);
+  MLCommon::device_buffer<int> idx(handle_impl.getDeviceAllocator(), stream);
 
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params,
                                                     cublas_handle);
-
+  if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+    // Temporary buffers for the RBF kernel, see below
+    x_rbf.resize(n_batch * n_cols, stream);
+    idx.resize(n_batch, stream);
+  }
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
@@ -152,9 +163,26 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     if (i + n_batch >= n_rows) {
       n_batch = n_rows - i;
     }
-    kernel->evaluate(input + i, n_batch, n_cols, model.x_support,
-                     model.n_support, K.data(), stream, n_rows, model.n_support,
-                     n_batch);
+    math_t *x_ptr = nullptr;
+    int ld1 = 0;
+    if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+      // The RBF kernel does not support ld parameters (See issue #)
+      // To come around this limitation, we copy the batch into a temporary
+      // buffer.
+      thrust::counting_iterator<int> first(i);
+      thrust::counting_iterator<int> last = first + n_batch;
+      thrust::device_ptr<int> idx_ptr(idx.data());
+      thrust::copy(thrust::cuda::par.on(stream), first, last, idx_ptr);
+      MLCommon::Matrix::copyRows(input, n_rows, n_cols, x_rbf.data(),
+                                 idx.data(), n_batch, stream, false);
+      x_ptr = x_rbf.data();
+      ld1 = n_batch;
+    } else {
+      x_ptr = input + i;
+      ld1 = n_rows;
+    }
+    kernel->evaluate(x_ptr, n_batch, n_cols, model.x_support, model.n_support,
+                     K.data(), stream, ld1, model.n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
