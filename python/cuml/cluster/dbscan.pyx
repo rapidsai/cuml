@@ -204,7 +204,7 @@ class DBSCAN(Base):
 
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
-                             "Valid values are {'auto', 'int32', 'int64', "
+                             "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
         cdef uintptr_t input_ptr
