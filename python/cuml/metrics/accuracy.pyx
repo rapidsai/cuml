@@ -33,7 +33,7 @@ cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
     float accuracy_score_py(cumlHandle &handle,
                             int *predictions,
                             int *ref_predictions,
-                            int n)
+                            int n) except +
 
 
 def accuracy_score(ground_truth, predictions, handle=None):
