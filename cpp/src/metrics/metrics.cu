@@ -50,10 +50,10 @@ double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
     handle.getStream(), metric);
 }
 
-double adjustedRandIndex(const cumlHandle &handle, const long *y,
-                         const long *y_hat, const long n,
-                         const long lower_class_range,
-                         const long upper_class_range) {
+double adjustedRandIndex(const cumlHandle &handle, const int64_t *y,
+                         const int64_t *y_hat, const int64_t n,
+                         const int64_t lower_class_range,
+                         const int64_t upper_class_range) {
   return MLCommon::Metrics::computeAdjustedRandIndex(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.getDeviceAllocator(), handle.getStream());

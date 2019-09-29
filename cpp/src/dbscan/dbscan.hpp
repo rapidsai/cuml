@@ -42,11 +42,11 @@ void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
                double eps, int min_pts, int *labels,
                size_t max_bytes_per_batch = 0, bool verbose = false);
 
-void dbscanFit(const cumlHandle &handle, float *input, long n_rows, long n_cols,
-               float eps, int min_pts, long *labels,
+void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+               int64_t n_cols, float eps, int min_pts, int64_t *labels,
                size_t max_bytes_per_batch = 0, bool verbose = false);
-void dbscanFit(const cumlHandle &handle, double *input, long n_rows,
-               long n_cols, double eps, int min_pts, long *labels,
+void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+               int64_t n_cols, double eps, int min_pts, int64_t *labels,
                size_t max_bytes_per_batch = 0, bool verbose = false);
 
 /** @} */
