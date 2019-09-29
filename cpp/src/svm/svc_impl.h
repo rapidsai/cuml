@@ -123,17 +123,26 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the predicted class labels.
  *    Size [n_rows]. Should be allocated on entry.
+ * @param [in] buffer_size size of temporary buffer in MiB
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,
-                const svmModel<math_t> &model, math_t *preds) {
+                const svmModel<math_t> &model, math_t *preds,
+                math_t buffer_size) {
   ASSERT(n_cols == model.n_cols,
          "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
-#define N_PRED_BATCH 4096
+  const int N_PRED_BATCH = 4096;
   int n_batch = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
+
+  // Limit the memory size of the prediction buffer
+  buffer_size = buffer_size * 1024 * 1024;
+  if (n_batch * model.n_support * sizeof(math_t) > buffer_size) {
+    n_batch = buffer_size / (model.n_support * sizeof(math_t));
+    if (n_batch < 1) n_batch = 1;
+  }
 
   const cumlHandle_impl &handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();

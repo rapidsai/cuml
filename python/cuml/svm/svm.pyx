@@ -88,7 +88,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
-        math_t *preds) except +
+        math_t *preds, math_t buffer_size) except +
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
@@ -138,7 +138,8 @@ class SVC(Base):
         tol : float (default = 1e-3)
             Tolerance for stopping criterion.
         cache_size : float (default = 200 MiB)
-            Size of the kernel cache n MiB
+            Size of the kernel cache during training in MiB. This is also used
+            to set the size of prediction buffer.
         max_iter : int (default = 100*n_samples)
             Limit the number of outer iterations in the solver
         verbose : bool (default = False)
@@ -465,12 +466,12 @@ class SVC(Base):
             model_f = <svmModel[float]*><size_t> self._model
             svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_f[0],
-                       <float*>preds_ptr)
+                       <float*>preds_ptr, <float>self.cache_size)
         else:
             model_d = <svmModel[double]*><size_t> self._model
             svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_d[0],
-                       <double*>preds_ptr)
+                       <double*>preds_ptr, <double>self.cache_size)
 
         self.handle.sync()
 

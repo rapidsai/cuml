@@ -129,7 +129,8 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
                              int n_cols, cumlSvmKernelType kernel, int degree,
                              float gamma, float coef0, int n_support, float b,
                              float *dual_coefs, float *x_support, int n_classes,
-                             float *unique_labels, float *preds) {
+                             float *unique_labels, float *preds,
+                             float buffer_size) {
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
   kernel_param.degree = degree;
@@ -151,7 +152,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds);
+                          model, preds, buffer_size);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -171,7 +172,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
                              double gamma, double coef0, int n_support,
                              double b, double *dual_coefs, double *x_support,
                              int n_classes, double *unique_labels,
-                             double *preds) {
+                             double *preds, double buffer_size) {
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
   kernel_param.degree = degree;
@@ -193,7 +194,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds);
+                          model, preds, buffer_size);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
