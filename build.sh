@@ -22,7 +22,6 @@ VALIDARGS="clean deep-clean libcuml cuml prims bench -v -g -n --allgpuarch --mul
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
-   deep-clean    - same as 'clean' option, but also cleans up the faiss build
    libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
                    around the C++ code.
    cuml          - build the cuml Python package
@@ -112,13 +111,6 @@ if (( ${CLEAN} == 1 )); then
     done
 fi
 
-# clean the faiss build also, if asked
-if hasArg deep-clean; then
-    cd ${FAISS_DIR}
-    make clean
-    cd gpu
-    make clean
-fi
 
 ################################################################################
 # Configure for building all C++ targets
