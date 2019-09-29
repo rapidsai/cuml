@@ -185,7 +185,7 @@ class DBSCAN(Base):
         if attr == 'labels_array':
             return self.labels_._column._data.mem
 
-    def fit(self, X, out_dtype="auto"):
+    def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
 
@@ -196,17 +196,14 @@ class DBSCAN(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
         out_dtype: dtype Determines the precision of the output labels array.
-            default: "auto". Valid values are { "auto", "int32", np.int32,
+            default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}. When the number of samples exceed
-
         """
 
         if self.labels_ is not None:
             del self.labels_
 
-        if out_dtype == "auto":
-            out_dtype = np.int32 if X.shape[0] < 1e6 else np.int64
-        elif out_dtype not in ["int32", np.int32, "int64", np.int64]:
+        if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
                              "Valid values are {'auto', 'int32', 'int64', "
                              "np.int32, np.int64}")
