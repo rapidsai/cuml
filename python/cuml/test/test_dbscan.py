@@ -54,7 +54,8 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('out_dtype', [unit_param("int32"),
                                        unit_param(np.int32),
                                        unit_param("int64"),
-                                       unit_param(np.int64), unit_param("auto"),
+                                       unit_param(np.int64),
+                                       unit_param("auto"),
                                        quality_param("auto"), stress_param("auto")])
 def test_dbscan(datatype, input_type, use_handle,
                 nrows, ncols, max_bytes_per_batch, out_dtype):
@@ -80,6 +81,13 @@ def test_dbscan(datatype, input_type, use_handle,
         sk_labels = skdbscan.fit_predict(X)
         score = adjusted_rand_score(cu_labels, sk_labels)
         assert score == 1
+
+    if out_dtype is "int32" or out_dtype is np.int32:
+        assert cu_labels.dtype == np.int32
+    elif out_dtype is "int64" or out_dtype is np.int64:
+        assert cu_labels.dtype == np.int64
+    else: # out_dtype was "auto" and we shouldn't have any inputs > threshold
+        assert cu_labels.dtype == np.int32
 
 
 @pytest.mark.parametrize("name", [
