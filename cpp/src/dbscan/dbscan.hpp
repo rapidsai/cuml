@@ -29,7 +29,7 @@ namespace ML {
  * @param[in] eps the epsilon value to use for epsilon-neighborhood determination
  * @param[in] min_pts minimum number of points to determine a cluster
  * @param[out] labels (size n_rows) output labels array
- * @param[in] max_mem_bytes: the maximum number of bytes to be used for each batch of
+ * @param[in] max_mem_mbytes: the maximum number of megabytes to be used for each batch of
  *            the pairwise distance calculation. This enables the trade off between
  *            memory usage and algorithm execution time.
  * @param[in] verbose: print useful information as algorithm executes

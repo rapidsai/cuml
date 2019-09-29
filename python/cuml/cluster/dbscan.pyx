@@ -128,15 +128,15 @@ class DBSCAN(Base):
     verbose : bool
         Whether to print debug spews
     max_mbytes_per_batch : (optional) int64
-        Calculate batch size using no more than this number of bytes for the
-        pairwise distance computation. This enables the trade-off between
+        Calculate batch size using no more than this number of megabytes for
+        the pairwise distance computation. This enables the trade-off between
         runtime and memory usage for making the N^2 pairwise distance
         computations more tractable for large numbers of samples.
         If you are experiencing out of memory errors when running DBSCAN, you
         can set this value based on the memory size of your device.
         Note: this option does not set the maximum total memory used in the
-        DBSCAN computation and so this value will not
-        be able to be set to the total memory available on the device.
+        DBSCAN computation and so this value will not be able to be set to
+        the total memory available on the device.
 
     Attributes
     -----------
