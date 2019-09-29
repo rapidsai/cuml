@@ -43,7 +43,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
 
-@pytest.mark.parametrize('max_bytes_per_batch', [1e9, 5e9])
+@pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -58,7 +58,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                                        unit_param("auto"),
                                        quality_param("auto"), stress_param("auto")])
 def test_dbscan(datatype, input_type, use_handle,
-                nrows, ncols, max_bytes_per_batch, out_dtype):
+                nrows, ncols, max_mbytes_per_batch, out_dtype):
     n_samples = nrows
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
@@ -66,7 +66,7 @@ def test_dbscan(datatype, input_type, use_handle,
 
     handle, stream = get_handle(use_handle)
     cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
-                        max_bytes_per_batch=max_bytes_per_batch)
+                        max_mbytes_per_batch=max_mbytes_per_batch)
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
