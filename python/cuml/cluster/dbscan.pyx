@@ -232,11 +232,11 @@ class DBSCAN(Base):
             else:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
-                          <long> n_rows,
-                          <long> n_cols,
+                          <int64_t> n_rows,
+                          <int64_t> n_cols,
                           <float> self.eps,
                           <int> self.min_samples,
-                          <long*> labels_ptr,
+                          <int64_t*> labels_ptr,
                           <size_t>self.max_mbytes_per_batch,
                           <bool>self.verbose)
 
@@ -254,11 +254,11 @@ class DBSCAN(Base):
             else:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
-                          <long> n_rows,
-                          <long> n_cols,
+                          <int64_t> n_rows,
+                          <int64_t> n_cols,
                           <double> self.eps,
                           <int> self.min_samples,
-                          <long*> labels_ptr,
+                          <int64_t*> labels_ptr,
                           <size_t> self.max_mbytes_per_batch,
                           <bool>self.verbose)
 

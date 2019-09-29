@@ -40,11 +40,11 @@ using namespace Datasets;
 using namespace Metrics;
 using namespace std;
 
-template <typename T>
+template <typename T, typename IdxT>
 struct DbscanInputs {
-  int n_row;
-  int n_col;
-  int n_centers;
+  IdxT n_row;
+  IdxT n_col;
+  IdxT n_centers;
   T cluster_std;
   T eps;
   int min_pts;
@@ -52,23 +52,24 @@ struct DbscanInputs {
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const DbscanInputs<T>& dims) {
+template <typename T, typename IdxT>
+::std::ostream& operator<<(::std::ostream& os,
+                           const DbscanInputs<T, IdxT>& dims) {
   return os;
 }
 
-template <typename T>
-class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
+template <typename T, typename IdxT>
+class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
  protected:
   void basicTest() {
     cumlHandle handle;
 
-    params = ::testing::TestWithParam<DbscanInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
     device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
                          params.n_row * params.n_col);
-    device_buffer<int> l(handle.getDeviceAllocator(), handle.getStream(),
-                         params.n_row);
+    device_buffer<IdxT> l(handle.getDeviceAllocator(), handle.getStream(),
+                          params.n_row);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, nullptr, nullptr, params.cluster_std, true,
@@ -96,6 +97,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
       std::cout << "y_hat: "
                 << arr2Str(labels, 25, "labels", handle.getStream())
                 << std::endl;
+
+      std::cout << "Score = " << score << std::endl;
     }
   }
 
@@ -107,38 +110,66 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
   }
 
  protected:
-  DbscanInputs<T> params;
-  int *labels, *labels_ref;
+  DbscanInputs<T, IdxT> params;
+  IdxT *labels, *labels_ref;
 
   double score;
 };
 
-const std::vector<DbscanInputs<float>> inputsf2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e8, 1234ULL},
+const std::vector<DbscanInputs<float, int>> inputsf2 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
   {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {50000, 16, 5l, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e8, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e8, 1234ULL}};
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {50000, 16, 5l, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
 
-const std::vector<DbscanInputs<double>> inputsd2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e9, 1234ULL},
+const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
   {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e9, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e9, 1234ULL}};
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {50000, 16, 5l, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
 
-typedef DbscanTest<float> DbscanTestF;
-TEST_P(DbscanTestF, Result) { ASSERT_TRUE(score == 1.0); }
+const std::vector<DbscanInputs<double, int>> inputsd2 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
 
-typedef DbscanTest<double> DbscanTestD;
-TEST_P(DbscanTestD, Result) { ASSERT_TRUE(score == 1.0); }
+const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF,
+typedef DbscanTest<float, int> DbscanTestF_Int;
+TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<float, int64_t> DbscanTestF_Int64;
+TEST_P(DbscanTestF_Int64, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<double, int> DbscanTestD_Int;
+TEST_P(DbscanTestD_Int, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<double, int64_t> DbscanTestD_Int64;
+TEST_P(DbscanTestD_Int64, Result) { ASSERT_TRUE(score == 1.0); }
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int,
                         ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD,
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int64,
+                        ::testing::ValuesIn(inputsf3));
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int,
                         ::testing::ValuesIn(inputsd2));
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int64,
+                        ::testing::ValuesIn(inputsd3));
 
 }  // end namespace ML
