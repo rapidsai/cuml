@@ -65,12 +65,11 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
     index_t batch_vertex = fmod(global_c_idx, n);
 
     if (sizeof(index_t) == 4) {
-      atomicAdd((int *)(vd + batch_vertex), (int)in_neigh);
-      atomicAdd((int *)(vd + n), (int)in_neigh);
+      atomicAdd((unsigned int *)(vd + batch_vertex), in_neigh);
+      atomicAdd((unsigned int *)(vd + n), in_neigh);
     } else if (sizeof(index_t) == 8) {
-      atomicAdd((unsigned long long *)(vd + batch_vertex),
-                (unsigned long long)in_neigh);
-      atomicAdd((unsigned long long *)(vd + n), (unsigned long long)in_neigh);
+      atomicAdd((unsigned long long int *)(vd + batch_vertex), in_neigh);
+      atomicAdd((unsigned long long int *)(vd + n), in_neigh);
     }
   };
 

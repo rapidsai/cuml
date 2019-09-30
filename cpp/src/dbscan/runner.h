@@ -25,6 +25,8 @@
 #include "sparse/csr.h"
 #include "vertexdeg/runner.h"
 
+#include <sys/time.h>
+
 namespace Dbscan {
 
 using namespace MLCommon;
@@ -55,6 +57,12 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
     [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
+}
+
+int64_t curTimeMillis() {
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  return tp.tv_sec * 1000 + tp.tv_usec / 1000;
 }
 
 /* @param N number of points
@@ -146,6 +154,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       std::cout << "- Iteration " << i + 1 << " / " << nBatches
                 << ". Batch size is " << nPoints << " samples." << std::endl;
 
+    int64_t start_time = curTimeMillis();
+
     if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
@@ -153,9 +163,15 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUDA_CHECK(cudaStreamSynchronize(stream));
     ML::POP_RANGE();
 
+    int64_t cur_time = curTimeMillis();
+    if (verbose)
+      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
+                << std::endl;
+
     if (verbose)
       std::cout << "--> Computing adjacency graph of size " << curradjlen
                 << " samples." << std::endl;
+    start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > adjlen || adj_graph.data() == NULL) {
@@ -171,13 +187,24 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
+    cur_time = curTimeMillis();
+    if (verbose)
+      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
+                << std::endl;
+
     if (verbose) std::cout << "--> Computing connected components" << std::endl;
 
-    MLCommon::Sparse::weak_cc_batched<Index_, TPB>(
+    start_time = curTimeMillis();
+    MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
       labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
     ML::POP_RANGE();
+
+    cur_time = curTimeMillis();
+    if (verbose)
+      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
+                << std::endl;
 
     if (verbose) std::cout << " " << std::endl;
   }
