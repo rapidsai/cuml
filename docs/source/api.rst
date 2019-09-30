@@ -4,8 +4,8 @@ cuML API Reference
 
 
 
-Preprocessing
-==============
+Preprocessing, Metrics, and Utilities
+=====================================
 
 Model Selection and Data Splitting
 ----------------------------------
@@ -23,6 +23,28 @@ Dataset Generation
 ------------------
 
   .. automethod:: cuml.datasets.make_blobs
+
+Metrics
+---------
+
+  .. automodule:: cuml.metrics.regression
+    :members:
+
+  .. automodule:: cuml.metrics.accuracy
+    :members:
+
+  .. automodule:: cuml.metrics.trustworthiness
+    :members:
+
+
+Utilities for I/O and Numba
+---------------------------
+
+  .. automodule:: cuml.utils.input_utils
+    :members:
+
+  .. automodule:: cuml.utils.numba_utils
+    :members:
 
 Regression and Classification
 =============================
@@ -82,6 +104,12 @@ Quasi-Newton
 ------------
 
 .. autoclass:: cuml.QN
+    :members:
+
+Support Vector Machines
+------------------------
+
+.. autoclass:: cuml.svm.SVC
     :members:
 
 Clustering
