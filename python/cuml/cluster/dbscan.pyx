@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
@@ -58,21 +58,21 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,
-                        long n_rows,
-                        long n_cols,
+                        int64_t n_rows,
+                        int64_t n_cols,
                         double eps,
                         int min_pts,
-                        long *labels,
+                        int64_t *labels,
                         size_t max_mbytes_per_batch,
                         bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
-                        long n_rows,
-                        long n_cols,
+                        int64_t n_rows,
+                        int64_t n_cols,
                         double eps,
                         int min_pts,
-                        long *labels,
+                        int64_t *labels,
                         size_t max_mbytes_per_batch,
                         bool verbose) except +
 
