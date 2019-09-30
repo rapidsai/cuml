@@ -115,7 +115,7 @@ class TSNE(Base):
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
-        many runs. Try using PCA intialization (in future release) to 
+        many runs. Try using PCA intialization (in future release) to
         possibly counteract this problem.
         It is known that small perturbations can directly
         change the result of the embedding for parallel TSNE implementations.
