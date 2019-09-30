@@ -175,7 +175,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     math_t *x_ptr = nullptr;
     int ld1 = 0;
     if (kernel_params.kernel == MLCommon::Matrix::RBF) {
-      // The RBF kernel does not support ld parameters (See issue #)
+      // The RBF kernel does not support ld parameters (See issue #1172)
       // To come around this limitation, we copy the batch into a temporary
       // buffer.
       thrust::counting_iterator<int> first(i);
