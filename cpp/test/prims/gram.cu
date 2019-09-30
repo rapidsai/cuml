@@ -21,13 +21,13 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
-#include "gram/grammatrix.h"
-#include "gram/kernelfactory.h"
-#include "gram/kernelparams.h"
+#include "matrix/grammatrix.h"
+#include "matrix/kernelfactory.h"
+#include "matrix/kernelparams.h"
 #include "test_utils.h"
 
 namespace MLCommon {
-namespace GramMatrix {
+namespace Matrix {
 
 class GramMatrixTest : public ::testing::Test {
  protected:
@@ -171,5 +171,5 @@ TEST_F(GramMatrixTest, RBF_Rectangular) {
   ASSERT_TRUE(
     devArrMatchHost(K, gram_dev, n1 * n2, CompareApprox<float>(1e-6f)));
 }
-};  // end namespace GramMatrix
+};  // end namespace Matrix
 };  // end namespace MLCommon
