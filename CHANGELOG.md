@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1170: Use git to clone subprojects instead of git submodules
 
 ## Bug Fixes
 
