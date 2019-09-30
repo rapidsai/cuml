@@ -419,8 +419,8 @@ class TSNE(Base):
             self.Y = None
 
     def fit_transform(self, X):
-        """
-        Fit X into an embedded space and return that transformed output.
+        """Fit X into an embedded space and return that transformed output.
+        
         Parameters
         -----------
         X : array-like (device or host) shape = (n_samples, n_features)
