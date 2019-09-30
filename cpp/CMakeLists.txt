@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.10.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.11.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -128,28 +128,16 @@ find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
 
-# Header only libraries
-
-set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/cub CACHE STRING
+set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING
   "Path to cub repo")
 
-set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
+set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
   "Path to the cutlass repo")
 
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-# Dynamic and static linked libraries
-
-set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest/googletest CACHE STRING
-  "Path to the googletest repo")
-
-# set(GTEST_LIBNAME ${GTEST_DIR}/lib/libgtest_main.a CACHE STRING
-#   "Name of the googletest library")
-# set(GTEST_LIBNAME "libgtest_main" CACHE STRING
-#   "Name of the googletest library")
-
-set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss/ CACHE STRING
+set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
 
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
@@ -248,9 +236,30 @@ add_clang_format(
   SRCDIR ${PROJECT_SOURCE_DIR})
 
 ##############################################################################
-# - FAISS Build  -------------------------------------------------------------
+# - Cloning header only libraries---------------------------------------------
 
 include(ExternalProject)
+
+ExternalProject_Add(cub
+  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
+  GIT_TAG           v1.8.0
+  PREFIX            ${CUB_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+)
+
+ExternalProject_Add(cutlass
+  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
+  GIT_TAG           v1.0.1
+  PREFIX            ${CUTLASS_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+)
+
+##############################################################################
+# - FAISS Build  -------------------------------------------------------------
 
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
@@ -304,14 +313,16 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 ##############################################################################
 # - include paths ------------------------------------------------------------
 
+message("CUB_DIR is ${CUB_DIR}")
+
 include_directories(
   src
   src_prims
   test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${CUTLASS_DIR}
-  ${CUB_DIR}
+  ${CUTLASS_DIR}/src/cutlass
+  ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
 
