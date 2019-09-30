@@ -42,7 +42,7 @@ endif()
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library for FAISS build.")
 
-option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contins the cuML C API" ON)
+option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contains the cuML C API" ON)
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
