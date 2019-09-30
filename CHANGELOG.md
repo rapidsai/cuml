@@ -1,12 +1,16 @@
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
+- PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
 - PR #1071: Selective eigen solver of cuSolver
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
 - PR #1104: CUDA 10.1 support
 - PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 - PR #855: Added benchmark tools
+- PR #1149 Add YYMMDD to version tag for nightly conda packages
+- PR #892: General Gram matrices prim
+- PR #912: Support Vector Machine
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
@@ -21,6 +25,7 @@
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
 - PR #1135: K-means: add boundary cases for kmeans||, support finer control with convergence
+- PR #1165: Adding except + in all remaining cython
 
 ## Bug Fixes
 
@@ -39,6 +44,7 @@
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
 - PR #1132: DBSCAN Batching Bug Fix
+- PR #1164: Fix check_dtype arg handling for input_to_dev_array
 
 # cuML 0.9.0 (21 Aug 2019)
 
