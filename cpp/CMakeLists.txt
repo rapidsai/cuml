@@ -315,8 +315,6 @@ include_directories(
   ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
 
-# add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
-
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
     src_prims/utils.h)
