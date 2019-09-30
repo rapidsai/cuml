@@ -66,8 +66,8 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
     atomicAdd((int *)(vd + row), (int)res);
     atomicAdd((int *)(vd + batchSize), (int)res);
   } else if (sizeof(Index_) == 8) {
-    atomicAdd((unsigned long long *)(vd + row), (unsigned long long)res);
-    atomicAdd((unsigned long long *)(vd + batchSize), (unsigned long long)res);
+    atomicAdd((unsigned long long *)(vd + row), res);
+    atomicAdd((unsigned long long *)(vd + batchSize), res);
   }
 }
 

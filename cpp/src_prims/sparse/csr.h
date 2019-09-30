@@ -708,9 +708,9 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
         cj = labels[j_ind];
         if (ci < cj) {
           if (sizeof(Index_) == 4)
-            atomicMin((unsigned int *)(labels + j_ind), ci);
+            atomicMin((int *)(labels + j_ind), ci);
           else if (sizeof(Index_) == 8)
-            atomicMin((unsigned long long int *)(labels + j_ind), ci);
+            atomicMin((long long int *)(labels + j_ind), ci);
           xa[j_ind] = true;
           m[0] = true;
         } else if (ci > cj) {
@@ -720,11 +720,9 @@ __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
       }
       if (ci_mod) {
         if (sizeof(Index_) == 4)
-          atomicMin((unsigned int *)(labels + startVertexId + tid), ci);
+          atomicMin((int *)(labels + startVertexId + tid), ci);
         else if (sizeof(Index_) == 8)
-          atomicMin((unsigned long long int *)(labels + startVertexId + tid),
-                    ci);
-
+          atomicMin((long long int *)(labels + startVertexId + tid), ci);
         xa[startVertexId + tid] = true;
         m[0] = true;
       }
@@ -777,6 +775,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     labels, startVertexId, batchSize, MAX_LABEL, filter_op);
   CUDA_CHECK(cudaPeekAtLastError());
 
+  int n_iters = 0;
   do {
     CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
@@ -784,6 +783,8 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
       startVertexId, batchSize);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
 
     //** swapping F1 and F2
     MLCommon::updateHost(host_fa, state->fa, N, stream);
@@ -794,7 +795,12 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     //** Updating m *
     MLCommon::updateHost(&host_m, state->m, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    n_iters++;
   } while (host_m);
+
+  free(host_fa);
+  free(host_xa);
 }
 
 /**
@@ -833,6 +839,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
   dim3 threads(TPB_X);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+
   if (startVertexId == 0) {
     weak_cc_init_all_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, state->fa, state->xa, N, MAX_LABEL);
