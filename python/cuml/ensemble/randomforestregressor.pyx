@@ -22,6 +22,8 @@
 import ctypes
 import math
 import numpy as np
+import os
+import tempfile
 import warnings
 
 from numba import cuda
@@ -166,8 +168,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int) except +
 
-    cdef vector[unsigned char] save_model(ModelHandle)
-    cdef void write_model_to_file(vector[unsigned char])
+    cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
+    cdef void write_model_to_file(vector[unsigned char], const char* filename)
 
 
 class RandomForestRegressor(Base):
@@ -283,7 +285,7 @@ class RandomForestRegressor(Base):
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
-                 rows_sample=1.0, max_leaves=-1,
+                 rows_sample=1.0, max_leaves=-1, file_name=None,
                  accuracy_metric='mse', min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
@@ -339,7 +341,10 @@ class RandomForestRegressor(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams
         self.pickle = False
-
+        if file_name is None:
+            tmpdir = tempfile.mkdtemp()
+            file_name = os.path.join(tmpdir, "model.buffer")
+        self.file_name = file_name
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
@@ -354,7 +359,7 @@ class RandomForestRegressor(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self._get_model_info()
+        self.model_protobuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -365,10 +370,8 @@ class RandomForestRegressor(Base):
 
         state['verbose'] = self.verbose
         state["pickle"] = True
-        state["mod_ptr"] = self.mod_ptr
-
         state["file_name"] = self.file_name
-        state["mod_byte_data"] = self.mod_byte_data
+        state["model_protobuf_bytes"] = self.model_protobuf_bytes
 
         if state["dtype"] == np.float32:
             state["rf_params"] = rf_forest.rf_params
@@ -392,7 +395,7 @@ class RandomForestRegressor(Base):
 
         self.file_name = state["file_name"]
 
-        self.mod_byte_data = state["mod_byte_data"]
+        self.model_protobuf_bytes = state["model_protobuf_bytes"]
 
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
@@ -419,10 +422,12 @@ class RandomForestRegressor(Base):
                              " please read the documentation")
 
     def _get_model_info(self):
-        self.mod_ptr = self._get_treelite(num_features=self.n_cols)
-        cdef uintptr_t model_ptr = <uintptr_t> self.mod_ptr
-        self.file_name = './model.buffer'
-        self.mod_byte_data = save_model(<ModelHandle> model_ptr)
+        fit_mod_ptr = self._get_treelite(num_features=self.n_cols)
+        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+        filename_bytes = (self.file_name).encode("UTF-8")
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
+                                          filename_bytes)
+        return model_protobuf_bytes
 
     def fit(self, X, y):
         """
@@ -503,8 +508,10 @@ class RandomForestRegressor(Base):
 
     def _predict_model_with_pickling(self, X,
                                      algo='BATCH_TREE_REORG'):
+        filename_bytes = (self.file_name).encode("UTF-8")
+        write_model_to_file(<vector[unsigned char]> self.model_protobuf_bytes,
+                            filename_bytes)
 
-        write_model_to_file(<vector[unsigned char]> self.mod_byte_data)
         self.fil_model = ForestInference.load(filename=self.file_name,
                                               output_class=False,
                                               algo=algo,
@@ -621,6 +628,7 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_with_pickling(X)
 
         elif self.dtype == np.float64:
+            print("self.dtype : ", self.dtype)
             raise TypeError("GPU predict model only accepts float32 dtype"
                             " as input, convert the data to float32 or "
                             "use the CPU predict with `predict_model='CPU'`.")
@@ -794,6 +802,6 @@ class RandomForestRegressor(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
+        mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(self.mod_ptr).value
+        return ctypes.c_void_p(mod_ptr).value

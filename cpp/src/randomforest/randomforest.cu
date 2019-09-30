@@ -308,20 +308,21 @@ void build_treelite_forest(ModelHandle* model,
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
 }
 
-std::vector<unsigned char> save_model(ModelHandle model) {
-  char* file_name = "./model.buffer";
-  TreeliteExportProtobufModel(file_name, model);
-  std::ifstream in(file_name, std::ifstream::ate | std::ifstream::binary);
+std::vector<unsigned char> save_model(ModelHandle model, const char* filename) {
+  // char* file_name = "./model.buffer";
+  TreeliteExportProtobufModel(filename, model);
+  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
   in.seekg(0, std::ios::end);
   int size_of_file = in.tellg();
   vector<unsigned char> bytes_info(size_of_file, 0);
-  ifstream infile("./model.buffer", ios::in | ios::binary);
+  ifstream infile(filename, ios::in | ios::binary);
   infile.read((char*)&bytes_info[0], bytes_info.size());
   return bytes_info;
 }
 
-void write_model_to_file(std::vector<unsigned char> data) {
-  std::ofstream file("./model.buffer", std::ios::binary);
+void write_model_to_file(std::vector<unsigned char> data,
+                         const char* filename) {
+  std::ofstream file("filename", std::ios::binary);
   file.write((char*)&data[0], data.size());
 }
 

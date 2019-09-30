@@ -18,6 +18,7 @@ from cuml.test.utils import array_equal
 import numpy as np
 import pickle
 import pytest
+from sklearn.model_selection import train_test_split
 from sklearn.datasets import load_iris
 from sklearn.datasets import make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
@@ -99,24 +100,21 @@ def pickle_save_load(tmpdir, model):
 
 
 def make_dataset(datatype, nrows, ncols):
-    train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(datatype)
-
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
     return X_train, y_train, X_test
 
 
 def make_classification_dataset(datatype, nrows, ncols, n_info):
-    train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_informative=n_info,
                                random_state=0, n_classes=2)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(np.int32)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
 
     return X_train, y_train, X_test
 
