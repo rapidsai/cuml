@@ -115,8 +115,8 @@ class TSNE(Base):
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
-        many runs. Try using PCA intialization (in future release) to
-        possibly counteract this problem.
+        many runs. Try using PCA intialization (upcoming with change #1098)
+        to possibly counteract this problem.
         It is known that small perturbations can directly
         change the result of the embedding for parallel TSNE implementations.
     method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
@@ -171,8 +171,8 @@ class TSNE(Base):
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
 
-    As suggested, PCA (in future release) can also help to alleviate this
-    issue.
+    As suggested, PCA (upcoming with change #1098) can also help to alleviate
+    this issue.
 
     Reference Implementation
     -------------------------
