@@ -33,8 +33,7 @@
 #include <thrust/reduce.h>
 
 
-#define CHECK \
-  printf("[%d] %s\n", __LINE__, __FILE__);
+#define CHECK printf("[%d] %s\n", __LINE__, __FILE__); printf("[%d] %s\n", __LINE__, __FILE__); printf("[%d] %s\n", __LINE__, __FILE__);
 
 
 
@@ -100,12 +99,15 @@ get_knn_indexes(const math_t *__restrict input,
                 std::shared_ptr<deviceAllocator> d_alloc,
                 cudaStream_t stream)
 {
+  CHECK;
   long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   math_t *distances = (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   float **knn_input = new float *[1];
   int *sizes = new int[1];
   ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
@@ -113,15 +115,17 @@ get_knn_indexes(const math_t *__restrict input,
   knn_input[0] = (math_t*) input;
   sizes[0] = n;
 
+  CHECK;
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, d,
                                        const_cast<float *>(input), n, indices,
                                        distances, n_neighbors, stream);
 
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(math_t), stream);
 
+  CHECK;
   delete[] knn_input;
   delete[] sizes;
-
+  CHECK;
   return indices;
 }
 
@@ -153,26 +157,26 @@ trustworthiness_score(const math_t *__restrict X,
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
-
+  CHECK;
   math_t *distances = (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-
+  CHECK;
   int *indices = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-
+  CHECK;
   long *embedded_indices = (long*) get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
   ASSERT(embedded_indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-
+  CHECK;
   double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
   ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   int toDo = n;
   double t = 0.0;
 
-
+  CHECK;
   while (toDo > 0)
   {
     CHECK;
