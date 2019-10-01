@@ -26,7 +26,7 @@ from collections import namedtuple
 from collections.abc import Collection
 from numba import cuda
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
