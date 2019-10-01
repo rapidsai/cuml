@@ -44,6 +44,7 @@
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
 - PR #1132: DBSCAN Batching Bug Fix
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
+- PR #1171: SVM prediction bug fix
 
 # cuML 0.9.0 (21 Aug 2019)
 
