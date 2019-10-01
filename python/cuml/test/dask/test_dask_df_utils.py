@@ -24,9 +24,8 @@ from dask.distributed import Client
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [1, 5, 10])
-def test_to_dask_df(dtype, nparts):
+def test_to_dask_df(dtype, nparts, cluster):
 
-    cluster = LocalCUDACluster()
     c = Client(cluster)
 
     from cuml.dask.common.dask_df_utils import to_dask_df

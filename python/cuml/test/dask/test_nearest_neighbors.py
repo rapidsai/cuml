@@ -23,9 +23,8 @@ from dask_cuda import LocalCUDACluster
 pytestmark = pytest.mark.mg
 
 
-def test_end_to_end():
+def test_end_to_end(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     print(client)

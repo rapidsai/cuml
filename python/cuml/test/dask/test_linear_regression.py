@@ -51,9 +51,8 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 
 
 @pytest.mark.skip(reason="Test should be run only with libcuML.so")
-def test_ols():
+def test_ols(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     import dask_cudf

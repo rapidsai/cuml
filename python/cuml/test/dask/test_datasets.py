@@ -28,9 +28,9 @@ from dask.distributed import Client
 @pytest.mark.parametrize("cluster_std", [0.1])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [1, 5])
-def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts):
+def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts,
+                    cluster):
 
-    cluster = LocalCUDACluster()
     c = Client(cluster)
 
     from cuml.dask.datasets import make_blobs
