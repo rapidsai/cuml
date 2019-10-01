@@ -138,7 +138,12 @@ get_knn_indexes(const math_t *__restrict input,
                                        const_cast<float *>(input), n, indices,
                                        distances, n_neighbors, stream);
 
+  CHECK;
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(math_t), stream);
+  delete[] knn_input;
+  delete[] sizes;
+  CHECK;
+
   return indices;
 }
 
