@@ -99,6 +99,8 @@ if(BUILD_CUML_TESTS)
       )
 
     add_dependencies(ml ${ClangFormat_TARGET})
+    add_dependencies(ml cub)
+    add_dependencies(ml cutlass)
 
     target_link_libraries(ml
       gtestlib
@@ -133,6 +135,8 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     add_dependencies(ml_mg ${ClangFormat_TARGET})
+    add_dependencies(ml_mg cub)
+    add_dependencies(ml_mg cutlass)
 
     target_link_libraries(ml_mg
       gtestlib
@@ -247,6 +251,8 @@ if(BUILD_PRIMS_TESTS)
       )
 
     add_dependencies(prims ${ClangFormat_TARGET})
+    add_dependencies(prims cub)
+    add_dependencies(prims cutlass)
 
     target_link_libraries(prims
       gtestlib
