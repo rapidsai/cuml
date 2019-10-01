@@ -24,7 +24,7 @@ import numpy as np
 
 from numba import cuda
 from cuml.utils import numba_utils
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free

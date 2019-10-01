@@ -24,7 +24,7 @@ import logging
 import random
 
 from cuml.utils import numba_utils
-from librmm_cffi import librmm as rmm
+import rmm
 
 from dask import delayed
 from collections import defaultdict
