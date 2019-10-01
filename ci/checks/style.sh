@@ -40,4 +40,25 @@ else
   echo -e "\n\n>>>> PASSED: copyright check\n\n"
 fi
 
+# Check for a consistent #include syntax
+# TODO: keep adding more dirs as and when we update the syntax
+HASH_INCLUDE=`python cpp/scripts/include_checker.py \
+                     cpp/comms/include \
+                     cpp/comms/src \
+                     cpp/include \
+                     2>&1`
+HASH_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$HASH_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$HASH_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: #include check; begin output\n\n"
+  echo -e "$HASH_INCLUDE"
+  echo -e "\n\n>>>> FAILED: #include check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: #include check\n\n"
+fi
+
 exit $RETVAL
