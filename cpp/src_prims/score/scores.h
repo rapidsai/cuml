@@ -32,6 +32,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
+
+
 #define INIT_COUNTER \
   int counter = 0;
 
@@ -44,6 +46,11 @@
       printf("Repeat %d", __LINE__); \
       printf("Repeat %d", __LINE__); \
   }
+
+#define CHECK \
+  printf("[%d] %s\n", __LINE__, __FILE__);
+
+
 
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
@@ -110,12 +117,15 @@ get_knn_indexes(const math_t *__restrict input,
                 std::shared_ptr<deviceAllocator> d_alloc,
                 cudaStream_t stream)
 {
+  CHECK;
   long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   math_t *distances = (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   float **knn_input = new float *[1];
   int *sizes = new int[1];
   ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
@@ -123,6 +133,7 @@ get_knn_indexes(const math_t *__restrict input,
   knn_input[0] = (math_t*) input;
   sizes[0] = n;
 
+  CHECK;
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, d,
                                        const_cast<float *>(input), n, indices,
                                        distances, n_neighbors, stream);
@@ -159,15 +170,19 @@ trustworthiness_score(const math_t *__restrict X,
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
+  CHECK;
   math_t *distances = (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   int *indices = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   long *embedded_indices = (long*) get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
   ASSERT(embedded_indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
   ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
@@ -177,6 +192,7 @@ trustworthiness_score(const math_t *__restrict X,
 
   while (toDo > 0)
   {
+    CHECK;
     // Takes at most MAX_BATCH_SIZE vectors at a time
     const int batchSize = min(toDo, MAX_BATCH_SIZE);
 
@@ -184,16 +200,20 @@ trustworthiness_score(const math_t *__restrict X,
     // Determine distance workspace size
     char *distance_workspace = NULL;
 
+    CHECK;
     const size_t distance_workspace_size = \
       MLCommon::Distance::getWorkspaceSize<distance_type, math_t, math_t, math_t>(
         &X[(n - toDo) * m], X, batchSize, n, m);
     
+    CHECK;
     if (distance_workspace_size != 0) {
+      CHECK;
       distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
       ASSERT(distance_workspace != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
     }
     
 
+    CHECK;
     // Find distances
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
@@ -204,12 +224,15 @@ trustworthiness_score(const math_t *__restrict X,
     
 
     // Free workspace
+    CHECK;
     if (distance_workspace_size != 0) {
+      CHECK;
       d_alloc->deallocate(distance_workspace, distance_workspace_size, stream);
     }
     
     
     // Determine sort columns workspace
+    CHECK;
     bool need_workspace = false;
     size_t sort_workspace_size = 0;
     MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
@@ -218,11 +241,14 @@ trustworthiness_score(const math_t *__restrict X,
     CUDA_CHECK(cudaPeekAtLastError());
 
 
+    CHECK;
     if (need_workspace)
     {
+      CHECK;
       char *sort_workspace = (char*) d_alloc->allocate(sort_workspace_size, stream);
       ASSERT(sort_workspace != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+      CHECK;
       MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
                                              n, need_workspace, (void*)sort_workspace,
                                              sort_workspace_size, stream);
@@ -232,7 +258,7 @@ trustworthiness_score(const math_t *__restrict X,
       d_alloc->deallocate(sort_workspace, sort_workspace_size, stream);
     }
     
-
+    CHECK;
     double t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -241,13 +267,14 @@ trustworthiness_score(const math_t *__restrict X,
     const int work = batchSize * n_neighbors;
     const int n_blocks = work / N_THREADS + 1;
 
+    CHECK;
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       indices, &embedded_indices[(n - toDo) * (n_neighbors + 1)], n,
       n_neighbors, batchSize * n_neighbors, d_t);
 
     CUDA_CHECK(cudaPeekAtLastError());
 
-
+    CHECK;
     updateHost(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -256,6 +283,7 @@ trustworthiness_score(const math_t *__restrict X,
     toDo -= batchSize;
   }
 
+  CHECK;
   t =
     1.0 -
     ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
