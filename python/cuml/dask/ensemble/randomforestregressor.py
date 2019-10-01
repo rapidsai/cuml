@@ -197,6 +197,12 @@ class RandomForestRegressor:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        seeds = list()
+        seeds.append(0)
+        for i in range(1, len(self.n_estimators_per_worker)):
+            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
+            seeds.append(sd)
+
         key = str(uuid1())
         self.rfs = {
             worker: c.submit(
@@ -216,6 +222,7 @@ class RandomForestRegressor:
                 max_leaves,
                 accuracy_metric,
                 quantile_per_tree,
+                seeds[n],
                 key="%s-%s" % (key, n),
                 workers=[worker],
             )
@@ -245,6 +252,7 @@ class RandomForestRegressor:
         max_leaves,
         accuracy_metric,
         quantile_per_tree,
+        seed,
     ):
 
         return cuRFR(
@@ -264,6 +272,7 @@ class RandomForestRegressor:
             n_streams=n_streams,
             accuracy_metric=accuracy_metric,
             quantile_per_tree=quantile_per_tree,
+            seed=seed,
         )
 
     @staticmethod

@@ -26,29 +26,31 @@ namespace LinAlg {
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename T, typename IdxType = int>
-void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len,
+template <typename InType, typename IdxType = int, typename OutType = InType>
+void unaryOpLaunch(OutType *out, const InType *in, InType scalar, IdxType len,
                    cudaStream_t stream) {
-  unaryOp(
-    out, in, len, [scalar] __device__(T in) { return in * scalar; }, stream);
+  auto op = [scalar] __device__(InType in) {
+    return static_cast<OutType>(in * scalar);
+  };
+  unaryOp<InType, decltype(op), IdxType, OutType>(out, in, len, op, stream);
 }
 
-template <typename T, typename IdxType>
-class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<T, IdxType>> {
+template <typename InType, typename IdxType, typename OutType = InType>
+class UnaryOpTest
+  : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<UnaryOpInputs<T, IdxType>>::GetParam();
+    params = ::testing::TestWithParam<
+      UnaryOpInputs<InType, IdxType, OutType>>::GetParam();
     Random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-
     auto len = params.len;
     auto scalar = params.scalar;
-
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    r.uniform(in, len, InType(-1.0), InType(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     unaryOpLaunch(out, in, scalar, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -61,8 +63,9 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<T, IdxType>> {
   }
 
  protected:
-  UnaryOpInputs<T, IdxType> params;
-  T *in, *out_ref, *out;
+  UnaryOpInputs<InType, IdxType, OutType> params;
+  InType *in;
+  OutType *out_ref, *out;
 };
 
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
@@ -84,6 +87,16 @@ TEST_P(UnaryOpTestF_i64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
+
+const std::vector<UnaryOpInputs<float, int, double>> inputsf_i32_d = {
+  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+typedef UnaryOpTest<float, int, double> UnaryOpTestF_i32_D;
+TEST_P(UnaryOpTestF_i32_D, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i32_D,
+                        ::testing::ValuesIn(inputsf_i32_d));
 
 const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
