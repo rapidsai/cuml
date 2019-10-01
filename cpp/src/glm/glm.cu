@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <cuml/cuml.hpp>
-#include "glm.hpp"
+#include <cuml/linear_model/glm.hpp>
 #include "glm/qn/qn.h"
 #include "ols.h"
 #include "ridge.h"

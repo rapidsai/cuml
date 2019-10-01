@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "umapparams.h"
+#include <cuml/manifold/umapparams.h>
 
 #include "linalg/add.h"
 #include "linalg/binary_op.h"

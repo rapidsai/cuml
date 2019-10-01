@@ -17,9 +17,9 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <cuml/neighbors/knn.hpp>
 #include <iostream>
 #include <vector>
-#include "knn.hpp"
 #include "ml_mg_utils.h"
 
 namespace ML {

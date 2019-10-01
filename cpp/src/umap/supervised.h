@@ -16,8 +16,9 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
 #include "optimize.h"
-#include "umapparams.h"
 
 #include "fuzzy_simpl_set/runner.h"
 #include "init_embed/runner.h"
@@ -33,8 +34,6 @@
 
 #include "sparse/coo.h"
 #include "sparse/csr.h"
-
-#include "knn.hpp"
 
 #include "cuda_utils.h"
 
