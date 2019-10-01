@@ -47,7 +47,6 @@ if(BUILD_CUML_TESTS)
     add_executable(ml
       sg/cd_test.cu
       sg/dbscan_test.cu
-      sg/distance_test.cu
       sg/fil_test.cu
       sg/handle_test.cu
       sg/holtwinters_test.cu
@@ -152,6 +151,7 @@ if(BUILD_PRIMS_TESTS)
       prims/dist_euc_exp.cu
       prims/dist_euc_unexp.cu
       prims/dist_l1.cu
+      prims/distance_test.cu
       prims/divide.cu
       prims/eig.cu
       prims/eig_sel.cu
