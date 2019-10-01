@@ -71,14 +71,20 @@ def input_to_dev_array(X, order='F', deepcopy=False,
                        check_cols=False, check_rows=False,
                        fail_on_order=False):
     """
-    Convert input X to device array suitable for C++ methods
+    Convert input X to device array suitable for C++ methods.
+
     Acceptable input formats:
+
     * cuDF Dataframe - returns a deep copy always
+
     * cuDF Series - returns by reference or a deep copy depending on
         `deepcopy`
+
     * Numpy array - returns a copy in device always
+
     * cuda array interface compliant array (like Cupy) - returns a
-        reference unless deepcopy=True
+        reference unless `deepcopy`=True
+
     * numba device array - returns a reference unless deepcopy=True
 
     Parameters
@@ -309,13 +315,18 @@ def input_to_host_array(X, order='F', deepcopy=False,
     """
     Convert input X to host array (NumPy) suitable for C++ methods that accept
     host arrays.
+
     Acceptable input formats:
+
     * Numpy array - returns a pointer to the original input
+
     * cuDF Dataframe - returns a deep copy always
-    * cuDF Series - returns by reference or a deep copy depending on
-        `deepcopy`
-    * cuda array interface compliant array (like Cupy) - returns a
+
+    * cuDF Series - returns by reference or a deep copy depending on `deepcopy`
+
+    * cuda array interface compliant array (like Cupy) - returns a \
         reference unless deepcopy=True
+
     * numba device array - returns a reference unless deepcopy=True
 
     Parameters

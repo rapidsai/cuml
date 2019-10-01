@@ -608,6 +608,7 @@ class RandomForestClassifier(Base):
                 num_classes=2):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -639,9 +640,10 @@ class RandomForestClassifier(Base):
                     It is applied if output_class == True, else it is ignored
         num_classes : integer
                       number of different classes present in the dataset
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         if self.dtype == np.float64:
@@ -662,15 +664,17 @@ class RandomForestClassifier(Base):
     def _predict_get_all(self, X):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         cdef uintptr_t X_ptr
@@ -724,17 +728,20 @@ class RandomForestClassifier(Base):
     def score(self, X, y):
         """
         Calculates the accuracy metric score of the model for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
+
         Returns
-        ----------
-        accuracy of the model
+        -------
+        float
+           Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
@@ -795,6 +802,7 @@ class RandomForestClassifier(Base):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -811,6 +819,7 @@ class RandomForestClassifier(Base):
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params
