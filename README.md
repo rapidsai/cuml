@@ -84,6 +84,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node, multi-GPU version available via Dask integration |
 | | Random Forest (RF) Regression | Experimental multi-node, multi-GPU version available via Dask integration |
 |  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+|  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
 ---
