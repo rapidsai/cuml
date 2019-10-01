@@ -43,7 +43,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                          bool fit_intercept,
                          bool normalize,
                          int *gpu_ids,
-                         int n_gpus)
+                         int n_gpus) except +
 
     cdef void olsFitSPMG(double *h_input,
                          int n_rows,
@@ -54,7 +54,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                          bool fit_intercept,
                          bool normalize,
                          int *gpu_ids,
-                         int n_gpus)
+                         int n_gpus) except +
 
     cdef void olsPredictSPMG(float *input,
                              int n_rows,
@@ -63,7 +63,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                              float intercept,
                              float *preds,
                              int *gpu_ids,
-                             int n_gpus)
+                             int n_gpus) except +
 
     cdef void olsPredictSPMG(double *input,
                              int n_rows,
@@ -72,7 +72,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                              double intercept,
                              double *preds,
                              int *gpu_ids,
-                             int n_gpus)
+                             int n_gpus) except +
 
     cdef void olsFitSPMG(float **input,
                          int *input_cols,
@@ -85,7 +85,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                          float *intercept,
                          bool fit_intercept,
                          bool normalize,
-                         int n_gpus)
+                         int n_gpus) except +
 
     cdef void olsFitSPMG(double **input,
                          int *input_cols,
@@ -98,7 +98,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                          double *intercept,
                          bool fit_intercept,
                          bool normalize,
-                         int n_gpus)
+                         int n_gpus) except +
 
     cdef void olsPredictSPMG(float **input,
                              int *input_cols,
@@ -109,7 +109,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                              float intercept,
                              float **preds,
                              int *pred_cols,
-                             int n_gpus)
+                             int n_gpus) except +
 
     cdef void olsPredictSPMG(double **input,
                              int *input_cols,
@@ -120,7 +120,7 @@ cdef extern from "cumlprims/spmg/glm_spmg.hpp" namespace "ML::GLM":
                              double intercept,
                              double **preds,
                              int *pred_cols,
-                             int n_gpus)
+                             int n_gpus) except +
 
 
 class LinearRegressionMG:

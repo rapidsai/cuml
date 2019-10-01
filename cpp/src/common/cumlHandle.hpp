@@ -42,7 +42,7 @@ using MLCommon::hostAllocator;
  */
 class cumlHandle_impl {
  public:
-  cumlHandle_impl();
+  cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~cumlHandle_impl();
   int getDevice() const;
   void setStream(cudaStream_t stream);
@@ -70,9 +70,8 @@ class cumlHandle_impl {
   const cudaDeviceProp& getDeviceProperties() const;
 
  private:
-  //TODO: What is the right number?
-  static constexpr int _num_streams = 3;
   const int _dev_id;
+  const int _num_streams;
   std::vector<cudaStream_t> _streams;
   cublasHandle_t _cublas_handle;
   cusolverDnHandle_t _cusolverDn_handle;

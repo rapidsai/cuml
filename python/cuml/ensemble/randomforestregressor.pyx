@@ -26,6 +26,7 @@ import warnings
 
 from numba import cuda
 
+from cuml.common.handle import Handle
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -138,12 +139,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[float, float]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, double]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -304,6 +305,8 @@ class RandomForestRegressor(Base):
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
+
+        handle = Handle(n_streams)
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
