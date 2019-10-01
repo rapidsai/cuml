@@ -19,7 +19,6 @@
 #include <iostream>
 #include "cache/cache.h"
 #include "common/cuml_allocator.hpp"
-#include "cuML.hpp"
 #include "test_utils.h"
 
 namespace MLCommon {
