@@ -36,6 +36,22 @@ Metrics
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
+  .. automodule:: cuml.metrics.cluster
+    :members:
+
+Benchmarking
+-------------
+
+  .. automodule:: cuml.benchmark.algorithms
+    :members:
+
+  .. automodule:: cuml.benchmark.runners
+    :members:
+
+  .. automodule:: cuml.benchmark.datagen
+    :members:
+    
+       
 
 Utilities for I/O and Numba
 ---------------------------
