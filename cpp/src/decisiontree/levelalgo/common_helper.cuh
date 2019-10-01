@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "flatnode.h"
+#include <cuml/tree/flatnode.h>
 #include "common_kernel.cuh"
 #include "random/rng.h"
 #include "stats/minmax.h"

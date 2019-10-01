@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
-#include "decisiontree.hpp"
-#include "flatnode.h"
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"

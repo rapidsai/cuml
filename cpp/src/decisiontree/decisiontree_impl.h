@@ -17,15 +17,15 @@
 
 #pragma once
 #include <common/Timer.h>
+#include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
 #include <algorithm>
 #include <climits>
 #include <common/cumlHandle.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include <map>
 #include <numeric>
 #include <vector>
-#include "algo_helper.h"
-#include "decisiontree.hpp"
 #include "levelalgo/metric_def.h"
 
 /** check for treelite runtime API errors and assert accordingly */

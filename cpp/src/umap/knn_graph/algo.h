@@ -15,10 +15,10 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/manifold/umapparams.h>
 #include <iostream>
 #include "linalg/unary_op.h"
 #include "selection/knn.h"
-#include "umapparams.h"
 
 #pragma once
 
