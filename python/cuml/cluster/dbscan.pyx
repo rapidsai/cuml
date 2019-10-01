@@ -268,7 +268,7 @@ class DBSCAN(Base):
         del(X_m)
         return self
 
-    def fit_predict(self, X, out_dtype="auto"):
+    def fit_predict(self, X, out_dtype="int32"):
         """
         Performs clustering on input_gdf and returns cluster labels.
 

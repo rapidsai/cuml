@@ -109,6 +109,7 @@ class AlgorithmPair:
         all_args = {**all_args, **override_args}
 
         cuml_obj = self.cuml_class(**all_args)
+        print(str(cuml_obj))
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
@@ -159,7 +160,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
-            shared_args=dict(n_neighbors=1024),
+            shared_args=dict(n_neighbors=1000000),
             cpu_args=dict(algorithm="brute"),
             cuml_args={},
             name="NearestNeighbors",
