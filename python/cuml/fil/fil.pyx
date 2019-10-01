@@ -26,7 +26,7 @@ import math
 import numpy as np
 import warnings
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t

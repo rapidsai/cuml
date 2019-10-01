@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
 from cuml.utils import input_to_dev_array as to_cuda
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
