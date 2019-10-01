@@ -1,21 +1,40 @@
+# cuML 0.11.0 (Date TBD)
+
+## New Features
+- PR #1129: c++: a separate include folder for C++ API distribution
+
+## Improvements
+
+## Bug Fixes
+
+
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
-- PR #1071: Selective eigen solver of cuSolver 
+- PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
+- PR #1071: Selective eigen solver of cuSolver
 - PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1104: CUDA 10.1 support
 - PR #1113: prims: new batched make-symmetric-matrix primitive
 - PR #1112: prims: new batched-gemv primitive
 - PR #855: Added benchmark tools
-- PR #1129: c++: a separate include folder for C++ API distribution
+- PR #1149 Add YYMMDD to version tag for nightly conda packages
+- PR #892: General Gram matrices prim
+- PR #912: Support Vector Machine
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
 - PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #1047: Consistent OPG interface for kmeans, based on internal libcumlprims update
 - PR #763: Add examples to train_test_split documentation
 - PR #1093: Unified inference kernels for different FIL algorithms
-- PR #1076: Paying off some UMAP / Spectral tech debt. 
+- PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1108: input_to_host_array function in input_utils for input processing to host arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
+- PR #1136: CUDA 10.1 CI updates
+- PR #1165: Adding except + in all remaining cython
 
 ## Bug Fixes
 
@@ -33,6 +52,8 @@
 - PR #1088: Change straggling numba python allocations to use RMM
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
+- PR #1132: DBSCAN Batching Bug Fix
+- PR #1164: Fix check_dtype arg handling for input_to_dev_array
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -92,6 +113,7 @@
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
+- PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
 
 ## Bug Fixes
 

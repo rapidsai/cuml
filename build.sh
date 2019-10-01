@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
                    around the C++ code.
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
+   bench         - build the cuml C++ benchmark
  and <flag> is:
    -v            - verbose build mode
    -g            - build for debug
@@ -121,7 +122,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -135,9 +136,10 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
+          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
 
@@ -148,6 +150,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
 fi
 if (( ${NUMARGS} == 0 )) || hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
+fi
+if (( ${NUMARGS} == 0 )) || hasArg bench; then
+    MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
 
 # build cumlcomms library

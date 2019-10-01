@@ -19,7 +19,7 @@ cmake_policy(SET CMP0079 NEW)
 project(cuml_test LANGUAGES CXX CUDA)
 
 # Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-include_directories(${GTEST_DIR}/googletest/include)
+include_directories(${GTEST_DIR}/include)
 
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------
@@ -35,7 +35,6 @@ if(BUILD_CUML_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         treelite_runtimelib
         ${CUML_CPP_TARGET}
@@ -63,6 +62,7 @@ if(BUILD_CUML_TESTS)
       sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
+      sg/svc_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu
@@ -90,7 +90,6 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
         pthread
@@ -122,7 +121,6 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
-        gpufaisslib
         faisslib
         ${ZLIB_LIBRARIES}
     )
@@ -136,6 +134,7 @@ if(BUILD_PRIMS_TESTS)
       prims/batched/gemv.cu
       prims/binary_op.cu
       prims/ternary_op.cu
+      prims/cache.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu

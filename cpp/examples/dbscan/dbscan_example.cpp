@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
   int minPts = get_argval<int>(argv, argv + argc, "-min_pts", 3);
   float eps = get_argval<float>(argv, argv + argc, "-eps", 1.0f);
   size_t max_bytes_per_batch =
-    get_argval<size_t>(argv, argv + argc, "-max_bytes_per_batch", (size_t)2e7);
+    get_argval<size_t>(argv, argv + argc, "-max_bytes_per_batch", (size_t)13e9);
 
   {
     cudaError_t cudaStatus = cudaSuccess;
@@ -208,10 +208,10 @@ int main(int argc, char* argv[]) {
   cumlHandle.setStream(stream);
 
   std::vector<int> h_labels(nRows);
-  int* d_labels = nullptr;
+  long* d_labels = nullptr;
   float* d_inputData = nullptr;
 
-  CUDA_RT_CALL(cudaMalloc(&d_labels, nRows * sizeof(int)));
+  CUDA_RT_CALL(cudaMalloc(&d_labels, nRows * sizeof(long)));
   CUDA_RT_CALL(cudaMalloc(&d_inputData, nRows * nCols * sizeof(float)));
   CUDA_RT_CALL(cudaMemcpyAsync(d_inputData, h_inputData.data(),
                                nRows * nCols * sizeof(float),
@@ -225,12 +225,12 @@ int main(int argc, char* argv[]) {
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
   ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels,
-                max_bytes_per_batch);
-  CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
+                max_bytes_per_batch, false);
+  CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(long),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
 
-  std::map<int, size_t> histogram;
+  std::map<long, size_t> histogram;
   for (int row = 0; row < nRows; row++) {
     if (histogram.find(h_labels[row]) == histogram.end()) {
       histogram[h_labels[row]] = 1;

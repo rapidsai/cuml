@@ -708,9 +708,6 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
   T *row_counts;
   MLCommon::allocate(row_counts, m, true);
 
-  dim3 grid(ceildiv(m, 32), 1, 1);
-  dim3 blk(32, 1, 1);
-
   coo_row_count<32>(rows, nnz, row_counts, stream);
 
   // create csr compressed row index from row counts

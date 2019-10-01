@@ -18,8 +18,8 @@
 #include "common/cumlHandle.hpp"
 #include <cuml/cluster/dbscan.hpp>
 
-cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
-                            int n_cols, float eps, int min_pts, int *labels,
+cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, long n_rows,
+                            long n_cols, float eps, int min_pts, long *labels,
                             size_t max_bytes_per_batch, int verbose) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
@@ -42,8 +42,8 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
   return status;
 }
 
-cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
-                            int n_cols, double eps, int min_pts, int *labels,
+cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, long n_rows,
+                            long n_cols, double eps, int min_pts, long *labels,
                             size_t max_bytes_per_batch, int verbose) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;

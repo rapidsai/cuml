@@ -22,7 +22,7 @@
 #include "utils.h"
 
 namespace MLCommon {
-namespace GramMatrix {
+namespace Matrix {
 
 template <typename math_t>
 class KernelFactory {
@@ -54,5 +54,5 @@ class KernelFactory {
   }
 };
 
-};  //end namespace GramMatrix
+};  //end namespace Matrix
 };  //end namespace MLCommon
