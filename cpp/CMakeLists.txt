@@ -343,6 +343,7 @@ include_directories(
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/runtime/native/include
   ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
