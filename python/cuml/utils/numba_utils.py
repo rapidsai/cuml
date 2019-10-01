@@ -18,7 +18,7 @@ import math
 
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
-from librmm_cffi import librmm as rmm
+import rmm
 import numpy as np
 
 
