@@ -27,6 +27,7 @@
 namespace ML {
 
 using namespace MLCommon;
+using namespace MLCommon::Distance;
 
 template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
@@ -44,6 +45,7 @@ class RPROJTest : public ::testing::Test {
   }
 
   void generate_data() {
+    cudaStream_t stream = h.getStream();
     std::random_device rd;
     std::mt19937 rng(rd());
     std::uniform_real_distribution<T> dist(0, 1);
@@ -53,7 +55,8 @@ class RPROJTest : public ::testing::Test {
       i = dist(rng);
     }
     allocate(d_input, h_input.size());
-    updateDevice(d_input, h_input.data(), h_input.size(), NULL);
+    updateDevice(d_input, h_input.data(), h_input.size(), stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     //d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
   }
@@ -75,8 +78,9 @@ class RPROJTest : public ::testing::Test {
     RPROJfit(h, random_matrix1, params1);
     allocate(d_output1, N * params1->n_components);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
-    d_output1 = transpose(
-      d_output1, N, params1->n_components);  // From column major to row major
+
+     // From column major to row major
+    d_output1 = transpose(d_output1, N, params1->n_components);
   }
 
   void sparseTest() {
@@ -135,46 +139,69 @@ class RPROJTest : public ::testing::Test {
   }
 
   void epsilon_check() {
+    cudaStream_t stream = h.getStream();
+
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
-    constexpr auto distance_type =
-      MLCommon::Distance::DistanceType::EucUnexpandedL2Sqrt;
-    size_t workspaceSize = 0;
+    constexpr auto distance_type = DistanceType::EucUnexpandedL2Sqrt;
+    size_t lwork = 0;
+    char *work = NULL;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
+
 
     T* d_pdist;
     allocate(d_pdist, N * N);
+    lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
+    if (lwork > 0) allocate(work, lwork);
+    else work = NULL;
 
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
-      h.getStream());
+      d_input, d_input, d_pdist, N, N, M, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+    if (lwork > 0) CUDA_CHECK(cudaFree(work));
+
 
     T* h_pdist = new T[N * N];
-    updateHost(h_pdist, d_pdist, N * N, NULL);
+    updateHost(h_pdist, d_pdist, N * N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
+
 
     T* d_pdist1;
     allocate(d_pdist1, N * N);
+    lwork = getWorkspaceSize<distance_type, T, T, T>(d_output1, d_output1, N, N, D);
+    if (lwork > 0) allocate(work, lwork);
+    else work = NULL;
+
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      d_output1, d_output1, d_pdist1, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+    if (lwork > 0) CUDA_CHECK(cudaFree(work));
+
 
     T* h_pdist1 = new T[N * N];
-    updateHost(h_pdist1, d_pdist1, N * N, NULL);
+    updateHost(h_pdist1, d_pdist1, N * N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
+
 
     T* d_pdist2;
     allocate(d_pdist2, N * N);
+    lwork = getWorkspaceSize<distance_type, T, T, T>(d_output2, d_output2, N, N, D);
+    if (lwork > 0) allocate(work, lwork);
+    else work = NULL;
+
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      d_output2, d_output2, d_pdist2, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+    if (lwork > 0) CUDA_CHECK(cudaFree(work));
+
 
     T* h_pdist2 = new T[N * N];
-    updateHost(h_pdist2, d_pdist2, N * N, NULL);
+    updateHost(h_pdist2, d_pdist2, N * N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist2));
+
 
     for (size_t i = 0; i < N; i++) {
       for (size_t j = 0; j <= i; j++) {
