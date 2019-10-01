@@ -26,6 +26,12 @@
 
 #include <iostream>
 
+
+#define CHECK \
+  printf("[%d] %s\n", __LINE__, __FILE__);
+
+
+
 namespace MLCommon {
 namespace Selection {
 
@@ -119,6 +125,7 @@ brute_force_knn(float **input,
                 const IntType k,
                 cudaStream_t s)
 {
+  CHECK;
   std::vector<long> *id_ranges = new std::vector<long>();
   ASSERT(id_ranges != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
@@ -130,19 +137,23 @@ brute_force_knn(float **input,
     total_n += sizes[i];
   }
 
+  CHECK;
   float *result_D = new float[k * size_t(n)];
   ASSERT(result_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   long *result_I = new long[k * size_t(n)];
   ASSERT(result_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   float *all_D = new float[n_params * k * size_t(n)];
   ASSERT(all_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
+  CHECK;
   long *all_I = new long[n_params * k * size_t(n)];
   ASSERT(all_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-
+  CHECK;
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
@@ -153,24 +164,31 @@ brute_force_knn(float **input,
   #pragma omp parallel for if(n_params > 1) schedule(static)
   for (int i = 0; i < n_params; i++)
   {
+    CHECK;
     const float *ptr = input[i];
+    ASSERT(ptr != NULL, "Pointer is NULL [%d] %s\n", __LINE__, __FILE__);
+
     const IntType size = sizes[i];
 
     cudaPointerAttributes att;
     cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
+    CHECK;
     if (err == 0 && att.device > -1)
     {
       CUDA_CHECK(cudaSetDevice(att.device));
       CUDA_CHECK(cudaPeekAtLastError());
 
+      CHECK;
       try
       {
+        CHECK;
         faiss::gpu::StandardGpuResources gpu_res;
 
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
 
+        CHECK;
         gpu_res.noTempMemory();
         gpu_res.setCudaMallocWarning(false);
         gpu_res.setDefaultStream(att.device, stream);
@@ -180,11 +198,12 @@ brute_force_knn(float **input,
           n, D, k, all_D + (long(i) * k * long(n)),
           all_I + (long(i) * k * long(n)));
 
+        CHECK;
         CUDA_CHECK(cudaPeekAtLastError());
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
         CUDA_CHECK(cudaStreamDestroy(stream));
-
+        CHECK;
       }
       catch (const std::exception &e)
       {
@@ -201,13 +220,14 @@ brute_force_knn(float **input,
     }
   }
 
-
+  CHECK;
   merge_tables<faiss::CMin<float, IntType>>(
     long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
 
+  CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
-
+  CHECK;
 
   delete[] all_D;
   delete[] all_I;
@@ -216,6 +236,7 @@ brute_force_knn(float **input,
   delete[] result_I;
 
   delete id_ranges;
+  CHECK;
 };
 
 };  // namespace Selection
