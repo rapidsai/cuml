@@ -56,11 +56,18 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
   {
     std::vector<int> buf(2 * nshard);
     int *pointer = buf.data();
+    ASSERT(pointer != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+
     int *shard_ids = pointer + nshard;
+    ASSERT(shard_ids != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+
     std::vector<float> buf2(nshard);
     float *heap_vals = buf2.data();
+    ASSERT(heap_vals != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+
 #pragma omp for
-    for (long i = 0; i < n; i++) {
+    for (long i = 0; i < n; i++)
+    {
       // the heap maps values to the shard where they are
       // produced.
       const float *D_in = all_distances + i * k;
@@ -76,12 +83,17 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
 
       float *D = distances + i * k;
       long *I = labels + i * k;
+      ASSERT(D != NULL and I != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
 
-      for (int j = 0; j < k; j++) {
-        if (heap_size == 0) {
+      for (int j = 0; j < k; j++)
+      {
+        if (heap_size == 0)
+        {
           I[j] = -1;
           D[j] = C::neutral();
-        } else {
+        }
+        else
+        {
           // pop best element
           int s = shard_ids[0];
           int &p = pointer[s];
@@ -95,6 +107,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
                                 D_in[stride * s + p], s);
         }
       }
+
     }
   }
 };
