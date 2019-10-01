@@ -27,9 +27,7 @@
 #include <iostream>
 
 
-#define CHECK \
-  printf("[%d] %s\n", __LINE__, __FILE__); \
-  printf("[%d] %s\n", __LINE__, __FILE__);
+#define CHECK printf("[%d] %s\n", __LINE__, __FILE__); printf("[%d] %s\n", __LINE__, __FILE__); printf("[%d] %s\n", __LINE__, __FILE__);
 
 
 
@@ -148,6 +146,7 @@ brute_force_knn(float **input,
     if (i < n_params)  // if i < sizes[i]
       id_ranges.push_back(total_n);
     total_n += sizes[i];
+    CHECK;
   }
 
   CHECK;
@@ -172,7 +171,7 @@ brute_force_knn(float **input,
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
   CUDA_CHECK(cudaStreamSynchronize(s));
-
+  CHECK;
 
   #pragma omp parallel for if(n_params > 1) schedule(static)
   for (int i = 0; i < n_params; i++)
