@@ -128,7 +128,7 @@ class SVC(Base):
             Penalty parameter C
         kernel : string (default='rbf')
             Specifies the kernel function. Possible options: 'linear', 'poly',
-            'rbf', 'sigmoid', 'precomputed'
+            'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
         degree : int (default=3)
             Degree of polynomial kernel function.
         gamma : float (default = 'auto')
