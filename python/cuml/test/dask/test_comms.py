@@ -65,7 +65,7 @@ def func_test_send_recv(sessionId, n_trials, r):
 @pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist(cluster):
 
-    client = Client(cluster)  #noqa
+    client = Client(cluster)  # noqa
 
     cb = default_comms()
     assert cb is not None
