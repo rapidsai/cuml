@@ -142,8 +142,6 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 
 set(CUML_INCLUDE_DIR
      ${PROJECT_SOURCE_DIR}/include
-     ${PROJECT_SOURCE_DIR}/include/cuml/cluster
-     ${PROJECT_SOURCE_DIR}/include/cuml/datasets
      ${PROJECT_SOURCE_DIR}/include/cuml/decomposition
      ${PROJECT_SOURCE_DIR}/include/cuml/ensemble
      ${PROJECT_SOURCE_DIR}/include/cuml/linear_model
