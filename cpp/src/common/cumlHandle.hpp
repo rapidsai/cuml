@@ -27,10 +27,10 @@
 
 #include <common/cuml_comms_int.hpp>
 
-#include <cuml_api.h>
-#include <cuml.hpp>
+#include <cuml/cuml_api.h>
+#include <cuml/cuml.hpp>
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 
 namespace ML {
 

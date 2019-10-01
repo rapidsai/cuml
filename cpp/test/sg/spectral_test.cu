@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include "cuml.hpp"
-
-#include "cuml/cluster/spectral.hpp"
+#include <cuml/cluster/spectral.hpp>
+#include <cuml/cuml.hpp>
 
 #include "random/rng.h"
 

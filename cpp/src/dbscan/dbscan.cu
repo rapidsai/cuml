@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml_api.h>
+#include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include "dbscan.h"
 #include "dbscan.hpp"

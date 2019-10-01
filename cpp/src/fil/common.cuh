@@ -24,7 +24,7 @@
 
 #include "../../src_prims/cuda_utils.h"
 
-#include "fil.h"
+#include <cuml/fil/fil.h>
 
 namespace ML {
 namespace fil {

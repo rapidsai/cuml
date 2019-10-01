@@ -26,9 +26,9 @@
 #include <stats/cov.h>
 #include <stats/mean.h>
 #include <stats/mean_center.h>
+#include <cuml/cuml.hpp>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "cuml.hpp"
 #include "ml_utils.h"
 #include "tsvd/tsvd.h"
 

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml.hpp>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 

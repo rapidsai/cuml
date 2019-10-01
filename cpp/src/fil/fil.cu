@@ -25,9 +25,9 @@
 #include <limits>
 #include <utility>
 
+#include <cuml/fil/fil.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
-#include "common/cuml_allocator.hpp"
-#include "fil.h"
 
 namespace ML {
 namespace fil {
