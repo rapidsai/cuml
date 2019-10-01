@@ -140,31 +140,30 @@ brute_force_knn(float **input,
                 cudaStream_t s)
 {
   CHECK;
-  std::vector<long> *id_ranges = new std::vector<long>();
-  ASSERT(id_ranges != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  std::vector<long> id_ranges;
 
   IntType total_n = 0;
   for (int i = 0; i < n_params; i++)
   {
     if (i < n_params)  // if i < sizes[i]
-      id_ranges->push_back(total_n);
+      id_ranges.push_back(total_n);
     total_n += sizes[i];
   }
 
   CHECK;
-  float *result_D = new float[k * size_t(n)];
+  float *result_D = (float*) malloc(sizeof(float) * k * n);
   ASSERT(result_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   CHECK;
-  long *result_I = new long[k * size_t(n)];
+  long *result_I = (long*) malloc(sizeof(long) * k * n);
   ASSERT(result_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   CHECK;
-  float *all_D = new float[n_params * k * size_t(n)];
+  float *all_D = (float*) malloc(sizeof(float) * n_params * k * n);
   ASSERT(all_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   CHECK;
-  long *all_I = new long[n_params * k * size_t(n)];
+  long *all_I = (long*) malloc(sizeof(long) * n_params * k * n);
   ASSERT(all_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   CHECK;
@@ -236,27 +235,21 @@ brute_force_knn(float **input,
 
   CHECK;
   merge_tables<faiss::CMin<float, IntType>>(
-    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
+    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges.data());
 
   CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
-  CHECK;
   CUDA_CHECK(cudaStreamSynchronize(s));
-  
-  CHECK;
+
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
-  CHECK;
   CUDA_CHECK(cudaStreamSynchronize(s));
   CHECK;
 
-  delete[] all_D;
-  delete[] all_I;
-  CHECK;
-  
-  delete[] result_D;
-  delete[] result_I;
+  free(all_D);
+  free(all_I);
 
-  delete id_ranges;
+  free(result_D);
+  free(result_I);
   CHECK;
 };
 
