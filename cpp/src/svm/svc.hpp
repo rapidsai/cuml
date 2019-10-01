@@ -128,7 +128,8 @@ class SVC {
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =
         MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
-      math_t cache_size = 200, int max_iter = -1, bool verbose = false);
+      math_t cache_size = 200, int max_iter = -1, int nochange_steps = 1000,
+      bool verbose = false);
 
   ~SVC();
 
