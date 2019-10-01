@@ -106,6 +106,7 @@
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
 - PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
+- PR #1175: Add more modules to docs ToC
 
 ## Bug Fixes
 
