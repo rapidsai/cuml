@@ -16,7 +16,6 @@
 import pytest
 
 from dask.distributed import Client
-from dask_cuda import LocalCUDACluster
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import gzip

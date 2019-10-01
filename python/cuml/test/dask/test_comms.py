@@ -32,7 +32,7 @@ def test_comms_init_no_p2p(cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=False)
+    cb = CommsContext(comms_p2p=False, client=client)
     cb.init()
 
     assert cb.nccl_initialized is True
@@ -41,15 +41,15 @@ def test_comms_init_no_p2p(cluster):
     cb.destroy()
 
 
-# def test_comms_init_p2p_no_ucx(cluster):
-#
-#     client = Client(cluster)
-#
-#     cb = CommsContext(comms_p2p=True)
-#     cb.init()
-#
-#     assert cb.nccl_initialized is True
-#     assert cb.ucx_initialized is False
+def test_comms_init_p2p_no_ucx(cluster):
+
+    client = Client(cluster)
+
+    cb = CommsContext(comms_p2p=True, client=client)
+    cb.init()
+
+    assert cb.nccl_initialized is True
+    assert cb.ucx_initialized is False
 
 
 def func_test_allreduce(sessionId, r):
@@ -65,7 +65,7 @@ def func_test_send_recv(sessionId, n_trials, r):
 @pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist(cluster):
 
-    client = Client(cluster)
+    client = Client(cluster)  #noqa
 
     cb = default_comms()
     assert cb is not None
@@ -116,7 +116,7 @@ def test_send_recv(n_trials, cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True)
+    cb = CommsContext(comms_p2p=True, client=client)
     cb.init()
 
     cb = default_comms()
