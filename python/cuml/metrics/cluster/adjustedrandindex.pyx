@@ -32,11 +32,11 @@ cimport cuml.common.cuda
 cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
 
     double adjustedRandIndex(cumlHandle &handle,
-                             long *y,
-                             long *y_hat,
-                             long n,
-                             long lower_class_range,
-                             long upper_class_range)
+                             int *y,
+                             int *y_hat,
+                             int n,
+                             int lower_class_range,
+                             int upper_class_range)
 
 
 def adjusted_rand_score(labels_true,
@@ -85,10 +85,10 @@ def adjusted_rand_score(labels_true,
         input_to_dev_array(labels_pred)
 
     rand_score = adjustedRandIndex(handle_[0],
-                                   <long*> y_ptr,
-                                   <long*> y_hat_ptr,
-                                   <long> n_rows,
-                                   <long> lower_class_range,
-                                   <long> upper_class_range)
+                                   <int*> y_ptr,
+                                   <int*> y_hat_ptr,
+                                   <int> n_rows,
+                                   <int> lower_class_range,
+                                   <int> upper_class_range)
 
     return rand_score
