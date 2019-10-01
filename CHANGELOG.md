@@ -35,6 +35,7 @@
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
 - PR #1165: Adding except + in all remaining cython
+- PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
 
 ## Bug Fixes
