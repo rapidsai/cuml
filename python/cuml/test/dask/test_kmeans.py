@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client, wait
 
@@ -24,13 +23,9 @@ from dask.distributed import Client, wait
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [5, 10])
 @pytest.mark.parametrize("n_parts", [None, 50])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
+def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.cluster import KMeans as cumlKMeans
 
@@ -59,9 +54,5 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     labels = y.compute().to_pandas().values
 
     score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
-
-    if owns_cluster:
-        client.close()
-        cluster.close()
 
     assert 1.0 == score
