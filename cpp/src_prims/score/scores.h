@@ -140,7 +140,9 @@ get_knn_indexes(const math_t *__restrict input,
 
   CHECK;
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(math_t), stream);
+  CHECK;
   delete[] knn_input;
+  CHECK;
   delete[] sizes;
   CHECK;
 
@@ -185,10 +187,12 @@ trustworthiness_score(const math_t *__restrict X,
 
   CHECK;
   long *embedded_indices = (long*) get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+  CHECK;
   ASSERT(embedded_indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   CHECK;
   double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
+  CHECK;
   ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   int toDo = n;
