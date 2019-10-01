@@ -239,7 +239,10 @@ brute_force_knn(float **input,
 
   CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
+  CUDA_CHECK(cudaStreamSynchronize(s));
+
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
+  CUDA_CHECK(cudaStreamSynchronize(s));
   CHECK;
 
   delete[] all_D;
