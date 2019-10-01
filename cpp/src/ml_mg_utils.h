@@ -37,10 +37,10 @@ namespace ML {
    * @param stream    cuda stream to use
    */
 template <typename OutType, typename T = size_t>
-void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
+void chunk_to_device(const OutType *ptr, T n, T D, int *devices,
                      OutType **output, T *sizes, int n_chunks,
                      cudaStream_t stream) {
-  size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
+  size_t chunk_size = MLCommon::ceildiv<size_t>(n, (size_t)n_chunks);
 
 #pragma omp parallel for
   for (int i = 0; i < n_chunks; i++) {

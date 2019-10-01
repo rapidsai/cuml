@@ -46,9 +46,9 @@ namespace ML {
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
    */
-void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
-                     int n_params, int D, float *search_items, int n,
-                     long *res_I, float *res_D, int k) {
+void brute_force_knn(cumlHandle &handle, float **input, int64_t *sizes,
+                     int n_params, int64_t D, float *search_items, int64_t n,
+                     int64_t *res_I, float *res_D, int64_t k) {
   MLCommon::Selection::brute_force_knn(input, sizes, n_params, D, search_items,
                                        n, res_I, res_D, k,
                                        handle.getImpl().getStream());
@@ -66,17 +66,18 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
    * @param sizes output array sizes
    * @param n_chunks number of chunks to spread across device arrays
    */
-void chunk_host_array(cumlHandle &handle, const float *ptr, int n, int D,
-                      int *devices, float **output, int *sizes, int n_chunks) {
-  chunk_to_device<float, int>(ptr, n, D, devices, output, sizes, n_chunks,
-                              handle.getImpl().getStream());
+void chunk_host_array(cumlHandle &handle, const float *ptr, int64_t n,
+                      int64_t D, int *devices, float **output, int64_t *sizes,
+                      int n_chunks) {
+  chunk_to_device<float, int64_t>(ptr, n, D, devices, output, sizes, n_chunks,
+                                  handle.getImpl().getStream());
 }
 
 /**
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
-kNN::kNN(const cumlHandle &handle, int D, bool verbose)
+kNN::kNN(const cumlHandle &handle, int64_t D, bool verbose)
   : D(D), total_n(0), indices(0), verbose(verbose), owner(false) {
   this->handle = const_cast<cumlHandle *>(&handle);
   sizes = nullptr;
@@ -114,7 +115,7 @@ void kNN::reset() {
 	 * @param input  an array of pointers to data on (possibly different) devices
 	 * @param N 	 number of items in input array.
 	 */
-void kNN::fit(float **input, int *sizes, int N) {
+void kNN::fit(float **input, int64_t *sizes, int N) {
   if (this->owner)
     for (int i = 0; i < this->indices; i++) {
       CUDA_CHECK(cudaFree(this->ptrs[i]));
@@ -127,7 +128,7 @@ void kNN::fit(float **input, int *sizes, int N) {
   // TODO: Copy pointers!
   this->indices = N;
   this->ptrs = (float **)malloc(N * sizeof(float *));
-  this->sizes = (int *)malloc(N * sizeof(int));
+  this->sizes = (int64_t *)malloc(N * sizeof(int64_t));
 
   for (int i = 0; i < N; i++) {
     this->ptrs[i] = input[i];
@@ -143,7 +144,8 @@ void kNN::fit(float **input, int *sizes, int N) {
 	 * @param res_D		   pointer to device memory for returning k nearest distances
 	 * @param k			   number of neighbors to query
 	 */
-void kNN::search(float *search_items, int n, long *res_I, float *res_D, int k) {
+void kNN::search(float *search_items, int64_t n, int64_t *res_I, float *res_D,
+                 int64_t k) {
   MLCommon::Selection::brute_force_knn(ptrs, sizes, indices, D, search_items, n,
                                        res_I, res_D, k,
                                        handle->getImpl().getStream());
@@ -159,7 +161,7 @@ void kNN::search(float *search_items, int n, long *res_I, float *res_D, int k) {
      * @param n_chunks  number of elements in gpus
      * @param out       host pointer (size n) to store output
      */
-void kNN::fit_from_host(float *ptr, int n, int *devices, int n_chunks) {
+void kNN::fit_from_host(float *ptr, int64_t n, int *devices, int n_chunks) {
   if (this->owner)
     for (int i = 0; i < this->indices; i++) {
       CUDA_CHECK(cudaFree(this->ptrs[i]));
@@ -170,7 +172,7 @@ void kNN::fit_from_host(float *ptr, int n, int *devices, int n_chunks) {
   this->owner = true;
 
   float **params = new float *[n_chunks];
-  int *sizes = new int[n_chunks];
+  int64_t *sizes = new int64_t[n_chunks];
 
   chunk_to_device<float>(ptr, n, D, devices, params, sizes, n_chunks,
                          handle->getImpl().getStream());
@@ -196,9 +198,9 @@ void kNN::fit_from_host(float *ptr, int n, int *devices, int n_chunks) {
  * @param k the number of nearest neighbors to return
  */
 extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
-                                  int *sizes, int n_params, int D,
-                                  float *search_items, int n, long *res_I,
-                                  float *res_D, int k) {
+                                  int64_t *sizes, int n_params, int64_t D,
+                                  float *search_items, int64_t n,
+                                  int64_t *res_I, float *res_D, int64_t k) {
   cumlError_t status;
 
   ML::cumlHandle *handle_ptr;
@@ -228,17 +230,17 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
  * @param n_chunks number of chunks to spread across device arrays
  */
 extern "C" cumlError_t chunk_host_array(const cumlHandle_t handle,
-                                        const float *ptr, int n, int D,
+                                        const float *ptr, int64_t n, int64_t D,
                                         int *devices, float **output,
-                                        int *sizes, int n_chunks) {
+                                        int64_t *sizes, int n_chunks) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::chunk_to_device<float, int>(ptr, n, D, devices, output, sizes,
-                                      n_chunks,
-                                      handle_ptr->getImpl().getStream());
+      ML::chunk_to_device<float, int64_t>(ptr, n, D, devices, output, sizes,
+                                          n_chunks,
+                                          handle_ptr->getImpl().getStream());
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

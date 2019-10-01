@@ -45,9 +45,9 @@ namespace ML {
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
    */
-void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
-                     int n_params, int D, float *search_items, int n,
-                     long *res_I, float *res_D, int k);
+void brute_force_knn(cumlHandle &handle, float **input, int64_t *sizes,
+                     int n_params, int64_t D, float *search_items, int64_t n,
+                     int64_t *res_I, float *res_D, int64_t k);
 
 /**
    * @brief A flat C++ API function that chunks a host array up into
@@ -61,16 +61,17 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
    * @param sizes output array sizes
    * @param n_chunks number of chunks to spread across device arrays
    */
-void chunk_host_array(cumlHandle &handle, const float *ptr, int n, int D,
-                      int *devices, float **output, int *sizes, int n_chunks);
+void chunk_host_array(cumlHandle &handle, const float *ptr, int64_t n,
+                      int64_t D, int *devices, float **output, int64_t *sizes,
+                      int n_chunks);
 
 class kNN {
   float **ptrs;
-  int *sizes;
+  int64_t *sizes;
 
-  int total_n;
+  int64_t total_n;
   int indices;
-  int D;
+  int64_t D;
   bool verbose;
   bool owner;
 
@@ -81,7 +82,7 @@ class kNN {
 	     * Build a kNN object for training and querying a k-nearest neighbors model.
 	     * @param D     number of features in each vector
 	     */
-  kNN(const cumlHandle &handle, int D, bool verbose = false);
+  kNN(const cumlHandle &handle, int64_t D, bool verbose = false);
   ~kNN();
 
   void reset();
@@ -94,8 +95,8 @@ class kNN {
      * @param res_D        pointer to device memory for returning k nearest distances
      * @param k            number of neighbors to query
      */
-  void search(float *search_items, int search_items_size, long *res_I,
-              float *res_D, int k);
+  void search(float *search_items, int64_t search_items_size, int64_t *res_I,
+              float *res_D, int64_t k);
 
   /**
      * Fit a kNN model by creating separate indices for multiple given
@@ -103,7 +104,7 @@ class kNN {
      * @param input  an array of pointers to data on (possibly different) devices
      * @param N      number of items in input array.
      */
-  void fit(float **input, int *sizes, int N);
+  void fit(float **input, int64_t *sizes, int N);
 
   /**
 		 * Chunk a host array up into one or many GPUs (determined by the provided
@@ -115,6 +116,6 @@ class kNN {
 		 * @param n_chunks  number of elements in gpus
 		 * @param out       host pointer to copy output
 		 */
-  void fit_from_host(float *ptr, int n, int *devices, int n_chunks);
+  void fit_from_host(float *ptr, int64_t n, int *devices, int n_chunks);
 };
 };  // namespace ML

@@ -48,19 +48,20 @@ namespace Score {
  * @output param rank: Resulting rank
  */
 template <typename math_t, typename knn_index_t>
-__global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
-                             int n_neighbors, int work, double *rank) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded,
+                             knn_index_t n, knn_index_t n_neighbors,
+                             knn_index_t work, double *rank) {
+  knn_index_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
-  int n_idx = i / n_neighbors;
-  int nn_idx = (i % n_neighbors) + 1;
+  knn_index_t n_idx = i / n_neighbors;
+  knn_index_t nn_idx = (i % n_neighbors) + 1;
 
   knn_index_t idx = ind_X_embedded[n_idx * (n_neighbors + 1) + nn_idx];
   math_t *sample_i = &ind_X[n_idx * n];
-  for (int r = 1; r < n; r++) {
+  for (knn_index_t r = 1; r < n; r++) {
     if (sample_i[r] == idx) {
-      int tmp = r - n_neighbors;
+      knn_index_t tmp = r - n_neighbors;
       if (tmp > 0) atomicAdd(rank, tmp);
       break;
     }
@@ -76,19 +77,19 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
  * @param stream cuda stream to use
  * @return Matrix holding the indexes of the nearest neighbors
  */
-template <typename math_t>
+template <typename math_t, typename idx_t = int64_t>
 long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream) {
-  long *d_pred_I =
-    (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
+  idx_t *d_pred_I =
+    (idx_t *)d_alloc->allocate(n * n_neighbors * sizeof(idx_t), stream);
   math_t *d_pred_D =
     (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
   float **ptrs = new float *[1];
   ptrs[0] = input;
 
-  int *sizes = new int[1];
+  idx_t *sizes = new idx_t[1];
   sizes[0] = n;
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, d, input, n, d_pred_I,
@@ -111,7 +112,7 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
  * @param stream the cuda stream to use
  * @return Trustworthiness score
  */
-template <typename math_t, Distance::DistanceType distance_type>
+template <typename math_t, typename idx_t, Distance::DistanceType distance_type>
 double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,

@@ -38,30 +38,31 @@ namespace Selection {
    * @param all_labels     row-wise stacked array of intermediary knn output indices size nshard * n * k
    * @param translations  label translations to apply, size nshard
    */
-template <class C>
-void merge_tables(long n, long k, long nshard, float *distances, long *labels,
-                  float *all_distances, long *all_labels, long *translations) {
+template <typename IntType = int64_t, class C>
+void merge_tables(IntType n, IntType k, int nshard, float *distances,
+                  IntType *labels, float *all_distances, IntType *all_labels,
+                  IntType *translations) {
   if (k == 0) {
     return;
   }
 
-  size_t stride = n * k;
+  IntType stride = n * k;
 #pragma omp parallel
   {
-    std::vector<int> buf(2 * nshard);
-    int *pointer = buf.data();
-    int *shard_ids = pointer + nshard;
+    std::vector<IntType> buf(2 * nshard);
+    IntType *pointer = buf.data();
+    IntType *shard_ids = pointer + nshard;
     std::vector<float> buf2(nshard);
     float *heap_vals = buf2.data();
 #pragma omp for
-    for (long i = 0; i < n; i++) {
+    for (IntType i = 0; i < n; i++) {
       // the heap maps values to the shard where they are
       // produced.
       const float *D_in = all_distances + i * k;
-      const long *I_in = all_labels + i * k;
+      const IntType *I_in = all_labels + i * k;
       int heap_size = 0;
 
-      for (long s = 0; s < nshard; s++) {
+      for (int s = 0; s < nshard; s++) {
         pointer[s] = 0;
         if (I_in[stride * s] >= 0)
           faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
@@ -69,7 +70,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
       }
 
       float *D = distances + i * k;
-      long *I = labels + i * k;
+      IntType *I = labels + i * k;
 
       for (int j = 0; j < k; j++) {
         if (heap_size == 0) {
@@ -78,7 +79,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
         } else {
           // pop best element
           int s = shard_ids[0];
-          int &p = pointer[s];
+          IntType &p = pointer[s];
           D[j] = heap_vals[0];
           I[j] = I_in[stride * s + p] + translations[s];
 
@@ -106,25 +107,25 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
    * @param k        number of neighbors to query
    * @param s the cuda stream to use
    */
-template <typename IntType = int>
-void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, long *res_I, float *res_D,
-                     IntType k, cudaStream_t s) {
-  std::vector<long> *id_ranges = new std::vector<long>();
+template <typename IntType = int64_t>
+void brute_force_knn(float **input, IntType *sizes, int n_params, IntType D,
+                     float *search_items, IntType n, IntType *res_I,
+                     float *res_D, IntType k, cudaStream_t s) {
+  std::vector<IntType> *id_ranges = new std::vector<IntType>();
 
   IntType total_n = 0;
 
-  for (int i = 0; i < n_params; i++) {
+  for (IntType i = 0; i < n_params; i++) {
     if (i < n_params)  // if i < sizes[i]
       id_ranges->push_back(total_n);
     total_n += sizes[i];
   }
 
-  float *result_D = new float[k * size_t(n)];
-  long *result_I = new long[k * size_t(n)];
+  float *result_D = new float[k * n];
+  IntType *result_I = new IntType[k * n];
 
-  float *all_D = new float[n_params * k * size_t(n)];
-  long *all_I = new long[n_params * k * size_t(n)];
+  float *all_D = new float[n_params * k * n];
+  IntType *all_I = new IntType[n_params * k * n];
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
@@ -135,7 +136,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 #pragma omp parallel
   {
 #pragma omp for
-    for (int i = 0; i < n_params; i++) {
+    for (IntType i = 0; i < n_params; i++) {
       const float *ptr = input[i];
       IntType size = sizes[i];
 
@@ -156,10 +157,9 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
           gpu_res.setCudaMallocWarning(false);
           gpu_res.setDefaultStream(att.device, stream);
 
-          faiss::gpu::bruteForceKnn(
-            &gpu_res, faiss::METRIC_L2, ptr, true, size, search_items, true,
-            n, D, k, all_D + (long(i) * k * long(n)),
-            all_I + (long(i) * k * long(n)));
+          faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, true, size,
+                                    search_items, true, n, D, k,
+                                    all_D + (i * k * n), all_I + (i * k * n));
 
           CUDA_CHECK(cudaPeekAtLastError());
           CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -179,11 +179,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     }
   }
 
-  merge_tables<faiss::CMin<float, IntType>>(
-    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
+  merge_tables<IntType, faiss::CMin<float, IntType>>(
+    n, k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
 
-  MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
-  MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
+  MLCommon::updateDevice(res_D, result_D, k * n, s);
+  MLCommon::updateDevice(res_I, result_I, k * n, s);
 
   delete all_D;
   delete all_I;
