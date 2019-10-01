@@ -367,6 +367,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu
     )
 
+  add_dependencies(${CUML_CPP_TARGET} cub)
+  add_dependencies(${CUML_CPP_TARGET} cutlass)
+
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
     ${CUDA_curand_LIBRARY}
