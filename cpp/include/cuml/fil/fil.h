@@ -19,7 +19,7 @@
 #pragma once
 
 #include <treelite/c_api.h>
-#include "cuml.hpp"
+#include <cuml/cuml.hpp>
 
 namespace ML {
 namespace fil {

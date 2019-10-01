@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "cuml.hpp"
-#include "sparse/coo.h"
-#include "sparse/nvgraph_wrappers.h"
+#include <sparse/coo.h>
+#include <sparse/nvgraph_wrappers.h>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
@@ -66,8 +66,8 @@ void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
    * @param eigen_tol the tolerance threshold for the eigensolver
    * @param out output array for labels (size m)
    */
-void fit_clusters(const cumlHandle &handle, float *X, int m, int n, int n_neighbors,
-                  int n_clusters, float eigen_tol, int *out);
+void fit_clusters(const cumlHandle &handle, float *X, int m, int n,
+                  int n_neighbors, int n_clusters, float eigen_tol, int *out);
 
 /**
    * Given a COO formatted (symmetric) knn graph, this function

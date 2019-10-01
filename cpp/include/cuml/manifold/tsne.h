@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "cuml.hpp"
-
 #pragma once
+
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
