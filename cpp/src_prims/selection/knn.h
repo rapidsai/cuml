@@ -52,7 +52,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
   }
 
   size_t stride = n * k;
-#pragma omp parallel
+//#pragma omp parallel
   {
     std::vector<int> buf(2 * nshard);
     int *pointer = buf.data();
@@ -65,7 +65,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
     float *heap_vals = buf2.data();
     ASSERT(heap_vals != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
 
-#pragma omp for
+//#pragma omp for
     for (long i = 0; i < n; i++)
     {
       // the heap maps values to the shard where they are
@@ -234,8 +234,8 @@ brute_force_knn(float **input,
   }
 
   CHECK;
-  // merge_tables<faiss::CMin<float, IntType>>(
-  //   long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
+  merge_tables<faiss::CMin<float, IntType>>(
+    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
 
   CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
