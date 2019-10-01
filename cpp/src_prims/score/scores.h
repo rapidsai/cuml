@@ -33,20 +33,6 @@
 #include <thrust/reduce.h>
 
 
-
-#define INIT_COUNTER \
-  int counter = 0;
-
-#define BOUNDSCHECK(x, max) \
-  if ((x) >= (max) || (x) < 0) { \
-      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-  } \
-  if (counter++ >= 10000000) { \
-      printf("Repeat %d", __LINE__); \
-      printf("Repeat %d", __LINE__); \
-  }
-
 #define CHECK \
   printf("[%d] %s\n", __LINE__, __FILE__);
 
@@ -76,17 +62,14 @@ compute_rank(const math_t *__restrict ind_X,
              const int work,
              double *__restrict rank)
 {
-  INIT_COUNTER;
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
   const int n_idx = i / n_neighbors;
   const int nn_idx = (i % n_neighbors) + 1;
 
-  BOUNDSCHECK(n_idx * (n_neighbors + 1) + nn_idx,   n * (n_neighbors + 1));
   const knn_index_t idx = embedded_indices[n_idx * (n_neighbors + 1) + nn_idx];
 
-  BOUNDSCHECK(n_idx * n,   MAX_BATCH_SIZE * n);
   const math_t *__restrict sample_i = &ind_X[n_idx * n];
   for (int r = 1; r < n; r++)
   {
@@ -117,15 +100,12 @@ get_knn_indexes(const math_t *__restrict input,
                 std::shared_ptr<deviceAllocator> d_alloc,
                 cudaStream_t stream)
 {
-  CHECK;
   long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   math_t *distances = (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   float **knn_input = new float *[1];
   int *sizes = new int[1];
   ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
@@ -133,18 +113,14 @@ get_knn_indexes(const math_t *__restrict input,
   knn_input[0] = (math_t*) input;
   sizes[0] = n;
 
-  CHECK;
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, d,
                                        const_cast<float *>(input), n, indices,
                                        distances, n_neighbors, stream);
 
-  CHECK;
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(math_t), stream);
-  CHECK;
+
   delete[] knn_input;
-  CHECK;
   delete[] sizes;
-  CHECK;
 
   return indices;
 }
@@ -177,22 +153,20 @@ trustworthiness_score(const math_t *__restrict X,
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
-  CHECK;
+
   math_t *distances = (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
+
   int *indices = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
   ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
+
   long *embedded_indices = (long*) get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
-  CHECK;
   ASSERT(embedded_indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
+
   double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
-  CHECK;
   ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
   int toDo = n;
