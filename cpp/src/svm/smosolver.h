@@ -71,13 +71,14 @@ class SmoSolver {
   bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, math_t C, math_t tol,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
-            float cache_size = 200)
+            float cache_size = 200, int nochange_steps = 1000)
     : handle(handle),
       n_rows(n_rows),
       C(C),
       tol(tol),
       kernel(kernel),
       cache_size(cache_size),
+      nochange_steps(nochange_steps),
       stream(handle.getStream()),
       return_buff(handle.getDeviceAllocator(), stream, 2),
       alpha(handle.getDeviceAllocator(), stream),
@@ -229,6 +230,7 @@ class SmoSolver {
   // Variables to track convergence of training
   math_t diff_prev;
   int n_small_diff;
+  int nochange_steps;
 
   bool CheckStoppingCondition(math_t diff) {
     // TODO improve stopping condition to detect oscillations, see Issue #947
@@ -239,9 +241,10 @@ class SmoSolver {
       diff_prev = diff;
       n_small_diff = 0;
     }
-    if (n_small_diff > 1000) {
+    if (n_small_diff > nochange_steps) {
       if (verbose) {
-        std::cout << "SMO error: Stopping due to unchanged diff\n";
+        std::cout << "SMO error: Stopping due to unchanged diff over "
+                  << nochange_steps << " consecutive steps\n";
       }
       keep_going = false;
     }

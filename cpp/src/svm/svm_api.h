@@ -39,6 +39,7 @@ extern "C" {
  * @param [in] C penalty term
  * @param [in] cache_size size of kernel cache in device memory (MiB)
  * @param [in] max_iter maximum number of outer iterations in SmoSolver
+ * @param [in] nochange_steps max number of outer iterations without change in convergence
  * @param [in] tol tolerance to stop fitting
  * @param[in] verbose Pass a 1 to print useful information as algorithm executes. To
  *     execute quietly, pass 0
@@ -61,19 +62,19 @@ extern "C" {
  */
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
-                         int max_iter, float tol, int verbose,
-                         cumlSvmKernelType kernel, int degree, float gamma,
-                         float coef0, int *n_support, float *b,
+                         int max_iter, int nochange_steps, float tol,
+                         int verbose, cumlSvmKernelType kernel, int degree,
+                         float gamma, float coef0, int *n_support, float *b,
                          float **dual_coefs, float **x_support,
                          int **support_idx, int *n_classes,
                          float **unique_labels);
 
 cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
                          int n_cols, double *labels, double C,
-                         double cache_size, int max_iter, double tol,
-                         int verbose, cumlSvmKernelType kernel, int degree,
-                         double gamma, double coef0, int *n_support, double *b,
-                         double **dual_coefs, double **x_support,
+                         double cache_size, int max_iter, int nochange_steps,
+                         double tol, int verbose, cumlSvmKernelType kernel,
+                         int degree, double gamma, double coef0, int *n_support,
+                         double *b, double **dual_coefs, double **x_support,
                          int **support_idx, int *n_classes,
                          double **unique_labels);
 /** @} */

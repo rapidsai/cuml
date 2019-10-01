@@ -63,9 +63,9 @@ template void svmFreeBuffers(const cumlHandle &handle, svmModel<double> &m);
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
                  Matrix::KernelParams kernel_params, math_t cache_size,
-                 int max_iter, bool verbose)
+                 int max_iter, int nochange_steps, bool verbose)
   : handle(handle),
-    param(svmParameter{C, cache_size, max_iter, tol, verbose}),
+    param(svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbose}),
     kernel_params(kernel_params) {
   model.n_support = 0;
   model.dual_coefs = nullptr;

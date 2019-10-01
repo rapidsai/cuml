@@ -50,6 +50,7 @@ cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
         double C
         double cache_size
         int max_iter
+        int nochange_steps
         double tol
         int verbose
 
@@ -115,7 +116,7 @@ class SVC(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, verbose=False):
+                 max_iter=-1, nochange_steps=1000, verbose=False):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -138,10 +139,20 @@ class SVC(Base):
         tol : float (default = 1e-3)
             Tolerance for stopping criterion.
         cache_size : float (default = 200 MiB)
-            Size of the kernel cache during training in MiB. This is also used
-            to set the size of prediction buffer.
+            Size of the kernel cache during training in MiB. The default is a
+            conservative value, increase it to improve the training time, at
+            the cost of higher memory footprint. After training the kernel
+            cache is deallocated.
+            During prediction, we also need a temporary space to store kernel
+            matrix elements (this can be signifficant if n_support is large).
+            The cache_size variable sets an upper limit to the prediction
+            buffer as well.
         max_iter : int (default = 100*n_samples)
             Limit the number of outer iterations in the solver
+        nochange_steps : int (default = 1000)
+            We monitor how much our stopping criteria changes during outer
+            iterations. If it does not change (changes less then 1e-3*tol)
+            for nochange_steps consecutive steps, then we stop training.
         verbose : bool (default = False)
             verbose mode
 
@@ -179,6 +190,7 @@ class SVC(Base):
         self.coef0 = coef0
         self.cache_size = cache_size
         self.max_iter = max_iter
+        self.nochange_steps = nochange_steps
         self.verbose = verbose
 
         # Attributes (parameters of the fitted model)
@@ -286,6 +298,7 @@ class SVC(Base):
         param.C = self.C
         param.cache_size = self.cache_size
         param.max_iter = self.max_iter
+        param.nochange_steps = self.nochange_steps
         param.tol = self.tol
         param.verbose = self.verbose
         return param
