@@ -54,6 +54,7 @@
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
 - PR #1132: DBSCAN Batching Bug Fix
+- PR #1162: DASK RF random seed bug fix
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
 
 # cuML 0.9.0 (21 Aug 2019)
