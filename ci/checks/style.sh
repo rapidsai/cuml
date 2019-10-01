@@ -43,8 +43,8 @@ fi
 # Check for a consistent #include syntax
 # TODO: keep adding more dirs as and when we update the syntax
 HASH_INCLUDE=`python cpp/scripts/include_checker.py \
-                     cpp/comms/include \
-                     cpp/comms/src \
+                     cpp/comms/std/include \
+                     cpp/comms/std/src \
                      cpp/include \
                      2>&1`
 HASH_RETVAL=$?
