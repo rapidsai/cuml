@@ -313,8 +313,6 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 ##############################################################################
 # - include paths ------------------------------------------------------------
 
-message("CUB_DIR is ${CUB_DIR}")
-
 include_directories(
   src
   src_prims
