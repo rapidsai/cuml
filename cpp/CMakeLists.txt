@@ -146,7 +146,6 @@ set(CUML_INCLUDE_DIR
      ${PROJECT_SOURCE_DIR}/include/cuml/datasets
      ${PROJECT_SOURCE_DIR}/include/cuml/decomposition
      ${PROJECT_SOURCE_DIR}/include/cuml/ensemble
-     ${PROJECT_SOURCE_DIR}/include/cuml/fil
      ${PROJECT_SOURCE_DIR}/include/cuml/linear_model
      ${PROJECT_SOURCE_DIR}/include/cuml/manifold
      ${PROJECT_SOURCE_DIR}/include/cuml/metrics
