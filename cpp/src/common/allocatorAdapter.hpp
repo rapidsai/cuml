@@ -20,9 +20,9 @@
 
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <cuml.hpp>
+#include <cuml/cuml.hpp>
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 // todo: change utils.h in src_prims
 #include "utils.h"
 

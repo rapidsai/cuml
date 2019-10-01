@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "cuml.hpp"
+#include <cuml/cuml.hpp>
 #include "glm.hpp"
 #include "glm/qn/qn.h"
 #include "ols.h"

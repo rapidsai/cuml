@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "holtwinters_api.h"
-#include <cuml_api.h>
+#include <cuml/cuml_api.h>
 #include "common/cumlHandle.hpp"
 #include "holtwinters.h"
 

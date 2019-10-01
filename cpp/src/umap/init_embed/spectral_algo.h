@@ -26,8 +26,8 @@
 #include "linalg/transpose.h"
 #include "random/rng.h"
 
+#include <cuml/cluster/spectral.hpp>
 #include <iostream>
-#include "cluster/spectral.hpp"
 
 namespace UMAPAlgo {
 
