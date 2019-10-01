@@ -25,6 +25,8 @@
 #include "sparse/csr.h"
 #include "vertexdeg/runner.h"
 
+#include "utils.h"
+
 #include <sys/time.h>
 
 namespace Dbscan {
@@ -57,12 +59,6 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
     [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
-}
-
-int64_t curTimeMillis() {
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  return tp.tv_sec * 1000 + tp.tv_usec / 1000;
 }
 
 /* @param N number of points
