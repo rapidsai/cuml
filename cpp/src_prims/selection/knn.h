@@ -234,8 +234,8 @@ brute_force_knn(float **input,
   }
 
   CHECK;
-  merge_tables<faiss::CMin<float, IntType>>(
-    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
+  // merge_tables<faiss::CMin<float, IntType>>(
+  //   long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
 
   CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
