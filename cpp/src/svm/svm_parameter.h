@@ -21,13 +21,13 @@ namespace SVM {
 /**
  * Numerical input parameters for an SVM.
  *
- * There are several parameters that control how long we traing. The traning
+ * There are several parameters that control how long we train. The training
  * stops if:
  * - max_iter iterations are reached. If you pass -1, then
  *   max_diff = 100 * n_rows
  * - the diff becomes less the tol
- * - the diff is changing less then 0.001*tol in nochange_steps consicutive
- *   outer iteraitions.
+ * - the diff is changing less then 0.001*tol in nochange_steps consecutive
+ *   outer iterations.
  */
 struct svmParameter {
   double C;           //!< Penalty term C
