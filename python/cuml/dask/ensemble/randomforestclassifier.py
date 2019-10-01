@@ -194,6 +194,12 @@ class RandomForestClassifier:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        seeds = list()
+        seeds.append(0)
+        for i in range(1, len(self.n_estimators_per_worker)):
+            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
+            seeds.append(sd)
+
         key = str(uuid1())
         self.rfs = {
             worker: c.submit(
@@ -213,6 +219,7 @@ class RandomForestClassifier:
                 rows_sample,
                 max_leaves,
                 quantile_per_tree,
+                seeds[n],
                 dtype,
                 key="%s-%s" % (key, n),
                 workers=[worker],
@@ -243,6 +250,7 @@ class RandomForestClassifier:
         rows_sample,
         max_leaves,
         quantile_per_tree,
+        seed,
         dtype,
     ):
         return cuRFC(
@@ -262,6 +270,7 @@ class RandomForestClassifier:
             max_leaves=max_leaves,
             n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
+            seed=seed,
             gdf_datatype=dtype,
         )
 
