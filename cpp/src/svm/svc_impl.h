@@ -113,6 +113,13 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
  * we map it to the original labels, and return those.
  *
+ * We process the input vectors batchwise, and evaluate the full rows of kernel
+ * matrix K(x_i, x_j) for a batch (size n_batch * n_support). The maximum size
+ * of this buffer (i.e. the maximum batch_size) is controlled by the
+ * buffer_size input parameter. For models where n_support is large, increasing
+ * buffer_size might improve prediction performance.
+ *
+ *
  * @tparam math_t floating point type
  * @param handle the cuML handle
  * @param [in] input device pointer for the input data in column major format,
