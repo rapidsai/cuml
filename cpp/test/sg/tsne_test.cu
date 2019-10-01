@@ -79,8 +79,48 @@ class TSNETest : public ::testing::Test
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    printf("EucExpandedL2\n");
+    printf("EucExpandedL2\n");
+    score_bh = trustworthiness_score<float, EucExpandedL2>(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucExpandedL2 with score = %lf\n", score_bh);
+    printf("EucExpandedL2 with score = %lf\n", score_bh);
+    
+    printf("EucExpandedL2Sqrt\n");
+    printf("EucExpandedL2Sqrt\n");
+    score_bh = trustworthiness_score<float, EucExpandedL2Sqrt >(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucExpandedL2Sqrt  with score = %lf\n", score_bh);
+    printf("EucExpandedL2Sqrt  with score = %lf\n", score_bh);
+    
+    printf("EucExpandedCosine\n");
+    printf("EucExpandedCosine\n");
+    score_bh = trustworthiness_score<float, EucExpandedCosine  >(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucExpandedCosine   with score = %lf\n", score_bh);
+    printf("EucExpandedCosine   with score = %lf\n", score_bh);
+    
+    printf("EucUnexpandedL1\n");
+    printf("EucUnexpandedL1\n");
+    score_bh = trustworthiness_score<float, EucUnexpandedL1   >(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucUnexpandedL1    with score = %lf\n", score_bh);
+    printf("EucUnexpandedL1    with score = %lf\n", score_bh);
+    
+    printf("EucUnexpandedL2\n");
+    printf("EucUnexpandedL2\n");
+    score_bh = trustworthiness_score<float, EucUnexpandedL2    >(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucUnexpandedL2     with score = %lf\n", score_bh);
+    printf("EucUnexpandedL2     with score = %lf\n", score_bh);
+    
+    printf("EucUnexpandedL2Sqrt\n");
+    printf("EucUnexpandedL2Sqrt\n");
+    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+    printf("EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
+    printf("EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
+    
 
 
     // Test Exact TSNE
