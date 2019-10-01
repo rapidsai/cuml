@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "ml_utils.h"
+#include <ml_utils.h>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
