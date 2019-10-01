@@ -48,6 +48,7 @@ class AlgorithmPair:
         accepts_labels=True,
         data_prep_hook=None,
         accuracy_function=None,
+        bench_func=None
     ):
         """
         Parameters
@@ -69,6 +70,8 @@ class AlgorithmPair:
            Optional function to run on input data before passing to fit
         accuracy_function : function (y_test, y_pred)
            Function that returns a scalar representing accuracy
+        bench_func : custom function to perform fit/predict/transform
+                     calls.
         """
         if name:
             self.name = name
@@ -82,6 +85,7 @@ class AlgorithmPair:
         self.cpu_args = cpu_args
         self.data_prep_hook = data_prep_hook
         self.accuracy_function = accuracy_function
+        self.bench_func = bench_func
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -97,10 +101,15 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            cpu_obj.fit(data[0], data[1])
+            if self.bench_func is not None:
+                self.bench_func(cpu_obj, data[0], data[1])
+            else:
+                cpu_obj.fit(data[0], data[1])
         else:
-            cpu_obj.fit(data[0])
-
+            if self.bench_func is not None:
+                self.bench_func(cpu_obj, data[0])
+            else:
+                cpu_obj.fit(data[0])
         return cpu_obj
 
     def run_cuml(self, data, **override_args):
@@ -112,9 +121,15 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            cuml_obj.fit(data[0], data[1])
+            if self.bench_func is not None:
+                self.bench_func(cuml_obj, data[0], data[1])
+            else:
+                cuml_obj.fit(data[0], data[1])
         else:
-            cuml_obj.fit(data[0])
+            if self.bench_func is not None:
+                self.bench_func(cuml_obj, data[0])
+            else:
+                cuml_obj.fit(data[0])
 
         return cuml_obj
 
@@ -122,6 +137,11 @@ class AlgorithmPair:
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
     return (data[0], data[1].astype(np.int32))
+
+
+def _nn_bench_func(m, x):
+    m.fit(x)
+    m.kneighbors(x)
 
 
 def all_algorithms():
@@ -160,10 +180,11 @@ def all_algorithms():
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
-            cpu_args=dict(algorithm="brute"),
+            cpu_args=dict(algorithm="brute", n_jobs=-1),
             cuml_args={},
             name="NearestNeighbors",
             accepts_labels=False,
+            bench_func=_nn_bench_func
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
