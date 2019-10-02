@@ -89,7 +89,7 @@ class PCAMG(PCA):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
-        :param X: array of __cuda_array_interface__ for local parts
+        :param X: array of local dataframes / array partitions
         :param M: total number of rows
         :param N: total number of cols
         :param partsToRanks: array of tuples in the format: [(rank,size)]
@@ -97,21 +97,29 @@ class PCAMG(PCA):
         """
 
         # TODO: Create outputs, convert X to **Data, use M, N to build paramsPCA, & partsToRanks to build **RankSizePair
-
+        arr_interfaces = []
         cdef uintptr_t input_ptr
+        for idx, arr in enumerate(local_x):
+            X_m, input_ptr, n_rows, n_cols, dtype = \
+                input_to_dev_array(local_x, check_dtype=[np.float32, np.float64])
+            arr_interfaces[idx] = {"obj": X_m, "data": input_ptr, "shape": (n_rows, n_cols)}
+
         cdef floatData **data = <floatData**> malloc(sizeof(floatData*) * len(local_x))
-        for x_i in range(len(local_x)):
+        for x_i in range(len(arr_interfaces)):
             x = local_x[x_i]
-            input_ptr = x["data"][0]
+            input_ptr = x["data"]
             data[x_i] = <floatData*>malloc(sizeof(floatData))
             data[x_i].ptr = <float*>input_ptr
             data[x_i].totalSize = <size_t>x["shape"][0]
 
-        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**) * len(partsToRanks))
+        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**)
+                                                                  * len(partsToRanks))
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
             rankSizePair[idx].rank = <int>rank
             rankSizePair[idx].size = <size_t>size
+
+
 
 
