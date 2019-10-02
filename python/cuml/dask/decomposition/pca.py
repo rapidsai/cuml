@@ -84,7 +84,8 @@ class PCA(object):
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
-        # TODO: Build M, N, partsToRanks
+        # TODO: Build partsToRanks using gpu_futures
+
         M, N = X.shape
 
         key = uuid1()
