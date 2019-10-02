@@ -104,9 +104,9 @@ class PCAMG(PCA):
         arr_interfaces = []
         cdef uintptr_t input_ptr
         for arr in X:
-            X_m, input_ptr, n_rows, n_cols, dtype = \
+            X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, n_cols)})
+            arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, self.n_cols)})
 
         n_parts = len(X)
         cdef floatData_t **dataF = <floatData_t**> malloc(sizeof(floatData_t*) * len(X))
@@ -128,14 +128,14 @@ class PCAMG(PCA):
 
         cpdef paramsPCA params
         params.n_components = self.n_components
-        params.n_rows = int(M)
-        params.n_cols = int(N)
+        params.n_rows = M
+        params.n_cols = N
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
         params.algorithm = self.c_algorithm
 
-        if self.n_components > self.n_cols:
+        if self.n_components > N:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
@@ -159,6 +159,8 @@ class PCAMG(PCA):
             get_cudf_column_ptr(self.noise_variance_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        print("About to call")
 
         if self.dtype == np.float32:
             fitF(handle_[0],
@@ -184,6 +186,8 @@ class PCAMG(PCA):
                 <double*> mean_ptr,
                 <double*> noise_vars_ptr,
                 params)
+
+        print("Done")
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
