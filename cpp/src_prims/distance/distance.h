@@ -206,7 +206,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
                Index_>
     distImpl;
