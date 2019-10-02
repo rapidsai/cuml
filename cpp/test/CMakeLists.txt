@@ -151,6 +151,7 @@ if(BUILD_PRIMS_TESTS)
       prims/dist_euc_exp.cu
       prims/dist_euc_unexp.cu
       prims/dist_l1.cu
+      prims/distance_test.cu
       prims/divide.cu
       prims/eig.cu
       prims/eig_sel.cu
