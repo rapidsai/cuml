@@ -52,6 +52,7 @@
 - PR #1171: SVM prediction bug fix
 - PR #1177: Update dask and distributed to 2.5
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
+- PR #1205: Update dask-cuda in yml envs
 
 # cuML 0.9.0 (21 Aug 2019)
 
