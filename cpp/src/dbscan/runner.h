@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,209 +16,372 @@
 
 #pragma once
 
-#include "adjgraph/runner.h"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "common/nvtx.hpp"
-#include "cuda_utils.h"
-#include "label/classlabels.h"
+#include "optimize.h"
+#include "supervised.h"
+#include "umapparams.h"
+
+#include "fuzzy_simpl_set/runner.h"
+#include "init_embed/runner.h"
+#include "knn_graph/runner.h"
+#include "simpl_set_embed/runner.h"
+
+#include <thrust/count.h>
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/reduce.h>
+#include <thrust/scan.h>
+#include <thrust/system/cuda/execution_policy.h>
+
+#include "sparse/coo.h"
 #include "sparse/csr.h"
-#include "vertexdeg/runner.h"
 
-#include "utils.h"
+#include "cuda_utils.h"
 
-#include <sys/time.h>
+#include <cuda_runtime.h>
+#include <iostream>
 
-namespace Dbscan {
+namespace UMAPAlgo {
 
-using namespace MLCommon;
+// Swap this as impls change for now.
+namespace FuzzySimplSetImpl = FuzzySimplSet::Naive;
+namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 
-static const int TPB = 256;
+using namespace ML;
+using namespace MLCommon::Sparse;
 
-/**
- * Adjust labels from weak_cc primitive to match sklearn:
- * 1. Turn any labels matching MAX_LABEL into -1
- * 2. Subtract 1 from all other labels.
- */
-template <typename Index_ = int>
-__global__ void
-relabelForSkl(Index_ *__restrict labels,
-              const Index_ N,
-              const Index_ MAX_LABEL)
-{
-  const Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid >= N) return;
-  
-  if (labels[tid] == MAX_LABEL)
-    labels[tid] = -1;
-  else if (tid < N)
-    --labels[tid];
+template <int TPB_X, typename T>
+__global__ void init_transform(int *indices, T *weights, int n,
+                               const T *embeddings, int embeddings_n,
+                               int n_components, T *result, int n_neighbors) {
+  // row-based matrix 1 thread per row
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  int i =
+    row * n_neighbors;  // each thread processes one row of the dist matrix
+
+  if (row < n) {
+    for (int j = 0; j < n_neighbors; j++) {
+      for (int d = 0; d < n_components; d++) {
+        result[row * n_components + d] +=
+          weights[i + j] * embeddings[indices[i + j] * n_components + d];
+      }
+    }
+  }
 }
 
 /**
- * Turn the non-monotonic labels from weak_cc primitive into
- * an array of labels drawn from a monotonically increasing set.
+ * Fit exponential decay curve to find the parameters
+ * a and b, which are based on min_dist and spread
+ * parameters.
  */
-template <typename Index_ = int>
-void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  MLCommon::Label::make_monotonic(
-    db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
+void find_ab(UMAPParams *params, cudaStream_t stream) {
+  Optimize::find_params_ab(params, stream);
 }
 
-/* @param N number of points
- * @param D dimensionality of the points
- * @param eps epsilon neighborhood criterion
- * @param minPts core points criterion
- * @param labels the output labels (should be of size N)
- * @param ....
- * @param temp temporary global memory buffer used to store intermediate computations
- *             If this is a null pointer, then this function will return the workspace size needed.
- *             It is the responsibility of the user to cudaMalloc and cudaFree this buffer!
- * @param stream the cudaStream where to launch the kernels
- * @return in case the temp buffer is null, this returns the size needed.
- */
-template <typename Type, typename Type_f, typename Index_ = int>
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
-           bool verbose = false) {
-  const size_t align = 256;
-  size_t batchSize = ceildiv<size_t>(N, nBatches);
+template <typename T, int TPB_X>
+void _fit(const cumlHandle &handle,
+          T *X,   // input matrix
+          int n,  // rows
+          int d,  // cols
+          UMAPParams *params, T *embeddings) {
+  cudaStream_t stream = handle.getStream();
+
+  int k = params->n_neighbors;
+
+  if (params->verbose)
+    std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
+  find_ab(params, stream);
 
   /**
-   * Note on coupling between data types:
-   * - adjacency graph has a worst case size of N * batchSize elements. Thus,
-   * if N is very close to being greater than the maximum 32-bit IdxType type used, a
-   * 64-bit IdxType should probably be used instead.
-   * - exclusive scan is the CSR row index for the adjacency graph and its values have a
-   * risk of overflowing when N * batchSize becomes larger what can be stored in IdxType
-   * - the vertex degree array has a worst case of each element having all other
-   * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
-   * overflow.
+   * Allocate workspace for kNN graph
    */
-  size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
-  size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
-  size_t mSize = alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
-  size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
+  long *knn_indices;
+  T *knn_dists;
 
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  MLCommon::allocate(knn_indices, n * k);
+  MLCommon::allocate(knn_dists, n * k);
 
-  ASSERT(
-    N * batchSize < MAX_LABEL,
-    "An overflow occurred with the current choice of precision "
-    "and the number of samples. (Max allowed batch size is %d, but was %d). "
-    "Consider using double precision for the output labels.",
-    MAX_LABEL / N, batchSize);
-
-  if (workspace == NULL) {
-    auto size =
-      adjSize + corePtsSize + 2 * xaSize + mSize + vdSize + exScanSize;
-    return size;
-  }
-
-  // partition the temporary workspace needed for different stages of dbscan.
-
-  Index_ adjlen = 0;
-  Index_ curradjlen = 0;
-  char* temp = (char*)workspace;
-  bool* adj = (bool*)temp;
-  temp += adjSize;
-  bool* core_pts = (bool*)temp;
-  temp += corePtsSize;
-  bool* xa = (bool*)temp;
-  temp += xaSize;
-  bool* fa = (bool*)temp;
-  temp += xaSize;
-  bool* m = (bool*)temp;
-  temp += mSize;
-  Index_* vd = (Index_*)temp;
-  temp += vdSize;
-  Index_* ex_scan = (Index_*)temp;
-  temp += exScanSize;
-
-  // Running VertexDeg
-  MLCommon::Sparse::WeakCCState<Index_> state(xa, fa, m);
-
-  for (int i = 0; i < nBatches; i++) {
-    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
-                                              stream);
-
-    Index_ startVertexId = i * batchSize;
-    Index_ nPoints = min(size_t(N - startVertexId), batchSize);
-    if (nPoints <= 0) continue;
-
-    if (verbose)
-      std::cout << "- Iteration " << i + 1 << " / " << nBatches
-                << ". Batch size is " << nPoints << " samples." << std::endl;
-
-    int64_t start_time = curTimeMillis();
-
-    if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
-    VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
-                                   startVertexId, nPoints, stream);
-    MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    ML::POP_RANGE();
-
-    int64_t cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
-
-    if (verbose)
-      std::cout << "--> Computing adjacency graph of size " << curradjlen
-                << " samples." << std::endl;
-    start_time = curTimeMillis();
-    // Running AdjGraph
-    ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
-    if (curradjlen > adjlen || adj_graph.data() == NULL) {
-      adjlen = curradjlen;
-      adj_graph.resize(adjlen, stream);
-    }
-
-    AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
-                                ex_scan, N, minPts, core_pts, algoAdj, nPoints,
-                                stream);
-
-    ML::POP_RANGE();
-
-    ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-
-    cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
-
-    if (verbose) std::cout << "--> Computing connected components" << std::endl;
-
-    start_time = curTimeMillis();
-    MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
-      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
-      &state, stream,
-      [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
-    ML::POP_RANGE();
-
-    cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
-
-    if (verbose) std::cout << " " << std::endl;
-  }
-
-  ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-  if (algoCcl == 2) final_relabel(labels, N, stream);
-  size_t nblks = ceildiv<size_t>(N, TPB);
-  relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-  ML::POP_RANGE();
 
-  if (verbose) std::cout << "Done." << std::endl;
-  return (size_t)0;
+  COO<T> rgraph_coo;
+
+  FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, k, &rgraph_coo,
+                               params, stream);
+
+  /**
+   * Remove zeros from simplicial set
+   */
+  int *row_count_nz, *row_count;
+  MLCommon::allocate(row_count_nz, n, true);
+  MLCommon::allocate(row_count, n, true);
+
+  COO<T> cgraph_coo;
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo,
+                                               stream);
+
+  /**
+   * Run initialization method
+   */
+  InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
+                 embeddings, stream, params->init);
+
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings);
+  }
+
+  /**
+		 * Run simplicial set embedding to approximate low-dimensional representation
+		 */
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
+                               stream);
+
+  if (params->callback) params->callback->on_train_end(embeddings);
+
+  CUDA_CHECK(cudaFree(knn_dists));
+  CUDA_CHECK(cudaFree(knn_indices));
 }
-}  // namespace Dbscan
+
+template <typename T, int TPB_X>
+void _fit(const cumlHandle &handle,
+          T *X,  // input matrix
+          T *y,  // labels
+          int n, int d, UMAPParams *params, T *embeddings) {
+  cudaStream_t stream = handle.getStream();
+
+  int k = params->n_neighbors;
+
+  if (params->target_n_neighbors == -1)
+    params->target_n_neighbors = params->n_neighbors;
+
+  find_ab(params, stream);
+
+  /**
+   * Allocate workspace for kNN graph
+   */
+  long *knn_indices;
+  T *knn_dists;
+
+  MLCommon::allocate(knn_indices, n * k, true);
+  MLCommon::allocate(knn_dists, n * k, true);
+
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  /**
+   * Allocate workspace for fuzzy simplicial set.
+   */
+  COO<T> rgraph_coo;
+  COO<T> tmp_coo;
+
+  /**
+   * Run Fuzzy simplicial set
+   */
+  //int nnz = n*k*2;
+  FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, params->n_neighbors,
+                               &tmp_coo, params, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, stream);
+
+  COO<T> final_coo;
+
+  /**
+   * If target metric is 'categorical', perform
+   * categorical simplicial set intersection.
+   */
+  if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+    if (params->verbose)
+      std::cout << "Performing categorical intersection" << std::endl;
+    Supervised::perform_categorical_intersection<TPB_X, T>(
+      y, &rgraph_coo, &final_coo, params, stream);
+
+    /**
+     * Otherwise, perform general simplicial set intersection
+     */
+  } else {
+    if (params->verbose)
+      std::cout << "Performing general intersection" << std::endl;
+    Supervised::perform_general_intersection<TPB_X, T>(
+      handle, y, &rgraph_coo, &final_coo, params, stream);
+  }
+
+  /**
+   * Remove zeros
+   */
+  MLCommon::Sparse::coo_sort<T>(&final_coo, stream);
+
+  COO<T> ocoo;
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
+
+  /**
+   * Initialize embeddings
+   */
+  InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
+                 embeddings, stream, params->init);
+
+  if (params->callback) params->callback->on_preprocess_end(embeddings);
+
+  /**
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, stream);
+
+  if (params->callback) params->callback->on_train_end(embeddings);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  CUDA_CHECK(cudaFree(knn_dists));
+  CUDA_CHECK(cudaFree(knn_indices));
+}
+
+/**
+	 *
+	 */
+template <typename T, int TPB_X>
+void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+                int orig_n, T *embedding, int embedding_n, UMAPParams *params,
+                T *transformed) {
+  cudaStream_t stream = handle.getStream();
+
+  /**
+   * Perform kNN of X
+   */
+  long *knn_indices;
+  float *knn_dists;
+  MLCommon::allocate(knn_indices, n * params->n_neighbors);
+  MLCommon::allocate(knn_dists, n * params->n_neighbors);
+
+  kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices, knn_dists,
+                params->n_neighbors, params, stream);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  float adjusted_local_connectivity =
+    max(0.0, params->local_connectivity - 1.0);
+
+  /**
+   * Perform smooth_knn_dist
+   */
+  T *sigmas;
+  T *rhos;
+  MLCommon::allocate(sigmas, n, true);
+  MLCommon::allocate(rhos, n, true);
+
+  dim3 grid_n(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
+    n, knn_indices, knn_dists, rhos, sigmas, params, params->n_neighbors,
+    adjusted_local_connectivity, stream);
+
+  /**
+   * Compute graph of membership strengths
+   */
+
+  int nnz = n * params->n_neighbors;
+
+  dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+
+  /**
+   * Allocate workspace for fuzzy simplicial set.
+   */
+
+  COO<T> graph_coo(nnz, n, n);
+
+  FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
+    <<<grid_n, blk, 0, stream>>>(knn_indices, knn_dists, sigmas, rhos,
+                                 graph_coo.vals, graph_coo.rows, graph_coo.cols,
+                                 graph_coo.n_rows, params->n_neighbors);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  int *row_ind, *ia;
+  MLCommon::allocate(row_ind, n);
+  MLCommon::allocate(ia, n);
+
+  MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind, stream);
+  MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia, stream);
+
+  T *vals_normed;
+  MLCommon::allocate(vals_normed, graph_coo.nnz, true);
+
+  MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
+    row_ind, graph_coo.vals, graph_coo.nnz, graph_coo.n_rows, vals_normed,
+    stream);
+
+  init_transform<TPB_X, T><<<grid_n, blk, 0, stream>>>(
+    graph_coo.cols, vals_normed, graph_coo.n_rows, embedding, embedding_n,
+    params->n_components, transformed, params->n_neighbors);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  CUDA_CHECK(cudaFree(vals_normed));
+
+  MLCommon::LinAlg::unaryOp<int>(
+    ia, ia, n, [=] __device__(int input) { return 0.0; }, stream);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  /**
+   * Go through COO values and set everything that's less than
+   * vals.max() / params->n_epochs to 0.0
+   */
+  thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(graph_coo.vals);
+  T max =
+    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
+
+  int n_epochs = params->n_epochs;
+  if (params->n_epochs <= 0) {
+    if (n <= 10000)
+      n_epochs = 100;
+    else
+      n_epochs = 30;
+  } else {
+    n_epochs /= 3;
+  }
+
+  if (params->verbose) {
+    std::cout << "n_epochs=" << n_epochs << std::endl;
+  }
+
+  MLCommon::LinAlg::unaryOp<T>(
+    graph_coo.vals, graph_coo.vals, graph_coo.nnz,
+    [=] __device__(T input) {
+      if (input < (max / float(n_epochs)))
+        return 0.0f;
+      else
+        return input;
+    },
+    stream);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  /**
+   * Remove zeros
+   */
+  MLCommon::Sparse::COO<T> comp_coo;
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, stream);
+
+  T *epochs_per_sample;
+  MLCommon::allocate(epochs_per_sample, nnz);
+
+  SimplSetEmbedImpl::make_epochs_per_sample(
+    comp_coo.vals, comp_coo.nnz, n_epochs, epochs_per_sample, stream);
+
+  SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
+    transformed, n, embedding, embedding_n, comp_coo.rows, comp_coo.cols,
+    comp_coo.nnz, epochs_per_sample, n, params->repulsion_strength, params,
+    n_epochs, stream);
+
+  CUDA_CHECK(cudaFree(knn_dists));
+  CUDA_CHECK(cudaFree(knn_indices));
+
+  CUDA_CHECK(cudaFree(sigmas));
+  CUDA_CHECK(cudaFree(rhos));
+
+  CUDA_CHECK(cudaFree(ia));
+  CUDA_CHECK(cudaFree(row_ind));
+
+  CUDA_CHECK(cudaFree(epochs_per_sample));
+}
+
+}  // namespace UMAPAlgo
