@@ -48,7 +48,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        float *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo)
+                       int algo) except +
 
     cdef void ridgeFit(cumlHandle& handle,
                        double *input,
@@ -61,7 +61,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        double *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo)
+                       int algo) except +
 
     cdef void ridgePredict(cumlHandle& handle,
                            const float *input,
@@ -69,7 +69,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                            int n_cols,
                            const float *coef,
                            float intercept,
-                           float *preds)
+                           float *preds) except +
 
     cdef void ridgePredict(cumlHandle& handle,
                            const double *input,
@@ -77,7 +77,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                            int n_cols,
                            const double *coef,
                            double intercept,
-                           double *preds)
+                           double *preds) except +
 
 
 class Ridge(Base, RegressorMixin):
