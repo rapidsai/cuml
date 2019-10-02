@@ -24,6 +24,9 @@ import numpy as np
 
 import rmm
 
+from libc.stdlib cimport malloc, free
+
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 
@@ -37,9 +40,13 @@ from cuml.decomposition import PCA
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
 
-    cdef cppclass Data[T]:
-        T *ptr
-        size_t size
+    cdef cppclass floatData:
+        float *ptr
+        size_t totalSize
+
+    cdef cppclass doubleData:
+        double *ptr
+        size_t totalSize
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace "MLCommon::Matrix":
 
@@ -51,7 +58,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
                   RankSizePair **input,
-                  Data[float] **rank_sizes,
+                  floatData **rank_sizes,
                   float *components,
                   float *explained_var,
                   float *explained_var_ratio,
@@ -62,7 +69,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
                   RankSizePair **input,
-                  Data[double] **rank_sizes,
+                  doubleData **rank_sizes,
                   double *input,
                   double *components,
                   double *explained_var,
@@ -78,7 +85,7 @@ class PCAMG(PCA):
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def fit(self, X, M, N, partsToRanks):
+    def fit(self, local_x, M, N, partsToRanks):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -90,4 +97,21 @@ class PCAMG(PCA):
         """
 
         # TODO: Create outputs, convert X to **Data, use M, N to build paramsPCA, & partsToRanks to build **RankSizePair
-        pass
+
+        cdef uintptr_t input_ptr
+        cdef floatData **data = <floatData**> malloc(sizeof(floatData*) * len(local_x))
+        for x_i in range(len(local_x)):
+            x = local_x[x_i]
+            input_ptr = x["data"][0]
+            data[x_i] = <floatData*>malloc(sizeof(floatData))
+            data[x_i].ptr = <float*>input_ptr
+            data[x_i].totalSize = <size_t>x["shape"][0]
+
+        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**) * len(partsToRanks))
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+            rankSizePair[idx].rank = <int>rank
+            rankSizePair[idx].size = <size_t>size
+
+
