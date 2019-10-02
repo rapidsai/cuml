@@ -26,7 +26,7 @@ import numpy as np
 from dask import delayed
 from dask.distributed import wait, default_client
 from math import ceil
-from librmm_cffi import librmm as rmm
+import rmm
 from toolz import first
 from tornado import gen
 
