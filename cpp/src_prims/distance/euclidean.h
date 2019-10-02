@@ -24,12 +24,6 @@
 #include <cutlass/shape.h>
 #include <type_traits>
 
-// #define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-//   printf("[%d] %s\n", __LINE__, __FILE__); \
-//   CUDA_CHECK(cudaStreamSynchronize(stream)); \
-//   CUDA_CHECK(cudaPeekAtLastError())
-#define WHERE() ;
-
 namespace MLCommon {
 namespace Distance {
 
@@ -61,7 +55,6 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     AccType *workspace, size_t &worksize, FinalLambda fin_op,
                     cudaStream_t stream, bool isRowMajor) {
-                    
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(InType in) { return in; };
@@ -96,7 +89,6 @@ template <typename InType, typename AccType, typename OutType,
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
-                    
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -163,8 +155,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
