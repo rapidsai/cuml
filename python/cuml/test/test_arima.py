@@ -176,7 +176,7 @@ def test_gradient_ref():
     g_ref = np.array([-7.16227077646181e-04, -4.09565927839139e+00, -4.10715017551411e+00,
                       -1.02602371043758e-03, -4.46265460141149e+00, -4.18378931499319e+00])
     # print("g=", g)
-    np.testing.assert_allclose(g, g_ref)
+    np.testing.assert_allclose(g, g_ref, rtol=1e-6)
 
 def test_gradient():
     """test gradient implementation"""
@@ -243,15 +243,8 @@ def testBIC():
         order = (p, 1, 1)
 
         nb = 2
-
-        x0 = np.array([])
-        for i in range(nb):
-            x0i = arima.init_x0(order, y[:,i])
-            x0 = np.r_[x0, x0i]
-
-        p, d, q = order
-        mu0, ar0, ma0 = arima.unpack(p, d, q, nb, x0)
-
+        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
+        
         batched_model = arima.fit(y, order,
                                     mu0,
                                     ar0,
@@ -278,13 +271,8 @@ def testFit():
 
         nb = 2
 
-        x0 = np.array([])
-        for i in range(nb):
-            x0i = arima.init_x0(order, y[:,i])
-            x0 = np.r_[x0, x0i]
-
         p, d, q = order
-        mu0, ar0, ma0 = arima.unpack(p, d, q, nb, x0)
+        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
 
         batched_model = arima.fit(y, order,
                                     mu0,
@@ -297,7 +285,6 @@ def testFit():
         x = arima.pack(p, 1, 1, 2, batched_model.mu, batched_model.ar_params, batched_model.ma_params)
 
         llx = arima.ll_f(2, len(t), (p, 1, 1), y, x, trans=False)
-        # print("ll(x)", llx)
 
         rtol = 1e-2
         # parameter differences are more difficult to test precisely due to the nonlinear-optimization.
@@ -306,7 +293,7 @@ def testFit():
         np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1], rtol=rtol)
 
         # more important is that the loglikelihood is close to a relatively higher tolerance.
-        np.testing.assert_allclose(llx, ll_ref[p-1], rtol=1e-8)
+        np.testing.assert_allclose(llx, ll_ref[p-1], rtol=1e-6)
 
 
 def testResidual():
@@ -433,15 +420,12 @@ def testFit_Predict_Forecast(plot=False):
 
         nb = 2
 
-        x0 = np.array([])
         y_train = np.zeros((ns_train, nb))
         for i in range(nb):
             y_train[:, i] = y[:ns_train, i]
-            x0i = arima.init_x0(order, y_train[:, i])
-            x0 = np.r_[x0, x0i]
 
         p, d, q = order
-        mu0, ar0, ma0 = arima.unpack(p, d, q, nb, x0)
+        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y_train)
 
         batched_model = arima.fit(y_train, order,
                                   mu0,
@@ -481,7 +465,7 @@ def testFit_Predict_Forecast(plot=False):
     l2_error_fc_ref0 = [2.7841860168252653e+08, 2.4003239604745972e+08]
     l2_error_fc_ref1 = [3.728470033076098e+08, 3.039953059636233e+08]
 
-    rtol = 2e-5
+    rtol = 5e-5
     np.testing.assert_allclose(l2_error_predict0, l2_error_ref0, rtol=rtol)
     np.testing.assert_allclose(l2_error_predict1, l2_error_ref1, rtol=rtol)
     rtol = 1e-3
@@ -510,11 +494,7 @@ def bench_arima(num_batches=240, plot=False):
 
     start = timer()
 
-    for i in range(num_batches):
-        x0i = arima.init_x0(order, y_b[:, i])
-        x0 = np.r_[x0, x0i]
-
-    mu0, ar0, ma0 = arima.unpack(p, d, q, num_batches, x0)
+    mu0, ar0, ma0 = arima.estimate_x0(order, num_batches, y_b)
 
     batched_model = arima.fit(y_b, order,
                               mu0,
@@ -545,6 +525,31 @@ def test_grid_search(num_batches=2):
 
     if num_batches == 2:
         np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
+
+
+def demo():
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.05, size=num_samples)
+    noise2 = np.random.normal(scale=0.05, size=num_samples)
+    ys1 = noise + 0.5*xs + 0.1*np.sin(xs/np.pi)
+    ys2 = noise2 + 0.25*xs + 0.15*np.sin(0.8*xs/np.pi)
+    ys = np.zeros((num_samples, 2))
+    ys[:, 0] = ys1
+    ys[:, 1] = ys2
+
+    plt.plot(xs, ys1, xs, ys2)
+
+    mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
+    
+    model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
+
+    yp = model.predict_in_sample()
+    yfc = model.forecast(50)
+    dx = xs[1] - xs[0]
+    xfc = np.linspace(1, 1+50*dx, 50)
+    plt.plot(xs, yp, xfc, yfc)
 
 
 def test_stationarity():
