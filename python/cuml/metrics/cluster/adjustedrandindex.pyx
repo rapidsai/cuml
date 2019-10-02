@@ -65,11 +65,11 @@ def adjusted_rand_score(labels_true,
     if labels_true.astype != np.int64:
         warnings.warn(" The dtype of ground truth is not int32"
                       " converting the ground truth to int32")
-        labels_true = labels_true.astype(np.int64)
+        labels_true = labels_true.astype(np.int32)
     if labels_pred.astype != np.int32:
         warnings.warn(" The dtype of predicted labels is not int32"
                       " converting the predicted labels to int32")
-        labels_pred = labels_pred.astype(np.int64)
+        labels_pred = labels_pred.astype(np.int32)
 
     min_val_y = np.nanmin(labels_true)
     lower_class_range = np.nanmin(labels_pred) \
