@@ -85,7 +85,7 @@ class SmoSolver {
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream) {}
 
-#define SMO_WS_SIZE 1024
+#define SMO_WS_SIZE 512
   /**
    * Solve the quadratic optimization problem.
    *
