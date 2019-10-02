@@ -41,14 +41,8 @@ static const int TPB = 256;
  * 2. Subtract 1 from all other labels.
  */
 template <typename Index_ = int>
-__global__ void
-relabelForSkl(Index_ *__restrict labels,
-              const Index_ N,
-              const Index_ MAX_LABEL)
-{
-  const Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid >= N) return;
-  
+__global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
+  Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (labels[tid] == MAX_LABEL)
     labels[tid] = -1;
   else if (tid < N)
