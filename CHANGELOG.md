@@ -22,10 +22,14 @@
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
 - PR #1108: input_to_host_array function in input_utils for input processing to host arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
+- PR #1163: Some more correctness improvements. Better verbose printing
 - PR #1165: Adding except + in all remaining cython
 - PR #1186: Using LocalCUDACluster Pytest fixture
+- PR #1173: Docs: Barnes Hut TSNE documentation
+- PR #1176: Use new RMM API based on Cython
 
 ## Bug Fixes
 
@@ -44,7 +48,10 @@
 - PR #1106: Pinning Distributed version to match Dask for consistent CI results
 - PR #1116: TSNE CUDA 10.1 Bug Fixes
 - PR #1132: DBSCAN Batching Bug Fix
+- PR #1162: DASK RF random seed bug fix
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
+- PR #1177: Update dask and distributed to 2.5
+- PR #1199: Replaced sprintf() with snprintf() in THROW()
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -105,6 +112,7 @@
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
 - PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
+- PR #1175: Add more modules to docs ToC
 
 ## Bug Fixes
 
