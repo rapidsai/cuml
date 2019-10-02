@@ -104,11 +104,11 @@ def test_arima_start_params():
     Tests start_params function for multiple (p,d,q) options
     """
     _, ys = get_data()
-    arma = arima.start_params((1, 1, 1), ys[:, 0])
+    arma = arima._start_params((1, 1, 1), ys[:, 0])
     # print("arma=", arma)
     arma_ref = np.array([1.306700000000000e+04, 8.578545193799022e-01, -6.241669663164802e-01])
     np.testing.assert_array_almost_equal(arma, arma_ref)
-    arma = arima.start_params((2, 1, 1), ys[:, 0])
+    arma = arima._start_params((2, 1, 1), ys[:, 0])
     # print("arma=", arma)
     arma_ref = [1.3067000000000000e+04, 1.4359734767607857e-01, 1.9335180865645191e-01,
                 9.0764356294912391e-02]
@@ -121,15 +121,15 @@ def test_transform():
                     -0.76159416,   -0.76159616])
 
     # Without corrections to the MA parameters, this inverse transform will return NaN
-    Tx0 = arima.batch_invtrans(0, 1, 2, 2, x0)
+    Tx0 = arima._batch_invtrans(0, 1, 2, 2, x0)
 
     assert(not np.isnan(Tx0).any())
     
-    Tx0 = arima.batch_invtrans(2, 1, 0, 2, x0)
+    Tx0 = arima._batch_invtrans(2, 1, 0, 2, x0)
 
     assert(not np.isnan(Tx0).any())
 
-    Tx0 = arima.batch_invtrans(1, 1, 1, 2, np.array([-1.27047619e+02,  1.90024682e-02, -5.88867176e-01,
+    Tx0 = arima._batch_invtrans(1, 1, 1, 2, np.array([-1.27047619e+02,  1.90024682e-02, -5.88867176e-01,
                                                        -1.20404762e+02, 5.12333137e-05, -6.14485076e-01]))
     np.testing.assert_allclose(Tx0, np.array([-1.27047619e+02,  3.80095119e-02, -1.35186024e+00,
                                               -1.20404762e+02, 1.02466627e-04, -1.43219144e+00]))

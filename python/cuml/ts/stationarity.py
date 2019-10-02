@@ -1,14 +1,7 @@
 import numpy as np
 
-from IPython.core.debugger import set_trace
-
-def is_stationary(yi: np.ndarray, pval_threshold=0.05) -> bool:
-    """Test if `yi` is stationary around a constant. Based on paper 'Testing the
-    null hypothesis of stationary against the alternative of a unit root' by
-    Kwiatkowski et al. 1992. See
-    https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
-    for additional details."""
-
+def _is_stationary(yi: np.ndarray, pval_threshold=0.05) -> bool:
+    """Single series stationarity test."""
     ns = len(yi)
 
     # Null hypothesis: data is stationary around a constant
@@ -53,7 +46,47 @@ def is_stationary(yi: np.ndarray, pval_threshold=0.05) -> bool:
 
 
 def stationarity(y: np.ndarray, pval_threshold=0.05) -> np.ndarray:
-    """Return recommended differencing parameter `d=0 or 1` for batched series y"""
+    """Return recommended trend parameter `d=0 or 1` for a batched series.
+
+    Parameters:
+    -----------
+    y : array-like shape = (n_samples, n_series)
+         Series to test (not-batched!)
+    pval_threshold : float
+                     The stationarity threshold.
+
+    Returns:
+    --------
+    stationarity : array[int]
+                   The recommended `d` for each series
+                  
+
+    Example:
+    --------
+    .. code-block:: python
+
+         num_samples = 200
+         xs = np.linspace(0, 1, num_samples)
+         np.random.seed(12)
+         noise = np.random.normal(scale=0.1, size=num_samples)
+         ys1 = noise + 0.5*xs # d = 1
+         ys2 = noise # d = 0
+     
+         num_batches = 2
+         ys_df = np.zeros((num_samples, num_batches), order="F")
+         ys_df[:, 0] = ys1
+         ys_df[:, 1] = ys2
+     
+         d_b = stationarity(ys_df)
+         # d_b = [1, 0]
+
+    References
+    ----------
+    Based on paper 'Testing the
+    null hypothesis of stationary against the alternative of a unit root' by
+    Kwiatkowski et al. 1992. See
+    https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
+    for additional details."""
 
     ns = y.shape[0]
     nb = y.shape[1]
@@ -62,9 +95,9 @@ def stationarity(y: np.ndarray, pval_threshold=0.05) -> np.ndarray:
 
         yi = y[:, i]
         
-        if is_stationary(yi):
+        if _is_stationary(yi):
             d[i] = 0
-        elif is_stationary(np.diff(yi)):
+        elif _is_stationary(np.diff(yi)):
             d[i] = 1
         else:
             raise ValueError("Stationarity failed for d=0 or 1.")
