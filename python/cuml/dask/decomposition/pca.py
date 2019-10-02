@@ -102,7 +102,9 @@ class PCA(object):
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
-        worker_info = comms.worker_info(workers)
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        print(str(worker_info))
 
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
@@ -131,12 +133,12 @@ class PCA(object):
 
         comms.destroy()
 
-        self.local_model = pca_fit[0].result()
-        self.components_ = self.local_model.components_
-        self.explained_variance_ = self.local_model.explained_variance_
-        self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
-        self.singular_values_ = self.local_model.singular_values_
-        self.noise_variance = self.local_model.noise_variance_
+        self.local_model = pca_fit
+        # self.components_ = self.local_model.components_
+        # self.explained_variance_ = self.local_model.explained_variance_
+        # self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
+        # self.singular_values_ = self.local_model.singular_values_
+        # self.noise_variance = self.local_model.noise_variance_
 
         return self
 

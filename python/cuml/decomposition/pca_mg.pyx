@@ -60,25 +60,29 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   RankSizePair **input,
                   size_t n_parts,
                   floatData_t **rank_sizes,
+                  float *t_input,
                   float *components,
                   float *explained_var,
                   float *explained_var_ratio,
                   float *singular_vals,
                   float *mu,
                   float *noise_vars,
-                  paramsPCA prms) except +
+                  paramsPCA prms,
+                  bool verbose) except +
 
     cdef void fitD(cumlHandle& handle,
                   RankSizePair **input,
                   size_t n_parts,
                   doubleData_t **rank_sizes,
+                  double *t_input,
                   double *components,
                   double *explained_var,
                   double *explained_var_ratio,
                   double *singular_vals,
                   double *mu,
                   double *noise_vars,
-                  paramsPCA prms) except +
+                  paramsPCA prms,
+                  bool verbose) except +
 
 
 class PCAMG(PCA):
@@ -108,7 +112,6 @@ class PCAMG(PCA):
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, self.n_cols)})
 
-        n_parts = len(X)
         cdef floatData_t **dataF = <floatData_t**> malloc(sizeof(floatData_t*) * len(X))
         cdef doubleData_t **dataD = <doubleData_t**> malloc(sizeof(doubleData_t*) * len(X))
         for x_i in range(len(arr_interfaces)):
@@ -158,34 +161,42 @@ class PCAMG(PCA):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
+
         print("About to call")
+        n_total_parts = len(partsToRanks)
 
         if self.dtype == np.float32:
             fitF(handle_[0],
                 <RankSizePair**>rankSizePair,
-                <size_t> n_parts,
+                <size_t> n_total_parts,
                 <floatData_t**>dataF,
+                <float*> t_input_ptr,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
                 <float*> singular_vals_ptr,
                 <float*> mean_ptr,
                 <float*> noise_vars_ptr,
-                params)
+                params,
+                True)
         else:
             fitD(handle_[0],
                 <RankSizePair**>rankSizePair,
-                <size_t> n_parts,
+                <size_t> n_total_parts,
                 <doubleData_t**>dataF,
+                <double*> t_input_ptr,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
                 <double*> singular_vals_ptr,
                 <double*> mean_ptr,
                 <double*> noise_vars_ptr,
-                params)
+                params,
+                True)
 
         print("Done")
 
