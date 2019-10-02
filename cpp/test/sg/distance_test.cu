@@ -16,13 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <score/scores.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <iostream>
 #include <vector>
 #include "datasets/digits.h"
-#include "cuda_utils.h"
-#include "cuML.hpp"
+#include <cuda_utils.h>
+#include "distance/distance.h"
 
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
@@ -32,14 +30,13 @@ using namespace MLCommon;
 using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
-using namespace ML;
 
 
 
-template <DistanceType distance_type>
+template <DistanceType d_type, typename T>
 static void
-get_distances(float *X,
-              float *output_D,
+get_distances(T *X,
+              T *output_D,
               int n,
               int p,
               std::shared_ptr<deviceAllocator> d_alloc,
@@ -48,41 +45,30 @@ get_distances(float *X,
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
   // Determine distance workspace size
-  char *distance_workspace = nullptr;
-  const size_t distance_workspace_size = \
-    MLCommon::Distance::getWorkspaceSize<distance_type, float, float, float>(
-      X, X, n, n, p);
-
-  printf("Workspace = %zu\n", distance_workspace_size);
+  const size_t lwork = getWorkspaceSize<d_type, T, T, T>(X, X, n, n, p);
+  void *work = (lwork > 0) ? ((void*) d_alloc->allocate(lwork, stream)) : NULL;
   
-  if (distance_workspace_size != 0)
-    distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
-  
-
   // Find distances
-  MLCommon::Distance::distance<distance_type, float, float, float, OutputTile_t>(
-    X, X, output_D, n, n, p,
-    (void*)distance_workspace, distance_workspace_size, stream);
-
+  MLCommon::Distance::distance<d_type, T, T, T, OutputTile_t>(
+    X, X, output_D, n, n, p, work, lwork, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-
   
   // Free workspace
-  if (distance_workspace_size != 0)
-    d_alloc->deallocate(distance_workspace, distance_workspace_size, stream);
+  if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
 }
 
 
 
-
+template <DistanceType d_type>
 class DistanceTest : public ::testing::Test
 {
  protected:
   void basicTest()
   {
-    cumlHandle handle;
-    auto d_alloc = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    d_alloc.reset(new defaultDeviceAllocator);
 
     // Allocate memory
     device_buffer<float> X_d(d_alloc, stream, n*p);
@@ -92,23 +78,9 @@ class DistanceTest : public ::testing::Test
     device_buffer<float> output_D(d_alloc, stream, n*n);
 
     // Test each distance type
-    printf("Testing distance type = %d\n", EucExpandedL2);
-    get_distances<EucExpandedL2>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
+    get_distances<d_type>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
 
-    printf("Testing distance type = %d\n", EucExpandedL2Sqrt);
-    get_distances<EucExpandedL2Sqrt>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
-
-    printf("Testing distance type = %d\n", EucExpandedCosine);
-    get_distances<EucExpandedCosine>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
-
-    printf("Testing distance type = %d\n", EucUnexpandedL1);
-    get_distances<EucUnexpandedL1>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
-
-    printf("Testing distance type = %d\n", EucUnexpandedL2);
-    get_distances<EucUnexpandedL2>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
-
-    printf("Testing distance type = %d\n", EucUnexpandedL2Sqrt);
-    get_distances<EucUnexpandedL2Sqrt>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
+    cudaStreamDestroy(stream);
   }
 
   void SetUp() override { basicTest(); }
@@ -118,9 +90,24 @@ class DistanceTest : public ::testing::Test
  protected:
   int n = 1797;
   int p = 64;
+  std::shared_ptr<deviceAllocator> d_alloc;
 };
 
-typedef DistanceTest DistanceTestF;
-TEST_F(DistanceTestF, Result)
-{
-}
+
+typedef DistanceTest<EucExpandedL2> DistanceTest_EucExpandedL2;
+TEST_F(DistanceTest_EucExpandedL2, Result) {}
+
+typedef DistanceTest<EucExpandedL2Sqrt> DistanceTest_EucExpandedL2Sqrt;
+TEST_F(DistanceTest_EucExpandedL2Sqrt, Result) {}
+
+typedef DistanceTest<EucExpandedCosine> DistanceTest_EucExpandedCosine;
+TEST_F(DistanceTest_EucExpandedCosine, Result) {}
+
+typedef DistanceTest<EucUnexpandedL1> DistanceTest_EucUnexpandedL1;
+TEST_F(DistanceTest_EucUnexpandedL1, Result) {}
+
+typedef DistanceTest<EucUnexpandedL2> DistanceTest_EucUnexpandedL2;
+TEST_F(DistanceTest_EucUnexpandedL2, Result) {}
+
+typedef DistanceTest<EucUnexpandedL2Sqrt> DistanceTest_EucUnexpandedL2Sqrt;
+TEST_F(DistanceTest_EucUnexpandedL2Sqrt, Result) {}
