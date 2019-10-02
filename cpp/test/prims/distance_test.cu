@@ -16,13 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <score/scores.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <iostream>
 #include <vector>
 #include "datasets/digits.h"
-#include "cuda_utils.h"
-#include "cuML.hpp"
+#include <cuda_utils.h>
+#include "distance/distance.h"
 
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
@@ -32,7 +30,6 @@ using namespace MLCommon;
 using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
-using namespace ML;
 
 
 
@@ -68,9 +65,10 @@ class DistanceTest : public ::testing::Test
  protected:
   void basicTest()
   {
-    cumlHandle handle;
-    auto d_alloc = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    d_alloc.reset(new defaultDeviceAllocator);
 
     // Allocate memory
     device_buffer<float> X_d(d_alloc, stream, n*p);
@@ -81,6 +79,8 @@ class DistanceTest : public ::testing::Test
 
     // Test each distance type
     get_distances<d_type>(X_d.data(), output_D.data(), n, p, d_alloc, stream);
+
+    cudaStreamDestroy(stream);
   }
 
   void SetUp() override { basicTest(); }
@@ -90,6 +90,7 @@ class DistanceTest : public ::testing::Test
  protected:
   int n = 1797;
   int p = 64;
+  std::shared_ptr<deviceAllocator> d_alloc;
 };
 
 
