@@ -27,7 +27,7 @@ import warnings
 import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
