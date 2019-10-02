@@ -79,16 +79,16 @@ class Exception : public std::exception {
 };
 
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                    \
-  do {                                                                     \
-    std::string msg;                                                       \
-    char errMsg[2048];                                                     \
-    std::sprintf(errMsg, "Exception occured! file=%s line=%d: ", __FILE__, \
-                 __LINE__);                                                \
-    msg += errMsg;                                                         \
-    std::sprintf(errMsg, fmt, ##__VA_ARGS__);                              \
-    msg += errMsg;                                                         \
-    throw MLCommon::Exception(msg);                                        \
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048];                                                         \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
+                  "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw MLCommon::Exception(msg);                                            \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
