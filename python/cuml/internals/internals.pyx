@@ -34,10 +34,10 @@ cdef extern from "callbacks_implems.h" namespace "ML::Internals":
         pass
 
     cdef cppclass DefaultGraphBasedDimRedCallback(Callback):
-        void setup(int n, int d)
-        void on_preprocess_end(void* embeddings)
-        void on_epoch_end(void* embeddings)
-        void on_train_end(void* embeddings)
+        void setup(int n, int d) except +
+        void on_preprocess_end(void* embeddings) except +
+        void on_epoch_end(void* embeddings) except +
+        void on_train_end(void* embeddings) except +
         PyObject* pyCallbackClass
 
 

@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.10.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.11.0 LANGUAGES CXX CUDA)
 
 
 ###################################################################################################
@@ -51,6 +51,8 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
+
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
@@ -292,7 +294,6 @@ include_directories(
   test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
@@ -333,6 +334,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/random_projection/rproj.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
+    src/svm/svc.cu
+    src/svm/ws_util.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
@@ -377,7 +380,8 @@ if(BUILD_CUML_C_LIBRARY)
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
-    src/holtwinters/holtwinters_api.cpp)
+    src/holtwinters/holtwinters_api.cpp
+    src/svm/svm_api.cpp)
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
@@ -399,6 +403,13 @@ endif(BUILD_CUML_EXAMPLES)
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+
+###################################################################################################
+# - build benchmark executable --------------------------------------------------------------------
+
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+endif(BUILD_CUML_BENCH)
 
 ###################################################################################################
 # - doxygen targets -------------------------------------------------------------------------------
