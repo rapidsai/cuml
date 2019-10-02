@@ -16,7 +16,7 @@
 
 import cudf
 import nvcategory
-from librmm_cffi import librmm
+import rmm
 import numpy as np
 
 
@@ -194,7 +194,7 @@ class LabelEncoder(object):
         self._cats = nvcategory.from_strings(y.data)
 
         self._fitted = True
-        arr: librmm.device_array = librmm.device_array(
+        arr: rmm.device_array = rmm.device_array(
             y.data.size(), dtype=np.int32
         )
         self._cats.values(devptr=arr.device_ctypes_pointer.value)

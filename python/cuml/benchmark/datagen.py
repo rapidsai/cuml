@@ -22,7 +22,7 @@ Each generator is a function that accepts:
  * n_samples (set to 0 for 'default')
  * n_features (set to 0 for 'default')
  * random_state
- * .. and optional generator-specific parameters
+ * (and optional generator-specific parameters)
 
 The function should return a 2-tuple (X, y), where X is a Pandas
 dataframe and y is a Pandas series. If the generator does not produce

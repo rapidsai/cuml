@@ -442,9 +442,10 @@ class SVC(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
-        ----------
-        y: cuDF Series
+        -------
+        y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
