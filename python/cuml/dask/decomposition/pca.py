@@ -69,7 +69,6 @@ class PCA(object):
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
-
         return model.transform(df)
 
     def fit(self, X):
@@ -86,12 +85,15 @@ class PCA(object):
         comms.init(workers=workers)
 
         # TODO: Build M, N, partsToRanks
+        M, N = X.shape
 
         key = uuid1()
         pca_fit = [self.client.submit(
             PCA.func_fit,
             comms.sessionId,
             wf[1],
+            M, N,
+
             **self.kwargs,
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
