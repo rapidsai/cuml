@@ -88,4 +88,6 @@ class PCAMG(PCA):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
+
+        # TODO: Create outputs, convert X to **Data, use M, N to build paramsPCA, & partsToRanks to build **RankSizePair
         pass
