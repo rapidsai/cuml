@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #1194: Initial ARIMA time-series modeling support.
+
 ## Improvements
 
 ## Bug Fixes
@@ -20,8 +22,6 @@
 - PR #1149 Add YYMMDD to version tag for nightly conda packages
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
-
-- PR #1194: Initial ARIMA time-series modeling support.
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
