@@ -58,6 +58,7 @@
 - PR #1132: DBSCAN Batching Bug Fix
 - PR #1162: DASK RF random seed bug fix
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
+- PR #1171: SVM prediction bug fix
 - PR #1177: Update dask and distributed to 2.5
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 
