@@ -22,22 +22,17 @@ from sklearn.datasets import make_regression, make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score
 from dask.distributed import Client
-from dask_cuda import LocalCUDACluster
 
 import dask_cudf
-import dask_cuda
 import cudf
 import numpy as np
 import pandas as pd
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
-@pytest.mark.parametrize('n_workers', [1, 2, 4, 8])
-def test_rf_classification_dask(n_workers, partitions_per_worker):
-    if dask_cuda.utils.get_n_gpus() < n_workers:
-        pytest.skip("too few GPUs")
+def test_rf_classification_dask(partitions_per_worker, cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=n_workers)
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
 
     X, y = make_classification(n_samples=10000, n_features=20,
@@ -79,16 +74,12 @@ def test_rf_classification_dask(n_workers, partitions_per_worker):
     assert acc_score > 0.8
 
     c.close()
-    cluster.close()
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
-@pytest.mark.parametrize('n_workers', [1, 2, 8])
-def test_rf_regression_dask(n_workers, partitions_per_worker):
-    if dask_cuda.utils.get_n_gpus() < n_workers:
-        pytest.skip("too few GPUs")
+def test_rf_regression_dask(partitions_per_worker, cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1, n_workers=n_workers)
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
 
     X, y = make_regression(n_samples=40000, n_features=20,
@@ -131,4 +122,3 @@ def test_rf_regression_dask(n_workers, partitions_per_worker):
     assert acc_score >= 0.70
 
     c.close()
-    cluster.close()
