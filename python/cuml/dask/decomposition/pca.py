@@ -40,7 +40,7 @@ class PCA(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def func_fit(sessionId, dfs, **kwargs):
+    def func_fit(sessionId, dfs, M, N, partsToRanks, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -58,9 +58,7 @@ class PCA(object):
 
         handle = worker_state(sessionId)["handle"]
 
-        # TODO: Extract partition info from DF
-
-        return cumlPCA(handle=handle, **kwargs).fit(dfs)
+        return cumlPCA(handle=handle, **kwargs).fit(dfs, M, N, partsToRanks)
 
     @staticmethod
     def func_xform(model, df):
@@ -87,6 +85,8 @@ class PCA(object):
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
+        # TODO: Build M, N, partsToRanks
+
         key = uuid1()
         pca_fit = [self.client.submit(
             PCA.func_fit,
@@ -101,9 +101,12 @@ class PCA(object):
 
         comms.destroy()
 
-        # TODO: Change this
         self.local_model = pca_fit[0].result()
-        self.cluster_centers_ = self.local_model.cluster_centers_
+        self.components_ = self.local_model.components_
+        self.explained_variance_ = self.local_model.explained_variance_
+        self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
+        self.singular_values_ = self.local_model.singular_values_
+        self.noise_variance = self.local_model.noise_variance_
 
         return self
 
