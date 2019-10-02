@@ -49,6 +49,7 @@
 - PR #1162: DASK RF random seed bug fix
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
 - PR #1177: Update dask and distributed to 2.5
+- PR #1195: Fix out of bounds accesses
 
 # cuML 0.9.0 (21 Aug 2019)
 
