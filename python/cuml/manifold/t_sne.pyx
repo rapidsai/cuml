@@ -307,7 +307,7 @@ class TSNE(Base):
 
     def fit(self, X):
         """Fit X into an embedded space.
-        
+
         Parameters
         -----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -420,14 +420,14 @@ class TSNE(Base):
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
-        
+
         Parameters
         -----------
         X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        
+
         Returns
         --------
         X_new : array, shape (n_samples, n_components)
