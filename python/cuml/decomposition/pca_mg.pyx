@@ -97,19 +97,22 @@ class PCAMG(PCA):
         :return: self
         """
 
+        print("M=" + str(M))
+        print("N=" + str(N))
+
         # TODO: Create outputs, convert X to **Data, use M, N to build paramsPCA, & partsToRanks to build **RankSizePair
         arr_interfaces = []
         cdef uintptr_t input_ptr
-        for idx, arr in enumerate(X):
+        for arr in X:
             X_m, input_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, check_dtype=[np.float32, np.float64])
-            arr_interfaces[idx] = {"obj": X_m, "data": input_ptr, "shape": (n_rows, n_cols)}
+                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, n_cols)})
 
         n_parts = len(X)
         cdef floatData_t **dataF = <floatData_t**> malloc(sizeof(floatData_t*) * len(X))
         cdef doubleData_t **dataD = <doubleData_t**> malloc(sizeof(doubleData_t*) * len(X))
         for x_i in range(len(arr_interfaces)):
-            x = X[x_i]
+            x = arr_interfaces[x_i]
             input_ptr = x["data"]
             dataF[x_i] = <floatData_t*>malloc(sizeof(floatData_t))
             dataF[x_i].ptr = <float*>input_ptr
@@ -125,8 +128,8 @@ class PCAMG(PCA):
 
         cpdef paramsPCA params
         params.n_components = self.n_components
-        params.n_rows = M
-        params.n_cols = N
+        params.n_rows = int(M)
+        params.n_cols = int(N)
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
