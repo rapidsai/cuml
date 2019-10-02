@@ -24,12 +24,6 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
-// #define WHERE() printf("[%d] %s\n", __LINE__, __FILE__); \
-//   printf("[%d] %s\n", __LINE__, __FILE__); \
-//   CUDA_CHECK(cudaStreamSynchronize(stream)); \
-//   CUDA_CHECK(cudaPeekAtLastError())
-#define WHERE() ;
-
 namespace MLCommon {
 namespace Distance {
 
@@ -50,7 +44,6 @@ enum DistanceType {
   /** same as above, but inside the epilogue, perform square root operation */
   EucUnexpandedL2Sqrt = 5,
 };
-
 
 namespace {
 template <DistanceType distanceType, typename InType, typename AccType,
@@ -155,7 +148,6 @@ struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
  * @note If the specifed distanceType doesn't need the workspace at all, it
  * returns 0.
  */
-  
 template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename Index_ = int>
 size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
@@ -179,8 +171,6 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
       // No workspace needed as no row norms are added
       break;
   }
-//   printf("Worksize = %d\n", worksize);
-//   printf("Worksize = %d\n", worksize);
   return worksize;
 }
 
@@ -215,22 +205,7 @@ template <DistanceType distanceType, typename InType, typename AccType,
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
-            
-  ASSERT(x != NULL and y != NULL and dist != NULL,
-         "Data is NULL at line = %d, file = %s\n", __LINE__, __FILE__);
-  
-  // Check for correct workspace size
-  const size_t correct_workspace = \
-    getWorkspaceSize<distanceType, InType, AccType, OutType>(x, y, m, n, k);
-  ASSERT(worksize >= correct_workspace,
-         "Workspace size is incorrect. Current size is %zu, but correct size is"
-         " %zu. Error at line = %d, file = %s\n", worksize, correct_workspace,
-         __LINE__, __FILE__);
-            
-  if (correct_workspace > 0)
-    ASSERT(workspace != NULL,
-           "Workspace is NULL at line = %d, file = %s\n", __LINE__, __FILE__);
-  
+
   CUDA_CHECK(cudaStreamSynchronize(stream));
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
                Index_>
@@ -238,7 +213,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
                isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -267,15 +241,15 @@ template <DistanceType distanceType, typename InType, typename AccType,
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               cudaStream_t stream, bool isRowMajor = true) {
-            
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
-  
+
   distance<distanceType, InType, AccType, OutType, OutputTile_,
            decltype(default_fin_op), Index_>(x, y, dist, m, n, k, workspace,
                                              worksize, default_fin_op, stream,
                                              isRowMajor);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
