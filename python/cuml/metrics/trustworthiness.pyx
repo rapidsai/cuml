@@ -23,9 +23,6 @@ import cudf
 import numpy as np
 import warnings
 
-import faulthandler
-faulthandler.enable()
-
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
