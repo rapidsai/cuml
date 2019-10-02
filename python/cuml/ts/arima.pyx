@@ -207,32 +207,32 @@ class ARIMAModel:
         return y_fc
 
 
-def init_x0(order, y):
+def estimate_x0(order: Tuple[int, int, int],
+                nb: int,
+                yb) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for the batched input `yb`"""
     pynvtx_range_push("init x0")
     (p, d, q) = order
-    if d == 1:
-        yd = np.diff(y)
-    else:
-        yd = np.copy(y)
-        
-    x0 = start_params((p, q, d), yd)
+    N = p + d + q
+    x0 = np.zeros(N * nb)
 
-    mu, ar, ma = unpack(p, d, q, 1, x0)
-    
-    # The inverse jones transform has domain [-1, 1]. Apply Tanh to ensure this range.
-    if p > 0:
-        ar = [np.tanh(ar[0])]
-    else:
-        ar = []
-    if q > 0:
-        ma = [np.tanh(ma[0])]
-    else:
-        ma = []
+    for ib in range(nb):
+        y = yb[:, ib]
 
-    x0 = pack(p, d, q, 1, mu, ar, ma)
+        if d == 1:
+            yd = np.diff(y)
+        else:
+            yd = np.copy(y)
+
+        x0ib = start_params((p, q, d), yd)
+
+        x0[ib*N:(ib+1)*N] = x0ib
+
+    mu, ar, ma = unpack(p, d, q, nb, x0)
 
     pynvtx_range_pop()
-    return x0
+
+    return mu, ar, ma
 
 
 def batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
@@ -626,13 +626,8 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="bic"):
             if p == 0 and q == 0:
                 continue
 
-            x0 = np.array([])
-            for i in range(num_batches):
-                x0i = init_x0((p, d, q), y_b[:, i])
-                x0 = np.r_[x0, x0i]
-
-            mu0, ar0, ma0 = unpack(p, d, q, num_batches, x0)
-
+            mu0, ar0, ma0 = estimate_x0((p, d, q), 2, y_b)
+            
             b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
             if method == "aic":
