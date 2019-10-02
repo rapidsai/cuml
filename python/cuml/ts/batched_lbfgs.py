@@ -20,16 +20,51 @@ def _fd_fprime(x, f, h):
     return g
 
 def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
-                         approx_grad=0,
                          bounds=None, m=10, factr=1e7, pgtol=1e-5,
                          epsilon=1e-8,
-                         iprint=-1, maxfun=15000, maxiter=15000, disp=None,
-                         callback=None, maxls=20):
+                         iprint=-1, maxiter=15000,
+                         maxls=20):
+    """A batch-aware L-BFGS-B implementation to minimize a loss function `f` given
+    an initial set of parameters `x0`.
+
+    Parameters
+    ----------
+    func : function (x: array) -> array[M] (M = n_batches)
+           The function to minimize. The function should return an array of size = `num_batches`
+    x0 : array
+         Starting parameters
+    fprime : function (x: array) -> array[M*n_params] (optional)
+             The gradient. Should return an array of derivatives for each parameter over batches.
+             When omitted, uses Finite-differencing to estimate the gradient.
+    args   : Tuple
+             Additional arguments to func and fprime
+    bounds : List[Tuple[float, float]]
+             Box-constrains on the parameters
+    m      : int
+             L-BFGS parameter: number of previous arrays to store when estimating inverse Hessian.
+    factr  : float
+             Stopping criterion when function evaluation not progressing.
+             Stop when `|f(xk+1) - f(xk)| < factor*eps_mach`
+             where `eps_mach` is the machine precision
+    pgtol  : float
+             Stopping criterion when gradient is sufficiently "flat".
+             Stop when |grad| < pgtol.
+    epsilon : float
+              Finite differencing step size when approximating `fprime`
+    iprint : int
+             -1 for no diagnostic info
+             n=1-100 for diagnostic info every n steps.
+             >100 for detailed diagnostic info
+    maxiter : int
+              Maximum number of L-BFGS iterations
+    maxls   : int
+              Maximum number of line-search iterations.
+    """
 
     pynvtx_range_push("LBFGS")
     n = len(x0) // num_batches
 
-    if fprime is None and approx_grad is True:
+    if fprime is None:
         fprime = lambda x: _fd_fprime(x, func, epsilon)
 
     if bounds is None:
