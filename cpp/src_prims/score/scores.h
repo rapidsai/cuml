@@ -36,8 +36,12 @@
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
 
+using namespace MLCommon;
+using namespace MLCommon::Distance;
+
 namespace MLCommon {
 namespace Score {
+
 
 /**
  * @brief Compute a the rank of trustworthiness score
@@ -160,9 +164,14 @@ trustworthiness_score(const math_t *__restrict X,
   ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
 
-  //int toDo = n;
+  // int toDo = n;
   int toDo = 0;
   double t = 0.0;
+
+  size_t lwork;
+  void *work;
+  bool need_space;
+
 
   while (toDo > 0)
   {
@@ -170,53 +179,38 @@ trustworthiness_score(const math_t *__restrict X,
     const int batchSize = min(toDo, MAX_BATCH_SIZE);
 
     // Determine distance workspace size
-    char *distance_workspace = NULL;
-
-    const size_t distance_workspace_size = \
-      MLCommon::Distance::getWorkspaceSize<distance_type, math_t, math_t, math_t>(
+    lwork = getWorkspaceSize<distance_type, math_t, math_t, math_t>(
         &X[(n - toDo) * m], X, batchSize, n, m);
-    
-    if (distance_workspace_size != 0) {
-      distance_workspace = (char*) d_alloc->allocate(distance_workspace_size, stream);
-      ASSERT(distance_workspace != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
-    }
-    
-    // Find distances
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
-                                 OutputTile_t>(
-      &X[(n - toDo) * m], X, distances, batchSize, n, m, (void*)distance_workspace,
-      distance_workspace_size, stream);
 
+    work = (lwork > 0) ? ((void *) d_alloc->allocate(lwork, stream)) : (NULL);
+
+
+    // Find distances
+    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+      &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     
-
-    // Free workspace
-    if (distance_workspace_size != 0) {
-      d_alloc->deallocate(distance_workspace, distance_workspace_size, stream);
-    }
+    if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
     
     
     // Determine sort columns workspace
-    bool need_workspace = false;
-    size_t sort_workspace_size = 0;
+    need_space = false;
+    lwork = 0;
     MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
-                                           n, need_workspace, NULL,
-                                           sort_workspace_size, stream);
+                                           n, need_space, NULL, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    if (need_workspace)
+    if (need_space)
     {
-      char *sort_workspace = (char*) d_alloc->allocate(sort_workspace_size, stream);
-      ASSERT(sort_workspace != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+      work = (void*) d_alloc->allocate(lwork, stream);
+      ASSERT(work != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
       MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
-                                             n, need_workspace, (void*)sort_workspace,
-                                             sort_workspace_size, stream);
-      
+                                             n, need_space, work, lwork, stream);
       CUDA_CHECK(cudaPeekAtLastError());
-
-      d_alloc->deallocate(sort_workspace, sort_workspace_size, stream);
+      d_alloc->deallocate(work, lwork, stream);
     }
+    
     
     double t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
@@ -249,7 +243,7 @@ trustworthiness_score(const math_t *__restrict X,
   d_alloc->deallocate(d_t, sizeof(double), stream);
   
   return 1;
-  //return t;
+  // return t;
 }
 
 /**
