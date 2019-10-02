@@ -63,7 +63,7 @@ class PCA(object):
         return cumlPCA(handle=handle, **kwargs).fit(dfs)
 
     @staticmethod
-    def func_transform(model, df):
+    def func_xform(model, df):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -97,7 +97,7 @@ class PCA(object):
             key="%s-%s" % (key, idx))
             for idx, wf in enumerate(gpu_futures.items())]
 
-        wait(kmeans_fit)
+        wait(pca_fit)
 
         comms.destroy()
 
@@ -113,7 +113,6 @@ class PCA(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         pca_predict = [self.client.submit(
