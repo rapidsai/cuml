@@ -25,6 +25,7 @@
 - PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
+- PR #1163: Some more correctness improvements. Better verbose printing
 - PR #1165: Adding except + in all remaining cython
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
@@ -50,6 +51,7 @@
 - PR #1164: Fix check_dtype arg handling for input_to_dev_array
 - PR #1171: SVM prediction bug fix
 - PR #1177: Update dask and distributed to 2.5
+- PR #1199: Replaced sprintf() with snprintf() in THROW()
 
 # cuML 0.9.0 (21 Aug 2019)
 
