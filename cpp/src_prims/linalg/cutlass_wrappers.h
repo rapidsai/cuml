@@ -282,7 +282,8 @@ struct CustomGemmTraits : public cutlass::gemm::SimplifiedGemmTraits<
 
 template <typename Gemm_, typename FinalLambda>
 __global__ void custom_gemm_kernel(typename Gemm_::Params params,
-                                   FinalLambda fin_op) {
+                                   FinalLambda fin_op)
+{
   __shared__ typename Gemm_::SharedStorage shared_storage;
   Gemm_ gemm(params, shared_storage);
   gemm.multiply_add(fin_op);
@@ -379,6 +380,9 @@ struct CustomGemm : public BaseClass {
     // Scale the id.
     block.x *= Traits::OutputTile::kW;
     block.y *= Traits::OutputTile::kH;
+
+    if ( ( block.x >= BaseClass::params.m ) or
+         ( block.y >= BaseClass::params.n ) ) return;
 
     // We may want to use shared memory to clear the registers.
     typedef typename Traits::ClearAccumulators ClearAccumulators;
