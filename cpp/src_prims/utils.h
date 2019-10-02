@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
+#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <sstream>
@@ -177,6 +178,14 @@ void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
   CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
+
+inline uint32_t curTimeMillis() {
+  auto now = std::chrono::high_resolution_clock::now();
+  auto duration = now.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
+    .count();
+}
+
 /** @} */
 
 /** Helper function to calculate need memory for allocate to store dense matrix.

@@ -26,9 +26,9 @@ cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
     float r2_score_py(const cumlHandle& handle,
                       float *y,
                       float *y_hat,
-                      int n)
+                      int n) except +
 
     double r2_score_py(const cumlHandle& handle,
                        double *y,
                        double *y_hat,
-                       int n)
+                       int n) except +

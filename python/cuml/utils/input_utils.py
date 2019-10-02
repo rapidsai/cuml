@@ -26,7 +26,7 @@ from collections import namedtuple
 from collections.abc import Collection
 from numba import cuda
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
@@ -71,14 +71,20 @@ def input_to_dev_array(X, order='F', deepcopy=False,
                        check_cols=False, check_rows=False,
                        fail_on_order=False):
     """
-    Convert input X to device array suitable for C++ methods
+    Convert input X to device array suitable for C++ methods.
+
     Acceptable input formats:
+
     * cuDF Dataframe - returns a deep copy always
+
     * cuDF Series - returns by reference or a deep copy depending on
         `deepcopy`
+
     * Numpy array - returns a copy in device always
+
     * cuda array interface compliant array (like Cupy) - returns a
-        reference unless deepcopy=True
+        reference unless `deepcopy`=True
+
     * numba device array - returns a reference unless deepcopy=True
 
     Parameters
@@ -174,16 +180,24 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     dtype = X_m.dtype
 
     if check_dtype:
-        if isinstance(check_dtype, type):
+        if isinstance(check_dtype, type) or isinstance(check_dtype, np.dtype):
             if dtype != check_dtype:
                 del X_m
                 raise TypeError("Expected " + str(check_dtype) + "input but" +
                                 " got " + str(dtype) + " instead.")
-        elif isinstance(check_dtype, Collection):
+        elif isinstance(check_dtype, Collection) and \
+                not isinstance(check_dtype, str):
+            # The 'not isinstance(check_dtype, string)' condition is needed,
+            # because the 'float32' string is a Collection, but in this
+            # branch we only want to process collections like
+            # [np.float32, np.float64].
             if dtype not in check_dtype:
                 del X_m
                 raise TypeError("Expected input to be of type in " +
                                 str(check_dtype) + " but got " + str(dtype))
+        else:
+            raise ValueError("Expected a type as check_dtype arg, but got " +
+                             str(check_dtype))
 
     n_rows = X_m.shape[0]
     if len(X_m.shape) > 1:
@@ -240,6 +254,9 @@ def convert_dtype(X, to_dtype=np.float32):
                                 "in data loss.")
             return X_m
 
+    elif isinstance(X, cudf.Series):
+        return X.astype(to_dtype)
+
     elif cuda.is_cuda_array(X):
         if has_cupy():
             import cupy as cp
@@ -249,11 +266,13 @@ def convert_dtype(X, to_dtype=np.float32):
         else:
             warnings.warn("Using cuDF for dtype conversion, install"
                           "CuPy for faster data conversion.")
-
-            X_df = cudf.DataFrame()
-            X = X_df.from_gpu_matrix(X)
-            X = convert_dtype(X, to_dtype=to_dtype)
-            return X.as_gpu_matrix()
+            if (len(X.shape) == 1):
+                return cudf.Series(X).astype(to_dtype).to_gpu_array()
+            else:
+                X_df = cudf.DataFrame()
+                X = X_df.from_gpu_matrix(X)
+                X = convert_dtype(X, to_dtype=to_dtype)
+                return X.as_gpu_matrix()
 
     elif isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -296,13 +315,18 @@ def input_to_host_array(X, order='F', deepcopy=False,
     """
     Convert input X to host array (NumPy) suitable for C++ methods that accept
     host arrays.
+
     Acceptable input formats:
+
     * Numpy array - returns a pointer to the original input
+
     * cuDF Dataframe - returns a deep copy always
-    * cuDF Series - returns by reference or a deep copy depending on
-        `deepcopy`
-    * cuda array interface compliant array (like Cupy) - returns a
+
+    * cuDF Series - returns by reference or a deep copy depending on `deepcopy`
+
+    * cuda array interface compliant array (like Cupy) - returns a \
         reference unless deepcopy=True
+
     * numba device array - returns a reference unless deepcopy=True
 
     Parameters
