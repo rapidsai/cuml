@@ -71,6 +71,10 @@ class PCA(object):
         """
         return model.transform(df)
 
+    @staticmethod
+    def func_get_size(df):
+        return df.shape[0]
+
     def fit(self, X):
         """
         Fits a distributed KMeans model
@@ -87,6 +91,15 @@ class PCA(object):
         # TODO: Build partsToRanks using gpu_futures
 
         M, N = X.shape
+        worker_info = comms.worker_info(workers)
+
+        key = uuid1()
+        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+            PCA.func_get_size,
+            wf[1],
+            wotkers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(gpu_futures.items())]
 
         key = uuid1()
         pca_fit = [self.client.submit(
@@ -94,7 +107,7 @@ class PCA(object):
             comms.sessionId,
             wf[1],
             M, N,
-
+            partsToRanks,
             **self.kwargs,
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
