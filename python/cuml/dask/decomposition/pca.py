@@ -20,6 +20,10 @@ from dask.distributed import wait
 
 from uuid import uuid1
 
+from functools import reduce
+
+from collections import OrderedDict
+
 
 class PCA(object):
     """
@@ -73,6 +77,8 @@ class PCA(object):
 
     @staticmethod
     def func_get_size(df):
+
+        print("SHAPE: " + str(len(df)))
         return df.shape[0]
 
     def fit(self, X):
@@ -81,25 +87,33 @@ class PCA(object):
         :param X: dask_cudf.Dataframe to fit
         :return: This KMeans instance
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
-        workers = list(map(lambda x: x[0], gpu_futures.items()))
+        # Ensure that partitions in each list have the
+        # same order as the input 'parts' list
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
+
+        workers = list(map(lambda x: x[0], gpu_futures))
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
-        # TODO: Build partsToRanks using gpu_futures
-
-        M, N = X.shape
         worker_info = comms.worker_info(workers)
 
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
             PCA.func_get_size,
             wf[1],
-            wotkers=[wf[0]],
-            key="%s-%s" % (key, idx)))
-            for idx, wf in enumerate(gpu_futures.items())]
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(gpu_futures)]
+
+        N = X.shape[1]
+        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
         pca_fit = [self.client.submit(
@@ -111,7 +125,7 @@ class PCA(object):
             **self.kwargs,
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            for idx, wf in enumerate(worker_to_parts.items())]
 
         wait(pca_fit)
 
