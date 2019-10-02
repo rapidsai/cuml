@@ -22,7 +22,7 @@
 import cudf
 import numpy as np
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
