@@ -21,7 +21,7 @@
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
 
-- PR #1061: Initial ARIMA time-series modeling support.
+- PR #1194: Initial ARIMA time-series modeling support.
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
