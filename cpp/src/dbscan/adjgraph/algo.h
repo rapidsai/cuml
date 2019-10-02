@@ -40,7 +40,7 @@ static const int TPB_X = 256;
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
  * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
  */
-template <typename Type, typename Index_ = long>
+template <typename Type, typename Index_ = int>
 void launcher(const ML::cumlHandle_impl &handle, Pack<Type, Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   device_ptr<Index_> dev_vd = device_pointer_cast(data.vd);

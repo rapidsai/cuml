@@ -32,11 +32,11 @@ cimport cuml.common.cuda
 cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
 
     double adjustedRandIndex(cumlHandle &handle,
-                             long *y,
-                             long *y_hat,
-                             long n,
-                             long lower_class_range,
-                             long upper_class_range)
+                             int *y,
+                             int *y_hat,
+                             int n,
+                             int lower_class_range,
+                             int upper_class_range)
 
 
 def adjusted_rand_score(labels_true,
@@ -65,11 +65,11 @@ def adjusted_rand_score(labels_true,
     if labels_true.astype != np.int64:
         warnings.warn(" The dtype of ground truth is not int32"
                       " converting the ground truth to int32")
-        labels_true = labels_true.astype(np.int64)
+        labels_true = labels_true.astype(np.int32)
     if labels_pred.astype != np.int32:
         warnings.warn(" The dtype of predicted labels is not int32"
                       " converting the predicted labels to int32")
-        labels_pred = labels_pred.astype(np.int64)
+        labels_pred = labels_pred.astype(np.int32)
 
     min_val_y = np.nanmin(labels_true)
     lower_class_range = np.nanmin(labels_pred) \
@@ -85,10 +85,10 @@ def adjusted_rand_score(labels_true,
         input_to_dev_array(labels_pred)
 
     rand_score = adjustedRandIndex(handle_[0],
-                                   <long*> y_ptr,
-                                   <long*> y_hat_ptr,
-                                   <long> n_rows,
-                                   <long> lower_class_range,
-                                   <long> upper_class_range)
+                                   <int*> y_ptr,
+                                   <int*> y_hat_ptr,
+                                   <int> n_rows,
+                                   <int> lower_class_range,
+                                   <int> upper_class_range)
 
     return rand_score
