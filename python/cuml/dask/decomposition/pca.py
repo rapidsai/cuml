@@ -87,8 +87,6 @@ class PCA(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
-        # Ensure that partitions in each list have the
-        # same order as the input 'parts' list
         worker_to_parts = OrderedDict()
         for w, p in gpu_futures:
             if w not in worker_to_parts:
