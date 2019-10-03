@@ -32,11 +32,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
@@ -46,24 +41,6 @@ using namespace MLCommon::Distance;
 
 namespace MLCommon {
 namespace Score {
-
-
-static void
-segfault_sigaction_catch(int signal, siginfo_t *si, void *arg)
-{
-    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
-    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
-    exit(0);
-}
-
 
 /**
  * @brief Compute a the rank of trustworthiness score
@@ -169,14 +146,6 @@ trustworthiness_score(const math_t *__restrict X,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream)
 {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(struct sigaction));
-  sigemptyset(&sa.sa_mask);
-  sa.sa_sigaction = segfault_sigaction_catch;
-  sa.sa_flags   = SA_SIGINFO;
-  sigaction(SIGSEGV, &sa, NULL);
-
-
   ASSERT(distance_type > EucExpandedCosine, "Only supports unexpanded metrics");
 
   ASSERT(X != NULL and X_embedded != NULL and d_alloc != NULL, "Null Pointers");
@@ -199,7 +168,6 @@ trustworthiness_score(const math_t *__restrict X,
   ASSERT(d_t != NULL, "Out of Memory");
 
 
-  // int toDo = n;
   int toDo = n;
   double t = 0.0;
 
@@ -221,8 +189,9 @@ trustworthiness_score(const math_t *__restrict X,
 
 
     // Find distances
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
-      &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+    CUDA_CHECK(cudaMemsetAsync(distances, 0, TMP_SIZE * sizeof(math_t), stream));
+    // MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+    //   &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
