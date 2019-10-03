@@ -104,8 +104,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, client=None):
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
 
-
-
     cumlModel.fit(X_cudf)
 
     labels = y.compute().to_pandas().values
