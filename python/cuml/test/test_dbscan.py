@@ -22,7 +22,9 @@ import pandas as pd
 import cudf
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern, clusters_equal
+from cuml.test.utils import fit_predict, get_pattern
+
+from sklearn.metrics import adjusted_rand_score
 
 
 def unit_param(*args, **kwargs):
@@ -41,7 +43,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
 
-@pytest.mark.parametrize('max_bytes_per_batch', [1e9, 5e9])
+@pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -49,30 +51,41 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
                          stress_param(1000)])
+@pytest.mark.parametrize('out_dtype', [unit_param("int32"),
+                                       unit_param(np.int32),
+                                       unit_param("int64"),
+                                       unit_param(np.int64),
+                                       quality_param("int32"),
+                                       stress_param("int32")])
 def test_dbscan(datatype, input_type, use_handle,
-                nrows, ncols, max_bytes_per_batch):
+                nrows, ncols, max_mbytes_per_batch, out_dtype):
     n_samples = nrows
     n_feats = ncols
-    X, y = make_blobs(n_samples=n_samples,
+    X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
                       n_features=n_feats, random_state=0)
 
     handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=0.5, min_samples=2,
-                        max_bytes_per_batch=max_bytes_per_batch)
+    cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
+                        max_mbytes_per_batch=max_mbytes_per_batch)
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
             {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X)
-        cu_labels = cudbscan.fit_predict(X_cudf)
+        cu_labels = cudbscan.fit_predict(X_cudf, out_dtype=out_dtype)
     else:
-        cu_labels = cudbscan.fit_predict(X)
+        cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
-        skdbscan = skDBSCAN(eps=0.5, min_samples=2)
+        skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
         sk_labels = skdbscan.fit_predict(X)
-        for i in range(X.shape[0]):
-            assert cu_labels[i] == sk_labels[i]
+        score = adjusted_rand_score(cu_labels, sk_labels)
+        assert score == 1
+
+    if out_dtype == "int32" or out_dtype == np.int32:
+        assert cu_labels.dtype == np.int32
+    elif out_dtype == "int64" or out_dtype == np.int64:
+        assert cu_labels.dtype == np.int64
 
 
 @pytest.mark.parametrize("name", [
@@ -104,6 +117,7 @@ def test_dbscan_sklearn_comparison(name, nrows):
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
         sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                                'sk_DBSCAN', X)
+<<<<<<< HEAD
         assert(sk_n_clusters == cu_n_clusters)
         clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
 
@@ -136,3 +150,16 @@ def test_dbscan_default(name):
                                            'sk_DBSCAN', X)
     assert(sk_n_clusters == cu_n_clusters)
     clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+=======
+
+        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+        assert(score == 1.0)
+
+
+@pytest.mark.xfail(strict=True, raises=ValueError)
+def test_dbscan_out_dtype_fails_invalid_input():
+    X, _ = make_blobs(n_samples=100)
+
+    cudbscan = cuDBSCAN()
+    cudbscan.fit_predict(X, out_dtype="bad_input")
+>>>>>>> 8285ce2c4e9c2a7b6ff3e2bc2b7bcaac93343b5d

@@ -39,8 +39,9 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(20),
+                                   quality_param(5000),
+                                   stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
 
     default_base = {'quantile': .3,
