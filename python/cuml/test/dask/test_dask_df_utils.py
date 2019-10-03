@@ -44,4 +44,3 @@ def test_to_dask_df(dtype, nparts, cluster):
     assert y.dtypes.unique() == y_df.dtypes.unique()
 
     c.close()
-    cluster.close()

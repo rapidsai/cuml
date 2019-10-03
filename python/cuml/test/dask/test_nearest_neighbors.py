@@ -96,5 +96,3 @@ def test_end_to_end(cluster):
 
     assert np.array_equal(cuml_I_nd, sk_I)
     assert np.allclose(cuml_D_nd, sk_D, atol=1e-5)
-
-    cluster.close()
