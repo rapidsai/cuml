@@ -50,4 +50,3 @@ def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts,
     assert X.dtypes.unique() == [dtype]
 
     c.close()
-    cluster.close()
