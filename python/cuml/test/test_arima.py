@@ -228,7 +228,7 @@ def test_gradient():
         np.testing.assert_allclose(g, g_sp, rtol=1e-4)
 
 
-def testBIC():
+def test_bic():
     """Test "Bayesian Information Criterion" metric. BIC penalizes the
     log-likelihood with the number of parameters.
 
@@ -257,7 +257,7 @@ def testBIC():
         np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
 
 
-def testFit():
+def test_fit():
     _, y = get_data()
 
     mu_ref = [[-217.7230173548441, -206.81064091237104], [-217.72325384510506, -206.77224439903458]]
@@ -296,7 +296,7 @@ def testFit():
         np.testing.assert_allclose(llx, ll_ref[p-1], rtol=1e-6)
 
 
-def testResidual():
+def test_residual():
     _, y = get_data()
 
     mu = np.array([-217.7230173548441, -206.81064091237104])
@@ -339,7 +339,7 @@ def testResidual():
 
     np.testing.assert_allclose(vs.T, vs_ref)
 
-def testPredict(plot=False):
+def test_predict(plot=False):
     _, y = get_data()
 
     mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
@@ -376,7 +376,7 @@ def testPredict(plot=False):
 
         # print("l2_error(p={}):".format(p), l2_error_predict)
 
-def testForecast(plot=False):
+def test_forecast(plot=False):
     _, y = get_data()
 
     mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
@@ -401,7 +401,7 @@ def testForecast(plot=False):
         np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
 
 
-def testFit_Predict_Forecast(plot=False):
+def test_fit_predict_forecast(plot=False):
     """
     Full integration test: Tests fit followed by in-sample prediction and out-of-sample forecast
     """
@@ -474,6 +474,63 @@ def testFit_Predict_Forecast(plot=False):
     
 
 
+
+def test_grid_search(num_batches=2):
+    ns = len(t)
+    y_b = np.zeros((ns, num_batches))
+
+    for i in range(num_batches):
+        y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
+
+    best_model, ic = arima.grid_search(y_b, d=1)
+
+    if num_batches == 2:
+        np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
+
+
+def test_stationarity():
+
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys1 = noise + 0.5*xs
+    ys2 = noise
+
+    num_batches = 2
+    ys_df = np.zeros((num_samples, num_batches), order="F")
+    ys_df[:, 0] = ys1
+    ys_df[:, 1] = ys2
+
+    d_b = stationarity(ys_df)
+    np.testing.assert_array_equal(d_b, [1, 0])
+
+
+def demo():
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.05, size=num_samples)
+    noise2 = np.random.normal(scale=0.05, size=num_samples)
+    ys1 = noise + 0.5*xs + 0.1*np.sin(xs/np.pi)
+    ys2 = noise2 + 0.25*xs + 0.15*np.sin(0.8*xs/np.pi)
+    ys = np.zeros((num_samples, 2))
+    ys[:, 0] = ys1
+    ys[:, 1] = ys2
+
+    plt.plot(xs, ys1, xs, ys2)
+
+    mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
+    
+    model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
+
+    yp = model.predict_in_sample()
+    yfc = model.forecast(50)
+    dx = xs[1] - xs[0]
+    xfc = np.linspace(1, 1+50*dx, 50)
+    plt.plot(xs, yp, xfc, yfc)
+
+
 def bench_arima(num_batches=240, plot=False):
 
     ns = len(t)
@@ -513,78 +570,3 @@ def bench_arima(num_batches=240, plot=False):
     if plot:
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
-
-def test_grid_search(num_batches=2):
-    ns = len(t)
-    y_b = np.zeros((ns, num_batches))
-
-    for i in range(num_batches):
-        y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
-
-    best_model, ic = arima.grid_search(y_b, d=1)
-
-    if num_batches == 2:
-        np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
-
-
-def demo():
-    num_samples = 200
-    xs = np.linspace(0, 1, num_samples)
-    np.random.seed(12)
-    noise = np.random.normal(scale=0.05, size=num_samples)
-    noise2 = np.random.normal(scale=0.05, size=num_samples)
-    ys1 = noise + 0.5*xs + 0.1*np.sin(xs/np.pi)
-    ys2 = noise2 + 0.25*xs + 0.15*np.sin(0.8*xs/np.pi)
-    ys = np.zeros((num_samples, 2))
-    ys[:, 0] = ys1
-    ys[:, 1] = ys2
-
-    plt.plot(xs, ys1, xs, ys2)
-
-    mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
-    
-    model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
-
-    yp = model.predict_in_sample()
-    yfc = model.forecast(50)
-    dx = xs[1] - xs[0]
-    xfc = np.linspace(1, 1+50*dx, 50)
-    plt.plot(xs, yp, xfc, yfc)
-
-
-def test_stationarity():
-
-    num_samples = 200
-    xs = np.linspace(0, 1, num_samples)
-    np.random.seed(12)
-    noise = np.random.normal(scale=0.1, size=num_samples)
-    ys1 = noise + 0.5*xs
-    ys2 = noise
-
-    num_batches = 2
-    ys_df = np.zeros((num_samples, num_batches), order="F")
-    ys_df[:, 0] = ys1
-    ys_df[:, 1] = ys2
-
-    d_b = stationarity(ys_df)
-    np.testing.assert_array_equal(d_b, [1, 0])
-
-
-
-if __name__ == "__main__":
-    testBIC()
-    test_log_likelihood()
-    testResidual()
-    testFit()
-    testPredict()
-    testForecast()
-    testFit_Predict_Forecast()
-    test_arima_start_params()
-    
-    test_gradient()
-    test_gradient_ref()
-    test_transform()
-    test_stationarity()
-
-    test_grid_search(2)
-    # bench_arima(num_batches=240*16)
