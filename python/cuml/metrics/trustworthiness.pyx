@@ -48,18 +48,6 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
         except +
 
 
-import sys
-import faulthandler
-faulthandler.enable(file = sys.stdout)
-faulthandler.enable(file = sys.stderr)
-faulthandler.dump_traceback_later(0.1, repeat=True)
-
-def trace(frame, event, arg):
-    print("%s, %s:%d" % (event, frame.f_code.co_filename, frame.f_lineno))
-    return trace
-sys.settrace(trace)
-
-
 def _get_array_ptr(obj):
     """
     Get ctype pointer of a numba style device array
@@ -70,6 +58,17 @@ def _get_array_ptr(obj):
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                     metric='euclidean', should_downcast=True,
                     convert_dtype=False):
+    import sys
+    import faulthandler
+    faulthandler.enable(file = sys.stdout)
+    faulthandler.enable(file = sys.stderr)
+    faulthandler.dump_traceback_later(1, repeat=True)
+
+    def trace(frame, event, arg):
+        print("%s, %s:%d" % (event, frame.f_code.co_filename, frame.f_lineno))
+        return trace
+    sys.settrace(trace)
+
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
