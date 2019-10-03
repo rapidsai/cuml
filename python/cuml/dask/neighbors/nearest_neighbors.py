@@ -23,6 +23,7 @@ from uuid import uuid1
 
 import cudf
 
+
 class NearestNeighbors(object):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
