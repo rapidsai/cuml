@@ -15,7 +15,7 @@
 #
 
 # cython: profile=False
-# distutils: language = c++
+# distutils: language = c++, extra_compile_args = -Og
 # cython: embedsignature = True
 # cython: language_level = 3
 
@@ -45,6 +45,19 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        int d,
                                                        int n_neighbors) \
         except +
+
+
+
+import faulthandler
+faulthandler.enable(file = sys.stdout)
+faulthandler.enable(file = sys.stderr)
+faulthandler.dump_traceback_later(0.1, repeat=True)
+
+import sys
+def trace(frame, event, arg):
+    print("%s, %s:%d" % (event, frame.f_code.co_filename, frame.f_lineno))
+    return trace
+sys.settrace(trace)
 
 
 def _get_array_ptr(obj):
@@ -102,8 +115,12 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                            convert_to_dtype=(np.float32 if convert_dtype
                                              else None))
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    cdef cumlHandle* handle_
+    if handle is None:
+      handle_ = <cumlHandle*><size_t>(cuml.common.handle.Handle().getHandle())
+    else:
+      handle_ = <cumlHandle*><size_t>(handle.getHandle())
+
     assert(handle_ != NULL)
     assert(<void*>d_X_ptr != NULL)
     assert(<void*>d_X_embedded_ptr != NULL)
