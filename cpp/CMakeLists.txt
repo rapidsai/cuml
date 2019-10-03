@@ -276,6 +276,7 @@ ExternalProject_Add(faiss
   PREFIX            ${FAISS_DIR}
   BUILD_COMMAND     $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
   INSTALL_COMMAND   $(MAKE) -s install > /dev/null
+  UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
 )
 
@@ -296,6 +297,7 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    UPDATE_COMMAND    ""
 )
 
 add_library(dmlclib STATIC IMPORTED)
