@@ -60,7 +60,6 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   RankSizePair **input,
                   size_t n_parts,
                   floatData_t **rank_sizes,
-                  float *t_input,
                   float *components,
                   float *explained_var,
                   float *explained_var_ratio,
@@ -74,7 +73,6 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   RankSizePair **input,
                   size_t n_parts,
                   doubleData_t **rank_sizes,
-                  double *t_input,
                   double *components,
                   double *explained_var,
                   double *explained_var_ratio,
@@ -161,8 +159,6 @@ class PCAMG(PCA):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
-
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
 
@@ -174,7 +170,6 @@ class PCAMG(PCA):
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <floatData_t**>dataF,
-                <float*> t_input_ptr,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -188,7 +183,6 @@ class PCAMG(PCA):
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <doubleData_t**>dataF,
-                <double*> t_input_ptr,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
