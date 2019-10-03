@@ -3,6 +3,7 @@ import cudf
 from cuml.solvers import SGD as cumlSGD
 import pytest
 from sklearn.datasets.samples_generator import make_blobs
+from sklearn.model_selection import train_test_split
 from sklearn import datasets
 import pandas as pd
 
@@ -30,22 +31,19 @@ def test_svd(datatype, lrate, input_type, penalty,
              loss, name):
 
     if name == 'blobs':
-        n_samples = 500000
-        train_rows = int(n_samples*0.8)
-        X, y = make_blobs(n_samples=n_samples,
+        X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
-        X_test = np.array(X[train_rows:, 0:], dtype=datatype)
-        X_train = np.array(X[0:train_rows, :], dtype=datatype)
-        y_train = np.array(y[0:train_rows, ], dtype=datatype)
+        X = X.astype(datatype)
+        y = y.astype(datatype)
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            train_size=0.8)
 
     elif name == 'iris':
         iris = datasets.load_iris()
-        X = iris.data
-        y = iris.target
-        train_rows = int((np.shape(X)[0])*0.8)
-        X_test = np.array(X[train_rows:, 0:], dtype=datatype)
-        X_train = np.array(X[0:train_rows, :], dtype=datatype)
-        y_train = np.array(y[0:train_rows, ], dtype=datatype)
+        X = (iris.data).astype(datatype)
+        y = (iris.target).astype(datatype)
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            train_size=0.8)
 
     else:
         X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],

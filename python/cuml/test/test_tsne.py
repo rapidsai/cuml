@@ -73,16 +73,7 @@ def test_tsne(name):
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_tsne_default(name):
-    """
-    This tests how TSNE handles a lot of input data across time.
-    (1) cuDF DataFrames are passed input
-    (2) Numpy arrays are passed in
-    (3) Params are changed in the TSNE class
-    (4) The class gets re-used across time
-    (5) Trustworthiness is checked
-    (6) Tests NAN in TSNE output for learning rate explosions
-    (7) Tests verbosity
-    """
+
     datasets
     X = eval("datasets.load_{}".format(name))().data
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
@@ -93,35 +84,6 @@ def test_tsne_default(name):
         tsne = TSNE()
 
         Y = tsne.fit_transform(X_cudf).to_pandas().values
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-
-        # Reuse
-        Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-
-        # Again
-        tsne = TSNE()
-
-        Y = tsne.fit_transform(X_cudf).to_pandas().values
-        nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-
-        # Reuse
-        Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
         print("Trust = ", trust)
