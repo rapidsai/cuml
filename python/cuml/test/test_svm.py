@@ -84,7 +84,6 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
             accuracy_tol = 0.1
 
     assert abs(accuracy1 - accuracy2) <= accuracy_tol
-    print(accuracy1, n)
 
     n_support1 = np.sum(svm1.n_support_)
     n_support2 = np.sum(svm2.n_support_)
@@ -247,6 +246,29 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
                 coef_tol=1e-5, report_summary=True)
 
 
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+    {'kernel': 'sigmoid', 'C': 1, 'gamma': 1}
+])
+@pytest.mark.parametrize('n_pred', [unit_param(5000), quality_param(100000),
+                                    stress_param(1000000)])
+def test_svm_predict(params, n_pred):
+    n_rows = 500
+    n_cols = 2
+    X, y = make_blobs(n_samples=n_rows + n_pred, n_features=n_cols,
+                      centers=[[-5, -5], [5, 5]])
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=n_rows)
+    cuSVC = cuml.svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
+    y_pred = to_nparray(cuSVC.predict(X_test))
+    n_correct = np.sum(y_test == y_pred)
+    accuracy = n_correct * 100 / n_pred
+    assert accuracy > 99
+
+
 @pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('y_dtype', [np.float32, np.float64, np.int32])
 @pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
@@ -339,7 +361,6 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
         b_sum += cuSVC.intercept_
         cuSVC.predict(X_train)
 
-    print(b_sum, cuSVC.n_support_, cuSVC.intercept_)
     del(cuSVC)
     handle.sync()
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]

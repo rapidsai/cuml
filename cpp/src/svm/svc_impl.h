@@ -23,6 +23,9 @@
 #include <iostream>
 
 #include <cublas_v2.h>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "kernelcache.h"
@@ -30,6 +33,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
+#include "matrix/matrix.h"
 #include "smosolver.h"
 #include "svm_model.h"
 #include "svm_parameter.h"
@@ -90,7 +94,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());
   SmoSolver<math_t> smo(handle_impl, param.C, param.tol, kernel,
-                        param.cache_size);
+                        param.cache_size, param.nochange_steps);
   smo.verbose = param.verbose;
   smo.Solve(input, n_rows, n_cols, y.data(), &(model.dual_coefs),
             &(model.n_support), &(model.x_support), &(model.support_idx),
@@ -109,6 +113,13 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
  * we map it to the original labels, and return those.
  *
+ * We process the input vectors batchwise, and evaluate the full rows of kernel
+ * matrix K(x_i, x_j) for a batch (size n_batch * n_support). The maximum size
+ * of this buffer (i.e. the maximum batch_size) is controlled by the
+ * buffer_size input parameter. For models where n_support is large, increasing
+ * buffer_size might improve prediction performance.
+ *
+ *
  * @tparam math_t floating point type
  * @param handle the cuML handle
  * @param [in] input device pointer for the input data in column major format,
@@ -119,17 +130,26 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the predicted class labels.
  *    Size [n_rows]. Should be allocated on entry.
+ * @param [in] buffer_size size of temporary buffer in MiB
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,
-                const svmModel<math_t> &model, math_t *preds) {
+                const svmModel<math_t> &model, math_t *preds,
+                math_t buffer_size) {
   ASSERT(n_cols == model.n_cols,
          "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
-#define N_PRED_BATCH 4096
+  const int N_PRED_BATCH = 4096;
   int n_batch = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
+
+  // Limit the memory size of the prediction buffer
+  buffer_size = buffer_size * 1024 * 1024;
+  if (n_batch * model.n_support * sizeof(math_t) > buffer_size) {
+    n_batch = buffer_size / (model.n_support * sizeof(math_t));
+    if (n_batch < 1) n_batch = 1;
+  }
 
   const cumlHandle_impl &handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
@@ -138,13 +158,20 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                                     n_batch * model.n_support);
   MLCommon::device_buffer<math_t> y(handle_impl.getDeviceAllocator(), stream,
                                     n_rows);
+  MLCommon::device_buffer<math_t> x_rbf(handle_impl.getDeviceAllocator(),
+                                        stream);
+  MLCommon::device_buffer<int> idx(handle_impl.getDeviceAllocator(), stream);
 
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params,
                                                     cublas_handle);
-
+  if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+    // Temporary buffers for the RBF kernel, see below
+    x_rbf.resize(n_batch * n_cols, stream);
+    idx.resize(n_batch, stream);
+  }
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
@@ -152,9 +179,26 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     if (i + n_batch >= n_rows) {
       n_batch = n_rows - i;
     }
-    kernel->evaluate(input + i, n_batch, n_cols, model.x_support,
-                     model.n_support, K.data(), stream, n_rows, model.n_support,
-                     n_batch);
+    math_t *x_ptr = nullptr;
+    int ld1 = 0;
+    if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+      // The RBF kernel does not support ld parameters (See issue #1172)
+      // To come around this limitation, we copy the batch into a temporary
+      // buffer.
+      thrust::counting_iterator<int> first(i);
+      thrust::counting_iterator<int> last = first + n_batch;
+      thrust::device_ptr<int> idx_ptr(idx.data());
+      thrust::copy(thrust::cuda::par.on(stream), first, last, idx_ptr);
+      MLCommon::Matrix::copyRows(input, n_rows, n_cols, x_rbf.data(),
+                                 idx.data(), n_batch, stream, false);
+      x_ptr = x_rbf.data();
+      ld1 = n_batch;
+    } else {
+      x_ptr = input + i;
+      ld1 = n_rows;
+    }
+    kernel->evaluate(x_ptr, n_batch, n_cols, model.x_support, model.n_support,
+                     K.data(), stream, ld1, model.n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
