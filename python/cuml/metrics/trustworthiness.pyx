@@ -115,12 +115,14 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                            convert_to_dtype=(np.float32 if convert_dtype
                                              else None))
 
+    temp_handle = None
     cdef cumlHandle* handle_
     if handle is None:
-      handle_ = <cumlHandle*><size_t>(cuml.common.handle.Handle().getHandle())
-    else:
-      handle_ = <cumlHandle*><size_t>(handle.getHandle())
+      temp_handle = cuml.common.handle.Handle()
+      handle = temp_handle
 
+    assert(handle is not None)
+    handle_ = <cumlHandle*><size_t>(handle.getHandle())
     assert(handle_ != NULL)
     assert(<void*>d_X_ptr != NULL)
     assert(<void*>d_X_embedded_ptr != NULL)
@@ -140,6 +142,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         del X_m2
         raise Exception("Unknown metric")
 
-    if handle is None:
-        del handle_
+    if temp_handle is not None:
+        del temp_handle
     return res
