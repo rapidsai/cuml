@@ -15,7 +15,7 @@
 from cuml.manifold import TSNE
 
 from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
-# from cuml.metrics import trustworthiness as cuml_trustworthiness
+from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn import datasets
 import pandas as pd
@@ -49,7 +49,7 @@ def test_trustworthiness(name):
         # Reuse
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
-        trust = trustworthiness(X, Y)
+        trust = cuml_trustworthiness(X, Y)
         print("Trust = ", trust)
         assert trust > 0.76
         assert nans == 0
