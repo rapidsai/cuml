@@ -41,7 +41,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
                          stress_param(1000)])
@@ -54,7 +54,8 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
                                n_features=ncols, random_state=0)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=10)
 
     cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, eta0=0.005,
                                              epochs=100, fit_intercept=True,
@@ -72,9 +73,9 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
     skl_sgd_classifier.fit(X_train, y_train)
     skl_pred = skl_sgd_classifier.predict(X_test)
 
-    cu_error = accuracy_score(cu_pred, y_test)
-    skl_error = accuracy_score(skl_pred, y_test)
-    assert abs(cu_error - skl_error) <= 0.06
+    cu_acc = accuracy_score(cu_pred, y_test)
+    skl_acc = accuracy_score(skl_pred, y_test)
+    assert cu_acc >= skl_acc - 0.05
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -95,6 +96,6 @@ def test_mbsgd_classifier_default(datatype):
     skl_sgd_classifier.fit(X_train, y_train)
     skl_pred = skl_sgd_classifier.predict(X_test)
 
-    cu_error = accuracy_score(cu_pred, y_test)
-    skl_error = accuracy_score(skl_pred, y_test)
-    assert abs(cu_error - skl_error) <= 0.02
+    cu_acc = accuracy_score(cu_pred, y_test)
+    skl_acc = accuracy_score(skl_pred, y_test)
+    assert cu_acc >= skl_acc - 0.02

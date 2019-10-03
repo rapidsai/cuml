@@ -146,7 +146,8 @@ def small_regression_dataset(datatype):
                            n_informative=3, random_state=0)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     return X_train, X_test, y_train, y_test
 
@@ -157,6 +158,7 @@ def small_classification_dataset(datatype):
                                random_state=10)
     X = X.astype(datatype)
     y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     return X_train, X_test, y_train, y_test
