@@ -148,7 +148,7 @@ if hasArg bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if (( ${NUMARGS} != 1 )) || !(hasArg cuml); then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
 # If there are no targets specified when calling build.sh, it will
 # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
