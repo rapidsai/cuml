@@ -99,7 +99,7 @@ def make_dataset(datatype, nrows, ncols):
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
     X = X.astype(datatype)
-    y = y.astype(np.int32)
+    y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
 
     return X_train, y_train, X_test
