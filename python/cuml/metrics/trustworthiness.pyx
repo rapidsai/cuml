@@ -15,8 +15,7 @@
 #
 
 # cython: profile=False
-# distutils: language = c++
-# distutils: extra_compile_args = -Og
+# distutils: language = c++, extra_compile_args = -Og
 # cython: embedsignature = True
 # cython: language_level = 3
 
@@ -48,13 +47,12 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
         except +
 
 
-
+import sys
 import faulthandler
 faulthandler.enable(file = sys.stdout)
 faulthandler.enable(file = sys.stderr)
 faulthandler.dump_traceback_later(0.1, repeat=True)
 
-import sys
 def trace(frame, event, arg):
     print("%s, %s:%d" % (event, frame.f_code.co_filename, frame.f_lineno))
     return trace
