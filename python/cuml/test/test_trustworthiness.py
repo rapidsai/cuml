@@ -15,7 +15,7 @@
 from cuml.manifold import TSNE
 
 from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
-from cuml.metrics import trustworthiness as cuml_trustworthiness
+# from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn import datasets
 import pandas as pd
@@ -33,57 +33,24 @@ def test_trustworthiness(name):
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
     eps = 0.001
     
-    for i in range(1):
+    for i in range(2):
         print("iteration = ", i)
-
+        
         tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
 
         Y = tsne.fit_transform(X_cudf).to_pandas().values
         nans = np.sum(np.isnan(Y))
-        cuml_trust = cuml_trustworthiness(X, Y)
-        sklearn_trust = sklearn_trustworthiness(X, Y)
-        
-        assert (sklearn_trust * (1 - eps) <= cuml_trust and
-                cuml_trust <= sklearn_trust * (1 + eps))
+        trust = sklearn_trustworthiness(X, Y)
+        print("Trust = ", trust)
         assert trust > 0.76
         assert nans == 0
         del Y
-
+        
         # Reuse
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
-        cuml_trust = cuml_trustworthiness(X, Y)
-        sklearn_trust = sklearn_trustworthiness(X, Y)
-        
-        assert (sklearn_trust * (1 - eps) <= cuml_trust and
-                cuml_trust <= sklearn_trust * (1 + eps))
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-
-        # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2,
-                    method="exact")
-
-        Y = tsne.fit_transform(X_cudf).to_pandas().values
-        nans = np.sum(np.isnan(Y))
-        cuml_trust = cuml_trustworthiness(X, Y)
-        sklearn_trust = sklearn_trustworthiness(X, Y)
-        
-        assert (sklearn_trust * (1 - eps) <= cuml_trust and
-                cuml_trust <= sklearn_trust * (1 + eps))
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-
-        # Reuse
-        Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        cuml_trust = cuml_trustworthiness(X, Y)
-        sklearn_trust = sklearn_trustworthiness(X, Y)
-        
-        assert (sklearn_trust * (1 - eps) <= cuml_trust and
-                cuml_trust <= sklearn_trust * (1 + eps))
+        trust = trustworthiness(X, Y)
+        print("Trust = ", trust)
         assert trust > 0.76
         assert nans == 0
         del Y
