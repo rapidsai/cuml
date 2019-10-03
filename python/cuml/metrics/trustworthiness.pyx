@@ -15,7 +15,8 @@
 #
 
 # cython: profile=False
-# distutils: language = c++, extra_compile_args = -Og
+# distutils: language = c++
+# distutils: extra_compile_args = -Og
 # cython: embedsignature = True
 # cython: language_level = 3
 
