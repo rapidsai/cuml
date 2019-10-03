@@ -55,6 +55,7 @@
 - PR #1204: Fix SVM crash on Turing
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
+- PR #1215: Fix for CUDA 10.1 seg fault: remove libcuda from setup.py
 
 # cuML 0.9.0 (21 Aug 2019)
 
