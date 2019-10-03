@@ -40,7 +40,7 @@ extern "C" {
    */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
-                       long *res_I, float *res_D, int k);
+                       int64_t *res_I, float *res_D, int k);
 
 /**
  * @brief A flat C++ API function that chunks a host array up into

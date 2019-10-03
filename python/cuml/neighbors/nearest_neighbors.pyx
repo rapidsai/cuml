@@ -38,7 +38,7 @@ from libcpp.memory cimport shared_ptr
 import rmm
 from libc.stdlib cimport malloc, free
 
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
@@ -67,7 +67,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         int D,
         float *search_items,
         int n,
-        long *res_I,
+        int64_t *res_I,
         float *res_D,
         int k
     ) except +
@@ -155,9 +155,15 @@ class NearestNeighbors(Base):
 
     Parameters
     ----------
-    n_neighbors: int (default = 5)
+    n_neighbors : int (default = 5)
         The top K closest datapoints you want the algorithm to return.
         Currently, this value must be < 1024.
+    n_gpus : int number of gpus to use for multi-GPU operation
+    devices : list[int] list of devices to use for multi-GPU operation
+    verbose : bool print logging
+    handle : cuml.Handle cuML handle to use for underlying resource
+    metric : string distance metric to use. default = "seuclidean". Currently,
+        only "euclidean" and "sqeuclidean" are supported.
     should_downcast : bool (default = None)
         Currently only single precision is supported in the underlying undex.
         Setting this to true will allow single-precision input arrays to be
@@ -172,8 +178,14 @@ class NearestNeighbors(Base):
     For additional docs, see `scikitlearn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
-    def __init__(self, n_neighbors=5, n_gpus=1, devices=None,
-                 verbose=False, should_downcast=None, handle=None):
+    def __init__(self,
+                 n_neighbors=5,
+                 devices=None,
+                 verbose=False,
+                 should_downcast=None,
+                 handle=None,
+                 algorithm="brute",
+                 metric="seuclidean"):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -192,6 +204,8 @@ class NearestNeighbors(Base):
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.n_indices = 0
+        self.metric = metric
+        self.algorithm = algorithm
         self.sizes = None
         self.input = None
 
@@ -466,7 +480,7 @@ class NearestNeighbors(Base):
             <int>self.n_dims,
             <float*>x_ctype_st,
             <int>N,
-            <long*>I_ptr,
+            <int64_t*>I_ptr,
             <float*>D_ptr,
             <int>k
         )
@@ -514,7 +528,7 @@ class NearestNeighbors(Base):
             <int>self.n_dims,
             <float*>x,
             <int>N,
-            <long*>inds,
+            <int64_t*>inds,
             <float*>dists,
             <int>k
         )

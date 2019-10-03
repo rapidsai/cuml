@@ -47,7 +47,7 @@ namespace ML {
    */
 void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
-                     long *res_I, float *res_D, int k);
+                     int64_t *res_I, float *res_D, int k);
 
 /**
    * @brief A flat C++ API function that chunks a host array up into
@@ -94,7 +94,7 @@ class kNN {
      * @param res_D        pointer to device memory for returning k nearest distances
      * @param k            number of neighbors to query
      */
-  void search(float *search_items, int search_items_size, long *res_I,
+  void search(float *search_items, int search_items_size, int64_t *res_I,
               float *res_D, int k);
 
   /**

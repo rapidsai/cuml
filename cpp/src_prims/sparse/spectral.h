@@ -118,7 +118,7 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
                   float eigen_tol, int *out,
                   std::shared_ptr<deviceAllocator> allocator,
                   cudaStream_t stream) {
-  device_buffer<long> knn_indices(allocator, stream, m * n_neighbors);
+  device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
   float **ptrs = new float *[1];
@@ -228,7 +228,7 @@ template <typename T>
 void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
                    T *out, std::shared_ptr<deviceAllocator> allocator,
                    cudaStream_t stream) {
-  device_buffer<long> knn_indices(allocator, stream, m * n_neighbors);
+  device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
   float **ptrs = new float *[1];
