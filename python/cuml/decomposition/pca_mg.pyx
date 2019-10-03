@@ -88,6 +88,33 @@ class PCAMG(PCA):
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
+
+    def _build_dataFloat(self, arr_interfaces):
+        cdef floatData_t ** dataF = < floatData_t ** > \
+                                      malloc(sizeof(floatData_t *) \
+                                             * len(arr_interfaces))
+        cdef uintptr_t input_ptr
+        for x_i in range(len(arr_interfaces)):
+            x = arr_interfaces[x_i]
+            input_ptr = x["data"]
+            dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
+            dataF[x_i].ptr = < float * > input_ptr
+            dataF[x_i].totalSize = < size_t > x["shape"][0]
+        return <size_t>dataF
+
+    def _build_dataDouble(self, arr_interfaces):
+        cdef doubleData_t ** dataD = < doubleData_t ** > \
+                                       malloc(sizeof(doubleData_t *) \
+                                              * len(arr_interfaces))
+        cdef uintptr_t input_ptr
+        for x_i in range(len(arr_interfaces)):
+            x = arr_interfaces[x_i]
+            input_ptr = x["data"]
+            dataD[x_i] = < doubleData_t * > malloc(sizeof(doubleData_t))
+            dataD[x_i].ptr = < double * > input_ptr
+            dataD[x_i].totalSize = < size_t > x["shape"][0]
+        return <size_t>dataD
+
     def fit(self, X, M, N, partsToRanks, _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
@@ -99,33 +126,11 @@ class PCAMG(PCA):
         :return: self
         """
 
-        print("M=" + str(M))
-        print("N=" + str(N))
-
-        # TODO: Create outputs, convert X to **Data, use M, N to build paramsPCA, & partsToRanks to build **RankSizePair
         arr_interfaces = []
-        cdef uintptr_t input_ptr
         for arr in X:
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, self.n_cols)})
-
-        cdef floatData_t **dataF = <floatData_t**> malloc(sizeof(floatData_t*) * len(X))
-        cdef doubleData_t **dataD = <doubleData_t**> malloc(sizeof(doubleData_t*) * len(X))
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            dataF[x_i] = <floatData_t*>malloc(sizeof(floatData_t))
-            dataF[x_i].ptr = <float*>input_ptr
-            dataF[x_i].totalSize = <size_t>x["shape"][0]
-
-        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**)
-                                                                  * len(partsToRanks))
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
-            rankSizePair[idx].rank = <int>rank
-            rankSizePair[idx].size = <size_t>size
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -161,15 +166,23 @@ class PCAMG(PCA):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
+        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**)
+                                                                  * len(partsToRanks))
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+            rankSizePair[idx].rank = <int>rank
+            rankSizePair[idx].size = <size_t>size
 
-        print("About to call")
         n_total_parts = len(partsToRanks)
 
+        cdef uintptr_t data
         if self.dtype == np.float32:
+            data = self._build_dataFloat(arr_interfaces)
             fitF(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
-                <floatData_t**>dataF,
+                <floatData_t**> data,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -179,10 +192,11 @@ class PCAMG(PCA):
                 params,
                 True)
         else:
+            data = self._build_dataDouble(arr_interfaces)
             fitD(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
-                <doubleData_t**>dataF,
+                <doubleData_t**> data,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
@@ -191,8 +205,6 @@ class PCAMG(PCA):
                 <double*> noise_vars_ptr,
                 params,
                 True)
-
-        print("Done")
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start

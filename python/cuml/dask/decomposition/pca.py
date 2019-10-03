@@ -104,8 +104,6 @@ class PCA(object):
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        print(str(worker_info))
-
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
             PCA.func_get_size,
