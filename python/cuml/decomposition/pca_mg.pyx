@@ -38,7 +38,8 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from cuml.decomposition import PCA
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/data.hpp" \
+    namespace "MLCommon::Matrix":
 
     cdef cppclass floatData_t:
         float *ptr
@@ -48,7 +49,8 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
         double *ptr
         size_t totalSize
 
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
+    namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
