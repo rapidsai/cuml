@@ -132,7 +132,9 @@ class PCAMG(PCA):
         for arr in X:
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m, "data": input_ptr, "shape": (n_rows, self.n_cols)})
+            arr_interfaces.append({"obj": X_m,
+                                   "data": input_ptr,
+                                   "shape": (n_rows, self.n_cols)})
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -168,8 +170,9 @@ class PCAMG(PCA):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef RankSizePair **rankSizePair = <RankSizePair**>malloc(sizeof(RankSizePair**)
-                                                                  * len(partsToRanks))
+        cdef RankSizePair **rankSizePair = <RankSizePair**> \
+                                            malloc(sizeof(RankSizePair**) \
+                                                   * len(partsToRanks))
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
