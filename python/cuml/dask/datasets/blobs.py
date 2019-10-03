@@ -94,6 +94,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
                                     size=(centers, ncols)).astype(np.float32)
+        print(str(centers))
 
     if verbose:
         print("Generating %d samples across %d partitions on "
