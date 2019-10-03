@@ -48,23 +48,31 @@ __global__ void get_hist_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ sample_cnt,
-  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
-  const int n_unique_labels, const int nbins, const int n_nodes,
-  const T* __restrict__ question_ptr, unsigned int* histout) {
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
+  const int n_nodes, const T* __restrict__ question_ptr,
+  unsigned int* histout) {
   extern __shared__ unsigned int shmemhist[];
   unsigned int local_flag = LEAF;
   int local_label = -1;
   int local_cnt;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
+  unsigned int colid;
+  int colstart_local = -1;
   if (tid < nrows) {
     local_flag = flags[tid];
+  }
+  if (local_flag != LEAF) {
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
   }
-
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-    unsigned int colid = colids[colcnt];
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (local_flag != LEAF) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
+    }
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
          i += blockDim.x) {
       shmemhist[i] = 0;
@@ -74,7 +82,7 @@ __global__ void get_hist_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
-      QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                             nbins);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
@@ -105,25 +113,29 @@ __global__ void get_hist_kernel_global(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ flags,
   const unsigned int* __restrict__ sample_cnt,
-  const unsigned int* __restrict__ colids, const int nrows, const int ncols,
-  const int n_unique_labels, const int nbins, const int n_nodes,
-  const T* __restrict__ question_ptr, unsigned int* histout) {
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
+  const int n_nodes, const T* __restrict__ question_ptr,
+  unsigned int* histout) {
   unsigned int local_flag;
   int local_label;
   int local_cnt;
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
-
   for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
-    for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-      unsigned int colid = colids[colcnt];
-      //Check if leaf
-      if (local_flag != LEAF) {
+    if (local_flag != LEAF) {
+      local_label = labels[tid];
+      local_cnt = sample_cnt[tid];
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
+
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+        unsigned int colid = get_column_id(colids, colstart_local, Ncols,
+                                           ncols_sampled, colcnt, local_flag);
         T local_data = data[tid + colid * nrows];
         //Loop over nbins
-        QuestionType question(question_ptr, colids, colcnt, n_nodes, local_flag,
+        QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
                               nbins);
 
 #pragma unroll(8)
@@ -170,10 +182,9 @@ template <typename T, typename F>
 __global__ void get_best_split_classification_kernel(
   const unsigned int* __restrict__ hist,
   const unsigned int* __restrict__ parent_hist,
-  const T* __restrict__ parent_metric, const unsigned int* __restrict__ colids,
-  const int nbins, const int ncols, const int n_nodes,
-  const int n_unique_labels, const int min_rpn, float* outgain,
-  int* best_col_id, int* best_bin_id, unsigned int* child_hist,
+  const T* __restrict__ parent_metric, const int nbins, const int ncols_sampled,
+  const int n_nodes, const int n_unique_labels, const int min_rpn,
+  float* outgain, int* best_col_id, int* best_bin_id, unsigned int* child_hist,
   T* child_best_metric) {
   extern __shared__ unsigned int shmem_split_eval[];
   __shared__ int best_nrows[2];
@@ -208,7 +219,7 @@ __global__ void get_best_split_classification_kernel(
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
     tid_pair.idx = -1;
-    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+    for (int id = threadIdx.x; id < nbins * ncols_sampled; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_unique_labels * n_nodes;
       int binoffset = (id % nbins) * n_unique_labels;
       int tmp_lnrows = 0;

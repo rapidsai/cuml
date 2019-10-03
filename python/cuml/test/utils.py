@@ -20,6 +20,7 @@ from copy import deepcopy
 from numbers import Number
 from numba import cuda
 from sklearn import datasets
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
 import cudf
 import cuml
@@ -43,6 +44,8 @@ def to_nparray(x):
         return x.to_pandas().values
     elif isinstance(x, cudf.Series):
         return x.to_pandas().values
+    elif isinstance(x, DeviceNDArray):
+        return x.copy_to_host()
     return np.array(x)
 
 
@@ -126,10 +129,10 @@ def clusters_equal(a0, b0, n_clusters):
     return array_equal(a, b)
 
 
-def get_handle(use_handle):
+def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    h = cuml.Handle()
+    h = cuml.Handle(n_streams)
     s = cuml.cuda.Stream()
     h.setStream(s)
     return h, s
