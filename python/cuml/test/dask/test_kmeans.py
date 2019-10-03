@@ -16,11 +16,9 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from dask.distributed import Client, wait
+from dask.distributed import Client
 
 import numpy as np
-
-from cuml.test.utils import array_equal
 
 
 @pytest.mark.mg
