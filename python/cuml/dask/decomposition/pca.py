@@ -133,12 +133,12 @@ class PCA(object):
 
         comms.destroy()
 
-        self.local_model = pca_fit
-        # self.components_ = self.local_model.components_
-        # self.explained_variance_ = self.local_model.explained_variance_
-        # self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
-        # self.singular_values_ = self.local_model.singular_values_
-        # self.noise_variance = self.local_model.noise_variance_
+        self.local_model = pca_fit[0].result()
+        self.components_ = self.local_model.components_
+        self.explained_variance_ = self.local_model.explained_variance_
+        self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
+        self.singular_values_ = self.local_model.singular_values_
+        self.noise_variance = self.local_model.noise_variance_
 
         return self
 
