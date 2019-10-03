@@ -13,11 +13,15 @@
 # limitations under the License.
 
 import numpy as np
-from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
-from sklearn.linear_model import SGDClassifier
 import pytest
+
+from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
+from cuml.test.utils import small_classification_dataset
+
+from sklearn.linear_model import SGDClassifier
 from sklearn.datasets.samples_generator import make_classification
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
 
 def unit_param(*args, **kwargs):
@@ -37,18 +41,20 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [20])
-@pytest.mark.parametrize('ncols', [6])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(3), quality_param(50),
+                         stress_param(500)])
 def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
-                          loss, nrows, ncols):
+                          loss, nrows, ncols, n_info):
 
-    train_rows = int(nrows*0.8)
-    X, y = make_classification(n_samples=nrows,
+    X, y = make_classification(n_samples=nrows, n_informative=n_info,
                                n_features=ncols, random_state=0)
-    X_test = np.array(X[train_rows:, :], dtype=datatype)
-    X_train = np.array(X[:train_rows, :], dtype=datatype)
-    y_train = np.array(y[:train_rows, ], dtype=datatype)
-    y_test = np.array(y[train_rows:, ], dtype=datatype)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
 
     cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, eta0=0.005,
                                              epochs=100, fit_intercept=True,
@@ -68,22 +74,16 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
 
     cu_error = accuracy_score(cu_pred, y_test)
     skl_error = accuracy_score(skl_pred, y_test)
-    assert(cu_error - skl_error <= 0.02)
+    assert abs(cu_error - skl_error) <= 0.06
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [20])
-@pytest.mark.parametrize('ncols', [6])
-def test_mbsgd_classifier_default(datatype,
-                                  nrows, ncols):
+def test_mbsgd_classifier_default(datatype):
 
-    train_rows = int(nrows*0.8)
-    X, y = make_classification(n_samples=nrows,
-                               n_features=ncols, random_state=0)
-    X_test = np.array(X[train_rows:, :], dtype=datatype)
-    X_train = np.array(X[:train_rows, :], dtype=datatype)
-    y_train = np.array(y[:train_rows, ], dtype=datatype)
-    y_test = np.array(y[train_rows:, ], dtype=datatype)
+    X_train, X_test, y_train, y_test = small_classification_dataset(datatype)
+
+    y_train = y_train.astype(datatype)
+    y_test = y_test.astype(datatype)
 
     cu_mbsgd_classifier = cumlMBSGClassifier()
 
@@ -97,4 +97,4 @@ def test_mbsgd_classifier_default(datatype,
 
     cu_error = accuracy_score(cu_pred, y_test)
     skl_error = accuracy_score(skl_pred, y_test)
-    assert(cu_error - skl_error <= 0.02)
+    assert abs(cu_error - skl_error) <= 0.02

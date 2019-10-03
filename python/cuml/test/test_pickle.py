@@ -13,15 +13,19 @@
 # limitations under the License.
 #
 
-import pytest
 import cuml
-from cuml.test.utils import array_equal
 import numpy as np
+import pickle
+import pytest
+
+from cuml.test.utils import array_equal
+from cuml.test.test_svm import compare_svm
+
 from sklearn.datasets import load_iris
 from sklearn.datasets import make_regression
-import pickle
 from sklearn.manifold.t_sne import trustworthiness
-from cuml.test.test_svm import compare_svm
+from sklearn.model_selection import train_test_split
+
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -92,12 +96,11 @@ def pickle_save_load(tmpdir, model):
 
 
 def make_dataset(datatype, nrows, ncols):
-    train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(datatype)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
 
     return X_train, y_train, X_test
 

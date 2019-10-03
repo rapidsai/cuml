@@ -117,9 +117,8 @@ def test_dbscan_sklearn_comparison(name, nrows):
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
         sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                                'sk_DBSCAN', X)
-<<<<<<< HEAD
-        assert(sk_n_clusters == cu_n_clusters)
-        clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+        assert(score == 1.0)
 
 
 @pytest.mark.parametrize("name", [
@@ -148,12 +147,9 @@ def test_dbscan_default(name):
     dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
     sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                            'sk_DBSCAN', X)
-    assert(sk_n_clusters == cu_n_clusters)
-    clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
-=======
 
-        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-        assert(score == 1.0)
+    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+    assert(score == 1.0)
 
 
 @pytest.mark.xfail(strict=True, raises=ValueError)
@@ -162,4 +158,3 @@ def test_dbscan_out_dtype_fails_invalid_input():
 
     cudbscan = cuDBSCAN()
     cudbscan.fit_predict(X, out_dtype="bad_input")
->>>>>>> 8285ce2c4e9c2a7b6ff3e2bc2b7bcaac93343b5d

@@ -36,7 +36,6 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-@pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -44,12 +43,12 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
-def test_knn(input_type, should_downcast, nrows, n_feats, k):
+def test_knn(input_type, nrows, n_feats, k):
     n_samples = nrows
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
 
-    knn_cu = cuKNN(should_downcast=should_downcast)
+    knn_cu = cuKNN()
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})

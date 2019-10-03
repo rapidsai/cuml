@@ -19,8 +19,11 @@ from copy import deepcopy
 
 from numbers import Number
 from numba import cuda
-from sklearn import datasets
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
+
+from sklearn import datasets
+from sklearn.datasets import make_classification, make_regression
+from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
@@ -136,3 +139,24 @@ def get_handle(use_handle, n_streams=0):
     s = cuml.cuda.Stream()
     h.setStream(s)
     return h, s
+
+
+def small_regression_dataset(datatype):
+    X, y = make_regression(n_samples=30, n_features=5,
+                           n_informative=3, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+
+    return X_train, X_test, y_train, y_test
+
+
+def small_classification_dataset(datatype):
+    X, y = make_classification(n_samples=30, n_features=5,
+                               n_informative=3, n_classes=2,
+                               random_state=10)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+
+    return X_train, X_test, y_train, y_test
