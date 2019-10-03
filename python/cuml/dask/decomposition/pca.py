@@ -77,8 +77,6 @@ class PCA(object):
 
     @staticmethod
     def func_get_size(df):
-
-        print("SHAPE: " + str(len(df)))
         return df.shape[0]
 
     def fit(self, X):

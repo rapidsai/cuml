@@ -36,15 +36,11 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
     from cuml.dask.datasets import make_blobs
 
-    from cuml.dask.common import to_dask_df
-
     X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                            cluster_std=0.01, verbose=True,
                            random_state=10)
 
-    X_df = to_dask_df(X_cudf)
-
-    wait(X_df)
+    wait(X_cudf)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)

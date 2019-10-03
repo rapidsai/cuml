@@ -37,8 +37,6 @@ def test_end_to_end(nrows, ncols, n_parts, client=None):
 
     from cuml.dask.datasets import make_blobs
 
-    from cuml.dask.common import to_dask_df
-
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                            cluster_std=0.01, verbose=True,
                            random_state=10, dtype=np.float32)
@@ -50,11 +48,7 @@ def test_end_to_end(nrows, ncols, n_parts, client=None):
 
     # xformed = cumlModel.transform(X_cudf)
     #
-    # cumlPred = xformed
-    #
-    # score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
-
-    print("DONE!")
+    # print(str(xformed))
 
     if owns_cluster:
         client.close()
