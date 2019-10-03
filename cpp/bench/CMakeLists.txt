@@ -36,6 +36,7 @@ ExternalProject_Add(benchmark
                     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
+  UPDATE_COMMAND    ""
 )
 
 add_library(benchmarklib STATIC IMPORTED)

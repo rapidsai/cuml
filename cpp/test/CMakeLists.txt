@@ -33,6 +33,7 @@ ExternalProject_Add(googletest
   CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                     -DBUILD_SHARED_LIBS=OFF
                     -DCMAKE_INSTALL_LIBDIR=lib
+  UPDATE_COMMAND    ""
 )
 
 add_library(gtestlib STATIC IMPORTED)
