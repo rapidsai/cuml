@@ -22,6 +22,7 @@ import versioneer
 from distutils.sysconfig import get_python_lib
 import sys
 import numpy
+
 install_requires = [
     'numpy',
     'cython'
@@ -64,7 +65,8 @@ include_dirs = ['../cpp/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
                 rmm_include_dir,
-                cumlprims_include_dir]
+                cumlprims_include_dir,
+                numpy.get_include()]
 
 if "--multigpu" not in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
@@ -77,17 +79,9 @@ else:
 
 extensions = [
     Extension("*",
-              sources=['cuml/**/*.pyx'],
-              include_dirs=['../cpp/src',
-                            '../cpp/external',
-                            '../cpp/src_prims',
-                            '../cpp/comms/std/src',
-                            '../thirdparty/cutlass',
-                            '../thirdparty/cub',
-                            cuda_include_dir,
-                            rmm_include_dir,
-                            numpy.get_include()],
-              library_dirs=[get_python_lib(), "../cuML/build/"],
+              sources=["cuml/**/**/*.pyx"],
+              include_dirs=include_dirs,
+              library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
                                     rmm_lib_dir,
                                     cumlprims_lib_dir],
