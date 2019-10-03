@@ -32,6 +32,11 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
@@ -41,6 +46,23 @@ using namespace MLCommon::Distance;
 
 namespace MLCommon {
 namespace Score {
+
+
+static void
+segfault_sigaction_catch(int signal, siginfo_t *si, void *arg)
+{
+    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stderr, "Caught segfault at address %p\n", si->si_addr);
+    fprintf(stdout, "Caught segfault at address %p\n", si->si_addr);
+    exit(0);
+}
 
 
 /**
@@ -100,14 +122,14 @@ get_knn_indexes(const math_t *__restrict input,
                 cudaStream_t stream)
 {
   long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
-  ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(indices != NULL, "Out of Memory");
 
   math_t *distances = (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
-  ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(distances != NULL, "Out of Memory");
 
   float **knn_input = new float *[1];
   int *sizes = new int[1];
-  ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory");
 
   knn_input[0] = (math_t*) input;
   sizes[0] = n;
@@ -147,25 +169,38 @@ trustworthiness_score(const math_t *__restrict X,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream)
 {
-  const int TMP_SIZE = MAX_BATCH_SIZE * n;
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(struct sigaction));
+  sigemptyset(&sa.sa_mask);
+  sa.sa_sigaction = segfault_sigaction_catch;
+  sa.sa_flags   = SA_SIGINFO;
+  sigaction(SIGSEGV, &sa, NULL);
 
+
+  ASSERT(distance_type > EucExpandedCosine, "Only supports unexpanded metrics");
+
+  ASSERT(X != NULL and X_embedded != NULL and d_alloc != NULL, "Null Pointers");
+
+  ASSERT(n != 0 and m != 0 and d != 0 and n_neighbors != 0, "Dimensions cannot be 0");
+
+  const int TMP_SIZE = MAX_BATCH_SIZE * n;
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
   math_t *distances = (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
-  ASSERT(distances != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(distances != NULL, "Out of Memory");
 
   int *indices = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
-  ASSERT(indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(indices != NULL, "Out of Memory");
 
-  long *embedded_indices = (long*) get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
-  ASSERT(embedded_indices != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  long *embedded_indices = (long*)get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+  ASSERT(embedded_indices != NULL, "Out of Memory");
 
   double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
-  ASSERT(d_t != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(d_t != NULL, "Out of Memory");
 
 
   // int toDo = n;
-  int toDo = 0;
+  int toDo = n;
   double t = 0.0;
 
   size_t lwork;
@@ -203,7 +238,7 @@ trustworthiness_score(const math_t *__restrict X,
     if (need_space)
     {
       work = (void*) d_alloc->allocate(lwork, stream);
-      ASSERT(work != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+      ASSERT(work != NULL, "Out of Memory");
 
       MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
                                              n, need_space, work, lwork, stream);
@@ -242,8 +277,7 @@ trustworthiness_score(const math_t *__restrict X,
   d_alloc->deallocate(indices, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
   
-  return 1;
-  // return t;
+  return t;
 }
 
 /**
