@@ -32,6 +32,7 @@
 
 ## Bug Fixes
 
+- PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
 - PR #1043: Updates to accomodate cuDF python code reorganization
