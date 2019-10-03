@@ -144,7 +144,8 @@ trustworthiness_score(const math_t *__restrict X,
                       const int d,
                       const int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
-                      cudaStream_t stream)
+                      cudaStream_t stream,
+                      int skip = 0)
 {
   ASSERT(distance_type > EucExpandedCosine, "Only supports unexpanded metrics");
 
@@ -189,9 +190,13 @@ trustworthiness_score(const math_t *__restrict X,
 
 
     // Find distances
-    CUDA_CHECK(cudaMemsetAsync(distances, 0, TMP_SIZE * sizeof(math_t), stream));
-    // MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
-    //   &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+    if (skip == 1) {
+      CUDA_CHECK(cudaMemsetAsync(distances, 0, TMP_SIZE * sizeof(math_t), stream));
+    }
+    else {
+      MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+        &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+    }
     CUDA_CHECK(cudaPeekAtLastError());
     
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
