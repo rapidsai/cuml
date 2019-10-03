@@ -27,13 +27,12 @@ install_requires = [
     'cython'
 ]
 
-cuda_include_dir = '/usr/local/cuda/include'
-cuda_lib_dir = "/usr/local/cuda/lib"
-
-if os.environ.get('CUDA_HOME', False):
-    cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'lib64')
-    cuda_include_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
-
+CUDA_HOME = os.environ.get("CUDA_HOME", False)
+if not CUDA_HOME:
+    CUDA_HOME = (
+        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
+    )
+cuda_include_dir = os.path.join(CUDA_HOME, "include")
 
 rmm_include_dir = '/include'
 rmm_lib_dir = '/lib'
@@ -52,7 +51,10 @@ if os.environ.get('CONDA_PREFIX', None):
 
 exc_list = []
 
-libs = ['cuda', 'cuml++', 'cumlcomms', 'nccl', 'rmm']
+libs = ['cuml++',
+        'cumlcomms',
+        'nccl',
+        'rmm']
 
 include_dirs = ['../cpp/src',
                 '../cpp/external',
@@ -80,8 +82,7 @@ extensions = [
               sources=["cuml/**/**/*.pyx"],
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
-              runtime_library_dirs=[cuda_lib_dir,
-                                    rmm_lib_dir,
+              runtime_library_dirs=[rmm_lib_dir,
                                     cumlprims_lib_dir],
               libraries=libs,
               language='c++',
