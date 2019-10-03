@@ -16,7 +16,7 @@
 import pytest
 from dask_cuda import LocalCUDACluster
 
-from dask.distributed import Client
+from dask.distributed import Client, wait
 
 import numpy as np
 
@@ -41,6 +41,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
     X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                            cluster_std=0.01, verbose=True,
                            random_state=10)
+
+    wait(X_cudf)
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
@@ -97,8 +99,12 @@ def test_transform(nrows, ncols, nclusters, n_parts, client=None):
                            cluster_std=0.01, verbose=True,
                            random_state=10)
 
+    wait(X_cudf)
+
     cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
                            random_state=10)
+
+
 
     cumlModel.fit(X_cudf)
 
