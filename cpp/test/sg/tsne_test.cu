@@ -44,6 +44,11 @@ class TSNETest : public ::testing::Test
   {
     cumlHandle handle;
 
+    printf("TSNE transfer\n");
+    printf("TSNE transfer\n");
+    printf("TSNE transfer\n");
+    printf("TSNE transfer\n");
+
     // Allocate memory
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(), n*p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n*p, handle.getStream());
@@ -51,6 +56,11 @@ class TSNETest : public ::testing::Test
     
     device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(), n*2);
 
+
+    printf("TSNE fit\n");
+    printf("TSNE fit\n");
+    printf("TSNE fit\n");
+    printf("TSNE fit\n");
 
     // Test Barnes Hut
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
@@ -81,11 +91,15 @@ class TSNETest : public ::testing::Test
     // Test trustworthiness
     printf("EucExpandedL2\n");
     printf("EucExpandedL2\n");
+    printf("EucExpandedL2\n");
+    printf("EucExpandedL2\n");
     score_bh = trustworthiness_score<float, EucExpandedL2>(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
     printf("EucExpandedL2 with score = %lf\n", score_bh);
     printf("EucExpandedL2 with score = %lf\n", score_bh);
     
+    printf("EucExpandedL2Sqrt\n");
+    printf("EucExpandedL2Sqrt\n");
     printf("EucExpandedL2Sqrt\n");
     printf("EucExpandedL2Sqrt\n");
     score_bh = trustworthiness_score<float, EucExpandedL2Sqrt >(
@@ -95,11 +109,15 @@ class TSNETest : public ::testing::Test
     
     printf("EucExpandedCosine\n");
     printf("EucExpandedCosine\n");
+    printf("EucExpandedCosine\n");
+    printf("EucExpandedCosine\n");
     score_bh = trustworthiness_score<float, EucExpandedCosine  >(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
     printf("EucExpandedCosine   with score = %lf\n", score_bh);
     printf("EucExpandedCosine   with score = %lf\n", score_bh);
     
+    printf("EucUnexpandedL1\n");
+    printf("EucUnexpandedL1\n");
     printf("EucUnexpandedL1\n");
     printf("EucUnexpandedL1\n");
     score_bh = trustworthiness_score<float, EucUnexpandedL1   >(
@@ -109,11 +127,15 @@ class TSNETest : public ::testing::Test
     
     printf("EucUnexpandedL2\n");
     printf("EucUnexpandedL2\n");
+    printf("EucUnexpandedL2\n");
+    printf("EucUnexpandedL2\n");
     score_bh = trustworthiness_score<float, EucUnexpandedL2    >(
       X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
     printf("EucUnexpandedL2     with score = %lf\n", score_bh);
     printf("EucUnexpandedL2     with score = %lf\n", score_bh);
     
+    printf("EucUnexpandedL2Sqrt\n");
+    printf("EucUnexpandedL2Sqrt\n");
     printf("EucUnexpandedL2Sqrt\n");
     printf("EucUnexpandedL2Sqrt\n");
     score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
