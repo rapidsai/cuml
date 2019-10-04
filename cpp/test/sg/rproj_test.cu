@@ -23,6 +23,7 @@
 #include "distance/distance.h"
 #include "linalg/transpose.h"
 #include "random_projection/rproj_c.h"
+#include <stdio.h>
 
 namespace ML {
 
