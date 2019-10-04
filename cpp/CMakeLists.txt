@@ -19,11 +19,10 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.10.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.11.0 LANGUAGES CXX CUDA)
 
-
-###################################################################################################
-# - build type ------------------------------------------------------------------------------------
+##############################################################################
+# - build type ---------------------------------------------------------------
 
 # Set a default build type if none was specified
 set(DEFAULT_BUILD_TYPE "Release")
@@ -37,12 +36,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release")
 endif()
 
-###################################################################################################
-# - User Options  ---------------------------------------------------------------------------------
+##############################################################################
+# - User Options  ------------------------------------------------------------
+
+set(BLAS_LIBRARIES "" CACHE STRING
+    "Location of BLAS library for FAISS build.")
+
+option(BUILD_CUML_C_LIBRARY "Build libcuml shared library. Contains the cuML C API" ON)
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
-
-option(BUILD_CUML_C_LIBRARY "Build libcuml shared library" ON)
 
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
@@ -58,24 +60,27 @@ option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
+option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
+
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
+option(NVTX "Enable nvtx markers" OFF)
+
 set(PARALLEL_LEVEL "" CACHE STRING
     "Sub-projects parallel level for compilation. Currently only affects FAISS" )
 
-option(NVTX "Enable nvtx markers" OFF)
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
-
-set(BLAS_LIBRARIES "" CACHE STRING
-    "Location of BLAS library")
-
 set(GPU_ARCHS "" CACHE STRING
-  "List of GPU architectures (semicolon-separated) to be compiled for. Pass 'ALL' if you want to compile for all supported GPU architectures. Empty string means to auto-detect the GPUs on the current system")
+    "List of GPU architectures (semicolon-separated) to be compiled for.
+    Pass 'ALL' if you want to compile for all supported GPU architectures.
+    Empty string means to auto-detect the GPUs on the current system")
 
 set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
-  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
+    "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
+
+##############################################################################
+# - Set options based on user defined one  -----------------------------------
 
 # Enabling libcuml enables building libcuml++
 if(BUILD_CUML_C_LIBRARY)
@@ -90,9 +95,8 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif(NOT BUILD_CUML_CPP_LIBRARY)
 
-
-###################################################################################################
-# - Requirements ----------------------------------------------------------------------------------
+##############################################################################
+# - Requirements -------------------------------------------------------------
 
 find_package(CUDA 9.0 REQUIRED)
 
@@ -121,33 +125,26 @@ find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
-###################################################################################################
-# - External Dependencies--------------------------------------------------------------------------
+##############################################################################
+# - External Dependencies-----------------------------------------------------
 
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest/googletest CACHE STRING
-  "Path to the googletest repo")
-
-set(GTEST_LIBNAME "gtest_main" CACHE STRING
-  "Name of the googletest library")
-
-set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
-  "Path to FAISS source directory")
-
-set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/cub CACHE STRING
+set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING
   "Path to cub repo")
 
-set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
+set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
   "Path to the cutlass repo")
 
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
+set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
+  "Path to FAISS source directory")
+
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 
-
-###################################################################################################
-# - Compiler Options  -----------------------------------------------------------------------------
+##############################################################################
+# - Compiler Options  --------------------------------------------------------
 
 # TODO: Update to c++14, github issue
 set(CMAKE_CXX_STANDARD 11)
@@ -208,7 +205,8 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
     set(GPU_ARCHS "${GPU_ARCHS};75")
   endif()
 endif()
-message("GPU_ARCHS = ${GPU_ARCHS}")
+
+message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
@@ -230,22 +228,76 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-###################################################################################################
-# - clang-format targets --------------------------------------------------------------------------
+##############################################################################
+# - clang-format targets -----------------------------------------------------
 
 add_clang_format(
   DSTDIR ${PROJECT_BINARY_DIR}/clang-format
   SRCDIR ${PROJECT_SOURCE_DIR})
 
-###################################################################################################
-# - treelite build --------------------------------------------------------------------------------
+##############################################################################
+# - Cloning header only libraries---------------------------------------------
 
 include(ExternalProject)
 
+ExternalProject_Add(cub
+  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
+  GIT_TAG           v1.8.0
+  PREFIX            ${CUB_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+)
+
+ExternalProject_Add(cutlass
+  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
+  GIT_TAG           v1.0.1
+  PREFIX            ${CUTLASS_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+)
+
+##############################################################################
+# - FAISS Build  -------------------------------------------------------------
+
+ExternalProject_Add(faiss
+  GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
+  GIT_TAG           656368b5eda4d376177a3355673d217fa95000b6
+  CONFIGURE_COMMAND LIBS=-pthread
+                    CPPFLAGS=-w
+                    LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
+                            ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
+                            --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
+                            --with-blas=${BLAS_LIBRARIES}
+                            --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
+                            --with-cuda-arch=${FAISS_GPU_ARCHS}
+                            -v
+  PREFIX            ${FAISS_DIR}
+  BUILD_COMMAND     $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
+  INSTALL_COMMAND   $(MAKE) -s install > /dev/null
+  UPDATE_COMMAND    ""
+  BUILD_IN_SOURCE   1
+)
+
+ExternalProject_Get_Property(faiss install_dir)
+
+add_library(faisslib STATIC IMPORTED)
+
+add_dependencies(faisslib faiss)
+
+set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+
+##############################################################################
+# - treelite build -----------------------------------------------------------
+
 ExternalProject_Add(treelite
-    PREFIX ${TREELITE_DIR}
-    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/treelite
-    CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    GIT_REPOSITORY    https://github.com/dmlc/treelite.git
+    GIT_TAG           600afd55d1fa9bb94fc88fd3a3043cb2d5b20651
+    PREFIX            ${TREELITE_DIR}
+    CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
+                      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    UPDATE_COMMAND    ""
 )
 
 add_library(dmlclib STATIC IMPORTED)
@@ -260,33 +312,8 @@ set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdm
 set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
-###################################################################################################
-# - FAISS Build  ----------------------------------------------------------------------------------
-
-if(BUILD_CUML_CPP_LIBRARY)
-
-  ExternalProject_Add(faiss
-    SOURCE_DIR "${FAISS_DIR}"
-    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS} -v
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faissbuild/
-    BUILD_COMMAND $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
-    INSTALL_COMMAND $(MAKE) -s install > /dev/null
-    BUILD_IN_SOURCE 1
-    PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
-  )
-
-  ExternalProject_Get_Property(faiss install_dir)
-
-  add_library(faisslib STATIC IMPORTED)
-
-  add_dependencies(faisslib faiss)
-
-  set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
-
-endif(BUILD_CUML_CPP_LIBRARY)
-
-###################################################################################################
-# - include paths ---------------------------------------------------------------------------------
+##############################################################################
+# - include paths ------------------------------------------------------------
 
 include_directories(
   src
@@ -294,23 +321,22 @@ include_directories(
   test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${CUTLASS_DIR}
-  ${CUB_DIR}
+  ${CUTLASS_DIR}/src/cutlass
+  ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
   ${ZLIB_INCLUDE_DIRS$})
-
-add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
     src_prims/utils.h)
 
-###################################################################################################
-# - build libcuml++ shared library ----------------------------------------------------------------
+##############################################################################
+# - build libcuml++ shared library -------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
 
   set(CUML_CPP_TARGET "cuml++")
+
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
@@ -341,6 +367,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu
     )
 
+  add_dependencies(${CUML_CPP_TARGET} cub)
+  add_dependencies(${CUML_CPP_TARGET} cutlass)
+
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
     ${CUDA_curand_LIBRARY}
@@ -369,48 +398,52 @@ if(BUILD_CUML_CPP_LIBRARY)
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
-###################################################################################################
-# - build libcuml shared library ------------------------------------------------------------------
+##############################################################################
+# - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
+
   set(CUML_C_TARGET "cuml")
+
   add_library(${CUML_C_TARGET} SHARED
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
+
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
+
 endif(BUILD_CUML_C_LIBRARY)
 
-###################################################################################################
-# - build test executables ------------------------------------------------------------------------
+##############################################################################
+# - build test executables ---------------------------------------------------
 
 if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-###################################################################################################
-# - build examples -------------------------------------------------------------------------
+##############################################################################
+# - build examples -----------------------------------------------------------
 
 if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
 endif(BUILD_CUML_EXAMPLES)
 
-###################################################################################################
-# - install targets -------------------------------------------------------------------------------
+##############################################################################
+# - install targets ----------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
 
-###################################################################################################
-# - build benchmark executable --------------------------------------------------------------------
+##############################################################################
+# - build benchmark executable -----------------------------------------------
 
 if(BUILD_CUML_BENCH)
   add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
 endif(BUILD_CUML_BENCH)
 
-###################################################################################################
-# - doxygen targets -------------------------------------------------------------------------------
+##############################################################################
+# - doxygen targets ----------------------------------------------------------
 
 # include(cmake/doxygen.cmake)
 # add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
