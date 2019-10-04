@@ -140,15 +140,14 @@ get_knn_indexes(const math_t *__restrict input,
  */
 template <typename math_t, Distance::DistanceType distance_type>
 double
-trustworthiness_score2(const math_t *__restrict X,
+trustworthiness_score(const math_t *__restrict X,
                       const math_t *__restrict X_embedded,
                       const int n,
                       const int m,
                       const int d,
                       const int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
-                      cudaStream_t stream,
-                      int skip = 0)
+                      cudaStream_t stream)
 {
   ASSERT(X != NULL and X_embedded != NULL and d_alloc != NULL, "Null Pointers");
 
@@ -198,13 +197,8 @@ trustworthiness_score2(const math_t *__restrict X,
 
 
     // Find distances
-    if (skip == 1) {
-      CUDA_CHECK(cudaMemsetAsync(distances, 0, TMP_SIZE * sizeof(math_t), stream));
-    }
-    else {
-      MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
-        &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
-    }
+    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+      &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
@@ -264,20 +258,6 @@ trustworthiness_score2(const math_t *__restrict X,
   return t;
 }
 
-  
-template <typename math_t, Distance::DistanceType distance_type>
-double
-trustworthiness_score(const math_t *__restrict X,
-                      const math_t *__restrict X_embedded,
-                      const int n,
-                      const int m,
-                      const int d,
-                      const int n_neighbors,
-                      std::shared_ptr<deviceAllocator> d_alloc,
-                      cudaStream_t stream)
-{
-  return trustworthiness_score2<math_t, distance_type>(X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 0);
-}
   
 /**
  * Calculates the "Coefficient of Determination" (R-Squared) score
