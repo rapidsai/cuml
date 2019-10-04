@@ -42,7 +42,7 @@ class SpeedupComparisonRunner:
         cuml_param_overrides={},
         cpu_param_overrides={},
         run_cpu=True,
-        verbose=False
+        verbose=False,
     ):
         data = datagen.gen_data(
             self.dataset_name, self.input_type, n_samples, n_features
@@ -61,8 +61,8 @@ class SpeedupComparisonRunner:
 
         speedup = cpu_elapsed / float(cu_elapsed)
         if verbose:
-            print("Speedup (n_samples=%s, n_features=%s) = %s" %
-                  (n_samples, n_features, speedup))
+            print("%s Speedup (n_samples=%s, n_features=%s) = %s" %
+                  (algo_pair.name, n_samples, n_features, speedup))
 
         return dict(
             cu_time=cu_elapsed,

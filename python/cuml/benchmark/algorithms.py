@@ -26,6 +26,8 @@ import cuml.decomposition
 import umap
 import numpy as np
 
+from cuml.benchmark.bench_funcs import *
+
 
 class AlgorithmPair:
     """
@@ -46,9 +48,9 @@ class AlgorithmPair:
         cpu_args={},
         name=None,
         accepts_labels=True,
+        bench_func=fit,
         data_prep_hook=None,
-        accuracy_function=None,
-        bench_func=None
+        accuracy_function=None
     ):
         """
         Parameters
@@ -78,6 +80,7 @@ class AlgorithmPair:
         else:
             self.name = cuml_class.__name__
         self.accepts_labels = accepts_labels
+        self.bench_func = bench_func
         self.cpu_class = cpu_class
         self.cuml_class = cuml_class
         self.shared_args = shared_args
@@ -85,7 +88,6 @@ class AlgorithmPair:
         self.cpu_args = cpu_args
         self.data_prep_hook = data_prep_hook
         self.accuracy_function = accuracy_function
-        self.bench_func = bench_func
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -121,31 +123,16 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            if self.bench_func is not None:
-                self.bench_func(cuml_obj, data[0], data[1])
-            else:
-                cuml_obj.fit(data[0], data[1])
+            self.bench_func(cuml_obj, data[0], data[1])
         else:
-            if self.bench_func is not None:
-                self.bench_func(cuml_obj, data[0])
-            else:
-                cuml_obj.fit(data[0])
+            self.bench_func(cuml_obj, data[0])
 
         return cuml_obj
 
 
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
-    return (data[0], data[1].astype(np.int32))
-
-
-def fit_kneighbors(m, x):
-    m.fit(x)
-    m.kneighbors(x)
-
-
-def fit_transform(m, x):
-    m.fit_transform(x)
+    return data[0], data[1].astype(np.int32)
 
 
 def all_algorithms():
