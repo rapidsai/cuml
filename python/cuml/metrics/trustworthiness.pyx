@@ -44,8 +44,7 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        T* X_embedded,
                                                        int n, int m,
                                                        int d,
-                                                       int n_neighbors,
-                                                       int skip) \
+                                                       int n_neighbors) \
         except +
 
 
@@ -123,8 +122,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                                       n_samples,
                                                       n_features,
                                                       n_components,
-                                                      n_neighbors,
-                                                      1)
+                                                      n_neighbors)
         del X_m
         del X_m2
     else:
