@@ -146,6 +146,8 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     cvec = row_vec;
     rvec = col_vec;
   }
+                    
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
@@ -158,11 +160,11 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     },
     fin_op, stream);
 
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaMemsetAsync(pD, 0, m * n * sizeof(OutType), stream));
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
+//   CUDA_CHECK(cudaMemsetAsync(pD, 0, m * n * sizeof(OutType), stream));
+  
+//   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
