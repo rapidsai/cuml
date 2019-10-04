@@ -148,3 +148,34 @@ def test_rf_regression(datatype, split_algo,
     print(fil_r2, cu_r2, sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
     assert fil_r2 >= (sk_r2 - 0.07)
+
+
+def test_save_load_cuml_rf(tmp_path):
+    from cuml.fil import ForestInference
+    from sklearn.model_selection import train_test_split
+
+    # Build a simple model
+    nrows = 100
+    train_size = 80
+    ncols = 10
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    X_train, X_validation, y_train, y_validation = train_test_split(
+        X, y, train_size=train_size)
+
+    model = curfc()
+    model.fit(X, y)
+    gbm_preds = model.predict(X_validation)
+
+    # Save and reload
+    model_path = str(tmp_path / "demo.proto")
+    model.save_treelite_protobuf(model_path)
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=True,
+                              model_type="protobuf")
+    fil_preds = np.asarray(fm.predict(X_validation))
+    assert np.allclose(gbm_preds, fil_preds, 1e-3)

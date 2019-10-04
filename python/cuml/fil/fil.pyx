@@ -53,6 +53,7 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef class TreeliteModel():
@@ -121,7 +122,8 @@ cdef class TreeliteModel():
             # XXX Not tested
             res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s: %s" % (filename, err))
         elif model_type == "lightgbm":
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:

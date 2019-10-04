@@ -282,3 +282,4 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
     fil_preds = np.asarray(fm.predict(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
+

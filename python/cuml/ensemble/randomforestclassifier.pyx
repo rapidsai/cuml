@@ -43,6 +43,9 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
+    cdef int TreeliteExportProtobufModel(const char* filename,
+                                         ModelHandle model)
+    cdef const char* TreeliteGetLastError()
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -147,6 +150,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     RandomForestMetaData[double, int]*,
                                     int,
                                     int)
+
+    cdef void save_model_protobuf(ModelHandle, const char*) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
@@ -895,3 +900,15 @@ class RandomForestClassifier(Base):
         self.mod_ptr = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(self.mod_ptr)
+
+    def save_treelite_protobuf(self, file_name, task_category=1):
+        file_name_bytes = bytes(file_name, "utf8")
+        # TODO: can we automatically figure out task_category?
+
+        tl = self._get_treelite(self.n_cols, task_category)
+        cdef ModelHandle tl_handle = <ModelHandle><size_t>tl.value
+        res = TreeliteExportProtobufModel(file_name_bytes, tl_handle)
+        if res < 0:
+            last_err = TreeliteGetLastError()
+            raise RuntimeError("Failed to export model to %s: %s" % (
+                file_name, last_err))
