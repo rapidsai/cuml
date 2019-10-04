@@ -70,10 +70,10 @@ def test_rf_classification_dask(n_workers, partitions_per_worker):
             dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
         X_train_df, \
-        _train_df = dask_utils.persist_across_workers(c,
-                                                      [X_train_df,
-                                                       y_train_df],
-                                                      workers=workers)
+            train_df = dask_utils.persist_across_workers(c,
+                                                         [X_train_df,
+                                                          y_train_df],
+                                                         workers=workers)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test)
