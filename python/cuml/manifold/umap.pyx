@@ -31,7 +31,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -47,6 +47,10 @@ cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
     enum MetricType:
         EUCLIDEAN = 0,
         CATEGORICAL = 1
+
+cdef extern from "internals/internals.h" namespace "ML::Internals":
+
+    cdef cppclass GraphBasedDimRedCallback
 
 cdef extern from "umap/umapparams.h" namespace "ML":
 
@@ -68,7 +72,8 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         float b,
         int target_n_neighbors,
         float target_weights,
-        MetricType target_metric
+        MetricType target_metric,
+        GraphBasedDimRedCallback* callback
 
 
 cdef extern from "umap/umap.hpp" namespace "ML":
@@ -222,9 +227,10 @@ class UMAP(Base):
                  b=None,
                  target_n_neighbors=-1,
                  target_weights=0.5,
-                 target_metric="euclidean",
+                 target_metric="categorical",
                  should_downcast=True,
-                 handle=None):
+                 handle=None,
+                 callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -269,6 +275,11 @@ class UMAP(Base):
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
 
+        cdef uintptr_t callback_ptr = 0
+        if callback:
+            callback_ptr = callback.get_native_callback()
+            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
+
         self._should_downcast = should_downcast
         if should_downcast:
             warnings.warn("Parameter should_downcast is deprecated, use "
@@ -276,6 +287,8 @@ class UMAP(Base):
                           " methods instead. ")
 
         self.umap_params = <size_t> umap_params
+
+        self.callback = callback  # prevent callback destruction
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -311,7 +324,7 @@ class UMAP(Base):
 
     def __del__(self):
         cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
-        free(umap_params)
+        del umap_params
 
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
@@ -383,9 +396,9 @@ class UMAP(Base):
         self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
-        self.arr_embed = cuda.to_device(zeros((self.X_m.shape[0],
-                                               umap_params.n_components),
-                                              order="C", dtype=np.float32))
+        self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
+                                              umap_params.n_components),
+                                             order="C", dtype=np.float32))
         self.embeddings = \
             self.arr_embed.device_ctypes_pointer.value
 
@@ -419,6 +432,8 @@ class UMAP(Base):
                 < int > self.X_m.shape[1],
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
+
+        self.handle.sync()
 
         return self
 
@@ -493,9 +508,9 @@ class UMAP(Base):
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
-        embedding = cuda.to_device(zeros((X_m.shape[0],
-                                          umap_params.n_components),
-                                         order="C", dtype=np.float32))
+        embedding = rmm.to_device(zeros((X_m.shape[0],
+                                         umap_params.n_components),
+                                        order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
@@ -524,5 +539,7 @@ class UMAP(Base):
             ret = np.asarray(embedding)
 
         del X_m
+
+        self.handle.sync()
 
         return ret

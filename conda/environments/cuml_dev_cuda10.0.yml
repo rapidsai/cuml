@@ -8,8 +8,8 @@ dependencies:
 - cudatoolkit=10.0
 - libclang=8.0.0
 - cmake=3.14.5
-- numba=0.44*
-# - cupy>=6*
+- numba=0.45*
+- rapidsai/label/cuda10.0::cupy>=6*
 - cudf=0.10*
 - rmm=0.10*
 - cython>=0.29,<0.30
@@ -17,10 +17,11 @@ dependencies:
 - scikit-learn>=0.21
 - umap-learn>=0.3.9
 - scikit-learn>=0.21
-- dask
-- distributed
+- dask=2.5.0
+- distributed=2.5.1
 - dask-ml
 - dask-cuda=0.10*
 - dask-cudf=0.10*
 - nccl>=2.4
-- libcumlprims=0.9*
+- libcumlprims=0.10*
+- statsmodels

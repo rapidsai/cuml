@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
                    around the C++ code.
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
+   bench         - build the cuml C++ benchmark
  and <flag> is:
    -v            - verbose build mode
    -g            - build for debug
@@ -70,10 +71,10 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     for a in ${ARGS}; do
-	if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-	    echo "Invalid option: ${a}"
-	    exit 1
-	fi
+  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+      echo "Invalid option: ${a}"
+      exit 1
+  fi
     done
 fi
 
@@ -104,10 +105,10 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-	if [ -d ${bd} ]; then
-	    find ${bd} -mindepth 1 -delete
-	    rmdir ${bd} || true
-	fi
+  if [ -d ${bd} ]; then
+      find ${bd} -mindepth 1 -delete
+      rmdir ${bd} || true
+  fi
     done
 fi
 
@@ -121,7 +122,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -135,9 +136,10 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
+          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
 
@@ -149,8 +151,11 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
+if (( ${NUMARGS} == 0 )) || hasArg bench; then
+    MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
+fi
 
-# Build and (optionally) install libcuml + tests
+# build cumlcomms library
 if [ "${MAKE_TARGETS}" != "" ]; then
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
@@ -160,7 +165,8 @@ if [ "${MAKE_TARGETS}" != "" ]; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib ..
+          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
+          -DNCCL_PATH=${INSTALL_PREFIX} ..
 
     cd ${CUML_COMMS_BUILD_DIR}
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
@@ -171,9 +177,9 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-	python setup.py build_ext --inplace ${MULTIGPU}
-	python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
+  python setup.py build_ext --inplace ${MULTIGPU}
+  python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
     else
-	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
+  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
     fi
 fi

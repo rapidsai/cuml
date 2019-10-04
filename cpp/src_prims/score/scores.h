@@ -161,6 +161,8 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     CUDA_CHECK(cudaPeekAtLastError());
 
     updateHost(&t_tmp, d_t, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     t += t_tmp;
 
     toDo -= batchSize;
