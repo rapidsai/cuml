@@ -33,7 +33,8 @@ namespace Metrics {
         * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
+template <typename math_t, MLCommon::Distance::DistanceType distance_type = \
+          MLCommon::Distance::EucUnexpandedL2Sqrt>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors) {
   cudaStream_t stream = h.getStream();
@@ -43,35 +44,6 @@ double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
     X, X_embedded, n, m, d, n_neighbors, d_alloc, stream);
 }
        
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
-double trustworthiness_score2(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors) {
-  cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
-
-  return MLCommon::Score::trustworthiness_score2<math_t, distance_type>(
-    X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 1);
-}
-
-template double
-trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
-  const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
-  int n_neighbors);
-
-template double
-trustworthiness_score<double, MLCommon::Distance::EucUnexpandedL2Sqrt>(
-  const cumlHandle& h, double* X, double* X_embedded, int n, int m, int d,
-  int n_neighbors);
-       
- template double
-trustworthiness_score2<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
-  const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
-  int n_neighbors);
-
-template double
-trustworthiness_score2<double, MLCommon::Distance::EucUnexpandedL2Sqrt>(
-  const cumlHandle& h, double* X, double* X_embedded, int n, int m, int d,
-  int n_neighbors);
 
 };  //end namespace Metrics
 };  //end namespace ML
