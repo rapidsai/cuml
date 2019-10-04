@@ -49,7 +49,8 @@ def test_rf_classification_dask(n_workers, partitions_per_worker):
         X = X.astype(np.float32)
         y = y.astype(np.int32)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000)
 
         cu_rf_params = {
             'n_estimators': 25,
@@ -68,10 +69,11 @@ def test_rf_classification_dask(n_workers, partitions_per_worker):
         y_train_df = \
             dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
-        X_train_df, y_train_df = dask_utils.persist_across_workers(c,
-                                                                   [X_train_df,
-                                                                    y_train_df],
-                                                                   workers=workers)
+        X_train_df, \
+        _train_df = dask_utils.persist_across_workers(c,
+                                                     [X_train_df,
+                                                     y_train_df],
+                                                     workers=workers)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test)
@@ -102,7 +104,8 @@ def test_rf_regression_dask(n_workers, partitions_per_worker):
         X = X.astype(np.float32)
         y = y.astype(np.float32)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            test_size=1000)
 
         cu_rf_params = {
             'n_estimators': 25,
