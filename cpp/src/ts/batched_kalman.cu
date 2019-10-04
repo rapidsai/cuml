@@ -315,9 +315,6 @@ void _batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
     ML::POP_RANGE();
     BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
-    // auto& stream = std::cout;
-    // stream.precision(16);
-    // MLCommon::myPrintDevVector("P0", P[0], 4*P0.batches(), stream);
   }
 
   // init alpha to zero
@@ -431,7 +428,7 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
                            const double* d_b_ma_params, int p, int q,
                            int num_batches, std::vector<double>& h_loglike_b,
                            double* d_vs, bool initP_with_kalman_iterations) {
-  ML::PUSH_RANGE("batched_akalman_filter");
+  ML::PUSH_RANGE("batched_kalman_filter");
 
   const size_t ys_len = nobs;
 

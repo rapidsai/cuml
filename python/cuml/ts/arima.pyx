@@ -36,20 +36,51 @@ import cudf
 from cuml.ts.nvtx import pynvtx_range_push, pynvtx_range_pop
 
 cdef extern from "ts/batched_arima.hpp" namespace "ML":
-  void batched_loglike(cumlHandle& handle, double* y, int num_batches, int nobs, int p,
-                       int d, int q, double* params,
-                       vector[double]& vec_loglike, double* d_vs, bool trans)
+  void batched_loglike(cumlHandle& handle,
+                       double* y,
+                       int num_batches,
+                       int nobs,
+                       int p,
+                       int d,
+                       int q,
+                       double* params,
+                       vector[double]& vec_loglike,
+                       double* d_vs,
+                       bool trans)
 
-  void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
-                         int nobs, int p, int d, int q, double* d_params, double* d_vs_ptr,
+  void predict_in_sample(cumlHandle& handle,
+                         double* d_y,
+                         int num_batches,
+                         int nobs,
+                         int p,
+                         int d,
+                         int q,
+                         double* d_params,
+                         double* d_vs_ptr,
                          double* d_y_p)
 
-  void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-                int d, int q, double* d_params, double* d_vs, bool trans)
+  void residual(cumlHandle& handle,
+                double* d_y,
+                int num_batches,
+                int nobs, int p,
+                int d,
+                int q,
+                double* d_params,
+                double* d_vs,
+                bool trans)
 
-  void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
-                int batch_size, int nobs, double* d_y, double* d_y_diff, double* d_vs,
-                double* d_params, double* d_y_fc)
+  void forecast(cumlHandle& handle,
+                int num_steps,
+                int p,
+                int d,
+                int q,
+                int batch_size,
+                int nobs,
+                double* d_y,
+                double* d_y_diff,
+                double* d_vs,
+                double* d_params,
+                double* d_y_fc)
 
 cdef extern from "utils.h" namespace "MLCommon":
   void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
@@ -59,6 +90,7 @@ cdef extern from "ts/batched_kalman.hpp" namespace "ML":
   void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
                                int batchSize, bool isInv, const double* h_params,
                                double* h_Tparams);
+
 
 class ARIMAModel:
     r"""Implements an ARIMA model for in- and out-of-sample time-series prediction.
@@ -74,8 +106,9 @@ class ARIMAModel:
                                                                  \tilde{y}_{t-i})
 
     Note all fitted parameters, \mu, \phi_i, \theta_i and the model order (p, d, q).
-    
-    **Limitations**: The library assumes collections (i.e., batches) of time-series data of the same length with no missing values.
+
+    **Limitations**: The library assumes collections (i.e., batches) of
+      time-series data of the same length with no missing values.
 
     Examples
     ---------
@@ -133,6 +166,7 @@ class ARIMAModel:
 
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods", J. Durbin, S.J. Koopman, 2nd Edition.
+
     """
 
     def __init__(self, order: List[Tuple[int, int, int]],
@@ -148,7 +182,7 @@ class ARIMAModel:
         self.num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         self.num_batches = y.shape[1]
         self.yp = None
-        self.niter = None # number of iterations used during fit
+        self.niter = None  # number of iterations used during fit
         self.d_y = None
 
     def __repr__(self):
@@ -334,7 +368,6 @@ def estimate_x0(order: Tuple[int, int, int],
     return mu, ar, ma
 
 
-
 def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=None):
     """Computes batched loglikelihood for given parameters and series.
 
@@ -367,6 +400,7 @@ def ll_f(num_batches, nobs, order, y, np.ndarray[double] x, trans=True, handle=N
 
     return loglike
 
+
 def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, handle=None):
     """Computes gradient (via finite differencing) of the batched loglikelihood.
 
@@ -393,7 +427,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
              The cumlHandle to be used.
     """
     pynvtx_range_push("ll_gf")
-    
+
     fd = np.zeros(num_parameters)
 
     grad = np.zeros(len(x))
@@ -412,7 +446,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
 
         ll_b_ph = ll_f(num_batches, nobs, order, y, x+fdph, trans=trans, handle=handle)
         ll_b_mh = ll_f(num_batches, nobs, order, y, x-fdph, trans=trans, handle=handle)
-        
+
         np.seterr(all='raise')
         # first derivative second order accuracy
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
@@ -428,6 +462,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
 
     pynvtx_range_pop()
     return grad
+
 
 def fit(y,
         order: Tuple[int, int, int],
@@ -481,7 +516,6 @@ def fit(y,
         n_llf = -(ll_f(num_batches, num_samples, order, d_y, x, trans=True, handle=handle))
         return n_llf/(num_samples-1)
 
-
     # optimized finite differencing gradient for batches
     def gf(x):
         """The gradient of the (batched) energy functional."""
@@ -494,8 +528,7 @@ def fit(y,
 
     # check initial parameter sanity
     if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
-
+        raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
 
     # Optimize parameters by minimizing log likelihood.
     x, niter, flags = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
@@ -512,7 +545,6 @@ def fit(y,
     fit_model.niter = niter
     fit_model.d_y = (d_y, d_y_ptr)
     return fit_model
-
 
 
 def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
@@ -551,7 +583,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
                 continue
 
             mu0, ar0, ma0 = estimate_x0((p, d, q), 2, y_b)
-            
+
             b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
             if method == "aic":
@@ -629,7 +661,7 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
     cdef vector[double] vec_Tma
 
     pynvtx_range_push("batched_transform")
-    
+
     if handle is None:
         handle = cuml.common.handle.Handle()
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
@@ -639,7 +671,6 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
 
     pynvtx_range_pop()
     return (Tx)
-
 
 
 def _start_params(order, y_diff):
@@ -673,7 +704,7 @@ def _start_params(order, y_diff):
 
         # LS fit a*X - Y
         y_ar = y[p_best:]
-        
+
         (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
         # print("initial_ar_fit:", ar_fit)
         # set_trace()
@@ -687,7 +718,7 @@ def _start_params(order, y_diff):
 
             x_resid = np.zeros((len(residual) - q - p_diff, q))
             x_ar2 = np.zeros((len(residual) - q - p_diff, p))
- 
+
             # create lagged residual and ar term
             for lag in range(1, q+1):
                 x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
@@ -709,7 +740,6 @@ def _start_params(order, y_diff):
     return params_init
 
 
-
 def _model_complexity(order):
     (p, d, q) = order
     # complexity is number of parameters: mu + ar + ma
@@ -724,7 +754,7 @@ def _batch_trans(p, d, q, nb, x, handle=None):
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, False, handle)
-    
+
     pynvtx_range_pop()
     return Tx
 
@@ -749,9 +779,6 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
 
-    # if cumlHandle is None:
-    # cumlHandle = 
-
     pynvtx_range_push("batched loglikelihood")
     p, d, q = order
 
@@ -767,7 +794,6 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     d_y_array, d_y_ptr, _, _, dtype_y = input_to_dev_array(y, check_dtype=np.float64)
     d_x_array, d_x_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
     d_vs, d_vs_ptr, _, _, _ = input_to_dev_array(vs, check_dtype=np.float64)
-    
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -783,9 +809,10 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     pynvtx_range_pop()
     return vec_loglike
 
+
 def _residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
     """ Computes and returns the kalman residual """
-    
+
     cdef vector[double] vec_loglike
     cdef uintptr_t d_vs_ptr
     cdef uintptr_t d_params_ptr
@@ -809,6 +836,5 @@ def _residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, ha
              trans)
 
     updateHost(&vs[0,0], <double*>d_vs_ptr, (nobs-d) * num_batches, 0)
-    
-    return vs
 
+    return vs
