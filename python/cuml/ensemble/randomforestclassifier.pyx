@@ -33,6 +33,8 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+
+from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -86,6 +88,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
+        int seed
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -186,6 +189,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float,
+                                    int,
                                     CRITERION,
                                     bool,
                                     int) except +
@@ -310,7 +314,8 @@ class RandomForestClassifier(Base):
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None,
+                 seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -332,6 +337,8 @@ class RandomForestClassifier(Base):
 
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0")
+
+        handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
@@ -359,9 +366,8 @@ class RandomForestClassifier(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
         self.n_streams = n_streams
-        if file_name is None:
-            tmpdir = tempfile.mkdtemp()
-            file_name = os.path.join(tmpdir, "model.buffer")
+        tmpdir = tempfile.mkdtemp()
+        file_name = os.path.join(tmpdir, "model.buffer")
         self.file_name = file_name
         self.pickle = False
 
@@ -518,6 +524,7 @@ class RandomForestClassifier(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
+                                     <int> self.seed,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
@@ -640,6 +647,7 @@ class RandomForestClassifier(Base):
                 num_classes=2):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -671,9 +679,10 @@ class RandomForestClassifier(Base):
                     It is applied if output_class == True, else it is ignored
         num_classes : integer
                       number of different classes present in the dataset
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         if self.pickle:
@@ -697,15 +706,17 @@ class RandomForestClassifier(Base):
     def _predict_get_all(self, X):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         cdef uintptr_t X_ptr
@@ -759,17 +770,20 @@ class RandomForestClassifier(Base):
     def score(self, X, y):
         """
         Calculates the accuracy metric score of the model for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
+
         Returns
-        ----------
-        accuracy of the model
+        -------
+        float
+           Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
@@ -830,6 +844,7 @@ class RandomForestClassifier(Base):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -846,6 +861,7 @@ class RandomForestClassifier(Base):
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params

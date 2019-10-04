@@ -75,7 +75,6 @@ $ make install
 ```
 
 To run tests (optional):
-
 ```bash
 $ ./test/ml # Single GPU algorithm tests
 $ ./test/ml_mg # Multi GPU algorithm tests
@@ -89,7 +88,11 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-
+To run c++ benchmarks (optional):
+```bash
+$ ./bench/sg_benchmark  # Single GPU benchmarks
+```
+Refer to `--help` option to know more on its usage
 
 4. Build and install `libcumlcomms` (C++/CUDA library enabling multi-node multi-GPU communications), starting from the repository root folder:
 ```bash
@@ -146,6 +149,7 @@ To build individual components, specify them as arguments to `build.sh`
 $ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
 $ ./build.sh cuml                      # build and install the cuML python package
 $ ./build.sh prims                     # build the ML prims tests
+$ ./build.sh bench                     # build the cuML c++ benchmark
 ```
 
 Other `build.sh` options:
@@ -161,7 +165,7 @@ $ ./build.sh cuml --multigpu           # build the cuml python package with mult
 
 ### Custom Build Options
 
-#### libcuml & libcumlc++
+#### libcuml & libcuml++
 
 cuML's cmake has the following configurable flags available:
 
@@ -174,6 +178,7 @@ cuML's cmake has the following configurable flags available:
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
