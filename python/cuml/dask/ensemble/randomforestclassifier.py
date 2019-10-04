@@ -23,6 +23,8 @@ import math
 import random
 import numpy as np
 
+from uuid import uuid1
+
 
 class RandomForestClassifier:
     """
@@ -34,7 +36,7 @@ class RandomForestClassifier:
     Currently, this API makes the following assumptions:
      * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
-     * Training data is comes in the form of cuDF dataframes,
+     * Training data comes in the form of cuDF dataframes,
        distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
@@ -114,7 +116,6 @@ class RandomForestClassifier:
         self,
         n_estimators=10,
         max_depth=-1,
-        handle=None,
         max_features=1.0,
         n_bins=8,
         split_algo=1,
@@ -193,13 +194,19 @@ class RandomForestClassifier:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        seeds = list()
+        seeds.append(0)
+        for i in range(1, len(self.n_estimators_per_worker)):
+            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
+            seeds.append(sd)
+
+        key = str(uuid1())
         self.rfs = {
             worker: c.submit(
                 RandomForestClassifier._func_build_rf,
-                n,
                 self.n_estimators_per_worker[n],
                 max_depth,
-                handle,
+                n_streams,
                 max_features,
                 n_bins,
                 split_algo,
@@ -211,16 +218,14 @@ class RandomForestClassifier:
                 verbose,
                 rows_sample,
                 max_leaves,
-                n_streams,
                 quantile_per_tree,
+                seeds[n],
                 dtype,
-                random.random(),
+                key="%s-%s" % (key, n),
                 workers=[worker],
             )
             for n, worker in enumerate(workers)
         }
-
-        print(str(self.rfs))
 
         rfs_wait = list()
         for r in self.rfs.values():
@@ -230,10 +235,9 @@ class RandomForestClassifier:
 
     @staticmethod
     def _func_build_rf(
-        n,
         n_estimators,
         max_depth,
-        handle,
+        n_streams,
         max_features,
         n_bins,
         split_algo,
@@ -245,15 +249,14 @@ class RandomForestClassifier:
         verbose,
         rows_sample,
         max_leaves,
-        n_streams,
         quantile_per_tree,
+        seed,
         dtype,
-        r,
     ):
         return cuRFC(
             n_estimators=n_estimators,
             max_depth=max_depth,
-            handle=handle,
+            handle=None,
             max_features=max_features,
             n_bins=n_bins,
             split_algo=split_algo,
@@ -267,6 +270,7 @@ class RandomForestClassifier:
             max_leaves=max_leaves,
             n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
+            seed=seed,
             gdf_datatype=dtype,
         )
 

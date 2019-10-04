@@ -22,7 +22,7 @@
 import cudf
 import numpy as np
 
-from numba import cuda
+import rmm
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -56,16 +56,17 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
     # Function used to fit the model
     cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
-                          paramsRPROJ* params)
+                          paramsRPROJ* params) except +
 
     # Function used to apply data transformation
     cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
-                                paramsRPROJ* params)
+                                paramsRPROJ* params) except +
 
     # Function used to compute the Johnson Lindenstrauss minimal distance
     cdef size_t c_johnson_lindenstrauss_min_dim \
-        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples, double eps)
+        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples,
+                                             double eps) except +
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
@@ -234,9 +235,9 @@ cdef class BaseRandomProjection():
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None))
 
-        X_new = cuda.device_array((n_samples, self.params.n_components),
-                                  dtype=self.dtype,
-                                  order='F')
+        X_new = rmm.device_array((n_samples, self.params.n_components),
+                                 dtype=self.dtype,
+                                 order='F')
 
         cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
 

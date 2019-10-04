@@ -72,16 +72,15 @@ __global__ void mse_kernel_level(const T *__restrict__ labels,
   return;
 }
 //This kernel computes predictions and count for all colls, all bins and all nodes at a given level
-template <typename T>
-__global__ void get_pred_kernel(const T *__restrict__ data,
-                                const T *__restrict__ labels,
-                                const unsigned int *__restrict__ flags,
-                                const unsigned int *__restrict__ sample_cnt,
-                                const unsigned int *__restrict__ colids,
-                                const int nrows, const int ncols,
-                                const int nbins, const int n_nodes,
-                                const T *__restrict__ quantile, T *predout,
-                                unsigned int *countout) {
+template <typename T, typename QuestionType>
+__global__ void get_pred_kernel(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ flags,
+  const unsigned int *__restrict__ sample_cnt,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, T *predout, unsigned int *countout) {
   extern __shared__ char shmem_pred_kernel[];
   T *shmempred = (T *)shmem_pred_kernel;
   unsigned int *shmemcount =
@@ -89,16 +88,22 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
   unsigned int local_flag = LEAF;
   T local_label;
   int local_cnt;
+  int colstart_local = -1;
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
+  unsigned int colid;
   if (tid < nrows) {
     local_flag = flags[tid];
+  }
+  if (local_flag != LEAF) {
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
   }
-
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-    unsigned int colid = colids[colcnt];
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (local_flag != LEAF) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
+    }
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       shmempred[i] = (T)0;
       shmemcount[i] = 0;
@@ -108,11 +113,12 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                            nbins);
 
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-        T quesval = quantile[colid * nbins + binid];
-        if (local_data <= quesval) {
+        if (local_data <= question(binid)) {
           unsigned int nodeoff = local_flag * nbins;
           atomicAdd(&shmempred[nodeoff + binid], local_label * local_cnt);
           atomicAdd(&shmemcount[nodeoff + binid], local_cnt);
@@ -131,14 +137,15 @@ __global__ void get_pred_kernel(const T *__restrict__ data,
 }
 
 //This kernel computes mse/mae for all colls, all bins and all nodes at a given level
-template <typename T, typename F>
+template <typename T, typename F, typename QuestionType>
 __global__ void get_mse_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
-  const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
-  const T *__restrict__ parentpred,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
   extern __shared__ char shmem_mse_kernel[];
@@ -153,7 +160,8 @@ __global__ void get_mse_kernel(
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   T parent_pred;
   unsigned int parent_count;
-
+  unsigned int colid;
+  int colstart_local = -1;
   if (tid < nrows) {
     local_flag = flags[tid];
   }
@@ -163,10 +171,14 @@ __global__ void get_mse_kernel(
     parent_pred = parentpred[local_flag];
     local_label = labels[tid];
     local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
   }
 
-  for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-    unsigned int colid = colids[colcnt];
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (local_flag != LEAF) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
+    }
     unsigned int coloff = colcnt * nbins * n_nodes;
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       shmem_predout[i] = predout[i + coloff];
@@ -182,13 +194,15 @@ __global__ void get_mse_kernel(
     //Check if leaf
     if (local_flag != LEAF) {
       T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                            nbins);
+
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
-        T quesval = quantile[colid * nbins + binid];
         unsigned int nodeoff = local_flag * nbins;
         T local_pred = shmem_predout[nodeoff + binid];
         unsigned int local_count = shmem_countout[nodeoff + binid];
-        if (local_data <= quesval) {
+        if (local_data <= question(binid)) {
           T leftmean = local_pred / local_count;
           atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
                     local_cnt * F::exec(local_label - leftmean));
@@ -212,35 +226,39 @@ __global__ void get_mse_kernel(
 
 //This kernel computes predictions and count for all colls, all bins and all nodes at a given level
 //This is when nodes dont fit anymore in shared memory.
-template <typename T>
+template <typename T, typename QuestionType>
 __global__ void get_pred_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
-  const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
-  T *predout, unsigned int *countout) {
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, T *predout, unsigned int *countout) {
   unsigned int local_flag = LEAF;
   T local_label;
   int local_cnt;
   int threadid = threadIdx.x + blockIdx.x * blockDim.x;
-
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     local_flag = flags[tid];
     //Check if leaf
     if (local_flag != LEAF) {
       local_label = labels[tid];
       local_cnt = sample_cnt[tid];
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
 
-      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-        unsigned int colid = colids[colcnt];
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+        unsigned int colid = get_column_id(colids, colstart_local, Ncols,
+                                           ncols_sampled, colcnt, local_flag);
         unsigned int coloffset = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
+        QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                              nbins);
 
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
-          T quesval = quantile[colid * nbins + binid];
-          if (local_data <= quesval) {
+          if (local_data <= question(binid)) {
             unsigned int nodeoff = local_flag * nbins;
             atomicAdd(&predout[coloffset + nodeoff + binid],
                       local_label * local_cnt);
@@ -254,14 +272,15 @@ __global__ void get_pred_kernel_global(
 
 //This kernel computes mse/mae for all colls, all bins and all nodes at a given level
 // This is when nodes dont fit in shared memory
-template <typename T, typename F>
+template <typename T, typename F, typename QuestionType>
 __global__ void get_mse_kernel_global(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ flags,
   const unsigned int *__restrict__ sample_cnt,
-  const unsigned int *__restrict__ colids, const int nrows, const int ncols,
-  const int nbins, const int n_nodes, const T *__restrict__ quantile,
-  const T *__restrict__ parentpred,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, const T *__restrict__ parentpred,
   const unsigned int *__restrict__ parentcount, const T *__restrict__ predout,
   const unsigned int *__restrict__ countout, T *mseout) {
   unsigned int local_flag = LEAF;
@@ -273,24 +292,28 @@ __global__ void get_mse_kernel_global(
 
   for (int tid = threadid; tid < nrows; tid += gridDim.x * blockDim.x) {
     local_flag = flags[tid];
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
-
     if (local_flag != LEAF) {
+      local_label = labels[tid];
+      local_cnt = sample_cnt[tid];
       parent_count = parentcount[local_flag];
       parent_pred = parentpred[local_flag];
+      int colstart_local = -1;
+      if (colstart != nullptr) colstart_local = colstart[local_flag];
 
-      for (unsigned int colcnt = 0; colcnt < ncols; colcnt++) {
-        unsigned int colid = colids[colcnt];
+      for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+        unsigned int colid = get_column_id(colids, colstart_local, Ncols,
+                                           ncols_sampled, colcnt, local_flag);
         unsigned int coloff = colcnt * nbins * n_nodes;
         T local_data = data[tid + colid * nrows];
+        QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                              nbins);
+
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
-          T quesval = quantile[colid * nbins + binid];
           unsigned int nodeoff = local_flag * nbins;
           T local_pred = predout[coloff + nodeoff + binid];
           unsigned int local_count = countout[coloff + nodeoff + binid];
-          if (local_data <= quesval) {
+          if (local_data <= question(binid)) {
             T leftmean = local_pred / local_count;
             atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
                       local_cnt * F::exec(local_label - leftmean));
@@ -311,10 +334,10 @@ __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
   const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
   const unsigned int *__restrict__ parentcount,
-  const T *__restrict__ parentmetric, const unsigned int *__restrict__ colids,
-  const int nbins, const int ncols, const int n_nodes, const int min_rpn,
-  float *outgain, int *best_col_id, int *best_bin_id, T *child_mean,
-  unsigned int *child_count, T *child_best_metric) {
+  const T *__restrict__ parentmetric, const int nbins, const int ncols_sampled,
+  const int n_nodes, const int min_rpn, float *outgain, int *best_col_id,
+  int *best_bin_id, T *child_mean, unsigned int *child_count,
+  T *child_best_metric) {
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -326,8 +349,8 @@ __global__ void get_best_split_regression_kernel(
     int nodeoffset = nodeid * nbins;
     GainIdxPair tid_pair;
     tid_pair.gain = 0.0;
-    tid_pair.idx = 0;
-    for (int id = threadIdx.x; id < nbins * ncols; id += blockDim.x) {
+    tid_pair.idx = -1;
+    for (int id = threadIdx.x; id < nbins * ncols_sampled; id += blockDim.x) {
       int coloffset = ((int)(id / nbins)) * nbins * n_nodes;
       int binoffset = id % nbins;
       int threadoffset = coloffset + binoffset + nodeoffset;
@@ -355,9 +378,9 @@ __global__ void get_best_split_regression_kernel(
     GainIdxPair ans =
       BlockReduce(temp_storage).Reduce(tid_pair, ReducePair<cub::Max>());
 
-    if (threadIdx.x == 0) {
+    if (threadIdx.x == 0 && ans.idx != -1) {
       outgain[nodeid] = ans.gain;
-      best_col_id[nodeid] = colids[(int)(ans.idx / nbins)];
+      best_col_id[nodeid] = (int)(ans.idx / nbins);
       best_bin_id[nodeid] = ans.idx % nbins;
       int coloffset = ((int)(ans.idx / nbins)) * nbins * n_nodes;
       int binoffset = ans.idx % nbins;

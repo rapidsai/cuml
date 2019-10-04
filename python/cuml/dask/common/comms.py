@@ -332,8 +332,6 @@ class CommsContext:
 
         self.sessionId = uuid.uuid4().bytes
 
-        self.worker_addresses = list(self.client.has_what().keys())
-
         self.nccl_initialized = False
         self.ucx_initialized = False
 
@@ -376,7 +374,6 @@ class CommsContext:
         """
         self.client.run(_func_ucp_create_listener,
                         self.sessionId,
-                        random.random(),
                         workers=self.worker_addresses,
                         wait=False)
 
@@ -388,13 +385,15 @@ class CommsContext:
         """
         self.client.run(_func_ucp_stop_listener,
                         self.sessionId,
-                        wait=True)
+                        wait=True,
+                        workers=self.worker_addresses)
 
     def block_for_init(self, key):
 
         [self.client.run(_func_wait_for_key,
                          self.sessionId,
                          key,
+                         workers=self.worker_addresses,
                          wait=True)]
 
     def init(self, workers=None, verbose=False):
@@ -403,8 +402,10 @@ class CommsContext:
         UCX is only initialized if `comms_p2p == True`
         """
 
-        if workers is None:
-            workers = list(self.client.has_what().keys())
+        # NCCL forces uniqueness. The following line should be removed
+        # if we use CUDA-aware MPI
+        self.worker_addresses = list(set((self.client.has_what().keys()
+                                          if workers is None else workers)))
 
         if self.ucx_initialized or self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
@@ -413,8 +414,8 @@ class CommsContext:
         if self.comms_p2p:
             self.create_ucp_listeners()
 
-        worker_info = self.worker_info(workers)
-        worker_info = {w: worker_info[w] for w in workers}
+        worker_info = self.worker_info(self.worker_addresses)
+        worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
         self.uniqueId = nccl.get_unique_id()
 
@@ -424,8 +425,10 @@ class CommsContext:
                         self.comms_p2p,
                         worker_info,
                         verbose,
-                        workers=workers,
-                        wait=False)
+                        workers=self.worker_addresses,
+                        wait=True)
+
+        self.nccl_initialized = True
 
         if self.comms_p2p:
             self.ucx_initialized = True
@@ -438,8 +441,11 @@ class CommsContext:
         """
         Shuts down initialized comms and cleans up resources.
         """
-        self.client.run(_func_destroy_all, self.sessionId,
-                        self.comms_p2p, wait=True)
+        self.client.run(_func_destroy_all,
+                        self.sessionId,
+                        self.comms_p2p,
+                        wait=True,
+                        workers=self.worker_addresses)
 
         if self.comms_p2p:
             self.stop_ucp_listeners()

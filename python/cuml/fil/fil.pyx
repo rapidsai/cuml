@@ -26,7 +26,7 @@ import math
 import numpy as np
 import warnings
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -41,15 +41,18 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     cdef int TreeliteLoadXGBoostModel(const char* filename,
-                                      ModelHandle* out)
+                                      ModelHandle* out) except +
     cdef int TreeliteLoadXGBoostModelFromMemoryBuffer(const void* buf,
                                                       size_t len,
-                                                      ModelHandle* out)
-    cdef int TreeliteFreeModel(ModelHandle handle)
-    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out)
-    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out)
-    cdef int TreeliteLoadLightGBMModel(const char* filename, ModelHandle* out)
-    cdef int TreeliteLoadProtobufModel(const char* filename, ModelHandle* out)
+                                                      ModelHandle* out) \
+        except +
+    cdef int TreeliteFreeModel(ModelHandle handle) except +
+    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
+    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
+    cdef int TreeliteLoadLightGBMModel(const char* filename,
+                                       ModelHandle* out) except +
+    cdef int TreeliteLoadProtobufModel(const char* filename,
+                                       ModelHandle* out) except +
 
 
 cdef class TreeliteModel():
@@ -197,9 +200,9 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            preds = cuda.device_array(n_rows, dtype=np.float32)
+            preds = rmm.device_array(n_rows, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
-              not cuda.is_cuda_array(preds)):
+              not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
 
@@ -222,14 +225,40 @@ cdef class ForestInference_impl():
                                  bool output_class,
                                  str algo,
                                  float threshold):
+
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model.handle
+
+        from_treelite(handle_[0],
+                      &self.forest_data,
+                      <ModelHandle> model_ptr,
+                      &treelite_params)
+        return self
+
+    def load_from_randomforest(self,
+                               model_handle,
+                               bool output_class,
+                               str algo,
+                               float threshold):
+
+        cdef treelite_params_t treelite_params
+
+        treelite_params.output_class = output_class
+        treelite_params.threshold = threshold
+        treelite_params.algo = self.get_algo(algo)
+
+        self.forest_data = NULL
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t model_ptr = <uintptr_t> model_handle
+
         from_treelite(handle_[0],
                       &self.forest_data,
                       <ModelHandle> model_ptr,
@@ -278,7 +307,7 @@ class ForestInference(Base):
     Examples
     --------
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/fil_demo.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
     infererence. ForestInference can also accept a numpy array directly at the
@@ -287,14 +316,16 @@ class ForestInference(Base):
     >>> # Assume that the file 'xgb.model' contains a classifier model that was
     >>> # previously saved by XGBoost's save_model function.
     >>>
-    >>> import sklearn
+    >>> import sklearn, sklearn.datasets, numpy as np
     >>> from numba import cuda
+    >>> from cuml import ForestInference
+    >>> model_path = 'xgb.model'
     >>> X_test, y_test = sklearn.datasets.make_classification()
     >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
     >>> fm = ForestInference.load(model_path, output_class=True)
     >>> fil_preds_gpu = fm.predict(X_gpu)
     >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
-    >>>						     np.asarray(fil_preds_gpu))
+    >>>                np.asarray(fil_preds_gpu))
 
     """
     def __init__(self,
@@ -391,3 +422,12 @@ class ForestInference(Base):
                                          output_class=output_class,
                                          threshold=threshold)
         return cuml_fm
+
+    def load_from_randomforest(self,
+                               model_handle,
+                               output_class=False,
+                               algo='TREE_REORG',
+                               threshold=0.50):
+
+        return self._impl.load_from_randomforest(model_handle, output_class,
+                                                 algo, threshold)
