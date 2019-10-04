@@ -59,7 +59,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "statsmodels" \
-      "xgboost=0.90.rapidsdev1"
+      "xgboost=0.90.rapidsdev1" \
+      "protobuf>=3.5.1,<4.0.0"
 
 
 # installing libclang separately so it doesn't get installed from conda-forge
