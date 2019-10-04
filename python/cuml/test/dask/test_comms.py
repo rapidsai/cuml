@@ -15,8 +15,6 @@
 
 import pytest
 
-from dask_cuda import LocalCUDACluster
-
 import random
 
 import time
@@ -30,10 +28,9 @@ from cuml.dask.common import perform_test_comms_allreduce
 pytestmark = pytest.mark.mg
 
 
-def test_comms_init_no_p2p():
+def test_comms_init_no_p2p(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
-    client = Client(cluster)  # noqa
+    client = Client(cluster)
 
     try:
         cb = CommsContext(comms_p2p=False)
@@ -46,13 +43,11 @@ def test_comms_init_no_p2p():
 
         cb.destroy()
         client.close()
-        cluster.close()
 
 
-def test_comms_init_p2p_no_ucx():
+def test_comms_init_p2p_no_ucx(cluster):
 
-    cluster = LocalCUDACluster()
-    client = Client(cluster)   # noqa
+    client = Client(cluster)
 
     try:
         cb = CommsContext(comms_p2p=True)
@@ -64,7 +59,6 @@ def test_comms_init_p2p_no_ucx():
     finally:
         cb.destroy()
         client.close()
-        cluster.close()
 
 
 def func_test_allreduce(sessionId, r):
@@ -78,8 +72,8 @@ def func_test_send_recv(sessionId, n_trials, r):
 
 
 @pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms_no_exist():
-    cluster = LocalCUDACluster(threads_per_worker=1)
+def test_default_comms_no_exist(cluster):
+
     client = Client(cluster)
 
     try:
@@ -92,13 +86,11 @@ def test_default_comms_no_exist():
     finally:
         cb.destroy()
         client.close()
-        cluster.close()
 
 
 @pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms():
+def test_default_comms(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     try:
@@ -111,12 +103,10 @@ def test_default_comms():
     finally:
         comms.destroy()
         client.close()
-        cluster.close()
 
 
-def test_allreduce():
+def test_allreduce(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     try:
@@ -139,13 +129,11 @@ def test_allreduce():
     finally:
         cb.destroy()
         client.close()
-        cluster.close()
 
 
 @pytest.mark.skip(reason="UCX support not enabled in CI")
-def test_send_recv(n_trials):
+def test_send_recv(n_trials, cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     try:
@@ -176,4 +164,3 @@ def test_send_recv(n_trials):
     finally:
         cb.destroy()
         client.close()
-        cluster.close()
