@@ -53,13 +53,15 @@ if os.environ.get('CONDA_PREFIX', None):
 # - Subrepo checking and cloning ---------------------------------------------
 
 
-def clone_repo(name, GIT_REPOSITORY, GIT_TAG):
+def clone_repo(name, GIT_REPOSITORY, GIT_TAG, first=False):
     """
     Function to clone repos in case they were not cloned by cmake.
     Variables are named identical to the cmake counterparts for clarity,
     in spite of not being very pythonic.
     """
-    subprocess.check_call(['rm', '-rf', 'external'])
+    if first:
+        subprocess.check_call(['rm', '-rf', 'external'])
+
     subprocess.check_call(['git', 'clone',
                            GIT_REPOSITORY,
                            'external/' + name])
@@ -75,7 +77,8 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG):
 if "--clonedeps" in sys.argv:
     clone_repo(name='treelite',
                GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
-               GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651')
+               GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651',
+               first=True)
     treelite_path = 'external/treelite'
 
     clone_repo(name='cub',
