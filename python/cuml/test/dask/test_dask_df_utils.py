@@ -29,22 +29,25 @@ def test_to_dask_df(dtype, nparts):
     cluster = LocalCUDACluster()
     c = Client(cluster)
 
-    from cuml.dask.common.dask_df_utils import to_dask_df
-    from cuml.dask.datasets import make_blobs
+    try:
 
-    X, y = make_blobs(1e3, 25, n_parts=nparts, dtype=dtype)
+        from cuml.dask.common.dask_df_utils import to_dask_df
+        from cuml.dask.datasets import make_blobs
 
-    X_df = to_dask_df(X).compute()
-    y_df = to_dask_df(y).compute()
+        X, y = make_blobs(1e3, 25, n_parts=nparts, dtype=dtype)
 
-    X = X.compute()
-    y = y.compute()
+        X_df = to_dask_df(X).compute()
+        y_df = to_dask_df(y).compute()
 
-    assert X.shape == X_df.shape
-    assert y.shape == y_df.shape
+        X = X.compute()
+        y = y.compute()
 
-    assert X.dtypes.unique() == X_df.dtypes.unique()
-    assert y.dtypes.unique() == y_df.dtypes.unique()
+        assert X.shape == X_df.shape
+        assert y.shape == y_df.shape
 
-    c.close()
-    cluster.close()
+        assert X.dtypes.unique() == X_df.dtypes.unique()
+        assert y.dtypes.unique() == y_df.dtypes.unique()
+
+    finally:
+        c.close()
+        cluster.close()
