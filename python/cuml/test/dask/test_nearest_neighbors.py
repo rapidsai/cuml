@@ -20,6 +20,8 @@ from sklearn.neighbors import NearestNeighbors
 from dask.distributed import Client, wait
 from dask_cuda import LocalCUDACluster
 
+from cudf.core.index import RangeIndex
+
 pytestmark = pytest.mark.mg
 
 
@@ -48,9 +50,8 @@ def test_end_to_end():
             ret = cudf.DataFrame([(i,
                                    X[:, i].astype(np.float32))
                                   for i in range(n)],
-                                 index=
-                                     cudf.core.index.RangeIndex(f * m,
-                                                                f * m + m, 1))
+                                 index=RangeIndex(f * m,
+                                                  f * m + m, 1))
             return ret
 
         def get_meta(df):
