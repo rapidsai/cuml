@@ -139,9 +139,13 @@ def _labels_to_int_hook(data):
     return (data[0], data[1].astype(np.int32))
 
 
-def _nn_bench_func(m, x):
+def fit_kneighbors(m, x):
     m.fit(x)
     m.kneighbors(x)
+
+
+def fit_transform(m, x):
+    m.fit_transform(x)
 
 
 def all_algorithms():
@@ -172,8 +176,9 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.random_projection.GaussianRandomProjection,
             cuml.random_projection.GaussianRandomProjection,
-            shared_args=dict(n_components=10),
+            shared_args=dict(n_components="auto"),
             name="GaussianRandomProjection",
+            bench_func=fit_transform,
             accepts_labels=False,
         ),
         AlgorithmPair(
@@ -184,7 +189,7 @@ def all_algorithms():
             cuml_args={},
             name="NearestNeighbors",
             accepts_labels=False,
-            bench_func=_nn_bench_func
+            bench_func=fit_kneighbors
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
@@ -215,6 +220,14 @@ def all_algorithms():
             cuml.linear_model.Lasso,
             shared_args={},
             name="Lasso",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.linear_model.Ridge,
+            cuml.linear_model.Ridge,
+            shared_args={},
+            name="Ridge",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
