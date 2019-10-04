@@ -20,6 +20,8 @@ from dask.distributed import Client, wait
 
 import numpy as np
 
+from cuml.test.utils import unit_param, quality_param, stress_param
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
