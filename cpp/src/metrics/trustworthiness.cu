@@ -23,18 +23,17 @@ namespace ML {
 namespace Metrics {
 
 /**
-        * @brief Compute the trustworthiness score
-        * @input param X: Data in original dimension
-        * @input param X_embedded: Data in target dimension (embedding)
-        * @input param n: Number of samples
-        * @input param m: Number of features in high/original dimension
-        * @input param d: Number of features in low/embedded dimension
-        * @input param n_neighbors: Number of neighbors considered by trustworthiness score
-        * @input tparam distance_type: Distance type to consider
-        * @return Trustworthiness score
-        */
-template <typename math_t, MLCommon::Distance::DistanceType distance_type = \
-          MLCommon::Distance::EucUnexpandedL2Sqrt>
+* @brief Compute the trustworthiness score
+* @input param X: Data in original dimension
+* @input param X_embedded: Data in target dimension (embedding)
+* @input param n: Number of samples
+* @input param m: Number of features in high/original dimension
+* @input param d: Number of features in low/embedded dimension
+* @input param n_neighbors: Number of neighbors considered by trustworthiness score
+* @input tparam distance_type: Distance type to consider
+* @return Trustworthiness score
+*/
+template <typename math_t, MLCommon::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors) {
   cudaStream_t stream = h.getStream();
@@ -43,7 +42,11 @@ double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
     X, X_embedded, n, m, d, n_neighbors, d_alloc, stream);
 }
-       
+
+template double
+trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+  const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
+  int n_neighbors);
 
 };  //end namespace Metrics
 };  //end namespace ML
