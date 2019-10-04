@@ -147,8 +147,14 @@ include_dirs = ['../cpp/src',
                 cuda_include_dir,
                 conda_include_dir]
 
-# Exclude multigpu components that use libcumlprims if --singlegpu is ued
+# Exclude multigpu components that use libcumlprims if --singlegpu is used
 exc_list = []
+if "--multigpu" in sys.argv:
+    warnings.warn("Flag --multigpu is deprecated. By default cuML is"
+                  "built with multi GPU support. To disable it use the flag"
+                  "--singlegpu")
+    sys.argv.remove('--multigpu')
+
 if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
