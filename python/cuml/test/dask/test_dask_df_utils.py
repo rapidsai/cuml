@@ -22,6 +22,18 @@ from dask_cuda import LocalCUDACluster
 from dask.distributed import Client
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [1, 5, 7])
 def test_to_dask_df(dtype, nparts):

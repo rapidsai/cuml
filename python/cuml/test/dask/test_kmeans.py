@@ -21,18 +21,6 @@ from dask.distributed import Client, wait
 import numpy as np
 
 
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
                                    stress_param(5e6)])
