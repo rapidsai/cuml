@@ -155,6 +155,8 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
+                    
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
@@ -166,12 +168,13 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
-
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaMemsetAsync(pD, 0, m * n * sizeof(OutType), stream));
+                    
   CUDA_CHECK(cudaPeekAtLastError());
+
   CUDA_CHECK(cudaStreamSynchronize(stream));
+//   CUDA_CHECK(cudaMemsetAsync(pD, 0, m * n * sizeof(OutType), stream));
+  
+//   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
