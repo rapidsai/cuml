@@ -14,14 +14,16 @@
 # limitations under the License.
 #
 
+from Cython.Build import cythonize
+from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from Cython.Build import cythonize
+
 import os
-import versioneer
-from distutils.sysconfig import get_python_lib
-import sys
 import subprocess
+import sys
+import versioneer
+import warnings
 
 install_requires = [
     'numba',
@@ -72,50 +74,56 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG, first=False):
     os.chdir(wd)
 
 
-# This should match their equivalent repos and tags of the CMakeLists that was
-# used to build libcuml++
-if "--clonedeps" in sys.argv:
-    clone_repo(name='cub',
-               GIT_REPOSITORY='https://github.com/NVlabs/cub.git',
-               GIT_TAG='v1.8.0',
-               first=True)
-    cub_path = 'external/cub'
-
-    clone_repo(name='cutlass',
-               GIT_REPOSITORY='https://github.com/NVIDIA/cutlass.git',
-               GIT_TAG='v1.0.1')
-    cutlass_path = 'external/cutlass'
-
-    clone_repo(name='faiss',
-               GIT_REPOSITORY='https://github.com/facebookresearch/faiss.git',
-               GIT_TAG='656368b5eda4d376177a3355673d217fa95000b6')
-    # Note: faiss has a different include path
-    faiss_path = 'external'
-
-    clone_repo(name='treelite',
-               GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
-               GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651')
-    treelite_path = 'external/treelite'
-
-    sys.argv.remove('--clonedeps')
-else:
-
+if "clean" not in sys.argv:
     if os.environ.get('CUML_BUILD_PATH', False):
         libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
     else:
         libcuml_path = '../cpp/build/'
 
+    # Cloning repos if they are not found in libcuml_path (derived from
+    # CUML_BUILD_PATH) This should match their equivalent repos and tags of the
+    # CMakeLists that was used to build libcuml++
     if not os.path.exists(libcuml_path):
-        raise RuntimeError("Third party repositories have not been found. \
-                           Use the --clondepes option to have setup.py clone \
-                           them automatically, or set the environment \
-                           variable CUML_BUILD_PATH, containing the relative \
-                           path of the root of the repository to the folder \
-                           where libcuml++ was built.")
+        warnings.warn("Third party repositories have not been found so they  "
+                      "will be cloned. To avoid this set the environment "
+                      "variable CUML_BUILD_PATH, containing the relative "
+                      "path of the root of the repository to the folder "
+                      "where libcuml++ was built.")
+
+        clone_repo(name='cub',
+                   GIT_REPOSITORY='https://github.com/NVlabs/cub.git',
+                   GIT_TAG='v1.8.0',
+                   first=True)
+        cub_path = 'external/cub'
+
+        clone_repo(name='cutlass',
+                   GIT_REPOSITORY='https://github.com/NVIDIA/cutlass.git',
+                   GIT_TAG='v1.0.1')
+        cutlass_path = 'external/cutlass'
+
+        clone_repo(name='faiss',
+                   GIT_REPOSITORY='https://github.com/facebookresearch/faiss.git',  # noqa: E501
+                   GIT_TAG='656368b5eda4d376177a3355673d217fa95000b6')
+        # Note: faiss has a different include path
+        faiss_path = 'external'
+
+        clone_repo(name='treelite',
+                   GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
+                   GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651')
+        treelite_path = 'external/treelite'
+
     else:
         treelite_path = libcuml_path + 'treelite/src/treelite'
+        faiss_path = libcuml_path + 'faiss/src/'
         cub_path = libcuml_path + 'cub/src/cub'
         cutlass_path = 'cutlass/src/cutlass'
+
+else:
+    subprocess.check_call(['rm', '-rf', 'external'])
+    treelite_path = ""
+    faiss_path = ""
+    cub_path = ""
+    cutlass_path = ""
 
 
 ##############################################################################
