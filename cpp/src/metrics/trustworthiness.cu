@@ -42,9 +42,24 @@ double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
     X, X_embedded, n, m, d, n_neighbors, d_alloc, stream);
 }
+       
+template <typename math_t, MLCommon::Distance::DistanceType distance_type>
+double trustworthiness_score2(const cumlHandle& h, math_t* X, math_t* X_embedded,
+                             int n, int m, int d, int n_neighbors) {
+  cudaStream_t stream = h.getStream();
+  auto d_alloc = h.getDeviceAllocator();
+
+  return MLCommon::Score::trustworthiness_score2<math_t, distance_type>(
+    X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 1);
+}
 
 template double
 trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+  const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
+  int n_neighbors);
+       
+template double
+trustworthiness_score2<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors);
 
