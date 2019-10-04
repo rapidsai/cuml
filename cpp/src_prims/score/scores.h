@@ -197,9 +197,9 @@ trustworthiness_score(const math_t *__restrict X,
 
 
     // Find distances
-    // MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
-    //   &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
-    // CUDA_CHECK(cudaPeekAtLastError());
+    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+      &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+    CUDA_CHECK(cudaPeekAtLastError());
     
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
     
