@@ -48,7 +48,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "nvstrings=${MINOR_VERSION}" \
-      "libcumlprims=${MINOR_VERSION}" \
+      "libcumlprims=0.10" \
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
@@ -82,7 +82,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims bench --multigpu -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 

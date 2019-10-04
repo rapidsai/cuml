@@ -1,3 +1,14 @@
+# cuML 0.11.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #1170: Use git to clone subprojects instead of git submodules
+
+## Bug Fixes
+- PR #1212: Fix cmake git cloning always running configure in subprojects
+
+
 # cuML 0.10.0 (Date TBD)
 
 ## New Features
