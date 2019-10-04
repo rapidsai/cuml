@@ -124,4 +124,3 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
     finally:
         client.close()
-

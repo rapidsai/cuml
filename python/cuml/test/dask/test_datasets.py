@@ -32,7 +32,13 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 @pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
                                     quality_param(100),
                                     stress_param(1000)])
-def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts, cluster):
+def test_make_blobs(nrows,
+                    ncols,
+                    centers,
+                    cluster_std,
+                    dtype,
+                    nparts,
+                    cluster):
 
     c = Client(cluster)
     try:
@@ -59,4 +65,3 @@ def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts, cluster):
 
     finally:
         c.close()
-
