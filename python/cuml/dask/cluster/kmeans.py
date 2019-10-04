@@ -223,7 +223,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans.func_xform)
+        return self.parallel_func(X, KMeans.func_transform)
 
     def fit_transform(self, X):
         """
