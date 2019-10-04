@@ -149,6 +149,9 @@ class RPROJTest : public ::testing::Test {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
 
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
     T* d_pdist;
     allocate(d_pdist, N * N);
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
@@ -160,12 +163,19 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+
 
     T* h_pdist = new T[N * N];
     updateHost(h_pdist, d_pdist, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
 
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
 
     T* d_pdist1;
     allocate(d_pdist1, N * N);
@@ -179,10 +189,19 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+
+
     T* h_pdist1 = new T[N * N];
     updateHost(h_pdist1, d_pdist1, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
+
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
 
 
     T* d_pdist2;
@@ -195,6 +214,10 @@ class RPROJTest : public ::testing::Test {
       d_output2, d_output2, d_pdist2, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
+
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
+    printf("Here! %d %s\n", __LINE__, __FILE__);
 
 
     T* h_pdist2 = new T[N * N];
