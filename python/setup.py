@@ -75,21 +75,27 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG, first=False):
 # This should match their equivalent repos and tags of the CMakeLists that was
 # used to build libcuml++
 if "--clonedeps" in sys.argv:
-    clone_repo(name='treelite',
-               GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
-               GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651',
-               first=True)
-    treelite_path = 'external/treelite'
-
     clone_repo(name='cub',
                GIT_REPOSITORY='https://github.com/NVlabs/cub.git',
-               GIT_TAG='v1.8.0')
+               GIT_TAG='v1.8.0',
+               first=True)
     cub_path = 'external/cub'
 
     clone_repo(name='cutlass',
                GIT_REPOSITORY='https://github.com/NVIDIA/cutlass.git',
                GIT_TAG='v1.0.1')
     cutlass_path = 'external/cutlass'
+
+    clone_repo(name='faiss',
+               GIT_REPOSITORY='https://github.com/facebookresearch/faiss.git',
+               GIT_TAG='656368b5eda4d376177a3355673d217fa95000b6')
+    # Note: faiss has a different include path
+    faiss_path = 'external'
+
+    clone_repo(name='treelite',
+               GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
+               GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651')
+    treelite_path = 'external/treelite'
 
     sys.argv.remove('--clonedeps')
 else:
@@ -126,6 +132,7 @@ include_dirs = ['../cpp/src',
                 '../cpp/src_prims',
                 cutlass_path,
                 cub_path,
+                faiss_path,
                 treelite_path + '/include',
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
