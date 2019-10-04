@@ -62,7 +62,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
 
   auto fused_op = [vd, n] __device__(index_t global_c_idx, bool in_neigh) {
     // fused construction of vertex degree
-    index_t batch_vertex = fmod(global_c_idx, n);
+    index_t batch_vertex = global_c_idx % n;
 
     if (sizeof(index_t) == 4) {
       atomicAdd((unsigned int *)(vd + batch_vertex), in_neigh);

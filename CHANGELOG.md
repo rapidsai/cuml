@@ -33,6 +33,7 @@
 
 ## Bug Fixes
 
+- PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
 - PR #1043: Updates to accomodate cuDF python code reorganization
@@ -54,6 +55,7 @@
 - PR #1177: Update dask and distributed to 2.5
 - PR #1204: Fix SVM crash on Turing
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
+- PR #1205: Update dask-cuda in yml envs
 
 # cuML 0.9.0 (21 Aug 2019)
 
