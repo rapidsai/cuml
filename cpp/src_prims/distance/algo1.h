@@ -91,6 +91,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
                     norm_op);
   }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef cutlass::gemm::ThreadMultiplyAdd<
@@ -145,6 +146,9 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     cvec = row_vec;
     rvec = col_vec;
   }
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
@@ -156,6 +160,7 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     },
     fin_op, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance
