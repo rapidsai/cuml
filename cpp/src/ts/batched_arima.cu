@@ -54,72 +54,76 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
   double* d_vs_ =
     (double*)alloc->allocate((q + num_steps) * batch_size, stream);
   const auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(counting, counting + batch_size, [=] __device__(int bid) {
-    if (p > 0) {
-      for (int ip = 0; ip < p; ip++) {
-        d_y_[(p + num_steps) * bid + ip] =
-          d_y_diff[(nobs - d) * bid + (nobs - d - p) + ip];
-      }
-    }
-    if (q > 0) {
-      for (int iq = 0; iq < q; iq++) {
-        d_vs_[(q + num_steps) * bid + iq] =
-          d_vs[(nobs - d) * bid + (nobs - d - q) + iq];
-      }
-    }
-  });
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     if (p > 0) {
+                       for (int ip = 0; ip < p; ip++) {
+                         d_y_[(p + num_steps) * bid + ip] =
+                           d_y_diff[(nobs - d) * bid + (nobs - d - p) + ip];
+                       }
+                     }
+                     if (q > 0) {
+                       for (int iq = 0; iq < q; iq++) {
+                         d_vs_[(q + num_steps) * bid + iq] =
+                           d_vs[(nobs - d) * bid + (nobs - d - q) + iq];
+                       }
+                     }
+                   });
 
-  thrust::for_each(counting, counting + batch_size, [=] __device__(int bid) {
-    int N = p + d + q;
-    auto mu_ib = d_params[N * bid];
-    double ar_sum = 0.0;
-    for (int ip = 0; ip < p; ip++) {
-      double ar_i = d_params[N * bid + d + ip];
-      ar_sum += ar_i;
-    }
-    double mu_star = mu_ib * (1 - ar_sum);
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     int N = p + d + q;
+                     auto mu_ib = d_params[N * bid];
+                     double ar_sum = 0.0;
+                     for (int ip = 0; ip < p; ip++) {
+                       double ar_i = d_params[N * bid + d + ip];
+                       ar_sum += ar_i;
+                     }
+                     double mu_star = mu_ib * (1 - ar_sum);
 
-    for (int i = 0; i < num_steps; i++) {
-      auto it = num_steps * bid + i;
-      d_y_fc[it] = mu_star;
-      if (p > 0) {
-        double dot_ar_y = 0.0;
-        for (int ip = 0; ip < p; ip++) {
-          dot_ar_y +=
-            d_params[N * bid + d + ip] * d_y_[(p + num_steps) * bid + i + ip];
-        }
-        d_y_fc[it] += dot_ar_y;
-      }
-      if (q > 0 && i < q) {
-        double dot_ma_y = 0.0;
-        for (int iq = 0; iq < q; iq++) {
-          dot_ma_y += d_params[N * bid + d + p + iq] *
-                      d_vs_[(q + num_steps) * bid + i + iq];
-        }
-        d_y_fc[it] += dot_ma_y;
-      }
-      if (p > 0) {
-        d_y_[(p + num_steps) * bid + i + p] = d_y_fc[it];
-      }
-    }
-  });
+                     for (int i = 0; i < num_steps; i++) {
+                       auto it = num_steps * bid + i;
+                       d_y_fc[it] = mu_star;
+                       if (p > 0) {
+                         double dot_ar_y = 0.0;
+                         for (int ip = 0; ip < p; ip++) {
+                           dot_ar_y += d_params[N * bid + d + ip] *
+                                       d_y_[(p + num_steps) * bid + i + ip];
+                         }
+                         d_y_fc[it] += dot_ar_y;
+                       }
+                       if (q > 0 && i < q) {
+                         double dot_ma_y = 0.0;
+                         for (int iq = 0; iq < q; iq++) {
+                           dot_ma_y += d_params[N * bid + d + p + iq] *
+                                       d_vs_[(q + num_steps) * bid + i + iq];
+                         }
+                         d_y_fc[it] += dot_ma_y;
+                       }
+                       if (p > 0) {
+                         d_y_[(p + num_steps) * bid + i + p] = d_y_fc[it];
+                       }
+                     }
+                   });
 
   // undifference
   if (d > 0) {
-    thrust::for_each(counting, counting + batch_size, [=] __device__(int bid) {
-      for (int i = 0; i < num_steps; i++) {
-        // Undifference via cumsum, using last 'y' as initial value, in cumsum.
-        // Then drop that first value.
-        // In python:
-        // xi = np.append(y[-1], fc)
-        // return np.cumsum(xi)[1:]
-        if (i == 0) {
-          d_y_fc[bid * num_steps] += d_y[bid * nobs + (nobs - 1)];
-        } else {
-          d_y_fc[bid * num_steps + i] += d_y_fc[bid * num_steps + i - 1];
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int bid) {
+        for (int i = 0; i < num_steps; i++) {
+          // Undifference via cumsum, using last 'y' as initial value, in cumsum.
+          // Then drop that first value.
+          // In python:
+          // xi = np.append(y[-1], fc)
+          // return np.cumsum(xi)[1:]
+          if (i == 0) {
+            d_y_fc[bid * num_steps] += d_y[bid * nobs + (nobs - 1)];
+          } else {
+            d_y_fc[bid * num_steps + i] += d_y_fc[bid * num_steps + i - 1];
+          }
         }
-      }
-    });
+      });
   }
 }
 
@@ -127,31 +131,33 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* d_params,
                        double* d_vs, double* d_y_p) {
   residual(handle, d_y, num_batches, nobs, p, d, q, d_params, d_vs, false);
-
+  auto stream = handle.getStream();
   double* d_y_diff;
 
   if (d == 0) {
     auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-      for (int i = 0; i < nobs; i++) {
-        int it = bid * nobs + i;
-        d_y_p[it] = d_y[it] - d_vs[it];
-      }
-    });
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + num_batches, [=] __device__(int bid) {
+                       for (int i = 0; i < nobs; i++) {
+                         int it = bid * nobs + i;
+                         d_y_p[it] = d_y[it] - d_vs[it];
+                       }
+                     });
   } else {
     d_y_diff = (double*)handle.getDeviceAllocator()->allocate(
       sizeof(double) * num_batches * (nobs - 1), handle.getStream());
     auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-      for (int i = 0; i < nobs - 1; i++) {
-        int it = bid * nobs + i;
-        int itd = bid * (nobs - 1) + i;
-        // note: d_y[it] + (d_y[it + 1] - d_y[it]) - d_vs[itd]
-        //    -> d_y[it+1] - d_vs[itd]
-        d_y_p[it] = d_y[it + 1] - d_vs[itd];
-        d_y_diff[itd] = d_y[it + 1] - d_y[it];
-      }
-    });
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + num_batches, [=] __device__(int bid) {
+                       for (int i = 0; i < nobs - 1; i++) {
+                         int it = bid * nobs + i;
+                         int itd = bid * (nobs - 1) + i;
+                         // note: d_y[it] + (d_y[it + 1] - d_y[it]) - d_vs[itd]
+                         //    -> d_y[it+1] - d_vs[itd]
+                         d_y_p[it] = d_y[it + 1] - d_vs[itd];
+                         d_y_diff[itd] = d_y[it + 1] - d_y[it];
+                       }
+                     });
   }
 
   // due to `differencing` we need to forecast a single step to make the
@@ -164,9 +170,10 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
 
     // append forecast to end of in-sample prediction
     auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-      d_y_p[bid * nobs + (nobs - 1)] = d_y_fc[bid];
-    });
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + num_batches, [=] __device__(int bid) {
+                       d_y_p[bid * nobs + (nobs - 1)] = d_y_fc[bid];
+                     });
   }
 }
 
@@ -187,15 +194,15 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
     (double*)allocator->allocate(sizeof(double) * num_batches * p, stream);
   double* d_ma =
     (double*)allocator->allocate(sizeof(double) * num_batches * q, stream);
+  double* d_Tar =
+    (double*)allocator->allocate(sizeof(double) * num_batches * p, stream);
+  double* d_Tma =
+    (double*)allocator->allocate(sizeof(double) * num_batches * q, stream);
 
   // params -> (mu, ar, ma)
-  unpack(d_params, d_mu, d_ar, d_ma, num_batches, p, d, q);
+  unpack(d_params, d_mu, d_ar, d_ma, num_batches, p, d, q, handle.getStream());
 
   CUDA_CHECK(cudaPeekAtLastError());
-
-  // Transformed parameters
-  double* d_Tar = nullptr;
-  double* d_Tma = nullptr;
 
   if (trans) {
     batched_jones_transform(handle, p, q, num_batches, false, d_ar, d_ma, d_Tar,
@@ -222,15 +229,16 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
     {
       auto counting = thrust::make_counting_iterator(0);
       // TODO: This for_each should probably go over samples, so batches are in the inner loop.
-      thrust::for_each(
-        counting, counting + num_batches, [=] __device__(int bid) {
-          double mu_ib = d_mu[bid];
-          for (int i = 0; i < nobs - 1; i++) {
-            // diff and center (with `mu` parameter)
-            y_diff[bid * (nobs - 1) + i] =
-              (d_y[bid * nobs + i + 1] - d_y[bid * nobs + i]) - mu_ib;
-          }
-        });
+      thrust::for_each(thrust::cuda::par.on(stream), counting,
+                       counting + num_batches, [=] __device__(int bid) {
+                         double mu_ib = d_mu[bid];
+                         for (int i = 0; i < nobs - 1; i++) {
+                           // diff and center (with `mu` parameter)
+                           y_diff[bid * (nobs - 1) + i] =
+                             (d_y[bid * nobs + i + 1] - d_y[bid * nobs + i]) -
+                             mu_ib;
+                         }
+                       });
     }
 
     batched_kalman_filter(handle, y_diff, nobs - d, d_Tar, d_Tma, p, q,
@@ -242,10 +250,8 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   allocator->deallocate(d_mu, num_batches, stream);
   allocator->deallocate(d_ar, p * num_batches, stream);
   allocator->deallocate(d_ma, q * num_batches, stream);
-  if (trans) {
-    allocator->deallocate(d_Tar, p * num_batches, stream);
-    allocator->deallocate(d_Tma, q * num_batches, stream);
-  }
+  allocator->deallocate(d_Tar, p * num_batches, stream);
+  allocator->deallocate(d_Tma, q * num_batches, stream);
 
   ML::POP_RANGE();
 }
