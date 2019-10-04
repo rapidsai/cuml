@@ -137,7 +137,7 @@ get_knn_indexes(const math_t *__restrict input,
  */
 template <typename math_t, Distance::DistanceType distance_type>
 double
-trustworthiness_score(const math_t *__restrict X,
+trustworthiness_score2(const math_t *__restrict X,
                       const math_t *__restrict X_embedded,
                       const int n,
                       const int m,
@@ -254,6 +254,21 @@ trustworthiness_score(const math_t *__restrict X,
   return t;
 }
 
+  
+template <typename math_t, Distance::DistanceType distance_type>
+double
+trustworthiness_score(const math_t *__restrict X,
+                      const math_t *__restrict X_embedded,
+                      const int n,
+                      const int m,
+                      const int d,
+                      const int n_neighbors,
+                      std::shared_ptr<deviceAllocator> d_alloc,
+                      cudaStream_t stream)
+{
+  return trustworthiness_score2<distance_type>(X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 0);
+}
+  
 /**
  * Calculates the "Coefficient of Determination" (R-Squared) score
  * normalizing the sum of squared errors by the total sum of squares.
