@@ -155,12 +155,12 @@ struct ExpandedDistanceEpilogueFunctor : public BaseClass {
                                const int index[FragmentB_::kElements],
                                FragmentCol_ const &col, FragmentRow_ const &row,
                                FinalLambda fin_op) {
-    FragmentMultiplyAdd_ mad;
-    if (this->params.enable_sqrt) {
-      mad.multiply<true>(accum, output, index, col, row, fin_op);
-    } else {
-      mad.multiply<false>(accum, output, index, col, row, fin_op);
-    }
+    // FragmentMultiplyAdd_ mad;
+    // if (this->params.enable_sqrt) {
+    //   mad.multiply<true>(accum, output, index, col, row, fin_op);
+    // } else {
+    //   mad.multiply<false>(accum, output, index, col, row, fin_op);
+    // }
   }
 };
 
@@ -183,12 +183,12 @@ struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
   CUTLASS_DEVICE void evaluate(FragmentA_ const &accum, FragmentB_ &output,
                                const int index[FragmentB_::kElements],
                                FinalLambda fin_op) {
-    FragmentMultiplyAdd_ mad;
-    if (this->params.enable_sqrt) {
-      mad.multiply<true>(accum, output, index, fin_op);
-    } else {
-      mad.multiply<false>(accum, output, index, fin_op);
-    }
+    // FragmentMultiplyAdd_ mad;
+    // if (this->params.enable_sqrt) {
+    //   mad.multiply<true>(accum, output, index, fin_op);
+    // } else {
+    //   mad.multiply<false>(accum, output, index, fin_op);
+    // }
   }
 };
 
