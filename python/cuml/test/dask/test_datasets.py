@@ -29,7 +29,6 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 @pytest.mark.parametrize('centers', [10])
 @pytest.mark.parametrize("cluster_std", [0.1])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nparts", [1, 5])
 @pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
                                     quality_param(100),
                                     stress_param(1000)])
