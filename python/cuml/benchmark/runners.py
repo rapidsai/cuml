@@ -42,11 +42,11 @@ class SpeedupComparisonRunner:
         cuml_param_overrides={},
         cpu_param_overrides={},
         run_cpu=True,
+        verbose=False
     ):
         data = datagen.gen_data(
             self.dataset_name, self.input_type, n_samples, n_features
         )
-        print("data type: ", data[0].__class__)
 
         cu_start = time.time()
         algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
@@ -59,10 +59,15 @@ class SpeedupComparisonRunner:
         else:
             cpu_elapsed = 0.0
 
+        speedup = cpu_elapsed / float(cu_elapsed)
+        if verbose:
+            print("Speedup (n_samples=%s, n_features=%s) = %s" %
+                  (n_samples, n_features, speedup))
+
         return dict(
             cu_time=cu_elapsed,
             cpu_time=cpu_elapsed,
-            speedup=cpu_elapsed / float(cu_elapsed),
+            speedup=speedup,
             n_samples=n_samples,
             n_features=n_features,
             **param_overrides,
@@ -77,7 +82,8 @@ class SpeedupComparisonRunner:
         cpu_param_overrides={},
         *,
         run_cpu=True,
-        raise_on_error=False
+        raise_on_error=False,
+        verbose=False
     ):
         all_results = []
         for ns in self.bench_rows:
@@ -92,6 +98,7 @@ class SpeedupComparisonRunner:
                             cuml_param_overrides,
                             cpu_param_overrides,
                             run_cpu,
+                            verbose
                         )
                     )
                 except Exception as e:
