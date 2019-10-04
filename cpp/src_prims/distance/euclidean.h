@@ -23,7 +23,9 @@
 
 #include <cutlass/shape.h>
 #include <type_traits>
+
 #include <stdio.h>
+#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
 
 namespace MLCommon {
 namespace Distance {
@@ -94,9 +96,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   ASSERT(pA != NULL and pB != NULL and pD != NULL, "Null pointer!");
   ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
@@ -104,9 +104,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   EffOutType *pDCast = reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
   ASSERT(pDCast != NULL, "Null pointer!");
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
 
@@ -118,9 +116,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 
   typedef UnexpandedDistanceFragmentMultiplyAdd FragmentMultiplyAdd_;
 
@@ -128,9 +124,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                                             FragmentMultiplyAdd_>
     EpilogueFunctor_;
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 
   typedef typename std::conditional<
     is_bool::value,
@@ -144,9 +138,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   typedef UnexpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 
   cublasOperation_t transa, transb;
   const InType *aPtr, *bPtr;
@@ -177,9 +169,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_n = n;
   }
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
                     
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -197,13 +187,8 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   CUDA_CHECK(cudaPeekAtLastError());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
-//   CUDA_CHECK(cudaMemsetAsync(pD, 0, m * n * sizeof(OutType), stream));
-  
-//   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
-  printf("Here! %d %s\n", __LINE__, __FILE__);
+  CHECK;
 }
 
 };  // end namespace Distance
