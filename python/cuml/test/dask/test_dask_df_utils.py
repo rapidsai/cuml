@@ -17,16 +17,13 @@ import pytest
 
 import numpy as np
 
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [1, 5, 7])
-def test_to_dask_df(dtype, nparts):
+def test_to_dask_df(dtype, nparts, cluster):
 
-    cluster = LocalCUDACluster()
     c = Client(cluster)
 
     try:
@@ -50,4 +47,3 @@ def test_to_dask_df(dtype, nparts):
 
     finally:
         c.close()
-        cluster.close()
