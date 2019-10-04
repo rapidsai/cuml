@@ -40,46 +40,49 @@ def test_rf_classification_dask(n_workers, partitions_per_worker):
     cluster = LocalCUDACluster(threads_per_worker=1, n_workers=n_workers)
     c = Client(cluster)
 
-    X, y = make_classification(n_samples=10000, n_features=20,
-                               n_clusters_per_class=1, n_informative=10,
-                               random_state=123, n_classes=5)
+    try:
 
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
+        X, y = make_classification(n_samples=10000, n_features=20,
+                                   n_clusters_per_class=1, n_informative=10,
+                                   random_state=123, n_classes=5)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
 
-    cu_rf_params = {
-        'n_estimators': 25,
-        'max_depth': 13,
-        'n_bins': 15,
-    }
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 
-    workers = c.has_what().keys()
-    n_partitions = partitions_per_worker * len(workers)
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 13,
+            'n_bins': 15,
+        }
 
-    y_cudf = np.array(pd.DataFrame(y_train).values)
-    y_cudf = y_cudf[:, 0]
-    y_cudf = cudf.Series(y_cudf)
-    y_train_df = \
-        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
+        workers = c.has_what().keys()
+        n_partitions = partitions_per_worker * len(workers)
+        X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+        X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
-    X_train_df, y_train_df = dask_utils.persist_across_workers(c,
-                                                               [X_train_df,
-                                                                y_train_df],
-                                                               workers=workers)
-    cu_rf_mg = cuRFC_mg(**cu_rf_params)
-    cu_rf_mg.fit(X_train_df, y_train_df)
-    cu_rf_mg_predict = cu_rf_mg.predict(X_test)
+        y_cudf = np.array(pd.DataFrame(y_train).values)
+        y_cudf = y_cudf[:, 0]
+        y_cudf = cudf.Series(y_cudf)
+        y_train_df = \
+            dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
-    acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        X_train_df, y_train_df = dask_utils.persist_across_workers(c,
+                                                                   [X_train_df,
+                                                                    y_train_df],
+                                                                   workers=workers)
+        cu_rf_mg = cuRFC_mg(**cu_rf_params)
+        cu_rf_mg.fit(X_train_df, y_train_df)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test)
 
-    assert acc_score > 0.8
+        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 
-    c.close()
-    cluster.close()
+        assert acc_score > 0.8
+
+    finally:
+        c.close()
+        cluster.close()
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
@@ -91,44 +94,48 @@ def test_rf_regression_dask(n_workers, partitions_per_worker):
     cluster = LocalCUDACluster(threads_per_worker=1, n_workers=n_workers)
     c = Client(cluster)
 
-    X, y = make_regression(n_samples=40000, n_features=20,
-                           n_informative=10, random_state=123)
+    try:
 
-    X = X.astype(np.float32)
-    y = y.astype(np.float32)
+        X, y = make_regression(n_samples=40000, n_features=20,
+                               n_informative=10, random_state=123)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
 
-    cu_rf_params = {
-        'n_estimators': 25,
-        'max_depth': 13,
-    }
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1000)
 
-    workers = c.has_what().keys()
-    n_partitions = partitions_per_worker * len(workers)
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 13,
+        }
 
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-    X_train_df = \
-        dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+        workers = c.has_what().keys()
+        n_partitions = partitions_per_worker * len(workers)
 
-    y_cudf = np.array(pd.DataFrame(y_train).values)
-    y_cudf = y_cudf[:, 0]
-    y_cudf = cudf.Series(y_cudf)
-    y_train_df = \
-        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
+        X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+        X_train_df = \
+            dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
-    X_train_df, y_train_df = dask_utils.persist_across_workers(
-        c, [X_train_df, y_train_df], workers=workers)
+        y_cudf = np.array(pd.DataFrame(y_train).values)
+        y_cudf = y_cudf[:, 0]
+        y_cudf = cudf.Series(y_cudf)
+        y_train_df = \
+            dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
-    cu_rf_mg = cuRFR_mg(**cu_rf_params)
-    cu_rf_mg.fit(X_train_df, y_train_df)
-    cu_rf_mg_predict = cu_rf_mg.predict(X_test)
+        X_train_df, y_train_df = dask_utils.persist_across_workers(
+            c, [X_train_df, y_train_df], workers=workers)
 
-    acc_score = r2_score(cu_rf_mg_predict, y_test)
+        cu_rf_mg = cuRFR_mg(**cu_rf_params)
+        cu_rf_mg.fit(X_train_df, y_train_df)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test)
 
-    print(str(acc_score))
+        acc_score = r2_score(cu_rf_mg_predict, y_test)
 
-    assert acc_score >= 0.70
+        print(str(acc_score))
 
-    c.close()
-    cluster.close()
+        assert acc_score >= 0.70
+
+    finally:
+
+        c.close()
+        cluster.close()

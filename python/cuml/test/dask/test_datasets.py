@@ -27,29 +27,33 @@ from dask.distributed import Client
 @pytest.mark.parametrize('centers', [10])
 @pytest.mark.parametrize("cluster_std", [0.1])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nparts", [1, 5])
+@pytest.mark.parametrize("nparts", [1, 5, 7])
 def test_make_blobs(nrows, ncols, centers, cluster_std, dtype, nparts):
 
     cluster = LocalCUDACluster()
     c = Client(cluster)
+    try:
+        from cuml.dask.datasets import make_blobs
 
-    from cuml.dask.datasets import make_blobs
+        X, y = make_blobs(nrows, ncols,
+                          centers=centers,
+                          cluster_std=cluster_std,
+                          dtype=dtype,
+                          n_parts=nparts)
 
-    X, y = make_blobs(nrows, ncols, n_parts=nparts, centers=centers,
-                      cluster_std=cluster_std, dtype=dtype)
+        assert X.npartitions == nparts
+        assert y.npartitions == nparts
 
-    assert X.npartitions == nparts
-    assert y.npartitions == nparts
+        X = X.compute()
+        y = y.compute()
 
-    X = X.compute()
-    y = y.compute()
+        assert X.shape == (nrows, ncols)
+        assert y.shape == (nrows, 1)
 
-    assert X.shape == (nrows, ncols)
-    assert y.shape == (nrows, 1)
+        assert len(y[0].unique()) == centers
 
-    assert len(y[0].unique()) == centers
+        assert X.dtypes.unique() == [dtype]
 
-    assert X.dtypes.unique() == [dtype]
-
-    c.close()
-    cluster.close()
+    finally:
+        c.close()
+        cluster.close()
