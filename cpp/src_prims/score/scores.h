@@ -98,6 +98,9 @@ get_knn_indexes(const math_t *__restrict input,
                 std::shared_ptr<deviceAllocator> d_alloc,
                 cudaStream_t stream)
 {
+  ASSERT(input != NULL and d_alloc != NULL, "Null Pointers!");
+  ASSERT(n != 0 and d != 0 and n_neighbors != 0, "Params cannot be 0");
+
   long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
   ASSERT(indices != NULL, "Out of Memory");
 
@@ -147,8 +150,6 @@ trustworthiness_score2(const math_t *__restrict X,
                       cudaStream_t stream,
                       int skip = 0)
 {
-  ASSERT(distance_type > EucExpandedCosine, "Only supports unexpanded metrics");
-
   ASSERT(X != NULL and X_embedded != NULL and d_alloc != NULL, "Null Pointers");
 
   ASSERT(n != 0 and m != 0 and d != 0 and n_neighbors != 0, "Dimensions cannot be 0");
@@ -181,12 +182,19 @@ trustworthiness_score2(const math_t *__restrict X,
   {
     // Takes at most MAX_BATCH_SIZE vectors at a time
     const int batchSize = min(toDo, MAX_BATCH_SIZE);
+    if (batchSize <= 0) break;
 
     // Determine distance workspace size
+    ASSERT(&X[(n - toDo) * m] != NULL, "Null pointer!");
     lwork = getWorkspaceSize<distance_type, math_t, math_t, math_t>(
         &X[(n - toDo) * m], X, batchSize, n, m);
 
-    work = (lwork > 0) ? ((void *) d_alloc->allocate(lwork, stream)) : (NULL);
+
+    if (lwork > 0) {
+      work = (void *) d_alloc->allocate(lwork, stream);
+      ASSERT(work != NULL, "Out of memory!");
+    }
+    else work = NULL;
 
 
     // Find distances
@@ -229,6 +237,7 @@ trustworthiness_score2(const math_t *__restrict X,
     const int work = batchSize * n_neighbors;
     const int n_blocks = work / N_THREADS + 1;
 
+    ASSERT(&embedded_indices[(n - toDo) * (n_neighbors + 1)] != NULL, "Null pointer!");
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       indices, &embedded_indices[(n - toDo) * (n_neighbors + 1)], n,
       n_neighbors, batchSize * n_neighbors, d_t);
