@@ -206,6 +206,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true)
 {
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   if (worksize > 0) {
     ASSERT(workspace != NULL, "Workspace cannot be NULL!");
   }
@@ -218,6 +219,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
 
   CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
