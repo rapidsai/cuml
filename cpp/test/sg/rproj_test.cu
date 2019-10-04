@@ -25,6 +25,8 @@
 #include "random_projection/rproj_c.h"
 #include <stdio.h>
 
+#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
+
 namespace ML {
 
 using namespace MLCommon;
@@ -150,9 +152,7 @@ class RPROJTest : public ::testing::Test {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
     T* d_pdist;
     allocate(d_pdist, N * N);
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
@@ -164,9 +164,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
 
 
     T* h_pdist = new T[N * N];
@@ -174,9 +172,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
 
     T* d_pdist1;
     allocate(d_pdist1, N * N);
@@ -190,9 +186,7 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
 
 
     T* h_pdist1 = new T[N * N];
@@ -200,9 +194,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
 
 
     T* d_pdist2;
@@ -216,9 +208,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
-    printf("Here! %d %s\n", __LINE__, __FILE__);
+CHECK;
 
 
     T* h_pdist2 = new T[N * N];
