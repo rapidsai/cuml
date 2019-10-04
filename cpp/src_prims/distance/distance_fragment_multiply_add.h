@@ -39,20 +39,23 @@ struct ExpandedDistanceFragmentMultiplyAdd {
   CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,
                                const int index[FragmentCd_::kElements],
                                FragmentCol_ const &col, FragmentRow_ const &row,
-                               Lambda_ fin_op) {
-    FusedDistance fd;
-    int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
-    int const width = FragmentCd_::kElements / FragmentCol_::kElements;
-    for (int j = 0; j < FragmentCd_::kElements; ++j) {
-      d[j] = b[j * kReduction + 0];
-      for (int k = 1; k < kReduction; ++k) {
-        d[j] += b[j * kReduction + k];
-      }
-      if (index[j] != -1) {
-        fd.fused_distance<enable_sqrt_>(d[j], col[j / width], row[j % width]);
-        d[j] = fin_op(d[j], index[j]);
-      }
-    }
+                               Lambda_ fin_op)
+  {
+//     FusedDistance fd;
+//     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
+//     int const width = FragmentCd_::kElements / FragmentCol_::kElements;
+//     for (int j = 0; j < FragmentCd_::kElements; ++j)
+//     {
+//       d[j] = b[j * kReduction + 0];
+//       for (int k = 1; k < kReduction; ++k) {
+//         d[j] += b[j * kReduction + k];
+//       }
+//       if (index[j] != -1) {
+//         fd.fused_distance<enable_sqrt_>(d[j], col[j / width], row[j % width]);
+//         d[j] = fin_op(d[j], index[j]);
+//       }
+//     }
+    
   }
 };
 
@@ -97,17 +100,18 @@ struct UnexpandedDistanceFragmentMultiplyAdd {
   CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,
                                const int index[FragmentCd_::kElements],
                                Lambda_ fin_op) {
-    int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
-    for (int j = 0; j < FragmentCd_::kElements; ++j) {
-      d[j] = b[j * kReduction + 0];
-      for (int k = 1; k < kReduction; ++k) {
-        d[j] += b[j * kReduction + k];
-      }
-      if (index[j] != -1) {
-        d[j] = enable_sqrt_ ? mySqrt(d[j]) : d[j];
-        d[j] = fin_op(d[j], index[j]);
-      }
-    }
+//     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
+//     for (int j = 0; j < FragmentCd_::kElements; ++j) {
+//       d[j] = b[j * kReduction + 0];
+//       for (int k = 1; k < kReduction; ++k) {
+//         d[j] += b[j * kReduction + k];
+//       }
+//       if (index[j] != -1) {
+//         d[j] = enable_sqrt_ ? mySqrt(d[j]) : d[j];
+//         d[j] = fin_op(d[j], index[j]);
+//       }
+//     }
+              
   }
 };
 
