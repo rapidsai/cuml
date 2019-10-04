@@ -111,9 +111,6 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
         else:
             worker_rows = (int(nrows) - rows_so_far)
 
-        print("rows_per_part: " + str(rows_per_part))
-        print("worker_rows: " + str(worker_rows))
-
         dfs.append(client.submit(create_df, worker_rows, ncols,
                                  centers, cluster_std, random_state, dtype,
                                  key="%s-%s" % (key, idx),
