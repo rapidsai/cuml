@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --singlegpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
@@ -49,7 +49,7 @@ VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-MULTIGPU="--multigpu"
+SINGLEGPU=""
 CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
@@ -92,7 +92,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    MULTIGPU=""
+    SINGLEGPU="--singlegpu"
 fi
 if hasArg clean; then
     CLEAN=1
@@ -174,9 +174,9 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-  python setup.py build_ext --inplace ${MULTIGPU}
-  python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
+  python setup.py build_ext --inplace ${SINGLEGPU}
+  python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
-  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
+  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
     fi
 fi
