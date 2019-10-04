@@ -26,9 +26,5 @@ template <typename math_t, MLCommon::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
                              int n, int m, int d, int n_neighbors);
   
-
-template <typename math_t, MLCommon::Distance::DistanceType distance_type>
-double trustworthiness_score2(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors);
 }
 }  // namespace ML
