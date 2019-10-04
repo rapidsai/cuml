@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client, wait
 
@@ -31,13 +30,9 @@ from cuml.test.utils import unit_param, quality_param, stress_param
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
+def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     try:
         from cuml.dask.cluster import KMeans as cumlKMeans
@@ -81,9 +76,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
         assert 1.0 == score
 
     finally:
-        if owns_cluster:
-            client.close()
-            cluster.close()
+        client.close()
 
 
 @pytest.mark.mg
@@ -94,13 +87,9 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 @pytest.mark.parametrize("nclusters", [1, 10, 30])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-def test_transform(nrows, ncols, nclusters, n_parts, client=None):
+def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     try:
 
@@ -134,6 +123,4 @@ def test_transform(nrows, ncols, nclusters, n_parts, client=None):
         assert adjusted_rand_score(labels, xformed_labels)
 
     finally:
-        if owns_cluster:
-            client.close()
-            cluster.close()
+        client.close()

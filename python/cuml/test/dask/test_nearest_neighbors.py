@@ -18,16 +18,14 @@ import pytest
 from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait
-from dask_cuda import LocalCUDACluster
 
 from cudf.core.index import RangeIndex
 
 pytestmark = pytest.mark.mg
 
 
-def test_end_to_end():
+def test_end_to_end(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
     try:
@@ -112,4 +110,3 @@ def test_end_to_end():
     finally:
 
         client.close()
-        cluster.close()
