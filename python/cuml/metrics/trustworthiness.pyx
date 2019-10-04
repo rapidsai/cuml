@@ -40,7 +40,7 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 
-    cdef double trustworthiness_score2[T, DistanceType](const cumlHandle& h,
+    cdef double trustworthiness_score[T, DistanceType](const cumlHandle& h,
                                                        T* X,
                                                        T* X_embedded,
                                                        int n, int m,
@@ -144,7 +144,7 @@ def trustworthiness(X,
 
     cdef double trust = 0
     if dtype_X == np.float32:
-      trust = trustworthiness_score2[float, euclidean](handle_[0],
+      trust = trustworthiness_score[float, euclidean](handle_[0],
                                                       <float*>d_X_ptr,
                                                       <float*>d_X_embedded_ptr,
                                                       <int> n_samples,
@@ -152,7 +152,7 @@ def trustworthiness(X,
                                                       <int> n_components,
                                                       <int> n_neighbors)
     else:
-      trust = trustworthiness_score2[double, euclidean](handle_[0],
+      trust = trustworthiness_score[double, euclidean](handle_[0],
                                                       <double*>d_X_ptr,
                                                       <double*>d_X_embedded_ptr,
                                                       <int> n_samples,
