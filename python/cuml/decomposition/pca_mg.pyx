@@ -58,7 +58,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
-    cdef void fitF(cumlHandle& handle,
+    cdef void fit(cumlHandle& handle,
                   RankSizePair **input,
                   size_t n_parts,
                   floatData_t **rank_sizes,
@@ -71,7 +71,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   paramsPCA prms,
                   bool verbose) except +
 
-    cdef void fitD(cumlHandle& handle,
+    cdef void fit(cumlHandle& handle,
                   RankSizePair **input,
                   size_t n_parts,
                   doubleData_t **rank_sizes,
@@ -116,6 +116,21 @@ class PCAMG(PCA):
             dataD[x_i].ptr = < double * > input_ptr
             dataD[x_i].totalSize = < size_t > x["shape"][0]
         return <size_t>dataD
+
+    def _freeDoubleD(self, data, arr_interfaces):
+        cdef uintptr_t data_ptr = data
+        cdef doubleData_t **d = <doubleData_t**>data_ptr
+        for x_i in range(len(arr_interfaces)):
+            free(d[x_i])
+            free(d)
+
+    def _freeFloatD(self, data, arr_interfaces):
+        cdef uintptr_t data_ptr = data
+        cdef floatData_t **d = <floatData_t**>data_ptr
+        for x_i in range(len(arr_interfaces)):
+            free(d[x_i])
+            free(d)
+
 
     def fit(self, X, M, N, partsToRanks, _transform=False):
         """
@@ -184,7 +199,7 @@ class PCAMG(PCA):
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            fitF(handle_[0],
+            fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <floatData_t**> data,
@@ -196,9 +211,12 @@ class PCAMG(PCA):
                 <float*> noise_vars_ptr,
                 params,
                 True)
+
+            self._freeFloatD(data, arr_interfaces)
+
         else:
             data = self._build_dataDouble(arr_interfaces)
-            fitD(handle_[0],
+            fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <doubleData_t**> data,
@@ -211,9 +229,15 @@ class PCAMG(PCA):
                 params,
                 True)
 
-        # make sure the previously scheduled gpu tasks are complete before the
+            self._freeDoubleD(data, arr_interfaces)
+
+            # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
+
+        for idx, rankSize in enumerate(partsToRanks):
+            free(<RankSizePair*>rankSizePair[idx])
+        free(<RankSizePair**>rankSizePair)
 
         # Keeping the additional dataframe components during cuml 0.8.
         # See github issue #749
