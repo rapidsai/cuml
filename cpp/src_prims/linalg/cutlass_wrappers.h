@@ -30,7 +30,7 @@
 #include "cuda_utils.h"
 
 #include <stdio.h>
-#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
+#define CHECK ;
 
 namespace MLCommon {
 namespace LinAlg {
@@ -386,7 +386,6 @@ struct CustomGemm : public BaseClass {
     // Scale the id.
     block.x *= Traits::OutputTile::kW;
     block.y *= Traits::OutputTile::kH;
-    CHECK;
 
     // We may want to use shared memory to clear the registers.
     typedef typename Traits::ClearAccumulators ClearAccumulators;
@@ -412,7 +411,6 @@ struct CustomGemm : public BaseClass {
 
     // Make sure the data is in shared memory.
     Traits::shared_store_fence(false);
-    CHECK;
 
     // Rollback to the beginning of the GEMM-K dimension. It may have no impact.
     global_stream.rollback();
@@ -446,14 +444,12 @@ struct CustomGemm : public BaseClass {
       BaseClass::consume_tile<false>(global_stream, shared_load_stream,
                                      accumulators, outer_k);
     }
-    CHECK;
 
     // Residual loop.
     for (; outer_k > -kUnroll; outer_k -= kUnroll) {
       BaseClass::consume_tile<true>(global_stream, shared_load_stream,
                                     accumulators, outer_k);
     }
-    CHECK;
 
     // Epilogue.
     typedef typename Traits::Epilogue Epilogue;
