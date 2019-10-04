@@ -54,34 +54,40 @@ def test_ols(cluster):
 
     client = Client(cluster)
 
-    import dask_cudf
+    try:
 
-    import cudf
-    import numpy as np
+        import dask_cudf
 
-    from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
+        import cudf
+        import numpy as np
 
-    nrows = 2**8
-    ncols = 399
+        from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
-    X, y = load_data(nrows, ncols)
+        nrows = 2**8
+        ncols = 399
 
-    X_cudf = cudf.DataFrame.from_pandas(X)
-    y_cudf = np.array(y.as_matrix())
-    y_cudf = y_cudf[:, 0]
-    y_cudf = cudf.Series(y_cudf)
+        X, y = load_data(nrows, ncols)
 
-    workers = client.has_what().keys()
+        X_cudf = cudf.DataFrame.from_pandas(X)
+        y_cudf = np.array(y.as_matrix())
+        y_cudf = y_cudf[:, 0]
+        y_cudf = cudf.Series(y_cudf)
 
-    X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
-    y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
+        workers = client.has_what().keys()
 
-    lr = cumlOLS_dask()
+        X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
+        y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
 
-    lr.fit(X_df, y_df)
+        lr = cumlOLS_dask()
 
-    ret = lr.predict(X_df)
+        lr.fit(X_df, y_df)
 
-    error_cuml = mean_squared_error(y, ret.compute().to_array())
+        ret = lr.predict(X_df)
 
-    assert(error_cuml < 1e-6)
+        error_cuml = mean_squared_error(y, ret.compute().to_array())
+
+        assert(error_cuml < 1e-6)
+
+    finally:
+        client.close()
+        cluster.close()
