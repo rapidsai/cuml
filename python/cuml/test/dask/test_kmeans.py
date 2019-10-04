@@ -21,11 +21,26 @@ from dask.distributed import Client, wait
 import numpy as np
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
+@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
+                                   stress_param(5e6)])
 @pytest.mark.parametrize("ncols", [10, 30])
-@pytest.mark.parametrize("nclusters", [5, 10])
-@pytest.mark.parametrize("n_parts", [None, 1, 50])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
 def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
     owns_cluster = False
@@ -82,10 +97,13 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [5000, 10000])
-@pytest.mark.parametrize("ncols", [10, 30, 50])
-@pytest.mark.parametrize("nclusters", [1, 5, 10, 100])
-@pytest.mark.parametrize("n_parts", [None, 5])
+@pytest.mark.parametrize("nrows", [unit_param(5e3), quality_param(1e5),
+                                   stress_param(1e6)])
+@pytest.mark.parametrize("ncols", [unit_param(10), quality_param(30),
+                                   stress_param(50)])
+@pytest.mark.parametrize("nclusters", [1, 10, 30])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
 def test_transform(nrows, ncols, nclusters, n_parts, client=None):
 
     owns_cluster = False
