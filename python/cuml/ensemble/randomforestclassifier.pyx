@@ -40,56 +40,10 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle
-    cdef int TreeliteExportProtobufModel(const char* filename,
-                                         ModelHandle model)
-    cdef const char* TreeliteGetLastError()
+from cuml.ensemble.randomforest_shared cimport *
+
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
-    cdef enum CRITERION:
-        GINI,
-        ENTROPY,
-        MSE,
-        MAE,
-        CRITERION_END
-
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_rows_per_node
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
-
-    cdef enum RF_type:
-        CLASSIFICATION,
-        REGRESSION
-
-    cdef struct RF_metrics:
-        RF_type rf_type
-        float accuracy
-        double mean_abs_error
-        double mean_squared_error
-        double median_abs_error
-
-    cdef struct RF_params:
-        int n_trees
-        bool bootstrap
-        float rows_sample
-        int seed
-        pass
-
-    cdef cppclass RandomForestMetaData[T, L]:
-        void* trees
-        RF_params rf_params
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
@@ -176,21 +130,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef void print_rf_detailed(RandomForestMetaData[float, int]*) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
-
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int) except +
 
 
 class RandomForestClassifier(Base):
@@ -360,6 +299,7 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
+        self.n_unique_labels = None
         self.n_streams = n_streams
         self.seed = seed
 
@@ -480,8 +420,8 @@ class RandomForestClassifier(Base):
             else:
                 unique_labels = np.unique(y_m.copy_to_host())
 
-        num_unique_labels = len(unique_labels)
-        for i in range(num_unique_labels):
+        self.n_unique_labels = len(unique_labels)
+        for i in range(self.n_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
                                  "to be consecutive values from "
@@ -518,7 +458,7 @@ class RandomForestClassifier(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.n_unique_labels,
                 rf_params)
 
         elif self.dtype == np.float64:
@@ -529,7 +469,7 @@ class RandomForestClassifier(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> num_unique_labels,
+                <int> self.n_unique_labels,
                 rf_params64)
 
         else:
@@ -552,7 +492,7 @@ class RandomForestClassifier(Base):
                              " and test data should be the same ")
 
         treelite_model = self._get_treelite(num_features=n_cols,
-                                            task_category=num_classes)
+                                            task_category=self.n_classes)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -666,8 +606,7 @@ class RandomForestClassifier(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, output_class,
-                                               threshold, algo,
-                                               num_classes)
+                                               threshold, algo)
 
         return preds
 
@@ -901,11 +840,10 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(self.mod_ptr)
 
-    def save_treelite_protobuf(self, file_name, task_category=1):
+    def save_treelite_protobuf(self, file_name):
         file_name_bytes = bytes(file_name, "utf8")
-        # TODO: can we automatically figure out task_category?
 
-        tl = self._get_treelite(self.n_cols, task_category)
+        tl = self._get_treelite(self.n_cols, self.n_unique_labels)
         cdef ModelHandle tl_handle = <ModelHandle><size_t>tl.value
         res = TreeliteExportProtobufModel(file_name_bytes, tl_handle)
         if res < 0:

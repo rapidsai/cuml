@@ -39,53 +39,10 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle
+from cuml.ensemble.randomforest_shared cimport *
+
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
-    cdef enum CRITERION:
-        GINI,
-        ENTROPY,
-        MSE,
-        MAE,
-        CRITERION_END
-
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_rows_per_node
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
-
-    cdef enum RF_type:
-        CLASSIFICATION,
-        REGRESSION
-
-    cdef struct RF_metrics:
-        RF_type rf_type
-        float accuracy
-        double mean_abs_error
-        double mean_squared_error
-        double median_abs_error
-
-    cdef struct RF_params:
-        int n_trees
-        bool bootstrap
-        float rows_sample
-        int seed
-        pass
-
-    cdef cppclass RandomForestMetaData[T, L]:
-        void* trees
-        RF_params rf_params
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, float]*,
@@ -137,15 +94,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           double*,
                           bool) except +
 
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float, float]*,
-                                    int,
-                                    int) except +
-
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double, double]*,
-                                    int,
-                                    int) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -153,22 +101,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void print_rf_detailed(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_detailed(RandomForestMetaData[double, double]*) except +
 
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int) except +
 
-
+    
 class RandomForestRegressor(Base):
 
     """
