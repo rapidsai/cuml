@@ -131,4 +131,3 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
 
     finally:
         c.close()
-

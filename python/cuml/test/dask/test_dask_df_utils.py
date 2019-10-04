@@ -47,4 +47,3 @@ def test_to_dask_df(dtype, nparts, cluster):
 
     finally:
         c.close()
-
