@@ -204,13 +204,19 @@ template <DistanceType distanceType, typename InType, typename AccType,
           typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
-              FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
+              FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true)
+{
+  if (worksize > 0) {
+    ASSERT(workspace != NULL, "Workspace cannot be NULL!");
+  }
 
-  DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
-               Index_>
-    distImpl;
-  distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
-               isRowMajor);
+  ASSERT(x != NULL and y != NULL and dist != NULL, "Null pointers!");
+  ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
+
+  DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda, Index_> distImpl;
+
+  distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
+
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
