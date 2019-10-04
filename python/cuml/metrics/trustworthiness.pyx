@@ -62,7 +62,7 @@ def trustworthiness(X,
                     int n_neighbors=5,
                     str metric='euclidean',
                     bool should_downcast=True,
-                    bool convert_dtype=False):
+                    bool convert_dtype=True):
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -80,7 +80,7 @@ def trustworthiness(X,
         n_neighbors : int, optional (default: 5)
             Number of neighbors considered
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
 
@@ -111,12 +111,10 @@ def trustworthiness(X,
       downcast_embedded = np.float32
       downcast_X = np.float32
     else:
-      if hasattr(X, "dtype") and \
-        (X.dtype != np.float32 or X.dtype != np.float64):
+      if hasattr(X, "dtype") and X.dtype != np.float32:
           downcast_X = np.float32
 
-      if hasattr(X_embedded, "dtype") and \
-        (X_embedded.dtype != np.float32 or X_embedded.dtype != np.float64):
+      if hasattr(X_embedded, "dtype") and X_embedded.dtype != np.float32:
           downcast_embedded = np.float32
 
       if downcast_embedded != downcast_X:
@@ -125,10 +123,12 @@ def trustworthiness(X,
 
 
     X_m, d_X_ptr, n_samples, n_features, dtype_X = \
-        input_to_dev_array(X, order='C', convert_to_dtype=downcast_X)
+        input_to_dev_array(X, order='C', convert_to_dtype=downcast_X,
+                           check_dtype=np.float32)
 
     X_m2, d_X_embedded_ptr, n_rows, n_components, dtype_embedded = \
-        input_to_dev_array(X_embedded, order='C', convert_to_dtype=downcast_embedded)
+        input_to_dev_array(X_embedded, order='C', convert_to_dtype=downcast_embedded,
+                           check_dtype=np.float32)
 
     temp_handle = None
     cdef cumlHandle* handle_
@@ -143,22 +143,13 @@ def trustworthiness(X,
     assert(<void*>d_X_embedded_ptr != NULL)
 
     cdef double trust = 0
-    if dtype_X == np.float32:
-      trust = trustworthiness_score[float, euclidean](handle_[0],
-                                                      <float*>d_X_ptr,
-                                                      <float*>d_X_embedded_ptr,
-                                                      <int> n_samples,
-                                                      <int> n_features,
-                                                      <int> n_components,
-                                                      <int> n_neighbors)
-    else:
-      trust = trustworthiness_score[double, euclidean](handle_[0],
-                                                      <double*>d_X_ptr,
-                                                      <double*>d_X_embedded_ptr,
-                                                      <int> n_samples,
-                                                      <int> n_features,
-                                                      <int> n_components,
-                                                      <int> n_neighbors)
+    trust = trustworthiness_score[float, euclidean](handle_[0],
+                                                    <float*>d_X_ptr,
+                                                    <float*>d_X_embedded_ptr,
+                                                    <int> n_samples,
+                                                    <int> n_features,
+                                                    <int> n_components,
+                                                    <int> n_neighbors)
     del X_m
     del X_m2
 
