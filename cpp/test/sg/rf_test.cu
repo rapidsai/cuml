@@ -61,7 +61,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, params.n_streams, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -90,7 +90,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle;
+    cumlHandle handle(rf_params.n_streams);
     handle.setStream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
@@ -161,7 +161,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, params.n_streams, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -188,7 +188,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle;
+    cumlHandle handle(rf_params.n_streams);
     handle.setStream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
