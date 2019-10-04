@@ -102,6 +102,7 @@
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
+- PR #994: Adding MPI comm impl for testing / benchmarking MNMG CUDA
 - PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
