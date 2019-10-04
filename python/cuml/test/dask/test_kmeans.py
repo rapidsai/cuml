@@ -45,7 +45,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
                                random_state=10)
 
         cumlModel.fit(X_cudf)
@@ -80,7 +81,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, client=None):
             cluster.close()
 
 
-
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [5000, 10000])
 @pytest.mark.parametrize("ncols", [10, 30, 50])
@@ -106,7 +106,8 @@ def test_transform(nrows, ncols, nclusters, n_parts, client=None):
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters,
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
                                random_state=10)
 
         cumlModel.fit(X_cudf)

@@ -32,7 +32,8 @@ def test_end_to_end():
 
         print(client)
 
-        # NOTE: The LocalCUDACluster needs to be started before any imports that
+        # NOTE: The LocalCUDACluster needs to be started
+        # before any imports that
         # could potentially create a CUDA context.
 
         import dask_cudf
@@ -45,9 +46,11 @@ def test_end_to_end():
         def create_df(f, m, n):
             X = np.random.uniform(-1, 1, (m, n))
             ret = cudf.DataFrame([(i,
-                                   X[:, i].astype(np.float32)) for i in range(n)],
-                                 index=cudf.core.index.RangeIndex(f * m,
-                                                                  f * m + m, 1))
+                                   X[:, i].astype(np.float32))
+                                  for i in range(n)],
+                                 index=
+                                     cudf.core.index.RangeIndex(f * m,
+                                                                f * m + m, 1))
             return ret
 
         def get_meta(df):
@@ -58,8 +61,10 @@ def test_end_to_end():
             workers = client.has_what().keys()
 
             # Create dfs on each worker (gpu)
-            dfs = [client.submit(create_df, n, nrows, ncols, workers=[worker])
-                   for worker, n in list(zip(workers, list(range(len(workers)))))]
+            dfs = [client.submit(create_df, n, nrows, ncols,
+                                 workers=[worker])
+                   for worker, n in list(zip(workers,
+                                             list(range(len(workers)))))]
             # Wait for completion
             wait(dfs)
             meta = client.submit(get_meta, dfs[0]).result()
@@ -86,8 +91,10 @@ def test_end_to_end():
         cuml_D, cuml_I = cumlNN.kneighbors(test_DF, search_k)
         sk_D, sk_I = sklNN.kneighbors(test_PD, search_k)
 
-        cuml_I_nd = np.array(cuml_I.compute().as_gpu_matrix(), dtype=sk_I.dtype)
-        cuml_D_nd = np.array(cuml_D.compute().as_gpu_matrix(), dtype=sk_D.dtype)
+        cuml_I_nd = np.array(cuml_I.compute().as_gpu_matrix(),
+                             dtype=sk_I.dtype)
+        cuml_D_nd = np.array(cuml_D.compute().as_gpu_matrix(),
+                             dtype=sk_D.dtype)
 
         cuml_I_nd = np.sort(cuml_I_nd, axis=0)
         cuml_D_nd = np.sort(cuml_D_nd, axis=0)
