@@ -24,29 +24,33 @@ namespace MLCommon {
 namespace Stats {
 
 // Note: this kernel also updates the input vector to take care of OOB bins!
-__global__ void naiveHistKernel(int* bins, int nbins, int* in, int n) {
+__global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int stride = blockDim.x * gridDim.x;
-  for (; tid < n; tid += stride) {
-    int id = in[tid];
+  auto offset = blockIdx.y * nrows;
+  auto binOffset = blockIdx.y * nbins;
+  for (; tid < nrows; tid += stride) {
+    int id = in[offset + tid];
     if (id < 0)
       id = 0;
     else if (id >= nbins)
       id = nbins - 1;
-    in[tid] = id;
-    atomicAdd(bins + id, 1);
+    in[offset + tid] = id;
+    atomicAdd(bins + binOffset + id, 1);
   }
 }
 
-void naiveHist(int* bins, int nbins, int* in, int n, cudaStream_t stream) {
+void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols,
+               cudaStream_t stream) {
   const int TPB = 128;
-  int nblks = ceildiv(n, TPB);
-  naiveHistKernel<<<nblks, TPB, 0, stream>>>(bins, nbins, in, n);
+  int nblksx = ceildiv(nrows, TPB);
+  dim3 blks(nblksx, ncols);
+  naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
   CUDA_CHECK(cudaGetLastError());
 }
 
 struct HistInputs {
-  int n, nbins;
+  int nrows, ncols, nbins;
   bool isNormal;
   HistType type;
   int start, end;
@@ -59,18 +63,20 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     Random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, params.n);
+    int len = params.nrows * params.ncols;
+    allocate(in, len);
     if (params.isNormal) {
-      r.normalInt(in, params.n, params.start, params.end, stream);
+      r.normalInt(in, len, params.start, params.end, stream);
     } else {
-      r.uniformInt(in, params.n, params.start, params.end, stream);
+      r.uniformInt(in, len, params.start, params.end, stream);
     }
-    allocate(bins, params.nbins);
-    allocate(ref_bins, params.nbins);
-    CUDA_CHECK(
-      cudaMemsetAsync(ref_bins, 0, sizeof(int) * params.nbins, stream));
-    naiveHist(ref_bins, params.nbins, in, params.n, stream);
-    histogram<int>(params.type, bins, params.nbins, in, params.n, stream);
+    allocate(bins, params.nbins * params.ncols);
+    allocate(ref_bins, params.nbins * params.ncols);
+    CUDA_CHECK(cudaMemsetAsync(
+      ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
+    naiveHist(ref_bins, params.nbins, in, params.nrows, params.ncols, stream);
+    histogram<int>(params.type, bins, params.nbins, in, params.nrows,
+                   params.ncols, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -91,97 +97,176 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
 static const int oneK = 1024;
 static const int oneM = oneK * oneK;
 const std::vector<HistInputs> inputs = {
-  {oneM, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
-  {oneM, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
-  {oneM + 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
-  {oneM + 2, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM, 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM, 21, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
-  {oneM, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
-  {oneM + 1, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
-  {oneM + 2, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM, 1, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM, 21, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, false, HistTypeGmemWarp, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, true, HistTypeGmemWarp, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmem, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmem, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemWarp, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemWarp, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemBits16, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemBits16, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemBits8, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemBits8, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemBits4, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemBits4, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemBits2, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemBits2, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemBits1, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemBits1, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
-  {oneM, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
-  {oneM + 1, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
-  {oneM + 2, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
-  {oneM, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM, 1, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM, 21, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, false, HistTypeSmemHash, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeSmemHash, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeSmemHash, 1000, 50, 1234ULL},
 
-  {oneM, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
-  {oneM, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
-  {oneM + 1, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
-  {oneM + 2, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
-  {oneM, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
-  {oneM, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
-  {oneM + 1, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
-  {oneM + 1, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
-  {oneM + 2, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
-  {oneM + 2, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM, 1, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 1, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 1, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM, 1, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM, 1, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 1, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 1, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM, 21, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 1, 21, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, false, HistTypeAuto, 0, 2 * oneM, 1234ULL},
+  {oneM + 2, 21, 2 * oneM, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM, 21, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 1, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
+  {oneM + 2, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
 TEST_P(HistTest, Result) {
-  ASSERT_TRUE(devArrMatch(ref_bins, bins, params.nbins, Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch(ref_bins, bins, params.nbins * params.ncols, Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 
