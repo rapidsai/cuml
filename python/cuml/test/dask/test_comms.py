@@ -32,24 +32,33 @@ def test_comms_init_no_p2p(cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=False, client=client)
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=False)
+        cb.init()
 
-    assert cb.nccl_initialized is True
-    assert cb.ucx_initialized is False
+        assert cb.nccl_initialized is True
+        assert cb.ucx_initialized is False
 
-    cb.destroy()
+    finally:
+
+        cb.destroy()
+        client.close()
 
 
 def test_comms_init_p2p_no_ucx(cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True, client=client)
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
 
-    assert cb.nccl_initialized is True
-    assert cb.ucx_initialized is False
+        assert cb.nccl_initialized is True
+        assert cb.ucx_initialized is False
+
+    finally:
+        cb.destroy()
+        client.close()
 
 
 def func_test_allreduce(sessionId, r):
@@ -65,13 +74,18 @@ def func_test_send_recv(sessionId, n_trials, r):
 @pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist(cluster):
 
-    client = Client(cluster)  # noqa
+    client = Client(cluster)
 
-    cb = default_comms()
-    assert cb is not None
+    try:
+        cb = default_comms()
+        assert cb is not None
 
-    cb2 = default_comms()
-    assert cb.sessionId == cb2.sessionId
+        cb2 = default_comms()
+        assert cb.sessionId == cb2.sessionId
+
+    finally:
+        cb.destroy()
+        client.close()
 
 
 @pytest.mark.skip(reason="default_comms() not yet being used")
@@ -79,36 +93,42 @@ def test_default_comms(cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True, client=client)
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=True, client=client)
+        cb.init()
 
-    comms = default_comms()
-    assert(cb.sessionId == comms.sessionId)
+        comms = default_comms()
+        assert(cb.sessionId == comms.sessionId)
 
-    comms.destroy()
+    finally:
+        comms.destroy()
+        client.close()
 
 
 def test_allreduce(cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext()
-    cb.init()
+    try:
+        cb = CommsContext()
+        cb.init()
 
-    start = time.time()
-    dfs = [client.submit(func_test_allreduce, cb.sessionId,
-                         random.random(), workers=[w])
-           for wid, w in zip(range(len(cb.worker_addresses)),
-                             cb.worker_addresses)]
-    wait(dfs)
+        start = time.time()
+        dfs = [client.submit(func_test_allreduce, cb.sessionId,
+                             random.random(), workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
+        wait(dfs)
 
-    print("Time: " + str(time.time() - start))
+        print("Time: " + str(time.time() - start))
 
-    print(str(list(map(lambda x: x.result(), dfs))))
+        print(str(list(map(lambda x: x.result(), dfs))))
 
-    assert all(list(map(lambda x: x.result(), dfs)))
+        assert all(list(map(lambda x: x.result(), dfs)))
 
-    cb.destroy()
+    finally:
+        cb.destroy()
+        client.close()
 
 
 @pytest.mark.skip(reason="UCX support not enabled in CI")
@@ -116,25 +136,31 @@ def test_send_recv(n_trials, cluster):
 
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True, client=client)
-    cb.init()
+    try:
 
-    cb = default_comms()
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
 
-    start = time.time()
-    dfs = [client.submit(func_test_send_recv,
-                         cb.sessionId,
-                         n_trials,
-                         random.random(),
-                         workers=[w])
-           for wid, w in zip(range(len(cb.worker_addresses)),
-                             cb.worker_addresses)]
+        cb = default_comms()
 
-    wait(dfs)
-    print("Time: " + str(time.time() - start))
+        start = time.time()
+        dfs = [client.submit(func_test_send_recv,
+                             cb.sessionId,
+                             n_trials,
+                             random.random(),
+                             workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
 
-    result = list(map(lambda x: x.result(), dfs))
+        wait(dfs)
+        print("Time: " + str(time.time() - start))
 
-    assert(result)
+        result = list(map(lambda x: x.result(), dfs))
 
-    cb.destroy()
+        print(str(result))
+
+        assert(result)
+
+    finally:
+        cb.destroy()
+        client.close()
