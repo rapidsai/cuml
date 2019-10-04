@@ -43,6 +43,7 @@ def test_comms_init_no_p2p():
         assert cb.ucx_initialized is False
 
     finally:
+
         cb.destroy()
         client.close()
         cluster.close()
@@ -54,7 +55,6 @@ def test_comms_init_p2p_no_ucx():
     client = Client(cluster)   # noqa
 
     try:
-
         cb = CommsContext(comms_p2p=True)
         cb.init()
 
@@ -62,7 +62,7 @@ def test_comms_init_p2p_no_ucx():
         assert cb.ucx_initialized is False
 
     finally:
-        cb.close()
+        cb.destroy()
         client.close()
         cluster.close()
 
@@ -90,7 +90,7 @@ def test_default_comms_no_exist():
         assert cb.sessionId == cb2.sessionId
 
     finally:
-        cb.close()
+        cb.destroy()
         client.close()
         cluster.close()
 
