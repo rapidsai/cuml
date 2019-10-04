@@ -23,6 +23,7 @@
 
 #include <cutlass/shape.h>
 #include <type_traits>
+#include <stdio.h>
 
 namespace MLCommon {
 namespace Distance {
