@@ -35,8 +35,6 @@
 namespace MLCommon {
 namespace Matrix {
 
-__global__ void identity_matrix_kernel(double** I, int r);
-
 /* An allocation function for `BatchedMatrixMemory`. Written as a free function because I had trouble
  * getting the __device__ lambda to compile as a member function of the `BatchedMatrixMemory` struct.
  */
@@ -175,6 +173,18 @@ class BatchedMatrix {
     }
   }
 
+  //! Kernel to creates an Identity matrix
+  __global__ void identity_matrix_kernel(double** I, int r) {
+    int bid = blockIdx.x;
+    int tid = threadIdx.x;
+    for (int b = 0; b < r; b += blockDim.x) {
+      int idx = tid + b;
+      if (idx < r) {
+        I[bid][idx + r * idx] = 1;
+      }
+    }
+  }
+
   /* Initialize a batched identity matrix.
    * @param m Number of rows/columns of matrix
    * @param num_batches Number of matrices in batch
@@ -242,18 +252,6 @@ __global__ void kronecker_product_kernel(double** A, int m, int n, double** B,
           }
         }
       }
-    }
-  }
-}
-
-//! Kernel to creates an Identity matrix
-__global__ void identity_matrix_kernel(double** I, int r) {
-  int bid = blockIdx.x;
-  int tid = threadIdx.x;
-  for (int b = 0; b < r; b += blockDim.x) {
-    int idx = tid + b;
-    if (idx < r) {
-      I[bid][idx + r * idx] = 1;
     }
   }
 }
