@@ -53,9 +53,6 @@ extract_index_from_iterator(OutputIterator &iterator,
                         ? (&iterator.params.pointer[imm] - base_ptr)
                         : -1;
 
-        if (st >= OutputIterator::Fragment::kElements)
-          goto BREAK_EARLY;
-
         if (w < OutputIterator::Iterations::kW - 1)
           iterator.inc_w();
       }
@@ -68,7 +65,6 @@ extract_index_from_iterator(OutputIterator &iterator,
       iterator.inc_d();
   }
 
-BREAK_EARLY:
   iterator.inc_advance();
   iterator.params.pointer = current_ptr;
   iterator.params.predicate_offset = current_pred_offset;
