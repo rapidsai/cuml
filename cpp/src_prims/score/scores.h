@@ -266,7 +266,7 @@ trustworthiness_score(const math_t *__restrict X,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream)
 {
-  return trustworthiness_score2<distance_type>(X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 0);
+  return trustworthiness_score2<math_t, distance_type>(X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, 0);
 }
   
 /**
