@@ -27,6 +27,7 @@
 - PR #1136: CUDA 10.1 CI updates
 - PR #1165: Adding except + in all remaining cython
 - PR #1176: Use new RMM API based on Cython
+- PR #1219: Adding custom bench_func and verbose logging to cuml.benchmark
 
 ## Bug Fixes
 
