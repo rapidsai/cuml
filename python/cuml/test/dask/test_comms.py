@@ -104,6 +104,7 @@ def test_default_comms(cluster):
         comms.destroy()
         client.close()
 
+
 @pytest.mark.nccl
 def test_allreduce(cluster):
 
