@@ -89,7 +89,7 @@ compute_rank(const math_t *__restrict ind_X,
  * @param stream cuda stream to use
  * @return Matrix holding the indexes of the nearest neighbors
  */
-template <typename math_t>
+template <typename math_t = float>
 long *__restrict
 get_knn_indexes(const math_t *__restrict input,
                 const int n,
@@ -138,7 +138,7 @@ get_knn_indexes(const math_t *__restrict input,
  * @param stream the cuda stream to use
  * @return Trustworthiness score
  */
-template <typename math_t, Distance::DistanceType distance_type>
+template <typename math_t = float, Distance::DistanceType distance_type>
 double
 trustworthiness_score(const math_t *__restrict X,
                       const math_t *__restrict X_embedded,
