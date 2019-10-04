@@ -65,10 +65,11 @@ void nvtx_range_pop() { ML::POP_RANGE(); }
 template <int r>
 __device__ void Mv_l(double* A, double* v, double* out) {
   for (int i = 0; i < r; i++) {
-    out[i] = 0.0;
+    double sum = 0.0;
     for (int j = 0; j < r; j++) {
-      out[i] += A[i + j * r] * v[j];
+      sum += A[i + j * r] * v[j];
     }
+    out[i] = sum;
   }
 }
 
@@ -77,10 +78,11 @@ template <int r>
 __device__ void MM_l(double* A, double* B, double* out) {
   for (int i = 0; i < r; i++) {
     for (int j = 0; j < r; j++) {
-      out[i + j * r] = 0.0;
+      double sum = 0.0;
       for (int k = 0; k < r; k++) {
-        out[i + j * r] += A[i + k * r] * B[k + j * r];
+        sum += A[i + k * r] * B[k + j * r];
       }
+      out[i + j * r] = sum;
     }
   }
 }
