@@ -41,7 +41,8 @@ LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
-BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
+PYTHON_DEPS_CLONE=${REPODIR}/python/external
+BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE=""
