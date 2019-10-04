@@ -57,10 +57,20 @@ template double
 trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors);
-       
+
 template double
+trustworthiness_score<double, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+  const cumlHandle& h, double* X, double* X_embedded, int n, int m, int d,
+  int n_neighbors);
+       
+ template double
 trustworthiness_score2<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
+  int n_neighbors);
+
+template double
+trustworthiness_score2<double, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+  const cumlHandle& h, double* X, double* X_embedded, int n, int m, int d,
   int n_neighbors);
 
 };  //end namespace Metrics
