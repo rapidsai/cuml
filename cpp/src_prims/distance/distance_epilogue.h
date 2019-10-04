@@ -187,7 +187,7 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
   template <typename FinalLambda>
   CUTLASS_DEVICE void epilogue(cutlass::Coord<3> const &block,
                                Accumulators &accumulators, FinalLambda fin_op) {
-    /*
+    
     // The problem size.
     cutlass::Coord<3> const bounds = cutlass::make_Coord(0, this->n, this->m);
 
@@ -320,7 +320,7 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
         iterator_store(global_store_iterator, transformed_d);
       }
     }
-    */
+    
   }
 };  // end struct ExpandedDistanceGemmEpilogue
 
@@ -359,7 +359,7 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
   template <typename FinalLambda>
   CUTLASS_DEVICE void epilogue(cutlass::Coord<3> const &block,
                                Accumulators &accumulators, FinalLambda fin_op) {
-    /*
+    
     // The problem size.
     cutlass::Coord<3> const bounds = cutlass::make_Coord(0, this->n, this->m);
 
@@ -449,7 +449,7 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
         iterator_store(global_store_iterator, transformed_d);
       }
     }
-    */
+    
   }
 };  // end struct UnexpandedDistanceGemmEpilogue
 
