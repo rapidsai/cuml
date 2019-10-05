@@ -45,10 +45,6 @@ class TSNETest : public ::testing::Test
     cumlHandle handle;
 
     fprintf(stderr, "TSNE transfer\n");
-    fprintf(stderr, "TSNE transfer\n");
-    fprintf(stderr, "TSNE transfer\n");
-    fprintf(stderr, "TSNE transfer\n");
-
     // Allocate memory
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(), n*p);
     MLCommon::updateDevice(X_d.data(), digits.data(), n*p, handle.getStream());
@@ -58,10 +54,6 @@ class TSNETest : public ::testing::Test
 
 
     fprintf(stderr, "TSNE fit\n");
-    fprintf(stderr, "TSNE fit\n");
-    fprintf(stderr, "TSNE fit\n");
-    fprintf(stderr, "TSNE fit\n");
-
     // Test Barnes Hut
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
 
@@ -88,98 +80,15 @@ class TSNETest : public ::testing::Test
     MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2, handle.getStream());
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Test trustworthiness
-    // fprintf(stderr, "EucExpandedL2\n");
-    // fprintf(stderr, "EucExpandedL2\n");
-    // fprintf(stderr, "EucExpandedL2\n");
-    // fprintf(stderr, "EucExpandedL2\n");
-    // score_bh = trustworthiness_score<float, EucExpandedL2>(
-    //   X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    // fprintf(stderr, "EucExpandedL2 with score = %lf\n", score_bh);
-    // fprintf(stderr, "EucExpandedL2 with score = %lf\n", score_bh);
-    
-    // fprintf(stderr, "EucExpandedL2Sqrt\n");
-    // fprintf(stderr, "EucExpandedL2Sqrt\n");
-    // fprintf(stderr, "EucExpandedL2Sqrt\n");
-    // fprintf(stderr, "EucExpandedL2Sqrt\n");
-    // score_bh = trustworthiness_score<float, EucExpandedL2Sqrt >(
-    //   X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    // fprintf(stderr, "EucExpandedL2Sqrt  with score = %lf\n", score_bh);
-    // fprintf(stderr, "EucExpandedL2Sqrt  with score = %lf\n", score_bh);
-    
-    // fprintf(stderr, "EucExpandedCosine\n");
-    // fprintf(stderr, "EucExpandedCosine\n");
-    // fprintf(stderr, "EucExpandedCosine\n");
-    // fprintf(stderr, "EucExpandedCosine\n");
-    // score_bh = trustworthiness_score<float, EucExpandedCosine  >(
-    //   X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    // fprintf(stderr, "EucExpandedCosine   with score = %lf\n", score_bh);
-    // fprintf(stderr, "EucExpandedCosine   with score = %lf\n", score_bh);
-    
-    // fprintf(stderr, "EucUnexpandedL1\n");
-    // fprintf(stderr, "EucUnexpandedL1\n");
-    // fprintf(stderr, "EucUnexpandedL1\n");
-    // fprintf(stderr, "EucUnexpandedL1\n");
-    // score_bh = trustworthiness_score<float, EucUnexpandedL1   >(
-    //   X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    // fprintf(stderr, "EucUnexpandedL1    with score = %lf\n", score_bh);
-    // fprintf(stderr, "EucUnexpandedL1    with score = %lf\n", score_bh);
-    
-    // fprintf(stderr, "EucUnexpandedL2\n");
-    // fprintf(stderr, "EucUnexpandedL2\n");
-    // fprintf(stderr, "EucUnexpandedL2\n");
-    // fprintf(stderr, "EucUnexpandedL2\n");
-    // score_bh = trustworthiness_score<float, EucUnexpandedL2    >(
-    //   X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    // fprintf(stderr, "EucUnexpandedL2     with score = %lf\n", score_bh);
-    // fprintf(stderr, "EucUnexpandedL2     with score = %lf\n", score_bh);
-    
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
-    
-
+    // Test trustworthiness in a loop
+    // This can catch errors
+    for (int i = 0; i < 3; i++)
+    {
+      fprintf(stderr, "EucUnexpandedL2Sqrt\n");
+      score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt     >(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(), handle.getStream());
+      fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
+    }
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
