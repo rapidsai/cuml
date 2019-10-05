@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CHECK fprintf(stderr, "%d %s\n", __LINE__, __FILE__);
+#define CHECK ;
 
 namespace MLCommon {
 namespace Distance {
