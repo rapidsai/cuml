@@ -43,11 +43,6 @@ from .randomforest_base import RandomForestBase
 from cuml.ensemble.randomforest_shared cimport *
 
 
-ctypedef fused fused_numeric_type:
-    cython.int
-    cython.double
-    cython.float
-
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef void fit(cumlHandle & handle,
