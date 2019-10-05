@@ -62,7 +62,9 @@ protected:
 
 
       float **ptrs = new float*[1];
+		  ASSERT(ptrs != NULL, "Out of memory");
       int *sizes = new int[1];
+      ASSERT(sizes != NULL, "Out of memory");
       ptrs[0] = d_train_inputs;
       sizes[0] = n;
 
@@ -72,6 +74,9 @@ protected:
       brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n, stream);
 
       cudaStreamDestroy(stream);
+      delete[] ptrs;
+      delete[] sizes;
+ 
   }
 
  	void SetUp() override {
