@@ -25,10 +25,17 @@
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <iostream>
+#include <stdlib.h>
 
 
 #define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
 
+#define BOUNDSCHECK(x, max) \
+  if ((x) >= (max) || (x) < 0) { \
+      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+  }
 
 
 namespace MLCommon {
@@ -55,14 +62,14 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
   {
     std::vector<int> buf(2 * nshard);
     int *pointer = buf.data();
-    ASSERT(pointer != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+    ASSERT(pointer != NULL, "Null pointer");
 
     int *shard_ids = pointer + nshard;
-    ASSERT(shard_ids != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+    ASSERT(shard_ids != NULL, "Null pointer");
 
     std::vector<float> buf2(nshard);
     float *heap_vals = buf2.data();
-    ASSERT(heap_vals != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+    ASSERT(heap_vals != NULL, "Null pointer");
 
 #pragma omp for
     for (long i = 0; i < n; i++)
@@ -82,7 +89,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
 
       float *D = distances + i * k;
       long *I = labels + i * k;
-      ASSERT(D != NULL and I != NULL, "Null pointer [%d] %s\n", __LINE__, __FILE__);
+      ASSERT(D != NULL and I != NULL, "Null pointer");
 
       for (int j = 0; j < k; j++)
       {
@@ -94,14 +101,17 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
         else
         {
           // pop best element
-          int s = shard_ids[0];
+          const int s = shard_ids[0];
           int &p = pointer[s];
+          BOUNDSCHECK(stride * s + p, k);
+          BOUNDSCHECK(s, nshard);
+
           D[j] = heap_vals[0];
           I[j] = I_in[stride * s + p] + translations[s];
 
           faiss::heap_pop<C>(heap_size--, heap_vals, shard_ids);
           p++;
-          if (p < k && I_in[stride * s + p] >= 0)
+          if (p < k and I_in[stride * s + p] >= 0)
             faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
                                 D_in[stride * s + p], s);
         }
@@ -149,16 +159,16 @@ brute_force_knn(float **input,
 
   CHECK;
   float *result_D = (float*) malloc(sizeof(float) * k * n);
-  ASSERT(result_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(result_D != NULL, "Out of Memory");
 
   long *result_I = (long*) malloc(sizeof(long) * k * n);
-  ASSERT(result_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(result_I != NULL, "Out of Memory");
 
   float *all_D = (float*) malloc(sizeof(float) * n_params * k * n);
-  ASSERT(all_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(all_D != NULL, "Out of Memory");
 
   long *all_I = (long*) malloc(sizeof(long) * n_params * k * n);
-  ASSERT(all_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
+  ASSERT(all_I != NULL, "Out of Memory");
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
@@ -171,7 +181,7 @@ brute_force_knn(float **input,
   for (int i = 0; i < n_params; i++)
   {
     const float *ptr = input[i];
-    ASSERT(ptr != NULL, "Pointer is NULL [%d] %s\n", __LINE__, __FILE__);
+    ASSERT(ptr != NULL, "Pointer is NULL");
 
     const IntType size = sizes[i];
 
