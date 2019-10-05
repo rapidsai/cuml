@@ -26,15 +26,15 @@
 
 #include <iostream>
 #include <stdlib.h>
+#include <stdio.h>
 
-
-#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
+#define CHECK fprintf(stderr, "[%d] %s\n", __LINE__, __FILE__);
 
 #define BOUNDSCHECK(x, max) \
   if ((x) >= (max) || (x) < 0) { \
-      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-      printf("Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+      fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+      fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
+      fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
   }
 
 
