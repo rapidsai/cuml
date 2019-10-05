@@ -137,7 +137,6 @@ brute_force_knn(float **input,
                 const IntType k,
                 cudaStream_t s)
 {
-  CHECK;
   std::vector<long> id_ranges;
 
   IntType total_n = 0;
@@ -146,26 +145,21 @@ brute_force_knn(float **input,
     if (i < n_params)  // if i < sizes[i]
       id_ranges.push_back(total_n);
     total_n += sizes[i];
-    CHECK;
   }
 
   CHECK;
   float *result_D = (float*) malloc(sizeof(float) * k * n);
   ASSERT(result_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   long *result_I = (long*) malloc(sizeof(long) * k * n);
   ASSERT(result_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   float *all_D = (float*) malloc(sizeof(float) * n_params * k * n);
   ASSERT(all_D != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   long *all_I = (long*) malloc(sizeof(long) * n_params * k * n);
   ASSERT(all_I != NULL, "Out of Memory [%d] %s\n", __LINE__, __FILE__);
 
-  CHECK;
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
@@ -176,7 +170,6 @@ brute_force_knn(float **input,
   #pragma omp parallel for if(n_params > 1) schedule(static)
   for (int i = 0; i < n_params; i++)
   {
-    CHECK;
     const float *ptr = input[i];
     ASSERT(ptr != NULL, "Pointer is NULL [%d] %s\n", __LINE__, __FILE__);
 
@@ -191,7 +184,6 @@ brute_force_knn(float **input,
       CUDA_CHECK(cudaSetDevice(att.device));
       CUDA_CHECK(cudaPeekAtLastError());
 
-      CHECK;
       try
       {
         CHECK;
@@ -200,7 +192,6 @@ brute_force_knn(float **input,
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
 
-        CHECK;
         gpu_res.noTempMemory();
         gpu_res.setCudaMallocWarning(false);
         gpu_res.setDefaultStream(att.device, stream);
@@ -215,7 +206,6 @@ brute_force_knn(float **input,
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
         CUDA_CHECK(cudaStreamDestroy(stream));
-        CHECK;
       }
       catch (const std::exception &e)
       {
@@ -236,7 +226,6 @@ brute_force_knn(float **input,
   merge_tables<faiss::CMin<float, IntType>>(
     long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges.data());
 
-  CHECK;
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
 
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
@@ -248,7 +237,6 @@ brute_force_knn(float **input,
 
   free(result_D);
   free(result_I);
-  CHECK;
 };
 
 };  // namespace Selection
