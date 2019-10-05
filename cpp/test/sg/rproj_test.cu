@@ -162,6 +162,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist;
     allocate(d_pdist, N * N);
+    ASSERT(d_pdist != NULL, "Out of Memory!");
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
@@ -172,7 +173,8 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
-    T* h_pdist = new T[N * N];
+    T* h_pdist = (T*) malloc(sizeof(T) * N * N);
+    ASSERT(h_pdist != NULL, "Out of Memory!");
     updateHost(h_pdist, d_pdist, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
@@ -180,6 +182,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist1;
     allocate(d_pdist1, N * N);
+    ASSERT(d_pdist1 != NULL, "Out of Memory!");
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_output1, d_output1, N, N, D);
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
@@ -190,7 +193,8 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
-    T* h_pdist1 = new T[N * N];
+    T* h_pdist1 = (T*) malloc(sizeof(T) * N * N);
+    ASSERT(h_pdist1 != NULL, "Out of Memory!");
     updateHost(h_pdist1, d_pdist1, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
@@ -198,6 +202,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist2;
     allocate(d_pdist2, N * N);
+    ASSERT(d_pdist2 != NULL, "Out of Memory!");
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_output2, d_output2, N, N, D);
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
@@ -208,7 +213,8 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
-    T* h_pdist2 = new T[N * N];
+    T* h_pdist2 = (T*) malloc(sizeof(T) * N * N);
+    ASSERT(h_pdist2 != NULL, "Out of Memory!");
     updateHost(h_pdist2, d_pdist2, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist2));
@@ -228,9 +234,9 @@ class RPROJTest : public ::testing::Test {
       }
     }
 
-    delete[] h_pdist;
-    delete[] h_pdist1;
-    delete[] h_pdist2;
+    free(h_pdist);
+    free(h_pdist1);
+    free(h_pdist2);
   }
 
  protected:
