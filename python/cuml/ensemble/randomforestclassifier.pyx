@@ -94,16 +94,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float, int]*,
-                                    int,
-                                    int)
-
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double, int]*,
-                                    int,
-                                    int)
-
     cdef void save_model_protobuf(ModelHandle, const char*) except +
 
     cdef RF_metrics score(cumlHandle& handle,
@@ -124,11 +114,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           int*,
                           bool) except +
 
-    cdef void print_rf_summary(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_summary(RandomForestMetaData[double, int]*) except +
-
-    cdef void print_rf_detailed(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
 
 
 class RandomForestClassifier(RandomForestBase):

@@ -100,14 +100,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           double*,
                           bool) except +
 
-
-    cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
-    cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
-
-    cdef void print_rf_detailed(RandomForestMetaData[float, float]*) except +
-    cdef void print_rf_detailed(RandomForestMetaData[double, double]*) except +
-
-
     
 class RandomForestRegressor(RandomForestBase):
 
@@ -675,7 +667,6 @@ class RandomForestRegressor(RandomForestBase):
 
     def _get_treelite(self, num_features,
                       task_category=1, model=None):
-
         cdef ModelHandle cuml_model_ptr
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
