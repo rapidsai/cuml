@@ -45,7 +45,9 @@ void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
               long *knn_indices, T *knn_dists, int n_neighbors,
               UMAPParams *params, cudaStream_t stream) {
   float **p = new float *[1];
+  ASSERT(p != NULL, "Out of memory");
   int *sizes = new int[1];
+  ASSERT(sizes != NULL, "Out of memory");
   p[0] = X;
   sizes[0] = x_n;
 
@@ -57,8 +59,8 @@ void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
     knn_dists, knn_dists, x_n * n_neighbors,
     [] __device__(T input) { return sqrt(input); }, stream);
 
-  delete p;
-  delete sizes;
+  delete[] p;
+  delete[] sizes;
 }
 }  // namespace Algo
 }  // namespace kNNGraph
