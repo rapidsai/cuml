@@ -60,11 +60,12 @@ TEST_P(SortedCOOToCSR, Result) {
   sorted_coo_to_csr<int>(in, nnz, out, 4, stream);
 
   ASSERT_TRUE(devArrMatch<int>(out, exp, 4, Compare<int>()));
-
+  
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   cudaStreamDestroy(stream);
 
-  delete in_h;
-  delete exp_h;
+  delete[] in_h;
+  delete[] exp_h;
 
   CUDA_CHECK(cudaFree(in));
   CUDA_CHECK(cudaFree(exp));
@@ -95,7 +96,7 @@ TEST_P(COOSymmetrize, Result) {
   updateDevice(in.rows, *&in_rows_h, nnz, stream);
   updateDevice(in.cols, *&in_cols_h, nnz, stream);
   updateDevice(in.vals, *&in_vals_h, nnz, stream);
-
+ 
   COO<float> out;
 
   coo_symmetrize<32, float>(
@@ -105,7 +106,6 @@ TEST_P(COOSymmetrize, Result) {
     },
     stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == expected.nnz);
@@ -115,16 +115,17 @@ TEST_P(COOSymmetrize, Result) {
     devArrMatch<int>(out.cols, expected.cols, out.nnz, Compare<int>()));
   ASSERT_TRUE(
     devArrMatch<float>(out.vals, expected.vals, out.nnz, Compare<float>()));
-
+   
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   cudaStreamDestroy(stream);
 
-  delete in_rows_h;
-  delete in_cols_h;
-  delete in_vals_h;
+  delete[] in_rows_h;
+  delete[] in_cols_h;
+  delete[] in_vals_h;
 
-  delete exp_rows_h;
-  delete exp_cols_h;
-  delete exp_vals_h;
+  delete[] exp_rows_h;
+  delete[] exp_cols_h;
+  delete[] exp_vals_h;
 }
 
 typedef COOTest<float> COOSort;
@@ -161,6 +162,8 @@ TEST_P(COOSort, Result) {
   coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals);
 
   ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
+ 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   free(in_rows_h);
   free(in_cols_h);
@@ -187,6 +190,7 @@ TEST_P(COORemoveZeros, Result) {
   r.uniform(in.vals, params.nnz, float(-1.0), float(1.0), stream);
 
   updateHost(in_h.vals, in.vals, params.nnz, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   in_h.vals[0] = 0;
   in_h.vals[2] = 0;
@@ -218,6 +222,7 @@ TEST_P(COORemoveZeros, Result) {
   updateDevice(out_ref.vals, out_vals_ref_h, 2, stream);
 
   coo_remove_zeros<32, float>(&in, &out, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(devArrMatch<int>(out_ref.rows, out.rows, 2, Compare<int>()));
   ASSERT_TRUE(devArrMatch<int>(out_ref.cols, out.cols, 2, Compare<int>()));
