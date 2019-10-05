@@ -25,7 +25,8 @@
 #include <type_traits>
 
 #include <stdio.h>
-#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
+#include <stdlib.h>
+#define CHECK fprintf(stderr, "[%d] %s\n", __LINE__, __FILE__);
 
 namespace MLCommon {
 namespace Distance {
@@ -93,6 +94,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor)
 {
+  CHECK;
   ASSERT(pA != NULL and pB != NULL and pD != NULL, "Null pointer!");
   ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
 
@@ -158,6 +160,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
+  CHECK;
                     
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
