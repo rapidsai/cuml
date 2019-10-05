@@ -62,12 +62,16 @@ class KNNTest : public ::testing::Test {
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
     float **ptrs = new float *[1];
+    ASSERT(ptrs != NULL, "No memory!");
     int *sizes = new int[1];
+    ASSERT(sizes != NULL, "No memory!");
     ptrs[0] = d_train_inputs;
     sizes[0] = n;
 
     knn->fit(ptrs, sizes, 1);
     knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
+    delete[] ptrs;
+    delete[] sizes;
   }
 
   void SetUp() override { basicTest(); }
@@ -78,6 +82,7 @@ class KNNTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(d_pred_D));
     CUDA_CHECK(cudaFree(d_ref_I));
     CUDA_CHECK(cudaFree(d_ref_D));
+    delete knn;
   }
 
  protected:
