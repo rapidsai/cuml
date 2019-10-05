@@ -29,9 +29,6 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 
-#include <stdio.h>
-#define CHECK ;
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -285,8 +282,7 @@ struct CustomGemmTraits : public cutlass::gemm::SimplifiedGemmTraits<
 
 template <typename Gemm_, typename FinalLambda>
 __global__ void custom_gemm_kernel(typename Gemm_::Params params,
-                                   FinalLambda fin_op)
-{
+                                   FinalLambda fin_op) {
   __shared__ typename Gemm_::SharedStorage shared_storage;
   Gemm_ gemm(params, shared_storage);
   gemm.multiply_add(fin_op);
@@ -358,9 +354,6 @@ struct CustomGemm : public BaseClass {
     block.x = BaseClass::kThreads;
     // Launch the kernel.
     void const* args[] = {&params, &fin_op};
-
-    CHECK;
-
     cudaLaunchKernel(
       reinterpret_cast<void*>(&custom_gemm_kernel<This_, FinalLambda>), grid,
       block, const_cast<void**>(args), 0, stream);
@@ -458,7 +451,6 @@ struct CustomGemm : public BaseClass {
                       BaseClass::params.n);
     epilogue.epilogue(cutlass::make_Coord(0, block.y, block.x), accumulators,
                       fin_op);
-    CHECK;
   }
 };  // end struct CustomGemm
 
@@ -538,18 +530,11 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     GemmTraits;
   typedef CustomGemm<GemmTraits> Gemm;
   typename Gemm::Params params;
-
-CHECK;
-
-
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
-
-CHECK;
-
   Gemm::launch(params, fin_op, stream);
 }
 
@@ -582,15 +567,9 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   typename Gemm::Params params;
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
-
-  CHECK;
-
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
-
-CHECK;
-
   Gemm::launch(params, stream);
 }
 /** @} */
@@ -653,9 +632,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, FinalLambda fin_op,
               cudaStream_t stream) {
-
-CHECK;
-
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
@@ -709,9 +685,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
-
-  CHECK;
-
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
