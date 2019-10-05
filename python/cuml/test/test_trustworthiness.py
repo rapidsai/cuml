@@ -12,45 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.manifold import TSNE
-
+import pytest
 from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
-from sklearn import datasets
-import pandas as pd
-import numpy as np
+from sklearn.datasets.samples_generator import make_blobs
+from umap import UMAP
+
 import cudf
-import pytest
+import numpy as np
 
-dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
-                 'diabetes']
 
-@pytest.mark.parametrize('name', dataset_names)
-def test_trustworthiness(name):
-    datasets
-    X = eval("datasets.load_{}".format(name))().data
-    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+@pytest.mark.parametrize('input_type', ['ndarray'])
+@pytest.mark.parametrize('n_samples', [10, 100])
+@pytest.mark.parametrize('n_features', [10, 100])
+@pytest.mark.parametrize('n_components', [2, 8])
+def test_trustworthiness(input_type, n_samples, n_features, n_components):
+    centers = round(n_samples*0.4)
+    X, y = make_blobs(n_samples=n_samples, centers=centers,
+                      n_features=n_features)
+
+    X_embedded = UMAP(n_components=n_components).fit_transform(X)
+    X = X.astype(np.float32)
+    X_embedded = X_embedded.astype(np.float32)
+
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        for i in range(X.shape[1]):
+            gdf[str(i)] = np.asarray(X[:, i], dtype=np.float32)
+
+        gdf_embedded = cudf.DataFrame()
+        for i in range(X_embedded.shape[1]):
+            gdf_embedded[str(i)] = np.asarray(X_embedded[:, i],
+                                              dtype=np.float32)
+
+        score = cuml_trustworthiness(gdf, gdf_embedded)
+    else:
+        score = cuml_trustworthiness(X, X_embedded)
+
+    sk_score = sklearn_trustworthiness(X, X_embedded)
+
     eps = 0.001
-    
-    for i in range(2):
-        print("iteration = ", i)
-        
-        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
-
-        Y = tsne.fit_transform(X_cudf).to_pandas().values
-        nans = np.sum(np.isnan(Y))
-        trust = sklearn_trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
-        del Y
-        
-        # Reuse
-        Y = tsne.fit_transform(X)
-        nans = np.sum(np.isnan(Y))
-        trust = cuml_trustworthiness(X, Y)
-        print("Trust = ", trust)
-        assert trust > 0.76
-        assert nans == 0
-        del Y
+    assert (sk_score * (1 - eps) <= score and
+            score <= sk_score * (1 + eps))
+    # assert cu_score == sk_score ideally
