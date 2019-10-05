@@ -26,6 +26,8 @@
 
 #include <iostream>
 
+#define CHECK fprintf(stderr, "%d %s\n", __LINE__, __FILE__);
+
 
 namespace MLCommon {
 namespace Selection {
@@ -46,7 +48,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
     return;
   }
 
-  size_t stride = n * k;
+  const size_t stride = n * k;
 #pragma omp parallel
   {
     std::vector<int> buf(2 * nshard);
@@ -134,6 +136,11 @@ brute_force_knn(float **input,
                 const IntType k,
                 cudaStream_t s)
 {
+  CHECK;
+
+  ASSERT(input != NULL and sizes != NULL and search_items != NULL, "Null pointers!");
+  ASSERT(res_I != NULL and res_D != NULL, "Null pointers!");
+
   std::vector<long> id_ranges;
 
   IntType total_n = 0;
@@ -143,7 +150,6 @@ brute_force_knn(float **input,
       id_ranges.push_back(total_n);
     total_n += sizes[i];
   }
-
   
   float *result_D = (float*) malloc(sizeof(float) * k * n);
   ASSERT(result_D != NULL, "Out of Memory");
@@ -175,7 +181,7 @@ brute_force_knn(float **input,
     cudaPointerAttributes att;
     cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
-    
+    CHECK;
     if (err == 0 && att.device > -1)
     {
       CUDA_CHECK(cudaSetDevice(att.device));
@@ -183,7 +189,6 @@ brute_force_knn(float **input,
 
       try
       {
-        
         faiss::gpu::StandardGpuResources gpu_res;
 
         cudaStream_t stream;
@@ -218,7 +223,6 @@ brute_force_knn(float **input,
       std::cout << "Exception: " << ss.str() << std::endl;
     }
   }
-
   
   merge_tables<faiss::CMin<float, IntType>>(
     long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges.data());
@@ -234,6 +238,7 @@ brute_force_knn(float **input,
 
   free(result_D);
   free(result_I);
+  CHECK;
 };
 
 };  // namespace Selection
