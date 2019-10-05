@@ -122,7 +122,9 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
   float **ptrs = new float *[1];
+  ASSERT(ptrs != NULL, "Out of memory");
   int *sizes = new int[1];
+  ASSERT(sizes != NULL, "Out of memory");
   ptrs[0] = X;
   sizes[0] = m;
 
@@ -133,8 +135,8 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
                eigen_tol, out, allocator, stream);
 
-  delete ptrs;
-  delete sizes;
+  delete[] ptrs;
+  delete[] sizes;
 }
 
 template <typename T>
