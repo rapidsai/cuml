@@ -40,6 +40,7 @@ class RPROJTest : public ::testing::Test {
     cublasHandle_t cublas_handle = h.getImpl().getCublasHandle();
     T* result;
     allocate(result, n_rows * n_cols);
+    ASSERT(result != NULL, "Null pointer");
     MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
                                 stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -59,6 +60,7 @@ class RPROJTest : public ::testing::Test {
       i = dist(rng);
     }
     allocate(d_input, h_input.size());
+    ASSERT(d_input != NULL, "Null pointer");
     updateDevice(d_input, h_input.data(), h_input.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     //d_input = transpose(d_input, N, M);
@@ -80,8 +82,11 @@ class RPROJTest : public ::testing::Test {
     };
 
     random_matrix1 = new rand_mat<T>();
+    ASSERT(random_matrix1 != NULL, "Null pointer");
     RPROJfit(h, random_matrix1, params1);
+    
     allocate(d_output1, N * params1->n_components);
+    ASSERT(d_output1 != NULL, "Null pointer");
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
 
      // From column major to row major
@@ -103,8 +108,11 @@ class RPROJTest : public ::testing::Test {
     };
 
     random_matrix2 = new rand_mat<T>();
+    ASSERT(random_matrix2 != NULL, "Null pointer");
+    
     RPROJfit(h, random_matrix2, params2);
     allocate(d_output2, N * params2->n_components);
+    ASSERT(d_output2 != NULL, "Null pointer");
     RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
 
       // From column major to row major
