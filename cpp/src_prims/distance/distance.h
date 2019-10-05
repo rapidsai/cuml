@@ -24,6 +24,11 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#define CHECK fprintf(stderr, "%d %s\n", __LINE__, __FILE__);
+
 namespace MLCommon {
 namespace Distance {
 
@@ -213,13 +218,15 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 
   ASSERT(x != NULL and y != NULL and dist != NULL, "Null pointers!");
   ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
-
+  
+  CHECK;
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda, Index_> distImpl;
 
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
 
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  CHECK;
 }
 
 /**
