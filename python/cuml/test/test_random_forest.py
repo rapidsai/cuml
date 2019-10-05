@@ -158,16 +158,23 @@ def test_save_load_cuml_rf(tmp_path, model_type):
     # Build a simple model
     nrows = 100
     train_size = 80
-    ncols = 10
+    ncols = 20
     if model_type == 'classification':
-        X, y = make_classification(n_samples=nrows, n_features=ncols,
-                                   random_state=123, n_classes=2)
+        X, y = make_classification(n_samples=nrows,
+                                   n_features=ncols,
+                                   n_informative=ncols,
+                                   n_redundant=0,
+                                   n_repeated=0,
+                                   random_state=123,
+                                   n_classes=2)
         y = y.astype(np.int32)
         model = curfc()
     else:
         X, y = make_regression(n_samples=nrows, n_features=ncols,
                                random_state=123)
+        y = y.astype(np.float32)
         model = curfr()
+
     X = X.astype(np.float32)
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size)

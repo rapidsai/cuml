@@ -23,6 +23,7 @@ import ctypes
 import math
 import numpy as np
 import warnings
+import cython
 
 from numba import cuda
 
@@ -32,15 +33,20 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
-from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+from .randomforest_base import RandomForestBase
 from cuml.ensemble.randomforest_shared cimport *
 
+
+ctypedef fused fused_numeric_type:
+    cython.int
+    cython.double
+    cython.float
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
@@ -103,7 +109,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
 
     
-class RandomForestRegressor(Base):
+class RandomForestRegressor(RandomForestBase):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
@@ -223,6 +229,7 @@ class RandomForestRegressor(Base):
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None, seed=-1):
+        super().__init__(self)
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -270,6 +277,7 @@ class RandomForestRegressor(Base):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
+        self.n_classes = 0 # no concept of unique labels for regression
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams
@@ -428,27 +436,6 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X,
-                              output_class,
-                              algo):
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-
-        # task category = 1 for regression
-        treelite_model = self._get_treelite(num_features=n_cols,
-                                            task_category=1)
-
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
-                                             output_class=False,
-                                             algo='BATCH_TREE_REORG')
-        preds = tl_to_fil_model.predict(X)
-        return preds
-
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
@@ -540,8 +527,9 @@ class RandomForestRegressor(Base):
 
         elif predict_model == "GPU":
             preds = self._predict_model_on_gpu(X,
-                                               output_class,
-                                               algo)
+                                               output_class=False,
+                                               algo=algo,
+                                               n_classes=0)
         else:
             preds = self._predict_model_on_cpu(X)
         return preds

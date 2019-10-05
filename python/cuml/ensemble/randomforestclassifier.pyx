@@ -29,11 +29,10 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-
+from .randomforest_base import RandomForestBase
 
 from cuml.common.handle import Handle
 from cuml import ForestInference
-from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
@@ -132,7 +131,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
 
 
-class RandomForestClassifier(Base):
+class RandomForestClassifier(RandomForestBase):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
@@ -250,7 +249,6 @@ class RandomForestClassifier(Base):
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
                  seed=-1):
-
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -299,7 +297,7 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
-        self.n_unique_labels = None
+        self.n_classes = None
         self.n_streams = n_streams
         self.seed = seed
 
@@ -391,7 +389,7 @@ class RandomForestClassifier(Base):
             Dense vector (int32) of shape (n_samples, 1).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-            These labels should be contiguous integers from 0 to n_classes.
+            These labels should be contiguous integers from 0 to n labels
         """
         cdef uintptr_t X_ptr, y_ptr
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
@@ -420,8 +418,8 @@ class RandomForestClassifier(Base):
             else:
                 unique_labels = np.unique(y_m.copy_to_host())
 
-        self.n_unique_labels = len(unique_labels)
-        for i in range(self.n_unique_labels):
+        self.n_classes = len(unique_labels)
+        for i in range(self.n_classes):
             if i not in unique_labels:
                 raise ValueError("The labels need "
                                  "to be consecutive values from "
@@ -458,7 +456,7 @@ class RandomForestClassifier(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> self.n_unique_labels,
+                <int> self.n_classes,
                 rf_params)
 
         elif self.dtype == np.float64:
@@ -469,7 +467,7 @@ class RandomForestClassifier(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> self.n_unique_labels,
+                <int> self.n_classes,
                 rf_params64)
 
         else:
@@ -482,26 +480,6 @@ class RandomForestClassifier(Base):
         del(X_m)
         del(y_m)
         return self
-
-    def _predict_model_on_gpu(self, X, output_class,
-                              threshold, algo, num_classes):
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-
-        treelite_model = self._get_treelite(num_features=n_cols,
-                                            task_category=self.n_classes)
-
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo)
-        preds = tl_to_fil_model.predict(X)
-        return preds
 
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
@@ -605,8 +583,11 @@ class RandomForestClassifier(Base):
             preds = self._predict_model_on_cpu(X)
 
         else:
-            preds = self._predict_model_on_gpu(X, output_class,
-                                               threshold, algo)
+            preds = self._predict_model_on_gpu(X,
+                                               algo,
+                                               output_class=output_class,
+                                               threshold=threshold,
+                                               n_classes=self.n_classes)
 
         return preds
 
@@ -840,13 +821,3 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(self.mod_ptr)
 
-    def save_treelite_protobuf(self, file_name):
-        file_name_bytes = bytes(file_name, "utf8")
-
-        tl = self._get_treelite(self.n_cols, self.n_unique_labels)
-        cdef ModelHandle tl_handle = <ModelHandle><size_t>tl.value
-        res = TreeliteExportProtobufModel(file_name_bytes, tl_handle)
-        if res < 0:
-            last_err = TreeliteGetLastError()
-            raise RuntimeError("Failed to export model to %s: %s" % (
-                file_name, last_err))
