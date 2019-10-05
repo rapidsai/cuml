@@ -24,8 +24,9 @@
 #include "linalg/transpose.h"
 #include "random_projection/rproj_c.h"
 #include <stdio.h>
+#include <stdlib.h>
 
-#define CHECK printf("[%d] %s\n", __LINE__, __FILE__);
+#define CHECK fprintf(stderr, "[%d] %s\n", __LINE__, __FILE__);
 
 namespace ML {
 
@@ -44,6 +45,7 @@ class RPROJTest : public ::testing::Test {
                                 stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     return result;
   }
 
@@ -66,6 +68,7 @@ class RPROJTest : public ::testing::Test {
 
   void gaussianTest() {
     params1 = new paramsRPROJ();
+    ASSERT(*params1 != NULL, "Null pointer");
     *params1 = {
       N,        // number of samples
       M,        // number of features
@@ -88,6 +91,7 @@ class RPROJTest : public ::testing::Test {
 
   void sparseTest() {
     params2 = new paramsRPROJ();
+    ASSERT(*params2 != NULL, "Null pointer");
     *params2 = {
       N,        // number of samples
       M,        // number of features
@@ -101,13 +105,11 @@ class RPROJTest : public ::testing::Test {
 
     random_matrix2 = new rand_mat<T>();
     RPROJfit(h, random_matrix2, params2);
-
     allocate(d_output2, N * params2->n_components);
-
     RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
 
-    d_output2 = transpose(
-      d_output2, N, params2->n_components);  // From column major to row major
+      // From column major to row major
+    d_output2 = transpose(d_output2, N, params2->n_components);
   }
 
   void SetUp() override {
@@ -130,8 +132,15 @@ class RPROJTest : public ::testing::Test {
   void random_matrix_check() {
     size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
+    ASSERT(params1 != NULL, "Null pointer");
+    ASSERT(random_matrix1 != NULL, "Null pointer");
+
     ASSERT_TRUE(params1->n_components == D);
     ASSERT_TRUE(random_matrix1->dense_data);
+
+
+    ASSERT(params2 != NULL, "Null pointer");
+    ASSERT(random_matrix2 != NULL, "Null pointer");
 
     ASSERT_TRUE(params2->n_components == D);
     ASSERT_TRUE(params2->density == 1 / sqrt(M));
