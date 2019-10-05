@@ -68,7 +68,7 @@ class RPROJTest : public ::testing::Test {
 
   void gaussianTest() {
     params1 = new paramsRPROJ();
-    ASSERT(*params1 != NULL, "Null pointer");
+    ASSERT(params1 != NULL, "Null pointer");
     *params1 = {
       N,        // number of samples
       M,        // number of features
@@ -91,7 +91,7 @@ class RPROJTest : public ::testing::Test {
 
   void sparseTest() {
     params2 = new paramsRPROJ();
-    ASSERT(*params2 != NULL, "Null pointer");
+    ASSERT(params2 != NULL, "Null pointer");
     *params2 = {
       N,        // number of samples
       M,        // number of features
