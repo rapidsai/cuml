@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CHECK fprintf(stderr, "[%d] %s\n", __LINE__, __FILE__);
 
 namespace ML {
 
@@ -161,7 +160,6 @@ class RPROJTest : public ::testing::Test {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
 
-CHECK;
     T* d_pdist;
     allocate(d_pdist, N * N);
     lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
@@ -173,15 +171,12 @@ CHECK;
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-CHECK;
-
 
     T* h_pdist = new T[N * N];
     updateHost(h_pdist, d_pdist, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
 
-CHECK;
 
     T* d_pdist1;
     allocate(d_pdist1, N * N);
@@ -195,15 +190,10 @@ CHECK;
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
 
-CHECK;
-
-
     T* h_pdist1 = new T[N * N];
     updateHost(h_pdist1, d_pdist1, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
-
-CHECK;
 
 
     T* d_pdist2;
@@ -216,8 +206,6 @@ CHECK;
       d_output2, d_output2, d_pdist2, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
-
-CHECK;
 
 
     T* h_pdist2 = new T[N * N];
