@@ -217,7 +217,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda, Index_> distImpl;
 
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
-  // CUDA_CHECK(cudaMemsetAsync(dist, 0, m * n * sizeof(OutType), stream));
 
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
