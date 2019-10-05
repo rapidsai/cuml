@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define CHECK fprintf(stderr, "%d %s\n", __LINE__, __FILE__);
+
 
 namespace ML {
 
@@ -158,6 +160,9 @@ class RPROJTest : public ::testing::Test {
   }
 
   void epsilon_check() {
+    CHECK;
+    ASSERT(d_input != NULL, "Null pointer!");
+
     cudaStream_t stream = h.getStream();
 
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
@@ -167,7 +172,7 @@ class RPROJTest : public ::testing::Test {
     char *work = NULL;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
-
+    CHECK;
     T* d_pdist;
     allocate(d_pdist, N * N);
     ASSERT(d_pdist != NULL, "Out of Memory!");
@@ -175,19 +180,21 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
 
+    CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_input, d_input, d_pdist, N, N, M, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-
+    CHECK;
     T* h_pdist = (T*) malloc(sizeof(T) * N * N);
     ASSERT(h_pdist != NULL, "Out of Memory!");
     updateHost(h_pdist, d_pdist, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist));
 
-
+    CHECK;
     T* d_pdist1;
     allocate(d_pdist1, N * N);
     ASSERT(d_pdist1 != NULL, "Out of Memory!");
@@ -195,19 +202,21 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
 
+    CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_output1, d_output1, d_pdist1, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-
+    CHECK;
     T* h_pdist1 = (T*) malloc(sizeof(T) * N * N);
     ASSERT(h_pdist1 != NULL, "Out of Memory!");
     updateHost(h_pdist1, d_pdist1, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist1));
 
-
+    CHECK;
     T* d_pdist2;
     allocate(d_pdist2, N * N);
     ASSERT(d_pdist2 != NULL, "Out of Memory!");
@@ -215,6 +224,8 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
 
+    CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_output2, d_output2, d_pdist2, N, N, D, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -226,7 +237,7 @@ class RPROJTest : public ::testing::Test {
     updateHost(h_pdist2, d_pdist2, N * N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(d_pdist2));
-
+    CHECK;
 
     for (size_t i = 0; i < N; i++) {
       for (size_t j = 0; j <= i; j++) {
