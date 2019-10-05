@@ -92,8 +92,6 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
           // pop best element
           const int s = shard_ids[0];
           int &p = pointer[s];
-          BOUNDSCHECK(stride * s + p, k);
-          BOUNDSCHECK(s, nshard);
 
           D[j] = heap_vals[0];
           I[j] = I_in[stride * s + p] + translations[s];
