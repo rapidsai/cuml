@@ -254,7 +254,6 @@ trustworthiness_score(const math_t *__restrict X,
   d_alloc->deallocate(indices, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
   
-  return 1;
   return t;
 }
 
