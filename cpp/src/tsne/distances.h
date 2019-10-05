@@ -47,7 +47,8 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, stream);
-  delete knn_input, sizes;
+  delete[] knn_input;
+  delete[] sizes;
 }
 
 /**
