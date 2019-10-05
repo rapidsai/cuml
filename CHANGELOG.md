@@ -1,6 +1,7 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
+- PR #1217: Allow exporting Random Forests to protobuf treelite format
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules

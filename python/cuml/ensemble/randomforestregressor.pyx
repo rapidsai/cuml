@@ -19,6 +19,9 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from cuml.ensemble.randomforest_shared cimport *
+from .randomforest_base import RandomForestBase
+
 import ctypes
 import math
 import numpy as np
@@ -38,9 +41,6 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
-from .randomforest_base import RandomForestBase
-from cuml.ensemble.randomforest_shared cimport *
 
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
@@ -95,7 +95,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           double*,
                           bool) except +
 
-    
+
 class RandomForestRegressor(RandomForestBase):
 
     """
@@ -264,7 +264,7 @@ class RandomForestRegressor(RandomForestBase):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
-        self.n_classes = 0 # no concept of unique labels for regression
+        self.n_classes = 0  # no concept of unique labels for regression
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams

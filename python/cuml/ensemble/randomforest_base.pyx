@@ -25,6 +25,7 @@ from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.ensemble.randomforest_shared cimport *
 
+
 class RandomForestBase(Base):
     def save_treelite_protobuf(self, file_name):
         file_name_bytes = bytes(file_name, "utf8")
@@ -51,7 +52,7 @@ class RandomForestBase(Base):
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=self.n_classes)
-        
+
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_model.value,
@@ -60,5 +61,3 @@ class RandomForestBase(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X)
         return preds
-    
-    

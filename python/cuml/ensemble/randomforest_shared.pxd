@@ -94,9 +94,9 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     # Treelite handling
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
-                                    RandomForestMetaData[T, L]*,
-                                    int,
-                                    int) except +
+                                          RandomForestMetaData[T, L]*,
+                                          int,
+                                          int) except +
 
     cdef void save_model_protobuf(ModelHandle, const char*) except +
 
@@ -116,5 +116,4 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int,
                                     CRITERION,
                                     bool,
-                                    int) except +        
-        
+                                    int) except +

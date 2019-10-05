@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from cuml.ensemble.randomforest_shared cimport *
 import ctypes
 import math
 import numpy as np
@@ -38,9 +39,6 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
-from cuml.ensemble.randomforest_shared cimport *
-
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
@@ -113,7 +111,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                           int,
                           int*,
                           bool) except +
-
 
 
 class RandomForestClassifier(RandomForestBase):
@@ -805,4 +802,3 @@ class RandomForestClassifier(RandomForestBase):
         self.mod_ptr = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(self.mod_ptr)
-
