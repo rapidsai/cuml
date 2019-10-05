@@ -96,15 +96,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   ASSERT(pA != NULL and pB != NULL and pD != NULL, "Null pointer!");
   ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
 
-  CHECK;
-
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
 
   EffOutType *pDCast = reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
   ASSERT(pDCast != NULL, "Null pointer!");
-
-  CHECK;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
 
@@ -116,15 +112,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
 
-  CHECK;
-
   typedef UnexpandedDistanceFragmentMultiplyAdd FragmentMultiplyAdd_;
 
   typedef UnexpandedDistanceEpilogueFunctor<EffOutType, GemmConfig_,
                                             FragmentMultiplyAdd_>
     EpilogueFunctor_;
-
-  CHECK;
 
   typedef typename std::conditional<
     is_bool::value,
@@ -137,8 +129,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     GemmEpilogueTraits_;
   typedef UnexpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
-
-  CHECK;
 
   cublasOperation_t transa, transb;
   const InType *aPtr, *bPtr;
@@ -168,8 +158,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
-
-  CHECK;
                     
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
