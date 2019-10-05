@@ -25,19 +25,6 @@
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <iostream>
-#include <stdlib.h>
-#include <stdio.h>
-
-// #define CHECK fprintf(stderr, "[%d] %s\n", __LINE__, __FILE__);
-#define CHECK ;
-
-// #define BOUNDSCHECK(x, max) \
-//   if ((x) >= (max) || (x) < 0) { \
-//       fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-//       fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-//       fprintf(stderr, "Bounds %d = [%d,%d]", __LINE__, x, (max)); \
-//   }
-#define BOUNDSCHECK(x, max) ;
 
 
 namespace MLCommon {
@@ -159,7 +146,7 @@ brute_force_knn(float **input,
     total_n += sizes[i];
   }
 
-  CHECK;
+  
   float *result_D = (float*) malloc(sizeof(float) * k * n);
   ASSERT(result_D != NULL, "Out of Memory");
 
@@ -177,7 +164,7 @@ brute_force_knn(float **input,
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
   CUDA_CHECK(cudaStreamSynchronize(s));
-  CHECK;
+  
 
   #pragma omp parallel for if(n_params > 1) schedule(static)
   for (int i = 0; i < n_params; i++)
@@ -190,7 +177,7 @@ brute_force_knn(float **input,
     cudaPointerAttributes att;
     cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
-    CHECK;
+    
     if (err == 0 && att.device > -1)
     {
       CUDA_CHECK(cudaSetDevice(att.device));
@@ -198,7 +185,7 @@ brute_force_knn(float **input,
 
       try
       {
-        CHECK;
+        
         faiss::gpu::StandardGpuResources gpu_res;
 
         cudaStream_t stream;
@@ -213,7 +200,7 @@ brute_force_knn(float **input,
           n, D, k, all_D + (long(i) * k * long(n)),
           all_I + (long(i) * k * long(n)));
 
-        CHECK;
+        
         CUDA_CHECK(cudaPeekAtLastError());
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -234,7 +221,7 @@ brute_force_knn(float **input,
     }
   }
 
-  CHECK;
+  
   merge_tables<faiss::CMin<float, IntType>>(
     long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges.data());
 
@@ -242,7 +229,7 @@ brute_force_knn(float **input,
 
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
   CUDA_CHECK(cudaStreamSynchronize(s));
-  CHECK;
+  
 
   free(all_D);
   free(all_I);
