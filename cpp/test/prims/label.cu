@@ -61,13 +61,14 @@ TEST_F(MakeMonotonicTest, Result) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(devArrMatch(actual, expected, m, Compare<bool>(), stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(data));
   CUDA_CHECK(cudaFree(actual));
 
-  delete data_h;
-  delete expected_h;
+  delete[] data_h;
+  delete[] expected_h;
 }
 
 TEST(LabelTest, ClassLabels) {
@@ -100,7 +101,7 @@ TEST(LabelTest, ClassLabels) {
   float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
   EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,
                               Compare<float>(), stream));
-
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(y_d));
   CUDA_CHECK(cudaFree(y_unique_d));
