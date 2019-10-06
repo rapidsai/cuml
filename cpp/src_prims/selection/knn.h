@@ -26,8 +26,6 @@
 
 #include <iostream>
 
-#define CHECK ;
-
 
 namespace MLCommon {
 namespace Selection {
@@ -136,8 +134,6 @@ brute_force_knn(float **input,
                 const IntType k,
                 cudaStream_t s)
 {
-  CHECK;
-
   ASSERT(input != NULL and sizes != NULL and search_items != NULL, "Null pointers!");
   ASSERT(res_I != NULL and res_D != NULL, "Null pointers!");
 
@@ -181,7 +177,7 @@ brute_force_knn(float **input,
     cudaPointerAttributes att;
     cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
-    CHECK;
+    
     if (err == 0 && att.device > -1)
     {
       CUDA_CHECK(cudaSetDevice(att.device));
@@ -232,13 +228,11 @@ brute_force_knn(float **input,
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
   CUDA_CHECK(cudaStreamSynchronize(s));
   
-
   free(all_D);
   free(all_I);
 
   free(result_D);
   free(result_I);
-  CHECK;
 };
 
 };  // namespace Selection
