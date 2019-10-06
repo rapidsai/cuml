@@ -245,8 +245,8 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, allocator, stream);
 
-  delete ptrs;
-  delete sizes;
+  delete[] ptrs;
+  delete[] sizes;
 }
 }  // namespace Spectral
 }  // namespace MLCommon
