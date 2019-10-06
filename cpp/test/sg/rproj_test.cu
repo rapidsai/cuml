@@ -23,16 +23,10 @@
 #include "distance/distance.h"
 #include "linalg/transpose.h"
 #include "random_projection/rproj_c.h"
-#include <stdio.h>
-#include <stdlib.h>
-
-#define CHECK fprintf(stderr, "%d, %s\n", __LINE__, __FILE__);
-
 
 namespace ML {
 
 using namespace MLCommon;
-using namespace MLCommon::Distance;
 
 template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
@@ -42,17 +36,14 @@ class RPROJTest : public ::testing::Test {
     cublasHandle_t cublas_handle = h.getImpl().getCublasHandle();
     T* result;
     allocate(result, n_rows * n_cols);
-    ASSERT(result != NULL, "Null pointer");
     MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
                                 stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     return result;
   }
 
   void generate_data() {
-    cudaStream_t stream = h.getStream();
     std::random_device rd;
     std::mt19937 rng(rd());
     std::uniform_real_distribution<T> dist(0, 1);
@@ -62,16 +53,13 @@ class RPROJTest : public ::testing::Test {
       i = dist(rng);
     }
     allocate(d_input, h_input.size());
-    ASSERT(d_input != NULL, "Null pointer");
-    updateDevice(d_input, h_input.data(), h_input.size(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    updateDevice(d_input, h_input.data(), h_input.size(), NULL);
     //d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
   }
 
   void gaussianTest() {
     params1 = new paramsRPROJ();
-    ASSERT(params1 != NULL, "Null pointer");
     *params1 = {
       N,        // number of samples
       M,        // number of features
@@ -84,20 +72,15 @@ class RPROJTest : public ::testing::Test {
     };
 
     random_matrix1 = new rand_mat<T>();
-    ASSERT(random_matrix1 != NULL, "Null pointer");
     RPROJfit(h, random_matrix1, params1);
-    
     allocate(d_output1, N * params1->n_components);
-    ASSERT(d_output1 != NULL, "Null pointer");
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
-
-     // From column major to row major
-    d_output1 = transpose(d_output1, N, params1->n_components);
+    d_output1 = transpose(
+      d_output1, N, params1->n_components);  // From column major to row major
   }
 
   void sparseTest() {
     params2 = new paramsRPROJ();
-    ASSERT(params2 != NULL, "Null pointer");
     *params2 = {
       N,        // number of samples
       M,        // number of features
@@ -110,15 +93,14 @@ class RPROJTest : public ::testing::Test {
     };
 
     random_matrix2 = new rand_mat<T>();
-    ASSERT(random_matrix2 != NULL, "Null pointer");
-    
     RPROJfit(h, random_matrix2, params2);
+
     allocate(d_output2, N * params2->n_components);
-    ASSERT(d_output2 != NULL, "Null pointer");
+
     RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
 
-      // From column major to row major
-    d_output2 = transpose(d_output2, N, params2->n_components);
+    d_output2 = transpose(
+      d_output2, N, params2->n_components);  // From column major to row major
   }
 
   void SetUp() override {
@@ -141,15 +123,8 @@ class RPROJTest : public ::testing::Test {
   void random_matrix_check() {
     size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
-    ASSERT(params1 != NULL, "Null pointer");
-    ASSERT(random_matrix1 != NULL, "Null pointer");
-
     ASSERT_TRUE(params1->n_components == D);
     ASSERT_TRUE(random_matrix1->dense_data);
-
-
-    ASSERT(params2 != NULL, "Null pointer");
-    ASSERT(random_matrix2 != NULL, "Null pointer");
 
     ASSERT_TRUE(params2->n_components == D);
     ASSERT_TRUE(params2->density == 1 / sqrt(M));
@@ -160,84 +135,46 @@ class RPROJTest : public ::testing::Test {
   }
 
   void epsilon_check() {
-    CHECK;
-    ASSERT(d_input != NULL, "Null pointer!");
-
-    cudaStream_t stream = h.getStream();
-
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
-    constexpr auto distance_type = DistanceType::EucUnexpandedL2Sqrt;
-    size_t lwork = 0;
-    char *work = NULL;
+    constexpr auto distance_type =
+      MLCommon::Distance::DistanceType::EucUnexpandedL2Sqrt;
+    size_t workspaceSize = 0;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
-    CHECK;
     T* d_pdist;
     allocate(d_pdist, N * N);
-    ASSERT(d_pdist != NULL, "Out of Memory!");
-    lwork = getWorkspaceSize<distance_type, T, T, T>(d_input, d_input, N, N, M);
-    if (lwork > 0) allocate(work, lwork);
-    else work = NULL;
 
-    CHECK;
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_input, d_input, d_pdist, N, N, M, work, lwork, stream);
+      d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
+      h.getStream());
     CUDA_CHECK(cudaPeekAtLastError());
-    if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-    CHECK;
-    T* h_pdist = (T*) malloc(sizeof(T) * N * N);
-    ASSERT(h_pdist != NULL, "Out of Memory!");
-    updateHost(h_pdist, d_pdist, N * N, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    T* h_pdist = new T[N * N];
+    updateHost(h_pdist, d_pdist, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist));
 
-    CHECK;
     T* d_pdist1;
     allocate(d_pdist1, N * N);
-    ASSERT(d_pdist1 != NULL, "Out of Memory!");
-    lwork = getWorkspaceSize<distance_type, T, T, T>(d_output1, d_output1, N, N, D);
-    if (lwork > 0) allocate(work, lwork);
-    else work = NULL;
-
-    CHECK;
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_output1, d_output1, d_pdist1, N, N, D, work, lwork, stream);
+      d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
+      h.getStream());
     CUDA_CHECK(cudaPeekAtLastError());
-    if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-    CHECK;
-    T* h_pdist1 = (T*) malloc(sizeof(T) * N * N);
-    ASSERT(h_pdist1 != NULL, "Out of Memory!");
-    updateHost(h_pdist1, d_pdist1, N * N, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    T* h_pdist1 = new T[N * N];
+    updateHost(h_pdist1, d_pdist1, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist1));
 
-    CHECK;
     T* d_pdist2;
     allocate(d_pdist2, N * N);
-    ASSERT(d_pdist2 != NULL, "Out of Memory!");
-    lwork = getWorkspaceSize<distance_type, T, T, T>(d_output2, d_output2, N, N, D);
-    if (lwork > 0) allocate(work, lwork);
-    else work = NULL;
-
-    CHECK;
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
-      d_output2, d_output2, d_pdist2, N, N, D, work, lwork, stream);
+      d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
+      h.getStream());
     CUDA_CHECK(cudaPeekAtLastError());
-    if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-
-    T* h_pdist2 = (T*) malloc(sizeof(T) * N * N);
-    ASSERT(h_pdist2 != NULL, "Out of Memory!");
-    updateHost(h_pdist2, d_pdist2, N * N, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    T* h_pdist2 = new T[N * N];
+    updateHost(h_pdist2, d_pdist2, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist2));
-    CHECK;
 
     for (size_t i = 0; i < N; i++) {
       for (size_t j = 0; j <= i; j++) {
@@ -253,9 +190,9 @@ class RPROJTest : public ::testing::Test {
       }
     }
 
-    free(h_pdist);
-    free(h_pdist1);
-    free(h_pdist2);
+    delete[] h_pdist;
+    delete[] h_pdist1;
+    delete[] h_pdist2;
   }
 
  protected:
