@@ -24,10 +24,6 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#define CHECK fprintf(stderr, "%d, %s\n", __LINE__, __FILE__);
-
 namespace MLCommon {
 namespace Distance {
 
@@ -223,7 +219,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  CHECK;
 }
 
 /**
