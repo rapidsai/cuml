@@ -128,16 +128,23 @@ class RPROJTest : public ::testing::Test {
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(d_input));
+    d_input = NULL;
     CUDA_CHECK(cudaFree(d_output1));
+    d_output1 = NULL;
     CUDA_CHECK(cudaFree(d_output2));
+    d_output2 = NULL;
     delete params1;
+    params1 = NULL;
     delete random_matrix1;
+    random_matrix1 = NULL;
     delete params2;
+    params2 = NULL;
     delete random_matrix2;
+    random_matrix2 = NULL;
   }
 
   void random_matrix_check() {
-    size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
+    const size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     ASSERT(params1 != NULL, "Null pointer");
     ASSERT(random_matrix1 != NULL, "Null pointer");
@@ -159,11 +166,11 @@ class RPROJTest : public ::testing::Test {
 
   void epsilon_check() {
     
-    ASSERT(d_input != NULL, "Null pointer!");
+    ASSERT(d_input != NULL and d_output1 != NULL and d_output2 != NULL, "Null pointer!");
 
     cudaStream_t stream = h.getStream();
 
-    int D = johnson_lindenstrauss_min_dim(N, epsilon);
+    const int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type = DistanceType::EucUnexpandedL2Sqrt;
     size_t lwork = 0;
@@ -178,14 +185,13 @@ class RPROJTest : public ::testing::Test {
     if (lwork > 0) allocate(work, lwork);
     else work = NULL;
 
-    
     CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
       d_input, d_input, d_pdist, N, N, M, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     if (lwork > 0) CUDA_CHECK(cudaFree(work));
 
-    
+
     T* h_pdist = (T*) malloc(sizeof(T) * N * N);
     ASSERT(h_pdist != NULL, "Out of Memory!");
     updateHost(h_pdist, d_pdist, N * N, stream);
