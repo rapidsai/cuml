@@ -26,7 +26,7 @@
 
 #include <iostream>
 
-#define CHECK ;
+#define CHECK fprintf(stderr, "%d %s\n", __LINE__, __FILE__);
 
 
 namespace MLCommon {
