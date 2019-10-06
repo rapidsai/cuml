@@ -91,8 +91,8 @@ void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
   NVGRAPH_CHECK(nvgraphDestroyGraphDescr(graphHandle, graph));
   NVGRAPH_CHECK(nvgraphDestroy(graphHandle));
 
-  free(COO_input);
-  free(CSR_input);
+  delete COO_input;
+  delete CSR_input;
 }
 
 template <typename T>
@@ -203,8 +203,8 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  free(COO_input);
-  free(CSR_input);
+  delete COO_input;
+  delete CSR_input;
 }
 
 template <typename T>
