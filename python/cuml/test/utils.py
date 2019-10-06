@@ -25,6 +25,8 @@ from numba.cuda.cudadrv.devicearray import DeviceNDArray
 import cudf
 import cuml
 
+import pytest
+
 
 def array_equal(a, b, tol=1e-4, with_sign=True):
     a = to_nparray(a)
@@ -136,3 +138,15 @@ def get_handle(use_handle, n_streams=0):
     s = cuml.cuda.Stream()
     h.setStream(s)
     return h, s
+
+
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
