@@ -26,8 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#define CHECK ;
+#define CHECK fprintf(stderr, "%d, %s\n", __LINE__, __FILE__);
 
 namespace MLCommon {
 namespace Distance {
@@ -211,15 +210,13 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true)
 {
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   if (worksize > 0) {
     ASSERT(workspace != NULL, "Workspace cannot be NULL!");
   }
 
   ASSERT(x != NULL and y != NULL and dist != NULL, "Null pointers!");
   ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
-  
-  CHECK;
+
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda, Index_> distImpl;
 
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
