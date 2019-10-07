@@ -18,8 +18,8 @@
 
 #include <cuda_utils.h>
 #include <distance/distance.h>
-#include <matrix/grammatrix.h>
 #include <linalg/gemm.h>
+#include <matrix/grammatrix.h>
 
 namespace MLCommon {
 namespace Matrix {
@@ -276,16 +276,17 @@ class RBFKernel : public GramMatrixBase<math_t> {
   * @param [out] out device buffer to store the Gram matrix in column major
   *   format, size [n1*n2]
   * @param [in] stream cuda stream
-  * @param ld1 leading dimension of x1 (usually it is n1)
-  * @param ld2 leading dimension of x2 (usually it is n2)
-  * @param ld_out leading dimension of out (usually it is n1)
+  * @param ld1 leading dimension of x1, currently only ld1 == n1 is supported
+  * @param ld2 leading dimension of x2, currently only ld2 == n2 is supported
+  * @param ld_out leading dimension of out, only ld_out == n1 is supported
   */
   void evaluate(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
                 math_t *out, cudaStream_t stream, int ld1, int ld2,
                 int ld_out) {
-    if (ld_out != n1) {
-      std::cerr << "RBF Kernel distance does not support ld_out parameter";
-    }
+    ASSERT(ld1 == n1, "RBF Kernel distance does not support ld1 parameter");
+    ASSERT(ld2 == n2, "RBF Kernel distance does not support ld2 parameter");
+    ASSERT(ld_out == n1,
+           "RBF Kernel distance does not support ld_out parameter");
     distance(x1, n1, n_cols, x2, n2, out, stream, ld1, ld2, ld_out);
   }
 
