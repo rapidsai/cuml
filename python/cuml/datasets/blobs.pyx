@@ -204,7 +204,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <float> center_box_min,
                    <float> center_box_max,
                    <uint64_t> random_state,
-                   <bool> True)
+                   <bool> False)
 
     else:
         make_blobs(handle_[0],
@@ -220,6 +220,6 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <double> center_box_min,
                    <double> center_box_max,
                    <uint64_t> random_state,
-                   <bool> True)
+                   <bool> False)
 
     return out, labels

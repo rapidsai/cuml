@@ -37,6 +37,7 @@ def create_df(m, n, centers, cluster_std, random_state, dtype):
     """
     X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                       random_state=random_state, dtype=dtype)
+
     X = cudf.DataFrame.from_gpu_matrix(X)
     y = cudf.DataFrame.from_gpu_matrix(y.reshape(y.shape[0], 1))
     return X, y

@@ -23,7 +23,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
+@pytest.mark.parametrize("nrows", [unit_param(10e3), quality_param(1e5),
                                    stress_param(5e6)])
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
