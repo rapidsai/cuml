@@ -26,6 +26,7 @@ import warnings
 
 from numba import cuda
 
+from cuml.common.handle import Handle
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -79,6 +80,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
+        int seed
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -138,12 +140,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[float, float]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, double]*,
                                     int,
-                                    int)
+                                    int) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -161,6 +163,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float,
+                                    int,
                                     CRITERION,
                                     bool,
                                     int) except +
@@ -285,7 +288,7 @@ class RandomForestRegressor(Base):
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
+                 quantile_per_tree=False, criterion=None, seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -304,6 +307,8 @@ class RandomForestRegressor(Base):
                                 " is not supported in cuML,"
                                 " please read the cuML documentation for"
                                 " more information")
+
+        handle = Handle(n_streams)
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
@@ -334,6 +339,7 @@ class RandomForestRegressor(Base):
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams
+        self.seed = seed
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -458,6 +464,7 @@ class RandomForestRegressor(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
+                                     <int> self.seed,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)

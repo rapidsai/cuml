@@ -21,6 +21,7 @@ from sklearn.datasets import load_iris
 from sklearn.datasets import make_regression
 import pickle
 from sklearn.manifold.t_sne import trustworthiness
+from cuml.test.test_svm import compare_svm
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -343,3 +344,22 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
     trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_svm_pickle(tmpdir, datatype, nrows, ncols):
+
+    model = cuml.svm.SVC()
+    iris = load_iris()
+    iris_selection = np.random.RandomState(42).choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
+    X_train = iris.data[iris_selection]
+    y_train = iris.target[iris_selection]
+    y_train = (y_train > 0).astype(datatype)
+
+    model.fit(X_train, y_train)
+    model_pickle = pickle_save_load(tmpdir, model)
+    compare_svm(model, model_pickle, X_train, y_train, cmp_sv=0,
+                dcoef_tol=0)

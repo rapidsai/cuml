@@ -52,22 +52,31 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   Index_ D = data.D;
   Type *x = data.x;
   bool *adj = data.adj;
-  int *vd = data.vd;
+  Index_ *vd = data.vd;
   for (Index_ d = 0; d < D; ++d) {
     Type a = __ldg(x + (row + startVertexId) * D + d);
     Type b = __ldg(x + col * D + d);
     Type diff = a - b;
     sum += (diff * diff);
   }
-  int res = (sum <= eps2);
+  Index_ res = (sum <= eps2);
   adj[row * N + col] = res;
-  atomicAdd(vd + row, res);
-  atomicAdd(vd + batchSize, res);
+
+  if (sizeof(Index_) == 4) {
+    atomicAdd((int *)(vd + row), (int)res);
+    atomicAdd((int *)(vd + batchSize), (int)res);
+  } else if (sizeof(Index_) == 8) {
+    atomicAdd((unsigned long long *)(vd + row), res);
+    atomicAdd((unsigned long long *)(vd + batchSize), res);
+  }
 }
 
 template <typename Type, typename Index_ = int>
 void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
               cudaStream_t stream) {
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
+         "index_t should be 4 or 8 bytes");
+
   dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),
             1);
   dim3 blk(TPB_X, TPB_Y, 1);

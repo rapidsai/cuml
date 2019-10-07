@@ -75,7 +75,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
-| | t-Distributed Stochastic Neighbor Embedding (TSNE) | (Experimental) |
+| | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
 | | Linear Regression with Lasso or Ridge Regularization | |
 | | ElasticNet Regression | |
@@ -84,6 +84,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node, multi-GPU version available via Dask integration |
 | | Random Forest (RF) Regression | Experimental multi-node, multi-GPU version available via Dask integration |
 |  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+|  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
 ---
