@@ -57,6 +57,7 @@
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1228: Trustworthiness seg faults Python
 
 # cuML 0.9.0 (21 Aug 2019)
 
