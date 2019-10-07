@@ -34,7 +34,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from collections import defaultdict
 
-cdef extern from "dbscan/dbscan.hpp" namespace "ML":
+cdef extern from "cuml/dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,

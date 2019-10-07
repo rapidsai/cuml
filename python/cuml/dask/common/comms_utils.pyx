@@ -35,7 +35,7 @@ cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
     cdef cppclass cumlCommunicator
 
 
-cdef extern from "cuML.hpp" namespace "ML":
+cdef extern from "cuml/cuml.hpp" namespace "ML":
     cdef cppclass cumlHandle:
         cumlHandle() except +
 

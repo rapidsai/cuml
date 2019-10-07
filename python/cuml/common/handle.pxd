@@ -24,7 +24,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
 

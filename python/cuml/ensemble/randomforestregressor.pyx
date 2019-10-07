@@ -43,7 +43,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -51,7 +51,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
         int max_leaves
@@ -63,7 +63,7 @@ cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
         bool quantile_per_tree
         CRITERION split_criterion
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
         CLASSIFICATION,

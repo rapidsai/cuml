@@ -55,6 +55,7 @@ exc_list = []
 libs = ['cuda', 'cuml++', 'cumlcomms', 'nccl', 'rmm']
 
 include_dirs = ['../cpp/src',
+                '../cpp/include',
                 '../cpp/external',
                 '../cpp/src_prims',
                 '../thirdparty/cutlass',
