@@ -80,6 +80,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
+        int seed
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -162,6 +163,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float,
+                                    int,
                                     CRITERION,
                                     bool,
                                     int) except +
@@ -286,7 +288,7 @@ class RandomForestRegressor(Base):
                  max_leaf_nodes=None, min_impurity_decrease=None,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
+                 quantile_per_tree=False, criterion=None, seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -337,6 +339,7 @@ class RandomForestRegressor(Base):
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams
+        self.seed = seed
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -461,6 +464,7 @@ class RandomForestRegressor(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
+                                     <int> self.seed,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)

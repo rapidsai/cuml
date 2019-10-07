@@ -50,6 +50,7 @@ cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
         double C
         double cache_size
         int max_iter
+        int nochange_steps
         double tol
         int verbose
 
@@ -88,7 +89,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
-        math_t *preds) except +
+        math_t *preds, math_t buffer_size) except +
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
@@ -115,7 +116,7 @@ class SVC(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, verbose=False):
+                 max_iter=-1, nochange_steps=1000, verbose=False):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -127,7 +128,7 @@ class SVC(Base):
             Penalty parameter C
         kernel : string (default='rbf')
             Specifies the kernel function. Possible options: 'linear', 'poly',
-            'rbf', 'sigmoid', 'precomputed'
+            'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
         degree : int (default=3)
             Degree of polynomial kernel function.
         gamma : float (default = 'auto')
@@ -138,9 +139,20 @@ class SVC(Base):
         tol : float (default = 1e-3)
             Tolerance for stopping criterion.
         cache_size : float (default = 200 MiB)
-            Size of the kernel cache n MiB
+            Size of the kernel cache during training in MiB. The default is a
+            conservative value, increase it to improve the training time, at
+            the cost of higher memory footprint. After training the kernel
+            cache is deallocated.
+            During prediction, we also need a temporary space to store kernel
+            matrix elements (this can be signifficant if n_support is large).
+            The cache_size variable sets an upper limit to the prediction
+            buffer as well.
         max_iter : int (default = 100*n_samples)
             Limit the number of outer iterations in the solver
+        nochange_steps : int (default = 1000)
+            We monitor how much our stopping criteria changes during outer
+            iterations. If it does not change (changes less then 1e-3*tol)
+            for nochange_steps consecutive steps, then we stop training.
         verbose : bool (default = False)
             verbose mode
 
@@ -178,6 +190,7 @@ class SVC(Base):
         self.coef0 = coef0
         self.cache_size = cache_size
         self.max_iter = max_iter
+        self.nochange_steps = nochange_steps
         self.verbose = verbose
 
         # Attributes (parameters of the fitted model)
@@ -285,6 +298,7 @@ class SVC(Base):
         param.C = self.C
         param.cache_size = self.cache_size
         param.max_iter = self.max_iter
+        param.nochange_steps = self.nochange_steps
         param.tol = self.tol
         param.verbose = self.verbose
         return param
@@ -442,9 +456,10 @@ class SVC(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
-        ----------
-        y: cuDF Series
+        -------
+        y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
@@ -465,12 +480,12 @@ class SVC(Base):
             model_f = <svmModel[float]*><size_t> self._model
             svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_f[0],
-                       <float*>preds_ptr)
+                       <float*>preds_ptr, <float>self.cache_size)
         else:
             model_d = <svmModel[double]*><size_t> self._model
             svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_d[0],
-                       <double*>preds_ptr)
+                       <double*>preds_ptr, <double>self.cache_size)
 
         self.handle.sync()
 
