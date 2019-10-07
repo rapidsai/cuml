@@ -146,7 +146,7 @@ def test_send_recv(n_trials, cluster):
 
     try:
 
-        cb = CommsContext(comms_p2p=True)
+        cb = CommsContext(comms_p2p=True, verbose=True)
         cb.init()
 
         start = time.time()

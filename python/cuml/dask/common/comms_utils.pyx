@@ -20,6 +20,8 @@
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
 
+from cpython.long cimport PyLong_AsVoidPtr
+
 from libcpp cimport bool
 
 
@@ -132,7 +134,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     cdef size_t ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ucp_eps[i] = <size_t>eps[i].get_ep()
+            ucp_eps[i] = <size_t>eps[i]._ucp_endpoint
         else:
             ucp_eps[i] = 0
 
