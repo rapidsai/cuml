@@ -106,6 +106,11 @@ double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The adjusted rand index value
 */
+double adjustedRandIndex(const cumlHandle &handle, const int64_t *y,
+                         const int64_t *y_hat, const int64_t n,
+                         const int64_t lower_class_range,
+                         const int64_t upper_class_range);
+
 double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
