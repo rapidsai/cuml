@@ -208,10 +208,10 @@ int main(int argc, char* argv[]) {
   cumlHandle.setStream(stream);
 
   std::vector<int> h_labels(nRows);
-  long* d_labels = nullptr;
+  int* d_labels = nullptr;
   float* d_inputData = nullptr;
 
-  CUDA_RT_CALL(cudaMalloc(&d_labels, nRows * sizeof(long)));
+  CUDA_RT_CALL(cudaMalloc(&d_labels, nRows * sizeof(int)));
   CUDA_RT_CALL(cudaMalloc(&d_inputData, nRows * nCols * sizeof(float)));
   CUDA_RT_CALL(cudaMemcpyAsync(d_inputData, h_inputData.data(),
                                nRows * nCols * sizeof(float),
@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
 
   ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels,
                 max_bytes_per_batch, false);
-  CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(long),
+  CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
 

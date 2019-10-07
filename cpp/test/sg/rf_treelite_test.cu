@@ -181,7 +181,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.min_rows_per_node, params.bootstrap_features,
                     params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, params.n_streams, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     // print(rf_params);
     handle.reset(new cumlHandle(rf_params.n_streams));
 

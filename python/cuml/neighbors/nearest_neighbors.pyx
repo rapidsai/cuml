@@ -35,14 +35,14 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from librmm_cffi import librmm as rmm
+import rmm
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
-from librmm_cffi import librmm as rmm
+import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda

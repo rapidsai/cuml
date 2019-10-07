@@ -47,12 +47,14 @@ template void svcFit<double>(const cumlHandle &handle, double *input,
 template void svcPredict<float>(const cumlHandle &handle, float *input,
                                 int n_rows, int n_cols,
                                 MLCommon::Matrix::KernelParams &kernel_params,
-                                const svmModel<float> &model, float *preds);
+                                const svmModel<float> &model, float *preds,
+                                float buffer_size);
 
 template void svcPredict<double>(const cumlHandle &handle, double *input,
                                  int n_rows, int n_cols,
                                  MLCommon::Matrix::KernelParams &kernel_params,
-                                 const svmModel<double> &model, double *preds);
+                                 const svmModel<double> &model, double *preds,
+                                 double buffer_size);
 
 template void svmFreeBuffers(const cumlHandle &handle, svmModel<float> &m);
 
@@ -61,9 +63,9 @@ template void svmFreeBuffers(const cumlHandle &handle, svmModel<double> &m);
 template <typename math_t>
 SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
                  Matrix::KernelParams kernel_params, math_t cache_size,
-                 int max_iter, bool verbose)
+                 int max_iter, int nochange_steps, bool verbose)
   : handle(handle),
-    param(svmParameter{C, cache_size, max_iter, tol, verbose}),
+    param(svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbose}),
     kernel_params(kernel_params) {
   model.n_support = 0;
   model.dual_coefs = nullptr;
@@ -87,7 +89,9 @@ void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
 template <typename math_t>
 void SVC<math_t>::predict(math_t *input, int n_rows, int n_cols,
                           math_t *preds) {
-  svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds);
+  math_t buffer_size = param.cache_size;
+  svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds,
+             buffer_size);
 }
 
 // Instantiate templates for the shared library
