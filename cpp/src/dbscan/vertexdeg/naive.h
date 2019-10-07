@@ -38,7 +38,7 @@ static const int TPB_Y = 8;
  * @param N number of rows
  * @param D number of columns
  */
-template <typename Type, typename Index_ = long>
+template <typename Type, typename Index_ = int>
 __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
                                      Index_ startVertexId, Index_ batchSize) {
   const Type Zero = (Type)0;
@@ -66,12 +66,12 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
     atomicAdd((int *)(vd + row), (int)res);
     atomicAdd((int *)(vd + batchSize), (int)res);
   } else if (sizeof(Index_) == 8) {
-    atomicAdd((unsigned long long *)(vd + row), (unsigned long long)res);
-    atomicAdd((unsigned long long *)(vd + batchSize), (unsigned long long)res);
+    atomicAdd((unsigned long long *)(vd + row), res);
+    atomicAdd((unsigned long long *)(vd + batchSize), res);
   }
 }
 
-template <typename Type, typename Index_ = long>
+template <typename Type, typename Index_ = int>
 void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
               cudaStream_t stream) {
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
