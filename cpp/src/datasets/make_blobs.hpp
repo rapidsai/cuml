@@ -55,7 +55,7 @@ void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
                 const float* cluster_std = nullptr,
                 const float cluster_std_scalar = 1.f, bool shuffle = true,
                 float center_box_min = 10.f, float center_box_max = 10.f,
-                uint64_t seed = 0ULL);
+                uint64_t seed = 0ULL, bool rowMajor = true);
 
 void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
                 int64_t n_rows, int64_t n_cols, int64_t n_clusters,
@@ -63,19 +63,19 @@ void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
                 const double* cluster_std = nullptr,
                 const double cluster_std_scalar = 1.f, bool shuffle = true,
                 double center_box_min = 10.f, double center_box_max = 10.f,
-                uint64_t seed = 0ULL);
+                uint64_t seed = 0ULL, bool rowMajor = true);
 
 void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const float* centers,
                 const float* cluster_std, const float cluster_std_scalar,
                 bool shuffle, float center_box_min, float center_box_max,
-                uint64_t seed);
+                uint64_t seed, bool rowMajor = true);
 
 void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const double* centers,
                 const double* cluster_std, const double cluster_std_scalar,
                 bool shuffle, double center_box_min, double center_box_max,
-                uint64_t seed);
+                uint64_t seed, bool rowMajor = true);
 
 }  // namespace Datasets
 }  // namespace ML

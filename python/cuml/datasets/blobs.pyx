@@ -47,7 +47,8 @@ cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
                          bool shuffle,
                          float center_box_min,
                          float center_box_max,
-                         uint64_t seed) except +
+                         uint64_t seed,
+                         bool rowMajor) except +
 
     cdef void make_blobs(cumlHandle& handle,
                          double* out,
@@ -61,7 +62,8 @@ cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
                          bool shuffle,
                          double center_box_min,
                          double center_box_max,
-                         uint64_t seed) except +
+                         uint64_t seed,
+                         bool rowMajor) except +
 
 inp_to_dtype = {
     'single': np.float32,
@@ -145,7 +147,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    out = zeros((n_samples, n_features), dtype=dtype, order='C')
+    out = zeros((n_samples, n_features), dtype=dtype, order='F')
     cdef uintptr_t out_ptr = get_dev_array_ptr(out)
 
     labels = zeros(n_samples, dtype=np.int64)
@@ -201,7 +203,8 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <bool> shuffle,
                    <float> center_box_min,
                    <float> center_box_max,
-                   <uint64_t> random_state)
+                   <uint64_t> random_state,
+                   <bool> True)
 
     else:
         make_blobs(handle_[0],
@@ -216,6 +219,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <bool> shuffle,
                    <double> center_box_min,
                    <double> center_box_max,
-                   <uint64_t> random_state)
+                   <uint64_t> random_state,
+                   <bool> True)
 
     return out, labels

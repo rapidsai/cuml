@@ -73,8 +73,8 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)-10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
-                GeneratorType type = GenPhilox, bool rowMajor = true,
-                cublasHandle_t cublas_h = nullptr) {
+                bool rowMajor = true, cublasHandle_t cublas_h = nullptr,
+                GeneratorType type = GenPhilox) {
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
@@ -95,6 +95,18 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
 
   DataT* _out;
   IdxT* _labels;
+
+  DataT* final_out;
+  if (!rowMajor) {
+    tmp_trans.resize(n_rows * n_cols, stream);
+    final_out = tmp_trans.data();
+  } else
+    final_out = out;
+
+  /**
+   * If we are shuffling, we need to output to a temporary buffer
+   * to perform the permute
+   */
   if (shuffle) {
     tmp_out.resize(n_rows * n_cols, stream);
     perms.resize(n_rows, stream);
@@ -102,7 +114,7 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
     _out = tmp_out.data();
     _labels = tmp_labels.data();
   } else {
-    _out = out;
+    _out = final_out;
     _labels = labels;
   }
   // get the std info transferred to host
@@ -123,14 +135,6 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
       r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
     }
   }
-
-  DataT* final_out;
-  if (!rowMajor) {
-    tmp_trans.resize(n_rows * n_cols, stream);
-    final_out = tmp_trans.data();
-    copy(final_out, _out, n_cols * n_rows, stream);
-  } else
-    final_out = _out;
 
   // shuffle, if asked for
   ///@todo: currently using a poor quality shuffle for better perf!
