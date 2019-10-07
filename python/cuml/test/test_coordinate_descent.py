@@ -58,7 +58,8 @@ def test_lasso(datatype, X_type, alpha, algorithm,
                            n_informative=n_info, random_state=0)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
     cu_lasso = cuLasso(alpha=np.array([alpha]), fit_intercept=True,
                        normalize=False, max_iter=1000,
                        selection=algorithm, tol=1e-10)
@@ -128,7 +129,8 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info, random_state=0)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     elastic_cu = cuElasticNet(alpha=np.array([alpha]), fit_intercept=True,
                               normalize=False, max_iter=1000,

@@ -39,7 +39,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
                          stress_param(1000)])
@@ -72,7 +72,7 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
 
     cu_r2 = r2_score(cu_pred, y_test)
     skl_r2 = r2_score(skl_pred, y_test)
-    assert(cu_r2 - skl_r2 <= 0.02)
+    assert abs(cu_r2 - skl_r2) <= 0.02
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -99,4 +99,4 @@ def test_mbsgd_regressor_default(datatype,
 
     cu_r2 = r2_score(cu_pred, y_test)
     skl_r2 = r2_score(skl_pred, y_test)
-    assert(cu_r2 - skl_r2 <= 0.02)
+    assert abs(cu_r2 - skl_r2) <= 0.02
