@@ -50,6 +50,7 @@ include_directories( include
 	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
 	${CUML_DIR}/src
 	${CUML_DIR}/src_prims
+        ${CUML_DIR}/include
 )
 
 set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
