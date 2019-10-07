@@ -22,7 +22,6 @@ import cudf
 
 from dask.distributed import default_client
 
-from sklearn.datasets import make_blobs as skl_make_blobs
 
 import numpy as np
 
@@ -31,13 +30,16 @@ import math
 
 
 def create_df(m, n, centers, cluster_std, random_state, dtype):
+
+    from cuml.datasets import make_blobs
+
     """
     Returns Dask Dataframes on device for X and y.
     """
-    X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
-                          random_state=random_state)
-    X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-    y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
+    X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
+                      random_state=random_state, dtype=dtype)
+    X = cudf.DataFrame.from_gpu_matrix(X)
+    y = cudf.DataFrame.from_gpu_matrix(y.reshape(y.shape[0], 1))
     return X, y
 
 
@@ -56,7 +58,7 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32):
+               dtype=np.float32, client=None):
 
     """
     Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -83,7 +85,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     :return: (dask.Dataframe for X, dask.Series for labels)
     """
 
-    client = default_client()
+    client = default_client() if client is None else client
 
     workers = list(client.has_what().keys())
 

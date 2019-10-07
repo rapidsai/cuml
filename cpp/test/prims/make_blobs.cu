@@ -99,6 +99,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(stats));
     CUDA_CHECK(cudaFree(mu_vec));
+
+    CUBLAS_CHECK(cublasDestroy(cublas_h));
   }
 
   void getExpectedMeanVar(T meanvar[2]) {

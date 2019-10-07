@@ -48,7 +48,8 @@ def test_make_blobs(nrows,
                           centers=centers,
                           cluster_std=cluster_std,
                           dtype=dtype,
-                          n_parts=nparts)
+                          n_parts=nparts,
+                          client=c)
 
         assert X.npartitions == nparts
         assert y.npartitions == nparts
