@@ -64,7 +64,8 @@ def test_rf_classification(datatype, split_algo,
                                random_state=123, n_classes=2)
     X = X.astype(datatype)
     y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=8)
 
@@ -127,7 +128,8 @@ def test_rf_regression(datatype, use_handle, split_algo,
                                random_state=123)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=8)
@@ -195,9 +197,7 @@ def test_rf_regression_default(datatype):
 
     # Initialize, fit and predict using
     # sklearn's random forest regression model
-    sk_model = skrfr(n_estimators=50, max_depth=16,
-                     min_samples_split=2, max_features=1.0,
-                     random_state=10)
+    sk_model = skrfr(max_depth=16, random_state=10)
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)

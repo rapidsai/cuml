@@ -142,8 +142,8 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=30, n_features=5,
-                           n_informative=3, random_state=0)
+    X, y = make_regression(n_samples=40, n_features=10,
+                           n_informative=7, random_state=10)
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,

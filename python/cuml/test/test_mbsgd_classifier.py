@@ -41,7 +41,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(40), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
                          stress_param(1000)])
