@@ -29,7 +29,7 @@ from cuml.utils import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     double adjustedRandIndex(cumlHandle &handle,
                              long *y,
