@@ -171,7 +171,7 @@ if(OPENMP_FOUND)
 endif(OPENMP_FOUND)
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11 -g")
 
 if(LINE_INFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
