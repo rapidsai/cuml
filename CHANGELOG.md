@@ -41,6 +41,7 @@
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1226: cuml.make_blobs is col-major. Now using in cuml.dask.make_blobs
 
 ## Bug Fixes
 

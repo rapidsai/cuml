@@ -16,7 +16,6 @@
 
 
 from dask.dataframe import from_delayed
-import pandas as pd
 
 import cudf
 
