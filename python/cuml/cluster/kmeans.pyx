@@ -35,7 +35,9 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, numba_utils
 
-cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans::KMeansParams":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace \
+    "ML::kmeans::KMeansParams":
+
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
