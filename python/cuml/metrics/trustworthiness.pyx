@@ -16,6 +16,7 @@
 
 # cython: profile=False
 # distutils: language = c++
+# distutils: extra_compile_args = -Og
 # cython: embedsignature = True
 # cython: language_level = 3
 
@@ -25,8 +26,10 @@ import warnings
 
 from numba import cuda
 
+ctypedef bint bool
 from libc.stdint cimport uintptr_t
 from cuml.common.handle cimport cumlHandle
+import cuml.common.handle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
@@ -53,9 +56,13 @@ def _get_array_ptr(obj):
     return obj.device_ctypes_pointer.value
 
 
-def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean', should_downcast=True,
-                    convert_dtype=False):
+def trustworthiness(X,
+                    X_embedded,
+                    handle=None,
+                    int n_neighbors=5,
+                    str metric='euclidean',
+                    bool should_downcast=True,
+                    bool convert_dtype=True):
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -73,7 +80,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         n_neighbors : int, optional (default: 5)
             Number of neighbors considered
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
 
@@ -82,6 +89,10 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         trustworthiness score : double
             Trustworthiness of the low-dimensional embedding
     """
+    if metric != "euclidean":
+        raise TypeError("Metric must be euclidean!")
+    if n_neighbors <= 0:
+        raise ValueError("n_neighbors must be > 0")
 
     if should_downcast:
         convert_dtype = True
@@ -90,38 +101,58 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
+    cdef int n_samples, n_features
+    cdef int n_rows, n_components
 
-    X_m, d_X_ptr, n_samples, n_features, dtype1 = \
-        input_to_dev_array(X, order='C', check_dtype=np.float32,
-                           convert_to_dtype=(np.float32 if convert_dtype
-                                             else None))
-    X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
+    downcast_X = None
+    downcast_embedded = None
+
+    if convert_dtype:
+        downcast_embedded = np.float32
+        downcast_X = np.float32
+    else:
+        if hasattr(X, "dtype") and X.dtype != np.float32:
+            downcast_X = np.float32
+
+        if hasattr(X_embedded, "dtype") and X_embedded.dtype != np.float32:
+            downcast_embedded = np.float32
+
+        if downcast_embedded != downcast_X:
+            downcast_embedded = np.float32
+            downcast_X = np.float32
+
+    X_m, d_X_ptr, n_samples, n_features, dtype_X = \
+        input_to_dev_array(X, order='C', convert_to_dtype=downcast_X,
+                           check_dtype=np.float32)
+
+    X_m2, d_X_embedded_ptr, n_rows, n_components, dtype_embedded = \
         input_to_dev_array(X_embedded, order='C',
-                           check_dtype=np.float32,
-                           convert_to_dtype=(np.float32 if convert_dtype
-                                             else None))
+                           convert_to_dtype=downcast_embedded,
+                           check_dtype=np.float32)
 
-    cdef cumlHandle* handle_ = <cumlHandle*>0
+    temp_handle = None
+    cdef cumlHandle* handle_
     if handle is None:
-        handle_ = <cumlHandle*><size_t>(new cumlHandle())
-    else:
-        handle_ = <cumlHandle*><size_t>handle.getHandle()
+        temp_handle = cuml.common.handle.Handle()
+        handle = temp_handle
 
-    if metric == 'euclidean':
-        res = trustworthiness_score[float, euclidean](handle_[0],
-                                                      <float*>d_X_ptr,
-                                                      <float*>d_X_embedded_ptr,
-                                                      n_samples,
-                                                      n_features,
-                                                      n_components,
-                                                      n_neighbors)
-        del X_m
-        del X_m2
-    else:
-        del X_m
-        del X_m2
-        raise Exception("Unknown metric")
+    assert(handle is not None)
+    handle_ = <cumlHandle*><size_t>(handle.getHandle())
+    assert(handle_ != NULL)
+    assert(<void*>d_X_ptr != NULL)
+    assert(<void*>d_X_embedded_ptr != NULL)
 
-    if handle is None:
-        del handle_
-    return res
+    cdef double trust = 0
+    trust = trustworthiness_score[float, euclidean](handle_[0],
+                                                    <float*>d_X_ptr,
+                                                    <float*>d_X_embedded_ptr,
+                                                    <int> n_samples,
+                                                    <int> n_features,
+                                                    <int> n_components,
+                                                    <int> n_neighbors)
+    del X_m
+    del X_m2
+
+    if temp_handle is not None:
+        del temp_handle
+    return trust
