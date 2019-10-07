@@ -26,7 +26,8 @@ import cuml.decomposition
 import umap
 import numpy as np
 
-from cuml.benchmark.bench_helper_funcs import *
+from cuml.benchmark.bench_helper_funcs \
+    import fit, fit_kneighbors, fit_transform
 
 
 class AlgorithmPair:
