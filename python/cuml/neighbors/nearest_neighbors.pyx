@@ -47,7 +47,7 @@ from librmm_cffi import librmm as rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
 
@@ -57,7 +57,7 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
         void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
         cuml.common.cuda._Stream getStream() except +
 
-cdef extern from "knn/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void brute_force_knn(
         cumlHandle &handle,

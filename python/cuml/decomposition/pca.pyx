@@ -35,7 +35,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
 
-cdef extern from "pca/pca.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
     cdef void pcaFit(cumlHandle& handle,
                      float *input,

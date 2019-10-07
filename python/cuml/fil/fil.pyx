@@ -133,7 +133,7 @@ cdef class TreeliteModel():
         return model
 
 
-cdef extern from "fil/fil.h" namespace "ML::fil":
+cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
         NAIVE,
         TREE_REORG,
