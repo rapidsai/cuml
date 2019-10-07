@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cublas.h>
 #include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
@@ -46,6 +47,7 @@ struct MakeBlobsInputs {
   T mean, std;
   GeneratorType gtype;
   uint64_t seed;
+  bool rowMajor;
 };
 
 template <typename T>
@@ -54,6 +56,9 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
+
+    CUBLAS_CHECK(cublasCreate(&cublas_h));
+
     num_sigma = 10;
     allocator.reset(new defaultDeviceAllocator);
     params = ::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam();
@@ -69,7 +74,15 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     T* sigma_vec = nullptr;
     make_blobs(data, labels, params.rows, params.cols, params.n_clusters,
                allocator, stream, mu_vec, sigma_vec, params.std, false,
-               (T)-10.0, (T)10.0, params.seed, params.gtype);
+               (T)-10.0, (T)10.0, params.seed, params.gtype, params.rowMajor,
+               cublas_h);
+
+    if (!params.rowMajor) {
+      device_buffer<T> temp_out(allocator, stream, len);
+      LinAlg::transpose(data, temp_out.data(), params.cols, params.rows,
+                        cublas_h, stream);
+      copy(data, temp_out.data(), len, stream);
+    }
     static const int threads = 128;
     meanKernel<T, threads>
       <<<ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
@@ -99,24 +112,39 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   T h_stats[2];  // mean, var
   std::shared_ptr<deviceAllocator> allocator;
   int num_sigma;
+
+  cublasHandle_t cublas_h;
 };
 
 typedef MakeBlobsTest<float> MakeBlobsTestF;
 const std::vector<MakeBlobsInputs<float>> inputsf_t = {
-  {0.0055, 32, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL},
-  {0.0055, 32, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL},
-  {0.011, 8, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL},
-  {0.0055, 32, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL},
-  {0.011, 8, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL},
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL, true},
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL, true},
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL, true},
 
-  {0.0055, 32, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL},
-  {0.0055, 32, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL},
-  {0.011, 8, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL},
-  {0.0055, 32, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL},
-  {0.011, 8, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL}};
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL, true},
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL, true},
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL, true},
 
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL, false},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenPhilox, 1234ULL, false},
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL, false},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenTaps, 1234ULL, false},
+  {0.0055, 32, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL, false},
+  {0.011, 8, 1024, 3, 1.f, 1.f, GenKiss99, 1234ULL, false},
+
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL, false},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenPhilox, 1234ULL, false},
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL, false},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenTaps, 1234ULL, false},
+  {0.0055, 32, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL, false},
+  {0.011, 8, 1024, 5, 1.f, 1.f, GenKiss99, 1234ULL, false}};
 TEST_P(MakeBlobsTestF, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
@@ -130,19 +158,19 @@ INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF,
 
 typedef MakeBlobsTest<double> MakeBlobsTestD;
 const std::vector<MakeBlobsInputs<double>> inputsd_t = {
-  {0.0055, 32, 1024, 3, 1.0, 1.0, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 3, 1.0, 1.0, GenPhilox, 1234ULL},
-  {0.0055, 32, 1024, 3, 1.0, 1.0, GenTaps, 1234ULL},
-  {0.011, 8, 1024, 3, 1.0, 1.0, GenTaps, 1234ULL},
-  {0.0055, 32, 1024, 3, 1.0, 1.0, GenKiss99, 1234ULL},
-  {0.011, 8, 1024, 3, 1.0, 1.0, GenKiss99, 1234ULL},
+  {0.0055, 32, 1024, 3, 1.0, 1.0, GenPhilox, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.0, 1.0, GenPhilox, 1234ULL, true},
+  {0.0055, 32, 1024, 3, 1.0, 1.0, GenTaps, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.0, 1.0, GenTaps, 1234ULL, true},
+  {0.0055, 32, 1024, 3, 1.0, 1.0, GenKiss99, 1234ULL, true},
+  {0.011, 8, 1024, 3, 1.0, 1.0, GenKiss99, 1234ULL, true},
 
-  {0.0055, 32, 1024, 5, 1.0, 1.0, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 5, 1.0, 1.0, GenPhilox, 1234ULL},
-  {0.0055, 32, 1024, 5, 1.0, 1.0, GenTaps, 1234ULL},
-  {0.011, 8, 1024, 5, 1.0, 1.0, GenTaps, 1234ULL},
-  {0.0055, 32, 1024, 5, 1.0, 1.0, GenKiss99, 1234ULL},
-  {0.011, 8, 1024, 5, 1.0, 1.0, GenKiss99, 1234ULL}};
+  {0.0055, 32, 1024, 5, 1.0, 1.0, GenPhilox, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.0, 1.0, GenPhilox, 1234ULL, true},
+  {0.0055, 32, 1024, 5, 1.0, 1.0, GenTaps, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.0, 1.0, GenTaps, 1234ULL, true},
+  {0.0055, 32, 1024, 5, 1.0, 1.0, GenKiss99, 1234ULL, true},
+  {0.011, 8, 1024, 5, 1.0, 1.0, GenKiss99, 1234ULL, true}};
 TEST_P(MakeBlobsTestD, Result) {
   double meanvar[2];
   getExpectedMeanVar(meanvar);

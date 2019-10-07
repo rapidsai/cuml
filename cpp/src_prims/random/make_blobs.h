@@ -23,6 +23,9 @@
 #include "rng.h"
 #include "utils.h"
 
+#include "linalg/cublas_wrappers.h"
+#include "linalg/transpose.h"
+
 namespace MLCommon {
 namespace Random {
 
@@ -70,7 +73,8 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)-10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
-                GeneratorType type = GenPhilox) {
+                GeneratorType type = GenPhilox, bool rowMajor = true,
+                cublasHandle_t cublas_h = nullptr) {
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
@@ -87,6 +91,8 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   device_buffer<DataT> tmp_out(allocator, stream);
   device_buffer<IdxT> perms(allocator, stream);
   device_buffer<IdxT> tmp_labels(allocator, stream);
+  device_buffer<DataT> tmp_trans(allocator, stream);
+
   DataT* _out;
   IdxT* _labels;
   if (shuffle) {
@@ -117,15 +123,29 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
       r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
     }
   }
+
+  DataT* final_out;
+  if (!rowMajor) {
+    tmp_trans.resize(n_rows * n_cols, stream);
+    final_out = tmp_trans.data();
+    copy(final_out, _out, n_cols * n_rows, stream);
+  } else
+    final_out = _out;
+
   // shuffle, if asked for
   ///@todo: currently using a poor quality shuffle for better perf!
   if (shuffle) {
-    permute<DataT, IdxT, IdxT>(perms.data(), out, _out, n_cols, n_rows, true,
-                               stream);
+    permute<DataT, IdxT, IdxT>(perms.data(), final_out, _out, n_cols, n_rows,
+                               true, stream);
     constexpr long Nthreads = 256;
     IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
     gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
                                                  n_rows);
+  }
+
+  // Transpose to column major, if asked for
+  if (!rowMajor) {
+    LinAlg::transpose(final_out, out, n_rows, n_cols, cublas_h, stream);
   }
 }
 
