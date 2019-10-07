@@ -201,7 +201,6 @@ def _func_build_handle_p2p(sessionId):
     :return:
     """
     ucp_worker = ucp.get_ucp_worker()
-
     session_state = worker_state(sessionId)
 
     handle = Handle()
@@ -265,7 +264,8 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
         if str(k) != str(local_address):
 
             ip, port = parse_host_port(k)
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
+            ep = await ucp.get_endpoint(ip.encode(),
+                                        worker_info[k]["p"],
                                         timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
@@ -428,6 +428,10 @@ class CommsContext:
 
         if self.comms_p2p:
             self.ucx_initialized = True
+
+        self.nccl_initialized = True
+
+        self.block_for_init("handle")
 
     def destroy(self):
         """

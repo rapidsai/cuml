@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 import warnings
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -66,7 +66,7 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
                   int n_features,
                   float *centroids,
                   float &inertia,
-                  int &n_iter)
+                  int &n_iter) except +
 
     cdef void fit(cumlHandle& handle,
                   KMeansParams& params,
@@ -75,7 +75,7 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
                   int n_features,
                   double *centroids,
                   double &inertia,
-                  int &n_iter)
+                  int &n_iter) except +
 
 
 class KMeansMG(KMeans):
