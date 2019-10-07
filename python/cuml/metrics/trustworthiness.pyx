@@ -26,12 +26,13 @@ import warnings
 
 from numba import cuda
 
-ctypedef bint bool
 from libc.stdint cimport uintptr_t
 from cuml.common.handle cimport cumlHandle
 import cuml.common.handle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
+
+ctypedef bint bool
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
 
