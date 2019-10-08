@@ -41,8 +41,12 @@ using MLCommon::myMax;
 //     coalesced reduce, i.e. blocks should take care of columns
 // TODO split into two kernels for small and large case?
 template <typename T, int BX = 32, int BY = 8>
-__global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
-                                 int C, int N, bool getDerivative = true) {
+__global__ void logSoftmaxKernel(T *__restrict out, T *__restrict dZ,
+                                 const T *__restrict in,
+                                 const T *__restrict labels, const int C,
+                                 const int N, const bool getDerivative = true) {
+  if (threadIdx.y >= BY) return;
+
   typedef cub::WarpReduce<T, BX> WarpRed;
   typedef cub::BlockReduce<T, BX, cub::BLOCK_REDUCE_WARP_REDUCTIONS, BY>
     BlockRed;
@@ -53,17 +57,19 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
     T sh_val[BY];
   } shm;
 
-  int y = threadIdx.y + blockIdx.x * BY;
-  int len = C * N;
-
+  const int y = threadIdx.y + blockIdx.x * BY;
+  const int len = C * N;
   bool delta = false;
+
   // TODO is there a better way to read this?
-  if (getDerivative && threadIdx.x == 0) {
+  if (getDerivative and threadIdx.x == 0 and y < N) {
     shm.sh_val[threadIdx.y] = labels[y];
   }
+
   __syncthreads();
   T label = shm.sh_val[threadIdx.y];
   __syncthreads();
+
   T eta_y = 0;
   T myEta = 0;
   T etaMax = -1e9;
@@ -72,8 +78,8 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    * Phase 1: Find Maximum m over column
    */
   for (int x = threadIdx.x; x < C; x += BX) {
-    int idx = x + y * C;
-    if (x < C && idx < len) {
+    const int idx = x + y * C;
+    if (idx < len) {
       myEta = in[idx];
       if (x == label) {
         delta = true;
@@ -82,10 +88,13 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
       etaMax = myMax<T>(myEta, etaMax);
     }
   }
-  T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cub::Max());
+
+  const T tmpMax =
+    WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cub::Max());
   if (threadIdx.x == 0) {
     shm.sh_val[threadIdx.y] = tmpMax;
   }
+
   __syncthreads();
   etaMax = shm.sh_val[threadIdx.y];
   __syncthreads();
@@ -96,22 +105,24 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    */
   // TODO there must be a better way to do this...
   if (C <= BX) {  // this means one block covers a column and myEta is valid
-    int idx = threadIdx.x + y * C;
-    if (threadIdx.x < C && idx < len) {
+    const int idx = threadIdx.x + y * C;
+    if (threadIdx.x < C and idx < len) {
       lse = myExp<T>(myEta - etaMax);
     }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
-      int idx = x + y * C;
-      if (x < C && idx < len) {
+      const int idx = x + y * C;
+      if (idx < len) {
         lse += myExp<T>(in[idx] - etaMax);
       }
     }
   }
-  T tmpLse = WarpRed(shm.warpStore[threadIdx.y]).Sum(lse);
+
+  const T tmpLse = WarpRed(shm.warpStore[threadIdx.y]).Sum(lse);
   if (threadIdx.x == 0) {
     shm.sh_val[threadIdx.y] = etaMax + myLog<T>(tmpLse);
   }
+
   __syncthreads();
   lse = shm.sh_val[threadIdx.y];
   __syncthreads();
@@ -124,22 +135,22 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    */
 
   if (C <= BX) {  // this means one block covers a column and myEta is valid
-    int idx = threadIdx.x + y * C;
-    if (threadIdx.x < C && idx < len) {
+    const int idx = threadIdx.x + y * C;
+    if (threadIdx.x < C and idx < len) {
       dZ[idx] = (myExp<T>(myEta - lse) -
                  (getDerivative ? (threadIdx.x == label) : T(0)));
     }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
-      int idx = x + y * C;
-      if (x < C && idx < len) {
+      const int idx = x + y * C;
+      if (idx < len) {
         T logP = in[idx] - lse;
         dZ[idx] = (myExp<T>(logP) - (getDerivative ? (x == label) : T(0)));
       }
     }
   }
 
-  if (!getDerivative)  // no need to continue, lossval will be undefined
+  if (not getDerivative)  // no need to continue, lossval will be undefined
     return;
 
   T lossVal = 0;
@@ -150,8 +161,8 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
   /*
    * Phase 4: accumulate loss value
    */
-  T blockSum = BlockRed(shm.blockStore).Sum(lossVal);
-  if (threadIdx.x == 0 && threadIdx.y == 0) {
+  const T blockSum = BlockRed(shm.blockStore).Sum(lossVal);
+  if (threadIdx.x == 0 and threadIdx.y == 0) {
     atomicAdd(out, blockSum);
   }
 }

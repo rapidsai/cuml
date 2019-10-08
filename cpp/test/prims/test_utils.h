@@ -76,8 +76,8 @@ template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                        size_t size, L eq_compare,
                                        cudaStream_t stream = 0) {
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> exp_h(new T[size], std::default_delete<T[]>());
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(exp_h.get(), expected, size, stream);
   updateHost<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -95,7 +95,7 @@ template <typename T, typename L>
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
                                        L eq_compare, cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
@@ -113,8 +113,8 @@ template <typename T, typename L>
                                        size_t rows, size_t cols, L eq_compare,
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> exp_h(new T[size], std::default_delete<T[]>());
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(exp_h.get(), expected, size, stream);
   updateHost<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -138,7 +138,7 @@ template <typename T, typename L>
                                        size_t cols, L eq_compare,
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
@@ -172,7 +172,7 @@ template <typename T, typename L>
                                            const T *actual_d, size_t size,
                                            L eq_compare,
                                            cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(act_h.get(), actual_d, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   bool ok = true;
@@ -204,7 +204,7 @@ template <typename T, typename L>
                                          size_t rows, size_t cols, L eq_compare,
                                          cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size], std::default_delete<T[]>());
   updateHost<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {

@@ -89,16 +89,23 @@ template <typename InType, typename AccType, typename OutType,
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
+  ASSERT(pA != NULL and pB != NULL and pD != NULL, "Null pointer!");
+  ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
+
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
+
   EffOutType *pDCast =
     reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
+  ASSERT(pDCast != NULL, "Null pointer!");
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
+
   typedef LinAlg::ThreadDiffSquaredAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
+
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
@@ -125,6 +132,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   const InType *aPtr, *bPtr;
   Index_ lda, ldb, ldd;
   Index_ gemm_m, gemm_n;
+
   if (isRowMajor) {
     transa = CUBLAS_OP_T;
     transb = CUBLAS_OP_N;
@@ -145,6 +153,9 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
@@ -155,6 +166,9 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace Distance

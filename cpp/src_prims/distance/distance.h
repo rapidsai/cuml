@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda_runtime_api.h>
 #include <cutlass/shape.h>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
@@ -33,15 +34,15 @@ enum DistanceType {
   /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
   EucExpandedL2 = 0,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucExpandedL2Sqrt,
+  EucExpandedL2Sqrt = 1,
   /** cosine distance */
-  EucExpandedCosine,
+  EucExpandedCosine = 2,
   /** L1 distance */
-  EucUnexpandedL1,
+  EucUnexpandedL1 = 3,
   /** evaluate as dist_ij += (x_ik - y-jk)^2 */
-  EucUnexpandedL2,
+  EucUnexpandedL2 = 4,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucUnexpandedL2Sqrt,
+  EucUnexpandedL2Sqrt = 5,
 };
 
 namespace {
@@ -152,10 +153,22 @@ template <DistanceType distanceType, typename InType, typename AccType,
 size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
-  constexpr bool is_allocated = distanceType <= EucExpandedCosine;
-  if (is_allocated) {
-    worksize += m * sizeof(AccType);
-    if (x != y) worksize += n * sizeof(AccType);
+
+  switch (distanceType) {
+    case EucExpandedL2:
+    case EucExpandedL2Sqrt:
+    case EucExpandedCosine:
+      // Needs workspace for row norms
+      worksize += sizeof(AccType) * m;
+      if (x != y)  // Not symmetric so row norms are not repeatted
+        worksize += sizeof(AccType) * n;
+      break;
+
+    case EucUnexpandedL1:
+    case EucUnexpandedL2:
+    case EucUnexpandedL2Sqrt:
+      // No workspace needed as no row norms are added
+      break;
   }
   return worksize;
 }
@@ -191,12 +204,22 @@ template <DistanceType distanceType, typename InType, typename AccType,
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
+  if (worksize > 0) {
+    ASSERT(workspace != NULL, "Workspace cannot be NULL!");
+  }
+
+  ASSERT(x != NULL and y != NULL and dist != NULL, "Null pointers!");
+  ASSERT(n != 0 and m != 0 and k != 0, "Cannot have 0 dimensions");
+
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda,
                Index_>
     distImpl;
+
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
                isRowMajor);
+
   CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -228,6 +251,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
+
   distance<distanceType, InType, AccType, OutType, OutputTile_,
            decltype(default_fin_op), Index_>(x, y, dist, m, n, k, workspace,
                                              worksize, default_fin_op, stream,

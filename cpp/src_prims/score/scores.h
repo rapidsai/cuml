@@ -32,7 +32,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
-
 #define MAX_BATCH_SIZE 512
 #define N_THREADS 512
 
@@ -52,14 +51,10 @@ namespace Score {
  * @output param rank: Resulting rank
  */
 template <typename math_t, typename knn_index_t>
-__global__ void
-compute_rank(const math_t *__restrict ind_X,
-             const knn_index_t *__restrict embedded_indices,
-             const int n,
-             const int n_neighbors,
-             const int work,
-             double *__restrict rank)
-{
+__global__ void compute_rank(const math_t *__restrict ind_X,
+                             const knn_index_t *__restrict embedded_indices,
+                             const int n, const int n_neighbors, const int work,
+                             double *__restrict rank) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
@@ -69,10 +64,8 @@ compute_rank(const math_t *__restrict ind_X,
   const knn_index_t idx = embedded_indices[n_idx * (n_neighbors + 1) + nn_idx];
 
   const math_t *__restrict sample_i = &ind_X[n_idx * n];
-  for (int r = 1; r < n; r++)
-  {
-    if (sample_i[r] == idx)
-    {
+  for (int r = 1; r < n; r++) {
+    if (sample_i[r] == idx) {
       const int tmp = r - n_neighbors;
       if (tmp > 0) atomicAdd(rank, tmp);
       break;
@@ -90,28 +83,26 @@ compute_rank(const math_t *__restrict ind_X,
  * @return Matrix holding the indexes of the nearest neighbors
  */
 template <typename math_t = float>
-long *__restrict
-get_knn_indexes(const math_t *__restrict input,
-                const int n,
-                const int d,
-                const int n_neighbors,
-                std::shared_ptr<deviceAllocator> d_alloc,
-                cudaStream_t stream)
-{
+long *__restrict get_knn_indexes(const math_t *__restrict input, const int n,
+                                 const int d, const int n_neighbors,
+                                 std::shared_ptr<deviceAllocator> d_alloc,
+                                 cudaStream_t stream) {
   ASSERT(input != NULL and d_alloc != NULL, "Null Pointers!");
   ASSERT(n != 0 and d != 0 and n_neighbors != 0, "Params cannot be 0");
 
-  long *indices = (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
+  long *indices =
+    (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
   ASSERT(indices != NULL, "Out of Memory");
 
-  math_t *distances = (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
+  math_t *distances =
+    (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory");
 
   float **knn_input = new float *[1];
   int *sizes = new int[1];
   ASSERT(knn_input != NULL and sizes != NULL, "Out of Memory");
 
-  knn_input[0] = (math_t*) input;
+  knn_input[0] = (math_t *)input;
   sizes[0] = n;
 
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, d,
@@ -139,35 +130,32 @@ get_knn_indexes(const math_t *__restrict input,
  * @return Trustworthiness score
  */
 template <typename math_t = float, Distance::DistanceType distance_type>
-double
-trustworthiness_score(const math_t *__restrict X,
-                      const math_t *__restrict X_embedded,
-                      const int n,
-                      const int m,
-                      const int d,
-                      const int n_neighbors,
-                      std::shared_ptr<deviceAllocator> d_alloc,
-                      cudaStream_t stream)
-{
+double trustworthiness_score(const math_t *__restrict X,
+                             const math_t *__restrict X_embedded, const int n,
+                             const int m, const int d, const int n_neighbors,
+                             std::shared_ptr<deviceAllocator> d_alloc,
+                             cudaStream_t stream) {
   ASSERT(X != NULL and X_embedded != NULL and d_alloc != NULL, "Null Pointers");
 
-  ASSERT(n != 0 and m != 0 and d != 0 and n_neighbors != 0, "Dimensions cannot be 0");
+  ASSERT(n != 0 and m != 0 and d != 0 and n_neighbors != 0,
+         "Dimensions cannot be 0");
 
   const int TMP_SIZE = MAX_BATCH_SIZE * n;
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
-  math_t *distances = (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
+  math_t *distances =
+    (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   ASSERT(distances != NULL, "Out of Memory");
 
   int *indices = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
   ASSERT(indices != NULL, "Out of Memory");
 
-  long *embedded_indices = (long*)get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+  long *embedded_indices =
+    (long *)get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
   ASSERT(embedded_indices != NULL, "Out of Memory");
 
-  double *d_t = (double *) d_alloc->allocate(sizeof(double), stream);
+  double *d_t = (double *)d_alloc->allocate(sizeof(double), stream);
   ASSERT(d_t != NULL, "Out of Memory");
-
 
   int toDo = n;
   double t = 0.0;
@@ -176,9 +164,7 @@ trustworthiness_score(const math_t *__restrict X,
   void *work;
   bool need_space;
 
-
-  while (toDo > 0)
-  {
+  while (toDo > 0) {
     // Takes at most MAX_BATCH_SIZE vectors at a time
     const int batchSize = min(toDo, MAX_BATCH_SIZE);
     if (batchSize <= 0) break;
@@ -186,52 +172,48 @@ trustworthiness_score(const math_t *__restrict X,
     // Determine distance workspace size
     ASSERT(&X[(n - toDo) * m] != NULL, "Null pointer!");
     lwork = getWorkspaceSize<distance_type, math_t, math_t, math_t>(
-        &X[(n - toDo) * m], X, batchSize, n, m);
-
+      &X[(n - toDo) * m], X, batchSize, n, m);
 
     if (lwork > 0) {
-      work = (void *) d_alloc->allocate(lwork, stream);
+      work = (void *)d_alloc->allocate(lwork, stream);
       ASSERT(work != NULL, "Out of memory!");
-    }
-    else work = NULL;
-
+    } else
+      work = NULL;
 
     // Find distances
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
+                                 OutputTile_t>(
       &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
-    
+
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
-    
-    
+
     // Determine sort columns workspace
     need_space = false;
     lwork = 0;
-    MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
-                                           n, need_space, NULL, lwork, stream);
+    MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize, n,
+                                           need_space, NULL, lwork, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    if (need_space)
-    {
-      work = (void*) d_alloc->allocate(lwork, stream);
+    if (need_space) {
+      work = (void *)d_alloc->allocate(lwork, stream);
       ASSERT(work != NULL, "Out of Memory");
 
-      MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize,
-                                             n, need_space, work, lwork, stream);
+      MLCommon::Selection::sortColumnsPerRow(distances, indices, batchSize, n,
+                                             need_space, work, lwork, stream);
       CUDA_CHECK(cudaPeekAtLastError());
       d_alloc->deallocate(work, lwork, stream);
     }
-    
-    
+
     double t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-
     const int work = batchSize * n_neighbors;
     const int n_blocks = work / N_THREADS + 1;
 
-    ASSERT(&embedded_indices[(n - toDo) * (n_neighbors + 1)] != NULL, "Null pointer!");
+    ASSERT(&embedded_indices[(n - toDo) * (n_neighbors + 1)] != NULL,
+           "Null pointer!");
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       indices, &embedded_indices[(n - toDo) * (n_neighbors + 1)], n,
       n_neighbors, batchSize * n_neighbors, d_t);
@@ -249,16 +231,15 @@ trustworthiness_score(const math_t *__restrict X,
     1.0 -
     ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
 
-  d_alloc->deallocate(embedded_indices, n * (n_neighbors + 1) * sizeof(long), stream);
+  d_alloc->deallocate(embedded_indices, n * (n_neighbors + 1) * sizeof(long),
+                      stream);
   d_alloc->deallocate(distances, TMP_SIZE * sizeof(math_t), stream);
   d_alloc->deallocate(indices, TMP_SIZE * sizeof(int), stream);
   d_alloc->deallocate(d_t, sizeof(double), stream);
-  
-  return 1;
+
   return t;
 }
 
-  
 /**
  * Calculates the "Coefficient of Determination" (R-Squared) score
  * normalizing the sum of squared errors by the total sum of squares.

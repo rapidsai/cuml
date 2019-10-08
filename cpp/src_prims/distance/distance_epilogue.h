@@ -29,6 +29,7 @@ namespace MLCommon {
 namespace Distance {
 
 namespace {
+
 template <typename OutputIterator>
 CUTLASS_HOST_DEVICE void extract_index_from_iterator(
   OutputIterator &iterator, typename OutputIterator::Pointer base_ptr,
@@ -37,27 +38,27 @@ CUTLASS_HOST_DEVICE void extract_index_from_iterator(
   typename OutputIterator::Pointer current_ptr = iterator.params.pointer;
   typename OutputIterator::Index current_pred_offset =
     iterator.params.predicate_offset;
+
   for (int d = 0; d < OutputIterator::Iterations::kD; ++d) {
     for (int h = 0; h < OutputIterator::Iterations::kH; ++h) {
       for (int w = 0; w < OutputIterator::Iterations::kW; ++w) {
-        int const imm = cutlass::ComputeOffsetFromStrides<
+        const int imm = cutlass::ComputeOffsetFromStrides<
           typename OutputIterator::Base::ImmediateOffsetStrides>::get(0, 0, w,
                                                                       0);
+
         index[st++] = iterator.valid(d, h, w, 0)
                         ? (&iterator.params.pointer[imm] - base_ptr)
                         : -1;
-        if (w < OutputIterator::Iterations::kW - 1) {
-          iterator.inc_w();
-        }
+
+        if (w < OutputIterator::Iterations::kW - 1) iterator.inc_w();
       }
-      if (h < OutputIterator::Iterations::kH - 1) {
-        iterator.inc_h();
-      }
+
+      if (h < OutputIterator::Iterations::kH - 1) iterator.inc_h();
     }
-    if (d < OutputIterator::Iterations::kD - 1) {
-      iterator.inc_d();
-    }
+
+    if (d < OutputIterator::Iterations::kD - 1) iterator.inc_d();
   }
+
   iterator.inc_advance();
   iterator.params.pointer = current_ptr;
   iterator.params.predicate_offset = current_pred_offset;

@@ -45,14 +45,20 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
     return;
   }
 
-  size_t stride = n * k;
+  const size_t stride = n * k;
 #pragma omp parallel
   {
     std::vector<int> buf(2 * nshard);
     int *pointer = buf.data();
+    ASSERT(pointer != NULL, "Null pointer");
+
     int *shard_ids = pointer + nshard;
+    ASSERT(shard_ids != NULL, "Null pointer");
+
     std::vector<float> buf2(nshard);
     float *heap_vals = buf2.data();
+    ASSERT(heap_vals != NULL, "Null pointer");
+
 #pragma omp for
     for (long i = 0; i < n; i++) {
       // the heap maps values to the shard where they are
@@ -70,6 +76,7 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
 
       float *D = distances + i * k;
       long *I = labels + i * k;
+      ASSERT(D != NULL and I != NULL, "Null pointer");
 
       for (int j = 0; j < k; j++) {
         if (heap_size == 0) {
@@ -77,14 +84,15 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
           D[j] = C::neutral();
         } else {
           // pop best element
-          int s = shard_ids[0];
+          const int s = shard_ids[0];
           int &p = pointer[s];
+
           D[j] = heap_vals[0];
           I[j] = I_in[stride * s + p] + translations[s];
 
           faiss::heap_pop<C>(heap_size--, heap_vals, shard_ids);
           p++;
-          if (p < k && I_in[stride * s + p] >= 0)
+          if (p < k and I_in[stride * s + p] >= 0)
             faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
                                 D_in[stride * s + p], s);
         }
@@ -107,24 +115,34 @@ void merge_tables(long n, long k, long nshard, float *distances, long *labels,
    * @param s the cuda stream to use
    */
 template <typename IntType = int>
-void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, long *res_I, float *res_D,
-                     IntType k, cudaStream_t s) {
-  std::vector<long> *id_ranges = new std::vector<long>();
+void brute_force_knn(float **input, int *sizes, const int n_params,
+                     const IntType D, const float *search_items,
+                     const IntType n, long *res_I, float *res_D,
+                     const IntType k, cudaStream_t s) {
+  ASSERT(input != NULL and sizes != NULL and search_items != NULL,
+         "Null pointers!");
+  ASSERT(res_I != NULL and res_D != NULL, "Null pointers!");
+
+  std::vector<long> id_ranges;
 
   IntType total_n = 0;
-
   for (int i = 0; i < n_params; i++) {
     if (i < n_params)  // if i < sizes[i]
-      id_ranges->push_back(total_n);
+      id_ranges.push_back(total_n);
     total_n += sizes[i];
   }
 
-  float *result_D = new float[k * size_t(n)];
-  long *result_I = new long[k * size_t(n)];
+  float *result_D = (float *)malloc(sizeof(float) * k * n);
+  ASSERT(result_D != NULL, "Out of Memory");
 
-  float *all_D = new float[n_params * k * size_t(n)];
-  long *all_I = new long[n_params * k * size_t(n)];
+  long *result_I = (long *)malloc(sizeof(long) * k * n);
+  ASSERT(result_I != NULL, "Out of Memory");
+
+  float *all_D = (float *)malloc(sizeof(float) * n_params * k * n);
+  ASSERT(all_D != NULL, "Out of Memory");
+
+  long *all_I = (long *)malloc(sizeof(long) * n_params * k * n);
+  ASSERT(all_I != NULL, "Out of Memory");
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
@@ -132,64 +150,64 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   CUDA_CHECK(cudaStreamSynchronize(s));
 
-#pragma omp parallel
-  {
-#pragma omp for
-    for (int i = 0; i < n_params; i++) {
-      const float *ptr = input[i];
-      IntType size = sizes[i];
+#pragma omp parallel for if (n_params > 1) schedule(static)
+  for (int i = 0; i < n_params; i++) {
+    const float *ptr = input[i];
+    ASSERT(ptr != NULL, "Pointer is NULL");
 
-      cudaPointerAttributes att;
-      cudaError_t err = cudaPointerGetAttributes(&att, ptr);
+    const IntType size = sizes[i];
 
-      if (err == 0 && att.device > -1) {
-        CUDA_CHECK(cudaSetDevice(att.device));
+    cudaPointerAttributes att;
+    cudaError_t err = cudaPointerGetAttributes(&att, ptr);
+
+    if (err == 0 && att.device > -1) {
+      CUDA_CHECK(cudaSetDevice(att.device));
+      CUDA_CHECK(cudaPeekAtLastError());
+
+      try {
+        faiss::gpu::StandardGpuResources gpu_res;
+
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
+
+        gpu_res.noTempMemory();
+        gpu_res.setCudaMallocWarning(false);
+        gpu_res.setDefaultStream(att.device, stream);
+
+        faiss::gpu::bruteForceKnn(
+          &gpu_res, faiss::METRIC_L2, ptr, true, size, search_items, true, n, D,
+          k, all_D + (long(i) * k * long(n)), all_I + (long(i) * k * long(n)));
+
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 
-        try {
-          faiss::gpu::StandardGpuResources gpu_res;
-
-          cudaStream_t stream;
-          CUDA_CHECK(cudaStreamCreate(&stream));
-
-          gpu_res.noTempMemory();
-          gpu_res.setCudaMallocWarning(false);
-          gpu_res.setDefaultStream(att.device, stream);
-
-          faiss::gpu::bruteForceKnn(
-            &gpu_res, faiss::METRIC_L2, ptr, true, size, search_items, true,
-            n, D, k, all_D + (long(i) * k * long(n)),
-            all_I + (long(i) * k * long(n)));
-
-          CUDA_CHECK(cudaPeekAtLastError());
-          CUDA_CHECK(cudaStreamSynchronize(stream));
-
-          CUDA_CHECK(cudaStreamDestroy(stream));
-
-        } catch (const std::exception &e) {
-          std::cout << "Exception occurred: " << e.what() << std::endl;
-        }
-
-      } else {
-        std::stringstream ss;
-        ss << "Input memory for " << ptr
-           << " failed. isDevice?=" << att.devicePointer << ", N=" << sizes[i];
-        std::cout << "Exception: " << ss.str() << std::endl;
+        CUDA_CHECK(cudaStreamDestroy(stream));
+      } catch (const std::exception &e) {
+        std::cout << "Exception occurred: " << e.what() << std::endl;
       }
+    }
+
+    else {
+      std::stringstream ss;
+      ss << "Input memory for " << ptr
+         << " failed. isDevice?=" << att.devicePointer << ", N=" << sizes[i];
+      std::cout << "Exception: " << ss.str() << std::endl;
     }
   }
 
   merge_tables<faiss::CMin<float, IntType>>(
-    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges->data());
+    long(n), k, n_params, result_D, result_I, all_D, all_I, id_ranges.data());
 
   MLCommon::updateDevice(res_D, result_D, k * size_t(n), s);
+
   MLCommon::updateDevice(res_I, result_I, k * size_t(n), s);
+  CUDA_CHECK(cudaStreamSynchronize(s));
 
-  delete all_D;
-  delete all_I;
+  free(all_D);
+  free(all_I);
 
-  delete result_D;
-  delete result_I;
+  free(result_D);
+  free(result_I);
 };
 
 };  // namespace Selection

@@ -91,8 +91,8 @@ void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
   NVGRAPH_CHECK(nvgraphDestroyGraphDescr(graphHandle, graph));
   NVGRAPH_CHECK(nvgraphDestroy(graphHandle));
 
-  free(COO_input);
-  free(CSR_input);
+  delete COO_input;
+  delete CSR_input;
 }
 
 template <typename T>
@@ -122,7 +122,9 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
   float **ptrs = new float *[1];
+  ASSERT(ptrs != NULL, "Out of memory");
   int *sizes = new int[1];
+  ASSERT(sizes != NULL, "Out of memory");
   ptrs[0] = X;
   sizes[0] = m;
 
@@ -133,8 +135,8 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
                eigen_tol, out, allocator, stream);
 
-  delete ptrs;
-  delete sizes;
+  delete[] ptrs;
+  delete[] sizes;
 }
 
 template <typename T>
@@ -201,8 +203,8 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  free(COO_input);
-  free(CSR_input);
+  delete COO_input;
+  delete CSR_input;
 }
 
 template <typename T>
@@ -243,8 +245,8 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, allocator, stream);
 
-  delete ptrs;
-  delete sizes;
+  delete[] ptrs;
+  delete[] sizes;
 }
 }  // namespace Spectral
 }  // namespace MLCommon

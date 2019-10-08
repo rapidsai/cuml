@@ -45,7 +45,7 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @input param pca_intialization: Whether to intialize with PCA.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  
 The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
@@ -54,7 +54,7 @@ cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of their approa
 article t-SNE-CUDA: GPU-Accelerated t-SNE and its Applications to Modern Data
 (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
+void TSNE_fit(const cumlHandle &handle, float *X, float *Y, const int n,
               const int p, const int dim = 2, int n_neighbors = 1023,
               const float theta = 0.5f, const float epssq = 0.0025,
               float perplexity = 50.0f, const int perplexity_max_iter = 100,
@@ -66,6 +66,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const int max_iter = 1000, const float min_grad_norm = 1e-7,
               const float pre_momentum = 0.5, const float post_momentum = 0.8,
               const long long random_state = -1, const bool verbose = true,
-              const bool intialize_embeddings = true, bool barnes_hut = true);
+              const bool pca_intialization = false, bool barnes_hut = true);
 
 }  // namespace ML

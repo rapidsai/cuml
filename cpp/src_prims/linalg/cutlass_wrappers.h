@@ -353,10 +353,13 @@ struct CustomGemm : public BaseClass {
     dim3 block;
     block.x = BaseClass::kThreads;
     // Launch the kernel.
-    void const* args[] = {&params, &fin_op};
-    cudaLaunchKernel(
+    void const* args[] = {(void*)&params, (void*)&fin_op};
+
+    // custom_gemm_kernel<This_, FinalLambda><<<grid, block, 0, stream>>>(params, fin_op);
+
+    CUDA_CHECK(cudaLaunchKernel(
       reinterpret_cast<void*>(&custom_gemm_kernel<This_, FinalLambda>), grid,
-      block, const_cast<void**>(args), 0, stream);
+      block, const_cast<void**>(args), 0, stream));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 

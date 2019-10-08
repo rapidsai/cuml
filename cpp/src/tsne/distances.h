@@ -40,14 +40,19 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
   float **knn_input = new float *[1];
+  ASSERT(knn_input != NULL, "Out of memory");
+
   int *sizes = new int[1];
+  ASSERT(sizes != NULL, "Out of memory [%d] %s\n", __LINE__, __FILE__);
+
   knn_input[0] = (float *)X;
   sizes[0] = n;
 
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, stream);
-  delete knn_input, sizes;
+  delete[] knn_input;
+  delete[] sizes;
 }
 
 /**
