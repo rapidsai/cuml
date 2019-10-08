@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
+- PR #1239: Updated the treelite version
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
