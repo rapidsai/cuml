@@ -209,8 +209,10 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                             d_Tma);
   } else {
     // non-transformed case: just use original parameters
-    d_Tar = d_ar;
-    d_Tma = d_ma;
+    CUDA_CHECK(cudaMemcpyAsync(d_Tar, d_ar, sizeof(double) * num_batches * p,
+                               cudaMemcpyDeviceToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_Tma, d_ma, sizeof(double) * num_batches * q,
+                               cudaMemcpyDeviceToDevice, stream));
   }
 
   if (d == 0) {
@@ -246,13 +248,11 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   } else {
     throw std::runtime_error("Not supported difference parameter: d=0, 1");
   }
-
-  allocator->deallocate(d_mu, num_batches, stream);
-  allocator->deallocate(d_ar, p * num_batches, stream);
-  allocator->deallocate(d_ma, q * num_batches, stream);
-  allocator->deallocate(d_Tar, p * num_batches, stream);
-  allocator->deallocate(d_Tma, q * num_batches, stream);
-
+  allocator->deallocate(d_mu, sizeof(double) * num_batches, stream);
+  allocator->deallocate(d_ar, sizeof(double) * p * num_batches, stream);
+  allocator->deallocate(d_ma, sizeof(double) * q * num_batches, stream);
+  allocator->deallocate(d_Tar, sizeof(double) * p * num_batches, stream);
+  allocator->deallocate(d_Tma, sizeof(double) * q * num_batches, stream);
   ML::POP_RANGE();
 }
 
