@@ -84,6 +84,55 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   paramsPCA prms,
                   bool verbose) except +
 
+    cdef void fit_transform(cumlHandle& handle,
+                  RankSizePair **input,
+                  size_t n_parts,
+                  floatData_t **rank_sizes,
+                  float *trans_input,
+                  float *components,
+                  float *explained_var,
+                  float *explained_var_ratio,
+                  float *singular_vals,
+                  float *mu,
+                  float *noise_vars,
+                  paramsPCA prms,
+                  bool verbose) except +
+
+    cdef void fit_transform(cumlHandle& handle,
+                  RankSizePair **input,
+                  size_t n_parts,
+                  doubleData_t **rank_sizes,
+                  double *trans_input,
+                  double *components,
+                  double *explained_var,
+                  double *explained_var_ratio,
+                  double *singular_vals,
+                  double *mu,
+                  double *noise_vars,
+                  paramsPCA prms,
+                  bool verbose) except +
+
+    cdef void transform(cumlHandle& handle,
+                  RankSizePair **input,
+                  size_t n_parts,
+                  floatData_t **rank_sizes,
+                  float *components,
+                  float *trans_input,            
+                  float *singular_vals,
+                  float *mu,                
+                  paramsPCA prms,
+                  bool verbose) except +
+
+    cdef void transform(cumlHandle& handle,
+                  RankSizePair **input,
+                  size_t n_parts,
+                  doubleData_t **rank_sizes,
+                  double *components,
+                  double *trans_input,
+                  double *singular_vals,
+                  double *mu,
+                  paramsPCA prms,
+                  bool verbose) except +
 
 class PCAMG(PCA):
 
@@ -183,6 +232,8 @@ class PCAMG(PCA):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
@@ -199,10 +250,11 @@ class PCAMG(PCA):
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            fit(handle_[0],
+            fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <floatData_t**> data,
+                <float*> t_input_ptr,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -216,10 +268,11 @@ class PCAMG(PCA):
 
         else:
             data = self._build_dataDouble(arr_interfaces)
-            fit(handle_[0],
+            fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <doubleData_t**> data,
+                <double*> t_input_ptr,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
@@ -255,3 +308,4 @@ class PCAMG(PCA):
         return self
 
 
+    
