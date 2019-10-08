@@ -58,6 +58,7 @@
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1236: Improve fix for SMO solvers potential crash on Turing
 
 # cuML 0.9.0 (21 Aug 2019)
 
