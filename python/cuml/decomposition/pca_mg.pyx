@@ -124,9 +124,12 @@ class PCAMG(PCA):
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
+            print("Shape: " + str(x["shape"]))
             dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
             dataF[x_i].ptr = < float * > input_ptr
             dataF[x_i].totalSize = < size_t > (x["shape"][0] * x["shape"][1] * sizeof(float))
+            print("Size: " + str((x["shape"][0] * x["shape"][1] * sizeof(float))))
+
         return <size_t>dataF
 
     def _build_dataDouble(self, arr_interfaces):
@@ -137,9 +140,10 @@ class PCAMG(PCA):
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
+            print("Shape: " + str(x["shape"]))
             dataD[x_i] = < doubleData_t * > malloc(sizeof(doubleData_t))
             dataD[x_i].ptr = < double * > input_ptr
-            dataD[x_i].totalSize = < size_t > (x["shape"][0] * x["shape"][1]*sizeof(double))
+            dataD[x_i].totalSize = < size_t > (x["shape"][0] * x["shape"][1] *sizeof(double))
         return <size_t>dataD
 
     def _freeDoubleD(self, data, arr_interfaces):
@@ -167,6 +171,8 @@ class PCAMG(PCA):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
+
+        print("partsToRanks: " + str(partsToRanks))
 
         arr_interfaces = []
         for arr in X:
@@ -235,7 +241,7 @@ class PCAMG(PCA):
             fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
-                <floatData_t**> data,
+                <floatData_t**> <size_t>data,
                 <float*> t_input_ptr,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
