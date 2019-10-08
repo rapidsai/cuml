@@ -308,7 +308,9 @@ class RandomForestRegressor(Base):
                                 " please read the cuML documentation for"
                                 " more information")
 
-        handle = Handle(n_streams)
+        if handle is None:
+            handle = Handle(n_streams)
+
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
@@ -338,7 +340,7 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
-        self.n_streams = n_streams
+        self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
