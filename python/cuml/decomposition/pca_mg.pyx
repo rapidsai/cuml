@@ -36,6 +36,8 @@ from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
+import numpy as np
+
 from cuml.decomposition import PCA
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
@@ -57,32 +59,6 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
         size_t size
 
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
-
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **input,
-                  size_t n_parts,
-                  floatData_t **rank_sizes,
-                  float *components,
-                  float *explained_var,
-                  float *explained_var_ratio,
-                  float *singular_vals,
-                  float *mu,
-                  float *noise_vars,
-                  paramsPCA prms,
-                  bool verbose) except +
-
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **input,
-                  size_t n_parts,
-                  doubleData_t **rank_sizes,
-                  double *components,
-                  double *explained_var,
-                  double *explained_var_ratio,
-                  double *singular_vals,
-                  double *mu,
-                  double *noise_vars,
-                  paramsPCA prms,
-                  bool verbose) except +
 
     cdef void fit_transform(cumlHandle& handle,
                   RankSizePair **input,
@@ -214,7 +190,7 @@ class PCAMG(PCA):
                              'the number of columns in the data')
 
         trans_input_, \
-        components_ary, \
+        self.components_ary, \
         self.explained_variance_, \
         self.explained_variance_ratio_, \
         self.mean_, self.singular_values_, \
@@ -237,9 +213,6 @@ class PCAMG(PCA):
 
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
-
-        trans_input_ = rmm.to_device(zeros(self.n_rows * self.n_components,
-                                           dtype=self.dtype))
 
         cdef uintptr_t t_input_ptr = get_dev_array_ptr(trans_input_)
 
@@ -273,6 +246,7 @@ class PCAMG(PCA):
                 params,
                 True)
 
+            self.handle.sync()
             self._freeFloatD(data, arr_interfaces)
 
         else:
@@ -291,11 +265,8 @@ class PCAMG(PCA):
                 params,
                 True)
 
+            self.handle.sync()
             self._freeDoubleD(data, arr_interfaces)
-
-            # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
 
         for idx, rankSize in enumerate(partsToRanks):
             free(<RankSizePair*>rankSizePair[idx])
@@ -303,16 +274,14 @@ class PCAMG(PCA):
 
         # Keeping the additional dataframe components during cuml 0.8.
         # See github issue #749
-        self.components_ = cudf.DataFrame()
-        for i in range(0, params.n_cols):
-            n_c = params.n_components
-            self.components_[str(i)] = components_ary[i*n_c:(i+1)*n_c]
+
+        self.components_ = cudf.DataFrame.from_gpu_matrix(self.components_ary)
 
         if isinstance(X, cudf.DataFrame):
             del X_m
 
         if _transform:
-            return trans_input_
+            cudf.DataFrame.from_gpu_matrix(trans_input_)
         else:
             return self
 

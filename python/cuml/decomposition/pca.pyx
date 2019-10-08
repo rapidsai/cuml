@@ -279,7 +279,7 @@ class PCA(Base):
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
-                 n_components=1, random_state=None, svd_solver='auto',
+                 n_components=2, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False):
         # parameters
         super(PCA, self).__init__(handle=handle, verbose=verbose)
@@ -292,6 +292,7 @@ class PCA(Base):
         self.whiten = whiten
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
         # attributes
+        self.components_ary = None
         self.components_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
@@ -314,12 +315,11 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-
-        trans_input_ = rmm.to_device(zeros(self.n_rows * self.n_components,
+        trans_input_ = rmm.to_device(zeros(n_rows * self.n_components,
                                            dtype=self.dtype))
 
-        components_ary = rmm.to_device(zeros(n_components*n_cols,
-                                       dtype=self.dtype))
+        components_ary = rmm.to_device(zeros((n_components, n_cols),
+                                       order="C", dtype=self.dtype))
         explained_variance_ = cudf.Series(zeros(n_components,
                                           dtype=self.dtype))
         explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -367,7 +367,7 @@ class PCA(Base):
                              'the number of columns in the data')
 
         trans_input_, \
-        components_ary, \
+        self.components_ary, \
         self.explained_variance_, \
         self.explained_variance_ratio_, \
         self.mean_, self.singular_values_, \
@@ -426,7 +426,7 @@ class PCA(Base):
         self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
-            self.components_[str(i)] = components_ary[i*n_c:(i+1)*n_c]
+            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
         if isinstance(X, cudf.DataFrame):
             del X_m
@@ -434,7 +434,7 @@ class PCA(Base):
         if _transform:
             return trans_input_
         else:
-            # trans_input_ and components_ary can be safely garbage collected
+            # trans_input_ can be safely garbage collected
             return self
 
     def fit_transform(self, X, y=None):
@@ -539,7 +539,7 @@ class PCA(Base):
             n_r = params.n_rows
             X_original[str(i)] = input_data[i*n_r:(i+1)*n_r]
 
-        del(X_m)
+        del X_m
 
         return X_original
 
@@ -620,7 +620,7 @@ class PCA(Base):
         for i in range(0, params.n_components):
             X_new[str(i)] = t_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
-        del(X_m)
+        del X_m
         return X_new
 
     def get_param_names(self):
@@ -632,22 +632,17 @@ class PCA(Base):
 
         del state['handle']
         del state['c_algorithm']
-        if "trans_input_" in state:
-            state['trans_input_'] = cudf.Series(state['trans_input_'])
 
         if self.components_ary is not None:
-            state['components_ary'] = cudf.Series(self.components_ary)
+            state['components_ary'] = cudf.DataFrame.from_gpu_matrix(self.components_ary)
 
         return state
 
     def __setstate__(self, state):
         super(PCA, self).__init__(handle=None, verbose=state['verbose'])
 
-        if "trans_input_" in state:
-            state['trans_input_'] = state['trans_input_'].to_gpu_array()
-
-        if "components_ary" in state:
-            state['components_ary'] = state['components_ary'].to_gpu_array()
+        if "components_ary" in state and state["components_ary"] is not None:
+            state['components_ary'] = state['components_ary'].to_gpu_matrix()
 
         self.__dict__.update(state)
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)

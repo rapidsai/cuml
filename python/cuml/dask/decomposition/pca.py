@@ -69,7 +69,6 @@ class PCA(object):
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-
         return cumlPCA(handle=handle, **kwargs), dfs
 
     @staticmethod
@@ -82,7 +81,7 @@ class PCA(object):
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
-        dfs, m = f
+        m, dfs = f
         return m.fit(dfs, M, N, partsToRanks, transform)
 
     @staticmethod
@@ -136,8 +135,10 @@ class PCA(object):
         N = X.shape[1]
         M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
+        print(str(worker_to_parts))
+
         key = uuid1()
-        pca_models = [(w, self.client.submit(
+        pca_models = [(wf[0], self.client.submit(
             PCA._func_create_model,
             comms.sessionId,
             wf[1],
@@ -146,21 +147,28 @@ class PCA(object):
             key="%s-%s" % (key, idx)))
             for idx, wf in enumerate(worker_to_parts.items())]
 
+        print(str(pca_models))
+
+        key = uuid1()
         pca_fit = [self.client.submit(
             PCA._func_fit,
-            f,
+            wf[1],
             M, N,
             partsToRanks,
             _transform,
-            workers=[w])
-            for w, f in pca_models]
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]])
+            for idx, wf in enumerate(pca_models)]
 
         wait(pca_fit)
+
+        print(str([f.exception() for f in pca_fit]))
 
         comms.destroy()
 
         self.local_model = self.client.submit(PCA._func_get_first,
-                                              pca_models[0]).result()
+                                              pca_models[0][1]).result()
+
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
         self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_

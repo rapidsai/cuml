@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client, wait
 
@@ -25,17 +24,16 @@ import numpy as np
 @pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("n_parts", [None, 50])
-def test_end_to_end(nrows, ncols, n_parts, client=None):
+def test_end_to_end(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    print("Getting cluster")
+    client = Client(cluster)
 
     from cuml.dask.decomposition import PCA
 
     from cuml.dask.datasets import make_blobs
+
+    print("Making blobs!")
 
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
                            cluster_std=0.01, verbose=True,
@@ -43,13 +41,20 @@ def test_end_to_end(nrows, ncols, n_parts, client=None):
 
     wait(X_cudf)
 
-    cumlModel = PCA()
+    print("DONE!")
+
+    print("Creating PCA")
+
+    cumlModel = PCA(verbose=True)
+
+    print("Calling FIT!")
     cumlModel.fit(X_cudf)
+
+
+    print("DONE!")
 
     # xformed = cumlModel.transform(X_cudf)
     #
     # print(str(xformed))
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
