@@ -314,18 +314,24 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
+
+        trans_input_ = rmm.to_device(zeros(self.n_rows * self.n_components,
+                                           dtype=self.dtype))
+
+        components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                       dtype=self.dtype))
+        explained_variance_ = cudf.Series(zeros(n_components,
+                                          dtype=self.dtype))
+        explained_variance_ratio_ = cudf.Series(zeros(n_components,
                                                 dtype=self.dtype))
-        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
-                                                  dtype=self.dtype))
-        self.explained_variance_ = cudf.Series(zeros(n_components,
-                                               dtype=self.dtype))
-        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
-                                                     dtype=self.dtype))
-        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
-        self.singular_values_ = cudf.Series(zeros(n_components,
-                                                  dtype=self.dtype))
-        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
+        mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+        singular_values_ = cudf.Series(zeros(n_components,
+                                       dtype=self.dtype))
+        noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
+
+        return trans_input_, components_ary, explained_variance_, \
+               explained_variance_ratio_, mean_, singular_values_, \
+               noise_variance_
 
     def fit(self, X, _transform=False):
         """
@@ -360,8 +366,14 @@ class PCA(Base):
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
-        self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols)
+        trans_input_, \
+        components_ary, \
+        self.explained_variance_, \
+        self.explained_variance_ratio_, \
+        self.mean_, self.singular_values_, \
+        self.noise_variance_ = \
+            self._initialize_arrays(params.n_components,
+                                    params.n_rows, params.n_cols)
 
         cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
 
@@ -379,7 +391,7 @@ class PCA(Base):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
@@ -414,15 +426,16 @@ class PCA(Base):
         self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
-            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
+            self.components_[str(i)] = components_ary[i*n_c:(i+1)*n_c]
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
+        if isinstance(X, cudf.DataFrame):
+            del X_m
 
-        if not _transform:
-            del(self.trans_input_)
-
-        return self
+        if _transform:
+            return trans_input_
+        else:
+            # trans_input_ and components_ary can be safely garbage collected
+            return self
 
     def fit_transform(self, X, y=None):
         """
@@ -442,12 +455,12 @@ class PCA(Base):
         -------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
         """
-        self.fit(X, _transform=True)
+        trans_input_ = self.fit(X, _transform=True)
         X_new = cudf.DataFrame()
         num_rows = self.n_rows
 
         for i in range(0, self.n_components):
-            X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
+            X_new[str(i)] = trans_input_[i*num_rows:(i+1)*num_rows]
 
         return X_new
 

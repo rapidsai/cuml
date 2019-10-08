@@ -213,8 +213,14 @@ class PCAMG(PCA):
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
-        self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols)
+        trans_input_, \
+        components_ary, \
+        self.explained_variance_, \
+        self.explained_variance_ratio_, \
+        self.mean_, self.singular_values_, \
+        self.noise_variance_ = \
+            self._initialize_arrays(params.n_components,
+                                    params.n_rows, params.n_cols)
 
         cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
 
@@ -232,7 +238,10 @@ class PCAMG(PCA):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
+        trans_input_ = rmm.to_device(zeros(self.n_rows * self.n_components,
+                                           dtype=self.dtype))
+
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -297,15 +306,15 @@ class PCAMG(PCA):
         self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
-            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
+            self.components_[str(i)] = components_ary[i*n_c:(i+1)*n_c]
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
+        if isinstance(X, cudf.DataFrame):
+            del X_m
 
-        if not _transform:
-            del(self.trans_input_)
-
-        return self
+        if _transform:
+            return trans_input_
+        else:
+            return self
 
 
     
