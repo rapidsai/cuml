@@ -22,6 +22,8 @@ import cuml.ts.arima as arima
 from cuml.ts.stationarity import stationarity
 from scipy.optimize.optimize import _approx_fprime_helper
 
+from cuml.utils.input_utils import input_to_host_array
+
 # from IPython.core.debugger import set_trace
 
 # test data time
@@ -356,7 +358,8 @@ def test_predict(plot=False):
 
         model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
 
-        y_b_p = model.predict_in_sample()
+        d_y_b_p = model.predict_in_sample()
+        y_b_p, _, _, _, _ = input_to_host_array(d_y_b_p)        
 
         if plot:
             nb_plot = 2
@@ -395,7 +398,8 @@ def test_forecast(plot=False):
 
         model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
 
-        y_b_fc = model.forecast(3)
+        d_y_b_fc = model.forecast(3)
+        y_b_fc = input_to_host_array(d_y_b_fc)
 
         # print("y_b_fc:", y_b_fc.T)
         np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
@@ -433,8 +437,10 @@ def test_fit_predict_forecast(plot=False):
                                   ma0,
                                   opt_disp=-1, h=1e-9)
 
-        y_b = batched_model.predict_in_sample()
-        y_fc = batched_model.forecast(ns_test)
+        d_y_b = batched_model.predict_in_sample()
+        y_b, _, _, _, _ = input_to_host_array(d_y_b)
+        d_y_fc = batched_model.forecast(ns_test)
+        y_fc = input_to_host_array(d_y_fc)
 
         y_b_p.append(y_b)
         y_f_p.append(y_fc)
@@ -524,8 +530,10 @@ def demo():
     
     model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
 
-    yp = model.predict_in_sample()
-    yfc = model.forecast(50)
+    d_yp = model.predict_in_sample()
+    yp = input_to_host_array(d_yp)
+    d_yfc = model.forecast(50)
+    yfc = input_to_host_array(d_yfc)
     dx = xs[1] - xs[0]
     xfc = np.linspace(1, 1+50*dx, 50)
     plt.plot(xs, yp, xfc, yfc)
@@ -565,8 +573,12 @@ def bench_arima(num_batches=240, plot=False):
     print("Solver iterations (max/min/avg): ", np.max(batched_model.niter), np.min(batched_model.niter),
           np.mean(batched_model.niter))
 
-    yt_b = batched_model.predict_in_sample()
+    d_yt_b = batched_model.predict_in_sample()
+    yt_b = input_to_host_array(d_yt_b)
 
     if plot:
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
+
+
+test_log_likelihood()

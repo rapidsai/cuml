@@ -24,9 +24,11 @@ from libcpp cimport bool
 from libcpp.string cimport string
 cimport cython
 from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
+import rmm
 
 import cuml
-from cuml.utils.input_utils import input_to_dev_array
+from cuml.utils.input_utils import input_to_dev_array, input_to_host_array
+from cuml.utils.input_utils import get_dev_array_ptr
 from cuml.common.handle cimport cumlHandle
 from libc.stdint cimport uintptr_t
 
@@ -150,18 +152,23 @@ class ARIMAModel:
     order : Tuple[int, int, int]
             The ARIMA order (p, d, q) of the model
     mu    : ndarray
-            (d>0) Array of trend parameters, one for each series
-    ar_params : ndarray
-                Array of AR parameters, grouped (`p`) per series
-    ma_params : ndarray
+            (if d>0) Array of trend parameters, one for each series
+    ar_params : List[ndarray]
+                List of AR parameters, grouped (`p`) per series
+    ma_params : List[ndarray]
                 Array of MA parameters, grouped (`q`) per series
-    y : Array
-        The series data. If given as `ndarray`, assumed to be in
-        column-major order with series as columns.
+    y : array-like (device or host)
+        The time series series data. If given as `ndarray`, assumed to have each
+        time series in columns.
+        Acceptable formats: cuDF DataFrame, cuDF
+        Series, NumPy ndarray, Numba device ndarray, cuda array interface
+        compliant array like CuPy.
 
     References
     ----------
-    The library is heavily influenced by the Python library `statsmodels`, particularly the `statsmodels.tsa.arima_model.ARIMA` model and corresponding code:
+    The library is heavily influenced by the Python library `statsmodels`,
+    particularly the `statsmodels.tsa.arima_model.ARIMA` model and
+    corresponding code:
     https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima_model.ARIMA.html
 
     Additionally the following book is a useful reference:
@@ -173,17 +180,22 @@ class ARIMAModel:
                  mu: np.ndarray,
                  ar_params: List[np.ndarray],
                  ma_params: List[np.ndarray],
-                 y: cudf.DataFrame):
+                 y):
         self.order = order
         self.mu = mu
         self.ar_params = ar_params
         self.ma_params = ma_params
-        self.y = y
-        self.num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
-        self.num_batches = y.shape[1]
+
+        # get host and device pointers
+        h_y, h_y_ptr, n_samples, n_series, dtype = input_to_host_array(y)
+        d_y, d_y_ptr, _, _, _ = input_to_dev_array(y)
+
+        self.h_y = h_y
+        self.d_y = d_y
+        self.num_samples = n_samples
+        self.num_batches = n_series
         self.yp = None
         self.niter = None  # number of iterations used during fit
-        self.d_y = None
 
     def __repr__(self):
         return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
@@ -196,15 +208,15 @@ class ARIMAModel:
     def bic(self):
         (p, d, q) = self.order[0]
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.y, x)
-        return [-2 * lli + np.log(len(self.y)) * (_model_complexity(self.order[i]))
+        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.d_y, x)
+        return [-2 * lli + np.log(len(self.d_y)) * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
     @property
     def aic(self):
         (p, d, q) = self.order[0]
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.y, x)
+        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.d_y, x)
         return [-2 * lli + 2 * (_model_complexity(self.order[i]))
                 for (i, lli) in enumerate(llb)]
 
@@ -238,35 +250,22 @@ class ARIMAModel:
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples),
-                                                                        self.num_batches), order="F")
-        cdef uintptr_t d_y_p_ptr
-        d_y_p, d_y_p_ptr, _, _, _ = input_to_dev_array(y_p, check_dtype=np.float64)
-
-        cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((self.num_samples - d),
-                                                                       self.num_batches), order="F")
-
+        # allocate residual (vs) and prediction (y_p) device memory and get pointers
         cdef uintptr_t d_vs_ptr
-        d_vs, d_vs_ptr, _, _, _ = input_to_dev_array(vs, check_dtype=np.float64)
+        cdef uintptr_t d_y_p_ptr
+        d_vs = rmm.device_array((self.num_samples - d, self.num_batches))
+        d_y_p = rmm.device_array((self.num_samples, self.num_batches))
+        d_vs_ptr = get_dev_array_ptr(d_vs)
+        d_y_p_ptr = get_dev_array_ptr(d_y_p)
 
-        cdef uintptr_t d_y_ptr    
-        if self.d_y is None:
-            d_y, d_y_ptr, _, _, _ = input_to_dev_array(self.y, check_dtype=np.float64)
-            self.d_y = (d_y, d_y_ptr)
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         
-        (_, d_y_ptr) = self.d_y
-
         predict_in_sample(handle_[0], <double*>d_y_ptr,
                           self.num_batches, self.num_samples, p, d, q,
                           <double*>d_params_ptr, <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
-        
-        
-        updateHost(&vs[0,0], <double*>d_vs_ptr, (self.num_samples-1) * self.num_batches, 0)
-        updateHost(&y_p[0,0], <double*>d_y_p_ptr, (self.num_samples) * self.num_batches, 0)
-
-        self.yp = y_p
-        return y_p
+        self.yp = d_y_p
+        return d_y_p
 
     def forecast(self, nsteps: int) -> np.ndarray:
         """Forecast the given model `nsteps` into the future.
@@ -303,48 +302,35 @@ class ARIMAModel:
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-        cdef np.ndarray[double, ndim=2, mode="fortran"] y_p = np.zeros(((self.num_samples),
-                                                                        self.num_batches), order="F")
-        cdef uintptr_t d_y_p_ptr
-        d_y_p, d_y_p_ptr, _, _, _ = input_to_dev_array(y_p, check_dtype=np.float64)
-
-        cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((self.num_samples - d),
-                                                                       self.num_batches), order="F")
         cdef uintptr_t d_vs_ptr
-        d_vs, d_vs_ptr, _, _, _ = input_to_dev_array(vs, check_dtype=np.float64)
+        d_vs = rmm.device_array((self.num_samples - d, self.num_batches))
+        d_vs_ptr = get_dev_array_ptr(d_vs)
 
         cdef uintptr_t d_y_ptr    
-        if self.d_y is None:
-            d_y, d_y_ptr, _, _, _ = input_to_dev_array(self.y, check_dtype=np.float64)
-            self.d_y = (d_y, d_y_ptr)
-            
-        (_, d_y_ptr) = self.d_y
+        d_y_ptr = get_dev_array_ptr(self.d_y)
 
         residual(handle_[0], <double*>d_y_ptr, self.num_batches, self.num_samples, p, d, q,
                  <double*>d_params_ptr, <double*>d_vs_ptr,
                  False)
 
-        y_diff = np.diff(self.y, axis=0)
+        y_diff = np.diff(self.h_y, axis=0)
         cdef uintptr_t d_y_diff_ptr
         d_y_diff, d_y_diff_ptr, _, _, _ = input_to_dev_array(y_diff, check_dtype=np.float64)
 
-        cdef np.ndarray[double, ndim=2, mode="fortran"] y_fc = np.zeros((nsteps, self.num_batches), order="F")
-        cdef uintptr_t d_y_fc_ptr
-        d_y_fc, d_y_fc_ptr, _, _, _ = input_to_dev_array(y_fc, check_dtype=np.float64)
+        d_y_fc = rmm.device_array((self.num_samples - d, self.num_batches))
+        cdef uintptr_t d_y_fc_ptr = get_dev_array_ptr(d_y_fc)
 
         forecast(handle_[0], nsteps, p, d, q, self.num_batches, self.num_samples, <double*> d_y_ptr,
                  <double*>d_y_diff_ptr, <double*>d_vs_ptr, <double*>d_params_ptr, <double*> d_y_fc_ptr)
 
-        updateHost(&y_fc[0,0], <double*>d_y_fc_ptr, nsteps * self.num_batches, 0)
-
-        return y_fc
+        return d_y_fc
 
 
 def estimate_x0(order: Tuple[int, int, int],
                 nb: int,
-                yb) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for the batched input `yb`"""
-    pynvtx_range_push("init x0")
+    pynvtx_range_push("estimate x0")
     (p, d, q) = order
     N = p + d + q
     x0 = np.zeros(N * nb)
@@ -543,7 +529,7 @@ def fit(y,
 
     fit_model = ARIMAModel(num_batches*[order], mu, ar, ma, y)
     fit_model.niter = niter
-    fit_model.d_y = (d_y, d_y_ptr)
+    fit_model.d_y = d_y
     return fit_model
 
 
