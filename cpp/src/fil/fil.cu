@@ -51,6 +51,27 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
   *is_leaf = dn.is_leaf();
 }
 
+void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+                      bool def_left, bool is_leaf, int left_index) {
+  sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
+  node->bits = n.bits;
+  node->val = n.val;
+  node->left_idx = n.left_idx;
+}
+
+/** sparse_node_decode extracts individual members from node */
+void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+                        int* fid, bool* def_left, bool* is_leaf,
+                        int* left_index) {
+  sparse_node n(*node);
+  *output = n.output();
+  *thresh = n.thresh();
+  *fid = n.fid();
+  *def_left = n.def_left();
+  *is_leaf = n.is_leaf();
+  *left_index = n.left_index();
+}
+
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
@@ -185,8 +206,52 @@ struct dense_forest : forest {
   thrust::host_vector<dense_node> h_nodes_;
 };
 
-void check_params(const forest_params_t* params) {
-  ASSERT(params->depth >= 0, "depth must be non-negative for dense forests");
+struct sparse_forest : forest {
+  void init(const cumlHandle& h, const int* trees, const sparse_node_t* nodes,
+            const forest_params_t* params) {
+    init_common(params);
+    depth_ = 0;  // a placeholder value
+    num_nodes_ = params->num_nodes;
+
+    // trees
+    trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
+                                                    h.getStream());
+    CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
+                               cudaMemcpyHostToDevice, h.getStream()));
+
+    // nodes
+    nodes_ = (sparse_node*)h.getDeviceAllocator()->allocate(
+      sizeof(sparse_node) * num_nodes_, h.getStream());
+    CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(sparse_node) * num_nodes_,
+                               cudaMemcpyHostToDevice, h.getStream()));
+  }
+
+  virtual void infer(predict_params params, cudaStream_t stream) override {
+    sparse_storage forest(trees_, nodes_, num_trees_);
+    fil::infer(forest, params, stream);
+  }
+
+  void free(const cumlHandle& h) override {
+    h.getDeviceAllocator()->deallocate(trees_, sizeof(int) * num_trees_,
+                                       h.getStream());
+    h.getDeviceAllocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
+                                       h.getStream());
+  }
+
+  int num_nodes_ = 0;
+  int* trees_ = nullptr;
+  sparse_node* nodes_ = nullptr;
+};
+
+void check_params(const forest_params_t* params, bool dense) {
+  if (dense) {
+    ASSERT(params->depth >= 0, "depth must be non-negative for dense forests");
+  } else {
+    ASSERT(params->num_nodes >= 0,
+           "num_nodes must be non-negative for sparse forests");
+    ASSERT(params->algo == algo_t::NAIVE,
+           "only NAIVE algorithm is supported for sparse forests");
+  }
   ASSERT(params->num_trees >= 0, "num_trees must be non-negative");
   ASSERT(params->num_cols >= 0, "num_cols must be non-negative");
   switch (params->algo) {
@@ -339,9 +404,17 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
 
 void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params) {
-  check_params(params);
+  check_params(params, true);
   dense_forest* f = new dense_forest;
   f->init(h, nodes, params);
+  *pf = f;
+}
+
+void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+                 const sparse_node_t* nodes, const forest_params_t* params) {
+  check_params(params, false);
+  sparse_forest* f = new sparse_forest;
+  f->init(h, trees, nodes, params);
   *pf = f;
 }
 
