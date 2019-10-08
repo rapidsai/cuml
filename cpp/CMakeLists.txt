@@ -293,7 +293,7 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           600afd55d1fa9bb94fc88fd3a3043cb2d5b20651
+    GIT_TAG           a9d18efb9bfdbfd7098bb7b71700b7df5cc4b8fb
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -324,6 +324,7 @@ include_directories(
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
 
 set(PRIMS_TEST_UTILS
