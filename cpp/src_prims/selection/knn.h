@@ -18,7 +18,7 @@
 
 #include "cuda_utils.h"
 
-#include <faiss/Heap.h>
+#include <faiss/utils/Heap.h>
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
