@@ -44,6 +44,7 @@
 
 ## Bug Fixes
 
+- PR #1231: RF respect number of cuda streams from cuml handle
 - PR #1230: Rf bugfix memleak in regression
 - PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
