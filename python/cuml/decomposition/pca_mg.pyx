@@ -287,7 +287,7 @@ class PCAMG(PCA):
             del X_m
 
         if _transform:
-            cudf.DataFrame.from_gpu_matrix(trans_input_)
+            return cudf.DataFrame.from_gpu_matrix(trans_input_)
         else:
             return self
 
