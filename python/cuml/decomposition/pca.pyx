@@ -423,10 +423,7 @@ class PCA(Base):
 
         # Keeping the additional dataframe components during cuml 0.8.
         # See github issue #749
-        self.components_ = cudf.DataFrame()
-        for i in range(0, params.n_cols):
-            n_c = params.n_components
-            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
+        self.components_ = cudf.DataFrame.from_gpu_matrix(self.components_ary)
 
         if isinstance(X, cudf.DataFrame):
             del X_m
