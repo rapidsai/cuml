@@ -62,6 +62,18 @@ std::pair<double*, double**> BMM_Allocate(
   return std::make_pair(A_dense, A_array);
 }
 
+//! Kernel to creates an Identity matrix
+__global__ void identity_matrix_kernel(double** I, int r) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+  for (int b = 0; b < r; b += blockDim.x) {
+    int idx = tid + b;
+    if (idx < r) {
+      I[bid][idx + r * idx] = 1;
+    }
+  }
+}
+
 //! The BatchedMatrix class provides storage and a number of linear operations on collections (batches) of matrices of identical shape.
 class BatchedMatrix {
  public:
@@ -170,18 +182,6 @@ class BatchedMatrix {
         std::cout << std::setprecision(10) << A[j * m_shape.first + i] << ",";
       }
       std::cout << "\n";
-    }
-  }
-
-  //! Kernel to creates an Identity matrix
-  __global__ void identity_matrix_kernel(double** I, int r) {
-    int bid = blockIdx.x;
-    int tid = threadIdx.x;
-    for (int b = 0; b < r; b += blockDim.x) {
-      int idx = tid + b;
-      if (idx < r) {
-        I[bid][idx + r * idx] = 1;
-      }
     }
   }
 
