@@ -90,6 +90,11 @@ class cumlHandle {
      */
   std::shared_ptr<hostAllocator> getHostAllocator() const;
   /**
+  * @brief API to query Num of work streams set during handle creation.
+  * @returns num of streams in the handle.
+  */
+  int getNumInternalStreams();
+  /**
      * @brief for internal use only.
      */
   const cumlHandle_impl& getImpl() const;
