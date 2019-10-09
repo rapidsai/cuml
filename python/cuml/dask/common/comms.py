@@ -168,7 +168,7 @@ def _func_init_nccl(sessionId, uniqueId):
         n = nccl()
         n.init(nWorkers, uniqueId, wid)
         worker_state(sessionId)["nccl"] = n
-    except:
+    except Exception:
         print("An error occurred initializing NCCL!")
 
 
