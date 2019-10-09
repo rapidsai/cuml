@@ -129,7 +129,16 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   __syncthreads();
   auto op = [=] __device__(int binId, IdxT idx) {
     auto id = binId % nbins;
+#if __CUDA_ARCH__ < 700
     atomicAdd(sbins + id, 1);
+#else
+    auto amask = __activemask();
+    auto mask = __match_any_sync(amask, id);
+    auto leader = __ffs(mask) - 1;
+    if (laneId() == leader) {
+      atomicAdd(sbins + id, __popc(mask));
+    }
+#endif  // __CUDA_ARCH__
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
                                             op);
@@ -322,42 +331,6 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void smemWarpHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT ncols, IdxT nbins, BinnerOp binner) {
-  extern __shared__ unsigned sbins[];
-  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
-    sbins[i] = 0;
-  }
-  __syncthreads();
-  auto op = [=] __device__(int binId, IdxT idx) {
-    auto id = binId % nbins;
-    auto amask = __activemask();
-    auto mask = __match_any_sync(amask, id);
-    auto leader = __ffs(mask) - 1;
-    if (laneId() == leader) {
-      atomicAdd(sbins + id, __popc(mask));
-    }
-  };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
-                                            op);
-  __syncthreads();
-  auto binOffset = blockIdx.y * nbins;
-  for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
-    atomicAdd(bins + binOffset + i, sbins[i]);
-  }
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-void smemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
-  dim3 blks(nblksx, ncols);
-  size_t smemSize = nbins * sizeof(int);
-  smemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                      IdxT nrows, IdxT ncols, int tpb, cudaStream_t stream,
                      BinnerOp op) {
@@ -368,11 +341,8 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
       gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
                                               op, tpb, stream);
       break;
-    case HistTypeSmemWarp:
-      smemWarpHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows,
-                                                  ncols, op, tpb, stream);
-      break;
     case HistTypeSmem:
+    case HistTypeSmemWarp:
       smemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
                                               op, tpb, stream);
       break;
