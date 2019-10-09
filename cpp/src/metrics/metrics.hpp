@@ -106,6 +106,11 @@ double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The adjusted rand index value
 */
+double adjustedRandIndex(const cumlHandle &handle, const int64_t *y,
+                         const int64_t *y_hat, const int64_t n,
+                         const int64_t lower_class_range,
+                         const int64_t upper_class_range);
+
 double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
@@ -232,5 +237,19 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
                 const int n, const int lower_class_range,
                 const int upper_class_range);
 
+/**
+* Calculates the "accuracy" between two input numpy arrays/ cudf series
+*
+* The accuracy metric is used to calculate the accuracy of the predict labels
+* predict labels
+*
+* @param handle: cumlHandle
+* @param y_hat: predicted labels
+* @param y: truth labels
+* @param n: Number of elements in y and y_hat
+* @return: The accuracy
+*/
+float accuracy_score_py(const cumlHandle &handle, const int *predictions,
+                        const int *ref_predictions, int n);
 }  // namespace Metrics
 }  // namespace ML

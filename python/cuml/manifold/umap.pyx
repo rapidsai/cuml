@@ -24,13 +24,14 @@ import cuml
 import ctypes
 import numpy as np
 import pandas as pd
+import warnings
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -46,6 +47,10 @@ cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
     enum MetricType:
         EUCLIDEAN = 0,
         CATEGORICAL = 1
+
+cdef extern from "internals/internals.h" namespace "ML::Internals":
+
+    cdef cppclass GraphBasedDimRedCallback
 
 cdef extern from "umap/umapparams.h" namespace "ML":
 
@@ -67,7 +72,8 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         float b,
         int target_n_neighbors,
         float target_weights,
-        MetricType target_metric
+        MetricType target_metric,
+        GraphBasedDimRedCallback* callback
 
 
 cdef extern from "umap/umap.hpp" namespace "ML":
@@ -221,9 +227,10 @@ class UMAP(Base):
                  b=None,
                  target_n_neighbors=-1,
                  target_weights=0.5,
-                 target_metric="euclidean",
+                 target_metric="categorical",
                  should_downcast=True,
-                 handle=None):
+                 handle=None,
+                 callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -268,9 +275,20 @@ class UMAP(Base):
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
 
-        self._should_downcast = should_downcast
+        cdef uintptr_t callback_ptr = 0
+        if callback:
+            callback_ptr = callback.get_native_callback()
+            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        self.umap_params = <size_t > umap_params
+        self._should_downcast = should_downcast
+        if should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+
+        self.umap_params = <size_t> umap_params
+
+        self.callback = callback  # prevent callback destruction
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -306,7 +324,7 @@ class UMAP(Base):
 
     def __del__(self):
         cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
-        free(umap_params)
+        del umap_params
 
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
@@ -339,7 +357,7 @@ class UMAP(Base):
 
         self.__dict__.update(state)
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
         Parameters
         ----------
@@ -352,15 +370,20 @@ class UMAP(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+
+        if self._should_downcast:
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        if self._should_downcast:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
+        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -373,9 +396,9 @@ class UMAP(Base):
         self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
-        self.arr_embed = cuda.to_device(zeros((self.X_m.shape[0],
-                                               umap_params.n_components),
-                                              order="C", dtype=np.float32))
+        self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
+                                              umap_params.n_components),
+                                             order="C", dtype=np.float32))
         self.embeddings = \
             self.arr_embed.device_ctypes_pointer.value
 
@@ -389,7 +412,10 @@ class UMAP(Base):
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
-                input_to_dev_array(y)
+                input_to_dev_array(y, check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
             fit(handle_[0],
                 < float*> x_raw,
                 < float*> y_raw,
@@ -407,9 +433,11 @@ class UMAP(Base):
                 < UMAPParams*>umap_params,
                 < float*>embed_raw)
 
+        self.handle.sync()
+
         return self
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space and return that transformed
         output.
         Parameters
@@ -423,7 +451,7 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, y)
+        self.fit(X, y, convert_dtype=convert_dtype)
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, self.arr_embed.shape[1]):
@@ -433,7 +461,7 @@ class UMAP(Base):
 
         return ret
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """Transform X into the existing embedded space and return that
         transformed output.
 
@@ -458,13 +486,17 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        cdef uintptr_t x_ptr
         if self._should_downcast:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
+            warnings.warn("Parameter should_downcast is deprecated, use "
+                          "convert_dtype in fit, fit_transform and transform "
+                          " methods instead. ")
+            convert_dtype = True
+
+        cdef uintptr_t x_ptr
+        X_m, x_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -476,9 +508,9 @@ class UMAP(Base):
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> < size_t > self.umap_params
-        embedding = cuda.to_device(zeros((X_m.shape[0],
-                                          umap_params.n_components),
-                                         order="C", dtype=np.float32))
+        embedding = rmm.to_device(zeros((X_m.shape[0],
+                                         umap_params.n_components),
+                                        order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
@@ -507,5 +539,7 @@ class UMAP(Base):
             ret = np.asarray(embedding)
 
         del X_m
+
+        self.handle.sync()
 
         return ret

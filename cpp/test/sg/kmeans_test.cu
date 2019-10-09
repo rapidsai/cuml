@@ -36,40 +36,54 @@ template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
   void basicTest() {
-    params = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
-    int m = params.n_row;
-    int n = params.n_col;
-    int k = params.n_clusters;
+    testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
+    int n_samples = testparams.n_row;
+    int n_features = testparams.n_col;
+    params.n_clusters = testparams.n_clusters;
+    params.metric = 1;
+    params.init = ML::kmeans::KMeansParams::Random;
 
     // make space for outputs : d_centroids, d_labels
     // and reference output : d_labels_ref
-    allocate(d_srcdata, n * m);
-    allocate(d_labels, m);
-    allocate(d_labels_ref, m);
-    allocate(d_centroids, k * n);
-    allocate(d_centroids_ref, k * n);
+    allocate(d_srcdata, n_samples * n_features);
+    allocate(d_transform, n_samples * n_features);
+    allocate(d_transform_ref, n_samples * n_features);
+    allocate(d_labels, n_samples);
+    allocate(d_labels_ref, n_samples);
+    allocate(d_centroids, params.n_clusters * n_features);
+    allocate(d_centroids_ref, params.n_clusters * n_features);
 
     // make testdata on host
     std::vector<T> h_srcdata = {1.0, 1.0, 3.0, 4.0, 1.0, 2.0, 2.0, 3.0};
-    h_srcdata.resize(n * m);
-    updateDevice(d_srcdata, h_srcdata.data(), m * n, stream);
+    h_srcdata.resize(n_features * n_samples);
+    updateDevice(d_srcdata, h_srcdata.data(), n_samples * n_features, stream);
 
     // make and assign reference output
     std::vector<int> h_labels_ref = {0, 1, 0, 1};
-    h_labels_ref.resize(m);
-    updateDevice(d_labels_ref, h_labels_ref.data(), m, stream);
+    h_labels_ref.resize(n_samples);
+    updateDevice(d_labels_ref, h_labels_ref.data(), n_samples, stream);
 
     std::vector<T> h_centroids_ref = {1.0, 1.5, 2.5, 3.5};
-    h_centroids_ref.resize(k * n);
-    updateDevice(d_centroids_ref, h_centroids_ref.data(), k * n, stream);
+    h_centroids_ref.resize(params.n_clusters * n_features);
+    updateDevice(d_centroids_ref, h_centroids_ref.data(),
+                 params.n_clusters * n_features, stream);
+
+    std::vector<T> h_transform_ref = {0.5, 2.91547595, 3.20156212, 0.70710678,
+                                      0.5, 2.12132034, 1.80277564, 0.70710678};
+    updateDevice(d_transform_ref, h_transform_ref.data(),
+                 n_samples * n_features, stream);
 
     cumlHandle handle;
     handle.setStream(stream);
 
-    // The actual kmeans api calls
-    // fit
-    kmeans::fit_predict(handle, k, metric, init, max_iterations, params.tol,
-                        seed, d_srcdata, m, n, d_centroids, d_labels);
+    T inertia = 0;
+    int n_iter = 0;
+    kmeans::fit_predict(handle, params, d_srcdata, n_samples, n_features,
+                        d_centroids, d_labels, inertia, n_iter);
+
+    kmeans::transform(handle, params, d_centroids, d_srcdata, n_samples,
+                      n_features, params.metric, d_transform);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -82,21 +96,20 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     CUDA_CHECK(cudaFree(d_srcdata));
     CUDA_CHECK(cudaFree(d_labels));
     CUDA_CHECK(cudaFree(d_centroids));
+    CUDA_CHECK(cudaFree(d_transform));
     CUDA_CHECK(cudaFree(d_labels_ref));
     CUDA_CHECK(cudaFree(d_centroids_ref));
+    CUDA_CHECK(cudaFree(d_transform_ref));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
-  KmeansInputs<T> params;
+  KmeansInputs<T> testparams;
   T *d_srcdata;
+  T *d_transform, *d_transform_ref;
   int *d_labels, *d_labels_ref;
   T *d_centroids, *d_centroids_ref;
-  int verbose = 0;
-  int seed = 0;
-  int max_iterations = 300;
-  kmeans::InitMethod init = kmeans::InitMethod::Random;
-  int metric = 1;
+  ML::kmeans::KMeansParams params;
   cudaStream_t stream;
 };
 
@@ -108,20 +121,26 @@ const std::vector<KmeansInputs<double>> inputsd2 = {{2, 0.05, 4, 2}};
 // https://github.com/rapidsai/cuml/issues/71
 typedef KmeansTest<float> KmeansTestF;
 TEST_P(KmeansTestF, Result) {
-  ASSERT_TRUE(devArrMatch(d_labels_ref, d_labels, params.n_row,
-                          CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(devArrMatch(d_labels_ref, d_labels, testparams.n_row,
+                          CompareApproxAbs<float>(testparams.tol)));
   ASSERT_TRUE(devArrMatch(d_centroids_ref, d_centroids,
-                          params.n_clusters * params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+                          testparams.n_clusters * testparams.n_col,
+                          CompareApproxAbs<float>(testparams.tol)));
+  ASSERT_TRUE(devArrMatch(d_transform_ref, d_transform,
+                          testparams.n_row * testparams.n_col,
+                          CompareApproxAbs<float>(testparams.tol)));
 }
 
 typedef KmeansTest<double> KmeansTestD;
 TEST_P(KmeansTestD, Result) {
-  ASSERT_TRUE(devArrMatch(d_labels_ref, d_labels, params.n_row,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(devArrMatch(d_labels_ref, d_labels, testparams.n_row,
+                          CompareApproxAbs<double>(testparams.tol)));
   ASSERT_TRUE(devArrMatch(d_centroids_ref, d_centroids,
-                          params.n_clusters * params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+                          testparams.n_clusters * testparams.n_col,
+                          CompareApproxAbs<double>(testparams.tol)));
+  ASSERT_TRUE(devArrMatch(d_transform_ref, d_transform,
+                          testparams.n_row * testparams.n_col,
+                          CompareApproxAbs<double>(testparams.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF,

@@ -36,13 +36,17 @@ class cumlHandle {
  public:
   /**
      * @brief construct a cumlHandle with default paramters.
+     * @param n_streams number of internal streams to be setup
      *
      * The default paramters are 
      *   - stream: default or NULL stream
      *   - DeviceAllocator: cudaMalloc
      *   - HostAllocator: cudaMallocHost
+     * @{
      */
+  cumlHandle(int n_streams);
   cumlHandle();
+  /** @} */
   /**
      * @brief releases all resources internally manged by cumlHandle.
      */
@@ -59,6 +63,8 @@ class cumlHandle {
      * @returns the stream to which cuML work should be ordered.
      */
   cudaStream_t getStream() const;
+  /** Get the cached device properties of the device this handle is for */
+  const cudaDeviceProp& getDeviceProperties() const;
   /**
      * @brief sets the allocator to use for all device allocations done in cuML.
      * 
@@ -84,15 +90,25 @@ class cumlHandle {
      */
   std::shared_ptr<hostAllocator> getHostAllocator() const;
   /**
+  * @brief API to query Num of work streams set during handle creation.
+  * @returns num of streams in the handle.
+  */
+  int getNumInternalStreams();
+  /**
      * @brief for internal use only.
      */
-    const cumlHandle_impl& getImpl() const;
-    /**
+  const cumlHandle_impl& getImpl() const;
+  /**
      * @brief for internal use only.
      */
-    cumlHandle_impl& getImpl();
-private:
-    std::unique_ptr<cumlHandle_impl> _impl;
+  cumlHandle_impl& getImpl();
+
+  /** for internal use only */
+  static int getDefaultNumInternalStreams();
+
+ private:
+  static constexpr int _default_num_internal_streams = 0;
+  std::unique_ptr<cumlHandle_impl> _impl;
 };
 
 }  // end namespace ML

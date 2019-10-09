@@ -14,70 +14,113 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
 
-from dask.distributed import Client
+from dask.distributed import Client, wait
+
+import numpy as np
+
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 
 @pytest.mark.mg
-def test_end_to_end(nrows, ncols, nclusters, client=None):
+@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
+                                   stress_param(5e6)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
+def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
-    owns_cluster = client is None
-    if client is None:
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
-    from cuml.dask.cluster.kmeans import KMeans as cumlKMeans
-    from dask_ml.cluster import KMeans as dmlKMeans
+    try:
+        from cuml.dask.cluster import KMeans as cumlKMeans
 
-    from cuml.test.dask.utils import dask_make_blobs
+        from cuml.dask.datasets import make_blobs
 
-    print("Building dask df")
+        X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
+                               cluster_std=0.01, verbose=True,
+                               random_state=10)
 
-    X_df, X_cudf = dask_make_blobs(nrows, ncols, nclusters,
-                                   cluster_std=0.1, verbose=True)
+        wait(X_cudf)
 
-    X_df = X_df.persist()
-    X_cudf = X_cudf.persist()
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
+                               random_state=10)
 
-    print("Building model")
-    cumlModel = cumlKMeans(verbose=0, init="k-means||", n_clusters=nclusters)
-    daskmlModel1 = dmlKMeans(init="k-means||", n_clusters=nclusters)
+        cumlModel.fit(X_cudf)
 
-    print("Fitting model")
-    import time
+        cumlLabels = cumlModel.predict(X_cudf)
 
-    cumlStart = time.time()
-    cumlModel.fit(X_cudf)
-    cumlDuration = time.time() - cumlStart
-    print(str(cumlDuration))
+        n_workers = len(list(client.has_what().keys()))
 
-    daskStart = time.time()
-    daskmlModel1.fit(X_df)
-    daskDuration = time.time()-daskStart
+        # Verifying we are grouping partitions. This should be changed soon.
+        if n_parts is not None and n_parts < n_workers:
+            assert cumlLabels.npartitions == n_parts
+        else:
+            assert cumlLabels.npartitions == n_workers
 
-    print(str(daskDuration))
+        from sklearn.metrics import adjusted_rand_score
 
-    print("Speedup=" + str(daskDuration/cumlDuration))
+        cumlPred = cumlLabels.compute().to_pandas().values
 
-    print("Predicting model")
+        assert cumlPred.shape[0] == nrows
+        assert np.max(cumlPred) == nclusters-1
+        assert np.min(cumlPred) == 0
 
-    cumlLabels = cumlModel.predict(X_cudf)
-    daskmlLabels1 = daskmlModel1.predict(X_df)
+        labels = y.compute().to_pandas().values
 
-    from sklearn.metrics import adjusted_rand_score
+        score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
 
-    cumlPred = cumlLabels.compute().to_pandas().values
+        assert 1.0 == score
 
-    daskmlPred1 = daskmlLabels1.compute()
-
-    print(str(cumlPred))
-    print(str(daskmlPred1))
-
-    score = adjusted_rand_score(cumlPred, daskmlPred1)
-
-    if owns_cluster:
+    finally:
         client.close()
-        cluster.close()
 
-    assert 1.0 == score
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [unit_param(5e3), quality_param(1e5),
+                                   stress_param(1e6)])
+@pytest.mark.parametrize("ncols", [unit_param(10), quality_param(30),
+                                   stress_param(50)])
+@pytest.mark.parametrize("nclusters", [1, 10, 30])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
+def test_transform(nrows, ncols, nclusters, n_parts, cluster):
+
+    client = Client(cluster)
+
+    try:
+
+        from cuml.dask.cluster import KMeans as cumlKMeans
+
+        from cuml.dask.datasets import make_blobs
+
+        X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
+                               cluster_std=0.01, verbose=True,
+                               random_state=10)
+
+        wait(X_cudf)
+
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
+                               random_state=10)
+
+        cumlModel.fit(X_cudf)
+
+        labels = y.compute().to_pandas().values
+        labels = labels.reshape(labels.shape[0])
+
+        xformed = cumlModel.transform(X_cudf).compute()
+
+        assert xformed.shape == (nrows, nclusters)
+
+        # The argmin of the transformed values should be equal to the labels
+        xformed_labels = np.argmin(xformed.to_pandas().to_numpy(), axis=1)
+
+        from sklearn.metrics import adjusted_rand_score
+        assert adjusted_rand_score(labels, xformed_labels)
+
+    finally:
+        client.close()

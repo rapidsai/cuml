@@ -16,6 +16,7 @@
 
 #include "decisiontree.hpp"
 #include "decisiontree_impl.cuh"
+#include "flatnode.h"
 
 namespace ML {
 namespace DecisionTree {
@@ -38,7 +39,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree) {
+                     bool cfg_quantile_per_tree, bool cfg_shuffle_features) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -48,6 +49,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
+  params.shuffle_features = cfg_shuffle_features;
 }
 
 /**
@@ -55,8 +57,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
  * @param[in] params: decision tree hyper-parameters.
  */
 void validity_check(const DecisionTreeParams params) {
-  ASSERT((params.max_depth == -1) || (params.max_depth > 0),
-         "Invalid max depth %d", params.max_depth);
+  ASSERT((params.max_depth > 0), "Invalid max depth %d", params.max_depth);
   ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
          "Invalid max leaves %d", params.max_leaves);
   ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
@@ -70,6 +71,11 @@ void validity_check(const DecisionTreeParams params) {
   ASSERT((params.min_rows_per_node >= 2),
          "Invalid min # rows per node value %d. Should be >= 2.",
          params.min_rows_per_node);
+  if (params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    ASSERT((params.max_depth <= 32),
+           "For GLOBAL_QUANTILE algorithm, only max depth of 32 is currently "
+           "supported");
+  }
 }
 
 /**
@@ -86,6 +92,7 @@ void print(const DecisionTreeParams params) {
   std::cout << "bootstrap_features: " << params.bootstrap_features << std::endl;
   std::cout << "split_criterion: " << params.split_criterion << std::endl;
   std::cout << "quantile_per_tree: " << params.quantile_per_tree << std::endl;
+  std::cout << "shuffle_features: " << params.shuffle_features << std::endl;
 }
 
 /**
@@ -115,7 +122,7 @@ void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_tree_summary<T, L>(tree);
-  print_node<T, L>("", tree->root, false);
+  print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
 /**

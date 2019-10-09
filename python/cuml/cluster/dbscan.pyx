@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
@@ -43,8 +43,8 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         float eps,
                         int min_pts,
                         int *labels,
-                        size_t max_bytes_per_batch,
-                        bool verbose)
+                        size_t max_mbytes_per_batch,
+                        bool verbose) except +
 
     cdef void dbscanFit(cumlHandle& handle,
                         double *input,
@@ -53,8 +53,28 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                         double eps,
                         int min_pts,
                         int *labels,
-                        size_t max_bytes_per_batch,
-                        bool verbose)
+                        size_t max_mbytes_per_batch,
+                        bool verbose) except +
+
+    cdef void dbscanFit(cumlHandle& handle,
+                        float *input,
+                        int64_t n_rows,
+                        int64_t n_cols,
+                        double eps,
+                        int min_pts,
+                        int64_t *labels,
+                        size_t max_mbytes_per_batch,
+                        bool verbose) except +
+
+    cdef void dbscanFit(cumlHandle& handle,
+                        double *input,
+                        int64_t n_rows,
+                        int64_t n_cols,
+                        double eps,
+                        int min_pts,
+                        int64_t *labels,
+                        size_t max_mbytes_per_batch,
+                        bool verbose) except +
 
 
 class DBSCAN(Base):
@@ -108,16 +128,16 @@ class DBSCAN(Base):
         considered as an important core point (including the point itself).
     verbose : bool
         Whether to print debug spews
-    max_bytes_per_batch : (optional) int64
-        Calculate batch size using no more than this number of bytes for the
-        pairwise distance computation. This enables the trade-off between
+    max_mbytes_per_batch : (optional) int64
+        Calculate batch size using no more than this number of megabytes for
+        the pairwise distance computation. This enables the trade-off between
         runtime and memory usage for making the N^2 pairwise distance
         computations more tractable for large numbers of samples.
         If you are experiencing out of memory errors when running DBSCAN, you
         can set this value based on the memory size of your device.
         Note: this option does not set the maximum total memory used in the
-        DBSCAN computation and so this value will not
-        be able to be set to the total memory available on the device.
+        DBSCAN computation and so this value will not be able to be set to
+        the total memory available on the device.
 
     Attributes
     -----------
@@ -148,23 +168,23 @@ class DBSCAN(Base):
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
-                 max_bytes_per_batch=None):
+                 max_mbytes_per_batch=None):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
-        self.max_bytes_per_batch = max_bytes_per_batch
+        self.max_mbytes_per_batch = max_mbytes_per_batch
         self.verbose = verbose
 
         # C++ API expects this to be numeric.
-        if self.max_bytes_per_batch is None:
-            self.max_bytes_per_batch = 0
+        if self.max_mbytes_per_batch is None:
+            self.max_mbytes_per_batch = 0
 
     def __getattr__(self, attr):
         if attr == 'labels_array':
             return self.labels_._column._data.mem
 
-    def fit(self, X):
+    def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
 
@@ -174,47 +194,81 @@ class DBSCAN(Base):
            Dense matrix (floats or doubles) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}. When the number of samples exceed
         """
 
         if self.labels_ is not None:
             del self.labels_
 
+        if out_dtype not in ["int32", np.int32, "int64", np.int64]:
+            raise ValueError("Invalid value for out_dtype. "
+                             "Valid values are {'int32', 'int64', "
+                             "np.int32, np.int64}")
+
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
+
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=out_dtype))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
-            dbscanFit(handle_[0],
-                      <float*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <float> self.eps,
-                      <int> self.min_samples,
-                      <int*> labels_ptr,
-                      <size_t>self.max_bytes_per_batch,
-                      <bool>self.verbose)
+            if out_dtype is "int32" or out_dtype is np.int32:
+                dbscanFit(handle_[0],
+                          <float*>input_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <float> self.eps,
+                          <int> self.min_samples,
+                          <int*> labels_ptr,
+                          <size_t>self.max_mbytes_per_batch,
+                          <bool>self.verbose)
+            else:
+                dbscanFit(handle_[0],
+                          <float*>input_ptr,
+                          <int64_t> n_rows,
+                          <int64_t> n_cols,
+                          <float> self.eps,
+                          <int> self.min_samples,
+                          <int64_t*> labels_ptr,
+                          <size_t>self.max_mbytes_per_batch,
+                          <bool>self.verbose)
+
         else:
-            dbscanFit(handle_[0],
-                      <double*>input_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <double> self.eps,
-                      <int> self.min_samples,
-                      <int*> labels_ptr,
-                      <size_t> self.max_bytes_per_batch,
-                      <bool>self.verbose)
+            if out_dtype is "int32" or out_dtype is np.int32:
+                dbscanFit(handle_[0],
+                          <double*>input_ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <double> self.eps,
+                          <int> self.min_samples,
+                          <int*> labels_ptr,
+                          <size_t> self.max_mbytes_per_batch,
+                          <bool>self.verbose)
+            else:
+                dbscanFit(handle_[0],
+                          <double*>input_ptr,
+                          <int64_t> n_rows,
+                          <int64_t> n_cols,
+                          <double> self.eps,
+                          <int> self.min_samples,
+                          <int64_t*> labels_ptr,
+                          <size_t> self.max_mbytes_per_batch,
+                          <bool>self.verbose)
+
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens
         self.handle.sync()
         del(X_m)
         return self
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, out_dtype="int32"):
         """
         Performs clustering on input_gdf and returns cluster labels.
 
@@ -230,7 +284,7 @@ class DBSCAN(Base):
         y : cuDF Series, shape (n_samples)
           cluster labels
         """
-        self.fit(X)
+        self.fit(X, out_dtype)
         return self.labels_
 
     def get_param_names(self):
