@@ -18,8 +18,10 @@ import pytest
 from dask.distributed import Client, wait
 from cuml.dask.common import raise_exception_from_futures
 
+
 def _raise_exception():
     raise ValueError("intentional exception")
+
 
 def test_dask_exceptions(cluster):
     c = Client(cluster)
