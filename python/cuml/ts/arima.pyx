@@ -253,8 +253,8 @@ class ARIMAModel:
         # allocate residual (vs) and prediction (y_p) device memory and get pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
-        d_vs = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64)
-        d_y_p = rmm.device_array((self.num_samples, self.num_batches), dtype=np.float64)
+        d_vs = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64, order="F")
+        d_y_p = rmm.device_array((self.num_samples, self.num_batches), dtype=np.float64, order="F")
         d_vs_ptr = get_dev_array_ptr(d_vs)
         d_y_p_ptr = get_dev_array_ptr(d_y_p)
 
@@ -267,7 +267,7 @@ class ARIMAModel:
         self.yp = d_y_p
         return d_y_p
 
-    def forecast(self, nsteps: int) -> np.ndarray:
+    def forecast(self, nsteps: int):
         """Forecast the given model `nsteps` into the future.
 
         Parameters:
@@ -303,7 +303,7 @@ class ARIMAModel:
         d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
         cdef uintptr_t d_vs_ptr
-        d_vs = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64)
+        d_vs = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64, order="F")
         d_vs_ptr = get_dev_array_ptr(d_vs)
 
         cdef uintptr_t d_y_ptr    
@@ -317,7 +317,7 @@ class ARIMAModel:
         cdef uintptr_t d_y_diff_ptr
         d_y_diff, d_y_diff_ptr, _, _, _ = input_to_dev_array(y_diff, check_dtype=np.float64)
 
-        d_y_fc = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64)
+        d_y_fc = rmm.device_array((nsteps, self.num_batches), dtype=np.float64, order="F")
         cdef uintptr_t d_y_fc_ptr = get_dev_array_ptr(d_y_fc)
 
         forecast(handle_[0], nsteps, p, d, q, self.num_batches, self.num_samples, <double*> d_y_ptr,

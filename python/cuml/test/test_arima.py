@@ -359,7 +359,7 @@ def test_predict(plot=False):
         model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
 
         d_y_b_p = model.predict_in_sample()
-        y_b_p, _, _, _, _ = input_to_host_array(d_y_b_p)        
+        y_b_p = input_to_host_array(d_y_b_p).array
 
         if plot:
             nb_plot = 2
@@ -399,7 +399,7 @@ def test_forecast(plot=False):
         model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
 
         d_y_b_fc = model.forecast(3)
-        y_b_fc = input_to_host_array(d_y_b_fc)
+        y_b_fc = input_to_host_array(d_y_b_fc).array
 
         # print("y_b_fc:", y_b_fc.T)
         np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
@@ -438,9 +438,9 @@ def test_fit_predict_forecast(plot=False):
                                   opt_disp=-1, h=1e-9)
 
         d_y_b = batched_model.predict_in_sample()
-        y_b, _, _, _, _ = input_to_host_array(d_y_b)
+        y_b = input_to_host_array(d_y_b).array
         d_y_fc = batched_model.forecast(ns_test)
-        y_fc = input_to_host_array(d_y_fc)
+        y_fc = input_to_host_array(d_y_fc).array
 
         y_b_p.append(y_b)
         y_f_p.append(y_fc)
@@ -531,12 +531,13 @@ def demo():
     model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
 
     d_yp = model.predict_in_sample()
-    yp = input_to_host_array(d_yp)
+    yp = input_to_host_array(d_yp).array
     d_yfc = model.forecast(50)
-    yfc = input_to_host_array(d_yfc)
+    yfc = input_to_host_array(d_yfc).array
     dx = xs[1] - xs[0]
     xfc = np.linspace(1, 1+50*dx, 50)
-    plt.plot(xs, yp, xfc, yfc)
+    plt.plot(xs, yp)
+    plt.plot(xfc, yfc)
 
 
 def bench_arima(num_batches=240, plot=False):
@@ -574,11 +575,8 @@ def bench_arima(num_batches=240, plot=False):
           np.mean(batched_model.niter))
 
     d_yt_b = batched_model.predict_in_sample()
-    yt_b = input_to_host_array(d_yt_b)
+    yt_b = input_to_host_array(d_yt_b).array
 
     if plot:
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
-
-
-test_log_likelihood()
