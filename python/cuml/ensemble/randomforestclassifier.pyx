@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -22,11 +23,14 @@
 import ctypes
 import math
 import numpy as np
+import os
+import tempfile
 import warnings
 
 from numba import cuda
 
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -43,6 +47,10 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
+
+cdef extern from "treelite/tree.h":
+    cdef struct Model:
+        pass
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -150,18 +158,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
-                          float*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, int]*,
-                          double*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
@@ -186,6 +190,9 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     CRITERION,
                                     bool,
                                     int) except +
+
+    cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
+    cdef void write_model_to_file(vector[unsigned char], const char* filename)
 
 
 class RandomForestClassifier(Base):
@@ -298,7 +305,7 @@ class RandomForestClassifier(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False,
+                 type_model="classifier", verbose=False, file_name=None,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -328,8 +335,7 @@ class RandomForestClassifier(Base):
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0")
 
-        if handle is None:
-            handle = Handle(n_streams)
+        handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
@@ -356,9 +362,12 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
-        self.n_streams = handle.getNumInternalStreams()
+        self.n_streams = n_streams
+        tmpdir = tempfile.mkdtemp()
+        file_name = os.path.join(tmpdir, "model.buffer")
+        self.file_name = file_name
+        self.pickle = False
         self.seed = seed
-
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
@@ -432,6 +441,14 @@ class RandomForestClassifier(Base):
         else:
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
+
+    def _get_model_info(self):
+        fit_mod_ptr = self._get_treelite(num_features=self.n_cols)
+        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+        filename_bytes = (self.file_name).encode("UTF-8")
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
+                                          filename_bytes)
+        return model_protobuf_bytes
 
     def fit(self, X, y):
         """
@@ -549,10 +566,9 @@ class RandomForestClassifier(Base):
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=num_classes)
-
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
@@ -566,7 +582,6 @@ class RandomForestClassifier(Base):
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-
         preds = np.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
@@ -731,7 +746,8 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG', num_classes=2):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -750,7 +766,7 @@ class RandomForestClassifier(Base):
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
+        _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
@@ -760,8 +776,11 @@ class RandomForestClassifier(Base):
         if y.dtype != np.int32:
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
+        preds = self.predict(X, output_class=True,
+                             threshold=threshold, algo=algo,
+                             num_classes=num_classes)
+
+        preds = np.asarray(preds).astype(np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -778,19 +797,15 @@ class RandomForestClassifier(Base):
         if self.dtype == np.float32:
             self.stats = score(handle_[0],
                                rf_forest,
-                               <float*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
-                               <double*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         else:
@@ -799,7 +814,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return self.stats['accuracy']
@@ -880,8 +894,6 @@ class RandomForestClassifier(Base):
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
-        cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
             build_treelite_forest(& cuml_model_ptr,
                                   rf_forest,
@@ -893,6 +905,7 @@ class RandomForestClassifier(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(self.mod_ptr)
+        mod_ptr = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_ptr).value
