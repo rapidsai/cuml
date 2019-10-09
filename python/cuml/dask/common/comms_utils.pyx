@@ -64,9 +64,9 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
 
 cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms":
     bool test_collective_allreduce(const cumlHandle &h) except +
-    bool test_pointToPoint_simple_send_recv(const cumlHandle &h, 
+    bool test_pointToPoint_simple_send_recv(const cumlHandle &h,
                                             int numTrials) except +
-    bool test_pointToPoint_recv_any_rank(const cumlHandle& h, 
+    bool test_pointToPoint_recv_any_rank(const cumlHandle& h,
                                          int numTrials) except +
 
 
