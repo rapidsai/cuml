@@ -74,6 +74,15 @@ def get_repo_cmake_info(names, file_path):
         file_path : String
             Relative path of the location of the CMakeLists.txt to extract the
             information.
+
+    Returns
+        -------
+        results : dictionary
+            Dictionary where results[name] contains an array,
+            where results[name][0] is the url of the repo and
+            repo_info[repo][1] is the tag/commit hash to be cloned as
+            specified by cmake.
+
     """
     with open(file_path) as f:
         s = f.read()
@@ -115,6 +124,12 @@ def get_submodule_dependencies(repos,
         libcuml_path : String
             Relative location of the build folder to look if repositories
             already exist
+
+    Returns
+        -------
+        result : boolean
+            True if repos were found in libcuml cpp build folder, False
+            if they were not found.
     """
 
     repo_info = get_repo_cmake_info(repos, file_path)
