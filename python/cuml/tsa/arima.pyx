@@ -84,8 +84,6 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                 double* d_params,
                 double* d_y_fc)
 
-cdef extern from "utils.h" namespace "MLCommon":
-  void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
@@ -792,33 +790,3 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
 
     pynvtx_range_pop()
     return vec_loglike
-
-
-def _residual(num_batches, nobs, order, y, np.ndarray[double] x, trans=False, handle=None):
-    """ Computes and returns the kalman residual """
-
-    cdef vector[double] vec_loglike
-    cdef uintptr_t d_vs_ptr
-    cdef uintptr_t d_params_ptr
-    cdef uintptr_t d_y_ptr
-
-    p, d, q = order
-
-    cdef np.ndarray[double, ndim=2, mode="fortran"] vs = np.zeros(((nobs-d), num_batches), order="F")
-    
-    d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
-    d_y, d_y_ptr, _, _, _ = input_to_dev_array(y, check_dtype=np.float64)
-    d_vs, d_vs_ptr, _, _, _ = input_to_dev_array(vs, check_dtype=np.float64)
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-
-    residual(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q,
-             <double*>d_params_ptr, <double*>d_vs_ptr,
-             trans)
-
-    updateHost(&vs[0,0], <double*>d_vs_ptr, (nobs-d) * num_batches, 0)
-
-    return vs
