@@ -15,7 +15,7 @@
 #
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
-project(cuML-comms VERSION 0.8.0 LANGUAGES CXX CUDA)
+project(cuML-comms-MPI VERSION 0.8.0 LANGUAGES CXX CUDA)
 
 set(CUML_DIR ${PROJECT_SOURCE_DIR}/../../ CACHE STRING "Path to the cuML repo")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
@@ -45,8 +45,8 @@ if (NCCL_FOUND)
     list(APPEND CUML_LINK_LIBRARIES ${NCCL_LIBRARIES})
 endif()
 
-add_library(cumlcomms SHARED src/cuML_comms_mpi_impl.cpp)
-target_link_libraries(cumlcomms ${CUML_LINK_LIBRARIES})
-target_compile_options(cumlcomms PUBLIC ${MPI_C_COMPILE_FLAGS})
+add_library(cumlcommsmpi SHARED src/cuML_comms_mpi_impl.cpp)
+target_link_libraries(cumlcommsmpi ${CUML_LINK_LIBRARIES})
+target_compile_options(cumlcommsmpi PUBLIC ${MPI_C_COMPILE_FLAGS})
 
-install(TARGETS cumlcomms DESTINATION lib)
+install(TARGETS cumlcommsmpi DESTINATION lib)

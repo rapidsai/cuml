@@ -256,6 +256,9 @@ void cumlMPICommunicator_impl::isend(const void *buf, int size, int dest, int ta
 
 void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
+    if(source == CUML_ANY_SOURCE)
+      source = MPI_ANY_SOURCE;
+
     MPI_Request mpi_req;
     request_t req_id;
     if ( _free_requests.empty() )
@@ -268,6 +271,9 @@ void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, r
         req_id = *it;
         _free_requests.erase(it);
     }
+
+
+
     MPI_CHECK( MPI_Irecv(buf, size, MPI_BYTE, source, tag, _mpi_comm, &mpi_req) );
     _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
     *request = req_id;

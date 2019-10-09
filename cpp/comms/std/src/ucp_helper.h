@@ -46,7 +46,7 @@ static void recv_handle(void *request, ucs_status_t status,
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag, int rank) {
+                              int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
@@ -79,12 +79,8 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag, int sender_rank) {
+                              int size, int tag,  ucp_tag_t tag_mask, int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
-
-  ucp_tag_t tag_mask = default_tag_mask;
-  if (sender_rank == UCP_ANY_RANK)
-    tag_mask = any_rank_tag_mask;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
