@@ -134,7 +134,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     cdef size_t ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ucp_eps[i] = <size_t>eps[i]._ucp_endpoint
+            ucp_eps[i] = <size_t><void*>PyLong_AsVoidPtr(eps[i]._ucp_endpoint)
         else:
             ucp_eps[i] = 0
 
