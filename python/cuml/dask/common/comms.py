@@ -128,7 +128,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
         print("NCCL Initialization took: %f seconds." % end)
 
     if comms_p2p:
-        _func_ucp_create_endpoints(sessionId, worker_info)
+        await _func_ucp_create_endpoints(sessionId, worker_info)
         _func_build_handle_p2p(sessionId)
     else:
         _func_build_handle(sessionId)
@@ -202,7 +202,6 @@ def _func_build_handle_p2p(sessionId):
     :return:
     """
     ucp_worker = ucp.get_ucp_worker()
-
     session_state = worker_state(sessionId)
 
     handle = Handle()
@@ -266,7 +265,8 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     for k in worker_info:
         if k != local_address:
             ip, port = parse_host_port(k)
-            ep = await ucp.get_endpoint(ip.encode(), worker_info[k]["p"],
+            ep = await ucp.get_endpoint(ip.encode(),
+                                        worker_info[k]["p"],
                                         timeout=1)
             eps[worker_info[k]["r"]] = ep
             count += 1
@@ -423,6 +423,10 @@ class CommsContext:
 
         if self.comms_p2p:
             self.ucx_initialized = True
+
+        self.nccl_initialized = True
+
+        self.block_for_init("handle")
 
     def destroy(self):
         """
