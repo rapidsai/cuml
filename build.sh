@@ -130,6 +130,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DBUILD_CUML_C_LIBRARY=ON \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
