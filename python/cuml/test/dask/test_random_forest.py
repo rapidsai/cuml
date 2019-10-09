@@ -29,6 +29,26 @@ import numpy as np
 import pandas as pd
 
 
+def _prep_training_data(c, X_train, y_train, partitions_per_worker):
+    workers = c.has_what().keys()
+    n_partitions = partitions_per_worker * len(workers)
+    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+
+    y_cudf = np.array(pd.DataFrame(y_train).values)
+    y_cudf = y_cudf[:, 0]
+    y_cudf = cudf.Series(y_cudf)
+    y_train_df = \
+        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
+
+    X_train_df, \
+        y_train_df = dask_utils.persist_across_workers(c,
+                                                       [X_train_df,
+                                                        y_train_df],
+                                                       workers=workers)
+    return X_train_df, y_train_df
+
+
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 def test_rf_classification_dask(partitions_per_worker, cluster):
 
@@ -53,22 +73,8 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
             'n_bins': 15,
         }
 
-        workers = c.has_what().keys()
-        n_partitions = partitions_per_worker * len(workers)
-        X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
-        X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
-
-        y_cudf = np.array(pd.DataFrame(y_train).values)
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
-        y_train_df = \
-            dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
-
-        X_train_df, \
-            train_df = dask_utils.persist_across_workers(c,
-                                                         [X_train_df,
-                                                          y_train_df],
-                                                         workers=workers)
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test)
@@ -77,6 +83,26 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
 
         assert acc_score > 0.8
 
+    finally:
+        c.close()
+
+
+def test_rf_throws_exceptions(cluster):
+    c = Client(cluster)
+    try:
+        cu_rf_params = { 'n_estimators': 10, 'max_depth': 8 }
+        cu_rf_mg = cuRFR_mg(**cu_rf_params)
+        X_train, y_train = make_regression(n_samples=100, n_features=20,
+                                           n_informative=10, random_state=123)
+        X_train = X_train.astype(np.float32)
+
+        workers = c.has_what().keys()
+
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train, 1)
+
+        cu_rf_mg.fit(X_train_df, y_train_df)
+        with pytest.raises(RuntimeError):
+            cu_rf_mg.fit(X_train_df, y_train_df)
     finally:
         c.close()
 
