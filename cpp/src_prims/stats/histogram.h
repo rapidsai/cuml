@@ -368,16 +368,16 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
                    BinnerOp op) {
   size_t bytes = nrows * sizeof(DataT);
   if (nrows <= 0) return;
-  if (16 / sizeof(DataT) && bytes % 16 == 0) {
+  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 16 / sizeof(DataT)>(
       type, bins, nbins, data, nrows, ncols, tpb, stream, op);
-  } else if (8 / sizeof(DataT) && bytes % 8 == 0) {
+  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 8 / sizeof(DataT)>(
       type, bins, nbins, data, nrows, ncols, tpb, stream, op);
-  } else if (4 / sizeof(DataT) && bytes % 4 == 0) {
+  } else if (4 % sizeof(DataT) == 0 && bytes % 4 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 4 / sizeof(DataT)>(
       type, bins, nbins, data, nrows, ncols, tpb, stream, op);
-  } else if (2 / sizeof(DataT) && bytes % 2 == 0) {
+  } else if (2 % sizeof(DataT) == 0 && bytes % 2 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 2 / sizeof(DataT)>(
       type, bins, nbins, data, nrows, ncols, tpb, stream, op);
   } else {
