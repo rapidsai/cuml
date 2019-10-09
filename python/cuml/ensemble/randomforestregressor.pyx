@@ -22,15 +22,12 @@
 import ctypes
 import math
 import numpy as np
-import os
-import tempfile
 import warnings
 
 from numba import cuda
 
 from cuml.common.handle import Handle
 from libcpp cimport bool
-from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -510,7 +507,7 @@ class RandomForestRegressor(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=False,
                                              algo='BATCH_TREE_REORG')
         preds = tl_to_fil_model.predict(X)
@@ -586,7 +583,6 @@ class RandomForestRegressor(Base):
                       If true, return a 1 or 0 depending on whether the raw
                       prediction exceeds the threshold. If False, just return
                       the raw prediction.
-
         algo : string name of the algo from (from algo_t enum)
                This is optional and required only while performing the
                predict operation on the GPU.
@@ -613,8 +609,7 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_on_cpu(X)
         return preds
 
-    def score(self, X, y, threshold=0.5,
-              algo='BATCH_TREE_REORG'):
+    def score(self, X, y, algo='BATCH_TREE_REORG'):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -625,6 +620,14 @@ class RandomForestRegressor(Base):
             ndarray, cuda array interface compliant array like CuPy
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
         Returns
         ----------
         mean_square_error : float or
@@ -773,4 +776,4 @@ class RandomForestRegressor(Base):
                                   <int> task_category)
         mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(mod_ptr)
+        return ctypes.c_void_p(mod_ptr).value

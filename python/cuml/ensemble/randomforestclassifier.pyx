@@ -23,14 +23,11 @@
 import ctypes
 import math
 import numpy as np
-import os
-import tempfile
 import warnings
 
 from numba import cuda
 
 from libcpp cimport bool
-from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -47,10 +44,6 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
-
-cdef extern from "treelite/tree.h":
-    cdef struct Model:
-        pass
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -746,7 +739,20 @@ class RandomForestClassifier(Base):
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
-
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
+        threshold : float
+                    threshold is used to for classification
+                    This is optional and required only while performing the
+                    predict operation on the GPU.
+        num_classes : integer
+                      number of different classes present in the dataset
         Returns
         -------
         float
