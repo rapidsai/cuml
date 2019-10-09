@@ -181,7 +181,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
   auto iword = id / WORD_BITS;
   auto sh = binId % WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
-  if (old_word >> sh & 1) atomicAdd(&bins[binId], 2);
+  if ((old_word >> sh & 1) != 0) atomicAdd(&bins[binId], 2);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
