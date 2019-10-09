@@ -15,7 +15,7 @@
 #
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
-project(cuML-comms-MPI VERSION 0.11.0 LANGUAGES CXX CUDA)
+project(cuML-comms-MPI LANGUAGES CXX CUDA)
 
 find_package(MPI REQUIRED)
 find_package(NCCL)
