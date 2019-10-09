@@ -105,6 +105,7 @@ def test_default_comms(cluster):
         client.close()
 
 
+@pytest.mark.nccl
 def test_allreduce(cluster):
 
     client = Client(cluster)
@@ -131,6 +132,7 @@ def test_allreduce(cluster):
         client.close()
 
 
+@pytest.mark.ucx
 @pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_send_recv(n_trials, cluster):
 

@@ -5,6 +5,7 @@
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
 - PR #1225: setup.py clone dependencies like cmake and correct include paths
+- PR #1224: Refactored FIL to prepare for sparse trees
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
@@ -45,6 +46,8 @@
 
 ## Bug Fixes
 
+- PR #1231: RF respect number of cuda streams from cuml handle
+- PR #1230: Rf bugfix memleak in regression
 - PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
@@ -103,6 +106,7 @@
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
 - PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
+- PR #994: Adding MPI comm impl for testing / benchmarking MNMG CUDA
 - PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
