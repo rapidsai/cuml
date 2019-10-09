@@ -23,7 +23,7 @@ from libc.stdlib cimport malloc, free
 from libcpp cimport bool
 from libcpp.string cimport string
 cimport cython
-from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import rmm
 
 import cuml
@@ -35,9 +35,9 @@ from libc.stdint cimport uintptr_t
 from typing import List, Tuple
 import cudf
 
-from cuml.ts.nvtx import pynvtx_range_push, pynvtx_range_pop
+from cuml.utils.nvtx import pynvtx_range_push, pynvtx_range_pop
 
-cdef extern from "ts/batched_arima.hpp" namespace "ML":
+cdef extern from "arima/batched_arima.hpp" namespace "ML":
   void batched_loglike(cumlHandle& handle,
                        double* y,
                        int num_batches,
@@ -87,7 +87,7 @@ cdef extern from "ts/batched_arima.hpp" namespace "ML":
 cdef extern from "utils.h" namespace "MLCommon":
   void updateHost[Type](Type* hPtr, const Type* dPtr, size_t len, int stream)
 
-cdef extern from "ts/batched_kalman.hpp" namespace "ML":
+cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
   void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
                                int batchSize, bool isInv, const double* h_params,
@@ -117,7 +117,7 @@ class ARIMAModel:
     .. code-block:: python
 
         import numpy as np
-        from cuml.ts.arima import fit
+        from cuml.tsa.arima import fit
         import matplotlib.pyplot as plt
 
         # create sample data
@@ -235,7 +235,7 @@ class ARIMAModel:
         Example:
         --------
         .. code-block:: python
-            from cuml.ts.arima import fit
+            from cuml.tsa.arima import fit
             ...
             model = fit(ys, (1,1,1), mu0, ar0, ma0)
             y_pred = model.predict_in_sample()
@@ -283,7 +283,7 @@ class ARIMAModel:
         Example:
         --------
         .. code-block:: python
-            from cuml.ts.arima import fit
+            from cuml.tsa.arima import fit
             ...
             model = fit(ys, (1,1,1), mu0, ar0, ma0)
             y_fc = model.forecast(10)
@@ -302,12 +302,10 @@ class ARIMAModel:
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = input_to_dev_array(x, check_dtype=np.float64)
 
-        cdef uintptr_t d_vs_ptr
         d_vs = rmm.device_array((self.num_samples - d, self.num_batches), dtype=np.float64, order="F")
-        d_vs_ptr = get_dev_array_ptr(d_vs)
+        cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
 
-        cdef uintptr_t d_y_ptr    
-        d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
         residual(handle_[0], <double*>d_y_ptr, self.num_batches, self.num_samples, p, d, q,
                  <double*>d_params_ptr, <double*>d_vs_ptr,
