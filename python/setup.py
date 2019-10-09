@@ -68,15 +68,16 @@ if "clean" not in sys.argv:
                                                    libcuml_path=libcuml_path)
 
     if found_cmake_repos:
-        treelite_path = libcuml_path + 'treelite/src/treelite'
-        faiss_path = libcuml_path + 'faiss/src/'
-        cub_path = libcuml_path + 'cub/src/cub'
-        cutlass_path = 'cutlass/src/cutlass'
+        treelite_path = os.path.join(libcuml_path,
+                                     'treelite/src/treelite/include')
+        faiss_path = os.path.join(libcuml_path, 'faiss/src/')
+        cub_path = os.path.join(libcuml_path, 'cub/src/cub')
+        cutlass_path = os.path.join(libcuml_path, 'cutlass/src/cutlass')
     else:
         # faiss requires the include to be to the parent of the root of
         # their repo instead of the full path like the others
         faiss_path = 'external_repositories/'
-        treelite_path = 'external_repositories/treelite'
+        treelite_path = 'external_repositories/treelite/include'
         cub_path = 'external_repositories/cub'
         cutlass_path = 'external_repositories/cutlass'
 
@@ -102,7 +103,7 @@ include_dirs = ['../cpp/src',
                 cutlass_path,
                 cub_path,
                 faiss_path,
-                treelite_path + '/include',
+                treelite_path,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
