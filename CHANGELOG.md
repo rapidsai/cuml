@@ -59,6 +59,7 @@
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 
 # cuML 0.9.0 (21 Aug 2019)
 
