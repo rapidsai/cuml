@@ -281,7 +281,7 @@ class RandomForestRegressor(Base):
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
-                 rows_sample=1.0, max_leaves=-1, file_name=None,
+                 rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
@@ -307,7 +307,9 @@ class RandomForestRegressor(Base):
                                 " please read the cuML documentation for"
                                 " more information")
 
-        handle = Handle(n_streams)
+        if handle is None:
+            handle = Handle(n_streams)
+
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
@@ -337,13 +339,9 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
-        self.n_streams = n_streams
-        self.pickle = False
-        self.seed = 0
-        if file_name is None:
-            tmpdir = tempfile.mkdtemp()
-            file_name = os.path.join(tmpdir, "model.buffer")
-        self.file_name = file_name
+        self.n_streams = handle.getNumInternalStreams()
+        self.seed = seed
+
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
@@ -775,4 +773,4 @@ class RandomForestRegressor(Base):
                                   <int> task_category)
         mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(mod_ptr).value
+        return ctypes.c_void_p(mod_ptr)

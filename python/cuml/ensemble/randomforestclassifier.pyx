@@ -302,7 +302,7 @@ class RandomForestClassifier(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False, file_name=None,
+                 type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -332,7 +332,8 @@ class RandomForestClassifier(Base):
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0")
 
-        handle = Handle(n_streams)
+        if handle is None:
+            handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
@@ -359,12 +360,9 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
-        self.n_streams = n_streams
-        tmpdir = tempfile.mkdtemp()
-        file_name = os.path.join(tmpdir, "model.buffer")
-        self.file_name = file_name
-        self.pickle = False
+        self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
