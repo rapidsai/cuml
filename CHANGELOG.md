@@ -5,6 +5,7 @@
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
 - PR #1224: Refactored FIL to prepare for sparse trees
+- PR #1249: Include libcuml.so C API in installed targets
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
