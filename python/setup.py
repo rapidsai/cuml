@@ -18,10 +18,12 @@ from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
+from setuputils import get_submodule_dependencies
 
 import os
 import subprocess
 import sys
+import sysconfig
 import versioneer
 import warnings
 
@@ -34,97 +36,56 @@ install_requires = [
 ##############################################################################
 # - Dependencies include and lib folder setup --------------------------------
 
-cuda_include_dir = '/usr/local/cuda/include'
-cuda_lib_dir = "/usr/local/cuda/lib"
-
-if os.environ.get('CUDA_HOME', False):
-    cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'lib64')
-    cuda_include_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
-
-
-conda_lib_dir = os.path.normpath(sys.prefix) + '/lib'
-conda_include_dir = os.path.normpath(sys.prefix) + '/include'
-
-if os.environ.get('CONDA_PREFIX', None):
-    conda_prefix = os.environ.get('CONDA_PREFIX')
-    conda_include_dir = conda_prefix + '/include'
-    conda_lib_dir = conda_prefix + '/lib'
+CUDA_HOME = os.environ.get("CUDA_HOME", False)
+if not CUDA_HOME:
+    CUDA_HOME = (
+        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
+    )
+cuda_include_dir = os.path.join(CUDA_HOME, "include")
+cuda_lib_dir = os.path.join(CUDA_HOME, "lib64")
 
 
 ##############################################################################
 # - Subrepo checking and cloning ---------------------------------------------
 
+subrepos = [
+    'cub',
+    'cutlass',
+    'faiss',
+    'treelite'
+]
 
-def clone_repo(name, GIT_REPOSITORY, GIT_TAG, first=False):
-    """
-    Function to clone repos in case they were not cloned by cmake.
-    Variables are named identical to the cmake counterparts for clarity,
-    in spite of not being very pythonic.
-    """
-    if first:
-        subprocess.check_call(['rm', '-rf', 'external'])
-
-    subprocess.check_call(['git', 'clone',
-                           GIT_REPOSITORY,
-                           'external/' + name])
-    wd = os.getcwd()
-    os.chdir("external/" + name)
-    subprocess.check_call(['git', 'checkout',
-                          GIT_TAG])
-    os.chdir(wd)
-
-
+# We check if there is a libcuml++ build folder, by default in cpp/build
+# or in CUML_BUILD_PATH env variable. Otherwise setup.py will clone the
+# dependencies defined in cpp/CMakeListst.txt
 if "clean" not in sys.argv:
     if os.environ.get('CUML_BUILD_PATH', False):
         libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
     else:
         libcuml_path = '../cpp/build/'
 
-    # Cloning repos if they are not found in libcuml_path (derived from
-    # CUML_BUILD_PATH) This should match their equivalent repos and tags of the
-    # CMakeLists that was used to build libcuml++
-    if not os.path.exists(libcuml_path):
-        warnings.warn("Third party repositories have not been found so they  "
-                      "will be cloned. To avoid this set the environment "
-                      "variable CUML_BUILD_PATH, containing the relative "
-                      "path of the root of the repository to the folder "
-                      "where libcuml++ was built.")
+    found_cmake_repos = get_submodule_dependencies(subrepos,
+                                                   libcuml_path=libcuml_path)
 
-        clone_repo(name='cub',
-                   GIT_REPOSITORY='https://github.com/NVlabs/cub.git',
-                   GIT_TAG='v1.8.0',
-                   first=True)
-        cub_path = 'external/cub'
-
-        clone_repo(name='cutlass',
-                   GIT_REPOSITORY='https://github.com/NVIDIA/cutlass.git',
-                   GIT_TAG='v1.0.1')
-        cutlass_path = 'external/cutlass'
-
-        clone_repo(name='faiss',
-                   GIT_REPOSITORY='https://github.com/facebookresearch/faiss.git',  # noqa: E501
-                   GIT_TAG='656368b5eda4d376177a3355673d217fa95000b6')
-        # Note: faiss has a different include path
-        faiss_path = 'external'
-
-        clone_repo(name='treelite',
-                   GIT_REPOSITORY='https://github.com/dmlc/treelite.git',
-                   GIT_TAG='600afd55d1fa9bb94fc88fd3a3043cb2d5b20651')
-        treelite_path = 'external/treelite'
-
-    else:
+    if found_cmake_repos:
         treelite_path = libcuml_path + 'treelite/src/treelite'
         faiss_path = libcuml_path + 'faiss/src/'
         cub_path = libcuml_path + 'cub/src/cub'
         cutlass_path = 'cutlass/src/cutlass'
+    else:
+        # faiss requires the include to be to the parent of the root of
+        # their repo instead of the full path like the others
+        faiss_path = 'external_repositories/'
+        treelite_path = 'external_repositories/treelite'
+        cub_path = 'external_repositories/cub'
+        cutlass_path = 'external_repositories/cutlass'
 
 else:
-    subprocess.check_call(['rm', '-rf', 'external'])
+    subprocess.check_call(['rm', '-rf', 'external_repositories'])
     treelite_path = ""
     faiss_path = ""
     cub_path = ""
     cutlass_path = ""
-
 
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
@@ -145,7 +106,7 @@ include_dirs = ['../cpp/src',
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
-                conda_include_dir]
+                os.path.dirname(sysconfig.get_path("include"))]
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
 exc_list = []
@@ -169,7 +130,7 @@ extensions = [
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
-                                    conda_lib_dir],
+                                    os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++11'])
