@@ -303,13 +303,13 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        params.max_iter = self.max_iter
-        params.tol = self.tol
-        params.verbose = self.verbose
-        params.seed = self.random_state
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbose = <int>self.verbose
+        params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
-        params.batch_size=self.max_samples_per_batch
-        params.oversampling_factor=self.oversampling_factor
+        params.batch_size=<int>self.max_samples_per_batch
+        params.oversampling_factor=<double>self.oversampling_factor
         self._params = params
 
     def fit(self, X):
