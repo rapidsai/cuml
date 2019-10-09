@@ -81,15 +81,14 @@ def get_repo_cmake_info(names, file_path):
     results = {}
 
     for name in names:
-        result = re.findall(r'ExternalProject_Add\('
-                            + re.escape(name)
-                            + '\s.*GIT_REPOSITORY.*\s.*GIT_TAG.*',
-                            s)
+        res = re.findall(r'ExternalProject_Add\(' + re.escape(name)
+                         + '\s.*GIT_REPOSITORY.*\s.*GIT_TAG.*',  # noqa: W605
+                         s)
 
-        result = re.sub(' +', ' ', result[0])
-        result = result.split(' ')
-        result = [result[2][:-1], result[4]]
-        results[name] = result
+        res = re.sub(' +', ' ', res[0])
+        res = res.split(' ')
+        res = [res[2][:-1], res[4]]
+        results[name] = res
 
     return results
 
