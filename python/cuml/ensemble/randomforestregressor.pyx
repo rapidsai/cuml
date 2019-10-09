@@ -167,9 +167,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     bool,
                                     int) except +
 
-    cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
-    cdef void write_model_to_file(vector[unsigned char], const char* filename)
-
 
 class RandomForestRegressor(Base):
 
@@ -421,14 +418,6 @@ class RandomForestRegressor(Base):
         else:
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
-
-    def _get_model_info(self):
-        fit_mod_ptr = self._get_treelite(num_features=self.n_cols)
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        filename_bytes = (self.file_name).encode("UTF-8")
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
-                                          filename_bytes)
-        return model_protobuf_bytes
 
     def fit(self, X, y):
         """
@@ -786,4 +775,4 @@ class RandomForestRegressor(Base):
                                   <int> task_category)
         mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(mod_ptr)
+        return ctypes.c_void_p(mod_ptr).value
