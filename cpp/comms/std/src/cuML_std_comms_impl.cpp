@@ -420,7 +420,7 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
       return status_t::commStatusError;
     }
 
-    ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
+    /*ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
     if (ncclErr != ncclSuccess) {
       // An error occurred retrieving the asynchronous error
       return status_t::commStatusError;
@@ -434,6 +434,7 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
         // Caller may abort with an exception or try to re-create a new communicator.
         return status_t::commStatusAbort;
     }
+	*/
 
     // Let other threads (including NCCL threads) use the CPU.
     pthread_yield();

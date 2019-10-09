@@ -181,10 +181,37 @@ double trustworthiness_score(const math_t *__restrict X,
       work = NULL;
 
     // Find distances
+    // CUDA_CHECK(cudaStreamSynchronize(stream));
+    // MLCommon::Distance::distance<distance_type, math_t, math_t, math_t, OutputTile_t>(
+    //   &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+    // CUDA_CHECK(cudaPeekAtLastError());
+
+    // math_t *new_distances = (math_t*) malloc(sizeof(math_t) * batchSize * n);
+    // MLCommon::updateHost(new_distances, distances, batchSize * n, stream);
+    // CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
-      &X[(n - toDo) * m], X, distances, batchSize, n, m, work, lwork, stream);
+      &X[(n - toDo) * m], X, distances, batchSize, n, m, NULL, 0, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+
+    // math_t *old_distances = (math_t*) malloc(sizeof(math_t) * batchSize * n);
+    // MLCommon::updateHost(old_distances, distances, batchSize * n, stream);
+    // CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    // double diff = 0;
+    // for (int i = 0; i < batchSize * n; i++) {
+    //   const double x = (new_distances[i] - old_distances[i]);
+    //   // if (x * x > 1000)
+    //   //   printf("[%d,%d] %.0lf %.0lf >> ", i / n, i % n,
+    //   //         old_distances[i], new_distances[i]);
+    //   diff += (x * x);
+    // }
+    // printf("Difference = %lf\n", diff);
+
+    // free(old_distances);
+    // free(new_distances);
 
     if (lwork > 0) d_alloc->deallocate(work, lwork, stream);
 

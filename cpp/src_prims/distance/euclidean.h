@@ -20,6 +20,8 @@
 #include "linalg/custom_accum.h"
 #include "linalg/eltwise2d.h"
 #include "linalg/gemm.h"
+#include "linalg/unary_op.h"
+#include "stats/mean_center.h"
 
 #include <cutlass/shape.h>
 #include <type_traits>
@@ -154,8 +156,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_n = n;
   }
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
@@ -169,6 +169,98 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
 
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+template <typename InType, typename AccType, typename OutType,
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+void euclidean_distance_dispatch(Index_ m, Index_ n, Index_ k, const InType *pA,
+                                 const InType *pB, OutType *pD,
+                                 bool enable_sqrt, AccType *workspace,
+                                 size_t &worksize, FinalLambda fin_op,
+                                 cudaStream_t stream, bool isRowMajor) {
+  if (true == false)
+  // if ((std::is_same<InType, float>::value or std::is_same<InType, double>::value)
+  //     and (std::is_same<InType, OutType>::value)
+  //     and (std::is_same<Index_, int>::value)
+  //     and (std::is_same<AccType, InType>::value)
+  //     and (workspace != NULL)
+  //     and (workspace != nullptr))
+  {
+    if (((pA != pB) and (worksize < (m + n) * sizeof(InType))) or
+        (worksize < m * sizeof(InType))) {
+      THROW("workspace size error");
+    } else if (workspace == NULL) {
+      THROW("workspace is null");
+    }
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    printf("cuBLAS!\n");
+    InType *col_vec = (InType *)workspace;
+    InType *row_vec = (InType *)workspace;
+    if (pA != pB) {
+      row_vec += m;
+      LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream);
+      LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, isRowMajor, stream);
+    } else {
+      LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream);
+      row_vec = col_vec;
+    }
+
+    cublasOperation_t transa, transb;
+    const InType *a, *b;
+    int lda, ldb, ldc;
+    int gemm_m, gemm_n;
+    InType *c = (InType *)pD;
+
+    if (isRowMajor) {
+      transa = CUBLAS_OP_T;
+      transb = CUBLAS_OP_N;
+      a = pB;
+      b = pA;
+      lda = ldb = k;
+      ldc = n;
+      gemm_m = n;
+      gemm_n = m;
+    } else {
+      transa = CUBLAS_OP_N;
+      transb = CUBLAS_OP_T;
+      a = pA;
+      b = pB;
+      lda = m;
+      ldb = n;
+      ldc = m;
+      gemm_m = m;
+      gemm_n = n;
+    }
+
+    // -2 * A @ B.T + ||A||^2 + ||B||^2
+    const InType alpha = -2.0;
+    const InType beta = 0;
+    cublasHandle_t handle;
+    CUBLAS_CHECK(cublasCreate(&handle));
+    CUBLAS_CHECK(LinAlg::cublasgemm(handle, transa, transb, gemm_m, gemm_n, k,
+                                    &alpha, a, lda, b, ldb, &beta, c, ldc,
+                                    stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUBLAS_CHECK(cublasDestroy(handle));
+
+    // Add row and column norms
+    Stats::meanAdd(c, c, row_vec, n, m, isRowMajor, true, stream);
+    Stats::meanAdd(c, c, col_vec, n, m, isRowMajor, false, stream);
+
+    if (enable_sqrt) {
+      LinAlg::unaryOp(
+        c, c, m * n,
+        [] __device__(InType x) { return (x > 0) ? mySqrt(x) : 0; }, stream);
+    } else {
+      LinAlg::unaryOp(
+        c, c, m * n, [] __device__(InType x) { return x; }, stream);
+    }
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  } else {
+    euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
+      m, n, k, pA, pB, pD, enable_sqrt, fin_op, stream, isRowMajor);
+  }
 }
 
 };  // end namespace Distance

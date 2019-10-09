@@ -101,8 +101,10 @@ struct DistanceImpl<EucUnexpandedL2, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
-      m, n, k, x, y, dist, false, fin_op, stream, isRowMajor);
+    euclidean_distance_dispatch<InType, AccType, OutType, OutputTile_,
+                                FinalLambda, Index_>(
+      m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
+      stream, isRowMajor);
   }
 };
 
@@ -113,8 +115,10 @@ struct DistanceImpl<EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    euclideanAlgo2<InType, AccType, OutType, OutputTile_, FinalLambda, Index_>(
-      m, n, k, x, y, dist, true, fin_op, stream, isRowMajor);
+    euclidean_distance_dispatch<InType, AccType, OutType, OutputTile_,
+                                FinalLambda, Index_>(
+      m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op, stream,
+      isRowMajor);
   }
 };
 
@@ -165,9 +169,15 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
       break;
 
     case EucUnexpandedL1:
+      break;
     case EucUnexpandedL2:
     case EucUnexpandedL2Sqrt:
       // No workspace needed as no row norms are added
+      // Temporarily calls cuBLAS
+      // Needs workspace for row norms
+      worksize += sizeof(InType) * m;
+      if (x != y)  // Not symmetric so row norms are not repeatted
+        worksize += sizeof(InType) * n;
       break;
   }
   return worksize;

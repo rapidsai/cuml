@@ -78,12 +78,12 @@ class TSNETest : public ::testing::Test {
 
     // Test trustworthiness in a loop
     // This can catch errors
-    for (int i = 0; i < 3; i++) {
-      fprintf(stderr, "EucUnexpandedL2Sqrt\n");
-      score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    for (int i = 0; i < 100; i++) {
+      fprintf(stderr, "[%d]EucUnexpandedL2\n", i);
+      score_bh = trustworthiness_score<float, EucUnexpandedL2>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
         handle.getStream());
-      fprintf(stderr, "EucUnexpandedL2Sqrt      with score = %lf\n", score_bh);
+      fprintf(stderr, "EucUnexpandedL2      with score = %lf\n", score_bh);
     }
 
     // Test Exact TSNE

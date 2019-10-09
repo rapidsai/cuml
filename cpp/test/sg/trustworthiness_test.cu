@@ -21,7 +21,7 @@
 
 using namespace MLCommon;
 using namespace ML::Metrics;
-
+using namespace MLCommon::Distance;
 class TrustworthinessScoreTest : public ::testing::Test {
  protected:
   void basicTest() {
