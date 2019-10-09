@@ -182,7 +182,6 @@ def test_recv_any_rank(n_trials, cluster):
         cb = CommsContext(comms_p2p=True)
         cb.init()
 
-        start = time.time()
         dfs = [client.submit(func_test_recv_any_rank,
                              cb.sessionId,
                              n_trials,
@@ -200,4 +199,3 @@ def test_recv_any_rank(n_trials, cluster):
     finally:
         cb.destroy()
         client.close()
-
