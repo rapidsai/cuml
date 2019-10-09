@@ -15,7 +15,7 @@
 #
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
-project(cuML-comms VERSION 0.11.0 LANGUAGES CXX CUDA)
+project(cuML-comms LANGUAGES CXX CUDA)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
