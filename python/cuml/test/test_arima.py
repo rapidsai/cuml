@@ -18,8 +18,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
-import cuml.ts.arima as arima
-from cuml.ts.stationarity import stationarity
+import cuml.tsa.arima as arima
+from cuml.tsa.stationarity import stationarity
 from scipy.optimize.optimize import _approx_fprime_helper
 
 from cuml.utils.input_utils import input_to_host_array

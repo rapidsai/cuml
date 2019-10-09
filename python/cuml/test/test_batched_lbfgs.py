@@ -16,13 +16,11 @@
 
 import numpy as np
 
-from cuml.ts.batched_lbfgs import batched_fmin_lbfgs_b
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 import scipy.optimize as optimize
 
 from IPython.core.debugger import set_trace
-
-import cuml.ts.batched_arima as batched_arima
 
 def rosenbrock(x, a=1, b=100):
 
