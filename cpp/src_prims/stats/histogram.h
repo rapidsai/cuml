@@ -106,7 +106,6 @@ void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
   dim3 blks(nblksx, ncols);
   gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -138,7 +137,6 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
   size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <unsigned BIN_BITS>
@@ -214,7 +212,6 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>
     <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 #define INVALID_KEY -1
@@ -311,7 +308,6 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   ///@todo: honor VecLen template param
   smemHashHistKernel<DataT, BinnerOp, IdxT><<<blks, tpb, smemSize, stream>>>(
     bins, data, nrows, ncols, nbins, op, hashSize);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -336,7 +332,6 @@ void gmemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   dim3 blks(nblksx, ncols);
   gmemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -373,7 +368,6 @@ void smemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   size_t smemSize = nbins * sizeof(int);
   smemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -425,6 +419,7 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
   };
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT>
@@ -453,7 +448,7 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
 
 template <typename IdxT>
 HistType selectBestHistAlgo(IdxT nbins) {
-  size_t smem = maxSharedMem();
+  size_t smem = getSharedMemPerBlock();
   size_t requiredSize = nbins * sizeof(unsigned);
   if (requiredSize <= smem) {
     return HistTypeSmem;
