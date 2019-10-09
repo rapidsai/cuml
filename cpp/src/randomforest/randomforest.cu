@@ -18,12 +18,18 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+#include <treelite/tree.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace std;
+namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -288,6 +294,7 @@ void build_treelite_forest(ModelHandle* model,
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
+
     TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
     if (tree_ptr->sparsetree.size() != 0) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
@@ -301,6 +308,24 @@ void build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+}
+
+std::vector<unsigned char> save_model(ModelHandle model, const char* filename) {
+  // char* file_name = "./model.buffer";
+  TreeliteExportProtobufModel(filename, model);
+  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+  in.seekg(0, std::ios::end);
+  int size_of_file = in.tellg();
+  vector<unsigned char> bytes_info(size_of_file, 0);
+  ifstream infile(filename, ios::in | ios::binary);
+  infile.read((char*)&bytes_info[0], bytes_info.size());
+  return bytes_info;
+}
+
+void write_model_to_file(std::vector<unsigned char> data,
+                         const char* filename) {
+  std::ofstream file("filename", std::ios::binary);
+  file.write((char*)&data[0], data.size());
 }
 
 /**
@@ -435,30 +460,27 @@ void predictGetAll(const cumlHandle& user_handle,
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierF* forest, const float* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose) {
+                 const RandomForestClassifierF* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<float>> rf_classifier =
     std::make_shared<rfClassifier<float>>(forest->rf_params);
   RF_metrics classification_score =
-    rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
-                         predictions, forest, verbose);
+    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierD* forest, const double* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose) {
+                 const RandomForestClassifierD* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<double>> rf_classifier =
     std::make_shared<rfClassifier<double>>(forest->rf_params);
   RF_metrics classification_score =
-    rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
-                         predictions, forest, verbose);
+    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
+
 /** @} */
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
@@ -569,28 +591,24 @@ void predict(const cumlHandle& user_handle,
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorF* forest, const float* input,
-                 const float* ref_labels, int n_rows, int n_cols,
-                 float* predictions, bool verbose) {
+                 const RandomForestRegressorF* forest, const float* ref_labels,
+                 int n_rows, float* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(forest->rf_params);
   RF_metrics regression_score =
-    rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
-                        predictions, forest, verbose);
+    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return regression_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorD* forest, const double* input,
-                 const double* ref_labels, int n_rows, int n_cols,
-                 double* predictions, bool verbose) {
+                 const RandomForestRegressorD* forest, const double* ref_labels,
+                 int n_rows, double* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(forest->rf_params);
   RF_metrics regression_score =
-    rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
-                        predictions, forest, verbose);
+    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return regression_score;
 }
 /** @} */
