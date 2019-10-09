@@ -433,7 +433,8 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
-install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+install(TARGETS ${CUML_CPP_TARGET} ${CUML_C_TARGET}
+        DESTINATION lib)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
