@@ -24,7 +24,7 @@ import logging
 import random
 
 from cuml.utils import numba_utils
-
+import rmm
 
 from dask import delayed
 from collections import defaultdict
@@ -229,9 +229,9 @@ def input_to_device_arrays(X, params):
     shape = X_mat.shape[0]*params["k"]
 
     # Create output numba arrays.
-    I_ndarr = numba.cuda.to_device(np.zeros(shape, dtype=np.int64, order="C"))
-    D_ndarr = numba.cuda.to_device(np.zeros(shape, dtype=np.float32,
-                                            order="C"))
+    I_ndarr = rmm.to_device(np.zeros(shape, dtype=np.int64, order="C"))
+    D_ndarr = rmm.to_device(np.zeros(shape, dtype=np.float32,
+                                     order="C"))
 
     # Return canonical device id as string
     return [(X_mat, I_ndarr, D_ndarr)], dev, (start_idx, stop_idx)
@@ -275,8 +275,8 @@ def build_dask_dfs(arrs, params):
         I_ndarr = I_ndarr.reshape((X.shape[0], params["k"]))
         D_ndarr = D_ndarr.reshape((X.shape[0], params["k"]))
 
-        Ix = cudf.DataFrame(index=cudf.dataframe.RangeIndex(idx[0], idx[1]+1))
-        D = cudf.DataFrame(index=cudf.dataframe.RangeIndex(idx[0], idx[1]+1))
+        Ix = cudf.DataFrame(index=cudf.core.index.RangeIndex(idx[0], idx[1]+1))
+        D = cudf.DataFrame(index=cudf.core.index.RangeIndex(idx[0], idx[1]+1))
 
         for i in range(0, params["k"]):
             Ix[str(i)] = I_ndarr[:, i]

@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
+#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <sstream>
@@ -78,16 +79,16 @@ class Exception : public std::exception {
 };
 
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                    \
-  do {                                                                     \
-    std::string msg;                                                       \
-    char errMsg[2048];                                                     \
-    std::sprintf(errMsg, "Exception occured! file=%s line=%d: ", __FILE__, \
-                 __LINE__);                                                \
-    msg += errMsg;                                                         \
-    std::sprintf(errMsg, fmt, ##__VA_ARGS__);                              \
-    msg += errMsg;                                                         \
-    throw MLCommon::Exception(msg);                                        \
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048];                                                         \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
+                  "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw MLCommon::Exception(msg);                                            \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
@@ -118,6 +119,25 @@ class Exception : public std::exception {
                    #call, __FILE__, __LINE__, cudaGetErrorString(status));     \
     }                                                                          \
   } while (0)
+
+/** helper method to get max usable shared mem per block parameter */
+inline int getSharedMemPerBlock() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int smemPerBlk;
+  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
+                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
+  return smemPerBlk;
+}
+/** helper method to get multi-processor count parameter */
+inline int getMultiProcessorCount() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int mpCount;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
+  return mpCount;
+}
 
 /**
  * @brief Generic copy method for all kinds of transfers
@@ -158,6 +178,14 @@ void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
   CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
+
+inline uint32_t curTimeMillis() {
+  auto now = std::chrono::high_resolution_clock::now();
+  auto duration = now.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
+    .count();
+}
+
 /** @} */
 
 /** Helper function to calculate need memory for allocate to store dense matrix.

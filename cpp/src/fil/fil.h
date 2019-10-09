@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <treelite/c_api.h>
 #include "cuML.hpp"
 
 namespace ML {
@@ -42,28 +43,45 @@ enum algo_t {
   BATCH_TREE_REORG
 };
 
+/** 
+ * output_t are flags that define the output produced by the FIL predictor; a
+ * valid output_t values consists of the following, combined using '|' (bitwise
+ * or), which define stages, which operation in the next stage applied to the
+ * output of the previous stage:
+ * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
+ * - optional SIGMOID for applying the sigmoid transform
+ * - optional THRESHOLD, for thresholding for classification
+ */
 enum output_t {
-  /** raw output; use for regression, or for binary classification for the value
-      before the transformation */
-  RAW,
-  /** output probability; use for binary classification for probability */
-  PROB,
-  /** output class; use for binary classification for class (0 or 1) */
-  CLASS
+  /** raw output: the sum of the tree outputs; use for GBM models for
+      regression, or for binary classification for the value before the
+      transformation; note that this value is 0, and may be omitted
+      when combined with other flags */
+  RAW = 0x0,
+  /** average output: divide the sum of the tree outputs by the number of trees 
+      before further transformations; use for random forests for regression 
+      and binary classification for the probability */
+  AVG = 0x1,
+  /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
+      outputs; use for GBM binary classification models for probability */
+  SIGMOID = 0x10,
+  /** threshold: apply threshold to the output of the previous stage to get the
+      class (0 or 1) */
+  THRESHOLD = 0x100,
 };
 
-/** dense_node is a single tree node */
+/** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
   float val;
   int bits;
 };
 
-/** dense_node_init initializes n from paramters */
+/** dense_node_init initializes node from paramters */
 void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
                      bool def_left, bool is_leaf);
 
-/** dense_node_decode extracts individual members from n */
-void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
+/** dense_node_decode extracts individual members from node */
+void dense_node_decode(const dense_node_t* node, float* output, float* thresh,
                        int* fid, bool* def_left, bool* is_leaf);
 
 struct forest;
@@ -73,30 +91,55 @@ typedef forest* forest_t;
 
 /** forest_params_t are the trees to initialize the predictor */
 struct forest_params_t {
-  // nodes of trees, of length (2**(depth + 1) - 1) * ntrees
-  const dense_node_t* nodes;
-  // depth of each tree
+  // maximum depth
   int depth;
   // ntrees is the number of trees
-  int ntrees;
-  // cols is the number of columns in the data
-  int cols;
-  // algo is the inference algorithm
+  int num_trees;
+  // num_cols is the number of columns in the data
+  int num_cols;
+  // algo is the inference algorithm;
+  // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
   // output is the desired output type
   output_t output;
   // threshold is used to for classification if output == OUTPUT_CLASS,
   // and is ignored otherwise
   float threshold;
+  // global_bias is added to the sum of tree predictions
+  // (after averaging, if it is used, but before any further transformations)
+  float global_bias;
 };
 
-/** init_dense uses params to initialize the forest stored in pf
+/** treelite_params_t are parameters for importing treelite models */
+struct treelite_params_t {
+  // algo is the inference algorithm
+  algo_t algo;
+  // output_class indicates whether thresholding will be applied
+  // to the model output
+  bool output_class;
+  // threshold is used for thresholding if output_class == true,
+  // and is ignored otherwise
+  float threshold;
+};
+
+/** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
+ *  @param nodes nodes for the forest, of length
+      (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_dense(const cumlHandle& h, forest_t* pf,
+void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params);
+
+/** from_treelite uses a treelite model to initialize the forest
+ * @param handle cuML handle used by this function
+ * @param pforest pointer to where to store the newly created forest
+ * @param model treelite model used to initialize the forest
+ * @param tl_params additional parameters for the forest
+ */
+void from_treelite(const cumlHandle& handle, forest_t* pforest,
+                   ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable 
  *  @param h cuML handle used by this function
@@ -111,10 +154,10 @@ void free(const cumlHandle& h, forest_t f);
  *  @param preds array of size n in GPU memory to store predictions into
  *  @param data array of size n * cols (cols is the number of columns 
  *      for the forest f) from which to predict
- *  @param n number of data rows
+ *  @param num_rows number of data rows
  */
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t n);
+             size_t num_rows);
 
 }  // namespace fil
 }  // namespace ML

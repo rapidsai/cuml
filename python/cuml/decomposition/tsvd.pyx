@@ -23,8 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-
+import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -40,13 +39,13 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                       float *input,
                       float *components,
                       float *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFit(cumlHandle& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                float *input,
@@ -55,7 +54,7 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                double *input,
@@ -64,31 +63,31 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             float *input,
                             float *components,
                             float *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             double *input,
                             double *components,
                             double *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
 
 class TruncatedSVD(Base):
@@ -251,10 +250,10 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
-                                                 dtype=self.dtype))
-        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
-                                                   dtype=self.dtype))
+        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
+                                                dtype=self.dtype))
+        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                                  dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -278,7 +277,7 @@ class TruncatedSVD(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -366,7 +365,7 @@ class TruncatedSVD(Base):
 
         return X_new
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X, convert_dtype=False):
         """
         Transform X back to its original space.
 
@@ -379,6 +378,11 @@ class TruncatedSVD(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the inverse_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         Returns
         ----------
         X_original : cuDF DataFrame, shape (n_samples, n_features)
@@ -388,16 +392,17 @@ class TruncatedSVD(Base):
 
         cdef uintptr_t trans_input_ptr
         X_m, trans_input_ptr, n_rows, _, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None))
 
-        # todo: check for dtype
         cpdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
-                                          dtype=dtype.type))
+        input_data = rmm.to_device(zeros(params.n_rows*params.n_cols,
+                                         dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
@@ -428,7 +433,7 @@ class TruncatedSVD(Base):
 
         return X_original
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Perform dimensionality reduction on X.
 
@@ -439,6 +444,11 @@ class TruncatedSVD(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will automatically
+            convert the input to the data type which was used to train the
+            model.
+
         Returns
         ----------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
@@ -446,7 +456,11 @@ class TruncatedSVD(Base):
 
         """
         cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, _, dtype = input_to_dev_array(X)
+        X_m, input_ptr, n_rows, _, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -454,8 +468,8 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         t_input_data = \
-            cuda.to_device(zeros(params.n_rows*params.n_components,
-                                 dtype=dtype.type))
+            rmm.to_device(zeros(params.n_rows*params.n_components,
+                                dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)

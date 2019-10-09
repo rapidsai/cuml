@@ -136,12 +136,21 @@
 
 namespace ML {
 
+int cumlHandle::getDefaultNumInternalStreams() {
+  return _default_num_internal_streams;
+}
+
+cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
 
 cudaStream_t cumlHandle::getStream() const { return _impl->getStream(); }
+
+const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
+  return _impl->getDeviceProperties();
+}
 
 void cumlHandle::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -159,23 +168,23 @@ void cumlHandle::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
 std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
   return _impl->getHostAllocator();
 }
-
+int cumlHandle::getNumInternalStreams() {
+  return _impl->getNumInternalStreams();
+}
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
-cumlHandle_impl& cumlHandle::getImpl()
-{
-    return *_impl.get();
-}
+cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
-cumlHandle_impl::cumlHandle_impl()
+cumlHandle_impl::cumlHandle_impl(int n_streams)
   : _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));
       return cur_dev;
     }()),
+    _num_streams(n_streams),
     _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
     _userStream(NULL) {
@@ -189,6 +198,10 @@ int cumlHandle_impl::getDevice() const { return _dev_id; }
 void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
 
 cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
+
+const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
+  return prop;
+}
 
 void cumlHandle_impl::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -240,32 +253,27 @@ void cumlHandle_impl::waitOnInternalStreams() const {
   }
 }
 
-void cumlHandle_impl::setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator )
-{
-    _communicator = communicator;
+void cumlHandle_impl::setCommunicator(
+  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
+  _communicator = communicator;
 }
 
-const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
-{
-    ASSERT(nullptr != _communicator.get(), "ERROR: Communicator was not initialized\n");
-    return *_communicator;
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
+  ASSERT(nullptr != _communicator.get(),
+         "ERROR: Communicator was not initialized\n");
+  return *_communicator;
 }
 
-bool cumlHandle_impl::commsInitialized() const
-{
-    return (nullptr != _communicator.get());
+bool cumlHandle_impl::commsInitialized() const {
+  return (nullptr != _communicator.get());
 }
 
 void cumlHandle_impl::createResources() {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-
   CUBLAS_CHECK(cublasCreate(&_cublas_handle));
-
   CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
-
   CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
-
   _streams.push_back(stream);
   for (int i = 1; i < _num_streams; ++i) {
     cudaStream_t stream;
@@ -273,6 +281,7 @@ void cumlHandle_impl::createResources() {
     _streams.push_back(stream);
   }
   CUDA_CHECK(cudaEventCreateWithFlags(&_event, cudaEventDisableTiming));
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, _dev_id));
 }
 
 void cumlHandle_impl::destroyResources() {

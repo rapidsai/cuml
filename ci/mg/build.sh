@@ -50,10 +50,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       umap-learn \
       libclang \
       nccl>=2.4 \
-      dask \
-      distributed \
+      dask=2.3.0 \
+      distributed=2.3.0 \
+      dask-ml \
       dask-cudf \
-      dask-cuda
+      dask-cuda=0.9
 
 logger "Check versions..."
 python --version
@@ -66,7 +67,7 @@ conda list
 ################################################################################
 
 logger "Build libcuml++..."
-$WORKSPACE/build.sh clean libcuml cuml prims -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 ################################################################################
 # TEST - Run MG GoogleTest and py.tests for libcuml++ and cuML

@@ -14,117 +14,146 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
-from cuml.cluster import KMeans as cumlKMeans
-from cuml.dask.common.comms import worker_state, default_comms
+from dask.distributed import default_client
+from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
+import numpy as np
 
-import random
+from uuid import uuid1
+
+import cudf
+
+
+def concat(dfs):
+    if len(dfs) == 1:
+        return dfs[0]
+    else:
+        return cudf.concat(dfs)
 
 
 class KMeans(object):
     """
-    Multi-Node Multi-GPU implementation of KMeans
+    Multi-Node Multi-GPU implementation of KMeans.
+
+    This version minimizes data transfer by sharing only
+    the centroids between workers in each iteration.
+
+    Predictions are done embarrassingly parallel, using cuML's
+    single-GPU version.
+
+    For more information on this implementation, refer to the
+    documentation for single-GPU K-Means.
     """
 
-    def __init__(self, n_clusters=8, init="k-means||", verbose=0):
+    def __init__(self, client=None, **kwargs):
         """
         Constructor for distributed KMeans model
-        :param n_clusters: Number of clusters to fit
-        :param init_method: Method for finding initial centroids
-        :param verbose: Print useful info while executing
-        """
-        self.init(n_clusters=n_clusters, init=init,
-                  verbose=verbose)
 
-    def init(self, n_clusters, init, verbose=0):
-        """
-        Creates a local KMeans instance on each worker
-        :param n_clusters: Number of clusters to fit
-        :param init_method: Method for finding initial centroids
-        :param verbose: Print useful info while executing
-        :return:
-        """
+        Parameters
+        ----------
+        handle : cuml.Handle
+            If it is None, a new one is created just for this class.
+        n_clusters : int (default = 8)
+            The number of centroids or clusters you want.
+        max_iter : int (default = 300)
+            The more iterations of EM, the more accurate, but slower.
+        tol : float (default = 1e-4)
+            Stopping criterion when centroid means do not change much.
+        verbose : boolean (default = 0)
+            If True, prints diagnositc information.
+        random_state : int (default = 1)
+            If you want results to be the same when you restart Python,
+            select a state.
+        init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+               (default = 'scalable-k-means++')
+            'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
+            kmeans++ intialization.
+            'random': Choose 'n_cluster' observations (rows) at random
+            from data for the initial centroids. If an ndarray is passed,
+            it should be of shape (n_clusters, n_features) and gives the
+            initial centers.
+        oversampling_factor : int (default = 2) The amount of points to sample
+            in scalable k-means++ initialization for potential centroids.
+            Increasing this value can lead to better initial centroids at the
+            cost of memory. The total number of centroids sampled in scalable
+            k-means++ is oversampling_factor * n_clusters * 8.
+        max_samples_per_batch : int (default = 32768) The number of data
+            samples to use for batches of the pairwise distance computation.
+            This computation is done throughout both fit predict. The default
+            should suit most cases. The total number of elements in the
+            batched pairwise distance computation is max_samples_per_batch
+            * n_clusters. It might become necessary to lower this number when
+            n_clusters becomes prohibitively large.
 
-        comms = default_comms()
-
-        self.kmeans = [(w, comms.client.submit(KMeans.func_build_kmeans_,
-                                               comms.sessionId,
-                                               n_clusters,
-                                               init,
-                                               verbose,
-                                               i,
-                                               workers=[w]))
-                       for i, w in zip(range(len(comms.worker_addresses)),
-                                       comms.workers)]
-        wait(self.kmeans)
+        Attributes
+        ----------
+        cluster_centers_ : array
+            The coordinates of the final clusters. This represents of "mean" of
+            each data cluster.
+        """
+        self.client = default_client() if client is None else client
+        self.kwargs = kwargs
 
     @staticmethod
-    def func_build_kmeans_(sessionId, n_clusters, init, verbose, r):
+    def func_fit(sessionId, dfs, **kwargs):
         """
-        Create local KMeans instance on worker
-        :param handle: instance of cuml.handle.Handle
-        :param n_clusters: Number of clusters to fit
-        :param init_method: Method for finding initial centroids
-        :param verbose: Print useful info while executing
-        :param r: Stops memoization caching
+        Runs on each worker to call fit on local KMeans instance.
+        Extracts centroids
+        :param model: Local KMeans instance
+        :param dfs: List of cudf.Dataframes to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
         """
+
+        try:
+            from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
+        except ImportError:
+            raise Exception("cuML has not been built with multiGPU support "
+                            "enabled. Build with the --multigpu flag to"
+                            " enable multiGPU support.")
+
         handle = worker_state(sessionId)["handle"]
-        return cumlKMeans(handle=handle, init=init,
-                          n_clusters=n_clusters, verbose=verbose)
+
+        df = concat(dfs)
+
+        return cumlKMeans(handle=handle, **kwargs).fit(df)
 
     @staticmethod
-    def func_fit(model, df, r):
+    def func_transform(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoizatiion caching
         :return: The fit model
         """
-        return model.fit(df)
 
-    @staticmethod
-    def func_transform(model, df, r):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
-        """
+        df = concat(dfs)
         return model.transform(df)
 
     @staticmethod
-    def func_predict(model, df, r):
+    def func_predict(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
-        :param df: cudf.Dataframe to use
+        :param dfs: List of cudf.Dataframes to use
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """
+        df = concat(dfs)
         return model.predict(df)
 
-    def run_model_func_on_dask_cudf(self, func, X):
+    @staticmethod
+    def func_score(model, dfs):
         """
-        Runs a function on a local KMeans instance on each worker
-        :param func: The function to execute on each worker
-        :param X: Input dask_cudf.Dataframe
-        :return: Futures containing results of func
+        Runs on each worker to call fit on local KMeans instance
+        :param model: Local KMeans instance
+        :param dfs: List of cudf.Dataframes to use
+        :param r: Stops memoization caching
+        :return: cudf.Series with predictions
         """
-        comms = default_comms()
-
-        gpu_futures = comms.client.sync(extract_ddf_partitions, X)
-
-        worker_model_map = dict(map(lambda x: (x[0], x[1]), self.kmeans))
-
-        f = [comms.client.submit(func,  # Function to run on worker
-                                 worker_model_map[w],  # Model instance
-                                 f,  # Input DataFrame partition
-                                 random.random())  # Worker ID
-             for w, f in gpu_futures]
-        wait(f)
-        return f
+        df = concat(dfs)
+        return model.score(df)
 
     def fit(self, X):
         """
@@ -132,8 +161,50 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to fit
         :return: This KMeans instance
         """
-        self.run_model_func_on_dask_cudf(KMeans.func_fit, X)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
+
+        workers = list(map(lambda x: x[0], gpu_futures.items()))
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=workers)
+
+        key = uuid1()
+        kmeans_fit = [self.client.submit(
+            KMeans.func_fit,
+            comms.sessionId,
+            wf[1],
+            **self.kwargs,
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx))
+            for idx, wf in enumerate(gpu_futures.items())]
+
+        wait(kmeans_fit)
+
+        comms.destroy()
+
+        self.local_model = kmeans_fit[0].result()
+        self.cluster_centers_ = self.local_model.cluster_centers_
+
         return self
+
+    def parallel_func(self, X, func):
+        """
+        Predicts the labels using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to predict
+        :return: A dask_cudf.Dataframe containing label predictions
+        """
+
+        key = uuid1()
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        kmeans_predict = [self.client.submit(
+            func,
+            self.local_model,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx))
+            for idx, wf in enumerate(gpu_futures.items())]
+
+        return to_dask_cudf(kmeans_predict)
 
     def predict(self, X):
         """
@@ -141,34 +212,40 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        f = self.run_model_func_on_dask_cudf(KMeans.func_predict, X)
-        return to_dask_cudf(f)
+        return self.parallel_func(X, KMeans.func_predict)
+
+    def fit_predict(self, X):
+        return self.fit(X).predict(X)
 
     def transform(self, X):
         """
-        Transform X to a cluster-distance space.
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe shape = (n_samples, n_features)
+        Predicts the labels using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to predict
+        :return: A dask_cudf.Dataframe containing label predictions
         """
-        f = self.run_model_func_on_dask_cudf(KMeans.func_transform, X)
-        return to_dask_cudf(f)
+        return self.parallel_func(X, KMeans.func_transform)
 
     def fit_transform(self, X):
         """
-        Compute clustering and transform X to cluster-distance space.
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe shape = (n_samples, n_features)
-        """
-        return self.fit(X).transform(X)
-
-    def fit_predict(self, X):
-        """
-        Calls fit followed by predict using a distributed KMeans model
+        Calls fit followed by transform using a distributed KMeans model
         :param X: dask_cudf.Dataframe to fit & predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.fit(X).predict(X)
+        return self.fit(X).transform(X)
+
+    def score(self, X):
+
+        key = uuid1()
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        scores = [self.client.submit(
+            KMeans.func_score,
+            self.local_model,
+            wf[1],
+            workers=[wf[0]],
+            key="%-%s" % (key, idx)).result()
+                  for idx, wf in enumerate(gpu_futures.items())]
+
+        return np.sum(scores)
+
+    def get_param_names(self):
+        return list(self.kwargs.keys())

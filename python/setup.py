@@ -38,38 +38,51 @@ if os.environ.get('CUDA_HOME', False):
 rmm_include_dir = '/include'
 rmm_lib_dir = '/lib'
 
+# including cumlprims dirs, in case rmm paths change in the future
+cumlprims_include_dir = '/include'
+cumlprims_lib_dir = '/lib'
+
 if os.environ.get('CONDA_PREFIX', None):
     conda_prefix = os.environ.get('CONDA_PREFIX')
     rmm_include_dir = conda_prefix + rmm_include_dir
     rmm_lib_dir = conda_prefix + rmm_lib_dir
 
+    cumlprims_include_dir = conda_prefix + cumlprims_include_dir
+    cumlprims_lib_dir = conda_prefix + cumlprims_lib_dir
+
 exc_list = []
 
-libs = ['cuda', 'cuml++', "cumlcomms", 'nccl', 'rmm']
+libs = ['cuda', 'cuml++', 'cumlcomms', 'nccl', 'rmm']
+
+include_dirs = ['../cpp/src',
+                '../cpp/external',
+                '../cpp/src_prims',
+                '../thirdparty/cutlass',
+                '../thirdparty/cub',
+                '../thirdparty/treelite/include',
+                '../cpp/comms/std/src',
+                '../cpp/comms/std/include',
+                cuda_include_dir,
+                rmm_include_dir,
+                cumlprims_include_dir]
 
 if "--multigpu" not in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append('cuml/cluster/kmeans_mg.pyx')
 else:
-    libs.append('cumlMG')
-    sys.argv.remove("--multigpu")
+    libs.append('cumlprims')
+    sys.argv.remove('--multigpu')
+
 
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
-              include_dirs=['../cpp/src',
-                            '../cpp/external',
-                            '../cpp/src_prims',
-                            '../thirdparty/cutlass',
-                            '../thirdparty/cub',
-                            # Ideally we enable this to be swapped out.
-                            '../cpp/comms/std/src',
-                            '../cpp/comms/std/include',
-                            cuda_include_dir,
-                            rmm_include_dir],
+              include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
-                                    rmm_lib_dir],
+                                    rmm_lib_dir,
+                                    cumlprims_lib_dir],
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++11'])

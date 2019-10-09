@@ -35,34 +35,34 @@ struct encode_traits<double> {
   using E = long long;
 };
 
-__host__ __device__ int encode(float val) {
+HDI int encode(float val) {
   int i = *(int*)&val;
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
-__host__ __device__ long long encode(double val) {
+HDI long long encode(double val) {
   long long i = *(long long*)&val;
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
-__host__ __device__ float decode(int val) {
+HDI float decode(int val) {
   if (val < 0) val = (1 << 31) | ~val;
   return *(float*)&val;
 }
 
-__host__ __device__ double decode(long long val) {
+HDI double decode(long long val) {
   if (val < 0) val = (1ULL << 63) | ~val;
   return *(double*)&val;
 }
 
 template <typename T, typename E>
-__device__ T atomicMaxBits(T* address, T val) {
+DI T atomicMaxBits(T* address, T val) {
   E old = atomicMax((E*)address, encode(val));
   return decode(old);
 }
 
 template <typename T, typename E>
-__device__ T atomicMinBits(T* address, T val) {
+DI T atomicMinBits(T* address, T val) {
   E old = atomicMin((E*)address, encode(val));
   return decode(old);
 }
@@ -166,6 +166,8 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
  * @param init_val initial minimum value to be
+ * @param prop cuda device properties. This is being explicitly requested since
+ * querying it inside prims is not good for perf.
  * @param stream: cuda stream
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
@@ -173,9 +175,9 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
  *    in shared memory
  */
 template <typename T, int TPB = 512>
-void minmax(const T* data, const unsigned int* rowids,
-            const unsigned int* colids, int nrows, int ncols, int row_stride,
-            T* globalmin, T* globalmax, T* sampledcols, cudaStream_t stream) {
+void minmax(const T* data, const unsigned* rowids, const unsigned* colids,
+            int nrows, int ncols, int row_stride, T* globalmin, T* globalmax,
+            T* sampledcols, cudaStream_t stream) {
   using E = typename encode_traits<T>::E;
   int nblks = ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
@@ -186,15 +188,10 @@ void minmax(const T* data, const unsigned int* rowids,
   nblks = min(nblks, 65536);
   size_t smemSize = sizeof(T) * 2 * ncols;
 
-  // Get available shared memory size.
-  cudaDeviceProp prop;
-  int dev_ID = 0;
-  CUDA_CHECK(cudaGetDevice(&dev_ID));
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, dev_ID));
-  size_t max_shared_mem = prop.sharedMemPerBlock;
-
-  // Compute the batch_ncols, in [1, ncols] range, that meet the available shared memory constraints.
-  int batch_ncols = min(ncols, (int)(max_shared_mem / (sizeof(T) * 2)));
+  // Compute the batch_ncols, in [1, ncols] range, that meet the available
+  // shared memory constraints.
+  auto smemPerBlk = getSharedMemPerBlock();
+  int batch_ncols = min(ncols, (int)(smemPerBlk / (sizeof(T) * 2)));
   int num_batches = ceildiv(ncols, batch_ncols);
   smemSize = sizeof(T) * 2 * batch_ncols;
 

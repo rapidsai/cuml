@@ -16,7 +16,6 @@
 import pytest
 
 from dask.distributed import Client
-from dask_cuda import LocalCUDACluster
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import gzip
@@ -42,6 +41,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
     else:
         print('use random data')
         X = np.random.rand(nrows, ncols)
+        y = np.random.rand(nrows, 1)
 
     df_X = pd.DataFrame({'fea%d' % i: X[:, i] for i in range(X.shape[1])})
     df_y = pd.DataFrame({'fea%d' % i: y[:, i] for i in range(y.shape[1])})
@@ -50,39 +50,44 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 
 
 @pytest.mark.skip(reason="Test should be run only with libcuML.so")
-def test_ols():
+def test_ols(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    import dask_cudf
+    try:
 
-    import cudf
-    import numpy as np
+        import dask_cudf
 
-    from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
+        import cudf
+        import numpy as np
 
-    nrows = 2**8
-    ncols = 399
+        from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
-    X, y = load_data(nrows, ncols)
+        nrows = 2**8
+        ncols = 399
 
-    X_cudf = cudf.DataFrame.from_pandas(X)
-    y_cudf = np.array(y.as_matrix())
-    y_cudf = y_cudf[:, 0]
-    y_cudf = cudf.Series(y_cudf)
+        X, y = load_data(nrows, ncols)
 
-    workers = client.has_what().keys()
+        X_cudf = cudf.DataFrame.from_pandas(X)
+        y_cudf = np.array(y.as_matrix())
+        y_cudf = y_cudf[:, 0]
+        y_cudf = cudf.Series(y_cudf)
 
-    X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
-    y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
+        workers = client.has_what().keys()
 
-    lr = cumlOLS_dask()
+        X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
+        y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
 
-    lr.fit(X_df, y_df)
+        lr = cumlOLS_dask()
 
-    ret = lr.predict(X_df)
+        lr.fit(X_df, y_df)
 
-    error_cuml = mean_squared_error(y, ret.compute().to_array())
+        ret = lr.predict(X_df)
 
-    assert(error_cuml < 1e-6)
+        error_cuml = mean_squared_error(y, ret.compute().to_array())
+
+        assert(error_cuml < 1e-6)
+
+    finally:
+        client.close()
+        cluster.close()

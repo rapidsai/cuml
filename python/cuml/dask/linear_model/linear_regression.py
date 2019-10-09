@@ -26,7 +26,7 @@ import numpy as np
 from dask import delayed
 from dask.distributed import wait, default_client
 from math import ceil
-from numba import cuda
+import rmm
 from toolz import first
 from tornado import gen
 
@@ -366,8 +366,12 @@ def _fit_on_worker(data, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         intercept = ols._fit_mg(alloc_info, params)
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
-        print("FAILURE in FIT: " + str(e))
+        print("Failure in Fit(): " + str(e))
 
     [t.close() for t in open_ipcs]
     # [t.join() for t in open_ipcs]
@@ -413,7 +417,10 @@ def _predict_on_worker(data, intercept, params):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cuOLS  # NOQA
         ols = cuOLS()
         ols._predict_mg(alloc_info, intercept, params)
-
+    except ImportError:
+        raise Exception("cuML has not been built with multiGPU support "
+                        "enabled. Build with the --multigpu flag to enable"
+                        " multiGPU support.")
     except Exception as e:
         print("Failure in predict(): " + str(e))
 
@@ -490,8 +497,8 @@ def predict_to_device_arrays(arr, worker, loc_dict, nparts, dtype):
         part_size = ceil(nrows / nparts)
         up_limit = min((part_number+1)*part_size, nrows)
         mat = X.compute().as_gpu_matrix(order='F')
-        pred = cuda.to_device(np.zeros(up_limit-(part_number*part_size),
-                                       dtype=dtype))
+        pred = rmm.to_device(np.zeros(up_limit-(part_number*part_size),
+                                      dtype=dtype))
         mats.append([mat, coef.to_gpu_array(), pred])
 
     dev = device_of_devicendarray(mats[0][0])
@@ -509,14 +516,14 @@ def preprocess_on_worker(arr):
 
 
 def dev_array_on_worker(rows, dtype=np.float64, unique=0):
-    return cuda.to_device(np.zeros(rows, dtype=dtype))
+    return rmm.to_device(np.zeros(rows, dtype=dtype))
 
 
 # Need to have different named function for predict to avoid
 # dask key colision in case of same rows and columns between
 # different arrays
 def pred_array_on_worker(rows, cols, dtype=np.float64, unique=0):
-    return cuda.to_device(np.zeros((rows, cols), dtype=dtype))
+    return rmm.to_device(np.zeros((rows, cols), dtype=dtype))
 
 
 def preprocess_predict(arr):
@@ -534,8 +541,8 @@ def series_on_worker(ary, worker, loc_dict, nparts, X):
     else:
         idx = (up_limit-len(ary[0][0][2]), up_limit)
 
-    ret = cudf.Series(ary[0][0][2], index=cudf.dataframe.RangeIndex(idx[0],
-                                                                    idx[1]))
+    ret = cudf.Series(ary[0][0][2], index=cudf.core.index.RangeIndex(idx[0],
+                                                                     idx[1]))
     return ret
 
 
@@ -548,6 +555,6 @@ def coef_on_worker(coef, part_number, ncols, nparts, worker):
     part_size = ceil(ncols / nparts)
     up_limit = min((part_number+1)*part_size, ncols)
     idx = (part_number*part_size, up_limit)
-    ret = cudf.Series(coef, index=cudf.dataframe.RangeIndex(idx[0],
-                                                            idx[1]))
+    ret = cudf.Series(coef, index=cudf.core.index.RangeIndex(idx[0],
+                                                             idx[1]))
     return ret

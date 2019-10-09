@@ -31,21 +31,21 @@ from libc.stdint cimport uintptr_t
 from cuml.decomposition.utils cimport *
 from cuml.utils import zeros
 
-cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
+cdef extern from "cumlprims/spmg/tsvd_spmg.hpp" namespace "ML":
 
     cdef void tsvdFitSPMG(float *h_input,
                           float *h_components,
                           float *h_singular_vals,
                           paramsTSVD prms,
                           int *gpu_ids,
-                          int n_gpus)
+                          int n_gpus) except +
 
     cdef void tsvdFitSPMG(double *h_input,
                           double *h_components,
                           double *h_singular_vals,
                           paramsTSVD prms,
                           int *gpu_ids,
-                          int n_gpus)
+                          int n_gpus) except +
 
     cdef void tsvdFitTransformSPMG(float *h_input,
                                    float *h_trans_input,
@@ -55,7 +55,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                    float *h_singular_vals,
                                    paramsTSVD prms,
                                    int *gpu_ids,
-                                   int n_gpus)
+                                   int n_gpus) except +
 
     cdef void tsvdFitTransformSPMG(double *h_input,
                                    double *h_trans_input,
@@ -65,7 +65,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                    double *h_singular_vals,
                                    paramsTSVD prms,
                                    int *gpu_ids,
-                                   int n_gpus)
+                                   int n_gpus) except +
 
     cdef void tsvdInverseTransformSPMG(float *h_trans_input,
                                        float *h_components,
@@ -73,7 +73,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                        float *input,
                                        paramsTSVD prms,
                                        int *gpu_ids,
-                                       int n_gpus)
+                                       int n_gpus) except +
 
     cdef void tsvdInverseTransformSPMG(double *h_trans_input,
                                        double *h_components,
@@ -81,7 +81,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                        double *input,
                                        paramsTSVD prms,
                                        int *gpu_ids,
-                                       int n_gpus)
+                                       int n_gpus) except +
 
     cdef void tsvdTransformSPMG(float *h_input,
                                 float *h_components,
@@ -89,7 +89,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                 float *h_trans_input,
                                 paramsTSVD prms,
                                 int *gpu_ids,
-                                int n_gpus)
+                                int n_gpus) except +
 
     cdef void tsvdTransformSPMG(double *h_input,
                                 double *h_components,
@@ -97,7 +97,7 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                 double *h_trans_input,
                                 paramsTSVD prms,
                                 int *gpu_ids,
-                                int n_gpus)
+                                int n_gpus) except +
 
 
 class TSVDparams:
