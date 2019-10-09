@@ -37,6 +37,11 @@ cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
     cdef cppclass cumlCommunicator
 
 
+cdef extern from "ucp/api/ucp.h":
+    ctypedef struct ucp_ep_h:
+        pass
+
+
 cdef extern from "cuML.hpp" namespace "ML":
     cdef cppclass cumlHandle:
         cumlHandle() except +
@@ -131,10 +136,14 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
-    cdef size_t ep_st
+    cdef void* ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ucp_eps[i] = <size_t><void*>PyLong_AsVoidPtr(eps[i]._ucp_endpoint)
+            print("Convering endpoint %s" % (i))
+            print("Is Endpoint Closed? %s" % eps[i].closed())
+            ep_st = PyLong_AsVoidPtr(eps[i]._ucp_endpoint)
+            pv = <size_t>&ep_st
+            ucp_eps[i] = pv
         else:
             ucp_eps[i] = 0
 

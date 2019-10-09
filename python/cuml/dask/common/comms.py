@@ -191,7 +191,6 @@ async def _func_ucp_create_listener(sessionId, r):
         while not listener.closed:
             await asyncio.sleep(1)
 
-        print("Listener stopped")
         del worker_state(sessionId)["ucp_listener"]
         del listener
 
@@ -291,7 +290,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-def _func_destroy_all(sessionId, comms_p2p):
+async def _func_destroy_all(sessionId, comms_p2p):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
@@ -299,7 +298,7 @@ def _func_destroy_all(sessionId, comms_p2p):
         for ep in worker_state(sessionId)["ucp_eps"]:
             if ep is not None:
                 if not ep.closed():
-                    ep.signal_shutdown()
+                    await ep.signal_shutdown()
                     ep.close()
                 del ep
         del worker_state(sessionId)["ucp_eps"]
