@@ -156,7 +156,8 @@ class KMeans(object):
         return model.score(df)
 
     def raise_exception_from_futures(self, futures):
-        """Raises a RuntimeError if any of the futures indicates an exception"""
+        """Raises a RuntimeError if any of the futures indicates
+        an exception"""
         errs = [f.exception() for f in futures if f.exception()]
         if errs:
             raise RuntimeError("%d of %d worker jobs failed: %s" % (
