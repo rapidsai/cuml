@@ -127,7 +127,7 @@ bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
         communicator.irecv(received_data.data() + request_idx, 1,
-                           MLCommon::cumlCommunicator::ANY_RANK, 0,
+                           MLCommon::cumlCommunicator::CUML_ANY_SOURCE, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }
