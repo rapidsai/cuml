@@ -22,12 +22,15 @@
 import ctypes
 import math
 import numpy as np
+import os
+import tempfile
 import warnings
 
 from numba import cuda
 
 from cuml.common.handle import Handle
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -122,8 +125,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
-                          float*,
-                          int,
                           int,
                           float*,
                           bool) except +
@@ -131,8 +132,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
-                          double*,
-                          int,
                           int,
                           double*,
                           bool) except +
@@ -167,6 +166,9 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     CRITERION,
                                     bool,
                                     int) except +
+
+    cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
+    cdef void write_model_to_file(vector[unsigned char], const char* filename)
 
 
 class RandomForestRegressor(Base):
@@ -282,7 +284,7 @@ class RandomForestRegressor(Base):
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
-                 rows_sample=1.0, max_leaves=-1,
+                 rows_sample=1.0, max_leaves=-1, file_name=None,
                  accuracy_metric='mse', min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=None,
@@ -308,9 +310,7 @@ class RandomForestRegressor(Base):
                                 " please read the cuML documentation for"
                                 " more information")
 
-        if handle is None:
-            handle = Handle(n_streams)
-
+        handle = Handle(n_streams)
         super(RandomForestRegressor, self).__init__(handle, verbose)
 
         if max_depth < 0:
@@ -340,9 +340,13 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
-        self.n_streams = handle.getNumInternalStreams()
-        self.seed = seed
-
+        self.n_streams = n_streams
+        self.pickle = False
+        self.seed = 0
+        if file_name is None:
+            tmpdir = tempfile.mkdtemp()
+            file_name = os.path.join(tmpdir, "model.buffer")
+        self.file_name = file_name
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
@@ -418,9 +422,17 @@ class RandomForestRegressor(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
+    def _get_model_info(self):
+        fit_mod_ptr = self._get_treelite(num_features=self.n_cols)
+        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+        filename_bytes = (self.file_name).encode("UTF-8")
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
+                                          filename_bytes)
+        return model_protobuf_bytes
+
     def fit(self, X, y):
         """
-        Perform Random Forest Classification on the input data
+        Perform Random Forest Regression on the input data
 
         Parameters
         ----------
@@ -614,7 +626,8 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_on_cpu(X)
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG'):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -632,16 +645,17 @@ class RandomForestRegressor(Base):
         mean_abs_error : float
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
+        _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        preds = np.zeros(n_rows,
-                         dtype=self.dtype)
+        preds = self._predict_model_on_gpu(X, output_class=False,
+                                           algo=algo)
         cdef uintptr_t preds_ptr
+        print(" preds in cython : ", np.asarray(preds))
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
 
@@ -657,20 +671,16 @@ class RandomForestRegressor(Base):
         if self.dtype == np.float32:
             self.temp_stats = score(handle_[0],
                                     rf_forest,
-                                    <float*> X_ptr,
                                     <float*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <float*> preds_ptr,
                                     <bool> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
                                     rf_forest64,
-                                    <double*> X_ptr,
                                     <double*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <double*> preds_ptr,
                                     <bool> self.verbose)
 
@@ -682,7 +692,6 @@ class RandomForestRegressor(Base):
             stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return stats
@@ -775,5 +784,6 @@ class RandomForestRegressor(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
-        return ctypes.c_void_p(self.mod_ptr)
+        mod_ptr = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_ptr)
