@@ -94,7 +94,18 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT ncols, IdxT nbins,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
                                IdxT ncols, IdxT nbins, BinnerOp binner) {
-  auto op = [=] __device__(int binId, IdxT idx) { atomicAdd(bins + binId, 1); };
+  auto op = [=] __device__(int binId, IdxT idx) {
+#if __CUDA_ARCH__ < 700
+    atomicAdd(bins + binId, 1);
+#else
+    auto amask = __activemask();
+    auto mask = __match_any_sync(amask, binId);
+    auto leader = __ffs(mask) - 1;
+    if (laneId() == leader) {
+      atomicAdd(bins + binId, __popc(mask));
+    }
+#endif  // __CUDA_ARCH__
+  };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
                                             op);
 }
@@ -311,30 +322,6 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void gmemWarpHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT ncols, IdxT nbins, BinnerOp binner) {
-  auto op = [=] __device__(int binId, IdxT idx) {
-    auto amask = __activemask();
-    auto mask = __match_any_sync(amask, binId);
-    auto leader = __ffs(mask) - 1;
-    if (laneId() == leader) {
-      atomicAdd(bins + binId, __popc(mask));
-    }
-  };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
-                                            op);
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-void gmemWarpHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
-  dim3 blks(nblksx, ncols);
-  gmemWarpHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, tpb, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
-}
-
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemWarpHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT ncols, IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
@@ -376,11 +363,8 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                      BinnerOp op) {
   CUDA_CHECK(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
   switch (type) {
-    case HistTypeGmemWarp:
-      gmemWarpHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows,
-                                                  ncols, op, tpb, stream);
-      break;
     case HistTypeGmem:
+    case HistTypeGmemWarp:
       gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
                                               op, tpb, stream);
       break;
