@@ -18,18 +18,12 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include <treelite/tree.h>
-#include <fstream>
-#include <iostream>
-#include <vector>
 #include "randomforest.hpp"
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
-using namespace std;
-namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -308,24 +302,6 @@ void build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
-}
-
-std::vector<unsigned char> save_model(ModelHandle model, const char* filename) {
-  // char* file_name = "./model.buffer";
-  TreeliteExportProtobufModel(filename, model);
-  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
-  in.seekg(0, std::ios::end);
-  int size_of_file = in.tellg();
-  vector<unsigned char> bytes_info(size_of_file, 0);
-  ifstream infile(filename, ios::in | ios::binary);
-  infile.read((char*)&bytes_info[0], bytes_info.size());
-  return bytes_info;
-}
-
-void write_model_to_file(std::vector<unsigned char> data,
-                         const char* filename) {
-  std::ofstream file("filename", std::ios::binary);
-  file.write((char*)&data[0], data.size());
 }
 
 /**
