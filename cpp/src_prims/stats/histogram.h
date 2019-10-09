@@ -38,20 +38,8 @@ struct IdentityBinner {
 enum HistType {
   /** use only global atomics */
   HistTypeGmem,
-  /**
-   * global mem atomics using warp-level operations sm70.
-   * should work well when the input data is very skewed
-   * will fall back to HistTypeGmem on unsupported arch's
-   */
-  HistTypeGmemWarp,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
-  /**
-   * shared mem atomics using warp-level operations sm70.
-   * should work well when the input data is very skewed
-   * will fall back to HistTypeSmem on unsupported arch's
-   */
-  HistTypeSmemWarp,
   /** shared mem atomics but with bins to be 2B int's */
   HistTypeSmemBits16,
   /** shared mem atomics but with bins to ba 1B int's */
@@ -337,12 +325,10 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
   CUDA_CHECK(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmem:
-    case HistTypeGmemWarp:
       gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
                                               op, tpb, stream);
       break;
     case HistTypeSmem:
-    case HistTypeSmemWarp:
       smemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
                                               op, tpb, stream);
       break;
