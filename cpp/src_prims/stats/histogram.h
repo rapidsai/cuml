@@ -60,6 +60,7 @@ template <typename IdxT, int VecLen>
 dim3 computeGridDim(IdxT nrows, IdxT ncols, int tpb) {
   const auto maxBlks = 2 * getMultiProcessorCount();  // assume occupancy of 2
   int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
+  // for cases when there aren't a lot of blocks for computing one histogram
   nblksx = std::min(nblksx, maxBlks);
   return dim3(nblksx, ncols);
 }
@@ -147,8 +148,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
               BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
-  dim3 blks(nblksx, ncols);
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
   size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
@@ -221,8 +221,7 @@ template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
           int VecLen>
 void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
-  dim3 blks(nblksx, ncols);
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
   constexpr int WORD_BITS = sizeof(int) * 8;
   size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>
@@ -315,8 +314,8 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(nrows, tpb);
-  dim3 blks(nblksx, ncols);
+  ///@todo: honor VecLen template param
+  auto blks = computeGridDim<IdxT, 1>(nrows, ncols, tpb);
   // NOTE: assumes 48kB smem!
   int hashSize = 6047;
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
