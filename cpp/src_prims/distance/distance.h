@@ -16,19 +16,13 @@
 
 #pragma once
 
+#include <cuda_runtime_api.h>
 #include <cutlass/shape.h>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "distance/cosine.h"
 #include "distance/euclidean.h"
 #include "distance/l1.h"
-
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
 
 namespace MLCommon {
 namespace Distance {
@@ -167,6 +161,13 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
   return worksize;
 }
 
+#if CUDART_VERSION >= 10010
+// With optimization enabled, CUDA 10.1 generates segfaults for distance
+// prims, so disable optimization until another workaround is found
+// #pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
  * @tparam DistanceType which distance to evaluate
@@ -241,6 +242,11 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
                                              isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
+
+#if CUDART_VERSION >= 10010
+// Undo special optimization options set earlier
+#pragma GCC reset_options
+#endif
 
 /**
  * @defgroup PairwiseDistance
@@ -380,10 +386,6 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                               OutputTile_>(a, b, adj, m, n, k, eps, workspace,
                                            worksize, stream, lambda);
 }
-
-#if CUDART_VERSION >= 10010
-#pragma GCC pop_options
-#endif
 
 };  // end namespace Distance
 };  // end namespace MLCommon
