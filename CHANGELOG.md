@@ -31,6 +31,7 @@
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1247: Improved MNMG RF error checking
 
 ## Bug Fixes
 
@@ -60,6 +61,8 @@
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 
 # cuML 0.9.0 (21 Aug 2019)
 
