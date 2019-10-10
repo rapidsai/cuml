@@ -759,14 +759,9 @@ class RandomForestClassifier(Base):
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, y_dtype = input_to_dev_array(y)
 
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if y.dtype != np.int32:
+        if y_dtype != np.int32:
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
         preds = self.predict(X, output_class=True,

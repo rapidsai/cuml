@@ -22,7 +22,7 @@ from cuml.ensemble import RandomForestRegressor as curfr
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 
@@ -79,14 +79,11 @@ def test_rf_classification(datatype, split_algo,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     cuml_model.fit(X_train, y_train)
-    fil_preds = cuml_model.predict(X_test,
-                                   predict_model="GPU",
-                                   output_class=True,
-                                   threshold=0.5,
-                                   algo='BATCH_TREE_REORG')
+    fil_acc = cuml_model.score(X_test, y_test,
+                               threshold=0.5,
+                               algo='BATCH_TREE_REORG')
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
-    fil_acc = accuracy_score(y_test, fil_preds)
     assert fil_acc >= (cuml_acc - 0.02)
     assert fil_acc >= (sk_acc - 0.07)
 
@@ -137,6 +134,7 @@ def test_rf_regression(datatype, split_algo,
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds)
     fil_r2 = r2_score(y_test, fil_preds)
+    fil_mse = cuml_model.score(X_test, y_test)
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     sk_model = skrfr(n_estimators=50, max_depth=16,
@@ -145,6 +143,7 @@ def test_rf_regression(datatype, split_algo,
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
-    print(fil_r2, cu_r2, sk_r2)
+    sk_mse = mean_squared_error(y_test, sk_predict)
     assert fil_r2 >= (cu_r2 - 0.02)
+    assert fil_mse <= (sk_mse + 0.07)
     assert fil_r2 >= (sk_r2 - 0.07)
