@@ -142,8 +142,10 @@ class ARIMAModel(Base):
         model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
 
         # predict and forecast using fitted model
-        yp = model.predict_in_sample()
-        yfc = model.forecast(50)
+        d_yp = model.predict_in_sample()
+        yp = cuml.utils.input_to_host_array(d_yp)
+        d_yfc = model.forecast(50)
+        yfc = cuml.utils.input_to_host_array(d_yfc)
         dx = xs[1] - xs[0]
         xfc = np.linspace(1, 1+50*dx, 50)
         plt.plot(xs, yp, xfc, yfc)
@@ -288,9 +290,11 @@ class ARIMAModel(Base):
         --------
         .. code-block:: python
             from cuml.tsa.arima import fit
+            import cuml
             ...
             model = fit(ys, (1,1,1), mu0, ar0, ma0)
-            y_fc = model.forecast(10)
+            d_y_fc = model.forecast(10)
+            y_fc = cuml.utils.input_to_host_array(d_y_fc)
             dx = xs[1] - xs[0]
             xfc = np.linspace(1, 1+50*dx, 50)
             plt.plot(xs, ys, xfc, yfc)
