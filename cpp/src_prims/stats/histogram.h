@@ -56,6 +56,14 @@ enum HistType {
   HistTypeAuto
 };
 
+template <typename IdxT, int VecLen>
+dim3 computeGridDim(IdxT nrows, IdxT ncols, int tpb) {
+  const auto maxBlks = 2 * getMultiProcessorCount();  // assume occupancy of 2
+  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
+  nblksx = std::min(nblksx, maxBlks);
+  return dim3(nblksx, ncols);
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
           typename CoreOp>
 DI void histCoreOp(const DataT* data, IdxT nrows, IdxT ncols, IdxT nbins,
@@ -101,8 +109,7 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
               BinnerOp op, int tpb, cudaStream_t stream) {
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
-  dim3 blks(nblksx, ncols);
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
   gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, tpb, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
 }
