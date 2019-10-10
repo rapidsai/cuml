@@ -73,7 +73,6 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
                    CoreOp op) {
   IdxT col = blockIdx.y;
   IdxT offset = col * nrows;
-  auto binOffset = col * nbins;
   auto bdim = IdxT(blockDim.x);
   IdxT tid = threadIdx.x + bdim * blockIdx.x;
   tid *= VecLen;
@@ -84,7 +83,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
     a.load(data, offset + i);
 #pragma unroll
     for (int j = 0; j < VecLen; ++j) {
-      int binId = binner(a.val.data[j], offset + i + j) + binOffset;
+      int binId = binner(a.val.data[j], offset + i + j);
       op(binId, offset + i + j);
     }
   }
@@ -94,14 +93,15 @@ template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
                                IdxT nbins, BinnerOp binner) {
   auto op = [=] __device__(int binId, IdxT idx) {
+    IdxT binOffset = blockIdx.y * nbins;
 #if __CUDA_ARCH__ < 700
-    atomicAdd(bins + binId, 1);
+    atomicAdd(bins + binOffset + binId, 1);
 #else
     auto amask = __activemask();
     auto mask = __match_any_sync(amask, binId);
     auto leader = __ffs(mask) - 1;
     if (laneId() == leader) {
-      atomicAdd(bins + binId, __popc(mask));
+      atomicAdd(bins + binOffset + binId, __popc(mask));
     }
 #endif  // __CUDA_ARCH__
   };
@@ -125,15 +125,14 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   }
   __syncthreads();
   auto op = [=] __device__(int binId, IdxT idx) {
-    auto id = binId % nbins;
 #if __CUDA_ARCH__ < 700
-    atomicAdd(sbins + id, 1);
+    atomicAdd(sbins + binId, 1);
 #else
     auto amask = __activemask();
-    auto mask = __match_any_sync(amask, id);
+    auto mask = __match_any_sync(amask, binId);
     auto leader = __ffs(mask) - 1;
     if (laneId() == leader) {
-      atomicAdd(sbins + id, __popc(mask));
+      atomicAdd(sbins + binId, __popc(mask));
     }
 #endif  // __CUDA_ARCH__
   };
@@ -160,23 +159,23 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
   constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
   constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
   constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
-  auto id = binId % nbins;
-  auto iword = id / WORD_BINS;
-  auto ibin = id % WORD_BINS;
+  auto iword = binId / WORD_BINS;
+  auto ibin = binId % WORD_BINS;
   auto sh = ibin * BIN_BITS;
   auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
   auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & BIN_MASK) != 0) return;
+  int binOffset = blockIdx.y * nbins;
   // overflow
-  atomicAdd(bins + binId, BIN_MASK + 1);
-  for (int dbin = 1; ibin + dbin < WORD_BINS && id + dbin < nbins; ++dbin) {
+  atomicAdd(bins + binOffset + binId, BIN_MASK + 1);
+  for (int dbin = 1; ibin + dbin < WORD_BINS && binId + dbin < nbins; ++dbin) {
     auto sh1 = (ibin + dbin) * BIN_BITS;
     if ((new_word >> sh1 & BIN_MASK) == 0) {
       // overflow
-      atomicAdd(bins + binId + dbin, BIN_MASK);
+      atomicAdd(bins + binOffset + binId + dbin, BIN_MASK);
     } else {
       // correction
-      atomicAdd(bins + binId + dbin, -1);
+      atomicAdd(bins + binOffset + binId + dbin, -1);
       break;
     }
   }
@@ -189,7 +188,8 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
   auto iword = id / WORD_BITS;
   auto sh = binId % WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
-  if ((old_word >> sh & 1) != 0) atomicAdd(&bins[binId], 2);
+  int binOffset = blockIdx.y * nbins;
+  if ((old_word >> sh & 1) != 0) atomicAdd(bins + binOffset + binId, 2);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
