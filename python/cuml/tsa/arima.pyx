@@ -201,14 +201,9 @@ class ARIMAModel(Base):
         self.yp = None
         self.niter = None  # number of iterations used during fit
 
-    # def __repr__(self):
-    #     return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
-    #                                                                 self.ar_params, self.ma_params)
-
     def __str__(self):
         return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
                                                                     self.ar_params, self.ma_params)
-        # return self.__repr__()
 
     @property
     def bic(self):
