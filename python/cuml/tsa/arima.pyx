@@ -154,12 +154,12 @@ class ARIMAModel(Base):
     ----------
     order : Tuple[int, int, int]
             The ARIMA order (p, d, q) of the model
-    mu    : ndarray
+    mu    : array-like (host)
             (if d>0) Array of trend parameters, one for each series
-    ar_params : List[ndarray]
+    ar_params : List[array-like] (host)
                 List of AR parameters, grouped (`p`) per series
-    ma_params : List[ndarray]
-                Array of MA parameters, grouped (`q`) per series
+    ma_params : List[array-like] (host)
+                List of MA parameters, grouped (`q`) per series
     y : array-like (device or host)
         The time series series data. If given as `ndarray`, assumed to have each
         time series in columns.
@@ -179,11 +179,13 @@ class ARIMAModel(Base):
 
     """
 
-    def __init__(self, order: List[Tuple[int, int, int]],
-                 mu: np.ndarray,
-                 ar_params: List[np.ndarray],
-                 ma_params: List[np.ndarray],
-                 y, handle=None):
+    def __init__(self,
+                 order: Tuple[int, int, int],
+                 mu,
+                 ar_params,
+                 ma_params,
+                 y,
+                 handle=None):
         super().__init__(handle)
         self.order = order
         self.mu = mu
@@ -207,18 +209,18 @@ class ARIMAModel(Base):
 
     @property
     def bic(self):
-        (p, d, q) = self.order[0]
+        (p, d, q) = self.order
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.d_y, x)
-        return [-2 * lli + np.log(len(self.d_y)) * (_model_complexity(self.order[i]))
+        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
+        return [-2 * lli + np.log(len(self.d_y)) * (_model_complexity(self.order))
                 for (i, lli) in enumerate(llb)]
 
     @property
     def aic(self):
-        (p, d, q) = self.order[0]
+        (p, d, q) = self.order
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order[0], self.d_y, x)
-        return [-2 * lli + 2 * (_model_complexity(self.order[i]))
+        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
+        return [-2 * lli + 2 * (_model_complexity(self.order))
                 for (i, lli) in enumerate(llb)]
 
     def _assert_same_d(self, b_order):
@@ -242,10 +244,9 @@ class ARIMAModel(Base):
             y_pred = model.predict_in_sample()
         """
 
-        p, d, q = self.order[0]
+        p, d, q = self.order
         
-        handle = cuml.common.handle.Handle()
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
         cdef uintptr_t d_params_ptr
@@ -296,10 +297,9 @@ class ARIMAModel(Base):
 
         """
 
-        p, d, q = self.order[0]
+        p, d, q = self.order
         
-        handle = cuml.common.handle.Handle()
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         x = pack(p, d, q, self.num_batches, self.mu, self.ar_params, self.ma_params)
         cdef uintptr_t d_params_ptr
@@ -529,7 +529,7 @@ def fit(y,
     Tx = _batch_trans(p, d, q, num_batches, x, handle)
     mu, ar, ma = unpack(p, d, q, num_batches, Tx)
 
-    fit_model = ARIMAModel(num_batches*[order], mu, ar, ma, y)
+    fit_model = ARIMAModel(order, mu, ar, ma, y)
     fit_model.niter = niter
     fit_model.d_y = d_y
     return fit_model
@@ -554,12 +554,26 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
             Maximum `q` in search
     method : str
              Complexity method to use ("bic" or "aic")
+
+    Returns:
+
+    Tuple of "best" order, mu, ar, and ma parameters with the corresponding IC for each series.
+
+    (best_order: List[Tuple[int, int, int]],
+     best_mu: array,
+     best_ar_params: List[array],
+     best_ma_params: List[array],
+     best_ic: array)
+
     """
 
     num_batches = y_b.shape[1]
     best_ic = np.full(num_batches, np.finfo(np.float64).max/2)
-    best_model = ARIMAModel([[]]*num_batches, np.zeros(num_batches), [[]]*num_batches, [[]]*num_batches, y_b)
-    # best_model =
+
+    best_order = num_batches*[None]
+    best_mu = np.zeros(num_batches)
+    best_ar_params = num_batches*[None]
+    best_ma_params = num_batches*[None]
 
     for p in range(0, max_p):
         arparams = np.zeros(p)
@@ -583,21 +597,21 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
             for (i, ic_i) in enumerate(ic):
                 if ic_i < best_ic[i]:
-                    best_model.order[i] = (p, d, q)
-                    best_model.mu[i] = b_model.mu[i]
+                    best_order[i] = (p, d, q)
+                    best_mu[i] = b_model.mu[i]
 
                     if p > 0:
-                        best_model.ar_params[i] = b_model.ar_params[i]
+                        best_ar_params[i] = b_model.ar_params[i]
                     else:
-                        best_model.ar_params[i] = []
+                        best_ar_params[i] = []
                     if q > 0:
-                        best_model.ma_params[i] = b_model.ma_params[i]
+                        best_ma_params[i] = b_model.ma_params[i]
                     else:
-                        best_model.ma_params[i] = []
+                        best_ma_params[i] = []
 
                     best_ic[i] = ic_i
 
-    return (best_model, best_ic)
+    return (best_order, best_mu, best_ar_params, best_ma_params, best_ic)
 
 
 def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):

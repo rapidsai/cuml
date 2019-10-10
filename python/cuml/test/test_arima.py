@@ -313,7 +313,7 @@ def test_predict(plot=False):
 
         nb = 2
 
-        model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
+        model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
 
         d_y_b_p = model.predict_in_sample()
         y_b_p = input_to_host_array(d_y_b_p).array
@@ -353,7 +353,7 @@ def test_forecast(plot=False):
 
         nb = 2
 
-        model = arima.ARIMAModel(2*[order], mu[p-1], ar[p-1], ma[p-1], y)
+        model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
 
         d_y_b_fc = model.forecast(3)
         y_b_fc = input_to_host_array(d_y_b_fc).array
@@ -445,10 +445,10 @@ def test_grid_search(num_batches=2):
     for i in range(num_batches):
         y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
 
-    best_model, ic = arima.grid_search(y_b, d=1)
+    best_order, best_mu, best_ar, best_ma, best_ic = arima.grid_search(y_b, d=1)
 
     if num_batches == 2:
-        np.testing.assert_array_equal(best_model.order, [(0, 1, 1), (0, 1, 1)])
+        np.testing.assert_array_equal(best_order, [(0, 1, 1), (0, 1, 1)])
 
 
 def test_stationarity():
@@ -537,3 +537,6 @@ def bench_arima(num_batches=240, plot=False):
     if plot:
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
+
+
+# test_forecast()
