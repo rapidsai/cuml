@@ -61,6 +61,7 @@
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
 - PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 
 # cuML 0.9.0 (21 Aug 2019)
 
