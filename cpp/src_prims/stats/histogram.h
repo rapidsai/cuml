@@ -56,10 +56,12 @@ enum HistType {
   HistTypeAuto
 };
 
+static const int ThreadsPerBlock = 256;
+
 template <typename IdxT, int VecLen>
-dim3 computeGridDim(IdxT nrows, IdxT ncols, int tpb) {
+dim3 computeGridDim(IdxT nrows, IdxT ncols) {
   const auto maxBlks = 2 * getMultiProcessorCount();  // assume occupancy of 2
-  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, tpb);
+  int nblksx = ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
   // for cases when there aren't a lot of blocks for computing one histogram
   nblksx = std::min(nblksx, maxBlks);
   return dim3(nblksx, ncols);
@@ -109,10 +111,10 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
-              BinnerOp op, int tpb, cudaStream_t stream) {
-  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
+              BinnerOp op, cudaStream_t stream) {
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols);
   gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, tpb, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
+    <<<blks, ThreadsPerBlock, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -147,11 +149,12 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
-              BinnerOp op, int tpb, cudaStream_t stream) {
-  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
+              BinnerOp op, cudaStream_t stream) {
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols);
   size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
+                                                  nbins, op);
 }
 
 template <unsigned BIN_BITS>
@@ -220,12 +223,13 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
           int VecLen>
 void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
-  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols, tpb);
+                  IdxT ncols, BinnerOp op, cudaStream_t stream) {
+  auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols);
   constexpr int WORD_BITS = sizeof(int) * 8;
   size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>
-    <<<blks, tpb, smemSize, stream>>>(bins, data, nrows, ncols, nbins, op);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
+                                                  nbins, op);
 }
 
 #define INVALID_KEY -1
@@ -313,54 +317,54 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp op, int tpb, cudaStream_t stream) {
+                  IdxT ncols, BinnerOp op, cudaStream_t stream) {
   ///@todo: honor VecLen template param
-  auto blks = computeGridDim<IdxT, 1>(nrows, ncols, tpb);
+  auto blks = computeGridDim<IdxT, 1>(nrows, ncols);
   // NOTE: assumes 48kB smem!
   int hashSize = 6047;
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   ///@todo: honor VecLen template param
-  smemHashHistKernel<DataT, BinnerOp, IdxT><<<blks, tpb, smemSize, stream>>>(
-    bins, data, nrows, ncols, nbins, op, hashSize);
+  smemHashHistKernel<DataT, BinnerOp, IdxT>
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
+                                                  nbins, op, hashSize);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
-                     IdxT nrows, IdxT ncols, int tpb, cudaStream_t stream,
-                     BinnerOp op) {
+                     IdxT nrows, IdxT ncols, cudaStream_t stream, BinnerOp op) {
   CUDA_CHECK(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmem:
       gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
-                                              op, tpb, stream);
+                                              op, stream);
       break;
     case HistTypeSmem:
       smemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
-                                              op, tpb, stream);
+                                              op, stream);
       break;
     case HistTypeSmemBits16:
       smemBitsHist<DataT, BinnerOp, IdxT, 16, VecLen>(bins, nbins, data, nrows,
-                                                      ncols, op, tpb, stream);
+                                                      ncols, op, stream);
       break;
     case HistTypeSmemBits8:
       smemBitsHist<DataT, BinnerOp, IdxT, 8, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, op, tpb, stream);
+                                                     ncols, op, stream);
       break;
     case HistTypeSmemBits4:
       smemBitsHist<DataT, BinnerOp, IdxT, 4, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, op, tpb, stream);
+                                                     ncols, op, stream);
       break;
     case HistTypeSmemBits2:
       smemBitsHist<DataT, BinnerOp, IdxT, 2, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, op, tpb, stream);
+                                                     ncols, op, stream);
       break;
     case HistTypeSmemBits1:
       smemBitsHist<DataT, BinnerOp, IdxT, 1, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, op, tpb, stream);
+                                                     ncols, op, stream);
       break;
     case HistTypeSmemHash:
       smemHashHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows,
-                                                  ncols, op, tpb, stream);
+                                                  ncols, op, stream);
       break;
     default:
       ASSERT(false, "histogram: Invalid type passed '%d'!", type);
@@ -370,25 +374,24 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
 
 template <typename DataT, typename BinnerOp, typename IdxT>
 void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
-                   IdxT nrows, IdxT ncols, int tpb, cudaStream_t stream,
-                   BinnerOp op) {
+                   IdxT nrows, IdxT ncols, cudaStream_t stream, BinnerOp op) {
   size_t bytes = nrows * sizeof(DataT);
   if (nrows <= 0) return;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 16 / sizeof(DataT)>(
-      type, bins, nbins, data, nrows, ncols, tpb, stream, op);
+      type, bins, nbins, data, nrows, ncols, stream, op);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 8 / sizeof(DataT)>(
-      type, bins, nbins, data, nrows, ncols, tpb, stream, op);
+      type, bins, nbins, data, nrows, ncols, stream, op);
   } else if (4 % sizeof(DataT) == 0 && bytes % 4 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 4 / sizeof(DataT)>(
-      type, bins, nbins, data, nrows, ncols, tpb, stream, op);
+      type, bins, nbins, data, nrows, ncols, stream, op);
   } else if (2 % sizeof(DataT) == 0 && bytes % 2 == 0) {
     histogramVecLen<DataT, BinnerOp, IdxT, 2 / sizeof(DataT)>(
-      type, bins, nbins, data, nrows, ncols, tpb, stream, op);
+      type, bins, nbins, data, nrows, ncols, stream, op);
   } else {
     histogramVecLen<DataT, BinnerOp, IdxT, 1>(type, bins, nbins, data, nrows,
-                                              ncols, tpb, stream, op);
+                                              ncols, stream, op);
   }
 }
 
@@ -450,7 +453,7 @@ void histogram(HistType type, int* bins, IdxT nbins, const DataT* data,
     computedType = selectBestHistAlgo(nbins);
   }
   histogramImpl<DataT, BinnerOp, IdxT>(computedType, bins, nbins, data, nrows,
-                                       ncols, 256, stream, op);
+                                       ncols, stream, op);
 }
 
 };  // end namespace Stats
