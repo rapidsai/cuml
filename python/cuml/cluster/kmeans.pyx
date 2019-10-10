@@ -273,7 +273,7 @@ class KMeans(Base):
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
-        params.n_clusters = self.n_clusters
+        params.n_clusters = <int>self.n_clusters
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
                 raise ValueError('The shape of the initial centers (%s) '
