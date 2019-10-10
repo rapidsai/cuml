@@ -228,6 +228,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
+set(CMAKE_CUDA_FLAGS
+  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
+
 ##############################################################################
 # - clang-format targets -----------------------------------------------------
 

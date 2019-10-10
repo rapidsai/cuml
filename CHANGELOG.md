@@ -39,6 +39,7 @@
 - PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
+- PR #1135: K-means: add boundary cases for kmeans||, support finer control with convergence
 - PR #1163: Some more correctness improvements. Better verbose printing
 - PR #1165: Adding except + in all remaining cython
 - PR #1186: Using LocalCUDACluster Pytest fixture
@@ -75,6 +76,7 @@
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
 - PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 
 # cuML 0.9.0 (21 Aug 2019)
 
