@@ -15,6 +15,7 @@
 #
 
 import numpy as np
+import cupy as cp
 from cuml.common.handle cimport cumlHandle
 import ctypes
 cimport numpy as np
@@ -36,6 +37,8 @@ from typing import List, Tuple
 import cudf
 
 from cuml.utils.nvtx import pynvtx_range_push, pynvtx_range_pop
+
+from cuml.common.base import Base
 
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
   void batched_loglike(cumlHandle& handle,
@@ -92,7 +95,7 @@ cdef extern from "arima/batched_kalman.hpp" namespace "ML":
                                double* h_Tparams);
 
 
-class ARIMAModel:
+class ARIMAModel(Base):
     r"""Implements an ARIMA model for in- and out-of-sample time-series prediction.
     The ARIMA model consists of three model parameter classes:
     "AutoRegressive", "Integrated", and "Moving Average" to fit to a given
@@ -178,7 +181,8 @@ class ARIMAModel:
                  mu: np.ndarray,
                  ar_params: List[np.ndarray],
                  ma_params: List[np.ndarray],
-                 y):
+                 y, handle=None):
+        super().__init__(handle)
         self.order = order
         self.mu = mu
         self.ar_params = ar_params
@@ -195,12 +199,14 @@ class ARIMAModel:
         self.yp = None
         self.niter = None  # number of iterations used during fit
 
-    def __repr__(self):
-        return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
-                                                                    self.ar_params, self.ma_params)
+    # def __repr__(self):
+    #     return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
+    #                                                                 self.ar_params, self.ma_params)
 
     def __str__(self):
-        return self.__repr__()
+        return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
+                                                                    self.ar_params, self.ma_params)
+        # return self.__repr__()
 
     @property
     def bic(self):
@@ -309,9 +315,10 @@ class ARIMAModel:
                  <double*>d_params_ptr, <double*>d_vs_ptr,
                  False)
 
-        y_diff = np.diff(self.h_y, axis=0)
-        cdef uintptr_t d_y_diff_ptr
-        d_y_diff, d_y_diff_ptr, _, _, _ = input_to_dev_array(y_diff, check_dtype=np.float64)
+        # note: `cp.diff()` returns row-major (regardless of input layout),
+        # and thus needs conversion with `cp.asfortranarray()`
+        y_diff = cp.asfortranarray(cp.diff(self.d_y, axis=0))
+        cdef uintptr_t d_y_diff_ptr = y_diff.data
 
         d_y_fc = rmm.device_array((nsteps, self.num_batches), dtype=np.float64, order="F")
         cdef uintptr_t d_y_fc_ptr = get_dev_array_ptr(d_y_fc)
