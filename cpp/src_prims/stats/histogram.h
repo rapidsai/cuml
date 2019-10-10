@@ -69,8 +69,8 @@ dim3 computeGridDim(IdxT nrows, IdxT ncols) {
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
           typename CoreOp>
-DI void histCoreOp(const DataT* data, IdxT nrows, IdxT ncols, IdxT nbins,
-                   BinnerOp binOp, CoreOp op) {
+DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binOp,
+                   CoreOp op) {
   IdxT col = blockIdx.y;
   IdxT offset = col * nrows;
   auto binOffset = col * nbins;
@@ -92,7 +92,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT ncols, IdxT nbins,
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
-                               IdxT ncols, IdxT nbins, BinnerOp binner) {
+                               IdxT nbins, BinnerOp binner) {
   auto op = [=] __device__(int binId, IdxT idx) {
 #if __CUDA_ARCH__ < 700
     atomicAdd(bins + binId, 1);
@@ -105,8 +105,7 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
 #endif  // __CUDA_ARCH__
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
-                                            op);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -114,12 +113,12 @@ void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
               BinnerOp op, cudaStream_t stream) {
   auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols);
   gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, ThreadsPerBlock, 0, stream>>>(bins, data, nrows, ncols, nbins, op);
+    <<<blks, ThreadsPerBlock, 0, stream>>>(bins, data, nrows, nbins, op);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
-                               IdxT ncols, IdxT nbins, BinnerOp binner) {
+                               IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     sbins[i] = 0;
@@ -138,8 +137,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
 #endif  // __CUDA_ARCH__
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
-                                            op);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
   __syncthreads();
   IdxT binOffset = blockIdx.y * nbins;
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -153,8 +151,7 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
   auto blks = computeGridDim<IdxT, VecLen>(nrows, ncols);
   size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
-                                                  nbins, op);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins, op);
 }
 
 template <unsigned BIN_BITS>
@@ -197,7 +194,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
           int VecLen>
 __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT ncols, IdxT nbins, BinnerOp binner) {
+                                   IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
   constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
   constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
@@ -210,8 +207,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
   auto op = [=] __device__(int binId, IdxT idx) {
     incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId);
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, ncols, nbins, binner,
-                                            op);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
   __syncthreads();
   IdxT binOffset = blockIdx.y * nbins;
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
@@ -228,8 +224,7 @@ void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   constexpr int WORD_BITS = sizeof(int) * 8;
   size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
-                                                  nbins, op);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins, op);
 }
 
 #define INVALID_KEY -1
@@ -274,8 +269,7 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins) {
 
 template <typename DataT, typename BinnerOp, typename IdxT>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT ncols, IdxT nbins, BinnerOp binner,
-                                   int hashSize) {
+                                   IdxT nbins, BinnerOp binner, int hashSize) {
   extern __shared__ int2 ht[];
   int* needFlush = (int*)&(ht[hashSize]);
   if (threadIdx.x == 0) {
@@ -325,8 +319,8 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   ///@todo: honor VecLen template param
   smemHashHistKernel<DataT, BinnerOp, IdxT>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, ncols,
-                                                  nbins, op, hashSize);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins, op,
+                                                  hashSize);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
