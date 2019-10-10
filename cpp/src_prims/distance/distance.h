@@ -24,6 +24,13 @@
 #include "distance/euclidean.h"
 #include "distance/l1.h"
 
+#if CUDART_VERSION >= 10010
+// With optimization enabled, CUDA 10.1 generates segfaults for distance
+// prims, so disable optimization until another workaround is found
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+
 namespace MLCommon {
 namespace Distance {
 
@@ -386,6 +393,10 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                               OutputTile_>(a, b, adj, m, n, k, eps, workspace,
                                            worksize, stream, lambda);
 }
+
+#if CUDART_VERSION >= 10010
+#pragma GCC pop_options
+#endif
 
 };  // end namespace Distance
 };  // end namespace MLCommon
