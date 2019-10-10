@@ -457,7 +457,9 @@ def fit(y,
         mu0: np.ndarray,
         ar_params0: List[np.ndarray],
         ma_params0: List[np.ndarray],
-        opt_disp=-1, h=1e-9):
+        opt_disp=-1,
+        h=1e-9,
+        handle=None):
     """
     Fits an ARIMA model to each time-series for the given order and initial parameter estimates.
 
@@ -483,6 +485,8 @@ def fit(y,
                    f(x+h) - f(x - h)
                g = ----------------- + O(h^2)
                          2 * h
+    handle   : cumlHandle
+               The cumlHandle needed for memory allocation and stream management.
 
     Returns:
     --------
@@ -495,7 +499,8 @@ def fit(y,
 
     d_y, d_y_ptr, num_samples, num_batches, dtype = input_to_dev_array(y, check_dtype=np.float64)
 
-    handle = cuml.common.handle.Handle()
+    if handle is None:
+        handle = cuml.common.handle.Handle()
 
     def f(x: np.ndarray) -> np.ndarray:
         """The (batched) energy functional returning the negative loglikelihood (for each series)."""
