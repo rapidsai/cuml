@@ -635,17 +635,11 @@ class RandomForestRegressor(Base):
         mean_abs_error : float
         """
         cdef uintptr_t X_ptr, y_ptr
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, _ = input_to_dev_array(y)
 
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
         preds = self._predict_model_on_gpu(X, output_class=False,
                                            algo=algo)
         cdef uintptr_t preds_ptr
-        print(" preds in cython : ", np.asarray(preds))
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
 
