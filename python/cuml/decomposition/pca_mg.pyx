@@ -263,7 +263,7 @@ class PCAMG(PCA):
                 <float*> noise_vars_ptr,
                 params,
                 True)
-
+            self.handle.sync()
             self._freeFloatD(data, arr_interfaces)
 
         else:
@@ -282,11 +282,12 @@ class PCAMG(PCA):
                 params,
                 True)
 
+            self.handle.sync()
             self._freeDoubleD(data, arr_interfaces)
 
             # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
-        self.handle.sync()
+        
 
         for idx, rankSize in enumerate(partsToRanks):
             free(<RankSizePair*>rankSizePair[idx])
