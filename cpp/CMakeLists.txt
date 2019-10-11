@@ -56,6 +56,10 @@ option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 
+option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
+
+option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -426,8 +430,19 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-##############################################################################
-# - build examples -----------------------------------------------------------
+###################################################################################################
+# - build comms ------------------------------------------------------------------------
+
+if(BUILD_CUML_STD_COMMS)
+	add_subdirectory(comms/std)
+endif(BUILD_CUML_STD_COMMS)
+
+if(BUILD_CUML_MPI_COMMS)
+	add_subdirectory(comms/mpi)
+endif(BUILD_CUML_MPI_COMMS)
+
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
 
 if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
