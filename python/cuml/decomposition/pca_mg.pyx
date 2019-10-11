@@ -171,14 +171,14 @@ class PCAMG(PCA):
         cdef doubleData_t **d = <doubleData_t**>data_ptr
         for x_i in range(len(arr_interfaces)):
             free(d[x_i])
-            free(d)
+        free(d)
 
     def _freeFloatD(self, data, arr_interfaces):
         cdef uintptr_t data_ptr = data
         cdef floatData_t **d = <floatData_t**>data_ptr
         for x_i in range(len(arr_interfaces)):
             free(d[x_i])
-            free(d)
+        free(d)
 
 
     def fit(self, X, M, N, partsToRanks, _transform=False):
