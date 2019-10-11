@@ -24,11 +24,11 @@ import argparse
 IncludeRegex = re.compile(r"\s*#include\s*(\S+)")
 
 
-def parseArgs():
+def parse_args():
     argparser = argparse.ArgumentParser(
         "Checks for a consistent '#include' syntax")
-    argparser.add_argument("-regex", type=str,
-                           default=r"[.](cu|cuh|h|hpp|cpp)$",
+    argparser.add_argument("--regex", type=str,
+                           default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
                            help="Regex string to filter in sources")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
@@ -37,43 +37,39 @@ def parseArgs():
     return args
 
 
-def listAllSourceFiles(fileRegex, srcdirs):
+def list_all_source_file(file_regex, srcdirs):
     allFiles = []
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
-                if re.search(fileRegex, f):
+                if re.search(file_regex, f):
                     src = os.path.join(root, f)
                     allFiles.append(src)
     return allFiles
 
 
-def checkIncludesIn(src):
+def check_includes_in(src):
     errs = []
-    fp = open(src, "r")
     dir = os.path.dirname(src)
-    lNum = 0
-    for line in fp.readlines():
+    for line_number, line in enumerate(open(src)):
         match = IncludeRegex.search(line)
-        lNum += 1
         if match is None:
             continue
         val = match.group(1)
         incFile = val[1:-1]  # strip out " or <
         if val[0] == "\"" and not os.path.exists(os.path.join(dir, incFile)):
-            errs.append("Line:%d use #include <...>" % lNum)
+            errs.append("Line:%d use #include <...>" % line_number)
         elif val[0] == "<" and os.path.exists(os.path.join(dir, incFile)):
-            errs.append("Line:%d use #include \"...\"" % lNum)
-    fp.close()
+            errs.append("Line:%d use #include \"...\"" % line_number)
     return errs
 
 
 def main():
-    args = parseArgs()
-    allFiles = listAllSourceFiles(args.regexCompiled, args.dirs)
+    args = parse_args()
+    allFiles = list_all_source_file(args.regexCompiled, args.dirs)
     allErrs = {}
     for f in allFiles:
-        errs = checkIncludesIn(f)
+        errs = check_includes_in(f)
         if len(errs) > 0:
             allErrs[f] = errs
     if len(allErrs) == 0:
