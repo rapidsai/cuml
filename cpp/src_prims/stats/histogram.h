@@ -76,10 +76,14 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
   IdxT tid = threadIdx.x + bdim * blockIdx.x;
   tid *= VecLen;
   IdxT stride = bdim * gridDim.x * VecLen;
+  int nCeil = alignTo<int>(nrows, stride);
   typedef TxN_t<DataT, VecLen> VecType;
   VecType a;
-  for (auto i = tid; i < nrows; i += stride) {
-    a.load(data, offset + i);
+  a.fill(DataT(0));
+  for (auto i = tid; i < nCeil; i += stride) {
+    if (i < nrows) {
+      a.load(data, offset + i);
+    }
 #pragma unroll
     for (int j = 0; j < VecLen; ++j) {
       int binId = binner(a.val.data[j], i + j, col);
@@ -92,6 +96,7 @@ template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
                                IdxT nbins, BinnerOp binner) {
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+    if (row >= nrows) return;
     auto binOffset = col * nbins;
 #if __CUDA_ARCH__ < 700
     atomicAdd(bins + binOffset + binId, 1);
@@ -125,6 +130,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   }
   __syncthreads();
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+    if (row >= nrows) return;
 #if __CUDA_ARCH__ < 700
     atomicAdd(sbins + binId, 1);
 #else
@@ -210,6 +216,7 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
   __syncthreads();
   IdxT col = blockIdx.y;
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+    if (row >= nrows) return;
     incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId, col);
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
