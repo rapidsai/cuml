@@ -244,11 +244,12 @@ void batched_kalman_loop(double* ys, int nobs, const BatchedMatrix& T,
   }
 }  // namespace ML
 
+template <int NUM_THREADS>
 __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
                                               double* d_sumLogFs, int nobs,
                                               int num_batches, double* sigma2,
                                               double* loglike) {
-  using BlockReduce = cub::BlockReduce<double, 128>;
+  using BlockReduce = cub::BlockReduce<double, NUM_THREADS>;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   int tid = threadIdx.x;
@@ -277,10 +278,10 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
 void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
                             int nobs, int num_batches, double* sigma2,
                             double* loglike, cudaStream_t stream) {
-  // BlockReduce uses 128 threads, so here also use 128 threads.
-  const int num_threads = 128;
-  batched_kalman_loglike_kernel<<<num_batches, num_threads, 0, stream>>>(
-    d_vs, d_Fs, d_sumLogFs, nobs, num_batches, sigma2, loglike);
+  const int NUM_THREADS = 128;
+  batched_kalman_loglike_kernel<NUM_THREADS>
+    <<<num_batches, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
+                                              num_batches, sigma2, loglike);
 }
 
 // Internal Kalman filter implementation that assumes data exists on GPU.
