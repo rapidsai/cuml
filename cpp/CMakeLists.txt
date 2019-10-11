@@ -232,6 +232,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
+set(CMAKE_CUDA_FLAGS
+  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
+
 ##############################################################################
 # - clang-format targets -----------------------------------------------------
 
@@ -438,7 +441,10 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
-install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+install(TARGETS ${CUML_CPP_TARGET}
+                ${CUML_C_TARGET}
+        DESTINATION lib)
+
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
         DESTINATION include)
 
