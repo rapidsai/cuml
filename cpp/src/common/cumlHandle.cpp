@@ -168,7 +168,9 @@ void cumlHandle::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
 std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
   return _impl->getHostAllocator();
 }
-
+int cumlHandle::getNumInternalStreams() {
+  return _impl->getNumInternalStreams();
+}
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
 cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }

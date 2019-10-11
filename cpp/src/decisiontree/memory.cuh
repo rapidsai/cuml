@@ -279,16 +279,27 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
     d_mseout->release(stream);
     d_predout->release(stream);
     d_count->release(stream);
+    d_child_pred->release(stream);
+    d_child_count->release(stream);
+
+    h_child_pred->release(stream);
+    h_child_count->release(stream);
     h_mseout->release(stream);
     h_predout->release(stream);
     h_count->release(stream);
+
+    delete d_child_pred;
+    delete d_child_count;
     delete d_parent_pred;
     delete d_parent_count;
     delete d_mseout;
     delete d_predout;
     delete d_count;
+
     delete h_mseout;
     delete h_predout;
     delete h_count;
+    delete h_child_pred;
+    delete h_child_count;
   }
 }

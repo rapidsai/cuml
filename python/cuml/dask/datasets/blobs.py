@@ -104,10 +104,13 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     key = str(uuid1())
     # Create dfs on each worker (gpu)
     dfs = []
+    rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
-        worker_rows = rows_per_part \
-            if rows_per_part*(idx+1) <= nrows \
-            else nrows - (rows_per_part*(idx+1))
+        if rows_so_far+rows_per_part <= nrows:
+            rows_so_far += rows_per_part
+            worker_rows = rows_per_part
+        else:
+            worker_rows = (int(nrows) - rows_so_far)
 
         dfs.append(client.submit(create_df, worker_rows, ncols,
                                  centers, cluster_std, random_state, dtype,

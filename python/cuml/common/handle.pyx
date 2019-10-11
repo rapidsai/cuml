@@ -101,3 +101,7 @@ cdef class Handle:
 
     def getHandle(self):
         return self.h
+
+    def getNumInternalStreams(self):
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        return h_.getNumInternalStreams()
