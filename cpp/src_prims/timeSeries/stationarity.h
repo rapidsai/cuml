@@ -38,7 +38,7 @@ namespace TimeSeries {
  * Note: can't use prim substract because it uses vectorization and
  * would result in misaligned memory accesses */
 template <typename DataT>
-__global__ void vec_diff(DataT* in, DataT* out, int n_elem_diff) {
+__global__ void vec_diff(const DataT* in, DataT* out, int n_elem_diff) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n_elem_diff) {
     out[idx] = in[idx + 1] - in[idx];
@@ -47,7 +47,7 @@ __global__ void vec_diff(DataT* in, DataT* out, int n_elem_diff) {
 
 // TODO: doc
 template <typename DataT>
-static bool _is_stationary(const DataT* y_d, int n_samples,
+static bool _is_stationary(const DataT* yi_d, int n_samples,
                            cudaStream_t stream, cublasHandle_t cublas_handle,
                            DataT pval_threshold) {
   DataT n_samples_f = static_cast<DataT>(n_samples);
@@ -55,7 +55,7 @@ static bool _is_stationary(const DataT* y_d, int n_samples,
   // Compute mean
   DataT* y_mean_d;
   MLCommon::allocate(y_mean_d, 1);
-  MLCommon::Stats::mean(y_mean_d, y_d, static_cast<int>(1), n_samples, false,
+  MLCommon::Stats::mean(y_mean_d, yi_d, static_cast<int>(1), n_samples, false,
                         true, stream);
   CUDA_CHECK(cudaPeekAtLastError());
   DataT y_mean_h;
@@ -66,7 +66,7 @@ static bool _is_stationary(const DataT* y_d, int n_samples,
   // Null hypothesis: data is stationary around a constant
   DataT* y_cent_d;
   MLCommon::allocate(y_cent_d, n_samples);
-  MLCommon::LinAlg::subtractScalar(y_cent_d, y_d, y_mean_h, n_samples, stream);
+  MLCommon::LinAlg::subtractScalar(y_cent_d, yi_d, y_mean_h, n_samples, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Cumulative sum (inclusive scan with + operator)
@@ -153,19 +153,17 @@ static bool _is_stationary(const DataT* y_d, int n_samples,
 // TODO: doc
 // TODO: use streams and cuML copy function
 template <typename DataT>
-void stationarity(const DataT* y, int* d, int n_batches, int n_samples,
+void stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
                   cudaStream_t stream, cublasHandle_t cublas_handle,
                   DataT pval_threshold = 0.05) {
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
 
-  // TODO: do this loop in parallel?
+  // TODO: do this loop in parallel in different streams?
   for (int i = 0; i < n_batches; i++) {
-    DataT* y_d;
-    MLCommon::allocate(y_d, n_samples);
-    MLCommon::updateDevice(y_d, y + i * n_samples, n_samples, stream);
+    const DataT* yi_d = y_d + i * n_samples;
 
     /* First the test is performed on the data series */
-    if (_is_stationary(y_d, n_samples, stream, cublas_handle, pval_threshold)) {
+    if (_is_stationary(yi_d, n_samples, stream, cublas_handle, pval_threshold)) {
       d[i] = 0;
     } else {
       /* If the first test fails, the differencial series is constructed */
@@ -173,7 +171,7 @@ void stationarity(const DataT* y, int* d, int n_batches, int n_samples,
       MLCommon::allocate(ydiff_d, n_samples - 1);
       constexpr int TPB = 256;
       vec_diff<<<ceildiv<int>(n_samples - 1, TPB), TPB, 0, stream>>>(
-        y_d, ydiff_d, n_samples - 1);
+        yi_d, ydiff_d, n_samples - 1);
       CUDA_CHECK(cudaPeekAtLastError());
 
       if (_is_stationary(ydiff_d, n_samples - 1, stream, cublas_handle,
@@ -186,8 +184,6 @@ void stationarity(const DataT* y, int* d, int n_batches, int n_samples,
 
       CUDA_CHECK(cudaFree(ydiff_d));
     }
-
-    CUDA_CHECK(cudaFree(y_d));
   }
 }
 

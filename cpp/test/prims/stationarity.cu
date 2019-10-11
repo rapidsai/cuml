@@ -61,17 +61,23 @@ class StationarityTest
       }
     }
 
-    d_out = std::vector<int>(params.n_batches);
-
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::TimeSeries::stationarity(y.data(), d_out.data(), params.n_batches,
+
+    MLCommon::allocate(y_d, params.n_samples * params.n_batches);
+    MLCommon::updateDevice(y_d, y.data(), params.n_samples * params.n_batches,
+                           stream);
+
+    d_out = std::vector<int>(params.n_batches);
+
+    MLCommon::TimeSeries::stationarity(y_d, d_out.data(), params.n_batches,
                                        params.n_samples, stream, cublas_handle,
                                        static_cast<DataT>(0.05));
   }
 
   void TearDown() override {
     // TODO: free when using device code
+    CUDA_CHECK(cudaFree(y_d));
     CUBLAS_CHECK(cublasDestroy(cublas_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -80,6 +86,7 @@ class StationarityTest
   cudaStream_t stream;
   cublasHandle_t cublas_handle;
   StationarityParams<DataT> params;
+  DataT *y_d;
   std::vector<int> d_out;
 };
 
@@ -126,7 +133,7 @@ const std::vector<struct StationarityParams<float>> params_float = {
  */
 const std::vector<struct StationarityParams<double>> params_double = {
   {5, 1338, 277, {1.0f, 0.5f, -0.3f, 0.0f, 2.2f}, {1, 1, 1, 0, 1}}, {
-    2, 500, 1, {0.05f, -0.1f}, { 1, 1 }
+    2, 500, 1, {0.1f, -0.1f}, { 1, 1 }
   }
 };
 
