@@ -201,7 +201,7 @@ class BatchedMatrix {
 
     identity_matrix_kernel<<<num_batches, std::min(1024, m), 0, stream>>>(
       I.data(), m);
-
+    CUDA_CHECK(cudaGetLastError());
     return I;
   }
 
@@ -437,7 +437,7 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   dim3 threads(std::min(p, 32), std::min(q, 32));
   kronecker_product_kernel<<<A.batches(), threads, 0, A.stream()>>>(
     A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
-
+  CUDA_CHECK(cudaGetLastError());
   return AkB;
 }
 
