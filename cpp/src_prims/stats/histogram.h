@@ -246,7 +246,6 @@ DI void clearHashTable(int2* ht, int hashSize) {
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     ht[i] = {INVALID_KEY, 0};
   }
-  __syncthreads();
 }
 
 DI int findEntry(int2* ht, int hashSize, int binId) {
@@ -281,7 +280,7 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
 }
 #undef INVALID_KEY
 
-template <typename DataT, typename BinnerOp, typename IdxT>
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT nbins, BinnerOp binner, int hashSize) {
   extern __shared__ int2 ht[];
@@ -290,16 +289,10 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     needFlush[0] = 0;
   }
   clearHashTable(ht, hashSize);
-  IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
-  IdxT stride = IdxT(blockDim.x) * gridDim.x;
-  int nCeil = alignTo<int>(nrows, stride);
-  IdxT col = blockIdx.y;
-  auto offset = col * nrows;
-  for (auto i = tid; i < nCeil; i += stride) {
+  __syncthreads();
+  auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     bool iNeedFlush = false;
-    int binId = 0;
-    if (i < nrows) {
-      binId = binner(data[offset + i], i, col);
+    if (row < nrows) {
       int hidx = findEntry(ht, hashSize, binId);
       if (hidx >= 0) {
         atomicAdd(&(ht[hidx].y), 1);
@@ -320,7 +313,11 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
       int hidx = findEntry(ht, hashSize, binId);
       atomicAdd(&(ht[hidx].y), 1);
     }
-  }
+  };
+  IdxT col = blockIdx.y;
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
+                                            col);
+  __syncthreads();
   flushHashTable(ht, hashSize, bins, nbins, col);
 }
 
@@ -333,7 +330,7 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   int hashSize = 6047;
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   ///@todo: honor VecLen template param
-  smemHashHistKernel<DataT, BinnerOp, IdxT>
+  smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner, hashSize);
 }
