@@ -5,6 +5,9 @@
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
+- PR #1225: setup.py clone dependencies like cmake and correct include paths
+- PR #1224: Refactored FIL to prepare for sparse trees
+- PR #1249: Include libcuml.so C API in installed targets
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
@@ -37,14 +40,17 @@
 - PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
 - PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
 - PR #1136: CUDA 10.1 CI updates
+- PR #1135: K-means: add boundary cases for kmeans||, support finer control with convergence
 - PR #1163: Some more correctness improvements. Better verbose printing
 - PR #1165: Adding except + in all remaining cython
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1247: Improved MNMG RF error checking
 
 ## Bug Fixes
 
+- PR #1231: RF respect number of cuda streams from cuml handle
 - PR #1230: Rf bugfix memleak in regression
 - PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
@@ -70,6 +76,8 @@
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
 - PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 
 # cuML 0.9.0 (21 Aug 2019)
 
