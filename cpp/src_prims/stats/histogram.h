@@ -280,7 +280,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
   clearHashTable(ht, hashSize);
   IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
   IdxT stride = IdxT(blockDim.x) * gridDim.x;
-  int nCeil = ceildiv<int>(nrows, stride) * stride;
+  int nCeil = alignTo<int>(nrows, stride);
   auto offset = blockIdx.y * nrows;
   for (auto i = tid; i < nCeil; i += stride) {
     bool iNeedFlush = false;
