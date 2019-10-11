@@ -23,7 +23,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>
-#include <iostream>
 
 #include "common/cuml_allocator.hpp"
 #include "linalg/cublas_wrappers.h"
@@ -34,6 +33,17 @@
 namespace MLCommon {
 
 namespace TimeSeries {
+
+/* TODO: doc
+ * Note: can't use prim substract because it uses vectorization and
+ * would result in misaligned memory accesses */
+template <typename DataT>
+__global__ void vec_diff(DataT* in, DataT* out, size_t n_elem_diff) {
+  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < n_elem_diff) {
+    out[idx] = in[idx + 1] - in[idx];
+  }
+}
 
 // TODO: doc
 template <typename DataT>
@@ -48,19 +58,16 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
   MLCommon::Stats::mean(y_mean_d, y_d, static_cast<size_t>(1), n_samples, false,
                         true, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-  std::cout << "Mean has been computed" << std::endl;
-  DataT *y_mean_h = new DataT();
-  MLCommon::updateHost(y_mean_h, y_mean_d, 1,
-                       stream);  // TODO: copy later to batch transfers
-  std::cout << *y_mean_h << std::endl;
+  DataT y_mean_h;
+  MLCommon::updateHost(&y_mean_h, y_mean_d, 1, stream);
+  // Synchronize because the mean is needed for the next kernel
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Null hypothesis: data is stationary around a constant
   DataT* y_cent_d;
   MLCommon::allocate(y_cent_d, n_samples);
-  MLCommon::LinAlg::subtractScalar(y_cent_d, y_d, *y_mean_h, n_samples, stream);
+  MLCommon::LinAlg::subtractScalar(y_cent_d, y_d, y_mean_h, n_samples, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  std::cout << "Data has been centered" << std::endl;
 
   // Cumulative sum (inclusive scan with + operator)
   DataT* csum_d;
@@ -70,9 +77,6 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
   thrust::inclusive_scan(thrust::cuda::par.on(stream), __y_cent,
                          __y_cent + n_samples, __csum);
   CUDA_CHECK(cudaPeekAtLastError());
-  // TODO: maybe no need to do the verification after each api call
-
-  std::cout << "Cumulative sum has been computed" << std::endl;
 
   // Eq. 11
   DataT* eta_d;
@@ -81,13 +85,6 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
                                            csum_d, 1, eta_d, stream));
   DataT eta_h;
   MLCommon::updateHost(&eta_h, eta_d, 1, stream);
-  eta_h /= n_samples_f * n_samples_f;
-  std::cout << eta_h << std::endl;
-
-  /****** Eq. 10 ******/
-  // From Kwiatkowski et al. referencing Schwert (1989)
-  DataT lags_f = ceil(12.0 * pow(n_samples_f / 100.0, 0.25));
-  int lags = static_cast<int>(lags_f);
 
   DataT* s2A_d;
   MLCommon::allocate(s2A_d, 1);
@@ -95,9 +92,10 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
                                            1, y_cent_d, 1, s2A_d, stream));
   DataT s2A_h;
   MLCommon::updateHost(&s2A_h, s2A_d, 1, stream);
-  s2A_h /= n_samples_f;
 
-  std::cout << "s2A: " << s2A_h << std::endl;
+  // From Kwiatkowski et al. referencing Schwert (1989)
+  DataT lags_f = ceil(12.0 * pow(n_samples_f / 100.0, 0.25));
+  int lags = static_cast<int>(lags_f);
 
   DataT* s2B_partial_d;
   MLCommon::allocate(s2B_partial_d, lags);
@@ -108,6 +106,10 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
   }
   DataT s2B_partial_h[lags];
   MLCommon::updateHost(s2B_partial_h, s2B_partial_d, lags, stream);
+
+  // Synchronize for eta, s2A, and the partial s2B
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   DataT s2B = 0.0;
   for (int k = 1; k < lags + 1; k++) {
     s2B += (2.0 * (1 - static_cast<DataT>(k) / (lags_f + 1.0)) *
@@ -115,10 +117,11 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
            n_samples_f;
   }
 
-  std::cout << "s2B: " << s2B << std::endl;
+  s2A_h /= n_samples_f;
+  eta_h /= n_samples_f * n_samples_f;
 
+  // Eq. 10
   DataT s2 = s2A_h + s2B;
-  /********************/
 
   // Table 1, Kwiatkowski 1992
   const DataT crit_vals[4] = {0.347, 0.463, 0.574, 0.739};
@@ -143,9 +146,6 @@ static bool _is_stationary(const DataT* y_d, size_t n_samples,
   CUDA_CHECK(cudaFree(eta_d));
   CUDA_CHECK(cudaFree(s2A_d));
   CUDA_CHECK(cudaFree(s2B_partial_d));
-  delete y_mean_h;
-
-  std::cout << "end of function" << std::endl;
 
   return pvalue > pval_threshold;
 }
@@ -160,7 +160,6 @@ void stationarity(const DataT* y, int* d, size_t n_batches, size_t n_samples,
 
   // TODO: do this loop in parallel?
   for (size_t i = 0; i < n_batches; i++) {
-    std::cout << "Loop #" << i << std::endl;
     DataT* y_d;
     MLCommon::allocate(y_d, n_samples);
     MLCommon::updateDevice(y_d, y + i * n_samples, n_samples, stream);
@@ -169,15 +168,13 @@ void stationarity(const DataT* y, int* d, size_t n_batches, size_t n_samples,
     if (_is_stationary(y_d, n_samples, stream, cublas_handle, pval_threshold)) {
       d[i] = 0;
     } else {
-      std::cout << "Loop #" << i << " diff" << std::endl;
-
       /* If the first test fails, the differencial series is constructed */
       DataT* ydiff_d;
       MLCommon::allocate(ydiff_d, n_samples - 1);
-      MLCommon::LinAlg::subtract(ydiff_d, y_d + 1, y_d, n_samples - 1, stream);
+      constexpr int TPB = 256;
+      vec_diff<<<ceildiv<int>(n_samples - 1, TPB), TPB, 0, stream>>>(
+        y_d, ydiff_d, n_samples - 1);
       CUDA_CHECK(cudaPeekAtLastError());
-
-      std::cout<< "ready to launch" << std::endl;
 
       if (_is_stationary(ydiff_d, n_samples - 1, stream, cublas_handle,
                          pval_threshold)) {
@@ -192,11 +189,6 @@ void stationarity(const DataT* y, int* d, size_t n_batches, size_t n_samples,
 
     CUDA_CHECK(cudaFree(y_d));
   }
-
-  for(int i = 0; i < n_batches; i++) {
-    std::cout << d[i] << " ";
-  }
-  std::cout << std::endl;
 }
 
 };  //end namespace TimeSeries
