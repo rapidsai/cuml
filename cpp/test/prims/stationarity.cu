@@ -83,7 +83,7 @@ class StationarityTest
   std::vector<int> d_out;
 };
 
-// TODO: remove me
+// TODO: remove me when using device version
 template <typename DataT, typename F>
 ::testing::AssertionResult arrMatch(const DataT *expected_h,
                                     const DataT *actual_h, size_t size,
@@ -102,31 +102,31 @@ template <typename DataT, typename F>
   return ::testing::AssertionSuccess();
 }
 
-/* Setting test parameter values */
+/* The tests respectively check the following aspects:
+ *  - basic test with degrees 0 and 1
+ *  - some decreasing series
+ *  - odd series size
+ *  - larger values
+ *  - multiple large series
+ */
 const std::vector<struct StationarityParams<float>> params_float = {
-  /*   {2, 200, 1, {0.5f, 0.0f}, {1, 0}},               // basic test
-    {2, 200, 1, {0.0f, -0.2f, -1.7f}, {0, 1, 1}},  // some decreasing series
-    {2, 200, 1234, {2.0f, -3.5f}, {1, 1}},         // larger values
-  {
+  {2, 200, 1, {0.5f, 0.0f}, {1, 0}},
+    {3, 200, 1, {0.0f, -0.2f, -1.7f}, {0, 1, 1}},
+    {3, 241, 1, {-3.7f, 0.3f, 0.0f}, {1, 1, 0}},
+    {2, 200, 1234, {2.0f, -3.5f}, {1, 1}}, {
     7, 1000, 442, {0.3f, -1.7f, 0.0f, 0.4f, -0.2f, -4.2f, 1.3f}, {
       1, 1, 0, 1, 1, 1, 1
     }
-  }  // multiple large series */
-  {
-    2, 241, 1, {0.2f, -0.2f}, { 1, 1 }  // try to break alignment
   }
 };
 
-// TODO: non-even n_samples
-
+/* The tests respectively check the following aspects:
+ *  - multiple large series
+ *  - almost stationary series
+ */
 const std::vector<struct StationarityParams<double>> params_double = {
-  /*   {5, 1338, 277, {1.0f, 0.5f, -0.3f, 0.0f, 2.2f}, {1, 1, 1, 0, 1}},
-  // multiple large series
-  {
-    2, 500, 1, {0.1f, -0.1f}, { 1, 1 }
-  }  // almost stationary series */
-  {
-    2, 241, 1, {0.2f, -0.2f}, { 1, 1 }  // try to break alignment
+  {5, 1338, 277, {1.0f, 0.5f, -0.3f, 0.0f, 2.2f}, {1, 1, 1, 0, 1}}, {
+    2, 500, 1, {0.05f, -0.1f}, { 1, 1 }
   }
 };
 
