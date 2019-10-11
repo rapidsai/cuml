@@ -375,6 +375,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/ws_util.cu
+    src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
