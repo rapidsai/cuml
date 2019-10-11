@@ -160,7 +160,11 @@ class BatchedMatrix {
    * @param n Number of desired columns
    */
   BatchedMatrix mat(int m, int n) const {
-    int r = m_shape.first * m_shape.second;
+    const int r = m_shape.first * m_shape.second;
+    if (r != m * n)
+      throw std::runtime_error(
+        "ERROR BatchedMatrix::mat(m,n): Size mismatch - Cannot reshape array "
+        "into desired size");
     BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
     cudaMemcpyAsync(toMat[0], this->operator[](0),
