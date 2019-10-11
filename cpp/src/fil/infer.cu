@@ -37,9 +37,8 @@ struct vec {
   }
 };
 
-template <int NITEMS>
-__device__ __forceinline__ void infer_one_tree(const dense_node* root,
-                                               float* sdata, int pitch,
+template <int NITEMS, typename tree_type>
+__device__ __forceinline__ void infer_one_tree(tree_type tree, float* sdata,
                                                int cols, vec<NITEMS>& out) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
@@ -48,99 +47,101 @@ __device__ __forceinline__ void infer_one_tree(const dense_node* root,
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
       if ((mask >> j) & 1 == 0) continue;
-      dense_node n = root[curr[j] * pitch];
+      auto n = tree[curr[j]];
       if (n.is_leaf()) {
         mask &= ~(1 << j);
         continue;
       }
       float val = sdata[j * cols + n.fid()];
       bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-      curr[j] = (curr[j] << 1) + 1 + cond;
+      curr[j] = n.left(curr[j]) + cond;
     }
   } while (mask != 0);
 #pragma unroll
-  for (int j = 0; j < NITEMS; ++j)
-    out[j] += root[curr[j] * pitch].output();
+  for (int j = 0; j < NITEMS; ++j) out[j] += tree[curr[j]].output();
 }
 
-__device__ __forceinline__ void infer_one_tree(const dense_node* root,
-                                               float* sdata, int pitch,
+template <typename tree_type>
+__device__ __forceinline__ void infer_one_tree(tree_type tree, float* sdata,
                                                int cols, vec<1>& out) {
   int curr = 0;
   for (;;) {
-    dense_node n = root[curr * pitch];
+    auto n = tree[curr];
     if (n.is_leaf()) break;
     float val = sdata[n.fid()];
     bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-    curr = (curr << 1) + 1 + cond;
+    curr = n.left(curr) + cond;
   }
-  out[0] = root[curr * pitch].output();
+  out[0] = tree[curr].output();
 }
 
-template <int NITEMS>
-__global__ void infer_k(predict_params ps) {
+template <int NITEMS, typename storage_type>
+__global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
   size_t rid = blockIdx.x * NITEMS;
   for (int j = 0; j < NITEMS; ++j) {
-    for (int i = threadIdx.x; i < ps.cols; i += blockDim.x) {
+    for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
       size_t row = rid + j;
-      sdata[j * ps.cols + i] =
-        row < ps.rows ? ps.data[row * ps.cols + i] : 0.0f;
+      sdata[j * params.num_cols + i] =
+        row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
     }
   }
   __syncthreads();
+
   // one block works on a single row and the whole forest
   vec<NITEMS> out;
   for (int i = 0; i < NITEMS; ++i) out[i] = 0.0f;
-  for (int j = threadIdx.x; j < ps.ntrees; j += blockDim.x) {
-    infer_one_tree<NITEMS>(ps.nodes + j * ps.tree_stride, sdata, ps.pitch,
-                           ps.cols, out);
+  for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
+    infer_one_tree<NITEMS>(forest[j], sdata, params.num_cols, out);
   }
-  typedef cub::BlockReduce<vec<NITEMS>, FIL_TPB> BlockReduce;
+  using BlockReduce = cub::BlockReduce<vec<NITEMS>, FIL_TPB>;
   __shared__ typename BlockReduce::TempStorage tmp_storage;
   out = BlockReduce(tmp_storage).Sum(out);
   if (threadIdx.x == 0) {
     for (int i = 0; i < NITEMS; ++i) {
       int idx = blockIdx.x * NITEMS + i;
-      if (idx < ps.rows) ps.preds[idx] = out[i];
+      if (idx < params.num_rows) params.preds[idx] = out[i];
     }
   }
 }
 
-void infer(predict_params ps, cudaStream_t stream) {
+template <typename storage_type>
+void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   const int MAX_BATCH_ITEMS = 4;
-  ps.max_items = ps.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
-  ps.pitch = ps.algo == algo_t::NAIVE ? 1 : ps.ntrees;
-  ps.tree_stride = ps.algo == algo_t::NAIVE ? tree_num_nodes(ps.depth) : 1;
-  int num_items = ps.max_shm / (sizeof(float) * ps.cols);
+  params.max_items =
+    params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
+  int num_items = params.max_shm / (sizeof(float) * params.num_cols);
   if (num_items == 0) {
-    int max_cols = ps.max_shm / sizeof(float);
-    ASSERT(false, "p.cols == %d: too many features, only %d allowed", ps.cols,
-           max_cols);
+    int max_cols = params.max_shm / sizeof(float);
+    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
+           params.num_cols, max_cols);
   }
-  num_items = std::min(num_items, ps.max_items);
-  int nblks = ceildiv(int(ps.rows), num_items);
-  int shm_sz = num_items * sizeof(float) * ps.cols;
+  num_items = std::min(num_items, params.max_items);
+  int num_blocks = ceildiv(int(params.num_rows), num_items);
+  int shm_sz = num_items * sizeof(float) * params.num_cols;
   switch (num_items) {
     case 1:
-      infer_k<1><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<1><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<2><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<3><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4><<<nblks, FIL_TPB, shm_sz, stream>>>(ps);
+      infer_k<4><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
+
+template void infer<dense_storage>(dense_storage forest, predict_params params,
+                                   cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML
