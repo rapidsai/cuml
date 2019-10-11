@@ -16,6 +16,8 @@
 #include <iostream>
 #include <random>
 #include <vector>
+
+#include "common/cuml_allocator.hpp"
 #include "test_utils.h"
 #include "timeSeries/stationarity.h"
 
@@ -68,11 +70,14 @@ class StationarityTest
     MLCommon::updateDevice(y_d, y.data(), params.n_samples * params.n_batches,
                            stream);
 
+    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+      new defaultDeviceAllocator);
+
     d_out = std::vector<int>(params.n_batches);
 
     MLCommon::TimeSeries::stationarity(y_d, d_out.data(), params.n_batches,
-                                       params.n_samples, stream, cublas_handle,
-                                       static_cast<DataT>(0.05));
+                                       params.n_samples, allocator, stream,
+                                       cublas_handle, static_cast<DataT>(0.05));
   }
 
   void TearDown() override {
