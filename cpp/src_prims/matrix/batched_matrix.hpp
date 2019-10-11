@@ -301,21 +301,22 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   double beta = 0.0;
 
   // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
-  CUBLAS_CHECK(cublasDgemmBatched(handle,
-                                  opA,     // A.T?
-                                  opB,     // B.T?
-                                  m,       // rows op(A), C
-                                  n,       // cols of op(B), C
-                                  k,       // cols of op(A), rows of op(B)
-                                  &alpha,  // alpha * A * B
-                                  A.data(),
-                                  A.shape().first,  // rows of A
-                                  B.data(),
-                                  B.shape().first,  // rows of B
-                                  &beta,            // + beta * C
-                                  C.data(),
-                                  C.shape().first,  // rows of C
-                                  num_batches));
+  CUBLAS_CHECK(
+    MLCommon::LinAlg::cublasgemmBatched(handle,
+                                        opA,     // A.T?
+                                        opB,     // B.T?
+                                        m,       // rows op(A), C
+                                        n,       // cols of op(B), C
+                                        k,       // cols of op(A), rows of op(B)
+                                        &alpha,  // alpha * A * B
+                                        A.data(),
+                                        A.shape().first,  // rows of A
+                                        B.data(),
+                                        B.shape().first,  // rows of B
+                                        &beta,            // + beta * C
+                                        C.data(),
+                                        C.shape().first,  // rows of C
+                                        num_batches, A.stream()));
   return C;
 }
 
@@ -396,10 +397,10 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  CUBLAS_CHECK(
-    cublasDgetrfBatched(handle, n, A.data(), n, P, info, num_batches));
-  CUBLAS_CHECK(cublasDgetriBatched(handle, n, A.data(), n, P, Ainv.data(), n,
-                                   info, num_batches));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, A.data(), n, P,
+                                                    info, num_batches));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(
+    handle, n, A.data(), n, P, Ainv.data(), n, info, num_batches));
 
   BatchedMatrix x = Ainv * b;
 
