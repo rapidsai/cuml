@@ -36,7 +36,7 @@ from libc.stdint cimport uintptr_t
 from typing import List, Tuple
 import cudf
 
-from cuml.utils.nvtx import pynvtx_range_push, pynvtx_range_pop
+from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 
 from cuml.common.base import Base
 
@@ -233,7 +233,7 @@ class ARIMAModel(Base):
 
         Returns:
         --------
-        y_p : array-like, shape = (n_samples, n_series)
+        y_p : array-like, (device), shape = (n_samples, n_series)
 
         Example:
         --------
@@ -332,7 +332,7 @@ def estimate_x0(order: Tuple[int, int, int],
                 nb: int,
                 yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for the batched input `yb`"""
-    pynvtx_range_push("estimate x0")
+    nvtx_range_push("estimate x0")
     (p, d, q) = order
     N = p + d + q
     x0 = np.zeros(N * nb)
@@ -351,7 +351,7 @@ def estimate_x0(order: Tuple[int, int, int],
 
     mu, ar, ma = unpack(p, d, q, nb, x0)
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
 
     return mu, ar, ma
 
@@ -414,7 +414,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
     handle : cumlHandle (optional)
              The cumlHandle to be used.
     """
-    pynvtx_range_push("ll_gf")
+    nvtx_range_push("ll_gf")
 
     fd = np.zeros(num_parameters)
 
@@ -448,7 +448,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
             # Distribute the result to all batches
             grad[i::num_parameters] = grad_i_b
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return grad
 
 
@@ -621,7 +621,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
 def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    pynvtx_range_push("unpack(x) -> (ar,ma,mu)")
+    nvtx_range_push("unpack(x) -> (ar,ma,mu)")
     num_parameters = d + p + q
     mu = np.zeros(nb)
     ar = []
@@ -634,13 +634,13 @@ def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
             ar.append(xi[d:(d+p)])
         ma.append(xi[d+p:])
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return (mu, ar, ma)
 
 
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    pynvtx_range_push("pack(ar,ma,mu) -> x")
+    nvtx_range_push("pack(ar,ma,mu) -> x")
     num_parameters = d + p + q
     x = np.zeros(num_parameters*nb)
     for i in range(nb):
@@ -657,7 +657,7 @@ def pack(p, d, q, nb, mu, ar, ma):
         # xi = np.r_[xi, ma[i]]
         x[i*num_parameters:(i+1)*num_parameters] = xi
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return x
 
 
@@ -667,7 +667,7 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
     cdef vector[double] vec_Tar
     cdef vector[double] vec_Tma
 
-    pynvtx_range_push("batched_transform")
+    nvtx_range_push("batched_transform")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -676,7 +676,7 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
 
     batched_jones_transform(handle_[0], p, d, q, nb, isInv, &x[0], &Tx[0])
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return (Tx)
 
 
@@ -755,14 +755,14 @@ def _model_complexity(order):
 
 def _batch_trans(p, d, q, nb, x, handle=None):
     """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
-    pynvtx_range_push("jones trans")
+    nvtx_range_push("jones trans")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, False, handle)
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return Tx
 
 
@@ -770,14 +770,14 @@ def _batch_invtrans(p, d, q, nb, x, handle=None):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
-    pynvtx_range_push("jones inv-trans")
+    nvtx_range_push("jones inv-trans")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, True, handle)
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return Tx
 
 
@@ -786,7 +786,7 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
 
-    pynvtx_range_push("batched loglikelihood")
+    nvtx_range_push("batched loglikelihood")
     p, d, q = order
 
     num_params = (p+d+q)
@@ -813,5 +813,5 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x, trans=Fa
     batched_loglike(handle_[0], <double*>d_y_ptr, num_batches, nobs, p, d, q, <double*>d_x_ptr,
                     vec_loglike, <double*>d_vs_ptr, trans)
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return vec_loglike
