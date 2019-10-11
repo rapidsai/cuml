@@ -188,8 +188,7 @@ template <>
 DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId,
                         int col) {
   constexpr unsigned WORD_BITS = 32;
-  auto id = binId % nbins;
-  auto iword = id / WORD_BITS;
+  auto iword = binId / WORD_BITS;
   auto sh = binId % WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
   int binOffset = col * nbins;
