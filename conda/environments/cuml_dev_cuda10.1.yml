@@ -10,8 +10,8 @@ dependencies:
 - cmake=3.14.5
 - numba=0.45*
 - rapidsai/label/cuda10.1::cupy>=6*
-- cudf=0.10*
-- rmm=0.10*
+- cudf=0.11*
+- rmm=0.11*
 - cython>=0.29,<0.30
 - pytest>=4.6
 - scikit-learn>=0.21
@@ -20,8 +20,8 @@ dependencies:
 - dask=2.5.0
 - distributed=2.5.1
 - dask-ml
-- dask-cuda=0.10*
-- dask-cudf=0.10*
+- dask-cuda=0.11*
+- dask-cudf=0.11*
 - nccl>=2.4
-- libcumlprims=0.10*
+- libcumlprims=0.11*
 - statsmodels
