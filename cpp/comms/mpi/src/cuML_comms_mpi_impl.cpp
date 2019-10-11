@@ -272,8 +272,6 @@ void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, r
         _free_requests.erase(it);
     }
 
-
-
     MPI_CHECK( MPI_Irecv(buf, size, MPI_BYTE, source, tag, _mpi_comm, &mpi_req) );
     _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
     *request = req_id;
@@ -397,6 +395,4 @@ MLCommon::cumlCommunicator::status_t cumlMPICommunicator_impl::syncStream(
 #endif
 
 }
-
-
 } // end namespace ML
