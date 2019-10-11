@@ -1,4 +1,4 @@
-#
+
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
 
-from cuml.dask.common.comms import CommsContext, worker_state, default_comms
+from dask.distributed import Client, wait
+from cuml.dask.common import raise_exception_from_futures
 
-from cuml.dask.common.comms_utils import inject_comms_on_handle, \
-    perform_test_comms_allreduce, perform_test_comms_send_recv, \
-    inject_comms_on_handle_coll_only, is_ucx_enabled
 
-from cuml.dask.common.dask_df_utils import get_meta, to_dask_cudf, to_dask_df, extract_ddf_partitions
+def _raise_exception():
+    raise ValueError("intentional exception")
 
-from cuml.dask.common.utils import raise_exception_from_futures
+
+def test_dask_exceptions(cluster):
+    c = Client(cluster)
+    try:
+        fut = c.submit(_raise_exception)
+        wait(fut)
+
+        with pytest.raises(RuntimeError):
+            raise_exception_from_futures([fut])
+    finally:
+        c.close()

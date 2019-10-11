@@ -65,17 +65,23 @@ struct SamplingOp {
   DataT *rnd;
   int *flag;
   DataT cluster_cost;
-  int oversampling_factor;
+  double oversampling_factor;
+  int n_clusters;
 
-  CUB_RUNTIME_FUNCTION __forceinline__ SamplingOp(DataT c, int l, DataT *rand,
-                                                  int *ptr)
-    : cluster_cost(c), oversampling_factor(l), rnd(rand), flag(ptr) {}
+  CUB_RUNTIME_FUNCTION __forceinline__ SamplingOp(DataT c, double l, int k,
+                                                  DataT *rand, int *ptr)
+    : cluster_cost(c),
+      oversampling_factor(l),
+      n_clusters(k),
+      rnd(rand),
+      flag(ptr) {}
 
   __host__ __device__ __forceinline__ bool operator()(
     const cub::KeyValuePair<ptrdiff_t, DataT> &a) const {
     DataT prob_threshold = (DataT)rnd[a.key];
 
-    DataT prob_x = ((oversampling_factor * a.value) / cluster_cost);
+    DataT prob_x =
+      ((oversampling_factor * n_clusters * a.value) / cluster_cost);
 
     return !flag[a.key] && (prob_x > prob_threshold);
   }
