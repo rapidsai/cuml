@@ -62,7 +62,20 @@ data_smooth = np.array([16236.380267964598, 14198.707110817017, 13994.1296005859
                         9019.688213508754, 8766.056499652503, 8158.794074075997,
                         8294.86605488629])
 
-# reference prediction for (1,1,1)
+
+def create_yp_ref():
+    """ creates reference prediction """
+    (_, y) = get_data()
+    model = arima.ARIMAModel((1, 1, 1),
+                             np.array([-217.7230173548441, -206.81064091237104]),
+                             [np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
+                             [np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
+                             y)
+    y_p_ref = model.predict_in_sample()
+    print("yp_ref=", y_p_ref)
+
+
+# reference prediction for (1,1,1). recreate with `create_yp_ref()`
 yp_ref = [[16236.276982645155, 14199.83635121614, 13993.612504802639,
            15701.001917841138, 14457.318782427961, 14114.436684625534,
            15028.287621746756, 15018.826402730409, 14953.184455915669,
@@ -96,6 +109,7 @@ yp_ref = [[16236.276982645155, 14199.83635121614, 13993.612504802639,
 
 
 def get_data():
+    """Convenience function to get reference data"""
     d = np.zeros((len(t), 2))
     d[:, 0] = data0
     d[:, 1] = data1
