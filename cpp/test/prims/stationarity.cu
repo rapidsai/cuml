@@ -17,7 +17,7 @@
 #include <random>
 #include <vector>
 #include "test_utils.h"
-#include "timeSeries/stationarity.cuh"
+#include "timeSeries/stationarity.h"
 
 /* /!\ TODO: test non stationary case? (error) /!\ */
 
@@ -26,8 +26,8 @@ namespace TimeSeries {
 
 template <typename DataT>
 struct StationarityParams {
-  size_t n_batches;
-  size_t n_samples;
+  int n_batches;
+  int n_samples;
   DataT scale;
   std::vector<DataT> inc_rates;
   std::vector<int> d_ref;
@@ -86,11 +86,11 @@ class StationarityTest
 // TODO: remove me when using device version
 template <typename DataT, typename F>
 ::testing::AssertionResult arrMatch(const DataT *expected_h,
-                                    const DataT *actual_h, size_t size,
+                                    const DataT *actual_h, int size,
                                     F eq_compare) {
   bool ok = true;
   auto fail = ::testing::AssertionFailure();
-  for (size_t i(0); i < size; ++i) {
+  for (int i(0); i < size; ++i) {
     auto exp = expected_h[i];
     auto act = actual_h[i];
     if (!eq_compare(exp, act)) {
