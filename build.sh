@@ -18,11 +18,10 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean deep-clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --singlegpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
-   deep-clean    - same as 'clean' option, but also cleans up the faiss build
    libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
                    around the C++ code.
    cuml          - build the cuml Python package
@@ -33,7 +32,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g            - build for debug
    -n            - no install step
    --allgpuarch  - build for all supported GPU architectures
-   --multigpu    - Build cuml with multigpu support (requires libcumlMG and CUDA >=10.0)
+   --singlegpu   - Build cuml without multigpu support (multigpu requires libcumlprims)
    -h            - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -42,14 +41,15 @@ LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
-BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
+PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
+BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-MULTIGPU=""
+SINGLEGPU=""
 CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
@@ -91,10 +91,10 @@ fi
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
-if hasArg --multigpu; then
-    MULTIGPU=--multigpu
+if hasArg --singlegpu; then
+    SINGLEGPU="--singlegpu"
 fi
-if hasArg deep-clean || hasArg clean; then
+if hasArg clean; then
     CLEAN=1
 fi
 
@@ -110,14 +110,6 @@ if (( ${CLEAN} == 1 )); then
       rmdir ${bd} || true
   fi
     done
-fi
-
-# clean the faiss build also, if asked
-if hasArg deep-clean; then
-    cd ${FAISS_DIR}
-    make clean
-    cd gpu
-    make clean
 fi
 
 ################################################################################
@@ -139,27 +131,32 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DBUILD_CUML_C_LIBRARY=ON \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
 
 # Run all make targets at once
+
 MAKE_TARGETS=
-if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
+if hasArg libcuml; then
     MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
 fi
-if (( ${NUMARGS} == 0 )) || hasArg prims; then
+if hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
 fi
-if (( ${NUMARGS} == 0 )) || hasArg bench; then
+if hasArg bench; then
     MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
 
-# build cumlcomms library
-if [ "${MAKE_TARGETS}" != "" ]; then
+# If `./build.sh cuml` is called, don't build C/C++ components
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
+# If there are no targets specified when calling build.sh, it will
+# just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
+    # build cumlcomms library
     mkdir -p ${CUML_COMMS_BUILD_DIR}
     cd ${CUML_COMMS_BUILD_DIR}
 
@@ -172,14 +169,15 @@ if [ "${MAKE_TARGETS}" != "" ]; then
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
+
 # Build and (optionally) install the cuml Python package
 if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-  python setup.py build_ext --inplace ${MULTIGPU}
-  python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
+  python setup.py build_ext --inplace ${SINGLEGPU}
+  python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
-  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
+  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
     fi
 fi
