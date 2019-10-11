@@ -38,7 +38,6 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
-CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
@@ -127,11 +126,14 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DNCCL_PATH=${INSTALL_PREFIX} \
+          -DWITH_UCX=OFF \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
+          -DBUILD_CUML_STD_COMMS=ON \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
 
 fi
@@ -148,27 +150,6 @@ fi
 if hasArg bench; then
     MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
-
-# If `./build.sh cuml` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
-# If there are no targets specified when calling build.sh, it will
-# just call `make -j`. This avoids a lot of extra printing
-    cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
-
-    # build cumlcomms library
-    mkdir -p ${CUML_COMMS_BUILD_DIR}
-    cd ${CUML_COMMS_BUILD_DIR}
-
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
-          -DNCCL_PATH=${INSTALL_PREFIX} ..
-
-    cd ${CUML_COMMS_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
-fi
-
 
 # Build and (optionally) install the cuml Python package
 if (( ${NUMARGS} == 0 )) || hasArg cuml; then
