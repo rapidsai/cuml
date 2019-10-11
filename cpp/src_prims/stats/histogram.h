@@ -31,7 +31,7 @@ namespace Stats {
 /** Default mapper which just returns the value of the data itself */
 template <typename DataT, typename IdxT>
 struct IdentityBinner {
-  DI int operator()(DataT val, IdxT i) { return int(val); }
+  DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
 };
 
 /** Types of support histogram implementations */
@@ -70,8 +70,7 @@ dim3 computeGridDim(IdxT nrows, IdxT ncols) {
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
           typename CoreOp>
 DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
-                   CoreOp op) {
-  IdxT col = blockIdx.y;
+                   CoreOp op, IdxT col) {
   IdxT offset = col * nrows;
   auto bdim = IdxT(blockDim.x);
   IdxT tid = threadIdx.x + bdim * blockIdx.x;
@@ -83,8 +82,8 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
     a.load(data, offset + i);
 #pragma unroll
     for (int j = 0; j < VecLen; ++j) {
-      int binId = binner(a.val.data[j], offset + i + j);
-      op(binId, offset + i + j);
+      int binId = binner(a.val.data[j], i + j, col);
+      op(binId, i + j, col);
     }
   }
 }
@@ -92,8 +91,8 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
                                IdxT nbins, BinnerOp binner) {
-  auto op = [=] __device__(int binId, IdxT idx) {
-    IdxT binOffset = blockIdx.y * nbins;
+  auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+    auto binOffset = col * nbins;
 #if __CUDA_ARCH__ < 700
     atomicAdd(bins + binOffset + binId, 1);
 #else
@@ -105,7 +104,8 @@ __global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
 #endif  // __CUDA_ARCH__
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
+                                            blockIdx.y);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -124,7 +124,7 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
     sbins[i] = 0;
   }
   __syncthreads();
-  auto op = [=] __device__(int binId, IdxT idx) {
+  auto op = [=] __device__(int binId, IdxT row, IdxT col) {
 #if __CUDA_ARCH__ < 700
     atomicAdd(sbins + binId, 1);
 #else
@@ -136,9 +136,11 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
 #endif  // __CUDA_ARCH__
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
+  IdxT col = blockIdx.y;
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
+                                            col);
   __syncthreads();
-  IdxT binOffset = blockIdx.y * nbins;
+  auto binOffset = col * nbins;
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     atomicAdd(bins + binOffset + i, sbins[i]);
   }
@@ -155,7 +157,8 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
 }
 
 template <unsigned BIN_BITS>
-DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
+DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId,
+                     int col) {
   constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
   constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
   constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
@@ -165,7 +168,7 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
   auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
   auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & BIN_MASK) != 0) return;
-  int binOffset = blockIdx.y * nbins;
+  int binOffset = col * nbins;
   // overflow
   atomicAdd(bins + binOffset + binId, BIN_MASK + 1);
   for (int dbin = 1; ibin + dbin < WORD_BINS && binId + dbin < nbins; ++dbin) {
@@ -182,13 +185,14 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
 }
 
 template <>
-DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
+DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId,
+                        int col) {
   constexpr unsigned WORD_BITS = 32;
   auto id = binId % nbins;
   auto iword = id / WORD_BITS;
   auto sh = binId % WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
-  int binOffset = blockIdx.y * nbins;
+  int binOffset = col * nbins;
   if ((old_word >> sh & 1) != 0) atomicAdd(bins + binOffset + binId, 2);
 }
 
@@ -205,12 +209,14 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
     sbins[j] = 0;
   }
   __syncthreads();
-  auto op = [=] __device__(int binId, IdxT idx) {
-    incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId);
+  IdxT col = blockIdx.y;
+  auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+    incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId, col);
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
+                                            col);
   __syncthreads();
-  IdxT binOffset = blockIdx.y * nbins;
+  IdxT binOffset = col * nbins;
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     int count = sbins[j / WORD_BINS] >> (j % WORD_BINS * BIN_BITS) & BIN_MASK;
     if (count > 0) atomicAdd(bins + binOffset + j, count);
@@ -256,9 +262,9 @@ DI int findEntry(int2* ht, int hashSize, int binId) {
   return idx;
 }
 
-DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins) {
+DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
   __syncthreads();
-  int binOffset = blockIdx.y * nbins;
+  int binOffset = col * nbins;
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     if (ht[i].x != INVALID_KEY && ht[i].y > 0) {
       atomicAdd(bins + binOffset + ht[i].x, ht[i].y);
@@ -281,12 +287,13 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
   IdxT tid = threadIdx.x + IdxT(blockDim.x) * blockIdx.x;
   IdxT stride = IdxT(blockDim.x) * gridDim.x;
   int nCeil = alignTo<int>(nrows, stride);
-  auto offset = blockIdx.y * nrows;
+  IdxT col = blockIdx.y;
+  auto offset = col * nrows;
   for (auto i = tid; i < nCeil; i += stride) {
     bool iNeedFlush = false;
     int binId = 0;
     if (i < nrows) {
-      binId = binner(data[offset + i], offset + i);
+      binId = binner(data[offset + i], i, col);
       int hidx = findEntry(ht, hashSize, binId);
       if (hidx >= 0) {
         atomicAdd(&(ht[hidx].y), 1);
@@ -297,7 +304,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
     __syncthreads();
     if (needFlush[0]) {
-      flushHashTable(ht, hashSize, bins, nbins);
+      flushHashTable(ht, hashSize, bins, nbins, col);
       if (threadIdx.x == 0) {
         needFlush[0] = 0;
       }
@@ -308,7 +315,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
       atomicAdd(&(ht[hidx].y), 1);
     }
   }
-  flushHashTable(ht, hashSize, bins, nbins);
+  flushHashTable(ht, hashSize, bins, nbins, col);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
