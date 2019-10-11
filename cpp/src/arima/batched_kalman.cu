@@ -242,6 +242,7 @@ void batched_kalman_loop(double* ys, int nobs, const BatchedMatrix& T,
     throw std::runtime_error(
       "ERROR: Currently unsupported number of parameters (r).");
   }
+  CUDA_CHECK(cudaGetLastError());
 }  // namespace ML
 
 template <int NUM_THREADS>
@@ -282,6 +283,7 @@ void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
   batched_kalman_loglike_kernel<NUM_THREADS>
     <<<num_batches, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
                                               num_batches, sigma2, loglike);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 // Internal Kalman filter implementation that assumes data exists on GPU.
