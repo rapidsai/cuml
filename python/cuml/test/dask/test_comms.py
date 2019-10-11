@@ -15,8 +15,6 @@
 
 import pytest
 
-from dask_cuda import LocalCUDACluster
-
 import random
 
 import time
@@ -26,34 +24,42 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+from cuml.dask.common import perform_test_comms_recv_any_rank
 
 pytestmark = pytest.mark.mg
 
 
-def test_comms_init_no_p2p():
+def test_comms_init_no_p2p(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
-    client = Client(cluster)  # noqa
+    client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=False)
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=False)
+        cb.init()
 
-    assert cb.nccl_initialized is True
-    assert cb.ucx_initialized is False
+        assert cb.nccl_initialized is True
+        assert cb.ucx_initialized is False
 
-    cb.destroy()
+    finally:
+
+        cb.destroy()
+        client.close()
 
 
-def test_comms_init_p2p_no_ucx():
+def test_comms_init_p2p_no_ucx(cluster):
 
-    cluster = LocalCUDACluster()
-    client = Client(cluster)   # noqa
+    client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True)
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
 
-    assert cb.nccl_initialized is True
-    assert cb.ucx_initialized is False
+        assert cb.nccl_initialized is True
+        assert cb.ucx_initialized is False
+
+    finally:
+        cb.destroy()
+        client.close()
 
 
 def func_test_allreduce(sessionId, r):
@@ -66,91 +72,130 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
-@pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms_no_exist():
-    cluster = LocalCUDACluster(threads_per_worker=1)
-    client = Client(cluster)
-    cb = default_comms()
-    assert cb is not None
-
-    cb2 = default_comms()
-    assert cb.sessionId == cb2.sessionId
-    client.close()
-    cluster.close()
+def func_test_recv_any_rank(sessionId, n_trials, r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_recv_any_rank(handle, n_trials)
 
 
 @pytest.mark.skip(reason="default_comms() not yet being used")
-def test_default_comms():
+def test_default_comms_no_exist(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True, client=client)
-    cb.init()
+    try:
+        cb = default_comms()
+        assert cb is not None
 
-    comms = default_comms()
-    assert(cb.sessionId == comms.sessionId)
+        cb2 = default_comms()
+        assert cb.sessionId == cb2.sessionId
 
-    comms.destroy()
-    client.close()
-    cluster.close()
+    finally:
+        cb.destroy()
+        client.close()
 
 
-def test_allreduce():
+@pytest.mark.skip(reason="default_comms() not yet being used")
+def test_default_comms(cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsContext()
-    cb.init()
+    try:
+        cb = CommsContext(comms_p2p=True, client=client)
+        cb.init()
 
-    start = time.time()
-    dfs = [client.submit(func_test_allreduce, cb.sessionId,
-                         random.random(), workers=[w])
-           for wid, w in zip(range(len(cb.worker_addresses)),
-                             cb.worker_addresses)]
-    wait(dfs)
+        comms = default_comms()
+        assert(cb.sessionId == comms.sessionId)
 
-    print("Time: " + str(time.time() - start))
+    finally:
+        comms.destroy()
+        client.close()
 
-    print(str(list(map(lambda x: x.result(), dfs))))
 
-    assert all(list(map(lambda x: x.result(), dfs)))
+@pytest.mark.nccl
+def test_allreduce(cluster):
 
-    cb.destroy()
-    client.close()
-    cluster.close()
+    client = Client(cluster)
+
+    try:
+        cb = CommsContext()
+        cb.init()
+
+        start = time.time()
+        dfs = [client.submit(func_test_allreduce, cb.sessionId,
+                             random.random(), workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
+        wait(dfs)
+
+        print("Time: " + str(time.time() - start))
+
+        print(str(list(map(lambda x: x.result(), dfs))))
+
+        assert all(list(map(lambda x: x.result(), dfs)))
+
+    finally:
+        cb.destroy()
+        client.close()
+
+
+@pytest.mark.ucx
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+def test_send_recv(n_trials, cluster):
+
+    client = Client(cluster)
+
+    try:
+
+        cb = CommsContext(comms_p2p=True, verbose=True)
+        cb.init()
+
+        start = time.time()
+        dfs = [client.submit(func_test_send_recv,
+                             cb.sessionId,
+                             n_trials,
+                             random.random(),
+                             workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
+
+        wait(dfs)
+        print("Time: " + str(time.time() - start))
+
+        result = list(map(lambda x: x.result(), dfs))
+
+        print(str(result))
+
+        assert(result)
+
+    finally:
+        cb.destroy()
+        client.close()
 
 
 @pytest.mark.skip(reason="UCX support not enabled in CI")
-def test_send_recv(n_trials):
+def test_recv_any_rank(n_trials, cluster):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
     client = Client(cluster)
 
-    cb = CommsContext(comms_p2p=True)
-    cb.init()
+    try:
 
-    cb = default_comms()
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
 
-    start = time.time()
-    dfs = [client.submit(func_test_send_recv,
-                         cb.sessionId,
-                         n_trials,
-                         random.random(),
-                         workers=[w])
-           for wid, w in zip(range(len(cb.worker_addresses)),
-                             cb.worker_addresses)]
+        dfs = [client.submit(func_test_recv_any_rank,
+                             cb.sessionId,
+                             n_trials,
+                             random.random(),
+                             workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
 
-    wait(dfs)
-    print("Time: " + str(time.time() - start))
+        wait(dfs)
 
-    result = list(map(lambda x: x.result(), dfs))
+        result = list(map(lambda x: x.result(), dfs))
 
-    print(str(result))
+        assert(result)
 
-    assert(result)
-
-    cb.destroy()
-    client.close()
-    cluster.close()
+    finally:
+        cb.destroy()
+        client.close()

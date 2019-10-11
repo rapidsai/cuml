@@ -24,10 +24,10 @@ import cudf
 import numpy as np
 import warnings
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
@@ -49,7 +49,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
@@ -61,7 +61,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           float *centroids,
                           int *labels,
                           float &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,
@@ -71,7 +71,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           double *centroids,
                           int *labels,
                           double &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -80,7 +80,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      float &inertia)
+                      float &inertia) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -89,7 +89,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      double &inertia)
+                      double &inertia) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -98,7 +98,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        float *X_new)
+                        float *X_new) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -107,7 +107,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        double *X_new)
+                        double *X_new) except +
 
 
 class KMeans(Base):
@@ -196,7 +196,7 @@ class KMeans(Base):
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
         If True, prints diagnositc information.
@@ -210,9 +210,21 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    oversampling_factor : int scalable k-means|| oversampling factor
+    oversampling_factor : float64 scalable k-means|| oversampling factor
     max_samples_per_batch : int maximum number of samples to use for each batch
                                 of the pairwise distance computation.
+    oversampling_factor : int (default = 2) The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768) The number of data
+        samples to use for batches of the pairwise distance computation.
+        This computation is done throughout both fit predict. The default
+        should suit most cases. The total number of elements in the batched
+        pairwise distance computation is max_samples_per_batch * n_clusters.
+        It might become necessary to lower this number when n_clusters
+        becomes prohibitively large.
 
     Attributes
     ----------
@@ -251,19 +263,17 @@ class KMeans(Base):
         self.verbose = verbose
         self.random_state = random_state
         self.init = init
-        self.copy_x = None
-        self.n_jobs = None
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
         self.cluster_centers_ = None
         self.inertia_ = 0
         self.n_iter_ = 0
-        self.oversampling_factor=int(oversampling_factor)
+        self.oversampling_factor=oversampling_factor
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
-        params.n_clusters = self.n_clusters
+        params.n_clusters = <int>self.n_clusters
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
                 raise ValueError('The shape of the initial centers (%s) '
@@ -293,13 +303,13 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        params.max_iter = self.max_iter
-        params.tol = self.tol
-        params.verbose = self.verbose
-        params.seed = self.random_state
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbose = <int>self.verbose
+        params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
-        params.batch_size=self.max_samples_per_batch
-        params.oversampling_factor=self.oversampling_factor
+        params.batch_size=<int>self.max_samples_per_batch
+        params.oversampling_factor=<double>self.oversampling_factor
         self._params = params
 
     def fit(self, X):
@@ -604,43 +614,7 @@ class KMeans(Base):
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-    def get_params(self):
-        """
-        Scikit-learn style return parameter state
-        """
-        params = dict()
-        variables = ['oversampling_factor', 'max_samples_per_batch', 'copy_x',
-                     'init', 'max_iter', 'n_clusters', 'random_state',
-                     'tol', 'verbose']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"oversampling_factor": self.oversampling_factor,
-                          "max_samples_per_batch": self.max_samples_per_batch,
-                          "copy_x": self.copy_x,
-                          "init": self.init,
-                          "max_iter": self.max_iter,
-                          "n_clusters": self.n_clusters,
-                          "random_state": self.random_state,
-                          "tol": self.tol,
-                          "verbose": self.verbose
-                          }
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
+    def get_param_names(self):
+        return ['oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state',
+                'tol', 'verbose']
