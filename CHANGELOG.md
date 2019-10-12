@@ -7,6 +7,7 @@
 - PR #1225: setup.py clone dependencies like cmake and correct include paths
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
+- PR #1259: Conda dev environment updates and use libcumlprims current version in CI
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
