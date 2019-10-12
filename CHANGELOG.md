@@ -1,6 +1,7 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
+- PR #1129: c++: a separate include folder for C++ API distribution
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
