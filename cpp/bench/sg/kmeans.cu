@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuML.hpp>
-#include <kmeans/kmeans.hpp>
+#include <cuml/cluster/kmeans.hpp>
+#include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -91,11 +91,7 @@ std::vector<Params> getInputs() {
   p.kmeans.metric = 0;  // L2
   p.kmeans.inertia_check = true;
   std::vector<std::pair<int, int>> rowcols = {
-    {160000, 64},
-    {320000, 64},
-    {640000, 64},
-    {80000, 500},
-    {160000, 2000},
+    {160000, 64}, {320000, 64}, {640000, 64}, {80000, 500}, {160000, 2000},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;

@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
 #include "common/device_buffer.hpp"
-#include "umap/umapparams.h"
 
 #include "sparse/coo.h"
 
@@ -26,8 +26,8 @@
 #include "linalg/transpose.h"
 #include "random/rng.h"
 
+#include <cuml/cluster/spectral.hpp>
 #include <iostream>
-#include "spectral/spectral.hpp"
 
 namespace UMAPAlgo {
 

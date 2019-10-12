@@ -41,7 +41,7 @@
 #include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
 
-#include "kmeans.hpp"
+#include <cuml/cluster/kmeans.hpp>
 
 namespace ML {
 

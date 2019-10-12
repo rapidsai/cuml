@@ -15,10 +15,10 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <algorithm>
-#include "holtwinters/holtwinters.h"
 #include "time_series_datasets.h"
 
 namespace ML {
