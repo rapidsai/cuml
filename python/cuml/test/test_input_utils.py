@@ -195,10 +195,10 @@ def test_fail_on_order(dtype, input_type, order, order_check):
         _, _, _, _, _ = \
             input_to_dev_array(input_data, fail_on_order=False, order=order)
     else:
-            with pytest.raises(ValueError):
-                _, _, _, _, _ = \
-                    input_to_dev_array(input_data, fail_on_order=True,
-                                       order=order_check)
+        with pytest.raises(ValueError):
+            _, _, _, _, _ = \
+                input_to_dev_array(input_data, fail_on_order=True,
+                                   order=order_check)
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_acceptable)
