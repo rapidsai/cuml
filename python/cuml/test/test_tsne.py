@@ -14,7 +14,6 @@
 #
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from cuml.manifold import TSNE
@@ -81,7 +80,6 @@ def test_tsne_default(name):
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
-        
         print("Trust = ", trust)
         assert trust > 0.76
         assert nans == 0

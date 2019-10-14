@@ -103,9 +103,6 @@ def test_multits_holtwinters(seasonal, h, datatype):
     co2_train = co2[:-h]
     co2_test = co2[-h:]
     data = np.asarray([air_train, co2_train], dtype=datatype)
-
-    #data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
-
     cu_hw = cuml_ES(data, seasonal=seasonal,
                     seasonal_periods=12, ts_num=2)
 
@@ -186,7 +183,6 @@ def test_eps_holtwinters(eps):
 def test_inputs_holtwinters(datatype):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
-    # data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
 
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()

@@ -18,7 +18,6 @@
 # use 'conda install -c conda-forge umap-learn' command to install it
 
 import numpy as np
-import pandas as pd
 import pytest
 import umap
 

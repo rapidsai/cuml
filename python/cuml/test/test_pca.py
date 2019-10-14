@@ -13,9 +13,7 @@
 # limitations under the License.
 #
 
-import cudf
 import numpy as np
-import pandas as pd
 import pytest
 
 from cuml import PCA as cuPCA

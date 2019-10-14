@@ -28,7 +28,6 @@ from sklearn.datasets.samples_generator import make_blobs
 from scipy.spatial.distance import pdist
 
 
-
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('method', ['gaussian', 'sparse'])
