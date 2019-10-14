@@ -36,20 +36,20 @@ struct IdentityBinner {
 
 /** Types of support histogram implementations */
 enum HistType {
+  /** shared mem atomics but with bins to be 1b int's */
+  HistTypeSmemBits1 = 1,
+  /** shared mem atomics but with bins to be 2b int's */
+  HistTypeSmemBits2 = 2,
+  /** shared mem atomics but with bins to be 4b int's */
+  HistTypeSmemBits4 = 4,
+  /** shared mem atomics but with bins to ba 1B int's */
+  HistTypeSmemBits8 = 8,
+  /** shared mem atomics but with bins to be 2B int's */
+  HistTypeSmemBits16 = 16,
   /** use only global atomics */
   HistTypeGmem,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
-  /** shared mem atomics but with bins to be 2B int's */
-  HistTypeSmemBits16,
-  /** shared mem atomics but with bins to ba 1B int's */
-  HistTypeSmemBits8,
-  /** shared mem atomics but with bins to be 4b int's */
-  HistTypeSmemBits4,
-  /** shared mem atomics but with bins to be 2b int's */
-  HistTypeSmemBits2,
-  /** shared mem atomics but with bins to be 1b int's */
-  HistTypeSmemBits1,
   /** builds a hashmap of active bins in shared mem */
   HistTypeSmemHash,
   /** decide at runtime the best algo for the given inputs */
@@ -416,25 +416,12 @@ HistType selectBestHistAlgo(IdxT nbins) {
   if (requiredSize <= smem) {
     return HistTypeSmem;
   }
-  requiredSize = ceildiv<size_t>(nbins, 2) * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmemBits16;
-  }
-  requiredSize = ceildiv<size_t>(nbins, 4) * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmemBits8;
-  }
-  requiredSize = ceildiv<size_t>(nbins, 8) * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmemBits4;
-  }
-  requiredSize = ceildiv<size_t>(nbins, 16) * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmemBits2;
-  }
-  requiredSize = ceildiv<size_t>(nbins, 32) * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmemBits1;
+  for (int bits = 16; bits >= 1; bits >>= 1) {
+    auto nBytesForBins = bits * nbins / 8;
+    requiredSize = ceildiv<size_t>(nBytesForBins, sizeof(unsigned));
+    if (requiredSize <= smem) {
+      return static_cast<HistType>(bits);
+    }
   }
   return HistTypeGmem;
 }
