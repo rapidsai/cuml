@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/utils.hpp>
 #include <chrono>
+#include <cuml/common/utils.hpp>
 #include <iostream>
 
 namespace MLCommon {
@@ -130,15 +130,6 @@ IntType gcd(IntType a, IntType b) {
     a = tmp;
   }
   return a;
-}
-
-/** gets maximum available shared mem for the current device */
-inline size_t maxSharedMem() {
-  int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
-  cudaDeviceProp prop;
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, devId));
-  return prop.sharedMemPerMultiprocessor;
 }
 
 /**
