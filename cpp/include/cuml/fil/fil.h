@@ -19,7 +19,7 @@
 #pragma once
 
 #include <treelite/c_api.h>
-#include "cuML.hpp"
+#include <cuml/cuml.hpp>
 
 namespace ML {
 namespace fil {
@@ -43,7 +43,7 @@ enum algo_t {
   BATCH_TREE_REORG
 };
 
-/** 
+/**
  * output_t are flags that define the output produced by the FIL predictor; a
  * valid output_t values consists of the following, combined using '|' (bitwise
  * or), which define stages, which operation in the next stage applied to the
@@ -58,8 +58,8 @@ enum output_t {
       transformation; note that this value is 0, and may be omitted
       when combined with other flags */
   RAW = 0x0,
-  /** average output: divide the sum of the tree outputs by the number of trees 
-      before further transformations; use for random forests for regression 
+  /** average output: divide the sum of the tree outputs by the number of trees
+      before further transformations; use for random forests for regression
       and binary classification for the probability */
   AVG = 0x1,
   /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
@@ -141,7 +141,7 @@ void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params);
 
-/** free deletes forest and all resources held by it; after this, forest is no longer usable 
+/** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
@@ -152,7 +152,7 @@ void free(const cumlHandle& h, forest_t f);
  *  @param h cuML handle used by this function
  *  @param f forest used for predictions
  *  @param preds array of size n in GPU memory to store predictions into
- *  @param data array of size n * cols (cols is the number of columns 
+ *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *  @param num_rows number of data rows
  */

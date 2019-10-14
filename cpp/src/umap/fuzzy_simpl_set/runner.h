@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/umapparams.h>
 #include "naive.h"
-#include "umap/umapparams.h"
 
 #include "sparse/coo.h"
 

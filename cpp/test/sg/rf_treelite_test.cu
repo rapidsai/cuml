@@ -30,7 +30,7 @@
 #include "linalg/transpose.h"
 #include "ml_utils.h"
 #include "random/rng.h"
-#include "randomforest/randomforest.hpp"
+#include "cuml/ensemble/randomforest.hpp"
 
 namespace ML {
 
