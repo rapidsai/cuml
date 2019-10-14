@@ -52,14 +52,14 @@ def stationarity(y, pval_threshold=0.05, handle=None):
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     cdef vector[int] d
-    d.reserve(n_batches)
+    d.resize(n_batches)
 
     # Call C++ function
     cpp_stationarity(handle_[0], <double*> y_d_ptr, <int*> d.data(),
                      <int> n_batches, <int> n_samples,
                      <double> pval_threshold)
 
-    for i in range(len(d)):
+    for i in range(d.size()):
         if d[i] < 0:
             raise ValueError("Stationarity failed for batch #{}, and d=0 or"
                              " 1.".format(i))
