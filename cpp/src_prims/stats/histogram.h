@@ -287,6 +287,7 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
 }
 #undef INVALID_KEY
 
+///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT nbins, BinnerOp binner, int hashSize) {
@@ -331,13 +332,11 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp binner, cudaStream_t stream) {
-  ///@todo: honor VecLen template param
   auto blks = computeGridDim<IdxT, 1>(
     nrows, ncols, (const void*)smemHashHistKernel<DataT, BinnerOp, IdxT, 1>);
   // NOTE: assumes 48kB smem!
   int hashSize = 6047;
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
-  ///@todo: honor VecLen template param
   smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner, hashSize);
