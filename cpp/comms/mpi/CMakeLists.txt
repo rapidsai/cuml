@@ -18,17 +18,25 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 project(cuML-comms-MPI LANGUAGES CXX CUDA)
 
 find_package(MPI REQUIRED)
-find_package(NCCL)
+
+if(NOT NCCL_PATH)
+  find_package(NCCL REQUIRED)
+else()
+  set(NCCL_INCLUDE_DIRS ${NCCL_PATH}/include)
+  set(NCCL_LIBRARIES ${NCCL_PATH}/lib/libnccl.so)
+  set(NCCL_FOUND ON)
+endif(NOT NCCL_PATH)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories( 
-	include 
-	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} 
-	${MPI_CXX_INCLUDE_PATH} 
-	../../src 
-	../../src_prims )
+include_directories(include
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+  ${MPI_CXX_INCLUDE_PATH}
+  ../../include
+  ../../src
+  ../../src_prims
+)
 
 set(MPI_COMMS_LINK_LIBRARIES ${CUML_CPP_TARGET} ${MPI_C_LIBRARIES})
 

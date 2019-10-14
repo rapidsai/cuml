@@ -16,20 +16,18 @@
 
 #include <gtest/gtest.h>
 
-#include "cuML.hpp"
-
 #include "distance/distance.h"
 
 #include "datasets/digits.h"
 
-#include "knn/knn.hpp"
-#include "umap/runner.h"
-#include "umap/umapparams.h"
+#include <cuml/manifold/umapparams.h>
+#include <metrics/trustworthiness.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/neighbors/knn.hpp>
 
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-
-#include "metrics/trustworthiness.h"
+#include "umap/runner.h"
 
 #include <cuda_utils.h>
 

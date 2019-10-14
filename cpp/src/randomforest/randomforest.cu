@@ -18,7 +18,7 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include "randomforest.hpp"
+#include <cuml/ensemble/randomforest.hpp>
 #include "randomforest_impl.cuh"
 
 namespace ML {

@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <internals/internals.h>
 #include <string>
-#include "internals/internals.h"
 
 namespace ML {
 

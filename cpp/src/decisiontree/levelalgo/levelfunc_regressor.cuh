@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
-#include "../decisiontree.hpp"
-#include "../flatnode.h"
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"
 /*
-This is the driver function for building regression tree 
+This is the driver function for building regression tree
 level by level using a simple for loop.
 At each level; following steps are involved.
 1. Set up parent node mean and counts
