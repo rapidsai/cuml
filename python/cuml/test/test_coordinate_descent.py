@@ -15,7 +15,6 @@
 
 import pytest
 import numpy as np
-import pandas as pd
 
 from cuml import Lasso as cuLasso
 from cuml.linear_model import ElasticNet as cuElasticNet

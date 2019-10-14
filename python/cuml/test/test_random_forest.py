@@ -24,11 +24,10 @@ from cuml.test.utils import get_handle, small_classification_dataset, \
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
-from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+from sklearn.metrics import accuracy_score, r2_score
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
-
 
 
 @pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
@@ -190,10 +189,6 @@ def test_rf_regression_default(datatype):
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
-    cu_mse = mean_squared_error(y_test, cu_preds)
-    import pdb
-    pdb.set_trace()
     print(fil_r2, cu_r2, sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
-    
     assert fil_r2 >= (sk_r2 - 0.07)

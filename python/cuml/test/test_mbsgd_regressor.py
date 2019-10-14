@@ -38,7 +38,10 @@ from sklearn.model_selection import train_test_split
 def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
                          nrows, ncols, n_info):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     cu_mbsgd_regressor = cumlMBSGRegressor(learning_rate=lrate, eta0=0.005,
                                            epochs=100, fit_intercept=True,

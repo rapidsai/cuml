@@ -15,7 +15,6 @@
 #
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
@@ -97,7 +96,6 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-    
     knn_cu = cuKNN()
     with pytest.raises(Exception):
         knn_cu.fit(X, should_downcast=True)

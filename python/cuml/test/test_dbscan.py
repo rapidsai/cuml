@@ -14,12 +14,11 @@
 #
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
-from cuml.test.utils import fit_predict, get_pattern, unit_param, \
+from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param
 
 from sklearn.cluster import DBSCAN as skDBSCAN

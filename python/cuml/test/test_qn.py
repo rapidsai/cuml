@@ -17,8 +17,6 @@ import pytest
 import numpy as np
 
 from cuml.solvers import QN as cuQN
-from cuml.test.utils import unit_param, quality_param, \
-    stress_param
 
 
 # todo: add util functions to better compare against precomputed solutions

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from cuml import TruncatedSVD as cuTSVD

@@ -19,8 +19,7 @@ from numba import cuda
 
 import cuml
 import cuml.svm as cu_svm
-from cuml.test.utils import unit_param, quality_param, \
-    stress_param, get_handle
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
@@ -28,8 +27,6 @@ from sklearn.datasets.samples_generator import make_classification, \
     make_gaussian_quantiles
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
-
 
 
 def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
@@ -76,7 +73,9 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     svm1_y_hat = svm1.predict(X).to_array()
     svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
     accuracy1 = (n-svm1_n_wrong)*100/n
-    svm2_y_hat = svm2.predict(X).to_array()
+    svm2_y_hat = svm2.predict(X)
+    if type(svm2_y_hat) != np.ndarray:
+        svm2_y_hat = svm2_y_hat.to_array()
     svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
     accuracy2 = (n-svm2_n_wrong)*100/n
 
