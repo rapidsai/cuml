@@ -21,9 +21,9 @@
  */
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "common/cuml_allocator.hpp"
 #include "metrics/adjustedRandIndex.h"
 #include "metrics/contingencyMatrix.h"
 #include "test_utils.h"

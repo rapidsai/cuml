@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/cuml_allocator.hpp>
 #include <vector>
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "permute.h"
 #include "rng.h"

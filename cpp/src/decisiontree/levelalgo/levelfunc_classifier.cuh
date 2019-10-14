@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
-#include "../decisiontree.hpp"
-#include "../flatnode.h"
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
 
 /*
-This is the driver function for building classification tree 
+This is the driver function for building classification tree
 level by level using a simple for loop.
 At each level; following steps are involved.
 1. Compute histograms for all nodes, all cols and all bins.
