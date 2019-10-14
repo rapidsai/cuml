@@ -13,6 +13,7 @@
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
+- PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 
 
 # cuML 0.10.0 (Date TBD)
