@@ -43,15 +43,23 @@ class PCA(object):
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
 
+        # define attributes to make sure they
+        # are available even on untrained object
+        self.local_model = None
+        self.components_ = None
+        self.explained_variance_ = None
+        self.explained_variance_ratio_ = None
+        self.singular_values_ = None
+        self.noise_variance = None
+
+
     @staticmethod
-    def func_fit(sessionId, dfs, M, N, partsToRanks, **kwargs):
+    def _func_create_model(sessionId, dfs, **kwargs):
         """
-        Runs on each worker to call fit on local KMeans instance.
-        Extracts centroids
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
+        Builds a PCA model on a worker
+        :param sessionId:
+        :param kwargs:
+        :return:
         """
         try:
             from cuml.decomposition.pca_mg import PCAMG as cumlPCA
@@ -61,11 +69,27 @@ class PCA(object):
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-
-        return cumlPCA(handle=handle, **kwargs).fit(dfs, M, N, partsToRanks)
+        return cumlPCA(handle=handle, **kwargs), dfs
 
     @staticmethod
-    def func_xform(model, df):
+    def _func_fit(f, M, N, partsToRanks, transform):
+        """
+        Runs on each worker to call fit on local PCA instance.
+        Extracts centroids
+        :param model: Local KMeans instance
+        :param dfs: List of cudf.Dataframes to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
+        """
+        m, dfs = f
+        return m.fit(dfs, M, N, partsToRanks, transform)
+
+    @staticmethod
+    def _func_get_first(f):
+        return f[0]
+
+    @staticmethod
+    def _func_xform(model, df):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -76,10 +100,10 @@ class PCA(object):
         return model.transform(df)
 
     @staticmethod
-    def func_get_size(df):
+    def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X):
+    def fit(self, X, _transform=False):
         """
         Fits a distributed KMeans model
         :param X: dask_cudf.Dataframe to fit
@@ -102,7 +126,7 @@ class PCA(object):
 
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
-            PCA.func_get_size,
+            PCA._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -112,31 +136,45 @@ class PCA(object):
         M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_fit = [self.client.submit(
-            PCA.func_fit,
+        pca_models = [(wf[0], self.client.submit(
+            PCA._func_create_model,
             comms.sessionId,
+            wf[1],
+            **self.kwargs,
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(worker_to_parts.items())]
+
+        key = uuid1()
+        pca_fit = [self.client.submit(
+            PCA._func_fit,
             wf[1],
             M, N,
             partsToRanks,
-            **self.kwargs,
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(worker_to_parts.items())]
+            _transform,
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]])
+            for idx, wf in enumerate(pca_models)]
 
         wait(pca_fit)
 
         comms.destroy()
 
-        self.local_model = pca_fit[0].result()
+        self.local_model = self.client.submit(PCA._func_get_first,
+                                              pca_models[0][1]).result()
+
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
         self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
         self.noise_variance = self.local_model.noise_variance_
 
-        return self
+        if _transform:
+            return to_dask_cudf(pca_fit)
+        else:
+            return self
 
-    def parallel_func(self, X, func):
+    def _parallel_func(self, X, func):
         """
         Predicts the labels using a distributed KMeans model
         :param X: dask_cudf.Dataframe to predict
@@ -160,7 +198,7 @@ class PCA(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, PCA.func_xform)
+        return self.parallel_func(X, PCA._func_xform)
 
     def fit_transform(self, X):
         """
@@ -168,7 +206,7 @@ class PCA(object):
         :param X: dask_cudf.Dataframe to fit & predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.fit(X).transform(X)
+        return self.fit(X, _transform=True)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
