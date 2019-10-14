@@ -17,33 +17,22 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
+import numpy as np
+import pandas as pd
 import pytest
-from cuml.test.utils import array_equal
+import umap
 
 from cuml.manifold.umap import UMAP as cuUMAP
-import umap
-import cudf
-import pandas as pd
-import numpy as np
+from cuml.test.utils import array_equal, unit_param, \
+    quality_param, stress_param
+
 from sklearn import datasets
-from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
 from sklearn.datasets.samples_generator import make_blobs
+from sklearn.manifold.t_sne import trustworthiness
+from sklearn.metrics import adjusted_rand_score
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
@@ -202,16 +191,8 @@ def test_umap_data_formats(input_type, should_downcast,
 
     umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False)
 
-    if input_type == 'dataframe':
-        X_pd = pd.DataFrame(
-               {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        embeds = umap.fit_transform(X_cudf, convert_dtype=True)
-        assert type(embeds) == cudf.DataFrame
-
-    else:
-        embeds = umap.fit_transform(X)
-        assert type(embeds) == np.ndarray
+    embeds = umap.fit_transform(X)
+    assert type(embeds) == np.ndarray
 
 
 @pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
@@ -227,20 +208,13 @@ def test_umap_downcast_fails(input_type, nrows, n_feats):
 
     # Test fit() fails with double precision when should_downcast set to False
     umap = cuUMAP(should_downcast=False, verbose=False)
-
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-
     with pytest.raises(Exception):
-        umap.fit(X, should_downcast=False, convert_dtype=False)
+        umap.fit(X, convert_dtype=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
 
     umap = cuUMAP(should_downcast=True)
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-
     with pytest.raises(Exception):
         umap.fit(X, convert_dtype=True)
 

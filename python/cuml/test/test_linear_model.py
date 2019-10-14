@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import cudf
 import numpy as np
 import pandas as pd
 import pytest
@@ -23,7 +22,7 @@ from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
 from cuml.test.utils import array_equal, small_regression_dataset, \
-    small_classification_dataset
+    small_classification_dataset, unit_param, quality_param, stress_param
 
 import sklearn
 from sklearn.datasets import make_regression, make_classification
@@ -31,18 +30,6 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 def make_regression_dataset(datatype, nrows, ncols, n_info):
@@ -67,8 +54,6 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('y_type', ['ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -76,8 +61,7 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_linear_regression_model(datatype, X_type, y_type,
-                                 algorithm, nrows, ncols, n_info):
+def test_linear_regression_model(datatype, algorithm, nrows, ncols, n_info):
 
     X_train, X_test, y_train, y_test = make_regression_dataset(datatype,
                                                                nrows,
@@ -89,27 +73,9 @@ def test_linear_regression_model(datatype, X_type, y_type,
                                normalize=False,
                                algorithm=algorithm)
 
-    if X_type == 'dataframe':
-        y_train = pd.DataFrame({'labels': y_train[0:, ]})
-        X_train = pd.DataFrame(
-            {'fea%d' % i: X_train[0:, i] for i in range(X_train.shape[1])})
-        X_test = pd.DataFrame(
-            {'fea%d' % i: X_test[0:, i] for i in range(X_test.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_train)
-        X_cudf_test = cudf.DataFrame.from_pandas(X_test)
-        y_cudf = y_train.values
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
-
-        # fit and predict cuml linear regression model
-        cuols.fit(X_cudf, y_cudf)
-        cuols_predict = cuols.predict(X_cudf_test).to_array()
-
-    elif X_type == 'ndarray':
-
-        # fit and predict cuml linear regression model
-        cuols.fit(X_train, y_train)
-        cuols_predict = cuols.predict(X_test).to_array()
+    # fit and predict cuml linear regression model
+    cuols.fit(X_train, y_train)
+    cuols_predict = cuols.predict(X_test).to_array()
 
     if nrows < 500000:
         # sklearn linear regression model initialization, fit and predict
@@ -124,8 +90,7 @@ def test_linear_regression_model(datatype, X_type, y_type,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-def test_linear_regression_model_default(datatype, X_type):
+def test_linear_regression_model_default(datatype):
 
     X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
 
@@ -147,8 +112,7 @@ def test_linear_regression_model_default(datatype, X_type):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-def test_ridge_regression_model_default(datatype, X_type):
+def test_ridge_regression_model_default(datatype):
 
     X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
 
@@ -168,8 +132,6 @@ def test_ridge_regression_model_default(datatype, X_type):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('y_type', ['ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -177,8 +139,7 @@ def test_ridge_regression_model_default(datatype, X_type):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_ridge_regression_model(datatype, X_type, y_type,
-                                algorithm, nrows, ncols, n_info):
+def test_ridge_regression_model(datatype, algorithm, nrows, ncols, n_info):
 
     X_train, X_test, y_train, y_test = make_regression_dataset(datatype,
                                                                nrows,
@@ -190,27 +151,9 @@ def test_ridge_regression_model(datatype, X_type, y_type,
                       normalize=False,
                       solver=algorithm)
 
-    if X_type == 'dataframe':
-        y_train = pd.DataFrame({'labels': y_train[0:, ]})
-        X_train = pd.DataFrame(
-            {'fea%d' % i: X_train[0:, i] for i in range(X_train.shape[1])})
-        X_test = pd.DataFrame(
-            {'fea%d' % i: X_test[0:, i] for i in range(X_test.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_train)
-        X_cudf_test = cudf.DataFrame.from_pandas(X_test)
-        y_cudf = y_train.values
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
-
-        # fit and predict cuml ridge regression model
-        curidge.fit(X_cudf, y_cudf)
-        curidge_predict = curidge.predict(X_cudf_test).to_array()
-
-    elif X_type == 'ndarray':
-
-        # fit and predict cuml ridge regression model
-        curidge.fit(X_train, y_train)
-        curidge_predict = curidge.predict(X_test).to_array()
+    # fit and predict cuml ridge regression model
+    curidge.fit(X_train, y_train)
+    curidge_predict = curidge.predict(X_test).to_array()
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict

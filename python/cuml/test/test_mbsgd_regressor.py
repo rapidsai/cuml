@@ -16,23 +16,13 @@ import numpy as np
 import pytest
 
 from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
+from cuml.test.utils import unit_param, quality_param, stress_param, \
+    small_regression_dataset
 
 from sklearn.linear_model import SGDRegressor
 from sklearn.datasets.samples_generator import make_regression
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
@@ -48,11 +38,7 @@ def stress_param(*args, **kwargs):
 def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
                          nrows, ncols, n_info):
 
-    X, y = make_regression(n_samples=nrows, n_informative=n_info,
-                           n_features=ncols, random_state=0)
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
 
     cu_mbsgd_regressor = cumlMBSGRegressor(learning_rate=lrate, eta0=0.005,
                                            epochs=100, fit_intercept=True,
@@ -81,19 +67,13 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
 def test_mbsgd_regressor_default(datatype,
                                  nrows, ncols):
 
-    X, y = make_regression(n_samples=nrows,
-                           n_features=ncols, random_state=0)
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
 
     cu_mbsgd_regressor = cumlMBSGRegressor()
-
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test).to_array()
 
     skl_sgd_regressor = SGDRegressor()
-
     skl_sgd_regressor.fit(X_train, y_train)
     skl_pred = skl_sgd_regressor.predict(X_test)
 

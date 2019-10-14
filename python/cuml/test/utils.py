@@ -28,6 +28,8 @@ from sklearn.model_selection import train_test_split
 import cudf
 import cuml
 
+import pytest
+
 
 def array_equal(a, b, tol=1e-4, with_sign=True):
     a = to_nparray(a)
@@ -142,8 +144,8 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=40, n_features=10,
-                           n_informative=7, random_state=10)
+    X, y = make_regression(n_samples=30, n_features=5,
+                           n_informative=3, random_state=10)
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -162,3 +164,15 @@ def small_classification_dataset(datatype):
                                                         random_state=0)
 
     return X_train, X_test, y_train, y_test
+
+
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)

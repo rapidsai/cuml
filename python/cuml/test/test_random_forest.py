@@ -15,31 +15,20 @@
 
 import pytest
 import numpy as np
-from cuml.test.utils import get_handle, small_classification_dataset, \
-    small_regression_dataset
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.test.utils import get_handle, small_classification_dataset, \
+    small_regression_dataset, unit_param, quality_param, stress_param
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
@@ -201,7 +190,10 @@ def test_rf_regression_default(datatype):
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
-
+    cu_mse = mean_squared_error(y_test, cu_preds)
+    import pdb
+    pdb.set_trace()
     print(fil_r2, cu_r2, sk_r2)
     assert fil_r2 >= (cu_r2 - 0.02)
+    
     assert fil_r2 >= (sk_r2 - 0.07)
