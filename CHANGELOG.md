@@ -28,6 +28,7 @@
 - PR #1136: CUDA 10.1 CI updates
 - PR #1163: Some more correctness improvements. Better verbose printing
 - PR #1165: Adding except + in all remaining cython
+- PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
 
@@ -56,6 +57,7 @@
 - PR #1204: Fix SVM crash on Turing
 - PR #1199: Replaced sprintf() with snprintf() in THROW()
 - PR #1205: Update dask-cuda in yml envs
+- PR #1211: Fixing Dask k-means transform bug and adding test
 
 # cuML 0.9.0 (21 Aug 2019)
 

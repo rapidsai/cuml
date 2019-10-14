@@ -1,23 +1,29 @@
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import numpy as np
-import cudf
-from cuml.solvers import SGD as cumlSGD
+import pandas as pd
 import pytest
+
+from cuml.solvers import SGD as cumlSGD
+from cuml.test.utils import unit_param, quality_param, \
+    stress_param
+
 from sklearn.datasets.samples_generator import make_blobs
 from sklearn.model_selection import train_test_split
 from sklearn import datasets
-import pandas as pd
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
@@ -54,20 +60,6 @@ def test_svd(datatype, lrate, input_type, penalty,
     cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
                      fit_intercept=True, batch_size=4096,
                      tol=0.0, penalty=penalty, loss=loss)
-
-    if input_type == 'dataframe':
-        y_train_pd = pd.DataFrame({'fea0': y_train[0:, ]})
-        X_train_pd = pd.DataFrame(
-                     {'fea%d' % i: X_train[0:, i] for i in range(
-                             X_train.shape[1])})
-        X_test_pd = pd.DataFrame(
-                     {'fea%d' % i: X_test[0:, i] for i in range(
-                             X_test.shape[1])})
-        X_train = cudf.DataFrame.from_pandas(X_train_pd)
-        X_test = cudf.DataFrame.from_pandas(X_test_pd)
-        y_train = y_train_pd.values
-        y_train = y_train[:, 0]
-        y_train = cudf.Series(y_train)
 
     cu_sgd.fit(X_train, y_train)
     cu_pred = cu_sgd.predict(X_test).to_array()

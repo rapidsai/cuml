@@ -16,24 +16,13 @@ import numpy as np
 import pytest
 
 from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
-from cuml.test.utils import small_classification_dataset
+from cuml.test.utils import small_classification_dataset, unit_param, \
+    quality_param, stress_param
 
 from sklearn.linear_model import SGDClassifier
 from sklearn.datasets.samples_generator import make_classification
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])

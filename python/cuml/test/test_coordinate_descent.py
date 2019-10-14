@@ -14,31 +14,18 @@
 #
 
 import pytest
-import cudf
 import numpy as np
 import pandas as pd
 
 from cuml import Lasso as cuLasso
 from cuml.linear_model import ElasticNet as cuElasticNet
-from cuml.test.utils import small_regression_dataset
+from cuml.test.utils import small_regression_dataset, unit_param, \
+    quality_param, stress_param
 
-from sklearn.linear_model import Lasso
-from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.datasets import make_regression
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -64,24 +51,8 @@ def test_lasso(datatype, X_type, alpha, algorithm,
                        normalize=False, max_iter=1000,
                        selection=algorithm, tol=1e-10)
 
-    if X_type == 'dataframe':
-        y_train = pd.DataFrame({'fea0': y_train[0:, ]})
-        X_train = pd.DataFrame(
-            {'fea%d' % i: X_train[0:, i] for i in range(X_train.shape[1])})
-        X_test = pd.DataFrame(
-            {'fea%d' % i: X_test[0:, i] for i in range(X_test.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_train)
-        X_cudf_test = cudf.DataFrame.from_pandas(X_test)
-        y_cudf = y_train.values
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
-        cu_lasso.fit(X_cudf, y_cudf)
-        cu_predict = cu_lasso.predict(X_cudf_test)
-
-    elif X_type == 'ndarray':
-
-        cu_lasso.fit(X_train, y_train)
-        cu_predict = cu_lasso.predict(X_test)
+    cu_lasso.fit(X_train, y_train)
+    cu_predict = cu_lasso.predict(X_test)
 
     cu_r2 = r2_score(y_test, cu_predict)
 
@@ -136,24 +107,8 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
                               normalize=False, max_iter=1000,
                               selection=algorithm, tol=1e-10)
 
-    if X_type == 'dataframe':
-        y_train = pd.DataFrame({'fea0': y_train[0:, ]})
-        X_train = pd.DataFrame(
-            {'fea%d' % i: X_train[0:, i] for i in range(X_train.shape[1])})
-        X_test = pd.DataFrame(
-            {'fea%d' % i: X_test[0:, i] for i in range(X_test.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_train)
-        X_cudf_test = cudf.DataFrame.from_pandas(X_test)
-        y_cudf = y_train.values
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
-        elastic_cu.fit(X_cudf, y_cudf)
-        cu_predict = elastic_cu.predict(X_cudf_test)
-
-    elif X_type == 'ndarray':
-
-        elastic_cu.fit(X_train, y_train)
-        cu_predict = elastic_cu.predict(X_test)
+    elastic_cu.fit(X_train, y_train)
+    cu_predict = elastic_cu.predict(X_test)
 
     cu_r2 = r2_score(y_test, cu_predict)
 

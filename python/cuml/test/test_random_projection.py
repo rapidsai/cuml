@@ -13,18 +13,20 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+
 from cuml.random_projection import GaussianRandomProjection, \
                                         SparseRandomProjection
 from cuml.random_projection import johnson_lindenstrauss_min_dim \
                             as cuml_johnson_lindenstrauss_min_dim
+
 from sklearn.random_projection import johnson_lindenstrauss_min_dim \
                             as sklearn_johnson_lindenstrauss_min_dim
 from sklearn.datasets.samples_generator import make_blobs
+
 from scipy.spatial.distance import pdist
 
-import cudf
-import numpy as np
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -45,13 +47,7 @@ def test_random_projection_fit(datatype, input_type, method):
         model = SparseRandomProjection(eps=0.2)
 
     # fitting the model
-    if input_type == 'dataframe':
-        gdf = cudf.DataFrame()
-        for i in range(data.shape[1]):
-            gdf[str(i)] = np.asarray(data[:, i], dtype=datatype)
-        model.fit(gdf)
-    else:
-        model.fit(data)
+    model.fit(data)
 
     assert True  # Did not crash
 
@@ -76,19 +72,9 @@ def test_random_projection_fit_transform(datatype, input_type, method):
         model = SparseRandomProjection(eps=eps)
 
     # fitting the model
-    if input_type == 'dataframe':
-        gdf = cudf.DataFrame()
-        for i in range(data.shape[1]):
-            gdf[str(i)] = np.asarray(data[:, i], dtype=datatype)
-        model.fit(gdf)
-    else:
-        model.fit(data)
-
+    model.fit(data)
     # applying transformation
-    if input_type == 'dataframe':
-        transformed_data = model.transform(gdf).as_matrix()
-    else:
-        transformed_data = model.transform(data)
+    transformed_data = model.transform(data)
 
     original_pdist = pdist(data)
     embedded_pdist = pdist(transformed_data)
@@ -131,19 +117,8 @@ def test_random_projection_fit_transform_default(datatype, input_type,
         model = SparseRandomProjection()
 
     # fitting the model
-    if input_type == 'dataframe':
-        gdf = cudf.DataFrame()
-        for i in range(data.shape[1]):
-            gdf[str(i)] = np.asarray(data[:, i], dtype=datatype)
-        model.fit(gdf)
-    else:
-        model.fit(data)
-
-    # applying transformation
-    if input_type == 'dataframe':
-        transformed_data = model.transform(gdf).as_matrix()
-    else:
-        transformed_data = model.transform(data)
+    model.fit(data)
+    transformed_data = model.transform(data)
 
     original_pdist = pdist(data)
     embedded_pdist = pdist(transformed_data)
