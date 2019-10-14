@@ -166,26 +166,33 @@ void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
                                                   binner);
 }
 
+template <unsigned _BIN_BITS>
+struct BitsInfo {
+  static unsigned const BIN_BITS = _BIN_BITS;
+  static unsigned const WORD_BITS = sizeof(unsigned) * 8;
+  static unsigned const WORD_BINS = WORD_BITS / BIN_BITS;
+  static unsigned const BIN_MASK = (1 << BIN_BITS) - 1;
+};
+
 template <unsigned BIN_BITS>
 DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId,
                      int col) {
-  constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
-  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
-  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
-  auto iword = binId / WORD_BINS;
-  auto ibin = binId % WORD_BINS;
-  auto sh = ibin * BIN_BITS;
+  typedef BitsInfo<BIN_BITS> Bits;
+  auto iword = binId / Bits::WORD_BINS;
+  auto ibin = binId % Bits::WORD_BINS;
+  auto sh = ibin * Bits::BIN_BITS;
   auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
   auto new_word = old_word + unsigned(1 << sh);
-  if ((new_word >> sh & BIN_MASK) != 0) return;
+  if ((new_word >> sh & Bits::BIN_MASK) != 0) return;
   int binOffset = col * nbins;
   // overflow
-  atomicAdd(bins + binOffset + binId, BIN_MASK + 1);
-  for (int dbin = 1; ibin + dbin < WORD_BINS && binId + dbin < nbins; ++dbin) {
-    auto sh1 = (ibin + dbin) * BIN_BITS;
-    if ((new_word >> sh1 & BIN_MASK) == 0) {
+  atomicAdd(bins + binOffset + binId, Bits::BIN_MASK + 1);
+  for (int dbin = 1; ibin + dbin < Bits::WORD_BINS && binId + dbin < nbins;
+       ++dbin) {
+    auto sh1 = (ibin + dbin) * Bits::BIN_BITS;
+    if ((new_word >> sh1 & Bits::BIN_MASK) == 0) {
       // overflow
-      atomicAdd(bins + binOffset + binId + dbin, BIN_MASK);
+      atomicAdd(bins + binOffset + binId + dbin, Bits::BIN_MASK);
     } else {
       // correction
       atomicAdd(bins + binOffset + binId + dbin, -1);
@@ -197,9 +204,9 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId,
 template <>
 DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId,
                         int col) {
-  constexpr unsigned WORD_BITS = 32;
-  auto iword = binId / WORD_BITS;
-  auto sh = binId % WORD_BITS;
+  typedef BitsInfo<1> Bits;
+  auto iword = binId / Bits::WORD_BITS;
+  auto sh = binId % Bits::WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
   int binOffset = col * nbins;
   if ((old_word >> sh & 1) != 0) atomicAdd(bins + binOffset + binId, 2);
@@ -210,10 +217,8 @@ template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
 __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
-  constexpr unsigned WORD_BITS = sizeof(unsigned) * 8;
-  constexpr unsigned WORD_BINS = WORD_BITS / BIN_BITS;
-  constexpr unsigned BIN_MASK = (1 << BIN_BITS) - 1;
-  auto nwords = ceildiv<int>(nbins, WORD_BINS);
+  typedef BitsInfo<BIN_BITS> Bits;
+  auto nwords = ceildiv<int>(nbins, Bits::WORD_BINS);
   for (auto j = threadIdx.x; j < nwords; j += blockDim.x) {
     sbins[j] = 0;
   }
@@ -221,14 +226,15 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
   IdxT col = blockIdx.y;
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
-    incrementBin<BIN_BITS>(sbins, bins, (int)nbins, binId, col);
+    incrementBin<Bits::BIN_BITS>(sbins, bins, (int)nbins, binId, col);
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
                                             col);
   __syncthreads();
   IdxT binOffset = col * nbins;
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
-    int count = sbins[j / WORD_BINS] >> (j % WORD_BINS * BIN_BITS) & BIN_MASK;
+    auto shift = j % Bits::WORD_BINS * Bits::BIN_BITS;
+    int count = sbins[j / Bits::WORD_BINS] >> shift & Bits::BIN_MASK;
     if (count > 0) atomicAdd(bins + binOffset + j, count);
   }
 }
@@ -237,12 +243,14 @@ template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
           int VecLen>
 void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp binner, cudaStream_t stream) {
+  typedef BitsInfo<BIN_BITS> Bits;
   auto blks = computeGridDim<IdxT, VecLen>(
     nrows, ncols,
-    (const void*)smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>);
-  constexpr int WORD_BITS = sizeof(int) * 8;
-  size_t smemSize = ceildiv<size_t>(nbins, WORD_BITS / BIN_BITS) * sizeof(int);
-  smemBitsHistKernel<DataT, BinnerOp, IdxT, BIN_BITS, VecLen>
+    (const void*)
+      smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>);
+  size_t smemSize =
+    ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) * sizeof(int);
+  smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner);
 }
