@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "glm/glm_api.h"
+#include <cuml/linear_model/glm.hpp>
 #include "common/cumlHandle.hpp"
-#include "glm.hpp"
 
 extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
                                    int N, int D, int C, bool fit_intercept,

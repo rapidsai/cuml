@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "decisiontree.hpp"
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include "decisiontree_impl.cuh"
-#include "flatnode.h"
 
 namespace ML {
 namespace DecisionTree {
