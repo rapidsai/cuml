@@ -225,8 +225,11 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            cuml.utils.numba_utils.gpu_major_converter(X_m, n_rows, n_cols,
-                                                       dtype, to_order=order)
+            X_m = cuml.utils.numba_utils.gpu_major_converter(X_m,
+                                                             n_rows,
+                                                             n_cols,
+                                                             dtype,
+                                                             to_order=order)
 
     X_ptr = get_dev_array_ptr(X_m)
 
@@ -303,9 +306,9 @@ def check_numba_order(dev_ary, order):
 
 def order_to_str(order):
     if order == 'F':
-        return 'column'
+        return 'column (\'F\')'
     elif order == 'C':
-        return 'row'
+        return 'row (\'C\')'
 
 
 def input_to_host_array(X, order='F', deepcopy=False,
