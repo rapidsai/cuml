@@ -17,7 +17,7 @@
 #include <random>
 #include <vector>
 
-#include "common/cuml_allocator.hpp"
+#include "cuml/common/cuml_allocator.hpp"
 #include "test_utils.h"
 #include "timeSeries/stationarity.h"
 

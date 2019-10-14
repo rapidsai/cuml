@@ -26,7 +26,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>
 
-#include "common/cuml_allocator.hpp"
+#include "cuml/common/cuml_allocator.hpp"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/subtract.h"
 #include "stats/mean.h"
