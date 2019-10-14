@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "stationarity.hpp"
+#include "cuml/tsa/stationarity.h"
 
 #include "../../src_prims/timeSeries/stationarity.h"
 #include "common/cumlHandle.hpp"
 
 namespace ML {
+
+namespace Stationarity {
 
 void stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
                   int n_batches, int n_samples, double pval_threshold) {
@@ -32,4 +34,5 @@ void stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
                                      stream, cublas_handle, pval_threshold);
 }
 
+}  // namespace Stationarity
 }  // namespace ML
