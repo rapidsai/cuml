@@ -82,7 +82,6 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
   int nCeil = alignTo<int>(nrows, stride);
   typedef TxN_t<DataT, VecLen> VecType;
   VecType a;
-  a.fill(DataT(0));
   for (auto i = tid; i < nCeil; i += stride) {
     if (i < nrows) {
       a.load(data, offset + i);
