@@ -29,13 +29,14 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils.input_utils import input_to_dev_array
 
 
-cdef extern from "tsa/stationarity.hpp" namespace "ML":
-  void cpp_stationarity "stationarity" (cumlHandle& handle,
-                                        const double* y_d,
-                                        int* d,
-                                        int n_batches,
-                                        int n_samples,
-                                        double pval_threshold)
+cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
+  void cpp_stationarity "ML::Stationarity::stationarity" (
+      const cumlHandle& handle,
+      const double* y_d,
+      int* d,
+      int n_batches,
+      int n_samples,
+      double pval_threshold)
 
 
 def stationarity(y, pval_threshold=0.05, handle=None):
