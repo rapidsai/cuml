@@ -31,10 +31,11 @@ endif(NOT NCCL_PATH)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories( include
-	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-	../../src
-	../../src_prims
+include_directories(include
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+  ../../include
+  ../../src
+  ../../src_prims
 )
 
 set(COMMS_LINK_LIBRARIES ${CUML_CPP_TARGET})
