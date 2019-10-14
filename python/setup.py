@@ -98,6 +98,7 @@ libs = ['cuda',
         'rmm']
 
 include_dirs = ['../cpp/src',
+                '../cpp/include',
                 '../cpp/external',
                 '../cpp/src_prims',
                 cutlass_path,

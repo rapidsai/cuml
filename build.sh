@@ -132,7 +132,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
+          -DNCCL_PATH=${INSTALL_PREFIX} ..
 
 fi
 
@@ -156,17 +157,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
-    # build cumlcomms library
-    mkdir -p ${CUML_COMMS_BUILD_DIR}
-    cd ${CUML_COMMS_BUILD_DIR}
-
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
-          -DNCCL_PATH=${INSTALL_PREFIX} ..
-
-    cd ${CUML_COMMS_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
 

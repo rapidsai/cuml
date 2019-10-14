@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"

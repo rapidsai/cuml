@@ -15,9 +15,9 @@
  */
 
 #pragma once
+#include <cuml/ensemble/randomforest.hpp>
 #include <map>
 #include "decisiontree/decisiontree_impl.h"
-#include "randomforest.hpp"
 
 namespace ML {
 
