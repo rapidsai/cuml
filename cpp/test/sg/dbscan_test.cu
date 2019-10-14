@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-#include "cuML.hpp"
-
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <vector>
 
+#include <cuml/cluster/dbscan.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/metrics/metrics.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+
 #include "linalg/cublas_wrappers.h"
 #include "linalg/transpose.h"
-
-#include "datasets/make_blobs.hpp"
-#include "dbscan/dbscan.hpp"
-#include "metrics/metrics.hpp"
 
 #include "ml_utils.h"
 #include "test_utils.h"
 
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 
 namespace ML {

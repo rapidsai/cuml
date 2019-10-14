@@ -24,6 +24,7 @@ from dask.distributed import Client, wait
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
+from cuml.dask.common import perform_test_comms_recv_any_rank
 
 pytestmark = pytest.mark.mg
 
@@ -71,6 +72,11 @@ def func_test_send_recv(sessionId, n_trials, r):
     return perform_test_comms_send_recv(handle, n_trials)
 
 
+def func_test_recv_any_rank(sessionId, n_trials, r):
+    handle = worker_state(sessionId)["handle"]
+    return perform_test_comms_recv_any_rank(handle, n_trials)
+
+
 @pytest.mark.skip(reason="default_comms() not yet being used")
 def test_default_comms_no_exist(cluster):
 
@@ -105,6 +111,7 @@ def test_default_comms(cluster):
         client.close()
 
 
+@pytest.mark.nccl
 def test_allreduce(cluster):
 
     client = Client(cluster)
@@ -131,6 +138,7 @@ def test_allreduce(cluster):
         client.close()
 
 
+@pytest.mark.ucx
 @pytest.mark.skip(reason="UCX support not enabled in CI")
 def test_send_recv(n_trials, cluster):
 
@@ -138,10 +146,8 @@ def test_send_recv(n_trials, cluster):
 
     try:
 
-        cb = CommsContext(comms_p2p=True)
+        cb = CommsContext(comms_p2p=True, verbose=True)
         cb.init()
-
-        cb = default_comms()
 
         start = time.time()
         dfs = [client.submit(func_test_send_recv,
@@ -158,6 +164,35 @@ def test_send_recv(n_trials, cluster):
         result = list(map(lambda x: x.result(), dfs))
 
         print(str(result))
+
+        assert(result)
+
+    finally:
+        cb.destroy()
+        client.close()
+
+
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+def test_recv_any_rank(n_trials, cluster):
+
+    client = Client(cluster)
+
+    try:
+
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
+
+        dfs = [client.submit(func_test_recv_any_rank,
+                             cb.sessionId,
+                             n_trials,
+                             random.random(),
+                             workers=[w])
+               for wid, w in zip(range(len(cb.worker_addresses)),
+                                 cb.worker_addresses)]
+
+        wait(dfs)
+
+        result = list(map(lambda x: x.result(), dfs))
 
         assert(result)
 

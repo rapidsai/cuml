@@ -16,11 +16,11 @@
 
 #pragma once
 #include <cuda_runtime.h>
+#include <cuml/tsa/holtwinters_params.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <vector>
-#include "../holtwinters_params.h"
 #include "common/cumlHandle.hpp"
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
