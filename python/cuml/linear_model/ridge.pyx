@@ -89,11 +89,11 @@ class Ridge(Base, RegressorMixin):
     the conditioning of the problem.
 
     cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
-    algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses 
-    significantly more memory and is slower than Eig. If using CUDA 10.1, 
+    algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses
+    significantly more memory and is slower than Eig. If using CUDA 10.1,
     the memory difference is even bigger than in the other supported CUDA
     versions. However, SVD is more stable than Eig (default). CD uses
-    Coordinate Descent and can be faster when data is large.  
+    Coordinate Descent and can be faster when data is large.
 
     Examples
     ---------
