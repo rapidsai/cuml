@@ -62,6 +62,7 @@ class StationarityTest
         y[i * params.n_samples + j] = x[j] * params.inc_rates[i] + noise[j];
       }
     }
+    // TODO: use scale!!!
 
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));

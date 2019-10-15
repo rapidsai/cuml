@@ -24,8 +24,8 @@ namespace Stationarity {
 /* TODO: docs
  * Question: types? Instanciate for both float and double?
  */
-void stationarity(const ML::cumlHandle& handle, const double* y_d, int* d, int n_batches,
-                  int n_samples, double pval_threshold = 0.05);
+int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
+                 int n_batches, int n_samples, double pval_threshold = 0.05);
 
 }  // namespace Stationarity
 }  // namespace ML
