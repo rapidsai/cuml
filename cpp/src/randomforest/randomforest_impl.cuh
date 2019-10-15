@@ -376,8 +376,6 @@ template <typename T>
 RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle,
                                   const int* ref_labels, int n_rows,
                                   int* predictions, bool verbose) const {
-  // predict(user_handle, input, n_rows, n_cols, predictions, forest, verbose);
-
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
@@ -584,8 +582,6 @@ template <typename T>
 RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
                                  const T* ref_labels, int n_rows,
                                  T* predictions, bool verbose) const {
-  // predict(user_handle, input, n_rows, n_cols, predictions, forest, verbose);
-
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
 

@@ -538,11 +538,14 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, num_classes):
-        _, _, n_rows, n_cols, _ = \
+        _, _, n_rows, n_cols, X_dtype = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
+        if X_dtype != self.dtype:
+            raise ValueError("The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=num_classes)
