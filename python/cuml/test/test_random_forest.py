@@ -168,6 +168,7 @@ def test_rf_classification_default(datatype):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.xfail(strict=True, raises=AssertionError)
 def test_rf_regression_default(datatype):
 
     X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
