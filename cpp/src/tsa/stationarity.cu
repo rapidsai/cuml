@@ -23,15 +23,16 @@ namespace ML {
 
 namespace Stationarity {
 
-void stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
-                  int n_batches, int n_samples, double pval_threshold) {
+int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
+                 int n_batches, int n_samples, double pval_threshold) {
   const ML::cumlHandle_impl& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
 
-  MLCommon::TimeSeries::stationarity(y_d, d, n_batches, n_samples, allocator,
-                                     stream, cublas_handle, pval_threshold);
+  return MLCommon::TimeSeries::stationarity(y_d, d, n_batches, n_samples,
+                                            allocator, stream, cublas_handle,
+                                            pval_threshold);
 }
 
 }  // namespace Stationarity
