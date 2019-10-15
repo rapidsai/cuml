@@ -45,11 +45,14 @@ def stress_param(*args, **kwargs):
                          stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+                         stress_param(0.9)])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 def test_rf_classification(datatype, split_algo,
-                           n_info, nrows, ncols, max_features):
+                           n_info, nrows, ncols,
+                           rows_sample, max_features):
     use_handle = True
 
     train_rows = np.int32(nrows*0.8)
@@ -73,7 +76,7 @@ def test_rf_classification(datatype, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=max_features,
+    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
@@ -97,12 +100,15 @@ def test_rf_classification(datatype, split_algo,
                          stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+                         stress_param(0.9)])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression(datatype, split_algo,
+def test_rf_regression(datatype, split_algo, rows_sample,
                        n_info, mode, ncols, max_features):
     use_handle = True
+
     if mode == 'unit':
         X, y = make_regression(n_samples=100, n_features=ncols,
                                n_informative=n_info,
@@ -126,7 +132,7 @@ def test_rf_regression(datatype, split_algo,
     handle, stream = get_handle(use_handle, n_streams=8)
 
     # Initialize and fit using cuML's random forest regression model
-    cuml_model = curfr(max_features=max_features, rows_sample=1.0,
+    cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
