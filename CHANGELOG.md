@@ -1,4 +1,4 @@
-# cuML 0.10.0 (Date TBD)
+# cuML 0.10.0 (Oct 16 2019)
 
 ## New Features
 - PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
