@@ -269,6 +269,8 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   ""
 )
 
+add_dependencies(cutlass cub)
+
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
 
@@ -291,6 +293,8 @@ ExternalProject_Add(faiss
   BUILD_IN_SOURCE   1
 )
 
+add_dependencies(faiss cutlass)
+
 ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
@@ -310,6 +314,8 @@ ExternalProject_Add(treelite
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
     UPDATE_COMMAND    ""
 )
+
+add_dependencies(treelite faiss)
 
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
@@ -379,9 +385,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsvd/tsvd.cu
     src/umap/umap.cu
     )
-
-  add_dependencies(${CUML_CPP_TARGET} cub)
-  add_dependencies(${CUML_CPP_TARGET} cutlass)
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
