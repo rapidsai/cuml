@@ -48,21 +48,29 @@ class StationarityTest
     std::vector<DataT> y =
       std::vector<DataT>(params.n_samples * params.n_batches);
     std::vector<DataT> noise = std::vector<DataT>(params.n_samples);
+    std::vector<DataT> offset = std::vector<DataT>(params.n_batches);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<> dis(0.0, 0.1);
+    // Generate white noise
+    std::normal_distribution<> ndis(0.0, 0.1);
     for (int j = 0; j < params.n_samples; ++j) {
-      noise[j] = dis(gen);
+      noise[j] = ndis(gen);
+    }
+    // Generate an offset for each series
+    std::uniform_real_distribution<> udis(-1.0, 1.0);
+    for (int i = 0; i < params.n_batches; ++i) {
+      offset[i] = udis(gen);
     }
 
+    // Construct the series as a linear signal + offset + noise
     for (int j = 0; j < params.n_samples; j++) {
       x[j] = static_cast<DataT>(j) / n_samples_f;
       for (int i = 0; i < params.n_batches; i++) {
-        y[i * params.n_samples + j] = x[j] * params.inc_rates[i] + noise[j];
+        y[i * params.n_samples + j] =
+          params.scale * (x[j] * params.inc_rates[i] + offset[i] + noise[j]);
       }
     }
-    // TODO: use scale!!!
 
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -124,10 +132,10 @@ template <typename DataT, typename F>
  */
 const std::vector<struct StationarityParams<float>> params_float = {
   {2, 200, 1, {0.5f, 0.0f}, {1, 0}},
-    {3, 200, 1, {0.0f, -0.2f, -1.7f}, {0, 1, 1}},
-    {3, 241, 1, {-3.7f, 0.3f, 0.0f}, {1, 1, 0}},
+    {3, 200, 1, {0.0f, -0.6f, -1.7f}, {0, 1, 1}},
+    {3, 241, 1, {-3.7f, 0.7f, 0.0f}, {1, 1, 0}},
     {2, 200, 1234, {2.0f, -3.5f}, {1, 1}}, {
-    7, 1000, 442, {0.3f, -1.7f, 0.0f, 0.4f, -0.2f, -4.2f, 1.3f}, {
+    7, 1000, 442, {0.3f, -1.7f, 0.0f, 0.4f, -0.4f, -4.2f, 1.3f}, {
       1, 1, 0, 1, 1, 1, 1
     }
   }
@@ -136,10 +144,16 @@ const std::vector<struct StationarityParams<float>> params_float = {
 /* The tests respectively check the following aspects:
  *  - multiple large series
  *  - almost stationary series
+ *  - many small series
  */
 const std::vector<struct StationarityParams<double>> params_double = {
-  {5, 1338, 277, {1.0f, 0.5f, -0.3f, 0.0f, 2.2f}, {1, 1, 1, 0, 1}}, {
-    2, 500, 1, {0.1f, -0.1f}, { 1, 1 }
+  {5, 1338, 277, {1.0, 0.5, -0.3, 0.0, 2.2}, {1, 1, 1, 0, 1}},
+    {2, 500, 1, {0.1, -0.1}, {1, 1}}, {
+    17, 104, 99, {-0.5, 0.5,  0.0,  0.0,  0.0, -0.8, -0.6, 0.0, 0.9,
+                  0.0,  -1.3, -0.7, -0.4, 1.1, -1.2, -0.6, 0.0},
+    {
+      1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0
+    }
   }
 };
 
@@ -147,14 +161,12 @@ typedef StationarityTest<float> StationarityTestF;
 TEST_P(StationarityTestF, Result) {
   ASSERT_TRUE(arrMatch(params.d_ref.data(), d_out.data(), params.n_batches,
                        Compare<int>()));
-  // TODO: device -> switch to devArrMatch
 }
 
 typedef StationarityTest<double> StationarityTestD;
 TEST_P(StationarityTestD, Result) {
   ASSERT_TRUE(arrMatch(params.d_ref.data(), d_out.data(), params.n_batches,
                        Compare<int>()));
-  // TODO: device -> switch to devArrMatch
 }
 
 INSTANTIATE_TEST_CASE_P(StationarityTests, StationarityTestF,
