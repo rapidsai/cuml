@@ -104,7 +104,7 @@ def test_rf_classification(datatype, split_algo,
                          stress_param(100)])
 @pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
                          stress_param(0.9)])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('split_algo', [0, 1])
 def test_rf_regression(datatype, use_handle, split_algo,
