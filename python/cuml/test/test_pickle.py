@@ -13,15 +13,20 @@
 # limitations under the License.
 #
 
-import pytest
 import cuml
-from cuml.test.utils import array_equal
 import numpy as np
+import pickle
+import pytest
+
+from cuml.test.utils import array_equal, unit_param, \
+    quality_param, stress_param
+from cuml.test.test_svm import compare_svm
+
 from sklearn.datasets import load_iris
 from sklearn.datasets import make_regression
-import pickle
 from sklearn.manifold.t_sne import trustworthiness
-from cuml.test.test_svm import compare_svm
+from sklearn.model_selection import train_test_split
+
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -63,18 +68,6 @@ umap_model = dict(
 )
 
 
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
 def pickle_save_load(tmpdir, model):
     pickle_file = tmpdir.join('cu_model.pickle')
 
@@ -91,23 +84,26 @@ def pickle_save_load(tmpdir, model):
     return cu_after_pickle_model
 
 
-def make_dataset(datatype, nrows, ncols):
-    train_rows = np.int32(nrows*0.8)
+def make_dataset(datatype, nrows, ncols, n_info):
     X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(datatype)
+                           n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
 
     return X_train, y_train, X_test
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', regression_models.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -121,10 +117,14 @@ def test_regressor_pickle(tmpdir, datatype, model, nrows, ncols):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', solver_models.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_solver_pickle(tmpdir, datatype, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+def test_solver_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -138,10 +138,14 @@ def test_solver_pickle(tmpdir, datatype, model, nrows, ncols):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', cluster_models.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols):
-    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
@@ -155,12 +159,16 @@ def test_cluster_pickle(tmpdir, datatype, model, nrows, ncols):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', decomposition_models_xfail.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
 @pytest.mark.xfail
 def test_decomposition_pickle(tmpdir, datatype, model, nrows,
-                              ncols):
-    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+                              ncols, n_info):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
@@ -173,9 +181,7 @@ def test_decomposition_pickle(tmpdir, datatype, model, nrows,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', umap_model.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_umap_pickle(tmpdir, datatype, model, nrows, ncols):
+def test_umap_pickle(tmpdir, datatype, model):
 
     iris = load_iris()
     iris_selection = np.random.RandomState(42).choice(
@@ -203,11 +209,16 @@ def test_umap_pickle(tmpdir, datatype, model, nrows, ncols):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', decomposition_models.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
 @pytest.mark.xfail
-def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
-    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows,
+                                    ncols, n_info):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
@@ -220,12 +231,17 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, nrows, ncols):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('k', [unit_param(3)])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+@pytest.mark.parametrize('k', [unit_param(3), quality_param(10),
+                               stress_param(50)])
 def test_neighbors_pickle(tmpdir, datatype, model, nrows,
-                          ncols, k):
-    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+                          ncols, k, n_info):
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train)
     D_before, I_before = model.kneighbors(X_test, k=k)
@@ -239,10 +255,15 @@ def test_neighbors_pickle(tmpdir, datatype, model, nrows,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('k', [unit_param(3)])
-def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+@pytest.mark.parametrize('k', [unit_param(3), quality_param(10),
+                               stress_param(50)])
+def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k, n_info):
 
     """
     Note: This test digs down a bit far into the
@@ -264,7 +285,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
     assert state["sizes"] is None
     assert state["input"] is None
 
-    X_train, _, X_test = make_dataset(datatype, nrows, ncols)
+    X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train)
 
@@ -279,11 +300,8 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, nrows, ncols, k):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('k', [unit_param(3)])
 @pytest.mark.xfail(strict=True)
-def test_neighbors_mg_fails(tmpdir, datatype, nrows, ncols, k):
+def test_neighbors_mg_fails(tmpdir, datatype):
 
     model = cuml.neighbors.NearestNeighbors()
     model.n_indices = 2
@@ -293,10 +311,14 @@ def test_neighbors_mg_fails(tmpdir, datatype, nrows, ncols, k):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', dbscan_model.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols):
-    X_train, _, _ = make_dataset(datatype, nrows, ncols)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
+    X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
 
     cu_before_pickle_predict = model.fit_predict(X_train).to_array()
 
@@ -309,10 +331,7 @@ def test_dbscan_pickle(tmpdir, datatype, model, nrows, ncols):
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
+def test_tsne_pickle(tmpdir):
     iris = load_iris()
     iris_selection = np.random.RandomState(42).choice(
         [True, False], 150, replace=True, p=[0.75, 0.25])
@@ -347,9 +366,7 @@ def test_tsne_pickle(tmpdir, datatype, nrows, ncols):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_svm_pickle(tmpdir, datatype, nrows, ncols):
+def test_svm_pickle(tmpdir, datatype):
 
     model = cuml.svm.SVC()
     iris = load_iris()
