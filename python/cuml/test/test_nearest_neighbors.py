@@ -14,29 +14,17 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+
+from cuml.test.utils import array_equal, unit_param, quality_param, \
+    stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
+
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
-import cudf
-import pandas as pd
-import numpy as np
-from cuml.test.utils import array_equal
 
 
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
-@pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -44,36 +32,20 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
-def test_knn(input_type, should_downcast, nrows, n_feats, k):
+def test_knn(input_type, nrows, n_feats, k):
     n_samples = nrows
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
 
-    knn_cu = cuKNN(should_downcast=should_downcast)
+    knn_cu = cuKNN()
 
-    if input_type == 'dataframe':
-        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        knn_cu.fit(X_cudf)
-        D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, k)
+    knn_cu.fit(X)
+    D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+    assert type(D_cuml) == np.ndarray
+    assert type(I_cuml) == np.ndarray
 
-        assert type(D_cuml) == cudf.DataFrame
-        assert type(I_cuml) == cudf.DataFrame
-
-        # FAISS does not perform sqrt on L2 because it's expensive
-
-        D_cuml_arr = np.asarray(D_cuml.as_gpu_matrix(order="C"))
-        I_cuml_arr = np.asarray(I_cuml.as_gpu_matrix(order="C"))
-
-    elif input_type == 'ndarray':
-
-        knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.kneighbors(X, k)
-        assert type(D_cuml) == np.ndarray
-        assert type(I_cuml) == np.ndarray
-
-        D_cuml_arr = D_cuml
-        I_cuml_arr = I_cuml
+    D_cuml_arr = D_cuml
+    I_cuml_arr = I_cuml
 
     if nrows < 500000:
         knn_sk = skKNN(metric="l2")
@@ -118,20 +90,12 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
                       n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
-    if input_type == 'dataframe':
-        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        knn_cu.fit(X_cudf)
 
     with pytest.raises(Exception):
         knn_cu.fit(X, should_downcast=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-
     knn_cu = cuKNN()
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-
     with pytest.raises(Exception):
         knn_cu.fit(X, should_downcast=True)

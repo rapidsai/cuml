@@ -13,28 +13,21 @@
 # limitations under the License.
 #
 
-import pytest
-import numpy as np
 import cuml
+import numpy as np
+import pytest
+
+from cuml.test.utils import get_pattern, clusters_equal, unit_param, \
+    quality_param, stress_param
+
 from sklearn import cluster
+from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern, clusters_equal
+
 
 dataset_names = ['blobs', 'noisy_circles'] + \
                 [pytest.param(ds, marks=pytest.mark.xfail)
                  for ds in ['noisy_moons', 'varied', 'aniso']]
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -61,13 +54,11 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred, _ = fit_predict(cuml_kmeans,
-                               'cuml_Kmeans', X)
+    cu_y_pred = cuml_kmeans.fit_predict(X)
 
     if nrows < 500000:
         kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
-        sk_y_pred, _ = fit_predict(kmeans,
-                                   'sk_Kmeans', X)
+        sk_y_pred = kmeans.fit_predict(X)
 
         # Noisy circles clusters are rotated in the results,
         # since we are comparing 2 we just need to compare that both clusters
@@ -81,3 +72,33 @@ def test_kmeans_sklearn_comparison(name, nrows):
         else:
             assert (clusters_equal(sk_y_pred, cu_y_pred,
                     params['n_clusters'])) and score_test
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+def test_kmeans_sklearn_comparison_default(name, nrows):
+
+    default_base = {'quantile': .3,
+                    'eps': .3,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 3}
+
+    pat = get_pattern(name, nrows)
+
+    params = default_base.copy()
+    params.update(pat[1])
+
+    cuml_kmeans = cuml.KMeans()
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    cu_y_pred = cuml_kmeans.fit_predict(X)
+    cu_score = adjusted_rand_score(cu_y_pred, y)
+    kmeans = cluster.KMeans(random_state=12)
+    sk_y_pred = kmeans.fit_predict(X)
+    sk_score = adjusted_rand_score(sk_y_pred, y)
+    assert cu_score > sk_score
