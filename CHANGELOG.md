@@ -1,7 +1,7 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
-- PR #1129: c++: a separate include folder for C++ API distribution
+- PR #1129: C++: Separate include folder for C++ API distribution
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
@@ -15,8 +15,7 @@
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 
-
-# cuML 0.10.0 (Date TBD)
+# cuML 0.10.0 (16 Oct 2019)
 
 ## New Features
 - PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
@@ -83,6 +82,7 @@
 - PR #1236: Improve fix for SMO solvers potential crash on Turing
 - PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 - PR #1260: Small bugfix for major conversion in input_utils
+- PR #1276: Fix float64 prediction crash in test_random_forest
 
 # cuML 0.9.0 (21 Aug 2019)
 
