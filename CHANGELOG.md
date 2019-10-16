@@ -64,6 +64,7 @@
 - PR #1236: Improve fix for SMO solvers potential crash on Turing
 - PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
 - PR #1260: Small bugfix for major conversion in input_utils
+- PR #1276: Fix float64 prediction crash in test_random_forest
 
 # cuML 0.9.0 (21 Aug 2019)
 
