@@ -148,25 +148,6 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
  * @param n_cols: number of cols of the input
  * @param eig_vectors: eigenvectors
  * @param eig_vals: eigen values
- * @{
- */
-template <typename math_t>
-void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
-               math_t *eig_vals, cusolverDnHandle_t cusolverH,
-               cudaStream_t stream) {
-  math_t tol = 1.e-7;
-  int sweeps = 15;
-  eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH,
-            stream);
-}
-
-/**
- * @defgroup overloaded function for eig decomp with Jacobi method for the
- * column-major symmetric matrices (in parameter)
- * @param n_rows: number of rows of the input
- * @param n_cols: number of cols of the input
- * @param eig_vectors: eigenvectors
- * @param eig_vals: eigen values
  * @param tol: error tolerance for the jacobi method. Algorithm stops when the
  * error is below tol
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
@@ -177,9 +158,9 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
  */
 template <typename math_t>
 void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
-               math_t *eig_vals, math_t tol, int sweeps,
-               cusolverDnHandle_t cusolverH, cudaStream_t stream,
-               std::shared_ptr<deviceAllocator> allocator) {
+               math_t *eig_vals, cusolverDnHandle_t cusolverH,
+               cudaStream_t stream, std::shared_ptr<deviceAllocator> allocator,
+               math_t tol = 1.e-7, int sweeps = 15) {
   syevjInfo_t syevj_params = nullptr;
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
   CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
