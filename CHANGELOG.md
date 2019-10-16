@@ -9,6 +9,7 @@
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1277: Change dependency order in cmake for better printing at compile time
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects

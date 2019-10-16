@@ -269,6 +269,10 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   ""
 )
 
+# dependencies will be added in sequence, so if a new project `project_b` is added
+# after `project_a`, please add the dependency add_dependencies(project_b project_a)
+# This allows the cloning to happen sequentially, enhancing the printing at
+# compile time, helping significantly to troubleshoot build issues.
 add_dependencies(cutlass cub)
 
 ##############################################################################
