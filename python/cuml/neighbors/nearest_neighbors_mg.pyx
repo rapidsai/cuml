@@ -19,6 +19,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from cuml.neighbors import NearestNeighbors
+
 import numpy as np
 import pandas as pd
 import cudf
@@ -32,6 +34,9 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from cython.operator cimport dereference as deref
 
+from cuml.common.handle cimport cumlHandle
+
+
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
@@ -43,6 +48,30 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 import rmm
+
+
+cimport cuml.common.handle
+cimport cuml.common.cuda
+
+
+cdef extern from "cumlprims/opg/matrix/data.hpp" \
+    namespace "MLCommon::Matrix":
+
+    cdef cppclass floatData_t:
+        float *ptr
+        size_t totalSize
+
+    cdef cppclass doubleData_t:
+        double *ptr
+        size_t totalSize
+
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
+    namespace "MLCommon::Matrix":
+
+    cdef cppclass RankSizePair:
+        int rank
+        size_t size
+
 
 cdef extern from "<vector>" namespace "std":
     cdef cppclass vector[T]:
@@ -121,10 +150,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
         self.__del__()
 
-        if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
-
-        self.n_dims = X.shape[1]
+        self.n_dims = n
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
