@@ -96,7 +96,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
         PartDescriptor(size_t M,
                        size_t N,
                        vector[RankSizePair*] &partsToRanks,
-                       myrank)
+                       int myrank)
 
 
 
@@ -213,12 +213,16 @@ class NearestNeighborsMG(NearestNeighbors):
                 <vector[floatData_t*]*><size_t>self._build_dataFloat(queries)
 
         cdef PartDescriptor *index_descriptor = new PartDescriptor( \
-            index_m, n, deref(index_vec), rank)
+            <size_t>index_m,
+            <size_t>n,
+            <vector[RankSizePair*]>deref(index_vec),
+            <int>rank
+        )
         cdef PartDescriptor *query_descriptor = new PartDescriptor( \
-            index_m, n, deref(index_vec), rank)
-
-
-
+            <size_t>index_m,
+            <size_t>n,
+            <vector[RankSizePair*]>deref(index_vec),
+            <int>rank)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
