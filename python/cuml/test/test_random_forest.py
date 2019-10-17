@@ -36,13 +36,9 @@ from sklearn.model_selection import train_test_split
                          stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-<<<<<<< HEAD
 @pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
                          stress_param(0.9)])
 @pytest.mark.parametrize('datatype', [np.float32])
-=======
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
->>>>>>> ef7929c83bc2e3856c253e0357fe7c053689f0fe
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 def test_rf_classification(datatype, split_algo,

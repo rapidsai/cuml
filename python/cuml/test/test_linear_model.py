@@ -36,7 +36,8 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
                            n_informative=n_info, random_state=0)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=10)
 
     return X_train, X_test, y_train, y_test
 
@@ -47,7 +48,8 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
                                random_state=0)
     X = X.astype(datatype)
     y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=10)
 
     return X_train, X_test, y_train, y_test
 
@@ -171,7 +173,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, ncols, n_info):
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('l1_ratio', [0.0, 0.3, 0.5, 0.7, 1.0])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-@pytest.mark.parametrize('nrows', [unit_param(200), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('ncols', [unit_param(10), quality_param(60),
                          stress_param(100)])

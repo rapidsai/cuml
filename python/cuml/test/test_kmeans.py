@@ -54,7 +54,7 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X)
+    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
 
     if nrows < 500000:
         kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
