@@ -140,7 +140,7 @@ class PCAMG(PCA):
         super(PCAMG, self).__init__(**kwargs)
 
 
-    def _initialize_arrays(self, n_components, n_rows, n_cols, n_part_rows):
+    def _initialize_arrays_2(self, n_components, n_rows, n_cols, n_part_rows):
 
         self.trans_input_ = rmm.to_device(zeros(n_part_rows*n_components,
                                                 dtype=self.dtype))
@@ -242,7 +242,7 @@ class PCAMG(PCA):
 
         n_total_parts = len(partsToRanks)
 
-        self._initialize_arrays(params.n_components,
+        self._initialize_arrays_2(params.n_components,
                                 params.n_rows, params.n_cols, n_part_row)
 
         cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
