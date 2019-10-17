@@ -154,8 +154,13 @@ class NearestNeighborsMG(NearestNeighbors):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        index_rankSizePair = []
-        query_rankSizePair = []
+        cdef RankSizePair **index_rankSizePair = <RankSizePair**> \
+                                                 malloc(sizeof(RankSizePair**) \
+                                                   * len(index_partsToRanks))
+
+        cdef RankSizePair **query_rankSizePair = <RankSizePair**> \
+                                                 malloc(sizeof(RankSizePair**) \
+                                                   * len(query_partsToRanks))
 
         for idx, rankSize in enumerate(index_partsToRanks):
             rank, size = rankSize
@@ -169,17 +174,14 @@ class NearestNeighborsMG(NearestNeighbors):
             query_rankSizePair[idx].rank = < int > rank
             query_rankSizePair[idx].size = < size_t > size
 
-        cdef local_index_parts = <floatData_t**>self._build_dataFloat(indices)
-        cdef local_query_parts = <floatData_t**>self._build_dataFloat(queries)
+        cdef floatData_t **local_index_parts = \
+                <floatData_t**><size_t>self._build_dataFloat(indices)
+        cdef floatData_t **local_query_parts = \
+                <floatData_t**><size_t>self._build_dataFloat(queries)
 
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
 
-        self.X_m, X_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
         return self
 
