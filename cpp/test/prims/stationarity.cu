@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <random>
@@ -20,8 +22,6 @@
 #include "cuml/common/cuml_allocator.hpp"
 #include "test_utils.h"
 #include "timeSeries/stationarity.h"
-
-/* /!\ TODO: test non stationary case? (error) /!\ */
 
 namespace MLCommon {
 namespace TimeSeries {
@@ -90,7 +90,6 @@ class StationarityTest
   }
 
   void TearDown() override {
-    // TODO: free when using device code
     CUDA_CHECK(cudaFree(y_d));
     CUBLAS_CHECK(cublasDestroy(cublas_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -104,27 +103,9 @@ class StationarityTest
   std::vector<int> d_out;
 };
 
-// TODO: remove me when using device version
-template <typename DataT, typename F>
-::testing::AssertionResult arrMatch(const DataT *expected_h,
-                                    const DataT *actual_h, int size,
-                                    F eq_compare) {
-  bool ok = true;
-  auto fail = ::testing::AssertionFailure();
-  for (int i(0); i < size; ++i) {
-    auto exp = expected_h[i];
-    auto act = actual_h[i];
-    if (!eq_compare(exp, act)) {
-      ok = false;
-      fail << "actual=" << act << " != expected=" << exp << " @" << i << "; ";
-    }
-  }
-  if (!ok) return fail;
-  return ::testing::AssertionSuccess();
-}
 
 /* The tests respectively check the following aspects:
- *  - basic test with degrees 0 and 1
+ *  - basic test with trends 0 and 1
  *  - some decreasing series
  *  - odd series size
  *  - larger values
@@ -159,14 +140,12 @@ const std::vector<struct StationarityParams<double>> params_double = {
 
 typedef StationarityTest<float> StationarityTestF;
 TEST_P(StationarityTestF, Result) {
-  ASSERT_TRUE(arrMatch(params.d_ref.data(), d_out.data(), params.n_batches,
-                       Compare<int>()));
+  ASSERT_THAT(d_out, ::testing::ElementsAreArray(params.d_ref));
 }
 
 typedef StationarityTest<double> StationarityTestD;
 TEST_P(StationarityTestD, Result) {
-  ASSERT_TRUE(arrMatch(params.d_ref.data(), d_out.data(), params.n_batches,
-                       Compare<int>()));
+  ASSERT_THAT(d_out, ::testing::ElementsAreArray(params.d_ref));
 }
 
 INSTANTIATE_TEST_CASE_P(StationarityTests, StationarityTestF,
