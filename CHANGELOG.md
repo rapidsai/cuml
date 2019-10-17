@@ -10,6 +10,7 @@
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
 - PR #1277: Change dependency order in cmake for better printing at compile time
+- PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
 
 ## Bug Fixes
@@ -31,6 +32,7 @@
 - PR #1149 Add YYMMDD to version tag for nightly conda packages
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
+- PR #1274: Updated the RF score function to use GPU predict
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
