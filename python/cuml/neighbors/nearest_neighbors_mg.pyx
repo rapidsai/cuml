@@ -101,9 +101,9 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 
 
 cdef extern from "cumlprims/opg/selection/knn.hpp" \
-    namespace "MLCommon::Selection:opg":
+    namespace "MLCommon::Selection::opg":
 
-    cdef brute_force_knn(
+    cdef void brute_force_knn(
         cumlHandle &handle,
         vector[int64Data_t*] &out_I,
         vector[floatData_t*] &out_D,
@@ -162,7 +162,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
                          queries, query_m, query_partsToRanks,
-                         rank):
+                         rank, k):
         """
         Query the kneighbors of an index
         :param indices: [__cuda_array_interface__] of local index partitions
@@ -174,12 +174,6 @@ class NearestNeighborsMG(NearestNeighbors):
         :param query_partsToRanks: mappings of query partitions to ranks
         :return: 
         """
-
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit and kneighbors "
-                          " methods instead. ")
-            convert_dtype = True
 
         self.__del__()
 
@@ -224,8 +218,24 @@ class NearestNeighborsMG(NearestNeighbors):
             <vector[RankSizePair*]>deref(index_vec),
             <int>rank)
 
-        cdef uintptr_t X_ctype = -1
-        cdef uintptr_t dev_ptr = -1
+        cdef vector[int64Data_t*] *out_i_vec = \
+            new vector[int64Data_t*]()
+
+        cdef vector[floatData_t*] *out_d_vec = \
+            new vector[floatData_t*]()
+
+        brute_force_knn(
+            handle_[0],
+            deref(out_i_vec),
+            deref(out_d_vec),
+            deref(local_index_parts),
+            deref(index_descriptor),
+            deref(local_query_parts),
+            deref(query_descriptor),
+            k,
+            1<<15,
+            True
+        )
 
         return self
 
