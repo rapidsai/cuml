@@ -539,13 +539,8 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, num_classes):
         _, _, n_rows, n_cols, X_dtype = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X_dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=num_classes)
@@ -561,10 +556,9 @@ class RandomForestClassifier(Base):
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
+
         preds = np.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
@@ -682,14 +676,9 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         cdef uintptr_t X_ptr
-        X_ptr = X.ctypes.data
-        n_rows, n_cols = np.shape(X)
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         preds = np.zeros(n_rows * self.n_estimators,
                          dtype=np.int32)
@@ -762,19 +751,16 @@ class RandomForestClassifier(Base):
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        y_m, y_ptr, n_rows, _, y_dtype = input_to_dev_array(y)
-
-        if y_dtype != np.int32:
-            raise TypeError("The labels `y` need to be of dtype `np.int32`")
+        y_m, y_ptr, n_rows, _, y_dtype = \
+            input_to_dev_array(y, check_dtype=np.int32)
 
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
                              num_classes=num_classes)
 
-        preds = np.asarray(preds).astype(np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+            input_to_dev_array(preds, convert_to_dtype=np.int32)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
