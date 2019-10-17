@@ -23,7 +23,7 @@
 
 #include <memory>
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 
 #include <selection/columnWiseSort.h>
 #include "distance/distance.h"

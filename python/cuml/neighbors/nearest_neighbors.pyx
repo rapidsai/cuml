@@ -50,7 +50,17 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "knn/knn.hpp" namespace "ML":
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
+    cdef cppclass deviceAllocator:
+        pass
+
+    cdef cppclass cumlHandle:
+        cumlHandle() except +
+        void setStream(cuml.common.cuda._Stream s) except +
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
+        cuml.common.cuda._Stream getStream() except +
+
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void brute_force_knn(
         cumlHandle &handle,

@@ -16,7 +16,7 @@
 
 #include "common/cumlHandle.hpp"
 
-#include "knn.hpp"
+#include <cuml/neighbors/knn.hpp>
 
 #include "ml_mg_utils.h"
 
