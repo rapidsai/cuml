@@ -9,6 +9,7 @@
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1264: Add -s flag to GPU CI pytest for better error printing
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
