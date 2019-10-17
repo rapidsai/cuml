@@ -77,7 +77,7 @@ class NearestNeighborsMG(NearestNeighbors):
             free(d[x_i])
         free(d)
 
-    def fit(self, X, partsToRanks):
+    def fit(self, X, M, N, partsToRanks):
         """
         Multi-node multi-GPU NearestNeighbors.
 
