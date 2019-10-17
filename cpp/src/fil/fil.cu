@@ -25,8 +25,9 @@
 #include <limits>
 #include <utility>
 
+#include <cuml/fil/fil.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
-#include "fil.h"
 
 namespace ML {
 namespace fil {
@@ -73,26 +74,6 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
-  forest()
-    : depth_(0),
-      ntrees_(0),
-      cols_(0),
-      algo_(algo_t::NAIVE),
-      output_(output_t::RAW),
-      threshold_(0.5),
-      global_bias_(0) {}
-
-  void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < ntrees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * ntrees_ + i] = dense_node(nodes[gid]);
-        }
-      }
-    }
-  }
-
   void init_max_shm() {
     int max_shm_std = 48 * 1024;  // 48 KiB
     int device = 0;
@@ -104,80 +85,111 @@ struct forest {
     max_shm_ = std::min(max_shm_, max_shm_std);
   }
 
-  void init(const cumlHandle& h, const forest_params_t* params) {
+  void init_common(const forest_params_t* params) {
     depth_ = params->depth;
-    ntrees_ = params->ntrees;
-    cols_ = params->cols;
+    num_trees_ = params->num_trees;
+    num_cols_ = params->num_cols;
     algo_ = params->algo;
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     init_max_shm();
-
-    int nnodes = forest_num_nodes(ntrees_, depth_);
-    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
-      sizeof(dense_node) * nnodes, h.getStream());
-    h_nodes_.resize(nnodes);
-    if (algo_ == algo_t::NAIVE) {
-      std::copy(params->nodes, params->nodes + nnodes, h_nodes_.begin());
-    } else {
-      transform_trees(params->nodes);
-    }
-    CUDA_CHECK(cudaMemcpy(nodes_, h_nodes_.data(), nnodes * sizeof(dense_node),
-                          cudaMemcpyHostToDevice));
-    h_nodes_.clear();
-    h_nodes_.shrink_to_fit();
   }
 
+  virtual void infer(predict_params params, cudaStream_t stream) = 0;
+
   void predict(const cumlHandle& h, float* preds, const float* data,
-               size_t rows) {
+               size_t num_rows) {
     // Initialize prediction parameters.
-    predict_params ps;
-    ps.nodes = nodes_;
-    ps.ntrees = ntrees_;
-    ps.depth = depth_;
-    ps.cols = cols_;
-    ps.algo = algo_;
-    ps.preds = preds;
-    ps.data = data;
-    ps.rows = rows;
-    ps.max_shm = max_shm_;
+    predict_params params;
+    params.num_cols = num_cols_;
+    params.algo = algo_;
+    params.preds = preds;
+    params.data = data;
+    params.num_rows = num_rows;
+    params.max_shm = max_shm_;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
-    infer(ps, stream);
+    infer(params, stream);
 
     // Transform the output if necessary.
     if (output_ != output_t::RAW || global_bias_ != 0.0f) {
-      transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f, threshold_,
-        global_bias_);
+      transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
+        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        threshold_, global_bias_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
 
-  void free(const cumlHandle& h) {
-    int num_nodes = forest_num_nodes(ntrees_, depth_);
+  virtual void free(const cumlHandle& h) = 0;
+  virtual ~forest() {}
+
+  int num_trees_ = 0;
+  int depth_ = 0;
+  int num_cols_ = 0;
+  algo_t algo_ = algo_t::NAIVE;
+  int max_shm_ = 0;
+  output_t output_ = output_t::RAW;
+  float threshold_ = 0.5;
+  float global_bias_ = 0;
+};
+
+struct dense_forest : forest {
+  void transform_trees(const dense_node_t* nodes) {
+    // populate node information
+    for (int i = 0, gid = 0; i < num_trees_; ++i) {
+      for (int j = 0, nid = 0; j <= depth_; ++j) {
+        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
+          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+        }
+      }
+    }
+  }
+
+  void init(const cumlHandle& h, const dense_node_t* nodes,
+            const forest_params_t* params) {
+    init_common(params);
+
+    int num_nodes = forest_num_nodes(num_trees_, depth_);
+    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
+      sizeof(dense_node) * num_nodes, h.getStream());
+    h_nodes_.resize(num_nodes);
+    if (algo_ == algo_t::NAIVE) {
+      std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
+    } else {
+      transform_trees(nodes);
+    }
+    CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
+                               num_nodes * sizeof(dense_node),
+                               cudaMemcpyHostToDevice, h.getStream()));
+    // copy must be finished before freeing the host data
+    CUDA_CHECK(cudaStreamSynchronize(h.getStream()));
+    h_nodes_.clear();
+    h_nodes_.shrink_to_fit();
+  }
+
+  virtual void infer(predict_params params, cudaStream_t stream) override {
+    dense_storage forest(nodes_, num_trees_,
+                         algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
+                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
+    fil::infer(forest, params, stream);
+  }
+
+  virtual void free(const cumlHandle& h) override {
+    int num_nodes = forest_num_nodes(num_trees_, depth_);
     h.getDeviceAllocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
                                        h.getStream());
   }
 
-  int ntrees_;
-  int depth_;
-  int cols_;
-  algo_t algo_;
-  int max_shm_;
-  output_t output_;
-  float threshold_;
-  float global_bias_;
   dense_node* nodes_ = nullptr;
   thrust::host_vector<dense_node> h_nodes_;
 };
 
 void check_params(const forest_params_t* params) {
-  ASSERT(params->depth >= 0, "depth must be non-negative");
-  ASSERT(params->ntrees >= 0, "ntrees must be non-negative");
-  ASSERT(params->cols >= 0, "cols must be non-negative");
+  ASSERT(params->depth >= 0, "depth must be non-negative for dense forests");
+  ASSERT(params->num_trees >= 0, "num_trees must be non-negative");
+  ASSERT(params->num_cols >= 0, "num_cols must be non-negative");
   switch (params->algo) {
     case algo_t::NAIVE:
     case algo_t::TREE_REORG:
@@ -292,7 +304,7 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
   params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
-  params->cols = model.num_feature;
+  params->num_cols = model.num_feature;
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -312,26 +324,25 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
   }
-  params->ntrees = model.trees.size();
+  params->num_trees = model.trees.size();
 
   int depth = 0;
   for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
   params->depth = depth;
 
   // convert the nodes
-  int num_nodes = forest_num_nodes(params->ntrees, params->depth);
+  int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
   for (int i = 0; i < model.trees.size(); ++i) {
     tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
   }
-  params->nodes = pnodes->data();
 }
 
-void init_dense(const cumlHandle& h, forest_t* pf,
+void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params) {
   check_params(params);
-  forest* f = new forest;
-  f->init(h, params);
+  dense_forest* f = new dense_forest;
+  f->init(h, nodes, params);
   *pf = f;
 }
 
@@ -340,7 +351,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   forest_params_t params;
   std::vector<dense_node_t> nodes;
   tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
-  init_dense(handle, pforest, &params);
+  init_dense(handle, pforest, nodes.data(), &params);
   // sync is necessary as nodes is used in init_dense(),
   // but destructed at the end of this function
   CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
@@ -352,8 +363,8 @@ void free(const cumlHandle& h, forest_t f) {
 }
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t n) {
-  f->predict(h, preds, data, n);
+             size_t num_rows) {
+  f->predict(h, preds, data, num_rows);
 }
 
 }  // namespace fil

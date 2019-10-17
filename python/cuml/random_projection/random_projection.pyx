@@ -32,7 +32,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
-cdef extern from "random_projection/rproj_c.h" namespace "ML":
+cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
