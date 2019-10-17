@@ -127,6 +127,9 @@ if "--singlegpu" in sys.argv:
 else:
     libs.append('cumlprims')
 
+    sys_include = os.path.dirname(sysconfig.get_path("include"))
+    include_dirs.append("%s/cumlprims" % sys_include )
+
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
