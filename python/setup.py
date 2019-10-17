@@ -121,6 +121,7 @@ if "--multigpu" in sys.argv:
 if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
     exc_list.append('cuml/cluster/kmeans_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
