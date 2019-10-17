@@ -140,6 +140,21 @@ class PCAMG(PCA):
         super(PCAMG, self).__init__(**kwargs)
 
 
+    def _initialize_arrays(self, n_components, n_rows, n_cols, n_part_rows):
+
+        self.trans_input_ = rmm.to_device(zeros(n_part_rows*n_components,
+                                                dtype=self.dtype))
+        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                                  dtype=self.dtype))
+        self.explained_variance_ = cudf.Series(zeros(n_components,
+                                               dtype=self.dtype))
+        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
+                                                     dtype=self.dtype))
+        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+        self.singular_values_ = cudf.Series(zeros(n_components,
+                                                  dtype=self.dtype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
+
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t ** dataF = < floatData_t ** > \
                                       malloc(sizeof(floatData_t *) \
@@ -213,8 +228,22 @@ class PCAMG(PCA):
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
+        cdef RankSizePair **rankSizePair = <RankSizePair**> \
+                                            malloc(sizeof(RankSizePair**) \
+                                                   * len(partsToRanks))
+
+        n_part_row = 0
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+            rankSizePair[idx].rank = <int>rank
+            rankSizePair[idx].size = <size_t>size
+            n_part_row = n_part_row + rankSizePair[idx].size
+
+        n_total_parts = len(partsToRanks)
+
         self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols)
+                                params.n_rows, params.n_cols, n_part_row)
 
         cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
 
@@ -236,17 +265,7 @@ class PCAMG(PCA):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                            malloc(sizeof(RankSizePair**) \
-                                                   * len(partsToRanks))
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
-            rankSizePair[idx].rank = <int>rank
-            rankSizePair[idx].size = <size_t>size
-
-        n_total_parts = len(partsToRanks)
-
+        
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
