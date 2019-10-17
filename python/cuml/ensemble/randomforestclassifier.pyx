@@ -676,9 +676,14 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
-                               check_cols=self.n_cols)
+        X_ptr = X.ctypes.data
+        n_rows, n_cols = np.shape(X)
+        if n_cols != self.n_cols:
+            raise ValueError("The number of columns/features in the training"
+                             " and test data should be the same ")
+        if X.dtype != self.dtype:
+            raise ValueError("The datatype of the training data is different"
+                             " from the datatype of the testing data")
 
         preds = np.zeros(n_rows * self.n_estimators,
                          dtype=np.int32)
