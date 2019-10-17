@@ -31,6 +31,7 @@
 - PR #1149 Add YYMMDD to version tag for nightly conda packages
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
+- PR #1274: Updated the RF score function to use GPU predict
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
