@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import extract_ddf_partitions, \
+    raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 import cudf
 
@@ -22,6 +23,8 @@ from dask.distributed import default_client, wait
 import math
 import random
 import numpy as np
+
+from uuid import uuid1
 
 
 class RandomForestClassifier:
@@ -114,7 +117,6 @@ class RandomForestClassifier:
         self,
         n_estimators=10,
         max_depth=-1,
-        handle=None,
         max_features=1.0,
         n_bins=8,
         split_algo=1,
@@ -193,13 +195,19 @@ class RandomForestClassifier:
                 self.n_estimators_per_worker[i] + 1
             )
 
+        seeds = list()
+        seeds.append(0)
+        for i in range(1, len(self.n_estimators_per_worker)):
+            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
+            seeds.append(sd)
+
+        key = str(uuid1())
         self.rfs = {
             worker: c.submit(
                 RandomForestClassifier._func_build_rf,
-                n,
                 self.n_estimators_per_worker[n],
                 max_depth,
-                handle,
+                n_streams,
                 max_features,
                 n_bins,
                 split_algo,
@@ -211,29 +219,27 @@ class RandomForestClassifier:
                 verbose,
                 rows_sample,
                 max_leaves,
-                n_streams,
                 quantile_per_tree,
+                seeds[n],
                 dtype,
-                random.random(),
+                key="%s-%s" % (key, n),
                 workers=[worker],
             )
             for n, worker in enumerate(workers)
         }
-
-        print(str(self.rfs))
 
         rfs_wait = list()
         for r in self.rfs.values():
             rfs_wait.append(r)
 
         wait(rfs_wait)
+        raise_exception_from_futures(rfs_wait)
 
     @staticmethod
     def _func_build_rf(
-        n,
         n_estimators,
         max_depth,
-        handle,
+        n_streams,
         max_features,
         n_bins,
         split_algo,
@@ -245,15 +251,14 @@ class RandomForestClassifier:
         verbose,
         rows_sample,
         max_leaves,
-        n_streams,
         quantile_per_tree,
+        seed,
         dtype,
-        r,
     ):
         return cuRFC(
             n_estimators=n_estimators,
             max_depth=max_depth,
-            handle=handle,
+            handle=None,
             max_features=max_features,
             n_bins=n_bins,
             split_algo=split_algo,
@@ -267,6 +272,7 @@ class RandomForestClassifier:
             max_leaves=max_leaves,
             n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
+            seed=seed,
             gdf_datatype=dtype,
         )
 
@@ -346,9 +352,9 @@ class RandomForestClassifier:
                    str(y_partition_workers),
                    str(self.workers)))
 
-        f = list()
+        futures = list()
         for w, xc in X_futures.items():
-            f.append(
+            futures.append(
                 c.submit(
                     RandomForestClassifier._fit,
                     self.rfs[w],
@@ -359,7 +365,8 @@ class RandomForestClassifier:
                 )
             )
 
-        wait(f)
+        wait(futures)
+        raise_exception_from_futures(futures)
 
         return self
 
@@ -386,9 +393,9 @@ class RandomForestClassifier:
             raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
-        f = list()
+        futures = list()
         for n, w in enumerate(workers):
-            f.append(
+            futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
                     self.rfs[w],
@@ -398,12 +405,13 @@ class RandomForestClassifier:
                 )
             )
 
-        wait(f)
+        wait(futures)
+        raise_exception_from_futures(futures)
 
         indexes = list()
         rslts = list()
-        for d in range(len(f)):
-            rslts.append(f[d].result())
+        for d in range(len(futures)):
+            rslts.append(futures[d].result())
             indexes.append(0)
 
         pred = list()

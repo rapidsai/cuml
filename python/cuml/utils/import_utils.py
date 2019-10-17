@@ -63,3 +63,11 @@ def has_xgboost():
         return True
     except ImportError:
         return False
+
+
+def has_pytest_benchmark():
+    try:
+        import pytest_benchmark  # NOQA
+        return True
+    except ImportError:
+        return False

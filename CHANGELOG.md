@@ -1,3 +1,71 @@
+# cuML 0.10.0 (16 Oct 2019)
+
+## New Features
+- PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
+- PR #1071: Selective eigen solver of cuSolver
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1104: CUDA 10.1 support
+- PR #1113: prims: new batched make-symmetric-matrix primitive
+- PR #1112: prims: new batched-gemv primitive
+- PR #855: Added benchmark tools
+- PR #1149 Add YYMMDD to version tag for nightly conda packages
+- PR #892: General Gram matrices prim
+- PR #912: Support Vector Machine
+
+## Improvements
+- PR #961: High Peformance RF; HIST algo
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #1047: Consistent OPG interface for kmeans, based on internal libcumlprims update
+- PR #763: Add examples to train_test_split documentation
+- PR #1093: Unified inference kernels for different FIL algorithms
+- PR #1076: Paying off some UMAP / Spectral tech debt.
+- PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1108: input_to_host_array function in input_utils for input processing to host arrays
+- PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
+- PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
+- PR #1136: CUDA 10.1 CI updates
+- PR #1135: K-means: add boundary cases for kmeans||, support finer control with convergence
+- PR #1163: Some more correctness improvements. Better verbose printing
+- PR #1165: Adding except + in all remaining cython
+- PR #1186: Using LocalCUDACluster Pytest fixture
+- PR #1173: Docs: Barnes Hut TSNE documentation
+- PR #1176: Use new RMM API based on Cython
+- PR #1247: Improved MNMG RF error checking
+
+## Bug Fixes
+
+- PR #1231: RF respect number of cuda streams from cuml handle
+- PR #1230: Rf bugfix memleak in regression
+- PR #1208: compile dbscan bug
+- PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
+- PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1044: Remove nvidia driver installation from ci/cpu/build.sh
+- PR #991: Barnes Hut TSNE Memory Issue Fixes
+- PR #1075: Pinning Dask version for consistent CI results
+- PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1066: Using proper set of workers to destroy nccl comms
+- PR #1072: Remove pip requirements and setup
+- PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
+- PR #1088: Change straggling numba python allocations to use RMM
+- PR #1106: Pinning Distributed version to match Dask for consistent CI results
+- PR #1116: TSNE CUDA 10.1 Bug Fixes
+- PR #1132: DBSCAN Batching Bug Fix
+- PR #1162: DASK RF random seed bug fix
+- PR #1164: Fix check_dtype arg handling for input_to_dev_array
+- PR #1171: SVM prediction bug fix
+- PR #1177: Update dask and distributed to 2.5
+- PR #1204: Fix SVM crash on Turing
+- PR #1199: Replaced sprintf() with snprintf() in THROW()
+- PR #1205: Update dask-cuda in yml envs
+- PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
+- PR #1260: Small bugfix for major conversion in input_utils
+- PR #1276: Fix float64 prediction crash in test_random_forest
+
 # cuML 0.9.0 (21 Aug 2019)
 
 ## New Features
@@ -10,6 +78,7 @@
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #823: prims: cluster dispersion metric
 - PR #816: Added inverse_transform() for LabelEncoder
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
@@ -28,6 +97,7 @@
 - PR #883: Adding MNMG Kmeans
 - PR #930: Dask RF
 - PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
 - PR #926: Wrapper for FIL
 - PR #960: Enable using libcumlprims for MG algorithms/prims
 
@@ -54,6 +124,8 @@
 - PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
 - PR #978: Update README for 0.9
 - PR #1009: Fix references to notebooks-contrib
+- PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
+- PR #1175: Add more modules to docs ToC
 
 ## Bug Fixes
 

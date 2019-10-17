@@ -23,7 +23,7 @@ import cudf
 import numpy as np
 import warnings
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -55,7 +55,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnFit(cumlHandle& cuml_handle,
                double *X,
@@ -75,7 +75,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
@@ -86,7 +86,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    float *params,
                    bool X_col_major,
                    int loss_type,
-                   float *preds)
+                   float *preds) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    double *X,
@@ -97,7 +97,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    double *params,
                    bool X_col_major,
                    int loss_type,
-                   double *preds)
+                   double *preds) except +
 
 
 class QN(Base):
@@ -292,7 +292,7 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self.num_classes)
 
-        self.coef_ = cuda.to_device(zeros(coef_size, dtype=self.dtype))
+        self.coef_ = rmm.to_device(zeros(coef_size, dtype=self.dtype))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
 
@@ -384,7 +384,7 @@ class QN(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        preds = cuda.to_device(zeros(n_rows, dtype=self.dtype))
+        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
         cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)

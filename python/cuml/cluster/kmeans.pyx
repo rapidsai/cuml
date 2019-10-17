@@ -24,10 +24,10 @@ import cudf
 import numpy as np
 import warnings
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
@@ -49,7 +49,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
@@ -61,7 +61,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           float *centroids,
                           int *labels,
                           float &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void fit_predict(cumlHandle& handle,
                           KMeansParams& params,
@@ -71,7 +71,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           double *centroids,
                           int *labels,
                           double &inertia,
-                          int &n_iter)
+                          int &n_iter) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -80,7 +80,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      float &inertia)
+                      float &inertia) except +
 
     cdef void predict(cumlHandle& handle,
                       KMeansParams& params,
@@ -89,7 +89,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       int *labels,
-                      double &inertia)
+                      double &inertia) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -98,7 +98,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        float *X_new)
+                        float *X_new) except +
 
     cdef void transform(cumlHandle& handle,
                         KMeansParams& params,
@@ -107,7 +107,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         int n_samples,
                         int n_features,
                         int metric,
-                        double *X_new)
+                        double *X_new) except +
 
 
 class KMeans(Base):
@@ -196,15 +196,13 @@ class KMeans(Base):
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
         If True, prints diagnositc information.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    precompute_distances : boolean (default = 'auto')
-        Not supported yet.
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
@@ -212,15 +210,21 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    n_init : int (default = 1)
-        Number of times intialization is run. More is slower,
-        but can be better.
-    algorithm : "auto"
-        Currently uses full EM, but will support others later.
-    n_gpu : int (default = 1)
-        Number of GPUs to use. Currently uses single GPU, but will support
-        multiple GPUs later.
-
+    oversampling_factor : float64 scalable k-means|| oversampling factor
+    max_samples_per_batch : int maximum number of samples to use for each batch
+                                of the pairwise distance computation.
+    oversampling_factor : int (default = 2) The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768) The number of data
+        samples to use for batches of the pairwise distance computation.
+        This computation is done throughout both fit predict. The default
+        should suit most cases. The total number of elements in the batched
+        pairwise distance computation is max_samples_per_batch * n_clusters.
+        It might become necessary to lower this number when n_clusters
+        becomes prohibitively large.
 
     Attributes
     ----------
@@ -252,29 +256,24 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, precompute_distances='auto',
-                 init='scalable-k-means++', n_init=1, algorithm='auto',
-                 n_gpu=1):
+                 verbose=0, random_state=1, init='scalable-k-means++',
+                 oversampling_factor=2.0, max_samples_per_batch=1<<15):
         super(KMeans, self).__init__(handle, verbose)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
-        self.precompute_distances = precompute_distances
         self.init = init
-        self.n_init = n_init
-        self.copy_x = None
-        self.n_jobs = None
-        self.algorithm = algorithm
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
         self.cluster_centers_ = None
-        self.n_gpu = n_gpu
         self.inertia_ = 0
         self.n_iter_ = 0
+        self.oversampling_factor=oversampling_factor
+        self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
-        params.n_clusters = self.n_clusters
+        params.n_clusters = <int>self.n_clusters
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
                 raise ValueError('The shape of the initial centers (%s) '
@@ -282,8 +281,8 @@ class KMeans(Base):
                                  % (self.init.shape, self.n_clusters))
             params.init = Array
             dim_cc = self.n_clusters * self.n_cols
-            self.cluster_centers_ = cuda.device_array(dim_cc,
-                                                      dtype=self.dtype)
+            self.cluster_centers_ = rmm.device_array(dim_cc,
+                                                     dtype=self.dtype)
             si = self.init
             self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
@@ -293,7 +292,7 @@ class KMeans(Base):
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
             params.init = Array
-            self.cluster_centers_ = cuda.to_device(self.init.flatten())
+            self.cluster_centers_ = rmm.to_device(self.init.flatten())
 
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             params.init = KMeansPlusPlus
@@ -304,11 +303,13 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        params.max_iter = self.max_iter
-        params.tol = self.tol
-        params.verbose = self.verbose
-        params.seed = self.random_state
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbose = <int>self.verbose
+        params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+        params.batch_size=<int>self.max_samples_per_batch
+        params.oversampling_factor=<double>self.oversampling_factor
         self._params = params
 
     def fit(self, X):
@@ -338,7 +339,7 @@ class KMeans(Base):
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             clust_cent = zeros(self.n_clusters * self.n_cols,
                                dtype=self.dtype)
-            self.cluster_centers_ = cuda.to_device(clust_cent)
+            self.cluster_centers_ = rmm.to_device(clust_cent)
 
         c_c = self.cluster_centers_
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
@@ -534,8 +535,8 @@ class KMeans(Base):
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(zeros(self.n_clusters*n_rows,
-                                    dtype=self.dtype))
+        preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
+                                   dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
 
@@ -613,49 +614,7 @@ class KMeans(Base):
         """
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
-                     'n_init', 'n_jobs', 'precompute_distances',
-                     'random_state', 'tol', 'verbose']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"algorithm": self.algorithm,
-                          "copy_x": self.copy_x,
-                          "init": self.init,
-                          "max_iter": self.max_iter,
-                          "n_clusters": self.n_clusters,
-                          "n_init": self.n_init,
-                          "n_jobs": self.n_jobs,
-                          "precompute_distances": self.precompute_distances,
-                          "random_state": self.random_state,
-                          "tol": self.tol,
-                          "verbose": self.verbose
-                          }
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
+    def get_param_names(self):
+        return ['oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state',
+                'tol', 'verbose']
