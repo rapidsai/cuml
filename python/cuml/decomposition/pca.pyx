@@ -23,7 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -45,7 +45,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     paramsPCA prms)
+                     paramsPCA prms) except +
 
     cdef void pcaFit(cumlHandle& handle,
                      double *input,
@@ -55,7 +55,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     paramsPCA prms)
+                     paramsPCA prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               float *input,
@@ -66,7 +66,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                               float *singular_vals,
                               float *mu,
                               float *noise_vars,
-                              paramsPCA prms)
+                              paramsPCA prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               double *input,
@@ -77,7 +77,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                               double *singular_vals,
                               double *mu,
                               double *noise_vars,
-                              paramsPCA prms)
+                              paramsPCA prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   float *trans_input,
@@ -85,7 +85,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
-                                  paramsPCA prms)
+                                  paramsPCA prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   double *trans_input,
@@ -93,7 +93,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                                   double *singular_vals,
                                   double *mu,
                                   double *input,
-                                  paramsPCA prms)
+                                  paramsPCA prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            float *input,
@@ -101,7 +101,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
-                           paramsPCA prms)
+                           paramsPCA prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            double *input,
@@ -109,7 +109,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                            double *trans_input,
                            double *singular_vals,
                            double *mu,
-                           paramsPCA prms)
+                           paramsPCA prms) except +
 
 
 class PCA(Base):
@@ -314,10 +314,10 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
-                                                 dtype=self.dtype))
-        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
-                                                   dtype=self.dtype))
+        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
+                                                dtype=self.dtype))
+        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                                  dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -489,8 +489,8 @@ class PCA(Base):
         params.n_cols = self.n_cols
         params.whiten = self.whiten
 
-        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
-                                          dtype=dtype.type))
+        input_data = rmm.to_device(zeros(params.n_rows*params.n_cols,
+                                         dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
 
@@ -572,8 +572,8 @@ class PCA(Base):
         params.whiten = self.whiten
 
         t_input_data = \
-            cuda.to_device(zeros(params.n_rows*params.n_components,
-                                 dtype=dtype.type))
+            rmm.to_device(zeros(params.n_rows*params.n_components,
+                                dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)

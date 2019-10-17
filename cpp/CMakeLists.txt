@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.9.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.10.0 LANGUAGES CXX CUDA)
 
 
 ###################################################################################################
@@ -52,6 +52,8 @@ option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -59,6 +61,9 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
+
+set(PARALLEL_LEVEL "" CACHE STRING
+    "Sub-projects parallel level for compilation. Currently only affects FAISS" )
 
 option(NVTX "Enable nvtx markers" OFF)
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
@@ -207,10 +212,12 @@ message("GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
+  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT CMAKE_CXX11_ABI)
@@ -222,6 +229,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     message(STATUS "Enabling the GLIBCXX11 ABI")
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+set(CMAKE_CUDA_FLAGS
+  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 ###################################################################################################
 # - clang-format targets --------------------------------------------------------------------------
@@ -258,41 +268,12 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 
 if(BUILD_CUML_CPP_LIBRARY)
 
-  # Configuration of faiss for the correct architectures
-
-  # TODO: Update faiss submodule and use new flags
-  file(READ ${FAISS_DIR}/makefile.inc.in CONFIG_FILE)
-      string(REPLACE "-Xcudafe --diag_suppress=unrecognized_attribute"
-             "--disable-warnings"
-             CONFIG_FILE ${CONFIG_FILE})
-      string(REPLACE "compute_35,code=\"compute_35\"" "compute_60,code=\"sm_60\""
-             CONFIG_FILE ${CONFIG_FILE})
-      string(REPLACE "compute_52,code=\"compute_52\"" "compute_61,code=\"sm_61\""
-             CONFIG_FILE ${CONFIG_FILE})
-      string(REPLACE "compute_60,code=\"compute_60\"" "compute_70,code=\"sm_70\""
-             CONFIG_FILE ${CONFIG_FILE})
-
-  if((CUDA_VERSION_MAJOR EQUAL 9))
-      # Do not generate Turing on 9.2
-      string(REPLACE "-gencode arch=compute_61,code=\"compute_61\" " ""
-             CONFIG_FILE ${CONFIG_FILE})
-
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-      string(REPLACE "compute_61,code=\"compute_61\"" "compute_70,code=\"sm_75\""
-             CONFIG_FILE ${CONFIG_FILE})
-      file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
-  endif()
-
-  file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
-
-
   ExternalProject_Add(faiss
-    SOURCE_DIR ${FAISS_DIR}
-    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
-    BUILD_COMMAND $(MAKE)
-    INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
+    SOURCE_DIR "${FAISS_DIR}"
+    CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --with-cuda-arch=${FAISS_GPU_ARCHS} -v
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faissbuild/
+    BUILD_COMMAND $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
+    INSTALL_COMMAND $(MAKE) -s install > /dev/null
     BUILD_IN_SOURCE 1
     PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
   )
@@ -300,13 +281,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   ExternalProject_Get_Property(faiss install_dir)
 
   add_library(faisslib STATIC IMPORTED)
-  add_library(gpufaisslib STATIC IMPORTED)
 
   add_dependencies(faisslib faiss)
-  add_dependencies(gpufaisslib faiss)
 
   set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
-  set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -319,7 +297,6 @@ include_directories(
   test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${TREELITE_DIR}/include
@@ -346,10 +323,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
-    src/fil/batch_tree_reorg.cu
     src/fil/fil.cu
-    src/fil/naive.cu
-    src/fil/tree_reorg.cu
+    src/fil/infer.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
     src/kalman_filter/lkf_py.cu
@@ -361,9 +336,13 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
+    src/spectral/spectral.cu
+    src/svm/svc.cu
+    src/svm/ws_util.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu)
+    src/umap/umap.cu
+    )
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
@@ -375,11 +354,11 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${ZLIB_LIBRARIES}
     treelitelib
     dmlclib
-    gpufaisslib
-    faisslib)
+    faisslib
+    )
 
   if(OPENMP_FOUND)
-  
+
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -402,7 +381,8 @@ if(BUILD_CUML_C_LIBRARY)
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
-    src/holtwinters/holtwinters_api.cpp)
+    src/holtwinters/holtwinters_api.cpp
+    src/svm/svm_api.cpp)
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
@@ -424,6 +404,13 @@ endif(BUILD_CUML_EXAMPLES)
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+
+###################################################################################################
+# - build benchmark executable --------------------------------------------------------------------
+
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+endif(BUILD_CUML_BENCH)
 
 ###################################################################################################
 # - doxygen targets -------------------------------------------------------------------------------
