@@ -53,26 +53,6 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-    namespace "MLCommon::Matrix":
-
-    cdef cppclass floatData_t:
-        float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        double *ptr
-        size_t totalSize
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-    namespace "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
-
-
 cdef extern from "<vector>" namespace "std":
     cdef cppclass vector[T]:
         cppclass iterator:
@@ -86,6 +66,58 @@ cdef extern from "<vector>" namespace "std":
         T& at(int)
         iterator begin()
         iterator end()
+        void resize(size_t n)
+
+cdef extern from "cumlprims/opg/matrix/data.hpp" \
+    namespace "MLCommon::Matrix":
+
+    cdef cppclass Data[T]:
+        Data(T *ptr, size_t totalSize)
+
+    cdef cppclass floatData_t:
+        float *ptr
+        size_t totalSize
+
+    cdef cppclass doubleData_t:
+        double *ptr
+        size_t totalSize
+
+ctypedef Data[int64_t] int64Data_t
+
+
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
+    namespace "MLCommon::Matrix":
+
+    cdef cppclass RankSizePair:
+        int rank
+        size_t size
+
+    cdef cppclass PartDescriptor:
+        PartDescriptor(size_t M,
+                       size_t N,
+                       vector[RankSizePair*] &partsToRanks,
+                       myrank)
+
+
+
+cdef extern from "cumlprims/opg/selection/knn.hpp" \
+    namespace "MLCommon::Selection:opg":
+
+    cdef brute_force_knn(
+        cumlHandle &handle,
+        vector[int64Data_t*] &out_I,
+        vector[floatData_t*] &out_D,
+        vector[floatData_t*] &idx_data,
+        PartDescriptor &idx_desc,
+        vector[floatData_t*] &query_data,
+        PartDescriptor &query_desc,
+        int k,
+        size_t batch_size,
+        bool verbose
+    )
+
+
+
 
 
 
@@ -106,30 +138,31 @@ class NearestNeighborsMG(NearestNeighbors):
         :param arr_interfaces: 
         :return: 
         """
-        cdef floatData_t ** dataF = < floatData_t ** > \
-                                      malloc(sizeof(floatData_t *) \
-                                             * len(arr_interfaces))
+        cdef vector[floatData_t*] *dataF = new vector[floatData_t*]()
+        # dataF.resize(len(arr_interfaces))
+
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
-            print("Shape: " + str(x["shape"]))
-            dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
-            dataF[x_i].ptr = < float * > input_ptr
-            dataF[x_i].totalSize = < size_t > (x["shape"][0] * x["shape"][1] * sizeof(float))
-            print("Size: " + str((x["shape"][0] * x["shape"][1] * sizeof(float))))
+            data = < floatData_t * > malloc(sizeof(floatData_t))
+            data.ptr = < float * > input_ptr
+            data.totalSize = < size_t > (x["shape"][0] * x["shape"][1] * sizeof(float))
+
+            dataF.push_back(data)
 
         return <size_t>dataF
 
     def _freeFloatD(self, data, arr_interfaces):
         cdef uintptr_t data_ptr = data
-        cdef floatData_t **d = <floatData_t**>data_ptr
+        cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
         for x_i in range(len(arr_interfaces)):
-            free(d[x_i])
+            free(d.at(x_i))
         free(d)
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
-                         queries, query_m, query_partsToRanks):
+                         queries, query_m, query_partsToRanks,
+                         rank):
         """
         Query the kneighbors of an index
         :param indices: [__cuda_array_interface__] of local index partitions
@@ -154,30 +187,37 @@ class NearestNeighborsMG(NearestNeighbors):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef RankSizePair **index_rankSizePair = <RankSizePair**> \
-                                                 malloc(sizeof(RankSizePair**) \
-                                                   * len(index_partsToRanks))
+        cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
 
-        cdef RankSizePair **query_rankSizePair = <RankSizePair**> \
-                                                 malloc(sizeof(RankSizePair**) \
-                                                   * len(query_partsToRanks))
+        cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
 
         for idx, rankSize in enumerate(index_partsToRanks):
             rank, size = rankSize
-            index_rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
-            index_rankSizePair[idx].rank = <int>rank
-            index_rankSizePair[idx].size = <size_t>size
+            index = <RankSizePair*> malloc(sizeof(RankSizePair))
+            index.rank = <int>rank
+            index.size = <size_t>size
+
+            index_vec.push_back(index)
 
         for idx, rankSize in enumerate(query_partsToRanks):
             rank, size = rankSize
-            query_rankSizePair[idx] = < RankSizePair * > malloc(sizeof(RankSizePair))
-            query_rankSizePair[idx].rank = < int > rank
-            query_rankSizePair[idx].size = < size_t > size
+            query = < RankSizePair * > malloc(sizeof(RankSizePair))
+            query.rank = < int > rank
+            query.size = < size_t > size
 
-        cdef floatData_t **local_index_parts = \
-                <floatData_t**><size_t>self._build_dataFloat(indices)
-        cdef floatData_t **local_query_parts = \
-                <floatData_t**><size_t>self._build_dataFloat(queries)
+            query_vec.push_back(query)
+
+        cdef vector[floatData_t*] *local_index_parts = \
+                <vector[floatData_t*]*><size_t>self._build_dataFloat(indices)
+        cdef vector[floatData_t*] *local_query_parts = \
+                <vector[floatData_t*]*><size_t>self._build_dataFloat(queries)
+
+        cdef PartDescriptor *index_descriptor = new PartDescriptor( \
+            index_m, n, deref(index_vec), rank)
+        cdef PartDescriptor *query_descriptor = new PartDescriptor( \
+            index_m, n, deref(index_vec), rank)
+
+
 
 
         cdef uintptr_t X_ctype = -1
