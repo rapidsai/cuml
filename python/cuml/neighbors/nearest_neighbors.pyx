@@ -199,7 +199,7 @@ class NearestNeighbors(Base):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
 
-        self.n_gpus = n_gpus
+        self.n_gpus = devices
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast

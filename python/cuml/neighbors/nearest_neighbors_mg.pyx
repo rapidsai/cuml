@@ -44,9 +44,31 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
+cdef extern from "<vector>" namespace "std":
+    cdef cppclass vector[T]:
+        cppclass iterator:
+            T operator*()
+            iterator operator++()
+            bint operator==(iterator)
+            bint operator!=(iterator)
+        vector()
+        void push_back(T&)
+        T& operator[](int)
+        T& at(int)
+        iterator begin()
+        iterator end()
+
+
 
 class NearestNeighborsMG(NearestNeighbors):
+    """
+    Multi-node multi-GPU Nearest Neighbors kneighbors query.
 
+    NOTE: This implementation of NearestNeighbors is meant to be
+    used with an initialized cumlCommunicator instance inside an
+    existing distributed system. Refer to the Dask NearestNeighbors
+     implementation in `cuml.dask.neighbors.nearest_neighbors`.
+    """
 
     def _build_dataFloat(self, arr_interfaces):
         """
@@ -77,18 +99,20 @@ class NearestNeighborsMG(NearestNeighbors):
             free(d[x_i])
         free(d)
 
-    def fit(self, X, M, N, partsToRanks):
+    def kneighbors(self, indices, index_m, n, index_partsToRanks,
+                         queries, query_m, query_partsToRanks):
         """
-        Multi-node multi-GPU NearestNeighbors.
-
-        NOTE: This implementation of NearestNeighbors is meant to be
-        used with an initialized cumlCommunicator instance inside an
-        existing distributed system. Refer to the Dask NearestNeighbors
-         implementation in `cuml.dask.neighbors.nearest_neighbors`.
-
-        :param X : cudf.Dataframe A dataframe to fit to the current model
-        :return:
+        Query the kneighbors of an index
+        :param indices: [__cuda_array_interface__] of local index partitions
+        :param index_m: number of total index rows
+        :param n: number of columns
+        :param index_partsToRanks: mappings of index partitions to ranks
+        :param queries: [__cuda_array_interface__] of local query partitions
+        :param query_m: number of total query rows
+        :param query_partsToRanks: mappings of query partitions to ranks
+        :return: 
         """
+
         if self._should_downcast:
             warnings.warn("Parameter should_downcast is deprecated, use "
                           "convert_dtype in fit and kneighbors "
@@ -104,82 +128,32 @@ class NearestNeighborsMG(NearestNeighbors):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
+        index_rankSizePair = []
+        query_rankSizePair = []
+
+        for idx, rankSize in enumerate(index_partsToRanks):
+            rank, size = rankSize
+            index_rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+            index_rankSizePair[idx].rank = <int>rank
+            index_rankSizePair[idx].size = <size_t>size
+
+        for idx, rankSize in enumerate(query_partsToRanks):
+            rank, size = rankSize
+            query_rankSizePair[idx] = < RankSizePair * > malloc(sizeof(RankSizePair))
+            query_rankSizePair[idx].rank = < int > rank
+            query_rankSizePair[idx].size = < size_t > size
+
+        cdef local_index_parts = <floatData_t**>self._build_dataFloat(indices)
+        cdef local_query_parts = <floatData_t**>self._build_dataFloat(queries)
+
+
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
 
-        cdef float** input_arr
-        cdef int* sizes_arr
-
-        if isinstance(X, np.ndarray) and self.n_gpus > 1:
-
-            if X.dtype != np.float32:
-                if self._should_downcast or convert_dtype:
-                    X = np.ascontiguousarray(X, np.float32)
-                    if len(X[X == np.inf]) > 0:
-                        raise ValueError("Downcast to single-precision "
-                                         "resulted in data loss.")
-                else:
-                    raise TypeError("Only single precision floating point is"
-                                    " supported for this algorithm. Use "
-                                    "'convert_dtype=True' if you'd like it "
-                                    "to be automatically casted to single "
-                                    "precision.")
-
-            sys_devices = set([d.id for d in cuda.gpus])
-
-            if self.devices is not None:
-                for d in self.devices:
-                    if d not in sys_devices:
-                        raise RuntimeError("Device %d is not available" % d)
-
-                final_devices = self.devices
-
-            else:
-                n_gpus = min(self.n_gpus, len(sys_devices))
-                final_devices = list(sys_devices)[:n_gpus]
-
-            final_devices = np.ascontiguousarray(np.array(final_devices),
-                                                 np.int32)
-
-            X_ctype = X.ctypes.data
-            dev_ptr = final_devices.ctypes.data
-
-            input_arr = <float**> malloc(len(final_devices) * sizeof(float *))
-            sizes_arr = <int*> malloc(len(final_devices) * sizeof(int))
-
-            chunk_host_array(
-                handle_[0],
-                <float*>X_ctype,
-                <int>X.shape[0],
-                <int>X.shape[1],
-                <int*>dev_ptr,
-                <float**>input_arr,
-                <int*>sizes_arr,
-                <int>len(final_devices)
-            )
-
-            self.input = <size_t>input_arr
-            self.sizes = <size_t>sizes_arr
-            self.n_indices = len(final_devices)
-
-        else:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32,
-                                   convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None))
-
-            input_arr = <float**> malloc(sizeof(float *))
-            sizes_arr = <int*> malloc(sizeof(int))
-
-            sizes_arr[0] = <int>len(X)
-            input_arr[0] = <float*>X_ctype
-
-            self.n_indices = 1
-
-            self.input = <size_t>input_arr
-            self.sizes = <size_t>sizes_arr
-
+        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
         return self
 
-    def kneighbors(self, X):
