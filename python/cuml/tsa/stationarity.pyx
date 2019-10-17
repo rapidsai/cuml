@@ -41,7 +41,55 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
 
 def stationarity(y, pval_threshold=0.05, handle=None):
     """
-    TODO: write docs
+    Compute recommended trend parameter (d=0 or 1) for a batched series
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        from cuml.tsa.stationarity import stationarity
+        
+        num_samples = 200
+        xs = np.linspace(0, 1, num_samples)
+        np.random.seed(12)
+        noise = np.random.normal(scale=0.1, size=num_samples)
+        ys1 = noise + 0.5*xs  # d = 1
+        ys2 = noise           # d = 0
+
+        num_batches = 2
+        ys_df = np.zeros((num_samples, num_batches), order="F")
+        ys_df[:, 0] = ys1
+        ys_df[:, 1] = ys2
+
+        d_b = stationarity(ys_df)
+        print(d_b)
+
+    Output:
+
+    .. code-block:: none
+
+        [1, 0]
+
+    Parameters
+    ----------
+    y : array-like (device or host)
+        Batched series to compute the trend parameters of.
+        Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
+        numba device ndarray, cuda array interface compliant array like CuPy.
+        Note: cuDF.DataFrame types assumes data is in columns, while all other
+        datatypes assume data is in rows.
+    pval_threshold : float
+                     The p-value threshold above which a series is considered
+                     stationary.
+    handle : cuml.Handle (default=None)
+             If it is None, a new one is created just for this function call.
+
+    Returns
+    -------
+    stationarity : list[int]
+                   The recommended `d` for each series
+
     """
     # TODO: don't impose dtype?
     cdef uintptr_t y_d_ptr

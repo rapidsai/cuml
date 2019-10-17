@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 /**
-* @file stationarity.cuh
-* @brief TODO
-
+* @file stationarity.h
+* @brief Compute the recommended trend parameter for a batched series.
+* Reference: 'Testing the null hypothesis of stationarity against the
+* alternative of a unit root', Kwiatkowski et al. 1992.
+* See https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
+* for additional details.
 */
 
 // TODO: flexible index type?
@@ -40,27 +43,43 @@ namespace MLCommon {
 
 namespace TimeSeries {
 
+/**
+* @brief Auxiliary function to decide the block dimensions
+*
+* @tparam     TPB        Threads per block
+* @param[in]  n_batches  Number of batches in the input data
+* @return                The block dimension
+*/
 template <int TPB>
-dim3 choose_block_dims(int n_batches, int n_samples) {
-  // TODO: actual heuristics here
-  int tpb_y = 4;
+static inline dim3 choose_block_dims(int n_batches) {
+  int tpb_y = n_batches > 8 ? 4 : 1;
   dim3 block(TPB / tpb_y, tpb_y);
   return block;
 }
 
-// This trick for the 2d scan is from thrust/examples/scan_matrix_by_rows.cu
-struct which_col : thrust::unary_function<int, int> {
-  int col_length;
-  __host__ __device__ which_col(int col_length_) : col_length(col_length_) {}
-  __host__ __device__ int operator()(int idx) const { return idx / col_length; }
-};
-
-/* TODO: doc
- */
+/**
+* @brief Kernel to batch the first differences of a selection of series
+*
+* @details The kernel combines 2 operations: selecting a number of series from
+*          the original data and derivating them (calculating the difference of
+*          consecutive terms)
+*
+* @note The number of batches in the input matrix is not known by this function
+*       which trusts the gather_map array to hold correct column numbers. The
+*       number of samples in the input matrix is one more than in the output.
+*
+* @tparam      DataT           Scalar type of the data (float or double)
+* @param[out]  diff            Output matrix
+* @param[in]   data            Input matrix
+* @param[in]   gather_map      Array that indicates the source column in the
+                               input matrix for each column of the output matrix
+* @param[in]   n_diff_batches  Number of columns in the output matrix
+* @param[in]   n_diff_samples  Number of rows in the output matrix
+*/
 template <typename DataT>
 static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
-                                   int* gather_map, int n_diff_batches,
-                                   int n_diff_samples) {
+                                          int* gather_map, int n_diff_batches,
+                                          int n_diff_samples) {
   int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
   int batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -72,13 +91,33 @@ static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
   }
 }
 
-// TODO: explain
-// Note: there is one extra element per series but it avoids some index
-// calculations and the accumulator has the right size anyway as it is recycled
+/**
+ * @brief Auxiliary kernel for the computation of s2 (Kwiatkowski 1992 eq.10)
+ * 
+ * @details The kernel computes partial sums for the term of equation 10.
+ *          A reduction is performed to get the full sum.
+ *          If y is a series and z the accumulator, this kernel computes:
+ *          z[t] = w(k) * sum from k=1 to lags of y[t]*y[t+k]
+ *          padded with zeros and where w(k)=2/ns*(1-k/(lags+1))
+ * 
+ * @note The accumulator has one extra element per series, which avoids some
+ *       index calculations and it has the right size anyway since it is
+ *       recycled for another operation.
+ * 
+ * @tparam      DataT        Scalar type of the data (float or double)
+ * @param[out]  accumulator  Output matrix that holds the partial sums
+ * @param[in]   data         Source data
+ * @param[in]   lags         Number of lags
+ * @param[in]   n_batches    Number of columns in the data
+ * @param[in]   n_samples    Number of rows in the data
+ * @param[in]   coeff_a      Part of the calculation for w(k)=a*k+b
+ * @param[in]   coeff_b      Part of the calculation for w(k)=a*k+b
+*/
 template <typename DataT>
-static __global__ void s2B_accumulation_kernel(DataT* accumulator, const DataT* data,
-                                        int lags, int n_batches, int n_samples,
-                                        DataT coeff_a, DataT coeff_b) {
+static __global__ void s2B_accumulation_kernel(DataT* accumulator,
+                                               const DataT* data, int lags,
+                                               int n_batches, int n_samples,
+                                               DataT coeff_a, DataT coeff_b) {
   int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
   int batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -93,11 +132,26 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator, const DataT* 
   }
 }
 
+/**
+ * @brief Kernel to decide whether the series are stationary or not
+ * 
+ * @details The kernel uses the results of the different equations to
+ *          make the final decision for each series.
+ *
+ * @tparam      DataT           Scalar type of the data (float or double)
+ * @param[out]  results         Boolean array to store the results.
+ * @param[in]   s2A             1st component of eq.10 (before division by ns)
+ * @param[in]   s2B             2nd component of eq.10
+ * @param[in]   eta             Eq.11 (before division by ns^2)
+ * @param[in]   n_batches       Number of batches
+ * @param[in]   n_samples_f     Number of samples (floating-point number)
+ * @param[in]   pval_threshold  P-value threshold above which the series is
+ *                              considered stationary
+*/
 template <typename DataT>
-static __global__ void stationarity_check_kernel(bool* results, const DataT* s2A,
-                                          const DataT* s2B, const DataT* eta,
-                                          int n_batches, DataT n_samples_f,
-                                          DataT pval_threshold) {
+static __global__ void stationarity_check_kernel(
+  bool* results, const DataT* s2A, const DataT* s2B, const DataT* eta,
+  int n_batches, DataT n_samples_f, DataT pval_threshold) {
   // Table 1, Kwiatkowski 1992
   const DataT crit_vals[4] = {0.347, 0.463, 0.574, 0.739};
   const DataT pvals[4] = {0.10, 0.05, 0.025, 0.01};
@@ -133,7 +187,38 @@ static __global__ void stationarity_check_kernel(bool* results, const DataT* s2A
   }
 }
 
-// TODO: doc
+/* A structure that defines a function to get the column of an element of
+ * a matrix from its index. This makes possible a 2d scan with thrust.
+ * Found in thrust/examples/scan_matrix_by_rows.cu
+ */
+struct which_col : thrust::unary_function<int, int> {
+  int col_length;
+  __host__ __device__ which_col(int col_length_) : col_length(col_length_) {}
+  __host__ __device__ int operator()(int idx) const { return idx / col_length; }
+};
+
+/**
+ * @brief Applies the stationarity test to the given series
+ * 
+ * @details The following algorithm is based on Kwiatkowski 1992:
+ *          - Center each series around its mean
+ *          - Calculate s^2 (eq. 10) and eta (eq. 11)
+ *          - Deduce the p-value and compare against the threshold
+ * 
+ * @note The data is a column-major matrix where the series are columns.
+ *       This function will be called at most twice by `stationarity`
+ *
+ * @tparam      DataT           Scalar type of the data (float or double)
+ * @param[in]   y_d             Input data
+ * @param[out]  results         Boolean array to store the results of the test
+ * @param[in]   n_batches       Number of batches
+ * @param[in]   n_samples       Number of samples
+ * @param[in]   allocator       cuML device memory allocator
+ * @param[in]   stream          CUDA stream
+ * @param[in]   cublas_handle   cuBLAS handle
+ * @param[in]   pval_threshold  P-value threshold above which a series is
+ *                              considered stationary 
+ */
 template <typename DataT>
 static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
                            int n_samples,
@@ -141,7 +226,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
                            cudaStream_t stream, cublasHandle_t cublas_handle,
                            DataT pval_threshold) {
   constexpr int TPB = 256;
-  dim3 block = choose_block_dims<TPB>(n_batches, n_samples);
+  dim3 block = choose_block_dims<TPB>(n_batches);
   dim3 grid(ceildiv<int>(n_samples, block.x), ceildiv<int>(n_batches, block.y));
 
   DataT n_samples_f = static_cast<DataT>(n_samples);
@@ -214,14 +299,39 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
   allocator->deallocate(y_cent_d, n_batches * n_samples * sizeof(DataT),
                         stream);
   allocator->deallocate(accumulator_d, n_batches * n_samples * sizeof(DataT),
-                        stream);  // TODO: reuse y_cent_d
+                        stream);
   allocator->deallocate(eta_d, n_batches * sizeof(DataT), stream);
   allocator->deallocate(s2A_d, n_batches * sizeof(DataT), stream);
   allocator->deallocate(s2B_d, n_batches * sizeof(DataT), stream);
   allocator->deallocate(results_d, n_batches * sizeof(bool), stream);
 }
 
-// TODO: doc
+/**
+ * @brief Compute recommended trend parameter (d=0 or 1) for a batched series
+ * 
+ * @details This function operates a stationarity test on the given series
+ *          and for the series that fails the test, differenciates them
+ *          and runs the test again on the first difference.
+ * 
+ * @note The data is a column-major matrix where the series are columns.
+ *       The output is an array of size n_batches.
+ * 
+ * @tparam      DataT           Scalar type of the data (float or double)
+ * @param[in]   y_d             Input data
+ * @param[out]  d               Integer array to store the trends
+ * @param[in]   n_batches       Number of batches
+ * @param[in]   n_samples       Number of samples
+ * @param[in]   allocator       cuML device memory allocator
+ * @param[in]   stream          CUDA stream
+ * @param[in]   cublas_handle   cuBLAS handle
+ * @param[in]   pval_threshold  P-value threshold above which a series is
+ *                              considered stationary
+ * 
+ * @return      An integer to track if some series failed the test
+ * @retval  -1  Some series failed the test
+ * @retval   0  All series passed the test for d=0
+ * @retval   1  Some series passed for d=0, the others for d=1
+ */
 template <typename DataT>
 int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
@@ -247,6 +357,8 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
   int n_diff_batches = gather_map_h.size();
   if (n_diff_batches == 0) return 0;  // All series are stationary with d=0
 
+  /* Construct a matrix of the first difference of the series that failed
+       the test for d=0 */
   int n_diff_samples = n_samples - 1;
   int* gather_map_d =
     (int*)allocator->allocate(n_diff_batches * sizeof(int), stream);
@@ -256,11 +368,10 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
     n_diff_batches * n_diff_samples * sizeof(DataT), stream);
 
   constexpr int TPB = 256;
-  dim3 block = choose_block_dims<TPB>(n_diff_batches, n_diff_samples);
+  dim3 block = choose_block_dims<TPB>(n_diff_batches);
   dim3 grid(ceildiv<int>(n_diff_samples, block.x),
             ceildiv<int>(n_diff_batches, block.y));
 
-  // Calculate the diff for the series that failed the test with d=0
   gather_diff_kernel<<<grid, block, 0, stream>>>(
     y_diff_d, y_d, gather_map_d, n_diff_batches, n_diff_samples);
   CUDA_CHECK(cudaPeekAtLastError());

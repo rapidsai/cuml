@@ -21,8 +21,28 @@ namespace ML {
 
 namespace Stationarity {
 
-/* TODO: docs
- * Question: types? Instanciate for both float and double?
+/**
+ * @brief Compute recommended trend parameter (d=0 or 1) for a batched series
+ * 
+ * @details This function operates a stationarity test on the given series
+ *          and for the series that fails the test, differenciates them
+ *          and runs the test again on the first difference.
+ * 
+ * @note The data is a column-major matrix where the series are columns.
+ *       The output is an array of size n_batches.
+ * 
+ * @param[in]   handle          cuML handle
+ * @param[in]   y_d             Input data
+ * @param[out]  d               Integer array to store the trends
+ * @param[in]   n_batches       Number of batches
+ * @param[in]   n_samples       Number of samples
+ * @param[in]   pval_threshold  P-value threshold above which a series is
+ *                              considered stationary
+ * 
+ * @return      An integer to track if some series failed the test
+ * @retval  -1  Some series failed the test
+ * @retval   0  All series passed the test for d=0
+ * @retval   1  Some series passed for d=0, the others for d=1
  */
 int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
                  int n_batches, int n_samples, double pval_threshold = 0.05);
