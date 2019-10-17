@@ -9,6 +9,7 @@
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
 
 ## Bug Fixes
