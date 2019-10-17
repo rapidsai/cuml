@@ -496,13 +496,8 @@ class RandomForestRegressor(Base):
                               output_class,
                               algo):
         _, _, n_rows, n_cols, X_dtype = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X_dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         # task category = 1 for regression
         treelite_model = self._get_treelite(num_features=n_cols,
@@ -519,7 +514,8 @@ class RandomForestRegressor(Base):
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
@@ -638,7 +634,8 @@ class RandomForestRegressor(Base):
         mean_abs_error : float
         """
         cdef uintptr_t X_ptr, y_ptr
-        y_m, y_ptr, n_rows, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, _ = \
+            input_to_dev_array(y, check_dtype=self.dtype)
 
         preds = self._predict_model_on_gpu(X, output_class=False,
                                            algo=algo)
