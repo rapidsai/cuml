@@ -18,12 +18,12 @@ import numpy as np
 
 from cuml import Lasso as cuLasso
 from cuml.linear_model import ElasticNet as cuElasticNet
+from cuml.metrics import r2_score
 from cuml.test.utils import small_regression_dataset, unit_param, \
     quality_param, stress_param
 
 from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.datasets import make_regression
-from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 
 
