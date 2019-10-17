@@ -32,6 +32,9 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from cython.operator cimport dereference as deref
 
+from cuml.common.handle cimport cumlHandle
+
+
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
@@ -46,16 +49,6 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
-cdef extern from "cuML.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
 
 cdef extern from "knn/knn.hpp" namespace "ML":
 
