@@ -266,7 +266,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)), coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
   DataT* s2B_d = (DataT*)allocator->allocate(n_batches * sizeof(DataT), stream);
-  MLCommon::LinAlg::reduce(s2B_d, accumulator_d, n_batches, n_samples - 1,
+  MLCommon::LinAlg::reduce(s2B_d, accumulator_d, n_batches, n_samples,
                            static_cast<DataT>(0.0), false, false, stream,
                            false);
 
