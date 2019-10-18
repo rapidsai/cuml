@@ -33,3 +33,10 @@ dask-worker-space/
 
 ## ccls
 .ccls-cache
+.ccls
+
+## profiling
+*.qdrep
+*.qdrep.cache
+*.qdstrm
+*.nvprof
