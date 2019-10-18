@@ -234,21 +234,27 @@ class PCAMG(PCA):
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
+        n_total_parts = 0
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:
+                n_total_parts = n_total_parts + 1
+
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
                                             malloc(sizeof(RankSizePair**) \
-                                                   * len(partsToRanks))
+                                                   * n_total_parts)
 
+        indx = 0
         n_part_row = 0
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
-            rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
-            rankSizePair[idx].rank = <int>rank
-            rankSizePair[idx].size = <size_t>size    
-            if rnk == rankSizePair[idx].rank:
-                n_part_row = n_part_row + rankSizePair[idx].size
-
-        n_total_parts = len(partsToRanks)
-
+            if rnk == rank:            
+                rankSizePair[indx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+                rankSizePair[indx].rank = <int>rank
+                rankSizePair[indx].size = <size_t>size    
+                n_part_row = n_part_row + rankSizePair[indx].size
+                indx = indx + 1
+        
         self._initialize_arrays_2(params.n_components,
                                 params.n_rows, params.n_cols, n_part_row)
 
@@ -272,7 +278,7 @@ class PCAMG(PCA):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        
+        print("Fill will be called")
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
@@ -317,8 +323,8 @@ class PCAMG(PCA):
             # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         
-
-        for idx, rankSize in enumerate(partsToRanks):
+        print("Done")
+        for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
 
