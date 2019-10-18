@@ -5,7 +5,8 @@ This document summarizes rules and best practices for contributions to the cuML 
 Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Performance
-1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See PR [#973](https://github.com/rapidsai/cuml/pull/973) for more details.
+1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
 
 ## Threading Model
 
@@ -289,6 +290,16 @@ void foo(const ML::cumlHandle_impl& h, ...)
     const int stream_idx        = ...
     cudaStream_t stream         = h.getInternalStream(stream_idx);
     ...
+}
+```
+
+The example below shows one way to create `nStreams` number of internal cuda streams which can later be used by the algos inside cuML. For a full working example of how to use internal streams to schedule work on a single GPU, the reader is further referred to [this PR](https://github.com/rapidsai/cuml/pull/1015). In this PR, the internal streams inside `cumlHandle_impl` are used to schedule more work onto a GPU for Random Forest building.
+```cpp
+int main(int argc, char** argv)
+{
+    int nStreams = argc > 1 ? atoi(argv[1]) : 0;
+    ML::cumlHandle handle(nStreams);
+    foo(handle.getImpl(), ...);
 }
 ```
 

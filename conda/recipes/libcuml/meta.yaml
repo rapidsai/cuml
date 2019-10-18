@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c defaults -c conda-forge -c nvidia -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
@@ -24,6 +24,7 @@ build:
     - CUDAHOSTCXX
     - BUILD_ABI
     - PARALLEL_LEVEL
+    - VERSION_SUFFIX
 
 requirements:
   build:
@@ -33,8 +34,10 @@ requirements:
     - nccl 2.4.*
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
+    - libcumlprims {{ minor_version }}
     - lapack
   run:
+    - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl 2.4.*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}

@@ -24,7 +24,7 @@ import logging
 import random
 
 from cuml.utils import numba_utils
-
+import rmm
 
 from dask import delayed
 from collections import defaultdict
@@ -229,9 +229,9 @@ def input_to_device_arrays(X, params):
     shape = X_mat.shape[0]*params["k"]
 
     # Create output numba arrays.
-    I_ndarr = numba.cuda.to_device(np.zeros(shape, dtype=np.int64, order="C"))
-    D_ndarr = numba.cuda.to_device(np.zeros(shape, dtype=np.float32,
-                                            order="C"))
+    I_ndarr = rmm.to_device(np.zeros(shape, dtype=np.int64, order="C"))
+    D_ndarr = rmm.to_device(np.zeros(shape, dtype=np.float32,
+                                     order="C"))
 
     # Return canonical device id as string
     return [(X_mat, I_ndarr, D_ndarr)], dev, (start_idx, stop_idx)

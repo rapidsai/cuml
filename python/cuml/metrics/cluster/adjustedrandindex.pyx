@@ -29,7 +29,7 @@ from cuml.utils import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     double adjustedRandIndex(cumlHandle &handle,
                              int *y,
@@ -62,7 +62,7 @@ def adjusted_rand_score(labels_true,
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
-    if labels_true.astype != np.int32:
+    if labels_true.astype != np.int64:
         warnings.warn(" The dtype of ground truth is not int32"
                       " converting the ground truth to int32")
         labels_true = labels_true.astype(np.int32)

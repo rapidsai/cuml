@@ -35,28 +35,29 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from librmm_cffi import librmm as rmm
+import rmm
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
 
     cdef cppclass cumlHandle:
         cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-        cuml.common.cuda._Stream getStream()
+        void setStream(cuml.common.cuda._Stream s) except +
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
+        cuml.common.cuda._Stream getStream() except +
 
-cdef extern from "knn/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void brute_force_knn(
         cumlHandle &handle,
@@ -69,7 +70,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         long *res_I,
         float *res_D,
         int k
-    )
+    ) except +
 
     void chunk_host_array(
         cumlHandle &handle,
@@ -80,7 +81,7 @@ cdef extern from "knn/knn.hpp" namespace "ML":
         float **output,
         int *sizes,
         int n_chunks
-    )
+    ) except +
 
 
 class NearestNeighbors(Base):
@@ -444,8 +445,8 @@ class NearestNeighbors(Base):
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = cuda.to_device(zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = cuda.to_device(zeros(N*k, dtype=np.float32, order="C"))
+        I_ndarr = rmm.to_device(zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = rmm.to_device(zeros(N*k, dtype=np.float32, order="C"))
 
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)

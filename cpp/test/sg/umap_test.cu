@@ -16,11 +16,18 @@
 
 #include <gtest/gtest.h>
 
-#include "cuML.hpp"
+#include "distance/distance.h"
 
-#include "knn/knn.hpp"
+#include "datasets/digits.h"
+
+#include <cuml/manifold/umapparams.h>
+#include <metrics/trustworthiness.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/neighbors/knn.hpp>
+
+#include "common/device_buffer.hpp"
 #include "umap/runner.h"
-#include "umap/umapparams.h"
 
 #include <cuda_utils.h>
 
@@ -28,7 +35,13 @@
 #include <vector>
 
 using namespace ML;
+using namespace ML::Metrics;
+
 using namespace std;
+
+using namespace MLCommon;
+using namespace MLCommon::Distance;
+using namespace MLCommon::Datasets::Digits;
 
 /**
  * For now, this is mostly to test the c++ algorithm is able to be built.
@@ -41,39 +54,57 @@ class UMAPTest : public ::testing::Test {
   void basicTest() {
     cumlHandle handle;
 
-    umap_params = new UMAPParams();
-    umap_params->n_neighbors = k;
-    umap_params->verbose = true;
-    umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
+    cudaStream_t stream = handle.getStream();
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    umap_params = new UMAPParams();
+    umap_params->n_neighbors = 15;
+    umap_params->n_epochs = 500;
+    umap_params->min_dist = 0.01;
+    umap_params->verbose = false;
+
     UMAPAlgo::find_ab(umap_params, stream);
 
-    std::vector<float> X = {1.0,  1.0, 34.0, 76.0, 2.0, 29.0,
-                            34.0, 3.0, 13.0, 23.0, 7.0, 80.0};
+    /**
+     * Allocate digits dataset
+     */
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * n_features);
+    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * 2);
 
-    std::vector<float> Y = {-1, 1, 1, 0};
+    MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
+                           handle.getStream());
 
-    float *X_d, *Y_d;
-    MLCommon::allocate(Y_d, n);
-    MLCommon::allocate(X_d, n * d);
-    MLCommon::updateDevice(X_d, X.data(), n * d, stream);
-    MLCommon::updateDevice(Y_d, Y.data(), n, stream);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    MLCommon::allocate(embeddings, n * umap_params->n_components);
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
 
-    UMAPAlgo::_fit<float, 256>(handle, X_d, n, d, umap_params, embeddings);
+    UMAPAlgo::_fit<float, 32>(handle, X_d.data(), n_samples, n_features,
+                              umap_params, embeddings.data());
 
-    float *xformed;
-    MLCommon::allocate(xformed, n * umap_params->n_components);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    UMAPAlgo::_transform<float, 32>(handle, X_d, n, d, X_d, n, embeddings, n,
-                                    umap_params, xformed);
+    fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
 
-    UMAPAlgo::_fit<float, 32>(handle, X_d, Y_d, n, d, umap_params, embeddings);
+    device_buffer<float> xformed(handle.getDeviceAllocator(),
+                                 handle.getStream(),
+                                 n_samples * umap_params->n_components);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    UMAPAlgo::_transform<float, 32>(handle, X_d.data(), n_samples, n_features,
+                                    X_d.data(), n_samples, embeddings.data(),
+                                    n_samples, umap_params, xformed.data());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), xformed.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
+    //
+    //    UMAPAlgo::_fit<float, 32>(handle, X_d, Y_d, n, d, umap_params, embeddings);
   }
 
   void SetUp() override { basicTest(); }
@@ -83,12 +114,13 @@ class UMAPTest : public ::testing::Test {
  protected:
   UMAPParams *umap_params;
 
-  int d = 3;
-  int n = 4;
+  double fit_score;
+  double xformed_score;
   int k = 2;
-
-  float *embeddings;
 };
 
 typedef UMAPTest UMAPTestF;
-TEST_F(UMAPTestF, Result) {}
+TEST_F(UMAPTestF, Result) {
+  ASSERT_TRUE(fit_score > 0.97);
+  ASSERT_TRUE(xformed_score > 0.70);
+}

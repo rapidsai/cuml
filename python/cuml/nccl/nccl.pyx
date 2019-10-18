@@ -26,8 +26,10 @@ from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
 cdef extern from "cuML_comms_py.hpp" namespace "ML":
-    void get_unique_id(char *uid, int size)
-    void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size)
+    void get_unique_id(char *uid, int size) except +
+    void ncclUniqueIdFromChar(ncclUniqueId *id,
+                              char *uniqueId,
+                              int size) except +
 
 cdef extern from "nccl.h":
 

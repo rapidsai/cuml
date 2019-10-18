@@ -23,8 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-
+import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -34,19 +33,19 @@ from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "tsvd/tsvd.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,
                       float *input,
                       float *components,
                       float *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFit(cumlHandle& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                float *input,
@@ -55,7 +54,7 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                double *input,
@@ -64,31 +63,31 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             float *input,
                             float *components,
                             float *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             double *input,
                             double *components,
                             double *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
 
 class TruncatedSVD(Base):
@@ -251,10 +250,10 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
-                                                 dtype=self.dtype))
-        self.components_ary = cuda.to_device(zeros(n_components*n_cols,
-                                                   dtype=self.dtype))
+        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
+                                                dtype=self.dtype))
+        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
+                                                  dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
@@ -402,8 +401,8 @@ class TruncatedSVD(Base):
         params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
-                                          dtype=dtype.type))
+        input_data = rmm.to_device(zeros(params.n_rows*params.n_cols,
+                                         dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
@@ -469,8 +468,8 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         t_input_data = \
-            cuda.to_device(zeros(params.n_rows*params.n_components,
-                                 dtype=dtype.type))
+            rmm.to_device(zeros(params.n_rows*params.n_components,
+                                dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
