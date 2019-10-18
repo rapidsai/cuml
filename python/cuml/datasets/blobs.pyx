@@ -34,7 +34,7 @@ from numba import cuda
 
 from random import randint
 
-cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
+cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets":
     cdef void make_blobs(const cumlHandle& handle,
                          float* out,
                          long* labels,

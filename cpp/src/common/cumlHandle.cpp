@@ -15,7 +15,7 @@
  */
 
 #include "cumlHandle.hpp"
-
+#include <cuml/common/cuml_allocator.hpp>
 #include "../../src_prims/utils.h"
 
 //TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
@@ -168,7 +168,9 @@ void cumlHandle::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
 std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
   return _impl->getHostAllocator();
 }
-
+int cumlHandle::getNumInternalStreams() {
+  return _impl->getNumInternalStreams();
+}
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
 cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }

@@ -71,13 +71,14 @@ class SmoSolver {
   bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, math_t C, math_t tol,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
-            float cache_size = 200)
+            float cache_size = 200, int nochange_steps = 1000)
     : handle(handle),
       n_rows(n_rows),
       C(C),
       tol(tol),
       kernel(kernel),
       cache_size(cache_size),
+      nochange_steps(nochange_steps),
       stream(handle.getStream()),
       return_buff(handle.getDeviceAllocator(), stream, 2),
       alpha(handle.getDeviceAllocator(), stream),
@@ -229,9 +230,10 @@ class SmoSolver {
   // Variables to track convergence of training
   math_t diff_prev;
   int n_small_diff;
+  int nochange_steps;
 
   bool CheckStoppingCondition(math_t diff) {
-    // TODO improve stopping condition to detect oscillationsq, see Issue #947
+    // TODO improve stopping condition to detect oscillations, see Issue #947
     bool keep_going = true;
     if (abs(diff - diff_prev) < 0.001 * tol) {
       n_small_diff++;
@@ -239,9 +241,14 @@ class SmoSolver {
       diff_prev = diff;
       n_small_diff = 0;
     }
-    if (diff < tol || n_small_diff > 10) {
+    if (n_small_diff > nochange_steps) {
+      if (verbose) {
+        std::cout << "SMO error: Stopping due to unchanged diff over "
+                  << nochange_steps << " consecutive steps\n";
+      }
       keep_going = false;
     }
+    if (diff < tol) keep_going = false;
     // ASSERT(!isnan(diff), "SMO: NaN found during fitting")
     if (isnan(diff)) {
       std::cout << "SMO error: NaN found during fitting\n";

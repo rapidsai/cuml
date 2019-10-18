@@ -89,8 +89,8 @@ void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
 
   if (prms.algorithm == solver::COV_EIG_JACOBI) {
     LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components, explained_var,
-                      (math_t)prms.tol, prms.n_iterations, cusolver_handle,
-                      stream, allocator);
+                      cusolver_handle, stream, allocator,(math_t)prms.tol,
+                      prms.n_iterations);
   } else {
     LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
                   cusolver_handle, stream, allocator);

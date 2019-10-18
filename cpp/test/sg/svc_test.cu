@@ -16,12 +16,17 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/transform.h>
 #include <cub/cub.cuh>
 #include <iostream>
 #include <string>
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "linalg/binary_op.h"
+#include "linalg/map_then_reduce.h"
 #include "linalg/transpose.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"
@@ -789,13 +794,14 @@ __global__ void cast(outType *out, int n, inType *in) {
 template <typename math_t>
 void make_blobs(math_t *x, math_t *y, int n_rows, int n_cols, int n_cluster,
                 std::shared_ptr<MLCommon::deviceAllocator> &allocator,
-                cublasHandle_t cublas_h, cudaStream_t stream) {
+                cublasHandle_t cublas_h, cudaStream_t stream,
+                float *centers = nullptr) {
   device_buffer<float> x_float(allocator, stream, n_rows * n_cols);
   device_buffer<int> y_int(allocator, stream, n_rows);
 
   Random::make_blobs(x_float.data(), y_int.data(), n_rows, n_cols, n_cluster,
-                     allocator, stream, (float *)nullptr, (float *)nullptr,
-                     1.0f, true, -2.0f, 2.0f, 0);
+                     allocator, stream, centers, (float *)nullptr, 1.0f, true,
+                     -2.0f, 2.0f, 0);
   int TPB = 256;
   if (std::is_same<float, math_t>::value) {
     LinAlg::transpose(x_float.data(), (float *)x, n_cols, n_rows, cublas_h,
@@ -903,6 +909,76 @@ TYPED_TEST(SmoSolverTest, Blobs) {
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
     svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+  }
+}
+
+struct is_same_functor {
+  template <typename Tuple>
+  __host__ __device__ int operator()(Tuple t) {
+    return thrust::get<0>(t) == thrust::get<1>(t);
+  }
+};
+
+TYPED_TEST(SmoSolverTest, BlobPredict) {
+  // Pair.second is the expected accuracy. It might change if the Rng changes.
+  std::vector<std::pair<blobInput, TypeParam>> data{
+    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 200, 10}, 98},
+    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 200, 10}, 98},
+    {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 200, 2}, 98},
+    {blobInput{1, 0.009, KernelParams{TANH, 3, 0.1, 0}, 200, 10}, 98}};
+
+  // This should be larger then N_PRED_BATCH in svcPredict
+  const int n_pred = 5000;
+
+  auto allocator = this->handle.getDeviceAllocator();
+
+  for (auto d : data) {
+    auto p = d.first;
+    SCOPED_TRACE(p);
+    // explicit centers for the blobs
+    device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
+    thrust::device_ptr<float> thrust_ptr(centers.data());
+    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr,
+                 thrust_ptr + p.n_cols, -5.0f);
+    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols,
+                 thrust_ptr + 2 * p.n_cols, +5.0f);
+
+    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
+    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> x_pred(allocator, this->stream, n_pred * p.n_cols);
+    device_buffer<TypeParam> y_pred(allocator, this->stream, n_pred);
+
+    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
+               this->handle.getImpl().getCublasHandle(), this->stream,
+               centers.data());
+    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
+    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+
+    // Create a different dataset for prediction
+    make_blobs(x_pred.data(), y_pred.data(), n_pred, p.n_cols, 2, allocator,
+               this->handle.getImpl().getCublasHandle(), this->stream,
+               centers.data());
+    device_buffer<TypeParam> y_pred2(this->handle.getDeviceAllocator(),
+                                     this->stream, n_pred);
+    svc.predict(x_pred.data(), n_pred, p.n_cols, y_pred2.data());
+
+    // Count the number of correct predictions
+    device_buffer<int> is_correct(this->handle.getDeviceAllocator(),
+                                  this->stream, n_pred);
+    thrust::device_ptr<TypeParam> ptr1(y_pred.data());
+    thrust::device_ptr<TypeParam> ptr2(y_pred2.data());
+    thrust::device_ptr<int> ptr3(is_correct.data());
+    auto first = thrust::make_zip_iterator(thrust::make_tuple(ptr1, ptr2));
+    auto last = thrust::make_zip_iterator(
+      thrust::make_tuple(ptr1 + n_pred, ptr2 + n_pred));
+    thrust::transform(thrust::cuda::par.on(this->stream), first, last, ptr3,
+                      is_same_functor());
+    int n_correct =
+      thrust::reduce(thrust::cuda::par.on(this->stream), ptr3, ptr3 + n_pred);
+
+    TypeParam accuracy = 100 * n_correct / n_pred;
+    TypeParam accuracy_exp = d.second;
+    EXPECT_GE(accuracy, accuracy_exp);
   }
 }
 
