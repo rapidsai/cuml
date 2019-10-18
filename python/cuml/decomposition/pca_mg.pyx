@@ -144,13 +144,17 @@ class PCAMG(PCA):
 
         self.trans_input_ = rmm.to_device(zeros(n_part_rows*n_components,
                                                 dtype=self.dtype))
+   
         self.components_ary = rmm.to_device(zeros(n_components*n_cols,
                                                   dtype=self.dtype))
+
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                dtype=self.dtype))
+
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+
         self.singular_values_ = cudf.Series(zeros(n_components,
                                                   dtype=self.dtype))
         self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
@@ -196,7 +200,7 @@ class PCAMG(PCA):
         free(d)
 
 
-    def fit(self, X, M, N, partsToRanks, _transform=False):
+    def fit(self, X, M, N, partsToRanks, rnk, _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -207,6 +211,7 @@ class PCAMG(PCA):
         :return: self
         """
 
+       
         arr_interfaces = []
         for arr in X:
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
@@ -215,6 +220,7 @@ class PCAMG(PCA):
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
 
+        
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = M
@@ -237,8 +243,9 @@ class PCAMG(PCA):
             rank, size = rankSize
             rankSizePair[idx] = <RankSizePair*> malloc(sizeof(RankSizePair))
             rankSizePair[idx].rank = <int>rank
-            rankSizePair[idx].size = <size_t>size
-            n_part_row = n_part_row + rankSizePair[idx].size
+            rankSizePair[idx].size = <size_t>size    
+            if rnk == rankSizePair[idx].rank:
+                n_part_row = n_part_row + rankSizePair[idx].size
 
         n_total_parts = len(partsToRanks)
 
@@ -269,6 +276,7 @@ class PCAMG(PCA):
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
+            
             fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -282,11 +290,13 @@ class PCAMG(PCA):
                 <float*> noise_vars_ptr,
                 params,
                 True)
+            
             self.handle.sync()
             self._freeFloatD(data, arr_interfaces)
 
         else:
             data = self._build_dataDouble(arr_interfaces)
+            
             fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -300,7 +310,7 @@ class PCAMG(PCA):
                 <double*> noise_vars_ptr,
                 params,
                 True)
-
+              
             self.handle.sync()
             self._freeDoubleD(data, arr_interfaces)
 
@@ -319,9 +329,10 @@ class PCAMG(PCA):
             n_c = params.n_components
             self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
+        
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
-
+        
         if not _transform:
             del(self.trans_input_)
 
