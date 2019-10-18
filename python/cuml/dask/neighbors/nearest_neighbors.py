@@ -144,4 +144,3 @@ class NearestNeighbors(object):
                                               nn_models[0][1]).result()
 
         # TODO: Need to build output DFs for `output_i` and `output_d`
-        
