@@ -75,7 +75,7 @@ void rf<T, L>::prepare_fit_per_tree(
   int rs = tree_id;
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
-  MLCommon::Random::gen.seed(rs * 1000);
+  MLCommon::Random::gen.seed(rs * 1000 | 0xFF00AA);
   if (rf_params.bootstrap) {
     random_uniformInt(tree_id, selected_rows, n_sampled_rows, n_rows, num_sms,
                       stream);
