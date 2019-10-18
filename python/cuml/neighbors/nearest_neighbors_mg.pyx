@@ -75,11 +75,8 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
         Data(T *ptr, size_t totalSize)
 
     cdef cppclass floatData_t:
+        floatData_t(float *ptr, size_t totalSize)
         float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        double *ptr
         size_t totalSize
 
 ctypedef Data[int64_t] int64Data_t
@@ -115,10 +112,6 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" \
         size_t batch_size,
         bool verbose
     )
-
-
-
-
 
 
 class NearestNeighborsMG(NearestNeighbors):
@@ -172,9 +165,10 @@ class NearestNeighborsMG(NearestNeighbors):
         :param queries: [__cuda_array_interface__] of local query partitions
         :param query_m: number of total query rows
         :param query_partsToRanks: mappings of query partitions to ranks
+        :param rank: int rank of current worker
+        :param k: int number of nearest neighbors to query
         :return: 
         """
-
         self.__del__()
 
         self.n_dims = n
@@ -182,10 +176,9 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
-
         cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
 
-        for idx, rankSize in enumerate(index_partsToRanks):
+        for rankSize in index_partsToRanks:
             rank, size = rankSize
             index = <RankSizePair*> malloc(sizeof(RankSizePair))
             index.rank = <int>rank
@@ -193,7 +186,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
             index_vec.push_back(index)
 
-        for idx, rankSize in enumerate(query_partsToRanks):
+        for rankSize in query_partsToRanks:
             rank, size = rankSize
             query = < RankSizePair * > malloc(sizeof(RankSizePair))
             query.rank = < int > rank
@@ -210,19 +203,51 @@ class NearestNeighborsMG(NearestNeighbors):
             <size_t>index_m,
             <size_t>n,
             <vector[RankSizePair*]>deref(index_vec),
-            <int>rank
-        )
+            <int>rank)
+
         cdef PartDescriptor *query_descriptor = new PartDescriptor( \
-            <size_t>index_m,
+            <size_t>query_m,
             <size_t>n,
             <vector[RankSizePair*]>deref(index_vec),
             <int>rank)
 
         cdef vector[int64Data_t*] *out_i_vec = \
             new vector[int64Data_t*]()
-
         cdef vector[floatData_t*] *out_d_vec = \
             new vector[floatData_t*]()
+
+        out_i_vec.resize(len(queries))
+        out_d_vec.resize(len(queries))
+
+        output_i = []
+        output_d = []
+
+        cdef uintptr_t i_ptr
+        cdef uintptr_t d_ptr
+
+        for query_part in queries:
+
+                n_rows = query_part["shape"][0]
+                n_cols = query_part["shape"][1]
+                i_ary = rmm.to_device(zeros(n_rows * n_cols,
+                                              dtype=np.int64))
+                d_ary = rmm.to_device(zeros(n_rows * n_cols,
+                                              dtype=np.float32))
+
+                i_ptr = get_dev_array_ptr(i_ary)
+                d_ptr = get_dev_array_ptr(d_ary)
+
+                output_i.append(cudf.DataFrame.from_gpu_matrix(i_ary))
+                output_d.append(cudf.DataFrame.from_gpu_matrix(d_ary))
+
+                out_i_vec.push_back(new int64Data_t(
+                    <int64_t*>i_ptr, n_cols * n_rows * sizeof(int64_t)
+                ))
+
+                out_d_vec.push_back(new floatData_t(
+                    <float*>d_ptr, n_cols * n_rows * sizeof(np.float32)
+                ))
+
 
         brute_force_knn(
             handle_[0],
@@ -237,5 +262,5 @@ class NearestNeighborsMG(NearestNeighbors):
             True
         )
 
-        return self
+        return output_i, output_d
 

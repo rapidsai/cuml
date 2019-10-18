@@ -117,8 +117,6 @@ class KMeansMG(KMeans):
                                dtype=self.dtype)
             self.cluster_centers_ = rmm.to_device(clust_cent)
 
-        print(str(self._params))
-
         cdef uintptr_t cluster_centers_ptr = \
             get_dev_array_ptr(self.cluster_centers_)
 

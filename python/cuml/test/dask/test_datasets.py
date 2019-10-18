@@ -29,7 +29,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 @pytest.mark.parametrize('centers', [10])
 @pytest.mark.parametrize("cluster_std", [0.1])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
+@pytest.mark.parametrize("nparts", [unit_param(6), unit_param(7),
                                     quality_param(100),
                                     stress_param(1000)])
 def test_make_blobs(nrows,
@@ -61,7 +61,9 @@ def test_make_blobs(nrows,
 
         assert len(y[0].unique()) == centers
 
-        assert X.dtypes.unique() == [dtype]
+
+        assert X.dtypes.unique() == 0
+
 
     finally:
         c.close()
