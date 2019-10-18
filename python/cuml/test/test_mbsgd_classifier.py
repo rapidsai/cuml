@@ -16,8 +16,7 @@ import numpy as np
 import pytest
 
 from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
-from cuml.test.utils import small_classification_dataset, unit_param, \
-    quality_param, stress_param
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn.linear_model import SGDClassifier
 from sklearn.datasets.samples_generator import make_classification
@@ -32,13 +31,12 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
 @pytest.mark.parametrize('nrows', [unit_param(40), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(3), quality_param(50),
-                         stress_param(500)])
+@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
 def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
-                          loss, nrows, ncols, n_info):
-
+                          loss, nrows, column_info):
+    ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_informative=n_info,
                                n_features=ncols, random_state=0)
     X = X.astype(datatype)
@@ -72,9 +70,19 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_mbsgd_classifier_default(datatype):
-
-    X_train, X_test, y_train, y_test = small_classification_dataset(datatype)
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([7, 4]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+def test_mbsgd_classifier_default(datatype, nrows, column_info):
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_informative=n_info,
+                               n_features=ncols, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=10)
 
     y_train = y_train.astype(datatype)
     y_test = y_test.astype(datatype)

@@ -16,12 +16,11 @@ import numpy as np
 import pytest
 
 from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
-from cuml.test.utils import unit_param, quality_param, stress_param, \
-    small_regression_dataset
+from cuml.metrics import r2_score
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn.linear_model import SGDRegressor
 from sklearn.datasets.samples_generator import make_regression
-from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 
 
@@ -31,15 +30,16 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(5), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(3), quality_param(50),
-                         stress_param(500)])
+@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
 def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
-                         nrows, ncols, n_info):
-
+                         nrows, column_info):
+    ncols, n_info = column_info
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
 
@@ -59,18 +59,26 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
     skl_sgd_regressor.fit(X_train, y_train)
     skl_pred = skl_sgd_regressor.predict(X_test)
 
-    cu_r2 = r2_score(cu_pred, y_test)
-    skl_r2 = r2_score(skl_pred, y_test)
+    cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
+    skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
     assert abs(cu_r2 - skl_r2) <= 0.02
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [500])
-@pytest.mark.parametrize('ncols', [3])
-def test_mbsgd_regressor_default(datatype,
-                                 nrows, ncols):
-
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+def test_mbsgd_regressor_default(datatype, nrows,
+                                 column_info):
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     cu_mbsgd_regressor = cumlMBSGRegressor()
     cu_mbsgd_regressor.fit(X_train, y_train)
@@ -80,8 +88,8 @@ def test_mbsgd_regressor_default(datatype,
     skl_sgd_regressor.fit(X_train, y_train)
     skl_pred = skl_sgd_regressor.predict(X_test)
 
-    cu_r2 = r2_score(cu_pred, y_test)
-    skl_r2 = r2_score(skl_pred, y_test)
+    cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
+    skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
     try:
         assert abs(cu_r2 - skl_r2) <= 0.02
     except AssertionError:
