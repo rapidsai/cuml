@@ -70,7 +70,7 @@ void rf<T, L>::prepare_fit_per_tree(
   MLCommon::Random::Rng rng(rs * 1000 | 0xFF00AA,
                             MLCommon::Random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
-    rng.uniformInt(selected_rows, n_sampled_rows, 0, n_rows, stream);
+    rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
 
   } else {  // Sampling w/o replacement
     MLCommon::device_buffer<unsigned int>* inkeys =

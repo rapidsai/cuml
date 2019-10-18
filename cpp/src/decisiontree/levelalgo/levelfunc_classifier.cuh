@@ -77,6 +77,7 @@ void grow_deep_tree_classification(
 
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
+  MLCommon::Random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<unsigned int> dist(0, Ncols - 1);
   //Setup pointers
   unsigned int* d_histogram = tempmem->d_histogram->data();
@@ -114,7 +115,7 @@ void grow_deep_tree_classification(
 
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem);
+                            tempmem, d_rng);
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  Ncols, ncols_sampled, n_unique_labels, nbins,
                                  n_nodes, split_algo, tempmem, d_histogram);
