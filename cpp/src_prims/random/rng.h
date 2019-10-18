@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cuml/common/cuml_allocator.hpp>
+#include <random>
 #include <type_traits>
 #include "common/cub_wrappers.h"
 #include "common/scatter.h"
@@ -39,12 +40,14 @@ enum GeneratorType {
   GenKiss99
 };
 
+static std::mt19937 gen;
+
 inline uint64_t _nextSeed() {
   // because rand() has poor randomness in lower 16b
-  uint64_t t0 = (uint64_t)(rand() & 0xFFFF0000) >> 16;
-  uint64_t t1 = (uint64_t)(rand() & 0xFFFF0000);
-  uint64_t t2 = (uint64_t)(rand() & 0xFFFF0000) >> 16;
-  uint64_t t3 = (uint64_t)(rand() & 0xFFFF0000);
+  uint64_t t0 = (uint64_t)(gen() & 0xFFFF0000) >> 16;
+  uint64_t t1 = (uint64_t)(gen() & 0xFFFF0000);
+  uint64_t t2 = (uint64_t)(gen() & 0xFFFF0000) >> 16;
+  uint64_t t3 = (uint64_t)(gen() & 0xFFFF0000);
   return t0 | t1 | t2 | t3;
 }
 
@@ -174,7 +177,7 @@ class Rng {
  public:
   /** ctor */
   Rng(uint64_t _s, GeneratorType _t = GenPhilox) : type(_t) {
-    srand(_s);
+    gen.seed(_s);
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
     // and also not too many initialization calls will be made by each thread
