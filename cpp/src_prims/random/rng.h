@@ -40,17 +40,6 @@ enum GeneratorType {
   GenKiss99
 };
 
-static std::mt19937 gen;
-
-inline uint64_t _nextSeed() {
-  // because rand() has poor randomness in lower 16b
-  uint64_t t0 = (uint64_t)(gen() & 0xFFFF0000) >> 16;
-  uint64_t t1 = (uint64_t)(gen() & 0xFFFF0000);
-  uint64_t t2 = (uint64_t)(gen() & 0xFFFF0000) >> 16;
-  uint64_t t3 = (uint64_t)(gen() & 0xFFFF0000);
-  return t0 | t1 | t2 | t3;
-}
-
 template <typename OutType, typename MathType, typename GenType,
           typename LenType, typename Lambda>
 __global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
@@ -84,85 +73,6 @@ __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
   }
 }
 
-template <bool IsNormal, typename Type, typename LenType>
-uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
-                     int nThreads, int nBlocks) {
-  LenType itemsPerThread = ceildiv(len, LenType(nBlocks * nThreads));
-  if (IsNormal && itemsPerThread % 2 == 1) {
-    ++itemsPerThread;
-  }
-  // curand uses 2 32b uint's to generate one double
-  uint64_t factor = sizeof(Type) / sizeof(float);
-  if (factor == 0) ++factor;
-  // Check if there are enough random numbers left in sequence
-  // If not, then generate new seed and start from zero offset
-  uint64_t newOffset = offset + LenType(itemsPerThread) * factor;
-  if (newOffset < offset) {
-    offset = 0;
-    seed = _nextSeed();
-    newOffset = itemsPerThread * factor;
-  }
-  return newOffset;
-}
-
-template <typename OutType, typename MathType = OutType, typename LenType = int,
-          typename Lambda>
-void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
-              int nThreads, int nBlocks, GeneratorType type,
-              cudaStream_t stream) {
-  if (len <= 0) return;
-  uint64_t seed = _nextSeed();
-  auto newOffset =
-    _setupSeeds<false, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
-  switch (type) {
-    case GenPhilox:
-      randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    case GenTaps:
-      randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    case GenKiss99:
-      randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    default:
-      ASSERT(false, "randImpl: Incorrect generator type! %d", type);
-  };
-  CUDA_CHECK(cudaPeekAtLastError());
-  offset = newOffset;
-}
-
-template <typename OutType, typename MathType = OutType, typename LenType = int,
-          typename Lambda2>
-void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
-               int nThreads, int nBlocks, GeneratorType type,
-               cudaStream_t stream) {
-  if (len <= 0) return;
-  uint64_t seed = _nextSeed();
-  auto newOffset =
-    _setupSeeds<true, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
-  switch (type) {
-    case GenPhilox:
-      rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda2>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    case GenTaps:
-      rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    case GenKiss99:
-      rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda2>
-        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    default:
-      ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
-  };
-  CUDA_CHECK(cudaPeekAtLastError());
-  offset = newOffset;
-}
-
 template <typename Type>
 __global__ void constFillKernel(Type *ptr, int len, Type val) {
   unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -175,9 +85,21 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
 /** The main random number generator class, fully on GPUs */
 class Rng {
  public:
-  /** ctor */
+  /**
+   * @brief ctor
+   * @param _s 64b seed used to initialize the RNG
+   * @param _t backend device RNG generator type
+   * @note pass a value of 0 for `_s` to seed the internal engine using the C+11
+   *       `std::random_device` class. The resulting random number sequence,
+   *       however, will not be reproducible.
+   */
   Rng(uint64_t _s, GeneratorType _t = GenPhilox) : type(_t) {
-    gen.seed(_s);
+    if (_s == 0) {
+      std::random_device rd;
+      gen.seed(rd());
+    } else {
+      gen.seed(_s);
+    }
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
     // and also not too many initialization calls will be made by each thread
@@ -570,8 +492,91 @@ class Rng {
   uint64_t offset;
   /** number of blocks to launch */
   int nBlocks;
+  /** next seed generator for device-side RNG */
+  std::mt19937_64 gen;
 
   static const int NumThreads = 256;
+
+  template <bool IsNormal, typename Type, typename LenType>
+  uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
+                       int nThreads, int nBlocks) {
+    LenType itemsPerThread = ceildiv(len, LenType(nBlocks * nThreads));
+    if (IsNormal && itemsPerThread % 2 == 1) {
+      ++itemsPerThread;
+    }
+    // curand uses 2 32b uint's to generate one double
+    uint64_t factor = sizeof(Type) / sizeof(float);
+    if (factor == 0) ++factor;
+    // Check if there are enough random numbers left in sequence
+    // If not, then generate new seed and start from zero offset
+    uint64_t newOffset = offset + LenType(itemsPerThread) * factor;
+    if (newOffset < offset) {
+      offset = 0;
+      seed = gen();
+      newOffset = itemsPerThread * factor;
+    }
+    return newOffset;
+  }
+
+  template <typename OutType, typename MathType = OutType,
+            typename LenType = int, typename Lambda>
+  void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
+                int nThreads, int nBlocks, GeneratorType type,
+                cudaStream_t stream) {
+    if (len <= 0) return;
+    uint64_t seed = gen();
+    auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
+                                                           nThreads, nBlocks);
+    switch (type) {
+      case GenPhilox:
+        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      case GenTaps:
+        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      case GenKiss99:
+        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+        break;
+      default:
+        ASSERT(false, "randImpl: Incorrect generator type! %d", type);
+    };
+    CUDA_CHECK(cudaPeekAtLastError());
+    offset = newOffset;
+  }
+
+  template <typename OutType, typename MathType = OutType,
+            typename LenType = int, typename Lambda2>
+  void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
+                 int nThreads, int nBlocks, GeneratorType type,
+                 cudaStream_t stream) {
+    if (len <= 0) return;
+    auto seed = gen();
+    auto newOffset = _setupSeeds<true, MathType, LenType>(seed, offset, len,
+                                                          nThreads, nBlocks);
+    switch (type) {
+      case GenPhilox:
+        rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+                    Lambda2>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+        break;
+      case GenTaps:
+        rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+        break;
+      case GenKiss99:
+        rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
+                    Lambda2>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+        break;
+      default:
+        ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
+    };
+    CUDA_CHECK(cudaPeekAtLastError());
+    offset = newOffset;
+  }
 };
 
 };  // end namespace Random
