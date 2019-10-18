@@ -72,7 +72,7 @@ class PCA(object):
         return cumlPCA(handle=handle, **kwargs), dfs
 
     @staticmethod
-    def _func_fit(f, M, N, partsToRanks, transform):
+    def _func_fit(f, M, N, partsToRanks, rank, transform):
         """
         Runs on each worker to call fit on local PCA instance.
         Extracts centroids
@@ -82,7 +82,7 @@ class PCA(object):
         :return: The fit model
         """
         m, dfs = f
-        return m.fit(dfs, M, N, partsToRanks, transform)
+        return m.fit(dfs, M, N, partsToRanks, rank, transform)
 
     @staticmethod
     def _func_get_first(f):
@@ -151,6 +151,7 @@ class PCA(object):
             wf[1],
             M, N,
             partsToRanks,
+            worker_info[wf[0]]["r"],
             _transform,
             key="%s-%s" % (key, idx),
             workers=[wf[0]])
