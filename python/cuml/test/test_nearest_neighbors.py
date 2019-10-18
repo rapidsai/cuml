@@ -28,11 +28,11 @@ from sklearn.datasets.samples_generator import make_blobs
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
-                         stress_param(50)])
-def test_knn(input_type, nrows, n_feats, k):
+@pytest.mark.parametrize('feature_info', [unit_param([3, 3]),
+                         quality_param([100, 30]),
+                         stress_param([1000, 50])])
+def test_knn(input_type, nrows, feature_info):
+    n_feats, k = feature_info
     n_samples = nrows
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
@@ -64,7 +64,7 @@ def test_knn_fit_twice():
     fit() is called more than once.
     """
 
-    n_samples = 50
+    n_samples = 1000
     n_feats = 50
     k = 5
 

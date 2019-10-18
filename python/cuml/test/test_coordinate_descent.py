@@ -19,8 +19,7 @@ import numpy as np
 from cuml import Lasso as cuLasso
 from cuml.linear_model import ElasticNet as cuElasticNet
 from cuml.metrics import r2_score
-from cuml.test.utils import small_regression_dataset, unit_param, \
-    quality_param, stress_param
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.datasets import make_regression
@@ -33,13 +32,12 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
-                         stress_param(500)])
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
 def test_lasso(datatype, X_type, alpha, algorithm,
-               nrows, ncols, n_info):
-
+               nrows, column_info):
+    ncols, n_info = column_info
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info, random_state=0)
     X = X.astype(datatype)
@@ -66,9 +64,20 @@ def test_lasso(datatype, X_type, alpha, algorithm,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-def test_lasso_default(datatype, X_type):
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+def test_lasso_default(datatype, nrows, column_info):
+
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     cu_lasso = cuLasso()
 
@@ -89,16 +98,16 @@ def test_lasso_default(datatype, X_type):
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
-                         stress_param(500)])
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
 def test_elastic_net(datatype, X_type, alpha, algorithm,
-                     nrows, ncols, n_info):
-
+                     nrows, column_info):
+    ncols, n_info = column_info
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info, random_state=0)
-
+    X = X.astype(datatype)
+    y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
 
@@ -123,10 +132,20 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-def test_elastic_net_default(datatype, X_type):
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+def test_elastic_net_default(datatype, nrows, column_info):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
 
     elastic_cu = cuElasticNet()
     elastic_cu.fit(X_train, y_train)

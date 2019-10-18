@@ -27,13 +27,11 @@ from sklearn import datasets
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
-def test_svd(datatype, lrate, input_type, penalty,
-             loss, name):
+def test_svd(datatype, lrate, penalty, loss, name):
 
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
@@ -66,8 +64,7 @@ def test_svd(datatype, lrate, input_type, penalty,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
-def test_svd_default(datatype, input_type):
+def test_svd_default(datatype):
 
     X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],
                        dtype=datatype)

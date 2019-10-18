@@ -26,12 +26,10 @@ from sklearn.utils import check_random_state
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
-def test_tsvd_fit(datatype, input_type,
-                  name, use_handle):
+def test_tsvd_fit(datatype, name, use_handle):
 
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
@@ -67,12 +65,10 @@ def test_tsvd_fit(datatype, input_type,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
-def test_tsvd_fit_transform(datatype, input_type,
-                            name, use_handle):
+def test_tsvd_fit_transform(datatype, name, use_handle):
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -103,12 +99,10 @@ def test_tsvd_fit_transform(datatype, input_type,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
-def test_tsvd_inverse_transform(datatype, input_type,
-                                name, use_handle):
+def test_tsvd_inverse_transform(datatype, name, use_handle):
 
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')

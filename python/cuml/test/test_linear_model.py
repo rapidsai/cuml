@@ -58,12 +58,12 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
-                         stress_param(500)])
-def test_linear_regression_model(datatype, algorithm, nrows, ncols, n_info):
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
+    ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(datatype,
                                                                nrows,
                                                                ncols,
@@ -136,12 +136,12 @@ def test_ridge_regression_model_default(datatype):
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
-                         stress_param(500)])
-def test_ridge_regression_model(datatype, algorithm, nrows, ncols, n_info):
+@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
+def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
+    ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(datatype,
                                                                nrows,
                                                                ncols,
@@ -175,13 +175,12 @@ def test_ridge_regression_model(datatype, algorithm, nrows, ncols, n_info):
 @pytest.mark.parametrize('fit_intercept', [True, False])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(60),
-                         stress_param(100)])
-@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(40),
-                         stress_param(70)])
+@pytest.mark.parametrize('column_info', [unit_param([10, 7]),
+                         quality_param([100, 70]),
+                         stress_param([200, 170])])
 def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
-                             fit_intercept, nrows, ncols, n_info):
-
+                             fit_intercept, nrows, column_info):
+    ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
     if not sk_check and penalty == 'elasticnet':

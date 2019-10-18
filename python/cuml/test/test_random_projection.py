@@ -29,9 +29,8 @@ from scipy.spatial.distance import pdist
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('method', ['gaussian', 'sparse'])
-def test_random_projection_fit(datatype, input_type, method):
+def test_random_projection_fit(datatype, method):
     # dataset generation
     data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
 
@@ -52,9 +51,8 @@ def test_random_projection_fit(datatype, input_type, method):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('method', ['gaussian', 'sparse'])
-def test_random_projection_fit_transform(datatype, input_type, method):
+def test_random_projection_fit_transform(datatype, method):
     eps = 0.2
 
     # dataset generation
@@ -96,10 +94,8 @@ def test_johnson_lindenstrauss_min_dim():
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('method', ['sparse'])
-def test_random_projection_fit_transform_default(datatype, input_type,
-                                                 method):
+def test_random_projection_fit_transform_default(datatype, method):
 
     eps = 0.8
     # dataset generation
