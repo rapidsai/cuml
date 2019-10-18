@@ -19,7 +19,39 @@ cmake_policy(SET CMP0079 NEW)
 project(cuml_test LANGUAGES CXX CUDA)
 
 # Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-include_directories(${GTEST_DIR}/googletest/include)
+
+set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest)
+set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
+set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
+set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
+
+include(ExternalProject)
+ExternalProject_Add(googletest
+  GIT_REPOSITORY    https://github.com/google/googletest.git
+  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
+  PREFIX            ${GTEST_DIR}
+  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                    -DBUILD_SHARED_LIBS=OFF
+                    -DCMAKE_INSTALL_LIBDIR=lib
+  UPDATE_COMMAND    ""
+)
+
+add_library(gtestlib STATIC IMPORTED)
+add_library(gtest_mainlib STATIC IMPORTED)
+
+add_dependencies(gtestlib googletest)
+add_dependencies(gtest_mainlib googletest)
+
+set_property(TARGET gtestlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
+set_property(TARGET gtest_mainlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+
+set(CUML_SG_BENCH_TARGET "sg_benchmark")
+set(ML_BENCH_LINK_LIBRARIES
+  gtestlib
+  ${CUML_CPP_TARGET}
+)
+
+include_directories(${GTEST_DIR}/include)
 
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------
@@ -27,7 +59,6 @@ include_directories(${GTEST_DIR}/googletest/include)
 if(BUILD_CUML_TESTS)
 
     set(ML_TEST_LINK_LIBRARIES
-        ${GTEST_LIBNAME}
         ${CUDA_cublas_LIBRARY}
         ${CUDA_curand_LIBRARY}
         ${CUDA_cusolver_LIBRARY}
@@ -35,7 +66,6 @@ if(BUILD_CUML_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         treelite_runtimelib
         ${CUML_CPP_TARGET}
@@ -63,15 +93,20 @@ if(BUILD_CUML_TESTS)
       sg/rproj_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
+      sg/svc_test.cu
+      sg/trustworthiness_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu
       )
 
     add_dependencies(ml ${ClangFormat_TARGET})
+    add_dependencies(ml cub)
+    add_dependencies(ml cutlass)
 
     target_link_libraries(ml
-      ${GTEST_LIBNAME}
+      gtestlib
+      gtest_mainlib
       ${ML_TEST_LINK_LIBRARIES})
 
 endif(BUILD_CUML_TESTS)
@@ -82,7 +117,6 @@ endif(BUILD_CUML_TESTS)
 if(BUILD_CUML_MG_TESTS)
 
     set(ML_MG_TEST_LINK_LIBRARIES
-        ${GTEST_LIBNAME}
         ${CUDA_cublas_LIBRARY}
         ${CUDA_curand_LIBRARY}
         ${CUDA_cusolver_LIBRARY}
@@ -90,7 +124,6 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
-        gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
         pthread
@@ -104,9 +137,12 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     add_dependencies(ml_mg ${ClangFormat_TARGET})
+    add_dependencies(ml_mg cub)
+    add_dependencies(ml_mg cutlass)
 
     target_link_libraries(ml_mg
-      ${GTEST_LIBNAME}
+      gtestlib
+      gtest_mainlib
       ${ML_MG_TEST_LINK_LIBRARIES})
 
 endif(BUILD_CUML_MG_TESTS)
@@ -122,9 +158,10 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
-        gpufaisslib
         faisslib
         ${ZLIB_LIBRARIES}
+        OpenMP::OpenMP_CXX
+        Threads::Threads
     )
 
     # (please keep the filenames in alphabetical order)
@@ -132,8 +169,11 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
+      prims/batched/make_symm.cu
+      prims/batched/gemv.cu
       prims/binary_op.cu
       prims/ternary_op.cu
+      prims/cache.cu
       prims/coalesced_reduction.cu
       prims/cuda_utils.cu
       prims/columnSort.cu
@@ -143,6 +183,7 @@ if(BUILD_PRIMS_TESTS)
       prims/cov.cu
       prims/csr.cu
       prims/decoupled_lookback.cu
+      prims/dispersion.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
       prims/dist_eps.cu
@@ -151,6 +192,7 @@ if(BUILD_PRIMS_TESTS)
       prims/dist_l1.cu
       prims/divide.cu
       prims/eig.cu
+      prims/eig_sel.cu
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu
@@ -211,9 +253,12 @@ if(BUILD_PRIMS_TESTS)
       )
 
     add_dependencies(prims ${ClangFormat_TARGET})
+    add_dependencies(prims cub)
+    add_dependencies(prims cutlass)
 
     target_link_libraries(prims
-      ${GTEST_LIBNAME}
+      gtestlib
+      gtest_mainlib
       ${PRIMS_LINK_LIBRARIES})
 
 endif(BUILD_PRIMS_TESTS)

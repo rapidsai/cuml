@@ -26,19 +26,21 @@ namespace LinAlg {
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename T, typename IdxType>
-void binaryOpLaunch(T *out, const T *in1, const T *in2, IdxType len,
-                    cudaStream_t stream) {
+template <typename InType, typename IdxType, typename OutType>
+void binaryOpLaunch(OutType *out, const InType *in1, const InType *in2,
+                    IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(T a, T b) { return a + b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
+    stream);
 }
 
-template <typename T, typename IdxType>
+template <typename InType, typename IdxType, typename OutType = InType>
 class BinaryOpTest
-  : public ::testing::TestWithParam<BinaryOpInputs<T, IdxType>> {
+  : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<BinaryOpInputs<T, IdxType>>::GetParam();
+    params = ::testing::TestWithParam<
+      BinaryOpInputs<InType, IdxType, OutType>>::GetParam();
     Random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -47,8 +49,8 @@ class BinaryOpTest
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(in2, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref, in1, in2, len);
     binaryOpLaunch(out, in1, in2, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -62,8 +64,9 @@ class BinaryOpTest
   }
 
  protected:
-  BinaryOpInputs<T, IdxType> params;
-  T *in1, *in2, *out_ref, *out;
+  BinaryOpInputs<InType, IdxType, OutType> params;
+  InType *in1, *in2;
+  OutType *out_ref, *out;
 };
 
 const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {
@@ -85,6 +88,16 @@ TEST_P(BinaryOpTestF_i64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
+
+const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
+  {0.000001f, 1024 * 1024, 1234ULL}};
+typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
+TEST_P(BinaryOpTestF_i32_D, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i32_D,
+                        ::testing::ValuesIn(inputsf_i32_d));
 
 const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 1234ULL}};

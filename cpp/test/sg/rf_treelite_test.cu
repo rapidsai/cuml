@@ -30,7 +30,7 @@
 #include "linalg/transpose.h"
 #include "ml_utils.h"
 #include "random/rng.h"
-#include "randomforest/randomforest.hpp"
+#include "cuml/ensemble/randomforest.hpp"
 
 namespace ML {
 
@@ -146,8 +146,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void getResultAndCheck() {
     // Predict and compare against known labels
     RF_metrics tmp =
-      score(handle, forest, inference_data_d, labels_d, params.n_inference_rows,
-            params.n_cols, predicted_labels_d, false);
+      score(*handle, forest, inference_data_d, labels_d,
+            params.n_inference_rows, params.n_cols, predicted_labels_d, false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     predicted_labels_h.resize(params.n_inference_rows);
@@ -181,8 +181,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.min_rows_per_node, params.bootstrap_features,
                     params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, params.n_streams, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     // print(rf_params);
+    handle.reset(new cumlHandle(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
@@ -197,7 +198,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     ref_predicted_labels.resize(params.n_inference_rows);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle->setStream(stream);
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);
@@ -254,7 +255,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   int inference_data_len;
 
   cudaStream_t stream;
-  cumlHandle handle;
+  std::shared_ptr<cumlHandle> handle;
 
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
@@ -295,11 +296,12 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
     LinAlg::transpose<float>(
       this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle.getImpl().getCublasHandle(), this->stream);
+      this->handle->getImpl().getCublasHandle(), this->stream);
 
     LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
                         weight, temp_label_d, true, 1.f, 1.f,
-                        this->handle.getImpl().getCublasHandle(), this->stream);
+                        this->handle->getImpl().getCublasHandle(),
+                        this->stream);
 
     temp_label_h.resize(this->params.n_rows);
     updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
@@ -323,7 +325,7 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
     preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
-    fit(this->handle, this->forest, this->data_d, this->params.n_rows,
+    fit(*(this->handle), this->forest, this->data_d, this->params.n_rows,
         this->params.n_cols, this->labels_d, labels_map.size(),
         this->rf_params);
 
@@ -371,18 +373,19 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
 
     LinAlg::transpose<float>(
       this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle.getImpl().getCublasHandle(), this->stream);
+      this->handle->getImpl().getCublasHandle(), this->stream);
 
     LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
                         weight, this->labels_d, true, 1.f, 1.f,
-                        this->handle.getImpl().getCublasHandle(), this->stream);
+                        this->handle->getImpl().getCublasHandle(),
+                        this->stream);
 
     this->labels_h.resize(this->params.n_rows);
     updateHost(this->labels_h.data(), this->labels_d, this->params.n_rows,
                this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
-    fit(this->handle, this->forest, this->data_d, this->params.n_rows,
+    fit(*(this->handle), this->forest, this->data_d, this->params.n_rows,
         this->params.n_cols, this->labels_d, this->rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
@@ -398,7 +401,7 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
 // //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::GINI,
    1},  // single tree forest, bootstrap false, unlimited depth, 4 bins
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
@@ -413,7 +416,7 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {40, 20, 11, 0.8f, 0.8f, 40, 8, -1, true, false, 3,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::CRITERION_END,
    1},  //forest with 11 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::ENTROPY, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::ENTROPY, 1},
@@ -432,14 +435,14 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierTreeliteTests,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MSE, 1},
   {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MSE, 1},
   {40, 20, 5, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::CRITERION_END,
    1},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {40, 20, 1, 1.0f, 1.0f, 40, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {40, 20, 1, 1.0f, 1.0f, 40, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    CRITERION::MAE, 1},
   {400, 200, 1, 1.0f, 1.0f, 400, 8, -1, false, false, 4,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MAE, 1},
