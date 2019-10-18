@@ -50,6 +50,16 @@ enum HistType {
   HistTypeGmem,
   /** uses shared mem atomics to reduce global traffic */
   HistTypeSmem,
+  /**
+   * uses shared mem atomics with match_any intrinsic to further reduce shared
+   * memory traffic. This can only be enabled on Volta and later architectures.
+   * If one tries to enable this for older arch's, it will fall back to
+   * `HistTypeSmem`.
+   * @note This is to be used only when the input dataset leads to a lot of
+   *       repetitions in a given warp, else, this algo can be much slower than
+   *       `HistTypeSmem`!
+   */
+  HistTypeSmemMatchAny,
   /** builds a hashmap of active bins in shared mem */
   HistTypeSmemHash,
   /** decide at runtime the best algo for the given inputs */
@@ -124,7 +134,8 @@ void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
     <<<blks, ThreadsPerBlock, 0, stream>>>(bins, data, nrows, nbins, binner);
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
+          bool UseMatchAny>
 __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
                                IdxT nbins, BinnerOp binner) {
   extern __shared__ unsigned sbins[];
@@ -137,11 +148,15 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
 #if __CUDA_ARCH__ < 700
     atomicAdd(sbins + binId, 1);
 #else
-    auto amask = __activemask();
-    auto mask = __match_any_sync(amask, binId);
-    auto leader = __ffs(mask) - 1;
-    if (laneId() == leader) {
-      atomicAdd(sbins + binId, __popc(mask));
+    if (UseMatchAny) {
+      auto amask = __activemask();
+      auto mask = __match_any_sync(amask, binId);
+      auto leader = __ffs(mask) - 1;
+      if (laneId() == leader) {
+        atomicAdd(sbins + binId, __popc(mask));
+      }
+    } else {
+      atomicAdd(sbins + binId, 1);
     }
 #endif  // __CUDA_ARCH__
   };
@@ -155,13 +170,15 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   }
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
+          bool UseMatchAny>
 void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
               BinnerOp binner, cudaStream_t stream) {
   auto blks = computeGridDim<IdxT, VecLen>(
-    nrows, ncols, (const void*)smemHistKernel<DataT, BinnerOp, IdxT, VecLen>);
+    nrows, ncols,
+    (const void*)smemHistKernel<DataT, BinnerOp, IdxT, VecLen, UseMatchAny>);
   size_t smemSize = nbins * sizeof(unsigned);
-  smemHistKernel<DataT, BinnerOp, IdxT, VecLen>
+  smemHistKernel<DataT, BinnerOp, IdxT, VecLen, UseMatchAny>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
                                                   binner);
 }
@@ -356,8 +373,12 @@ void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
                                               binner, stream);
       break;
     case HistTypeSmem:
-      smemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
-                                              binner, stream);
+      smemHist<DataT, BinnerOp, IdxT, VecLen, false>(bins, nbins, data, nrows,
+                                                     ncols, binner, stream);
+      break;
+    case HistTypeSmemMatchAny:
+      smemHist<DataT, BinnerOp, IdxT, VecLen, true>(bins, nbins, data, nrows,
+                                                    ncols, binner, stream);
       break;
     case HistTypeSmemBits16:
       smemBitsHist<DataT, BinnerOp, IdxT, 16, VecLen>(bins, nbins, data, nrows,
