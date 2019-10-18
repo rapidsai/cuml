@@ -2,7 +2,7 @@
 
 ## New Features
 - PR #1218: prims: histogram prim
-- PR #1129: c++: a separate include folder for C++ API distribution
+- PR #1129: C++: Separate include folder for C++ API distribution
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
@@ -10,13 +10,16 @@
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1264: Add -s flag to GPU CI pytest for better error printing
+- PR #1271: Updated the Ridge regression documentation
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
+- PR #1267: Update build.sh for recent change of building comms in main CMakeLists
+- PR #1278: Removed incorrect overloaded instance of eigJacobi
 
-
-# cuML 0.10.0 (Date TBD)
+# cuML 0.10.0 (16 Oct 2019)
 
 ## New Features
 - PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
@@ -29,6 +32,7 @@
 - PR #1149 Add YYMMDD to version tag for nightly conda packages
 - PR #892: General Gram matrices prim
 - PR #912: Support Vector Machine
+- PR #1274: Updated the RF score function to use GPU predict
 
 ## Improvements
 - PR #961: High Peformance RF; HIST algo
@@ -82,6 +86,8 @@
 - PR #1211: Fixing Dask k-means transform bug and adding test
 - PR #1236: Improve fix for SMO solvers potential crash on Turing
 - PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
+- PR #1260: Small bugfix for major conversion in input_utils
+- PR #1276: Fix float64 prediction crash in test_random_forest
 
 # cuML 0.9.0 (21 Aug 2019)
 
@@ -169,6 +175,7 @@
 - PR #1018: Hint location of nccl in build.sh for CI
 - PR #1022: Using random_state to make K-Means MNMG tests deterministic
 - PR #1034: Fix typos and formatting issues in RF docs
+- PR #1052: Fix the rows_sample dtype to float
 
 # cuML 0.8.0 (27 June 2019)
 
