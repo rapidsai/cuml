@@ -38,6 +38,8 @@ class cumlCommunicator_iface {
   typedef cumlCommunicator::op_t op_t;
   typedef cumlCommunicator::status_t status_t;
 
+  static const int CUML_ANY_SOURCE = cumlCommunicator::CUML_ANY_SOURCE;
+
   virtual ~cumlCommunicator_iface();
 
   virtual int getSize() const = 0;

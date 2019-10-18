@@ -20,7 +20,7 @@
 #include <linalg/cublas_wrappers.h>
 #include <random/make_blobs.h>
 #include <common/cumlHandle.hpp>
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 #include <fstream>
 #include <iostream>
 #include <sstream>

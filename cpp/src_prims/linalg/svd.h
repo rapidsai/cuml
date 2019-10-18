@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"

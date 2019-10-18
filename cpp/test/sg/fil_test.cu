@@ -24,7 +24,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
-#include "fil/fil.h"
+#include "cuml/fil/fil.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
@@ -39,8 +39,8 @@ namespace tlf = treelite::frontend;
 
 struct FilTestParams {
   // input data parameters
-  int rows;
-  int cols;
+  int num_rows;
+  int num_cols;
   float nan_prob;
   // forest parameters
   int depth;
@@ -59,7 +59,7 @@ struct FilTestParams {
 };
 
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
-  os << "rows = " << ps.rows << ", cols = " << ps.cols
+  os << "num_rows = " << ps.num_rows << ", num_cols = " << ps.num_cols
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << ps.output << ", threshold = " << ps.threshold
@@ -119,7 +119,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     Random::Rng r(ps.seed);
     r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
-    r.uniformInt(fids_d, num_nodes, 0, ps.cols, stream);
+    r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
     r.bernoulli(is_leafs_d, num_nodes, 1.0f - ps.leaf_prob, stream);
 
@@ -165,7 +165,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void generate_data() {
     // allocate arrays
-    size_t num_data = ps.rows * ps.cols;
+    size_t num_data = ps.num_rows * ps.num_cols;
     allocate(data_d, num_data);
     bool* mask_d = nullptr;
     allocate(mask_d, num_data);
@@ -190,12 +190,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_cpu() {
     // predict on host
-    std::vector<float> want_preds_h(ps.rows);
+    std::vector<float> want_preds_h(ps.num_rows);
     int num_nodes = tree_num_nodes();
-    for (int i = 0; i < ps.rows; ++i) {
+    for (int i = 0; i < ps.num_rows; ++i) {
       float pred = 0.0f;
       for (int j = 0; j < ps.num_trees; ++j) {
-        pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.cols]);
+        pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]);
       }
       if ((ps.output & fil::output_t::AVG) != 0) pred = pred / ps.num_trees;
       pred += ps.global_bias;
@@ -207,8 +207,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
 
     // copy to GPU
-    allocate(want_preds_d, ps.rows);
-    updateDevice(want_preds_d, want_preds_h.data(), ps.rows, stream);
+    allocate(want_preds_d, ps.num_rows);
+    updateDevice(want_preds_d, want_preds_h.data(), ps.num_rows, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -219,8 +219,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    allocate(preds_d, ps.rows);
-    fil::predict(handle, forest, preds_d, data_d, ps.rows);
+    allocate(preds_d, ps.num_rows);
+    fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -228,7 +228,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(want_preds_d, preds_d, ps.rows,
+    ASSERT_TRUE(devArrMatch(want_preds_d, preds_d, ps.num_rows,
                             CompareApprox<float>(ps.tolerance), stream));
   }
 
@@ -269,27 +269,26 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   FilTestParams ps;
 };
 
-class PredictFilTest : public BaseFilTest {
+class PredictDenseFilTest : public BaseFilTest {
  protected:
   void init_forest(fil::forest_t* pforest) override {
     // init FIL model
     fil::forest_params_t fil_ps;
-    fil_ps.nodes = nodes.data();
     fil_ps.depth = ps.depth;
-    fil_ps.ntrees = ps.num_trees;
-    fil_ps.cols = ps.cols;
+    fil_ps.num_trees = ps.num_trees;
+    fil_ps.num_cols = ps.num_cols;
     fil_ps.algo = ps.algo;
     fil_ps.output = ps.output;
     fil_ps.threshold = ps.threshold;
     fil_ps.global_bias = ps.global_bias;
-    fil::init_dense(handle, pforest, &fil_ps);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
 };
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
-  /** adds nodes[node] of tree starting at index root to builder 
-      at index at *pkey, increments *pkey, 
+  /** adds nodes[node] of tree starting at index root to builder
+      at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
                        int node) {
@@ -336,7 +335,7 @@ class TreeliteFilTest : public BaseFilTest {
   void init_forest(fil::forest_t* pforest) override {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     std::unique_ptr<tlf::ModelBuilder> model_builder(
-      new tlf::ModelBuilder(ps.cols, 1, random_forest_flag));
+      new tlf::ModelBuilder(ps.num_cols, 1, random_forest_flag));
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
@@ -377,7 +376,7 @@ class TreeliteFilTest : public BaseFilTest {
 
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
 // global_bias, algo, seed, tolerance
-std::vector<FilTestParams> predict_inputs = {
+std::vector<FilTestParams> predict_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
@@ -425,10 +424,10 @@ std::vector<FilTestParams> predict_inputs = {
    fil::algo_t::TREE_REORG, 42, 2e-3f},
 };
 
-TEST_P(PredictFilTest, Predict) { compare(); }
+TEST_P(PredictDenseFilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictFilTest,
-                        testing::ValuesIn(predict_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest,
+                        testing::ValuesIn(predict_dense_inputs));
 
 std::vector<FilTestParams> import_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,

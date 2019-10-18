@@ -27,7 +27,7 @@ import warnings
 import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
@@ -35,11 +35,12 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, numba_utils
 
-cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans::KMeansParams":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace \
+        "ML::kmeans::KMeansParams":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
     cdef struct KMeansParams:
         int n_clusters,
@@ -49,7 +50,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
@@ -196,7 +197,7 @@ class KMeans(Base):
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
         If True, prints diagnositc information.
@@ -210,7 +211,7 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    oversampling_factor : int scalable k-means|| oversampling factor
+    oversampling_factor : float64 scalable k-means|| oversampling factor
     max_samples_per_batch : int maximum number of samples to use for each batch
                                 of the pairwise distance computation.
     oversampling_factor : int (default = 2) The amount of points to sample
@@ -269,11 +270,11 @@ class KMeans(Base):
         self.cluster_centers_ = None
         self.inertia_ = 0
         self.n_iter_ = 0
-        self.oversampling_factor=int(oversampling_factor)
+        self.oversampling_factor=oversampling_factor
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         cdef KMeansParams params
-        params.n_clusters = self.n_clusters
+        params.n_clusters = <int>self.n_clusters
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
                 raise ValueError('The shape of the initial centers (%s) '
@@ -303,13 +304,13 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        params.max_iter = self.max_iter
-        params.tol = self.tol
-        params.verbose = self.verbose
-        params.seed = self.random_state
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbose = <int>self.verbose
+        params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
-        params.batch_size=self.max_samples_per_batch
-        params.oversampling_factor=self.oversampling_factor
+        params.batch_size=<int>self.max_samples_per_batch
+        params.oversampling_factor=<double>self.oversampling_factor
         self._params = params
 
     def fit(self, X):

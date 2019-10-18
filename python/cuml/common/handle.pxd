@@ -24,7 +24,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
         pass
 
@@ -34,3 +34,4 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
         void setStream(cuml.common.cuda._Stream s) except +
         void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
         cuml.common.cuda._Stream getStream() except +
+        int getNumInternalStreams() except +
