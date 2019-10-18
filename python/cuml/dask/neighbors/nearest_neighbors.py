@@ -32,23 +32,18 @@ class NearestNeighbors(object):
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
 
-    def fit(self, X, replicate=False):
+    def fit(self, X):
         """
         Fit a multi-node multi-GPU Nearest Neighbors index
         :param X : dask_cudf.Dataframe
-        :param replicate : bool, string, or int. If X is small enough,
-                it can be replicated onto the workers, which will
-                enable embarrassingly parallel prediction. Setting
-                replicate to True or False explicitly turns it on
-                or off. Setting it to a string specifies the threshold,
-                using a format like "2G", for determining whether X
-                should be replicated. If this value is an int, the
-                number of elements is used as a threshold.
         :return : NearestNeighbors model
         """
+
+        self.X = X
+
         return self
 
-    def kneighbors(self, X, k=None, replicate=False):
+    def kneighbors(self, X, k=None):
         """
         Query the NearestNeighbors index
         :param X : dask_cudf.Dataframe list of vectors to query
@@ -65,4 +60,8 @@ class NearestNeighbors(object):
                 elements is used as a threshold.
         :return : dask_cudf.Dataframe containing the results
         """
+        if self.n_neighbors is not None and k is None:
+            k = self.n_neighbors
+
+
 
