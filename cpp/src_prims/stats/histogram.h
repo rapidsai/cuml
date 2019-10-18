@@ -425,7 +425,7 @@ HistType selectBestHistAlgo(IdxT nbins) {
     return HistTypeSmem;
   }
   for (int bits = 16; bits >= 1; bits >>= 1) {
-    auto nBytesForBins = bits * nbins / 8;
+    auto nBytesForBins = ceildiv<size_t>(bits * nbins, 8);
     requiredSize = alignTo<size_t>(nBytesForBins, sizeof(unsigned));
     if (requiredSize <= smem) {
       return static_cast<HistType>(bits);
