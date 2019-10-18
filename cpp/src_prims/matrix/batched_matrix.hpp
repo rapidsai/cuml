@@ -30,7 +30,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <common/cumlHandle.hpp>
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 namespace MLCommon {
 namespace Matrix {

@@ -29,7 +29,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>

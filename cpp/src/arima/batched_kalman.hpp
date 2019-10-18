@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 #include <string>
 #include <vector>
 

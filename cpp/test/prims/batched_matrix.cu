@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <common/cuml_allocator.hpp>
-#include <cuML.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
 #include <vector>
 #include "matrix/batched_matrix.hpp"
 #include "random/rng.h"
