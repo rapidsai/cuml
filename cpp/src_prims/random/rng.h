@@ -89,11 +89,26 @@ class Rng {
    * @brief ctor
    * @param _s 64b seed used to initialize the RNG
    * @param _t backend device RNG generator type
+   * @note Refer to the `Rng::seed` method for details about seeding the engine
+   */
+  Rng(uint64_t _s, GeneratorType _t = GenPhilox)
+    : type(_t),
+      offset(0),
+      // simple heuristic to make sure all SMs will be occupied properly
+      // and also not too many initialization calls will be made by each thread
+      nBlocks(4 * getMultiProcessorCount()),
+      gen() {
+    seed(_s);
+  }
+
+  /**
+   * @brief Seed (and thus re-initialize) the underlying RNG engine
+   * @param _s 64b seed used to initialize the RNG
    * @note pass a value of 0 for `_s` to seed the internal engine using the C+11
    *       `std::random_device` class. The resulting random number sequence,
    *       however, will not be reproducible.
    */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : type(_t) {
+  void seed(uint64_t _s) {
     if (_s == 0) {
       std::random_device rd;
       gen.seed(rd());
@@ -101,9 +116,6 @@ class Rng {
       gen.seed(_s);
     }
     offset = 0;
-    // simple heuristic to make sure all SMs will be occupied properly
-    // and also not too many initialization calls will be made by each thread
-    nBlocks = 4 * getMultiProcessorCount();
   }
 
   /**
