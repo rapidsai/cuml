@@ -32,6 +32,13 @@ from cuml.utils.input_utils import input_to_dev_array
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
   int cpp_stationarity "ML::Stationarity::stationarity" (
       const cumlHandle& handle,
+      const float* y_d,
+      int* d,
+      int n_batches,
+      int n_samples,
+      float pval_threshold)
+  int cpp_stationarity "ML::Stationarity::stationarity" (
+      const cumlHandle& handle,
       const double* y_d,
       int* d,
       int n_batches,
@@ -91,10 +98,8 @@ def stationarity(y, pval_threshold=0.05, handle=None):
                    The recommended `d` for each series
 
     """
-    # TODO: don't impose dtype?
     cdef uintptr_t y_d_ptr
-    y_d, y_d_ptr, n_samples, n_batches, dtype \
-        = input_to_dev_array(y, check_dtype=np.float64)
+    y_d, y_d_ptr, n_samples, n_batches, dtype = input_to_dev_array(y)
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -104,9 +109,20 @@ def stationarity(y, pval_threshold=0.05, handle=None):
     d.resize(n_batches)
 
     # Call C++ function
-    ret_value = cpp_stationarity(handle_[0], <double*> y_d_ptr, <int*> d.data(),
-                                 <int> n_batches, <int> n_samples,
-                                 <double> pval_threshold)
+    if dtype == np.float32:
+        ret_value = cpp_stationarity(handle_[0], <float*> y_d_ptr,
+                                    <int*> d.data(),
+                                    <int> n_batches, <int> n_samples,
+                                    <float> pval_threshold)
+    elif dtype == np.float64:
+        ret_value = cpp_stationarity(handle_[0], <double*> y_d_ptr,
+                                    <int*> d.data(),
+                                    <int> n_batches, <int> n_samples,
+                                    <double> pval_threshold)
+    else:
+        raise TypeError("Stationarity test supports only float32 and float64"
+                        " input, but input type {} was passed."
+                        "".format(str(dtype)))
 
     if ret_value < 0:
         raise ValueError("Stationarity test failed for d=0 or 1.")

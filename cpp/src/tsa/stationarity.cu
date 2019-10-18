@@ -23,8 +23,9 @@ namespace ML {
 
 namespace Stationarity {
 
-int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
-                 int n_batches, int n_samples, double pval_threshold) {
+template <typename DataT>
+int stationarity_helper(const ML::cumlHandle& handle, const DataT* y_d, int* d,
+                        int n_batches, int n_samples, DataT pval_threshold) {
   const ML::cumlHandle_impl& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
@@ -33,6 +34,18 @@ int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
   return MLCommon::TimeSeries::stationarity(y_d, d, n_batches, n_samples,
                                             allocator, stream, cublas_handle,
                                             pval_threshold);
+}
+
+int stationarity(const ML::cumlHandle& handle, const float* y_d, int* d,
+                 int n_batches, int n_samples, float pval_threshold) {
+  return stationarity_helper<float>(handle, y_d, d, n_batches, n_samples,
+                                    pval_threshold);
+}
+
+int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
+                 int n_batches, int n_samples, double pval_threshold) {
+  return stationarity_helper<double>(handle, y_d, d, n_batches, n_samples,
+                                     pval_threshold);
 }
 
 }  // namespace Stationarity
