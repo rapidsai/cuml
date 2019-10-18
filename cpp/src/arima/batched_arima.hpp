@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 #include <vector>
 
 namespace ML {

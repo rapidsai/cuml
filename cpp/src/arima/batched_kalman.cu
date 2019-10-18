@@ -36,7 +36,7 @@
 #include <chrono>
 #include <ratio>
 
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 #include <timeSeries/jones_transform.h>
 
