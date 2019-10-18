@@ -175,8 +175,7 @@ struct BitsInfo {
 };
 
 template <unsigned BIN_BITS>
-DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId,
-                     int col) {
+DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
   typedef BitsInfo<BIN_BITS> Bits;
   auto iword = binId / Bits::WORD_BINS;
   auto ibin = binId % Bits::WORD_BINS;
@@ -184,32 +183,29 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId,
   auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
   auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & Bits::BIN_MASK) != 0) return;
-  int binOffset = col * nbins;
   // overflow
-  atomicAdd(bins + binOffset + binId, Bits::BIN_MASK + 1);
+  atomicAdd(bins + binId, Bits::BIN_MASK + 1);
   for (int dbin = 1; ibin + dbin < Bits::WORD_BINS && binId + dbin < nbins;
        ++dbin) {
     auto sh1 = (ibin + dbin) * Bits::BIN_BITS;
     if ((new_word >> sh1 & Bits::BIN_MASK) == 0) {
       // overflow
-      atomicAdd(bins + binOffset + binId + dbin, Bits::BIN_MASK);
+      atomicAdd(bins + binId + dbin, Bits::BIN_MASK);
     } else {
       // correction
-      atomicAdd(bins + binOffset + binId + dbin, -1);
+      atomicAdd(bins + binId + dbin, -1);
       break;
     }
   }
 }
 
 template <>
-DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId,
-                        int col) {
+DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
   typedef BitsInfo<1> Bits;
   auto iword = binId / Bits::WORD_BITS;
   auto sh = binId % Bits::WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
-  int binOffset = col * nbins;
-  if ((old_word >> sh & 1) != 0) atomicAdd(bins + binOffset + binId, 2);
+  if ((old_word >> sh & 1) != 0) atomicAdd(bins + binId, 2);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
@@ -224,14 +220,14 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
   }
   __syncthreads();
   IdxT col = blockIdx.y;
+  IdxT binOffset = col * nbins;
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
-    incrementBin<Bits::BIN_BITS>(sbins, bins, (int)nbins, binId, col);
+    incrementBin<Bits::BIN_BITS>(sbins, bins + binOffset, (int)nbins, binId);
   };
   histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
                                             col);
   __syncthreads();
-  IdxT binOffset = col * nbins;
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     auto shift = j % Bits::WORD_BINS * Bits::BIN_BITS;
     int count = sbins[j / Bits::WORD_BINS] >> shift & Bits::BIN_MASK;
