@@ -281,7 +281,8 @@ class RandomForestClassifier(Base):
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
-                            Minimum decrease in impurity requried for node to be spilt.
+                            Minimum decrease in impurity requried for
+                            node to be spilt.
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
@@ -290,7 +291,8 @@ class RandomForestClassifier(Base):
 
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node', 'min_impurity_decrease'
+                 'split_algo', 'split_criterion', 'min_rows_per_node',
+                 'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
