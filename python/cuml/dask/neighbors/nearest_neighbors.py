@@ -103,8 +103,10 @@ class NearestNeighbors(object):
         if self.kwargs["n_neighbors"] is not None and k is None:
             k = self.kwargs["n_neighbors"]
 
-        index_futures = self.client.sync(extract_ddf_partitions, self.X, agg=False)
-        query_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        index_futures = self.client.sync(extract_ddf_partitions,
+                                         self.X, agg=False)
+        query_futures = self.client.sync(extract_ddf_partitions,
+                                         X, agg=False)
 
         index_worker_to_parts = OrderedDict()
         for w, p in index_futures:
@@ -147,8 +149,10 @@ class NearestNeighbors(object):
             for idx, wf in enumerate(query_futures)]
 
         N = X.shape[1]
-        idx_M = reduce(lambda a,b: a+b, map(lambda x: x[1], idx_partsToRanks))
-        query_M = reduce(lambda a,b: a+b, map(lambda x: x[1], query_partsToRanks))
+        idx_M = reduce(lambda a, b: a+b, map(lambda x: x[1],
+                                             idx_partsToRanks))
+        query_M = reduce(lambda a, b: a+b, map(lambda x: x[1],
+                                               query_partsToRanks))
 
         """
         Each Dask worker creates a single model
@@ -171,27 +175,26 @@ class NearestNeighbors(object):
         """
         key = uuid1()
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
-            NearestNeighbors._func_kneighbors,
-            nn_models[worker],
-            index_worker_to_parts[worker] if worker in
-                                             index_worker_to_parts else [],
-            idx_M,
-            N,
-            idx_partsToRanks,
-            query_worker_to_parts[worker] if worker in
-                                             query_worker_to_parts else [],
-            query_M,
-            query_partsToRanks,
-            worker_info[worker]["r"],
-            k,
-            key="%s-%s" % (key, idx),
-            workers=[worker]))
+                        NearestNeighbors._func_kneighbors,
+                        nn_models[worker],
+                        index_worker_to_parts[worker] \
+                            if worker in index_worker_to_parts else [],
+                        idx_M,
+                        N,
+                        idx_partsToRanks,
+                        query_worker_to_parts[worker] \
+                            if worker in query_worker_to_parts else [],
+                        query_M,
+                        query_partsToRanks,
+                        worker_info[worker]["r"],
+                        k,
+                        key="%s-%s" % (key, idx),
+                        workers=[worker]))
             for idx, worker in enumerate(workers)])
 
         wait(list(nn_fit.values()))
-        raise_exception_from_futures(nn_fit.values())
+        raise_exception_from_futures(list(nn_fit.values()))
         comms.destroy()
-
 
         """
         Gather resulting partitions and return dask_cudfs

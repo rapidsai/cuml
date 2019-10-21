@@ -16,8 +16,6 @@ import pytest
 
 from dask.distributed import Client, wait
 
-import numpy as np
-
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 
@@ -39,8 +37,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
-                               random_state=10)
+                               cluster_std=0.01, verbose=True) #,
+                               # random_state=10)
 
         wait(X_cudf)
 
