@@ -68,8 +68,8 @@ cdef extern from "<vector>" namespace "std":
         iterator end()
         void resize(size_t n)
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-    namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/data.hpp"
+namespace "MLCommon::Matrix":
 
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
@@ -82,8 +82,8 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
 ctypedef Data[int64_t] int64Data_t
 
 
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-    namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp"
+namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -95,10 +95,8 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
                        vector[RankSizePair*] &partsToRanks,
                        int myrank)
 
-
-
-cdef extern from "cumlprims/opg/selection/knn.hpp" \
-    namespace "MLCommon::Selection::opg":
+cdef extern from "cumlprims/opg/selection/knn.hpp"
+namespace "MLCommon::Selection::opg":
 
     cdef void brute_force_knn(
         cumlHandle &handle,
@@ -126,7 +124,6 @@ class NearestNeighborsMG(NearestNeighbors):
     def __init__(self, **kwargs):
         super(NearestNeighborsMG, self).__init__(**kwargs)
 
-
     def _build_dataFloat(self, arr_interfaces):
         """
         Instantiate a container object for a float data pointer
@@ -140,9 +137,11 @@ class NearestNeighborsMG(NearestNeighbors):
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
-            data = < floatData_t * > malloc(sizeof(floatData_t))
-            data.ptr = < float * > input_ptr
-            data.totalSize = < size_t > (x["shape"][0] * x["shape"][1] * sizeof(float))
+            data = <floatData_t*> malloc(sizeof(floatData_t))
+            data.ptr = <float *> input_ptr
+            data.totalSize = < size_t > (x["shape"][0] *
+                                         x["shape"][1] *
+                                         sizeof(float))
 
             dataF.push_back(data)
 
@@ -184,18 +183,19 @@ class NearestNeighborsMG(NearestNeighbors):
         index_ifaces = []
         for arr in queries:
             X_m, input_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(arr, order="C", check_dtype=[np.float32, np.float64])
+                input_to_dev_array(arr, order="C",
+                                   check_dtype=[np.float32, np.float64])
             query_ifaces.append({"obj": X_m,
                                  "data": input_ptr,
                                  "shape": (n_rows, n_cols)})
 
         for arr in indices:
             X_m, input_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(arr, order="C", check_dtype=[np.float32, np.float64])
+                input_to_dev_array(arr, order="C",
+                                   check_dtype=[np.float32, np.float64])
             index_ifaces.append({"obj": X_m,
                                  "data": input_ptr,
                                  "shape": (n_rows, n_cols)})
-
 
         for rankSize in index_partsToRanks:
             rank, size = rankSize
@@ -213,27 +213,30 @@ class NearestNeighborsMG(NearestNeighbors):
 
             query_vec.push_back(query)
 
-        cdef vector[floatData_t*] *local_index_parts = \
-                <vector[floatData_t*]*><size_t>self._build_dataFloat(index_ifaces)
-        cdef vector[floatData_t*] *local_query_parts = \
-                <vector[floatData_t*]*><size_t>self._build_dataFloat(query_ifaces)
+        cdef vector[floatData_t*] *local_index_parts =
+        <vector[floatData_t*]*><size_t>
+        self._build_dataFloat(index_ifaces)
 
-        cdef PartDescriptor *index_descriptor = new PartDescriptor( \
-            <size_t>index_m,
-            <size_t>n,
-            <vector[RankSizePair*]>deref(index_vec),
-            <int>rank)
+        cdef vector[floatData_t*] *local_query_parts =
+        <vector[floatData_t*]*><size_t>
+        self._build_dataFloat(query_ifaces)
 
-        cdef PartDescriptor *query_descriptor = new PartDescriptor( \
-            <size_t>query_m,
-            <size_t>n,
-            <vector[RankSizePair*]>deref(index_vec),
-            <int>rank)
+        cdef PartDescriptor *index_descriptor =
+        new PartDescriptor(<size_t>index_m,
+                           <size_t>n,
+                           <vector[RankSizePair*]>deref(index_vec),
+                           <int>rank)
 
-        cdef vector[int64Data_t*] *out_i_vec = \
-            new vector[int64Data_t*]()
-        cdef vector[floatData_t*] *out_d_vec = \
-            new vector[floatData_t*]()
+        cdef PartDescriptor *query_descriptor =
+        new PartDescriptor(<size_t>query_m,
+                           <size_t>n,
+                           <vector[RankSizePair*]>deref(index_vec),
+                           <int>rank)
+
+        cdef vector[int64Data_t*] *out_i_vec =
+        new vector[int64Data_t*]()
+        cdef vector[floatData_t*] *out_d_vec =
+        new vector[floatData_t*]()
 
         output_i_arrs = []
         output_d_arrs = []
@@ -245,9 +248,9 @@ class NearestNeighborsMG(NearestNeighbors):
 
             n_rows = query_part["shape"][0]
             i_ary = rmm.to_device(zeros((n_rows, k), order="C",
-                                          dtype=np.int64))
+                                        dtype=np.int64))
             d_ary = rmm.to_device(zeros((n_rows, k), order="C",
-                                          dtype=np.float32))
+                                        dtype=np.float32))
 
             output_i_arrs.append(i_ary)
             output_d_arrs.append(d_ary)
