@@ -18,7 +18,7 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "holtwinters.h"
+#include <cuml/tsa/holtwinters.h>
 #include "runner.h"
 
 namespace ML {

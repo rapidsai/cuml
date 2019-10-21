@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -44,7 +45,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -52,7 +53,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
         int max_leaves
@@ -64,7 +65,7 @@ cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
         bool quantile_per_tree
         CRITERION split_criterion
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
         CLASSIFICATION,
@@ -150,18 +151,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
-                          float*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, int]*,
-                          double*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
@@ -541,18 +538,15 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, num_classes):
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+        _, _, n_rows, n_cols, X_dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=num_classes)
-
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
@@ -562,10 +556,8 @@ class RandomForestClassifier(Base):
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         preds = np.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr
@@ -731,7 +723,8 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG', num_classes=2):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -743,28 +736,36 @@ class RandomForestClassifier(Base):
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
-
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
+        threshold : float
+                    threshold is used to for classification
+                    This is optional and required only while performing the
+                    predict operation on the GPU.
+        num_classes : integer
+                      number of different classes present in the dataset
         Returns
         -------
         float
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, y_dtype = \
+            input_to_dev_array(y, check_dtype=np.int32)
 
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if y.dtype != np.int32:
-            raise TypeError("The labels `y` need to be of dtype `np.int32`")
+        preds = self.predict(X, output_class=True,
+                             threshold=threshold, algo=algo,
+                             num_classes=num_classes)
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+            input_to_dev_array(preds, convert_to_dtype=np.int32)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -778,19 +779,15 @@ class RandomForestClassifier(Base):
         if self.dtype == np.float32:
             self.stats = score(handle_[0],
                                rf_forest,
-                               <float*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
-                               <double*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         else:
@@ -799,7 +796,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return self.stats['accuracy']
@@ -880,8 +876,6 @@ class RandomForestClassifier(Base):
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
-        cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
             build_treelite_forest(& cuml_model_ptr,
                                   rf_forest,
@@ -893,6 +887,7 @@ class RandomForestClassifier(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(self.mod_ptr)
+        mod_ptr = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_ptr).value

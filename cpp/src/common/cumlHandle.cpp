@@ -15,7 +15,7 @@
  */
 
 #include "cumlHandle.hpp"
-
+#include <cuml/common/cuml_allocator.hpp>
 #include "../../src_prims/utils.h"
 
 //TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once

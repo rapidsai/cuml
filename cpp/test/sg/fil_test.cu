@@ -24,7 +24,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
-#include "fil/fil.h"
+#include "cuml/fil/fil.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
@@ -345,8 +345,8 @@ class PredictSparseFilTest : public BaseFilTest {
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
-  /** adds nodes[node] of tree starting at index root to builder 
-      at index at *pkey, increments *pkey, 
+  /** adds nodes[node] of tree starting at index root to builder
+      at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
                        int node) {

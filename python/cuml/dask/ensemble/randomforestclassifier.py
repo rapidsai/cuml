@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import extract_ddf_partitions, \
+    raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 import cudf
 
@@ -232,6 +233,7 @@ class RandomForestClassifier:
             rfs_wait.append(r)
 
         wait(rfs_wait)
+        raise_exception_from_futures(rfs_wait)
 
     @staticmethod
     def _func_build_rf(
@@ -350,9 +352,9 @@ class RandomForestClassifier:
                    str(y_partition_workers),
                    str(self.workers)))
 
-        f = list()
+        futures = list()
         for w, xc in X_futures.items():
-            f.append(
+            futures.append(
                 c.submit(
                     RandomForestClassifier._fit,
                     self.rfs[w],
@@ -363,7 +365,8 @@ class RandomForestClassifier:
                 )
             )
 
-        wait(f)
+        wait(futures)
+        raise_exception_from_futures(futures)
 
         return self
 
@@ -390,9 +393,9 @@ class RandomForestClassifier:
             raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
-        f = list()
+        futures = list()
         for n, w in enumerate(workers):
-            f.append(
+            futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
                     self.rfs[w],
@@ -402,12 +405,13 @@ class RandomForestClassifier:
                 )
             )
 
-        wait(f)
+        wait(futures)
+        raise_exception_from_futures(futures)
 
         indexes = list()
         rslts = list()
-        for d in range(len(f)):
-            rslts.append(f[d].result())
+        for d in range(len(futures)):
+            rslts.append(futures[d].result())
             indexes.append(0)
 
         pred = list()

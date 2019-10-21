@@ -30,7 +30,7 @@
 #include "linalg/transpose.h"
 #include "ml_utils.h"
 #include "random/rng.h"
-#include "randomforest/randomforest.hpp"
+#include "cuml/ensemble/randomforest.hpp"
 
 namespace ML {
 
@@ -145,9 +145,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   void getResultAndCheck() {
     // Predict and compare against known labels
-    RF_metrics tmp =
-      score(*handle, forest, inference_data_d, labels_d,
-            params.n_inference_rows, params.n_cols, predicted_labels_d, false);
+    predict(*handle, forest, inference_data_d, params.n_inference_rows,
+            params.n_cols, predicted_labels_d, false);
+    RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows,
+                           predicted_labels_d, false);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     predicted_labels_h.resize(params.n_inference_rows);
