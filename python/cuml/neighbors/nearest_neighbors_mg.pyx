@@ -68,8 +68,8 @@ cdef extern from "<vector>" namespace "std":
         iterator end()
         void resize(size_t n)
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-    namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
+    "MLCommon::Matrix":
 
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
@@ -82,8 +82,8 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
 ctypedef Data[int64_t] int64Data_t
 
 
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-    namespace "MLCommon::Matrix":
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
+    "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -95,8 +95,8 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
                        vector[RankSizePair*] &partsToRanks,
                        int myrank)
 
-cdef extern from "cumlprims/opg/selection/knn.hpp" \
-    namespace "MLCommon::Selection::opg":
+cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
+    "MLCommon::Selection::opg":
 
     cdef void brute_force_knn(
         cumlHandle &handle,
@@ -213,30 +213,30 @@ class NearestNeighborsMG(NearestNeighbors):
 
             query_vec.push_back(query)
 
-        cdef vector[floatData_t*] *local_index_parts = \
-                <vector[floatData_t*]*><size_t> \
-                 self._build_dataFloat(index_ifaces)
+        cdef vector[floatData_t*] *local_index_parts \
+            = <vector[floatData_t*]*><size_t> \
+               self._build_dataFloat(index_ifaces)
 
-        cdef vector[floatData_t*] *local_query_parts = \
-                <vector[floatData_t*]*><size_t> \
-                 self._build_dataFloat(query_ifaces)
+        cdef vector[floatData_t*] *local_query_parts \
+            = <vector[floatData_t*]*><size_t> \
+               self._build_dataFloat(query_ifaces)
 
-        cdef PartDescriptor *index_descriptor = \
-            new PartDescriptor(<size_t>index_m,
-                               <size_t>n,
-                               <vector[RankSizePair*]>deref(index_vec),
-                               <int>rank)
+        cdef PartDescriptor *index_descriptor \
+            = new PartDescriptor(<size_t>index_m,
+                                 <size_t>n,
+                                 <vector[RankSizePair*]>deref(index_vec),
+                                 <int>rank)
 
-        cdef PartDescriptor *query_descriptor = \
-           new PartDescriptor(<size_t>query_m,
-                              <size_t>n,
-                              <vector[RankSizePair*]>deref(index_vec),
-                              <int>rank)
+        cdef PartDescriptor *query_descriptor \
+            = new PartDescriptor(<size_t>query_m,
+                                 <size_t>n,
+                                 <vector[RankSizePair*]>deref(index_vec),
+                                 <int>rank)
 
-        cdef vector[int64Data_t*] *out_i_vec = \
-           new vector[int64Data_t*]()
-        cdef vector[floatData_t*] *out_d_vec = \
-            new vector[floatData_t*]()
+        cdef vector[int64Data_t*] *out_i_vec \
+            = new vector[int64Data_t*]()
+        cdef vector[floatData_t*] *out_d_vec \
+            = new vector[floatData_t*]()
 
         output_i_arrs = []
         output_d_arrs = []
