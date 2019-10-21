@@ -45,6 +45,10 @@ class NearestNeighbors(object):
         return self
 
     @staticmethod
+    def _func_get_size(df):
+        return df.shape[0]
+
+    @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
             from cuml.neighbors.nearest_neighbors_mg import \
@@ -106,6 +110,8 @@ class NearestNeighbors(object):
                 index_worker_to_parts[w] = []
                 index_worker_to_parts[w].append(p)
 
+        print(str(index_worker_to_parts))
+
         query_worker_to_parts = OrderedDict()
         for w, p in query_futures:
             if w not in query_worker_to_parts:
@@ -113,7 +119,7 @@ class NearestNeighbors(object):
                 query_worker_to_parts[w].append(p)
 
         workers = set(map(lambda x: x[0], index_futures))
-        workers.extend(list(map(lambda x: x[0], query_futures)))
+        workers.update(list(map(lambda x: x[0], query_futures)))
 
         comms = CommsContext(comms_p2p=True)
         comms.init(workers=workers)
@@ -129,7 +135,7 @@ class NearestNeighbors(object):
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(index_worker_to_parts)]
+            for idx, wf in enumerate(index_futures)]
 
         query_partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
             NearestNeighbors._func_get_size,
@@ -154,15 +160,15 @@ class NearestNeighbors(object):
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(workers)])
 
-        raise_exception_from_futures(nn_models)
+        raise_exception_from_futures(nn_models.values())
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
         key = uuid1()
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
-            nn_models[worker],
             NearestNeighbors._func_kneighbors,
+            nn_models[worker],
             index_worker_to_parts[worker] if worker in
                                              index_worker_to_parts else [],
             idx_M,
@@ -180,7 +186,7 @@ class NearestNeighbors(object):
 
         wait(nn_fit.values())
 
-        raise_exception_from_futures(nn_fit)
+        raise_exception_from_futures(nn_fit.values())
 
         comms.destroy()
 
