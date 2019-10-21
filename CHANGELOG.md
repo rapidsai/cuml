@@ -55,6 +55,7 @@
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1219: Adding custom bench_func and verbose logging to cuml.benchmark
 - PR #1247: Improved MNMG RF error checking
 
 ## Bug Fixes
