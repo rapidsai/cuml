@@ -128,8 +128,8 @@ class NearestNeighborsMG(NearestNeighbors):
         """
         Instantiate a container object for a float data pointer
         and size.
-        :param arr_interfaces: 
-        :return: 
+        :param arr_interfaces:
+        :return:
         """
         cdef vector[floatData_t*] *dataF = new vector[floatData_t*]()
 
@@ -155,8 +155,8 @@ class NearestNeighborsMG(NearestNeighbors):
         free(d)
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
-                         queries, query_m, query_partsToRanks,
-                         rank, k):
+                   queries, query_m, query_partsToRanks,
+                   rank, k):
         """
         Query the kneighbors of an index
         :param indices: [__cuda_array_interface__] of local index partitions
@@ -168,7 +168,7 @@ class NearestNeighborsMG(NearestNeighbors):
         :param query_partsToRanks: mappings of query partitions to ranks
         :param rank: int rank of current worker
         :param k: int number of nearest neighbors to query
-        :return: 
+        :return:
         """
         self.__del__()
 
