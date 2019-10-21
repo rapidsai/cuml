@@ -216,5 +216,4 @@ class NearestNeighbors(object):
 
             completed_part_map[rank] += 1
 
-        return to_dask_cudf(out_d_futures), \
-               to_dask_cudf(out_i_futures)
+        return to_dask_cudf(out_d_futures), to_dask_cudf(out_i_futures)
