@@ -37,8 +37,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True) #,
-                               # random_state=10)
+                               cluster_std=0.01, verbose=True)
 
         wait(X_cudf)
 

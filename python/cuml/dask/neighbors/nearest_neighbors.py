@@ -177,20 +177,20 @@ class NearestNeighbors(object):
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_worker_to_parts[worker] \
-                            if worker in index_worker_to_parts else [],
+                        index_worker_to_parts[worker]
+                        if worker in index_worker_to_parts else [],
                         idx_M,
                         N,
                         idx_partsToRanks,
-                        query_worker_to_parts[worker] \
-                            if worker in query_worker_to_parts else [],
+                        query_worker_to_parts[worker]
+                        if worker in query_worker_to_parts else [],
                         query_M,
                         query_partsToRanks,
                         worker_info[worker]["r"],
                         k,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
-            for idx, worker in enumerate(workers)])
+                       for idx, worker in enumerate(workers)])
 
         wait(list(nn_fit.values()))
         raise_exception_from_futures(list(nn_fit.values()))
