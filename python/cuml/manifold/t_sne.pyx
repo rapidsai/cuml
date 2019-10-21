@@ -41,7 +41,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "tsne/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
         const cumlHandle &handle,
         const float *X,
@@ -78,17 +78,14 @@ class TSNE(Base):
     dataset you give it, and is used in many areas including cancer research,
     music analysis and neural network weight visualizations.
 
-    The current cuML TSNE implementation is a first experimental release. It
-    defaults to use the 'exact' fitting algorithm, which is signficantly slower
-    then the Barnes-Hut algorithm as data sizes grow. A preview implementation
-    of Barnes-Hut (derived from CannyLabs' BH open source CUDA code) is also
-    available for problems with n_components = 2, though this implementation
-    currently has outstanding issues that can lead to crashes in rare
-    scenarios. Future releases of TSNE will fix these issues (tracked as cuML
-    Issue #1002) and switch Barnes-Hut to be the default.
+    Currently, cuML's TSNE supports the fast Barnes Hut O(NlogN) TSNE
+    approximation (derived from CannyLabs' BH open source CUDA code). This
+    allows TSNE to produce extremely fast embeddings when n_components = 2.
+    cuML defaults to this algorithm. A slower but more accurate Exact
+    algorithm is also provided.
 
     Parameters
-    ----------
+    -----------
     n_components : int (default 2)
         The output dimensionality size. Currently only size=2 is tested, but
         the 'exact' algorithm will support greater dimensionality in future.
@@ -110,13 +107,18 @@ class TSNE(Base):
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
-    init : str 'random' only (default 'random')
-        Currently only supports random intialization. Will support PCA
-        intialization in a future release.
+    init : str 'random' (default 'random')
+        Currently supports random intialization.
     verbose : int (default 0)
         Level of verbosity. If > 0, prints all help messages and warnings.
+        Most messages will be printed inside the Python Console.
     random_state : int (default None)
-        Setting this can allow future runs of TSNE to look the same.
+        Setting this can allow future runs of TSNE to look mostly the same.
+        It is known that TSNE tends to have vastly different outputs on
+        many runs. Try using PCA intialization (upcoming with change #1098)
+        to possibly counteract this problem.
+        It is known that small perturbations can directly
+        change the result of the embedding for parallel TSNE implementations.
     method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
         Options are either barnes_hut or exact. It is recommend that you use
         the barnes hut approximation for superior O(nlogn) complexity.
@@ -147,7 +149,7 @@ class TSNE(Base):
         one for you anew!
 
     References
-    ----------
+    -----------
     *   van der Maaten, L.J.P.
         t-Distributed Stochastic Neighbor Embedding
         https://lvdmaaten.github.io/tsne/
@@ -168,6 +170,9 @@ class TSNE(Base):
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
+
+    As suggested, PCA (upcoming with change #1098) can also help to alleviate
+    this issue.
 
     Reference Implementation
     -------------------------
@@ -302,8 +307,9 @@ class TSNE(Base):
 
     def fit(self, X):
         """Fit X into an embedded space.
+
         Parameters
-        ----------
+        -----------
         X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -414,14 +420,16 @@ class TSNE(Base):
 
     def fit_transform(self, X):
         """Fit X into an embedded space and return that transformed output.
+
         Parameters
-        ----------
+        -----------
         X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
-        -------
+        --------
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """

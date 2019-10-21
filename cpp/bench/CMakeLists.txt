@@ -19,33 +19,38 @@ cmake_policy(SET CMP0079 NEW)
 ###################################################################################################
 # - build cuml bench executable -------------------------------------------------------------------
 
-set(GBENCH_DIR ${PROJECT_SOURCE_DIR}/external/benchmark)
+# TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite
+
+set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark)
 set(GBENCH_BINARY_DIR ${PROJECT_BINARY_DIR}/benchmark)
 set(GBENCH_INSTALL_DIR ${GBENCH_BINARY_DIR}/install)
 set(GBENCH_LIB ${GBENCH_INSTALL_DIR}/lib/libbenchmark.a)
 
 include(ExternalProject)
-ExternalProject_Add(build_benchmark
-  SOURCE_DIR   ${GBENCH_DIR}
-  BINARY_DIR   ${GBENCH_BINARY_DIR}/build
-  INSTALL_DIR  ${GBENCH_INSTALL_DIR}
-  CMAKE_ARGS   -DBENCHMARK_ENABLE_GTEST_TESTS=OFF
-               -DBENCHMARK_ENABLE_TESTING=OFF
-               -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-               -DCMAKE_BUILD_TYPE=Release
-               -DCMAKE_INSTALL_LIBDIR=lib
+ExternalProject_Add(benchmark
+  GIT_REPOSITORY    https://github.com/google/benchmark.git
+  GIT_TAG           bf4f2ea0bd1180b34718ac26eb79b170a4f6290e
+  PREFIX            ${GBENCH_DIR}
+  CMAKE_ARGS        -DBENCHMARK_ENABLE_GTEST_TESTS=OFF
+                    -DBENCHMARK_ENABLE_TESTING=OFF
+                    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+  UPDATE_COMMAND    ""
 )
-add_library(benchmark STATIC IMPORTED)
-add_dependencies(benchmark build_benchmark)
-set_property(TARGET benchmark PROPERTY IMPORTED_LOCATION ${GBENCH_LIB})
+
+add_library(benchmarklib STATIC IMPORTED)
+add_dependencies(benchmarklib benchmark)
+set_property(TARGET benchmarklib PROPERTY IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
 
 set(CUML_SG_BENCH_TARGET "sg_benchmark")
 set(ML_BENCH_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
-  benchmark
+  benchmarklib
 )
 
 include_directories(${GBENCH_DIR}/include)
+
 # (please keep the filenames in alphabetical order)
 add_executable(${CUML_SG_BENCH_TARGET}
   sg/dbscan.cu
@@ -53,5 +58,6 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/main.cpp
   sg/rf_classifier.cu
   )
+
 add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
 target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})

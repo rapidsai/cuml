@@ -14,66 +14,117 @@
 # limitations under the License.
 #
 
+from Cython.Build import cythonize
+from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from Cython.Build import cythonize
+from setuputils import get_submodule_dependencies
+
 import os
-import versioneer
-from distutils.sysconfig import get_python_lib
+import subprocess
 import sys
+import sysconfig
+import versioneer
+import warnings
 
 install_requires = [
-    'numpy',
+    'numba',
     'cython'
 ]
 
-cuda_include_dir = '/usr/local/cuda/include'
-cuda_lib_dir = "/usr/local/cuda/lib"
 
-if os.environ.get('CUDA_HOME', False):
-    cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'lib64')
-    cuda_include_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
+##############################################################################
+# - Dependencies include and lib folder setup --------------------------------
+
+CUDA_HOME = os.environ.get("CUDA_HOME", False)
+if not CUDA_HOME:
+    CUDA_HOME = (
+        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
+    )
+cuda_include_dir = os.path.join(CUDA_HOME, "include")
+cuda_lib_dir = os.path.join(CUDA_HOME, "lib64")
 
 
-rmm_include_dir = '/include'
-rmm_lib_dir = '/lib'
+##############################################################################
+# - Subrepo checking and cloning ---------------------------------------------
 
-# including cumlprims dirs, in case rmm paths change in the future
-cumlprims_include_dir = '/include'
-cumlprims_lib_dir = '/lib'
+subrepos = [
+    'cub',
+    'cutlass',
+    'faiss',
+    'treelite'
+]
 
-if os.environ.get('CONDA_PREFIX', None):
-    conda_prefix = os.environ.get('CONDA_PREFIX')
-    rmm_include_dir = conda_prefix + rmm_include_dir
-    rmm_lib_dir = conda_prefix + rmm_lib_dir
+# We check if there is a libcuml++ build folder, by default in cpp/build
+# or in CUML_BUILD_PATH env variable. Otherwise setup.py will clone the
+# dependencies defined in cpp/CMakeListst.txt
+if "clean" not in sys.argv:
+    if os.environ.get('CUML_BUILD_PATH', False):
+        libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
+    else:
+        libcuml_path = '../cpp/build/'
 
-    cumlprims_include_dir = conda_prefix + cumlprims_include_dir
-    cumlprims_lib_dir = conda_prefix + cumlprims_lib_dir
+    found_cmake_repos = get_submodule_dependencies(subrepos,
+                                                   libcuml_path=libcuml_path)
 
-exc_list = []
+    if found_cmake_repos:
+        treelite_path = os.path.join(libcuml_path,
+                                     'treelite/src/treelite/include')
+        faiss_path = os.path.join(libcuml_path, 'faiss/src/')
+        cub_path = os.path.join(libcuml_path, 'cub/src/cub')
+        cutlass_path = os.path.join(libcuml_path, 'cutlass/src/cutlass')
+    else:
+        # faiss requires the include to be to the parent of the root of
+        # their repo instead of the full path like the others
+        faiss_path = 'external_repositories/'
+        treelite_path = 'external_repositories/treelite/include'
+        cub_path = 'external_repositories/cub'
+        cutlass_path = 'external_repositories/cutlass'
 
-libs = ['cuda', 'cuml++', 'cumlcomms', 'nccl', 'rmm']
+else:
+    subprocess.check_call(['rm', '-rf', 'external_repositories'])
+    treelite_path = ""
+    faiss_path = ""
+    cub_path = ""
+    cutlass_path = ""
+
+##############################################################################
+# - Cython extensions build and parameters -----------------------------------
+
+libs = ['cuda',
+        'cuml++',
+        'cumlcomms',
+        'nccl',
+        'rmm']
 
 include_dirs = ['../cpp/src',
+                '../cpp/include',
                 '../cpp/external',
                 '../cpp/src_prims',
-                '../thirdparty/cutlass',
-                '../thirdparty/cub',
-                '../thirdparty/treelite/include',
+                cutlass_path,
+                cub_path,
+                faiss_path,
+                treelite_path,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
-                rmm_include_dir,
-                cumlprims_include_dir]
+                os.path.dirname(sysconfig.get_path("include"))]
 
-if "--multigpu" not in sys.argv:
+# Exclude multigpu components that use libcumlprims if --singlegpu is used
+exc_list = []
+if "--multigpu" in sys.argv:
+    warnings.warn("Flag --multigpu is deprecated. By default cuML is"
+                  "built with multi GPU support. To disable it use the flag"
+                  "--singlegpu")
+    sys.argv.remove('--multigpu')
+
+if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
-    sys.argv.remove('--multigpu')
-
 
 extensions = [
     Extension("*",
@@ -81,12 +132,15 @@ extensions = [
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
-                                    rmm_lib_dir,
-                                    cumlprims_lib_dir],
+                                    os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++11'])
 ]
+
+
+##############################################################################
+# - Python package generation ------------------------------------------------
 
 setup(name='cuml',
       description="cuML - RAPIDS ML Algorithms",

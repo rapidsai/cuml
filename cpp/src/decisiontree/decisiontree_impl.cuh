@@ -254,7 +254,6 @@ void DecisionTreeBase<T, L>::plant(
   grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols, colper,
                  dinfo.NLocalrows, sparsetree, treeid, tempmem);
   train_time = timer.getElapsedSeconds();
-  tempmem.reset();
 }
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::predict(const ML::cumlHandle &handle,
@@ -372,6 +371,9 @@ void DecisionTreeBase<T, L>::base_fit(
         tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
         tree_params.min_rows_per_node, tree_params.bootstrap_features,
         tree_params.split_criterion, tree_params.quantile_per_tree);
+  if (in_tempmem == nullptr) {
+    tempmem.reset();
+  }
 }
 
 template <typename T>
