@@ -277,6 +277,9 @@ cdef class BaseRandomProjection():
         else:
             return X_new
 
+    def fit_transform(self, X, convert_dtype=False):
+        return self.fit(X).transform(X, convert_dtype)
+
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
     """
