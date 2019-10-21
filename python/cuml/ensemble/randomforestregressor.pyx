@@ -260,7 +260,7 @@ class RandomForestRegressor(Base):
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
-                            The minimum decrease in impurity required 
+                            The minimum decrease in impurity required
                             for node to be split
     accuracy_metric : string (default = 'mse')
                       Decides the metric used to evaluate the performance
