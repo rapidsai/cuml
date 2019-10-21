@@ -17,7 +17,11 @@
 #include <gtest/gtest.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
+#include <random>
 #include <vector>
+
+#include "add.h"
+#include "batched_matrix.h"
 #include "matrix/batched_matrix.hpp"
 #include "random/rng.h"
 #include "test_utils.h"
@@ -25,8 +29,24 @@
 namespace MLCommon {
 namespace Matrix {
 
+enum BatchedMatrixOperation {
+  AB_op,
+  AZT_op,
+  ZA_op,
+  ApB_op,
+  AmB_op,
+  AkB_op,
+  AsolveZ_op
+};
+
 template <typename T>
 struct BatchedMatrixInputs {
+  BatchedMatrixOperation operation;
+  int n_batches;
+  int m;
+  int n;
+  int p;
+  int q;
   T tolerance;
 };
 
@@ -38,184 +58,188 @@ class BatchedMatrixTest
     using std::vector;
     params = ::testing::TestWithParam<BatchedMatrixInputs<T>>::GetParam();
 
-    //////////////////////////////////////////////////////////////
-    // Reference matrices
-    // NOTE: cublas expects in column major.
-    // 2x2
-    std::vector<T> A = {0.22814838, 0.92204276,
-                        /*       */ 0.32118359,
-                        /*       */ 0.28488466};
-    // A = np.array([[0.22814838,0.32118359],[0.92204276,0.28488466]])
+    // Find out whether B and Z will be used (depending on the operation)
+    bool use_B = (params.operation == AB_op) || (params.operation == ApB_op) ||
+                 (params.operation == AmB_op) || (params.operation == AkB_op);
+    bool use_Z = (params.operation == AZT_op) || (params.operation == ZA_op) ||
+                 (params.operation == AsolveZ_op);
+    bool Z_col = (params.operation == AsolveZ_op);
+    int r = params.operation == AZT_op ? params.n : params.m;
 
-    // 2x2
-    std::vector<T> B = {0.1741319, 0.19051178,
-                        /*       */ 0.21628607,
-                        /*       */ 0.35775104};
-    // B = np.array([[0.1741319,0.21628607],[0.19051178,0.35775104]])
+    // Check if the dimensions are valid and compute the output dimensions
+    int m_r, n_r;
+    switch (params.operation) {
+      case AB_op:
+        ASSERT_TRUE(params.n == params.p);
+        m_r = params.m;
+        n_r = params.q;
+        break;
+      case ApB_op:
+      case AmB_op:
+        ASSERT_TRUE(params.m == params.p && params.n == params.q);
+        m_r = params.m;
+        n_r = params.n;
+        break;
+      case AkB_op:
+        m_r = params.m * params.p;
+        n_r = params.n * params.q;
+        break;
+      case AZT_op:
+        m_r = params.m;
+        n_r = 1;
+        break;
+      case ZA_op:
+        m_r = 1;
+        n_r = params.n;
+        break;
+      case AsolveZ_op:
+        ASSERT_TRUE(params.n == params.m);
+        // For this test we multiply A by the solution and check against Z
+        m_r = params.m;
+        n_r = 1;
+        break;
+    }
 
-    // 1x2
-    std::vector<T> Z = {0.11387309, 0.21870136};
+    // Create test matrices and vector
+    std::vector<T> A = std::vector<T>(params.n_batches * params.m * params.n);
+    std::vector<T> B;
+    std::vector<T> Z;
+    if (use_B) B.resize(params.n_batches * params.p * params.q);
+    if (use_Z) Z.resize(params.n_batches * r);
 
-    //////////////////////////////////////////////////////////////
-    // reference via numpy
-    // A@B = array([[0.10091717, 0.16424908],
-    //              [0.21483094, 0.30134279]])
-    vector<T> ABref = {0.10091717, 0.21483094,
-                       /*       */ 0.16424908,
-                       /*       */ 0.30134279};
-    T* d_ABref;
-    allocate(d_ABref, 4);
-    updateDevice(d_ABref, ABref.data(), ABref.size(), 0);
+    // Generate random data
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<T> udis(-1.0, 3.0);
+    for (int i = 0; i < A.size(); i++) A[i] = udis(gen);
+    for (int i = 0; i < B.size(); i++) B[i] = udis(gen);
+    for (int i = 0; i < Z.size(); i++) Z[i] = udis(gen);
 
-    // B@Z.T = array([[0.067131 ],
-    //                [0.0999348]])
-    vector<T> BZTref = {0.067131, 0.0999348};
-    T* d_BZTref;
-    allocate(d_BZTref, 2);
-    updateDevice(d_BZTref, BZTref.data(), BZTref.size(), 0);
-
-    // Z@B = array([[0.06149412, 0.1028698 ]])
-    vector<T> ZBref = {0.06149412, 0.1028698};
-    T* d_ZBref;
-    allocate(d_ZBref, 2);
-    updateDevice(d_ZBref, ZBref.data(), ZBref.size(), 0);
-
-    vector<T> ApBref = {0.40228028, 1.11255454,
-                        /*       */ 0.53746966,
-                        /*       */ 0.6426357};
-    T* d_ApBref;
-    allocate(d_ApBref, 4);
-    updateDevice(d_ApBref, ApBref.data(), ApBref.size(), 0);
-
-    vector<T> AmBref = {0.05401648, 0.73153098,
-                        /*       */ 0.10489752,
-                        /*       */ -0.07286638};
-    T* d_AmBref;
-    allocate(d_AmBref, 4);
-    updateDevice(d_AmBref, AmBref.data(), AmBref.size(), 0);
-
-    // A+B = array([[0.40228028, 0.53746966],[1.11255454, 0.6426357 ]])
-    // A-B = array([[ 0.05401648,  0.10489752],[ 0.73153098, -0.07286638]])
-
-    // In [90]: np.kron(A,B)
-    // Out[90]:
-    //   array([[0.03972791, 0.04934532, 0.05592831, 0.06946754],
-    //          [0.04346495, 0.08162032, 0.06118926, 0.11490376],
-    //          [0.16055706, 0.199425  , 0.04960751, 0.06161658],
-    //          [0.17566001, 0.32986176, 0.05427388, 0.10191778]])
-
-    // note: column major layout
-    vector<T> AkBref = {0.03972791, 0.04346495, 0.16055706, 0.17566001,
-                        0.04934532, 0.08162032, 0.199425,   0.32986176,
-                        0.05592831, 0.06118926, 0.04960751, 0.05427388,
-                        0.06946754, 0.11490376, 0.06161658, 0.10191778};
-    T* d_AkBref;
-    allocate(d_AkBref, 16);
-    updateDevice(d_AkBref, AkBref.data(), AkBref.size(), 0);
-
-    vector<T> AsolveZref = {0.16354207, 0.23837218};
-
-    T* d_AsolveZref;
-    allocate(d_AsolveZref, 2);
-    updateDevice(d_AsolveZref, AsolveZref.data(), 2, 0);
-
-    //////////////////////////////////////////////////////////////
-    // setup gpu memory
-    int num_batches = 3;
-    // T* Abi;
-    // allocate(Abi, 4*num_batches);
-    // T* Bbi;
-    // allocate(Bbi, 4*num_batches);
-    // T* Zbi;
-    // allocate(Zbi, 2*num_batches);
-    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
-    // cublasH
-    cublasHandle_t handle;
+    // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
-    cudaStream_t stream = 0;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
 
-    BatchedMatrix AbM(2, 2, num_batches, handle, allocator, stream);
-    BatchedMatrix BbM(2, 2, num_batches, handle, allocator, stream);
-    BatchedMatrix ZbM(1, 2, num_batches, handle, allocator, stream);
-    BatchedMatrix ZbM_col(2, 1, num_batches, handle, allocator, stream);
+    // Created batched matrices
+    BatchedMatrix AbM(params.m, params.n, params.n_batches, handle, allocator,
+                      stream);
+    BatchedMatrix BbM(params.p, params.q, params.n_batches, handle, allocator,
+                      stream);
+    BatchedMatrix ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.n_batches, handle,
+                      allocator, stream);
+    BatchedMatrix AbM_copy(params.m, params.n, params.n_batches, handle,
+                           allocator, stream);
 
-    for (int i = 0; i < num_batches; i++) {
-      updateDevice(AbM[i], A.data(), 4, 0);
-      updateDevice(BbM[i], B.data(), 4, 0);
-      updateDevice(ZbM[i], Z.data(), 2, 0);
-      updateDevice(ZbM_col[i], Z.data(), 2, 0);
+    // Copy the data to the device
+    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
+    updateDevice(AbM_copy.raw_data(), A.data(), A.size(), stream);
+    if (use_B) updateDevice(BbM.raw_data(), B.data(), B.size(), stream);
+    if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
+
+    // Create fake batched matrices to be overwritten by results
+    res_bM = new BatchedMatrix(1, 1, 1, handle, allocator, stream);
+
+    // Compute the tested results
+    switch (params.operation) {
+      case AB_op:
+        *res_bM = AbM * BbM;
+        break;
+      case ApB_op:
+        *res_bM = AbM + BbM;
+        break;
+      case AmB_op:
+        *res_bM = AbM - BbM;
+        break;
+      case AkB_op:
+        *res_bM = b_kron(AbM, BbM);
+        break;
+      case AZT_op:
+        *res_bM = b_gemm(AbM, ZbM, false, true);
+        break;
+      case ZA_op:
+        *res_bM = ZbM * AbM;
+        break;
+      case AsolveZ_op:
+        // A * A\Z -> should be Z
+        *res_bM = AbM_copy * b_solve(AbM, ZbM);
+        break;
     }
 
-    //////////////////////////////////////////////////////////////
-    // compute
-    // std::cout << "AB\n";
-    BatchedMatrix AB = AbM * BbM;
-    // std::cout << "ZB\n";
-    BatchedMatrix ZB = ZbM * BbM;
-    // std::cout << "BZT\n";
-    BatchedMatrix BZT = b_gemm(BbM, ZbM, false, true);
-
-    // std::cout << "A+B\n";
-    BatchedMatrix A_p_B = AbM + BbM;
-    // std::cout << "A-B\n";
-    BatchedMatrix A_m_B = AbM - BbM;
-
-    // std::cout << "AB * B + B*AB - AB + B - A\n";
-    BatchedMatrix TestAlloc = AB * BbM + BbM * AB - AB + BbM - AbM;
-    // std::cout << "2:AB * B + B*AB - AB + B - A\n";
-    BatchedMatrix TestAlloc2 = AB * BbM + BbM * AB - AB + BbM - AbM;
-    // std::cout << "3:AB * B\n";
-    BatchedMatrix TestAlloc3 = AB * BbM;
-
-    // std::cout << "A (x) B\n";
-    BatchedMatrix AkB = b_kron(AbM, BbM);
-
-    // std::cout << "A\\Z.T\n";
-    BatchedMatrix xB = b_solve(AbM, ZbM_col);
-
-    //////////////////////////////////////////////////////////////
-    // compare answers
-    for (int i = 0; i < num_batches; i++) {
-      ASSERT_TRUE(devArrMatch(d_ABref, AB[i], AB.shape().first,
-                              AB.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_ZBref, ZB[i], ZB.shape().first,
-                              ZB.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_BZTref, BZT[i], BZT.shape().first,
-                              BZT.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_ApBref, A_p_B[i], A_p_B.shape().first,
-                              A_p_B.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_AmBref, A_m_B[i], A_m_B.shape().first,
-                              A_m_B.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_AkBref, AkB[i], AkB.shape().first,
-                              AkB.shape().second,
-                              CompareApprox<T>(params.tolerance)));
-      ASSERT_TRUE(devArrMatch(d_AsolveZref, xB[i], 2,
-                              CompareApprox<T>(params.tolerance)));
-
-      // Compare two different matrices to check failure case
-      ASSERT_FALSE(devArrMatch(d_ABref, A_m_B[i], A_m_B.shape().first,
-                               A_m_B.shape().second,
-                               CompareApprox<T>(params.tolerance)));
-      ASSERT_FALSE(devArrMatch(d_AsolveZref, ZbM[i], 2,
-                               CompareApprox<T>(params.tolerance)));
+    // Compute the expected results
+    res_h.resize(params.n_batches * m_r * n_r);
+    switch (params.operation) {
+      case AB_op:
+        for (int bid = 0; bid < params.n_batches; bid++) {
+          naiveMatMul(res_h.data() + bid * m_r * n_r,
+                      A.data() + bid * params.m * params.n,
+                      B.data() + bid * params.p * params.q, params.m, params.n,
+                      params.q);
+        }
+        break;
+      case ApB_op:
+        naiveAdd(res_h.data(), A.data(), B.data(), A.size());
+        break;
+      case AmB_op:
+        naiveAdd(res_h.data(), A.data(), B.data(), A.size(), -1.0);
+        break;
+      case AkB_op:
+        for (int bid = 0; bid < params.n_batches; bid++) {
+          naiveKronecker(res_h.data() + bid * m_r * n_r,
+                         A.data() + bid * params.m * params.n,
+                         B.data() + bid * params.p * params.q, params.m,
+                         params.n, params.p, params.q);
+        }
+        break;
+      case AZT_op:
+        for (int bid = 0; bid < params.n_batches; bid++) {
+          naiveMatMul(res_h.data() + bid * m_r * n_r,
+                      A.data() + bid * params.m * params.n, Z.data() + bid * r,
+                      params.m, params.n, 1);
+        }
+        break;
+      case ZA_op:
+        for (int bid = 0; bid < params.n_batches; bid++) {
+          naiveMatMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
+                      A.data() + bid * params.m * params.n, 1, params.m,
+                      params.n);
+        }
+        break;
+      case AsolveZ_op:
+        // Simply copy Z in the result
+        memcpy(res_h.data(), Z.data(), r * params.n_batches * sizeof(T));
+        break;
     }
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {}
+  void TearDown() override {
+    delete res_bM;
+    CUBLAS_CHECK(cublasDestroy(handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
 
  protected:
   BatchedMatrixInputs<T> params;
+  BatchedMatrix *res_bM;
+  std::vector<T> res_h;
+  cublasHandle_t handle;
+  cudaStream_t stream;
 };
 
-using BatchedMatrixTestD = BatchedMatrixTest<double>;
-TEST_P(BatchedMatrixTestD, Result) { std::cout << "Finished Test\n"; }
+// Test parameters (op, n_batches, m, n, p, q, tolerance)
+const std::vector<BatchedMatrixInputs<double>> inputsd = {
+  {AB_op, 7, 15, 37, 37, 11, 1e-6},   {AZT_op, 5, 33, 65, 1, 1, 1e-6},
+  {ZA_op, 8, 12, 41, 1, 1, 1e-6},     {ApB_op, 4, 16, 48, 16, 48, 1e-6},
+  {AmB_op, 17, 9, 3, 9, 3, 1e-6},     {AkB_op, 5, 3, 13, 31, 8, 1e-6},
+  {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
+  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-6}};
 
-const std::vector<BatchedMatrixInputs<double>> inputsd = {{1e-6}};
+using BatchedMatrixTestD = BatchedMatrixTest<double>;
+TEST_P(BatchedMatrixTestD, Result) {
+  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
+                              CompareApprox<double>(params.tolerance), stream));
+}
 
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
                         ::testing::ValuesIn(inputsd));
