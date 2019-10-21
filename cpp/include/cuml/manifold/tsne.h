@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "cuML.hpp"
-
 #pragma once
+
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
@@ -47,7 +47,7 @@ namespace ML {
  * @input param verbose: Whether to print error messages or not.
  * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
- 
+
 The CUDA implementation is derived from the excellent CannyLabs open source implementation here:
 https://github.com/CannyLab/tsne-cuda/. The CannyLabs code is licensed according to the conditions in
 cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of their approach is available in their

@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "solver/solver.hpp" namespace "ML::Solver":
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
     cdef void sgdFit(cumlHandle& handle,
                      float *input,

@@ -56,6 +56,10 @@ option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 
+option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
+
+option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -143,6 +147,10 @@ set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 
+set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
+  "Path to cuml include directories")
+
+
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
@@ -227,6 +235,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     message(STATUS "Enabling the GLIBCXX11 ABI")
   endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+set(CMAKE_CUDA_FLAGS
+  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 ##############################################################################
 # - clang-format targets -----------------------------------------------------
@@ -316,6 +327,7 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 # - include paths ------------------------------------------------------------
 
 include_directories(
+  ${CUML_INCLUDE_DIR}
   src
   src_prims
   test/prims
@@ -324,6 +336,7 @@ include_directories(
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/runtime/native/include
   ${ZLIB_INCLUDE_DIRS$})
 
 set(PRIMS_TEST_UTILS
@@ -384,7 +397,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
 
   if(OPENMP_FOUND)
-
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -423,8 +435,19 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
-##############################################################################
-# - build examples -----------------------------------------------------------
+###################################################################################################
+# - build comms ------------------------------------------------------------------------
+
+if(BUILD_CUML_STD_COMMS)
+	add_subdirectory(comms/std)
+endif(BUILD_CUML_STD_COMMS)
+
+if(BUILD_CUML_MPI_COMMS)
+	add_subdirectory(comms/mpi)
+endif(BUILD_CUML_MPI_COMMS)
+
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
 
 if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
@@ -433,7 +456,12 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
-install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
+install(TARGETS ${CUML_CPP_TARGET}
+                ${CUML_C_TARGET}
+        DESTINATION lib)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
+        DESTINATION include)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

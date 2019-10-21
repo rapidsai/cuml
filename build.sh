@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --singlegpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
@@ -41,14 +41,15 @@ LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
-BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
+PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
+BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-MULTIGPU="--multigpu"
+SINGLEGPU=""
 CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
@@ -91,7 +92,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    MULTIGPU=""
+    SINGLEGPU="--singlegpu"
 fi
 if hasArg clean; then
     CLEAN=1
@@ -130,7 +131,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
+          -DBUILD_CUML_C_LIBRARY=ON \
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
+          -DNCCL_PATH=${INSTALL_PREFIX} ..
 
 fi
 
@@ -154,17 +157,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     cd ${LIBCUML_BUILD_DIR}
     make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 
-    # build cumlcomms library
-    mkdir -p ${CUML_COMMS_BUILD_DIR}
-    cd ${CUML_COMMS_BUILD_DIR}
-
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DWITH_UCX=OFF \
-          -DCUML_INSTALL_DIR=${INSTALL_PREFIX}/lib .. \
-          -DNCCL_PATH=${INSTALL_PREFIX} ..
-
-    cd ${CUML_COMMS_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
 
@@ -173,9 +165,9 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-  python setup.py build_ext --inplace ${MULTIGPU}
-  python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
+  python setup.py build_ext --inplace ${SINGLEGPU}
+  python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
-  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
+  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
     fi
 fi
