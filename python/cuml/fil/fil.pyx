@@ -139,6 +139,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         TREE_REORG,
         BATCH_TREE_REORG
 
+    cdef enum sparse_t:
+        AUTO,
+        DENSE,
+        SPARSE
+
     cdef struct forest:
         pass
 
@@ -148,6 +153,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         algo_t algo
         bool output_class
         float threshold
+        sparse_t sparse
 
     cdef void free(cumlHandle& handle,
                    forest_t)
@@ -180,6 +186,15 @@ cdef class ForestInference_impl():
             raise Exception(' Wrong algorithm selected please refer'
                             ' to the documentation')
         return algo_dict[algo_str]
+
+    def get_sparse(self, sparse_str):
+        sparse_dict={'AUTO': sparse_t.AUTO,
+                     'DENSE': sparse_t.DENSE,
+                     'SPARSE': sparse_t.SPARSE}
+        if sparse_str not in sparse_dict.keys():
+            raise Exception(' Wrong sparsity selected please refer'
+                            ' to the documentation')
+        return sparse_dict[sparse_str]
 
     def predict(self, X, preds=None):
         """
@@ -224,12 +239,14 @@ cdef class ForestInference_impl():
                                  TreeliteModel model,
                                  bool output_class,
                                  str algo,
-                                 float threshold):
+                                 float threshold,
+                                 str sparse):
 
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+        treelite_params.sparse = self.get_sparse(sparse)
 
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
@@ -246,13 +263,15 @@ cdef class ForestInference_impl():
                                model_handle,
                                bool output_class,
                                str algo,
-                               float threshold):
+                               float threshold,
+                               str sparse):
 
         cdef treelite_params_t treelite_params
 
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
+        treelite_params.sparse = self.get_sparse(sparse)
 
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
@@ -361,7 +380,8 @@ class ForestInference(Base):
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='TREE_REORG',
-                                 threshold=0.5):
+                                 threshold=0.5,
+                                 sparse='DENSE'):
         """
         Creates a FIL model using the treelite model
         passed to the function.
@@ -384,13 +404,14 @@ class ForestInference(Base):
            applied if output_class == True, else it is ignored
         """
         return self._impl.load_from_treelite_model(model, output_class,
-                                                   algo, threshold)
+                                                   algo, threshold, sparse)
 
     @staticmethod
     def load(filename,
              output_class=False,
              threshold=0.50,
              algo='TREE_REORG',
+             sparse='DENSE',
              model_type="xgboost",
              handle=None):
         """
@@ -420,6 +441,7 @@ class ForestInference(Base):
         cuml_fm.load_from_treelite_model(tl_model,
                                          algo=algo,
                                          output_class=output_class,
+                                         sparse=sparse,
                                          threshold=threshold)
         return cuml_fm
 
@@ -427,7 +449,10 @@ class ForestInference(Base):
                                model_handle,
                                output_class=False,
                                algo='TREE_REORG',
+                               sparse='DENSE',
                                threshold=0.50):
 
         return self._impl.load_from_randomforest(model_handle, output_class,
-                                                 algo, threshold)
+                                                 algo, threshold, sparse)
+
+# FINISHED HERE

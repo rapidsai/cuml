@@ -70,6 +70,16 @@ enum output_t {
   THRESHOLD = 0x100,
 };
 
+/** sparse_t defines whether to import the forests as dense or sparse */
+enum sparse_t {
+  /** decide automatically; currently always builds dense forests */
+  AUTO,
+  /** import the forest as dense */
+  DENSE,
+  /** import the forest as sparse */
+  SPARSE
+};
+
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
   float val;
@@ -138,6 +148,8 @@ struct treelite_params_t {
   // threshold is used for thresholding if output_class == true,
   // and is ignored otherwise
   float threshold;
+  // sparse indicates whether the forest should be imported as dense or sparse
+  sparse_t sparse;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
