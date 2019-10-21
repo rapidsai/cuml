@@ -39,25 +39,24 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              int upper_class_range)
 
 
-def adjusted_rand_score(labels_true,
-                        labels_pred,
-                        handle=None):
+def adjusted_rand_score(labels_true, labels_pred, handle=None):
     """
-    Adjusted_rand_score function is a modified rand index
-    function modified to handle chance.
+    Adjusted_rand_score function is a modified rand index function modified
+    to handle chance.
 
-        Parameters
-        ----------
-            labels_true : Array of response variables of
-                              the first clustering classifications
-            labels_pred : Array of response variables of
-                              the first clustering classifications
-            handle : cuml.Handle
-        Returns
-        -------
+    Parameters
+    ----------
+        labels_true : Array of response variables of the first clustering
+            classifications
+        labels_pred : Array of response variables of the first clustering
+            classifications
+        handle : cuml.Handle
+
+    Returns
+    -------
+        float
             The adjusted rand index value
     """
-
     handle = cuml.common.handle.Handle() \
         if handle is None else handle
     cdef cumlHandle* handle_ =\
