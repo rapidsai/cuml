@@ -13,19 +13,17 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
+    raise_exception_from_futures
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
-import numpy as np
 
 from collections import OrderedDict
 
 from functools import reduce
 
 from uuid import uuid1
-
-import cudf
 
 
 class NearestNeighbors(object):
@@ -46,6 +44,39 @@ class NearestNeighbors(object):
 
         return self
 
+    @staticmethod
+    def _func_create_model(sessionId, **kwargs):
+        try:
+            from cuml.neighbors.nearest_neighbors_mg import \
+                NearestNeighborsMG as cumlNN
+        except ImportError:
+            raise Exception("cuML has not been built with multiGPU support "
+                            "enabled. Build with the --multigpu flag to"
+                            " enable multiGPU support.")
+
+        handle = worker_state(sessionId)["handle"]
+        return cumlNN(handle=handle, **kwargs)
+
+    @staticmethod
+    def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_partsToRanks,
+                         local_query_parts, query_m, query_partsToRanks,
+                         rank, k):
+        return model.kneighbors(
+            local_idx_parts, idx_m, n, idx_partsToRanks,
+            local_query_parts, query_m, query_partsToRanks,
+            rank, k
+        )
+
+    @staticmethod
+    def _func_get_d(f, idx):
+        i, d = f
+        return d[idx]
+
+    @staticmethod
+    def _func_get_i(f, idx):
+        i, d = f
+        return i[idx]
+
     def kneighbors(self, X, k=None):
         """
         Query the NearestNeighbors index
@@ -63,8 +94,8 @@ class NearestNeighbors(object):
                 elements is used as a threshold.
         :return : dask_cudf.Dataframe containing the results
         """
-        if self.n_neighbors is not None and k is None:
-            k = self.n_neighbors
+        if self.kwargs["n_neighbors"] is not None and k is None:
+            k = self.kwargs["n_neighbors"]
 
         index_futures = self.client.sync(extract_ddf_partitions, self.X, agg=False)
         query_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
@@ -84,11 +115,14 @@ class NearestNeighbors(object):
         workers = set(map(lambda x: x[0], index_futures))
         workers.extend(list(map(lambda x: x[0], query_futures)))
 
-        comms = CommsContext(comms_p2p=False)
+        comms = CommsContext(comms_p2p=True)
         comms.init(workers=workers)
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
+        """
+        Build inputs and outputs
+        """
         key = uuid1()
         idx_partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
             NearestNeighbors._func_get_size,
@@ -108,39 +142,67 @@ class NearestNeighbors(object):
         idx_M = reduce(lambda a,b: a+b, map(lambda x: x[1], idx_partsToRanks))
         query_M = reduce(lambda a,b: a+b, map(lambda x: x[1], query_partsToRanks))
 
+        """
+        Each Dask worker creates a single model
+        """
         key = uuid1()
-        nn_models = [(worker, self.client.submit(
+        nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(workers)]
+            for idx, worker in enumerate(workers)])
 
-        print(str(nn_models))
+        raise_exception_from_futures(nn_models)
 
+        """
+        Invoke kneighbors on Dask workers to perform distributed query
+        """
         key = uuid1()
-        nn_fit = [self.client.submit(
+        nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
+            nn_models[worker],
             NearestNeighbors._func_kneighbors,
-            index_worker_to_parts[worker] if worker in index_worker_to_parts else [],
+            index_worker_to_parts[worker] if worker in
+                                             index_worker_to_parts else [],
             idx_M,
             N,
             idx_partsToRanks,
-            query_worker_to_parts[worker] if worker in query_worker_to_parts else [],
+            query_worker_to_parts[worker] if worker in
+                                             query_worker_to_parts else [],
             query_M,
             query_partsToRanks,
             worker_info[worker]["r"],
+            k,
             key="%s-%s" % (key, idx),
-            workers=[worker])
-            for idx, worker in enumerate(workers)]
+            workers=[worker]))
+            for idx, worker in enumerate(workers)])
 
-        wait(nn_fit)
+        wait(nn_fit.values())
 
-        print(str([f.exception() for f in nn_fit]))
+        raise_exception_from_futures(nn_fit)
 
         comms.destroy()
 
-        self.local_model = self.client.submit(NearestNeighbors._func_get_first,
-                                              nn_models[0][1]).result()
+        """
+        Gather resulting partitions and return dask_cudfs
+        """
+        out_i_futures = []
+        out_d_futures = []
+        completed_part_map = {}
+        for rank, size in query_partsToRanks:
+            if rank not in completed_part_map:
+                completed_part_map[rank] = 0
 
-        # TODO: Need to build output DFs for `output_i` and `output_d`
+            f = nn_fit[rank]
+
+            out_d_futures.append(self.client.submit(
+                NearestNeighbors._func_get_d(f, completed_part_map[rank])))
+
+            out_i_futures.append(self.client.submit(
+                NearestNeighbors._func_get_i(f, completed_part_map[rank])))
+
+            completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_d_futures), \
+               to_dask_cudf(out_i_futures)

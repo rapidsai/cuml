@@ -95,7 +95,7 @@ class KMeans(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def func_fit(sessionId, dfs, **kwargs):
+    def _func_fit(sessionId, dfs, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -119,7 +119,7 @@ class KMeans(object):
         return cumlKMeans(handle=handle, **kwargs).fit(df)
 
     @staticmethod
-    def func_transform(model, dfs):
+    def _func_transform(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -132,7 +132,7 @@ class KMeans(object):
         return model.transform(df)
 
     @staticmethod
-    def func_predict(model, dfs):
+    def _func_predict(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -144,7 +144,7 @@ class KMeans(object):
         return model.predict(df)
 
     @staticmethod
-    def func_score(model, dfs):
+    def _func_score(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -179,7 +179,7 @@ class KMeans(object):
 
         key = uuid1()
         kmeans_fit = [self.client.submit(
-            KMeans.func_fit,
+            KMeans._func_fit,
             comms.sessionId,
             wf[1],
             **self.kwargs,
@@ -223,7 +223,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans.func_predict)
+        return self.parallel_func(X, KMeans._func_predict)
 
     def fit_predict(self, X):
         return self.fit(X).predict(X)
@@ -234,7 +234,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans.func_transform)
+        return self.parallel_func(X, KMeans._func_transform)
 
     def fit_transform(self, X):
         """
@@ -249,7 +249,7 @@ class KMeans(object):
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
         scores = [self.client.submit(
-            KMeans.func_score,
+            KMeans._func_score,
             self.local_model,
             wf[1],
             workers=[wf[0]],

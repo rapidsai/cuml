@@ -12,101 +12,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import pytest
-
-from sklearn.neighbors import NearestNeighbors
 
 from dask.distributed import Client, wait
 
-from cudf.core.index import RangeIndex
+import numpy as np
 
-pytestmark = pytest.mark.mg
+from cuml.test.utils import unit_param, quality_param, stress_param
 
 
-def test_end_to_end(cluster):
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
+                                   stress_param(5e6)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
+def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
     client = Client(cluster)
 
     try:
+        from cuml.dask.neighbors import NearestNeighbors as cumlNN
 
-        print(client)
+        from cuml.dask.datasets import make_blobs
 
-        # NOTE: The LocalCUDACluster needs to be started
-        # before any imports that
-        # could potentially create a CUDA context.
+        X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
+                               cluster_std=0.01, verbose=True,
+                               random_state=10)
 
-        import dask_cudf
+        wait(X_cudf)
 
-        import cudf
-        import numpy as np
+        cumlModel = cumlNN(verbose=1, n_neighbors=10)
 
-        from cuml.dask.neighbors import NearestNeighbors as cumlKNN
+        cumlModel.fit(X_cudf)
 
-        def create_df(f, m, n):
-            X = np.random.uniform(-1, 1, (m, n))
-            ret = cudf.DataFrame([(i,
-                                   X[:, i].astype(np.float32))
-                                  for i in range(n)],
-                                 index=RangeIndex(f * m,
-                                                  f * m + m, 1))
-            return ret
+        out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-        def get_meta(df):
-            ret = df.iloc[:0]
-            return ret
-
-        def build_dask_df(nrows, ncols):
-            workers = client.has_what().keys()
-
-            # Create dfs on each worker (gpu)
-            dfs = [client.submit(create_df, n, nrows, ncols,
-                                 workers=[worker])
-                   for worker, n in list(zip(workers,
-                                             list(range(len(workers)))))]
-            # Wait for completion
-            wait(dfs)
-            meta = client.submit(get_meta, dfs[0]).result()
-            return dask_cudf.from_delayed(dfs, meta=meta)
-
-        # Per gpu/worker
-        train_m = 500
-        train_n = 25
-
-        search_m = 10
-        search_k = 15
-
-        X_df = build_dask_df(train_m, train_n)
-        test_DF = build_dask_df(search_m, train_n)
-        X_pd = X_df.compute().to_pandas()
-        test_PD = test_DF.compute().to_pandas()
-
-        cumlNN = cumlKNN()
-        cumlNN.fit(X_df)
-
-        sklNN = NearestNeighbors(metric="sqeuclidean")
-        sklNN.fit(X_pd)
-
-        cuml_D, cuml_I = cumlNN.kneighbors(test_DF, search_k)
-        sk_D, sk_I = sklNN.kneighbors(test_PD, search_k)
-
-        cuml_I_nd = np.array(cuml_I.compute().as_gpu_matrix(),
-                             dtype=sk_I.dtype)
-        cuml_D_nd = np.array(cuml_D.compute().as_gpu_matrix(),
-                             dtype=sk_D.dtype)
-
-        cuml_I_nd = np.sort(cuml_I_nd, axis=0)
-        cuml_D_nd = np.sort(cuml_D_nd, axis=0)
-
-        sk_I = np.sort(sk_I, axis=0)
-        sk_D = np.sort(sk_D, axis=0)
-
-        print(str(cuml_D_nd.dtype))
-        print(str(sk_D.dtype))
-
-        assert np.array_equal(cuml_I_nd, sk_I)
-        assert np.allclose(cuml_D_nd, sk_D, atol=1e-5)
+        print(str(out_d))
+        print(str(out_i))
 
     finally:
-
         client.close()
