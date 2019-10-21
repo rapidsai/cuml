@@ -69,7 +69,7 @@ cdef extern from "<vector>" namespace "std":
         void resize(size_t n)
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
-    "MLCommon::Matrix":
+        "MLCommon::Matrix":
 
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
@@ -83,7 +83,7 @@ ctypedef Data[int64_t] int64Data_t
 
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
-    "MLCommon::Matrix":
+        "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -96,7 +96,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" namespace \
                        int myrank)
 
 cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
-    "MLCommon::Selection::opg":
+        "MLCommon::Selection::opg":
 
     cdef void brute_force_knn(
         cumlHandle &handle,
@@ -215,11 +215,11 @@ class NearestNeighborsMG(NearestNeighbors):
 
         cdef vector[floatData_t*] *local_index_parts \
             = <vector[floatData_t*]*><size_t> \
-               self._build_dataFloat(index_ifaces)
+              self._build_dataFloat(index_ifaces)
 
         cdef vector[floatData_t*] *local_query_parts \
             = <vector[floatData_t*]*><size_t> \
-               self._build_dataFloat(query_ifaces)
+              self._build_dataFloat(query_ifaces)
 
         cdef PartDescriptor *index_descriptor \
             = new PartDescriptor(<size_t>index_m,
