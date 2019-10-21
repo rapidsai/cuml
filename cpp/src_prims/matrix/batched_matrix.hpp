@@ -35,8 +35,12 @@
 namespace MLCommon {
 namespace Matrix {
 
-/* An allocation function for `BatchedMatrixMemory`. Written as a free function because I had trouble
- * getting the __device__ lambda to compile as a member function of the `BatchedMatrixMemory` struct.
+/**
+ * @brief An allocation function for `BatchedMatrixMemory`.
+ * 
+ * @note Written as a free function because I had trouble getting the
+ *       __device__ lambda to compile as a member function of the
+ *       `BatchedMatrixMemory` struct.
  */
 std::pair<double*, double**> BMM_Allocate(
   std::pair<int, int> shape, int num_batches, bool setZero,
@@ -51,10 +55,10 @@ std::pair<double*, double**> BMM_Allocate(
     CUDA_CHECK(cudaMemsetAsync(A_dense, 0, sizeof(double) * m * n * num_batches,
                                stream));
 
-  // allocate and fill array of pointers to each batch matrix
+  // Allocate and fill array of pointers to each batch matrix
   double** A_array =
     (double**)allocator->allocate(sizeof(double*) * num_batches, stream);
-  // fill array of pointers to each batch matrix.
+  // Fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + num_batches,
@@ -74,16 +78,21 @@ __global__ void identity_matrix_kernel(double** I, int r) {
   }
 }
 
-//! The BatchedMatrix class provides storage and a number of linear operations on collections (batches) of matrices of identical shape.
+/**
+ * @brief The BatchedMatrix class provides storage and a number of linear
+ *        operations on collections (batches) of matrices of identical shape.
+ */
 class BatchedMatrix {
  public:
-  /* Constructor that allocates memory using the memory pool.
-  * @param m Number of rows
-  * @param n Number of columns
-  * @param num_batches Number of matrices in the batch
-  * @param pool The memory pool
-  * @param setZero Should matrix be zeroed on allocation?
-  */
+  /**
+   * @brief Constructor that allocates memory using the memory pool.
+   * 
+   * @param[in]  m            Number of rows
+   * @param[in]  n            Number of columns
+   * @param[in]  num_batches  Number of matrices in the batch
+   * @param[in]  pool         The memory pool
+   * @param[in]  setZero      Should matrix be zeroed on allocation?
+   */
   BatchedMatrix(int m, int n, int num_batches, cublasHandle_t cublasHandle,
                 std::shared_ptr<ML::deviceAllocator> allocator,
                 cudaStream_t stream, bool setZero = true)
@@ -93,16 +102,17 @@ class BatchedMatrix {
       m_stream(stream) {
     m_shape = std::make_pair(m, n);
 
-    // allocate memory
+    // Allocate memory
     auto memory =
       BMM_Allocate(m_shape, num_batches, setZero, allocator, stream);
 
-    // Take these references to extract them from member-storage for the
-    // lambda below. There are better C++14 ways to do this, but I'll keep it C++11 for now.
+    /* Take these references to extract them from member-storage for the
+     * lambda below. There are better C++14 ways to do this, but I'll keep
+     * it C++11 for now. */
     auto& shape = m_shape;
 
-    // note: we create this "free" function with explicit copies to ensure that the
-    // deallocate function gets called with the correct values.
+    /* Note: we create this "free" function with explicit copies to ensure that
+     * the deallocate function gets called with the correct values. */
     auto f1 = [allocator, num_batches, shape, stream](double* A) {
       allocator->deallocate(
         A, num_batches * shape.first * shape.second * sizeof(double), stream);
@@ -126,7 +136,7 @@ class BatchedMatrix {
   //! Return allocator
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
 
-  //! return stream
+  //! Return stream
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
@@ -189,10 +199,14 @@ class BatchedMatrix {
     }
   }
 
-  /* Initialize a batched identity matrix.
-   * @param m Number of rows/columns of matrix
-   * @param num_batches Number of matrices in batch
-   * @param pool Memory pool
+  /**
+   * @brief Initialize a batched identity matrix.
+   * 
+   * @param[in]  m            Number of rows/columns of matrix
+   * @param[in]  num_batches  Number of matrices in batch
+   * @param[in]  pool         Memory pool
+   * 
+   * @return A batched identity matrix
    */
   static BatchedMatrix Identity(int m, int num_batches, cublasHandle_t handle,
                                 std::shared_ptr<ML::deviceAllocator> allocator,
@@ -223,16 +237,18 @@ class BatchedMatrix {
   cudaStream_t m_stream;
 };
 
-/* Computes batched kronecker prodcut between AkB <- A (x) B
- * @param A Array of pointers to matrices `A`
- * @param m number of rows (A)
- * @param n number of columns (A)
- * @param B Array of pointers to matrices `B`
- * @param p number of rows (B)
- * @param q number of columns (B)
- * @param AkB Result kronecker product pointer array.
- * @param k_m Result number of rows
- * @param k_n Result number of columns
+/**
+ * @brief Computes batched kronecker product between AkB <- A (x) B
+ * 
+ * @param[in]   A    Array of pointers to matrices `A`
+ * @param[in]   m    Number of rows (A)
+ * @param[in]   n    Number of columns (A)
+ * @param[in]   B    Array of pointers to matrices `B`
+ * @param[in]   p    Number of rows (B)
+ * @param[in]   q    Number of columns (B)
+ * @param[out]  AkB  Result kronecker product pointer array.
+ * @param[in]   k_m  Result number of rows
+ * @param[in]   k_n  Result number of columns
  */
 __global__ void kronecker_product_kernel(double** A, int m, int n, double** B,
                                          int p, int q, double** AkB, int k_m,
@@ -260,14 +276,16 @@ __global__ void kronecker_product_kernel(double** A, int m, int n, double** B,
   }
 }
 
-/* Multiplies each matrix in a batch-A with it's batch-B counterpart.
- * A = [A1,A2,A3], B=[B1,B2,B3]
- * returns [A1*B1, A2*B2, A3*B3]
- * @param A First matrix batch
- * @param B Second matrix batch
- * @param aT Is `A` transposed?
- * @param bT is `B` transposed?
- * @return member-wise A*B
+/**
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
+ *        A = [A1,A2,A3], B=[B1,B2,B3] returns [A1*B1, A2*B2, A3*B3]
+ * 
+ * @param[in]  A   First matrix batch
+ * @param[in]  B   Second matrix batch
+ * @param[in]  aT  Is `A` transposed?
+ * @param[in]  bT  is `B` transposed?
+ * 
+ * @return Member-wise A*B
  */
 BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
                      bool aT = false, bool bT = false) {
@@ -324,10 +342,13 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   return C;
 }
 
-/* A utility method to implement pointwise operations between elements of two batched matrices.
- * @param A First matrix
- * @param B Second matrix
- * @param binary_op The binary operation used on elements of `A` and `B`
+/**
+ * @brief A utility method to implement pointwise operations between elements
+ *        of two batched matrices.
+ * 
+ * @param[in]  A          First matrix
+ * @param[in]  B          Second matrix
+ * @param[in]  binary_op  The binary operation used on elements of `A` and `B`
  * @return The result of `A` `binary_op` `B`
  */
 template <typename F>
@@ -355,38 +376,45 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
   return C;
 }
 
-/* Multiplies each matrix in a batch-A with it's batch-B counterpart.
- * A = [A1,A2,A3], B=[B1,B2,B3]
- * return [A1*B1, A2*B2, A3*B3]
- * @param A Matrix `A`
- * @param B Matrix `B`
- * @returns The result of the batched matrix-matrix multiplication of `A` x `B`
+/**
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
+ *        A = [A1,A2,A3], B=[B1,B2,B3] return [A1*B1, A2*B2, A3*B3]
+ * 
+ * @param[in]  A  Matrix `A`
+ * @param[in]  B  Matrix `B`
+ * @return The result of the batched matrix-matrix multiplication of `A` x `B`
  */
 BatchedMatrix operator*(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_gemm(A, B);
 }
 
-/* Adds two batched matrices together element-wise.
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief Adds two batched matrices together element-wise.
+ * 
+ * @param[in]  A  Matrix `A`
+ * @param[in]  B  Matrix `B`
  * @return A+B
  */
 BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_aA_op_B(A, B, [] __device__(double a, double b) { return a + b; });
 }
 
-/* Subtract two batched matrices together element-wise.
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief Subtract two batched matrices together element-wise.
+ * 
+ * @param[in]  A  Matrix `A`
+ * @param[in]  B  Matrix `B`
  * @return A-B
  */
 BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_aA_op_B(A, B, [] __device__(double a, double b) { return a - b; });
 }
 
-/* Solve Ax = b for given batched matrix A and batched vector b
- * @param Matrix A
- * @param vector b
+/**
+ * @brief Solve Ax = b for given batched matrix A and batched vector b
+ * 
+ * @param[in]  A  Matrix A
+ * @param[in]  b  Vector b
  * @return A\b
  */
 BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
@@ -414,9 +442,12 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   return x;
 }
 
-/* The batched kroneker product A (x) B for given batched matrix A and batched matrix B
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief The batched kroneker product A (x) B for given batched matrix A
+ *        and batched matrix B
+ * 
+ * @param[in]  A  Matrix A
+ * @param[in]  B  Matrix B
  * @return A (x) B
  */
 BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
