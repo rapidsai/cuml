@@ -111,14 +111,14 @@ def stationarity(y, pval_threshold=0.05, handle=None):
     # Call C++ function
     if dtype == np.float32:
         ret_value = cpp_stationarity(handle_[0], <float*> y_d_ptr,
-                                    <int*> d.data(),
-                                    <int> n_batches, <int> n_samples,
-                                    <float> pval_threshold)
+                                     <int*> d.data(),
+                                     <int> n_batches, <int> n_samples,
+                                     <float> pval_threshold)
     elif dtype == np.float64:
         ret_value = cpp_stationarity(handle_[0], <double*> y_d_ptr,
-                                    <int*> d.data(),
-                                    <int> n_batches, <int> n_samples,
-                                    <double> pval_threshold)
+                                     <int*> d.data(),
+                                     <int> n_batches, <int> n_samples,
+                                     <double> pval_threshold)
     else:
         raise TypeError("Stationarity test supports only float32 and float64"
                         " input, but input type {} was passed."
@@ -126,5 +126,5 @@ def stationarity(y, pval_threshold=0.05, handle=None):
 
     if ret_value < 0:
         raise ValueError("Stationarity test failed for d=0 or 1.")
-    
+
     return d
