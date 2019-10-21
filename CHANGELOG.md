@@ -230,6 +230,7 @@
 - PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
+- PR #820: Updating DEVELOPER GUIDE threading guidelines
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
