@@ -261,7 +261,6 @@ class NearestNeighborsMG(NearestNeighbors):
             out_d_vec.push_back(new floatData_t(
                 <float*>d_ptr, n_rows * k))
 
-
         brute_force_knn(
             handle_[0],
             deref(out_i_vec),
@@ -283,4 +282,3 @@ class NearestNeighborsMG(NearestNeighbors):
                             output_d_arrs))
 
         return output_i, output_d
-
