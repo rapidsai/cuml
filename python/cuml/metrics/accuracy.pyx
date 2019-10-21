@@ -43,7 +43,7 @@ def accuracy_score(ground_truth, predictions, handle=None):
         Parameters
         ----------
         handle : cuml.Handle
-        prediction : NumPy ndarray or Numba device 
+        prediction : NumPy ndarray or Numba device
            The lables predicted by the model for the test dataset
         ground_truth : NumPy ndarray, Numba device
            The ground truth labels of the test dataset
