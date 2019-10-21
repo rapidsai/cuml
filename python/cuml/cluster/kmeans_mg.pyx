@@ -53,7 +53,7 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
@@ -116,6 +116,8 @@ class KMeansMG(KMeans):
             clust_cent = zeros(self.n_clusters * self.n_cols,
                                dtype=self.dtype)
             self.cluster_centers_ = rmm.to_device(clust_cent)
+
+        print(str(self._params))
 
         cdef uintptr_t cluster_centers_ptr = \
             get_dev_array_ptr(self.cluster_centers_)

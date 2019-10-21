@@ -15,9 +15,9 @@
  */
 
 #include "svm_api.h"
+#include <cuml/cuml_api.h>
 #include <tuple>
 #include "common/cumlHandle.hpp"
-#include "cuML_api.h"
 #include "matrix/kernelparams.h"
 #include "svc.hpp"
 #include "svm_model.h"
@@ -25,9 +25,9 @@
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
-                         int max_iter, float tol, int verbose,
-                         cumlSvmKernelType kernel, int degree, float gamma,
-                         float coef0, int *n_support, float *b,
+                         int max_iter, int nochange_steps, float tol,
+                         int verbose, cumlSvmKernelType kernel, int degree,
+                         float gamma, float coef0, int *n_support, float *b,
                          float **dual_coefs, float **x_support,
                          int **support_idx, int *n_classes,
                          float **unique_labels) {
@@ -35,6 +35,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
   param.C = C;
   param.cache_size = cache_size;
   param.max_iter = max_iter;
+  param.nochange_steps = nochange_steps;
   param.tol = tol;
   param.verbose = verbose;
 
@@ -76,16 +77,17 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
 
 cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
                          int n_cols, double *labels, double C,
-                         double cache_size, int max_iter, double tol,
-                         int verbose, cumlSvmKernelType kernel, int degree,
-                         double gamma, double coef0, int *n_support, double *b,
-                         double **dual_coefs, double **x_support,
+                         double cache_size, int max_iter, int nochange_steps,
+                         double tol, int verbose, cumlSvmKernelType kernel,
+                         int degree, double gamma, double coef0, int *n_support,
+                         double *b, double **dual_coefs, double **x_support,
                          int **support_idx, int *n_classes,
                          double **unique_labels) {
   ML::SVM::svmParameter param;
   param.C = C;
   param.cache_size = cache_size;
   param.max_iter = max_iter;
+  param.nochange_steps = nochange_steps;
   param.tol = tol;
   param.verbose = verbose;
 
@@ -129,7 +131,8 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
                              int n_cols, cumlSvmKernelType kernel, int degree,
                              float gamma, float coef0, int n_support, float b,
                              float *dual_coefs, float *x_support, int n_classes,
-                             float *unique_labels, float *preds) {
+                             float *unique_labels, float *preds,
+                             float buffer_size) {
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
   kernel_param.degree = degree;
@@ -151,7 +154,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds);
+                          model, preds, buffer_size);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -171,7 +174,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
                              double gamma, double coef0, int n_support,
                              double b, double *dual_coefs, double *x_support,
                              int n_classes, double *unique_labels,
-                             double *preds) {
+                             double *preds, double buffer_size) {
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
   kernel_param.degree = degree;
@@ -193,7 +196,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds);
+                          model, preds, buffer_size);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
