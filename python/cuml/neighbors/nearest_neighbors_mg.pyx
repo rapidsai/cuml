@@ -179,23 +179,23 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
         cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
 
-        query_ifaces = []
-        index_ifaces = []
+        query_ints = []
+        index_ints = []
         for arr in queries:
             X_m, input_ptr, n_rows, n_cols, dtype = \
                 input_to_dev_array(arr, order="C",
                                    check_dtype=[np.float32, np.float64])
-            query_ifaces.append({"obj": X_m,
-                                 "data": input_ptr,
-                                 "shape": (n_rows, n_cols)})
+            query_ints.append({"obj": X_m,
+                               "data": input_ptr,
+                               "shape": (n_rows, n_cols)})
 
         for arr in indices:
             X_m, input_ptr, n_rows, n_cols, dtype = \
                 input_to_dev_array(arr, order="C",
                                    check_dtype=[np.float32, np.float64])
-            index_ifaces.append({"obj": X_m,
-                                 "data": input_ptr,
-                                 "shape": (n_rows, n_cols)})
+            index_ints.append({"obj": X_m,
+                               "data": input_ptr,
+                               "shape": (n_rows, n_cols)})
 
         for rankSize in index_partsToRanks:
             rank, size = rankSize
@@ -214,12 +214,10 @@ class NearestNeighborsMG(NearestNeighbors):
             query_vec.push_back(query)
 
         cdef vector[floatData_t*] *local_index_parts \
-            = <vector[floatData_t*]*><size_t> \
-              self._build_dataFloat(index_ifaces)
+            = <vector[floatData_t*]*><size_t>self._build_dataFloat(index_ints)
 
         cdef vector[floatData_t*] *local_query_parts \
-            = <vector[floatData_t*]*><size_t> \
-              self._build_dataFloat(query_ifaces)
+            = <vector[floatData_t*]*><size_t>self._build_dataFloat(query_ints)
 
         cdef PartDescriptor *index_descriptor \
             = new PartDescriptor(<size_t>index_m,
@@ -244,7 +242,7 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef uintptr_t i_ptr
         cdef uintptr_t d_ptr
 
-        for query_part in query_ifaces:
+        for query_part in query_ints:
 
             n_rows = query_part["shape"][0]
             i_ary = rmm.to_device(zeros((n_rows, k), order="C",
