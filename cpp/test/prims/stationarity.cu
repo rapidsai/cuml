@@ -103,7 +103,6 @@ class StationarityTest
   std::vector<int> d_out;
 };
 
-
 /* The tests respectively check the following aspects:
  *  - basic test with trends 0 and 1
  *  - some decreasing series
