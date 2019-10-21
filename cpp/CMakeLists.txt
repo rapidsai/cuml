@@ -147,6 +147,10 @@ set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 
+set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
+  "Path to cuml include directories")
+
+
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
@@ -265,6 +269,12 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   ""
 )
 
+# dependencies will be added in sequence, so if a new project `project_b` is added
+# after `project_a`, please add the dependency add_dependencies(project_b project_a)
+# This allows the cloning to happen sequentially, enhancing the printing at
+# compile time, helping significantly to troubleshoot build issues.
+add_dependencies(cutlass cub)
+
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
 
@@ -287,6 +297,8 @@ ExternalProject_Add(faiss
   BUILD_IN_SOURCE   1
 )
 
+add_dependencies(faiss cutlass)
+
 ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
@@ -307,6 +319,8 @@ ExternalProject_Add(treelite
     UPDATE_COMMAND    ""
 )
 
+add_dependencies(treelite faiss)
+
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
 add_library(treelite_runtimelib SHARED IMPORTED)
@@ -323,6 +337,7 @@ set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DI
 # - include paths ------------------------------------------------------------
 
 include_directories(
+  ${CUML_INCLUDE_DIR}
   src
   src_prims
   test/prims
@@ -331,6 +346,7 @@ include_directories(
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
+  ${TREELITE_DIR}/runtime/native/include
   ${ZLIB_INCLUDE_DIRS$})
 
 set(PRIMS_TEST_UTILS
@@ -374,9 +390,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu
     )
 
-  add_dependencies(${CUML_CPP_TARGET} cub)
-  add_dependencies(${CUML_CPP_TARGET} cutlass)
-
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
     ${CUDA_curand_LIBRARY}
@@ -391,7 +404,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
 
   if(OPENMP_FOUND)
-
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -451,8 +463,12 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
-install(TARGETS ${CUML_CPP_TARGET} ${CUML_C_TARGET}
+install(TARGETS ${CUML_CPP_TARGET}
+                ${CUML_C_TARGET}
         DESTINATION lib)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
+        DESTINATION include)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

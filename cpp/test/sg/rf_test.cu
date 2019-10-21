@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include "ml_utils.h"
-#include "randomforest/randomforest.hpp"
+#include "cuml/ensemble/randomforest.hpp"
 
 namespace ML {
 
@@ -105,10 +105,12 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     allocate(inference_data_d, inference_data_len);
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
+    predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels, false);
+    // Predict and compare against known labels
+    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
+                           predicted_labels, false);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     accuracy = tmp.accuracy;
@@ -202,10 +204,12 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     allocate(inference_data_d, inference_data_len);
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
+    predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels, false);
+    // Predict and compare against known labels
+    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
+                           predicted_labels, false);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
