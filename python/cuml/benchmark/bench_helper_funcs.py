@@ -20,8 +20,8 @@ def fit_kneighbors(m, x):
     m.kneighbors(x)
 
 
-def fit(m, x):
-    m.fit(x)
+def fit(m, x, y=None):
+    m.fit(x) if y is None else m.fit(x, y)
 
 
 def fit_transform(m, x):

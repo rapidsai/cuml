@@ -137,6 +137,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         cuml_param_overrides={},
         cpu_param_overrides={},
         run_cpu=True,
+        verbose=False
     ):
         data = datagen.gen_data(
             self.dataset_name,

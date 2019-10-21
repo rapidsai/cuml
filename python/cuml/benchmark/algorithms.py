@@ -49,9 +49,9 @@ class AlgorithmPair:
         cpu_args={},
         name=None,
         accepts_labels=True,
-        bench_func=fit,
         data_prep_hook=None,
-        accuracy_function=None
+        accuracy_function=None,
+        bench_func=fit,
     ):
         """
         Parameters
@@ -104,15 +104,10 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            if self.bench_func is not None:
-                self.bench_func(cpu_obj, data[0], data[1])
-            else:
-                cpu_obj.fit(data[0], data[1])
+            self.bench_func(cpu_obj, data[0], data[1])
         else:
-            if self.bench_func is not None:
-                self.bench_func(cpu_obj, data[0])
-            else:
-                cpu_obj.fit(data[0])
+            self.bench_func(cpu_obj, data[0])
+
         return cpu_obj
 
     def run_cuml(self, data, **override_args):
