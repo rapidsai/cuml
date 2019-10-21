@@ -73,11 +73,13 @@ class NearestNeighbors(object):
 
     @staticmethod
     def _func_get_d(f, idx):
+        print("f=" + str(f))
         i, d = f
         return d[idx]
 
     @staticmethod
     def _func_get_i(f, idx):
+        print("f=" + str(f))
         i, d = f
         return i[idx]
 
@@ -160,6 +162,8 @@ class NearestNeighbors(object):
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(workers)])
 
+        wait(nn_models.values())
+
         raise_exception_from_futures(nn_models.values())
 
         """
@@ -184,11 +188,10 @@ class NearestNeighbors(object):
             workers=[worker]))
             for idx, worker in enumerate(workers)])
 
-        wait(nn_fit.values())
-
+        wait(list(nn_fit.values()))
         raise_exception_from_futures(nn_fit.values())
-
         comms.destroy()
+
 
         """
         Gather resulting partitions and return dask_cudfs
@@ -203,10 +206,10 @@ class NearestNeighbors(object):
             f = nn_fit[rank]
 
             out_d_futures.append(self.client.submit(
-                NearestNeighbors._func_get_d(f, completed_part_map[rank])))
+                NearestNeighbors._func_get_d, f, completed_part_map[rank]))
 
             out_i_futures.append(self.client.submit(
-                NearestNeighbors._func_get_i(f, completed_part_map[rank])))
+                NearestNeighbors._func_get_i, f, completed_part_map[rank]))
 
             completed_part_map[rank] += 1
 

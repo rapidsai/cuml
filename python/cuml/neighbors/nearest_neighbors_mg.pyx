@@ -135,7 +135,6 @@ class NearestNeighborsMG(NearestNeighbors):
         :return: 
         """
         cdef vector[floatData_t*] *dataF = new vector[floatData_t*]()
-        # dataF.resize(len(arr_interfaces))
 
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
@@ -181,6 +180,23 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
         cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
 
+        query_ifaces = []
+        index_ifaces = []
+        for arr in queries:
+            X_m, input_ptr, n_rows, n_cols, dtype = \
+                input_to_dev_array(arr, order="C", check_dtype=[np.float32, np.float64])
+            query_ifaces.append({"obj": X_m,
+                                 "data": input_ptr,
+                                 "shape": (n_rows, n_cols)})
+
+        for arr in indices:
+            X_m, input_ptr, n_rows, n_cols, dtype = \
+                input_to_dev_array(arr, order="C", check_dtype=[np.float32, np.float64])
+            index_ifaces.append({"obj": X_m,
+                                 "data": input_ptr,
+                                 "shape": (n_rows, n_cols)})
+
+
         for rankSize in index_partsToRanks:
             rank, size = rankSize
             index = <RankSizePair*> malloc(sizeof(RankSizePair))
@@ -198,9 +214,9 @@ class NearestNeighborsMG(NearestNeighbors):
             query_vec.push_back(query)
 
         cdef vector[floatData_t*] *local_index_parts = \
-                <vector[floatData_t*]*><size_t>self._build_dataFloat(indices)
+                <vector[floatData_t*]*><size_t>self._build_dataFloat(index_ifaces)
         cdef vector[floatData_t*] *local_query_parts = \
-                <vector[floatData_t*]*><size_t>self._build_dataFloat(queries)
+                <vector[floatData_t*]*><size_t>self._build_dataFloat(query_ifaces)
 
         cdef PartDescriptor *index_descriptor = new PartDescriptor( \
             <size_t>index_m,
@@ -219,37 +235,31 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef vector[floatData_t*] *out_d_vec = \
             new vector[floatData_t*]()
 
-        out_i_vec.resize(len(queries))
-        out_d_vec.resize(len(queries))
-
-        output_i = []
-        output_d = []
+        output_i_arrs = []
+        output_d_arrs = []
 
         cdef uintptr_t i_ptr
         cdef uintptr_t d_ptr
 
-        for query_part in queries:
+        for query_part in query_ifaces:
 
-                n_rows = query_part["shape"][0]
-                n_cols = query_part["shape"][1]
-                i_ary = rmm.to_device(zeros(n_rows * n_cols,
-                                              dtype=np.int64))
-                d_ary = rmm.to_device(zeros(n_rows * n_cols,
-                                              dtype=np.float32))
+            n_rows = query_part["shape"][0]
+            i_ary = rmm.to_device(zeros((n_rows, k), order="C",
+                                          dtype=np.int64))
+            d_ary = rmm.to_device(zeros((n_rows, k), order="C",
+                                          dtype=np.float32))
 
-                i_ptr = get_dev_array_ptr(i_ary)
-                d_ptr = get_dev_array_ptr(d_ary)
+            output_i_arrs.append(i_ary)
+            output_d_arrs.append(d_ary)
 
-                output_i.append(cudf.DataFrame.from_gpu_matrix(i_ary))
-                output_d.append(cudf.DataFrame.from_gpu_matrix(d_ary))
+            i_ptr = get_dev_array_ptr(i_ary)
+            d_ptr = get_dev_array_ptr(d_ary)
 
-                out_i_vec.push_back(new int64Data_t(
-                    <int64_t*>i_ptr, n_cols * n_rows * sizeof(int64_t)
-                ))
+            out_i_vec.push_back(new int64Data_t(
+                <int64_t*>i_ptr, n_rows * k))
 
-                out_d_vec.push_back(new floatData_t(
-                    <float*>d_ptr, n_cols * n_rows * sizeof(np.float32)
-                ))
+            out_d_vec.push_back(new floatData_t(
+                <float*>d_ptr, n_rows * k))
 
 
         brute_force_knn(
@@ -264,6 +274,13 @@ class NearestNeighborsMG(NearestNeighbors):
             1<<15,
             True
         )
+
+        self.handle.sync()
+
+        output_i = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+                            output_i_arrs))
+        output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+                            output_d_arrs))
 
         return output_i, output_d
 
