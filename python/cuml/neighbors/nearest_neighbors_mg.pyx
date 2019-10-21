@@ -123,6 +123,9 @@ class NearestNeighborsMG(NearestNeighbors):
     existing distributed system. Refer to the Dask NearestNeighbors
      implementation in `cuml.dask.neighbors.nearest_neighbors`.
     """
+    def __init__(self, **kwargs):
+        super(NearestNeighborsMG, self).__init__(**kwargs)
+
 
     def _build_dataFloat(self, arr_interfaces):
         """
