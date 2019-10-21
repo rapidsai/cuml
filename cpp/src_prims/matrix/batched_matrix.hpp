@@ -282,8 +282,8 @@ __global__ void kronecker_product_kernel(const double* A, int m, int n, const do
   const double* B_b = B + blockIdx.x * p * q;
   double* AkB_b = AkB + blockIdx.x * k_m * k_n;
 
-  for (int ia = 0; ia < n; ia++) {
-    for (int ja = 0; ja < m; ja++) {
+  for (int ia = 0; ia < m; ia++) {
+    for (int ja = 0; ja < n; ja++) {
       double A_ia_ja = A_b[ia + ja * m];
 
       for (int ib = threadIdx.x; ib < p; ib += blockDim.x) {
@@ -475,7 +475,7 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int m = A.shape().first;
   int n = A.shape().second;
 
-  int p = A.shape().first;
+  int p = B.shape().first;
   int q = B.shape().second;
 
   // Resulting shape
@@ -489,7 +489,7 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   dim3 threads(std::min(p, 32), std::min(q, 32));
   kronecker_product_kernel<<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n);
-  CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
   return AkB;
 }
 
