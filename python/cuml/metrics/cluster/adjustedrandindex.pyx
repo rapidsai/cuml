@@ -41,21 +41,21 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
 def adjusted_rand_score(labels_true, labels_pred, handle=None):
     """
-    Adjusted_rand_score function is a modified rand index function modified
-    to handle chance.
+    Adjusted_rand_score is a clustering similarity metric based on the Rand
+    index and is corrected for chance.
 
     Parameters
     ----------
-        labels_true : Array of response variables of the first clustering
-            classifications
-        labels_pred : Array of response variables of the first clustering
-            classifications
+        labels_true : Ground truth labels to be used as a reference
+
+        labels_pred : Array of predicted labels used to evaluate the model
+
         handle : cuml.Handle
 
     Returns
     -------
         float
-            The adjusted rand index value
+            The adjusted rand index value between -1.0 and 1.0
     """
     handle = cuml.common.handle.Handle() \
         if handle is None else handle
