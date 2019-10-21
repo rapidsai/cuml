@@ -22,8 +22,6 @@
 * for additional details.
 */
 
-// TODO: flexible index type?
-
 #include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -47,12 +45,13 @@ namespace TimeSeries {
 * @brief Auxiliary function to decide the block dimensions
 *
 * @tparam     TPB        Threads per block
+* @tparam     IdxT       Integer type of the indices
 * @param[in]  n_batches  Number of batches in the input data
-* @return                The block dimension
+* @return                The block dimensions
 */
-template <int TPB>
-static inline dim3 choose_block_dims(int n_batches) {
-  int tpb_y = n_batches > 8 ? 4 : 1;
+template <int TPB, typename IdxT>
+static inline dim3 choose_block_dims(IdxT n_batches) {
+  uint tpb_y = n_batches > 8 ? 4 : 1;
   dim3 block(TPB / tpb_y, tpb_y);
   return block;
 }
@@ -69,6 +68,7 @@ static inline dim3 choose_block_dims(int n_batches) {
 *       number of samples in the input matrix is one more than in the output.
 *
 * @tparam      DataT           Scalar type of the data (float or double)
+* @tparam      IdxT            Integer type of the indices
 * @param[out]  diff            Output matrix
 * @param[in]   data            Input matrix
 * @param[in]   gather_map      Array that indicates the source column in the
@@ -76,16 +76,16 @@ static inline dim3 choose_block_dims(int n_batches) {
 * @param[in]   n_diff_batches  Number of columns in the output matrix
 * @param[in]   n_diff_samples  Number of rows in the output matrix
 */
-template <typename DataT>
+template <typename DataT, typename IdxT>
 static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
-                                          int* gather_map, int n_diff_batches,
-                                          int n_diff_samples) {
-  int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
+                                          IdxT* gather_map, IdxT n_diff_batches,
+                                          IdxT n_diff_samples) {
+  IdxT sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  IdxT batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
 
   if (batch_idx < n_diff_batches && sample_idx < n_diff_samples) {
-    int source_batch_idx = gather_map[batch_idx];
-    int source_location = source_batch_idx * (n_diff_samples + 1) + sample_idx;
+    IdxT source_batch_idx = gather_map[batch_idx];
+    IdxT source_location = source_batch_idx * (n_diff_samples + 1) + sample_idx;
     diff[batch_idx * n_diff_samples + sample_idx] =
       data[source_location + 1] - data[source_location];
   }
@@ -106,6 +106,7 @@ static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
  *       Performance note: this kernel could use shared memory
  * 
  * @tparam      DataT        Scalar type of the data (float or double)
+ * @tparam      IdxT         Integer type of the indices
  * @param[out]  accumulator  Output matrix that holds the partial sums
  * @param[in]   data         Source data
  * @param[in]   lags         Number of lags
@@ -114,18 +115,18 @@ static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
  * @param[in]   coeff_a      Part of the calculation for w(k)=a*k+b
  * @param[in]   coeff_b      Part of the calculation for w(k)=a*k+b
 */
-template <typename DataT>
+template <typename DataT, typename IdxT>
 static __global__ void s2B_accumulation_kernel(DataT* accumulator,
-                                               const DataT* data, int lags,
-                                               int n_batches, int n_samples,
+                                               const DataT* data, IdxT lags,
+                                               IdxT n_batches, IdxT n_samples,
                                                DataT coeff_a, DataT coeff_b) {
-  int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
+  IdxT sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  IdxT batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
 
   if (sample_idx < n_samples && batch_idx < n_batches) {
-    int idx = batch_idx * n_samples + sample_idx;
+    IdxT idx = batch_idx * n_samples + sample_idx;
     accumulator[idx] = static_cast<DataT>(0.0);
-    for (int k = 1; k <= lags && sample_idx < n_samples - k; k++) {
+    for (IdxT k = 1; k <= lags && sample_idx < n_samples - k; k++) {
       DataT dp = data[idx] * data[idx + k];
       DataT coeff = coeff_a * static_cast<DataT>(k) + coeff_b;
       accumulator[idx] += coeff * dp;
@@ -140,6 +141,7 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
  *          make the final decision for each series.
  *
  * @tparam      DataT           Scalar type of the data (float or double)
+ * @tparam      IdxT            Integer type of the indices
  * @param[out]  results         Boolean array to store the results.
  * @param[in]   s2A             1st component of eq.10 (before division by ns)
  * @param[in]   s2B             2nd component of eq.10
@@ -149,15 +151,15 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
  * @param[in]   pval_threshold  P-value threshold above which the series is
  *                              considered stationary
 */
-template <typename DataT>
+template <typename DataT, typename IdxT>
 static __global__ void stationarity_check_kernel(
   bool* results, const DataT* s2A, const DataT* s2B, const DataT* eta,
-  int n_batches, DataT n_samples_f, DataT pval_threshold) {
+  IdxT n_batches, DataT n_samples_f, DataT pval_threshold) {
   // Table 1, Kwiatkowski 1992
   const DataT crit_vals[4] = {0.347, 0.463, 0.574, 0.739};
   const DataT pvals[4] = {0.10, 0.05, 0.025, 0.01};
 
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  IdxT i = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (i < n_batches) {
     DataT s2Ai = s2A[i];
@@ -172,7 +174,7 @@ static __global__ void stationarity_check_kernel(
     // Interpolate the pvalue (y) based on the kpss stat (x)
     DataT pvalue = pvals[0];
 #pragma unroll
-    for (int k = 0; k < 3; k++) {
+    for (IdxT k = 0; k < 3; k++) {
       if (kpss_stat >= crit_vals[k] && kpss_stat < crit_vals[k + 1]) {
         pvalue = pvals[k] + (pvals[k + 1] - pvals[k]) *
                               (kpss_stat - crit_vals[k]) /
@@ -192,10 +194,13 @@ static __global__ void stationarity_check_kernel(
  * a matrix from its index. This makes possible a 2d scan with thrust.
  * Found in thrust/examples/scan_matrix_by_rows.cu
  */
-struct which_col : thrust::unary_function<int, int> {
-  int col_length;
-  __host__ __device__ which_col(int col_length_) : col_length(col_length_) {}
-  __host__ __device__ int operator()(int idx) const { return idx / col_length; }
+template <typename IdxT>
+struct which_col : thrust::unary_function<IdxT, IdxT> {
+  IdxT col_length;
+  __host__ __device__ which_col(IdxT col_length_) : col_length(col_length_) {}
+  __host__ __device__ IdxT operator()(IdxT idx) const {
+    return idx / col_length;
+  }
 };
 
 /**
@@ -210,6 +215,7 @@ struct which_col : thrust::unary_function<int, int> {
  *       This function will be called at most twice by `stationarity`
  *
  * @tparam      DataT           Scalar type of the data (float or double)
+ * @tparam      IdxT            Integer type of the indices
  * @param[in]   y_d             Input data
  * @param[out]  results         Boolean array to store the results of the test
  * @param[in]   n_batches       Number of batches
@@ -220,15 +226,16 @@ struct which_col : thrust::unary_function<int, int> {
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary 
  */
-template <typename DataT>
-static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
-                           int n_samples,
+template <typename DataT, typename IdxT>
+static void _is_stationary(const DataT* y_d, bool* results, IdxT n_batches,
+                           IdxT n_samples,
                            std::shared_ptr<MLCommon::deviceAllocator> allocator,
                            cudaStream_t stream, cublasHandle_t cublas_handle,
                            DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(n_batches);
-  dim3 grid(ceildiv<int>(n_samples, block.x), ceildiv<int>(n_batches, block.y));
+  dim3 grid(ceildiv<IdxT>(n_samples, block.x),
+            ceildiv<IdxT>(n_batches, block.y));
 
   DataT n_samples_f = static_cast<DataT>(n_samples);
 
@@ -253,7 +260,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_samples_f / 100.0, 0.25));
-  int lags = static_cast<int>(lags_f);
+  IdxT lags = static_cast<IdxT>(lags_f);
 
   /* This accumulator will be used for both the calculation of s2B, and later
    * the cumulative sum or y_cent_d */
@@ -272,9 +279,9 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
                            false);
 
   // Cumulative sum (inclusive scan with + operator)
-  thrust::counting_iterator<int> c_first(0);
-  thrust::transform_iterator<which_col, thrust::counting_iterator<int>> t_first(
-    c_first, which_col(n_samples));
+  thrust::counting_iterator<IdxT> c_first(0);
+  thrust::transform_iterator<which_col<IdxT>, thrust::counting_iterator<IdxT>>
+    t_first(c_first, which_col<IdxT>(n_samples));
   thrust::device_ptr<DataT> __y_cent = thrust::device_pointer_cast(y_cent_d);
   thrust::device_ptr<DataT> __csum = thrust::device_pointer_cast(accumulator_d);
   thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream), t_first,
@@ -321,6 +328,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
  *       The output is an array of size n_batches.
  * 
  * @tparam      DataT           Scalar type of the data (float or double)
+ * @tparam      IdxT            Integer type of the indices
  * @param[in]   y_d             Input data
  * @param[out]  d               Integer array to store the trends
  * @param[in]   n_batches       Number of batches
@@ -336,8 +344,8 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
  * @retval   0  All series passed the test for d=0
  * @retval   1  Some series passed for d=0, the others for d=1
  */
-template <typename DataT>
-int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
+template <typename DataT, typename IdxT>
+int stationarity(const DataT* y_d, int* d, IdxT n_batches, IdxT n_samples,
                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
                  cudaStream_t stream, cublasHandle_t cublas_handle,
                  DataT pval_threshold = 0.05) {
@@ -350,7 +358,7 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
 
   // Check the results
   std::vector<int> gather_map_h;
-  for (int i = 0; i < n_batches; i++) {
+  for (IdxT i = 0; i < n_batches; i++) {
     if (is_statio[i]) {
       d[i] = 0;
     } else {
@@ -358,14 +366,14 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
     }
   }
 
-  int n_diff_batches = gather_map_h.size();
+  IdxT n_diff_batches = gather_map_h.size();
   if (n_diff_batches == 0) return 0;  // All series are stationary with d=0
 
   /* Construct a matrix of the first difference of the series that failed
        the test for d=0 */
-  int n_diff_samples = n_samples - 1;
-  int* gather_map_d =
-    (int*)allocator->allocate(n_diff_batches * sizeof(int), stream);
+  IdxT n_diff_samples = n_samples - 1;
+  IdxT* gather_map_d =
+    (IdxT*)allocator->allocate(n_diff_batches * sizeof(int), stream);
   MLCommon::updateDevice(gather_map_d, gather_map_h.data(), n_diff_batches,
                          stream);
   DataT* y_diff_d = (DataT*)allocator->allocate(
@@ -373,8 +381,8 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
 
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(n_diff_batches);
-  dim3 grid(ceildiv<int>(n_diff_samples, block.x),
-            ceildiv<int>(n_diff_batches, block.y));
+  dim3 grid(ceildiv<IdxT>(n_diff_samples, block.x),
+            ceildiv<IdxT>(n_diff_batches, block.y));
 
   gather_diff_kernel<<<grid, block, 0, stream>>>(
     y_diff_d, y_d, gather_map_d, n_diff_batches, n_diff_samples);
@@ -395,7 +403,7 @@ int stationarity(const DataT* y_d, int* d, int n_batches, int n_samples,
     }
   }
 
-  allocator->deallocate(gather_map_d, n_diff_batches * sizeof(int), stream);
+  allocator->deallocate(gather_map_d, n_diff_batches * sizeof(IdxT), stream);
   allocator->deallocate(
     y_diff_d, n_diff_batches * n_diff_samples * sizeof(DataT), stream);
 
