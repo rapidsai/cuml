@@ -220,6 +220,7 @@ def test_output_algos(algo, small_classifier_and_preds):
     fil_preds = np.asarray(fm.predict(X))
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
+
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('sparse', ['AUTO', 'DENSE', 'SPARSE'])
 def test_output_sparse(sparse, small_classifier_and_preds):
