@@ -103,6 +103,7 @@ static __global__ void gather_diff_kernel(DataT* diff, const DataT* data,
  * @note The accumulator has one extra element per series, which avoids some
  *       index calculations and it has the right size anyway since it is
  *       recycled for another operation.
+ *       Performance note: this kernel could use shared memory
  * 
  * @tparam      DataT        Scalar type of the data (float or double)
  * @param[out]  accumulator  Output matrix that holds the partial sums
@@ -244,7 +245,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
     y_cent_d, y_d, y_means_d, n_batches, n_samples, false, true,
     [] __device__(DataT a, DataT b) { return a - b; }, stream);
 
-  // TODO: explain
+  // This calculates the first sum in eq. 10 (first part of s^2)
   DataT* s2A_d = (DataT*)allocator->allocate(n_batches * sizeof(DataT), stream);
   MLCommon::LinAlg::reduce(s2A_d, y_cent_d, n_batches, n_samples,
                            static_cast<DataT>(0.0), false, false, stream, false,
@@ -259,7 +260,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
   DataT* accumulator_d =
     (DataT*)allocator->allocate(n_batches * n_samples * sizeof(DataT), stream);
 
-  // TODO: explain
+  // This calculates the second sum in eq. 10 (second part of s^2)
   DataT coeff_base = static_cast<DataT>(2.0) / n_samples_f;
   s2B_accumulation_kernel<<<grid, block, 0, stream>>>(
     accumulator_d, y_cent_d, lags, n_batches, n_samples,
@@ -280,12 +281,14 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
                                 t_first + n_batches * n_samples, __y_cent,
                                 __csum);
 
-  // Eq. 11
+  // Eq. 11 (eta)
   DataT* eta_d = (DataT*)allocator->allocate(n_batches * sizeof(DataT), stream);
   MLCommon::LinAlg::reduce(eta_d, accumulator_d, n_batches, n_samples,
                            static_cast<DataT>(0.0), false, false, stream, false,
                            L2Op<DataT>(), Sum<DataT>());
 
+  /* The following kernel will decide whether each series is stationary based on
+   * s^2 and eta */
   bool* results_d =
     (bool*)allocator->allocate(n_batches * sizeof(bool), stream);
   stationarity_check_kernel<<<ceildiv<int>(n_batches, TPB), TPB, 0, stream>>>(
@@ -295,6 +298,7 @@ static void _is_stationary(const DataT* y_d, bool* results, int n_batches,
   MLCommon::updateHost(results, results_d, n_batches, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  /* Free device memory */
   allocator->deallocate(y_means_d, n_batches * sizeof(DataT), stream);
   allocator->deallocate(y_cent_d, n_batches * n_samples * sizeof(DataT),
                         stream);
