@@ -139,7 +139,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
     std::cout << "Using translations: [" << std::endl;
     for (int i = 0; i < translations->size(); i++) {
-      int64_t s = translations[i];
+      int64_t s = (*translations)[i];
       std::cout << (int)s << ", ";
     }
 
