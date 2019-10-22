@@ -59,6 +59,7 @@ void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
 /* Public interface to batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters.
  * @param p Number of AR parameters
+ * @param d Trend parameter
  * @param q Number of MA parameters
  * @param num_batches Number of time series analyzed.
  * @param isInv Do the inverse transform?
