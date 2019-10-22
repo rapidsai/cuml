@@ -50,7 +50,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('min_impurity_decrease',[0.0, 1e-10])
+@pytest.mark.parametrize('min_impurity_decrease', [0.0, 1e-10])
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols,
                            rows_sample, max_features, min_impurity_decrease):
@@ -108,7 +108,7 @@ def test_rf_classification(datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('min_impurity_decrease',[0.0, 1e-10])
+@pytest.mark.parametrize('min_impurity_decrease', [0.0, 1e-10])
 def test_rf_regression(datatype, split_algo, rows_sample,
                        n_info, mode, ncols, max_features,
                        min_impurity_decrease):
