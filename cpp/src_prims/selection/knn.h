@@ -126,13 +126,23 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   std::vector<int64_t> *id_ranges = translations;
   if (translations == nullptr) {
+    std::cout << "Translations was NULL!" << std::endl;
+
     id_ranges = new std::vector<int64_t>();
-    IntType total_n = 0;
+    int64_t total_n = 0;
     for (int i = 0; i < n_params; i++) {
       if (i < n_params)  // if i < sizes[i]
         id_ranges->push_back(total_n);
       total_n += sizes[i];
     }
+  } else {
+
+    std::cout << "Using translations: [" << std::endl;
+    for (int i = 0; i < translations->size(); i++) {
+      std::cout << translations[i] << ", ";
+    }
+
+    std::cout << "]" << std::endl;
   }
 
   float *result_D = new float[k * n];
