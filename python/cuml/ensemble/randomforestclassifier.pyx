@@ -279,7 +279,7 @@ class RandomForestClassifier(Base):
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
+                        Whether quantile is computed for individual trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
 
     """
