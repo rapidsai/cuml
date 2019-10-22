@@ -127,9 +127,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
-
-    std::cout << "Translations was NULL!" << std::endl;
-
     id_ranges = new std::vector<int64_t>();
     int64_t total_n = 0;
     for (int i = 0; i < n_params; i++) {
@@ -138,22 +135,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
       }
       total_n += sizes[i];
     }
-
-    int64_t d = id_ranges->data()[0];
-    int size = id_ranges->size();
-
-    std::cout << "Translations size: " << size << " = " << d << std::endl;
   } else {
     id_ranges = translations;
-
-    std::cout << "Using translations: [" << std::endl;
-
-    for (int i = 0; i < id_ranges->size(); i++) {
-      int64_t s = (*id_ranges)[i];
-      std::cout << s << ", ";
-    }
-
-    std::cout << "]" << std::endl;
   }
 
   float *result_D = new float[k * n];
@@ -192,9 +175,9 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
           gpu_res.setCudaMallocWarning(false);
           gpu_res.setDefaultStream(att.device, stream);
 
-          faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size,
-                                    search_items, rowMajorQuery, n, D, k,
-                                    all_D + (i * k * n), all_I + (i * k * n));
+          faiss::gpu::bruteForceKnn(
+            &gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size, search_items,
+            rowMajorQuery, n, D, k, all_D + (i * k * n), all_I + (i * k * n));
 
           CUDA_CHECK(cudaPeekAtLastError());
           CUDA_CHECK(cudaStreamSynchronize(stream));

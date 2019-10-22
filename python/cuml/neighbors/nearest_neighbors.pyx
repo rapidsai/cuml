@@ -72,20 +72,10 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int n,
         int64_t *res_I,
         float *res_D,
-        int k
+        int k,
+        bool rowMajorIndex,
+        bool rowMajorQuery
     ) except +
-
-    void chunk_host_array(
-        cumlHandle &handle,
-        const float *ptr,
-        int n,
-        int D,
-        int *devices,
-        float **output,
-        int *sizes,
-        int n_chunks
-    ) except +
-
 
 class NearestNeighbors(Base):
     """
@@ -161,8 +151,6 @@ class NearestNeighbors(Base):
     n_neighbors : int (default = 5)
         The top K closest datapoints you want the algorithm to return.
         Currently, this value must be < 1024.
-    n_gpus : int number of gpus to use for multi-GPU operation
-    devices : list[int] list of devices to use for multi-GPU operation
     verbose : bool print logging
     handle : cuml.Handle cuML handle to use for underlying resource
     metric : string distance metric to use. default = "seuclidean". Currently,
@@ -183,7 +171,6 @@ class NearestNeighbors(Base):
     """
     def __init__(self,
                  n_neighbors=5,
-                 devices=None,
                  verbose=False,
                  should_downcast=None,
                  handle=None,
@@ -202,8 +189,6 @@ class NearestNeighbors(Base):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
 
-        self.n_gpus = devices
-        self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.n_indices = 0
@@ -308,75 +293,22 @@ class NearestNeighbors(Base):
         cdef float** input_arr
         cdef int* sizes_arr
 
-        if isinstance(X, np.ndarray) and self.n_gpus > 1:
+        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, order='F', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
 
-            if X.dtype != np.float32:
-                if self._should_downcast or convert_dtype:
-                    X = np.ascontiguousarray(X, np.float32)
-                    if len(X[X == np.inf]) > 0:
-                        raise ValueError("Downcast to single-precision "
-                                         "resulted in data loss.")
-                else:
-                    raise TypeError("Only single precision floating point is"
-                                    " supported for this algorithm. Use "
-                                    "'convert_dtype=True' if you'd like it "
-                                    "to be automatically casted to single "
-                                    "precision.")
+        input_arr = <float**> malloc(sizeof(float *))
+        sizes_arr = <int*> malloc(sizeof(int))
 
-            sys_devices = set([d.id for d in cuda.gpus])
+        sizes_arr[0] = <int>len(X)
+        input_arr[0] = <float*>X_ctype
 
-            if self.devices is not None:
-                for d in self.devices:
-                    if d not in sys_devices:
-                        raise RuntimeError("Device %d is not available" % d)
+        self.n_indices = 1
 
-                final_devices = self.devices
-
-            else:
-                n_gpus = min(self.n_gpus, len(sys_devices))
-                final_devices = list(sys_devices)[:n_gpus]
-
-            final_devices = np.ascontiguousarray(np.array(final_devices),
-                                                 np.int32)
-
-            X_ctype = X.ctypes.data
-            dev_ptr = final_devices.ctypes.data
-
-            input_arr = <float**> malloc(len(final_devices) * sizeof(float *))
-            sizes_arr = <int*> malloc(len(final_devices) * sizeof(int))
-
-            chunk_host_array(
-                handle_[0],
-                <float*>X_ctype,
-                <int>X.shape[0],
-                <int>X.shape[1],
-                <int*>dev_ptr,
-                <float**>input_arr,
-                <int*>sizes_arr,
-                <int>len(final_devices)
-            )
-
-            self.input = <size_t>input_arr
-            self.sizes = <size_t>sizes_arr
-            self.n_indices = len(final_devices)
-
-        else:
-            self.X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32,
-                                   convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None))
-
-            input_arr = <float**> malloc(sizeof(float *))
-            sizes_arr = <int*> malloc(sizeof(int))
-
-            sizes_arr[0] = <int>len(X)
-            input_arr[0] = <float*>X_ctype
-
-            self.n_indices = 1
-
-            self.input = <size_t>input_arr
-            self.sizes = <size_t>sizes_arr
+        self.input = <size_t>input_arr
+        self.sizes = <size_t>sizes_arr
 
         return self
 
@@ -456,7 +388,7 @@ class NearestNeighbors(Base):
             convert_dtype = True
 
         X_m, X_ctype, N, _, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
+            input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
                                                  else None))
 
@@ -485,7 +417,9 @@ class NearestNeighbors(Base):
             <int>N,
             <int64_t*>I_ptr,
             <float*>D_ptr,
-            <int>k
+            <int>k,
+            False,
+            False
         )
 
         I_ndarr = I_ndarr.reshape((N, k))
@@ -511,27 +445,3 @@ class NearestNeighbors(Base):
         del X_m
 
         return dists, inds
-
-    def _kneighbors(self, X_ctype, N, I_ptr, D_ptr, k):
-
-        cdef uintptr_t inds = I_ptr
-        cdef uintptr_t dists = D_ptr
-        cdef uintptr_t x = X_ctype
-
-        cdef uintptr_t input_arr = self.input
-        cdef uintptr_t sizes_arr = self.sizes
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        brute_force_knn(
-            handle_[0],
-            <float**>input_arr,
-            <int*>sizes_arr,
-            <int>self.n_indices,
-            <int>self.n_dims,
-            <float*>x,
-            <int>N,
-            <int64_t*>inds,
-            <float*>dists,
-            <int>k
-        )

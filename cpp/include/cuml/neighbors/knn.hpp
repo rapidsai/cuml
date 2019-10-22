@@ -46,22 +46,8 @@ namespace ML {
    */
 void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
-                     int64_t *res_I, float *res_D, int k);
-
-/**
-   * @brief A flat C++ API function that chunks a host array up into
-   * some number of different devices
-   *
-   * @param ptr an array on host to chunk
-   * @param n number of rows in host array
-   * @param D number of cols in host array
-   * @param devices array of devices to use
-   * @param output an array of output pointers to allocate and use
-   * @param sizes output array sizes
-   * @param n_chunks number of chunks to spread across device arrays
-   */
-void chunk_host_array(cumlHandle &handle, const float *ptr, int n, int D,
-                      int *devices, float **output, int *sizes, int n_chunks);
+                     int64_t *res_I, float *res_D, int k,
+                     bool rowMajorIndex = false, bool rowMajorQuery = false);
 
 class kNN {
   float **ptrs;
@@ -71,7 +57,8 @@ class kNN {
   int indices;
   int D;
   bool verbose;
-  bool owner;
+
+  bool rowMajorIndex;
 
   cumlHandle *handle;
 
@@ -94,7 +81,7 @@ class kNN {
      * @param k            number of neighbors to query
      */
   void search(float *search_items, int search_items_size, int64_t *res_I,
-              float *res_D, int k);
+              float *res_D, int k, bool rowMajor = false);
 
   /**
      * Fit a kNN model by creating separate indices for multiple given
@@ -102,18 +89,6 @@ class kNN {
      * @param input  an array of pointers to data on (possibly different) devices
      * @param N      number of items in input array.
      */
-  void fit(float **input, int *sizes, int N);
-
-  /**
-		 * Chunk a host array up into one or many GPUs (determined by the provided
-		 * list of gpu ids) and fit a knn model.
-		 *
-		 * @param ptr       an array in host memory to chunk over devices
-		 * @param n         number of elements in ptr
-		 * @param gpus      array of device ids for chunking the ptr
-		 * @param n_chunks  number of elements in gpus
-		 * @param out       host pointer to copy output
-		 */
-  void fit_from_host(float *ptr, int n, int *devices, int n_chunks);
+  void fit(float **input, int *sizes, int N, bool rowMajor = false);
 };
 };  // namespace ML
