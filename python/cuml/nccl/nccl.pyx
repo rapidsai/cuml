@@ -139,8 +139,6 @@ cdef class nccl:
                                       deref(ident), r)
 
         end = time.time()
-
-        print("NCCL Init Took: " + str(end-start))
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)

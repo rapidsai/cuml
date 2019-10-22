@@ -38,9 +38,8 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-def predict(model, X, _y, n_neighbors):
+def predict(neigh_ind, _y, n_neighbors):
 
-    neigh_dist, neigh_ind = model.kneighbors(X, k=n_neighbors)
     neigh_ind = neigh_ind.astype(np.int32)
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
@@ -59,10 +58,10 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
     X = X.astype(np.float32)
 
     knn_cu = cuKNN()
-
     knn_cu.fit(X)
+    neigh_ind = knn_cu.kneighbors(X, k=n_neighbors, return_distance=False)
 
-    labels, probs = predict(knn_cu, X, y, n_neighbors)
+    labels, probs = predict(neigh_ind, y, n_neighbors)
 
     assert array_equal(labels, y)
 

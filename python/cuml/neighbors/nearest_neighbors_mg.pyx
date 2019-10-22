@@ -36,6 +36,8 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
 
+import scipy.stats as stats
+
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -170,18 +172,12 @@ class NearestNeighborsMG(NearestNeighbors):
         :param k: int number of nearest neighbors to query
         :return:
         """
-        self.__del__()
-
-        print("Inside kneighbors")
-
         self.n_dims = n
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
         cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
-
-        print("Building objs")
 
         query_ints = []
         index_ints = []
@@ -207,8 +203,6 @@ class NearestNeighborsMG(NearestNeighbors):
                                "data": input_ptr,
                                "shape": (n_rows, n_cols)})
 
-
-        print("Dont. Building parts to ranks")
         for rankSize in index_partsToRanks:
             rank, size = rankSize
             index = <RankSizePair*> malloc(sizeof(RankSizePair))
@@ -224,8 +218,6 @@ class NearestNeighborsMG(NearestNeighbors):
             query.size = < size_t > size
 
             query_vec.push_back(query)
-
-        print("Buildng parts")
 
         cdef vector[floatData_t*] *local_index_parts \
             = <vector[floatData_t*]*><size_t>self._build_dataFloat(index_ints)
@@ -256,8 +248,6 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef uintptr_t i_ptr
         cdef uintptr_t d_ptr
 
-        print("Building query stuff")
-
         for query_part in query_ints:
 
             n_rows = query_part["shape"][0]
@@ -278,8 +268,6 @@ class NearestNeighborsMG(NearestNeighbors):
             out_d_vec.push_back(new floatData_t(
                 <float*>d_ptr, n_rows * k))
 
-        print("Calling brute_force_knn")
-
         brute_force_knn(
             handle_[0],
             deref(out_i_vec),
@@ -290,10 +278,8 @@ class NearestNeighborsMG(NearestNeighbors):
             deref(query_descriptor),
             k,
             1<<15,
-            True
+            <bool>self.verbose
         )
-
-        print("Calling handle.sync")
 
         self.handle.sync()
 
@@ -301,5 +287,7 @@ class NearestNeighborsMG(NearestNeighbors):
                             output_i_arrs))
         output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
                             output_d_arrs))
+
+        # TODO: Free memory allocated above
 
         return output_i, output_d
