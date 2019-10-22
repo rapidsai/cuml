@@ -160,7 +160,6 @@ def _func_init_nccl(sessionId, uniqueId):
                      client.
     """
 
-    print("NCCL UID: " + str(uniqueId))
     wid = worker_state(sessionId)["wid"]
     nWorkers = worker_state(sessionId)["nworkers"]
 

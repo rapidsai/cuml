@@ -18,6 +18,8 @@ import cudf
 import dask_cudf
 import pandas as pd
 
+import scipy.stats as stats
+
 import numpy as np
 
 from cuml.dask.common import utils as dask_utils
@@ -26,20 +28,24 @@ from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
+from cuml.test.utils import array_equal
+
+
+def predict(neigh_ind, _y, n_neighbors):
+
+    neigh_ind = neigh_ind.astype(np.int32)
+
+    ypred, count = stats.mode(_y[neigh_ind], axis=1)
+    return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
+
 
 def _prep_training_data(c, X_train, partitions_per_worker):
     workers = c.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
 
-    print(str(n_partitions))
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
 
-    print("CUDF!")
-
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
-
-    print("Calling persist")
-
     X_train_df, = dask_utils.persist_across_workers(c,
                                                     [X_train_df],
                                                     workers=workers)
@@ -47,18 +53,19 @@ def _prep_training_data(c, X_train, partitions_per_worker):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
-                                   stress_param(5e6)])
+@pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e5),
+                                   quality_param(1e6),
+                                   stress_param(5e8)])
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
-                                       stress_param(50)])
-@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
-                                     stress_param(50)])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
+                                       stress_param(15)])
+@pytest.mark.parametrize("n_neighbors", [unit_param(10), quality_param(15),
+                                         stress_param(100)])
+@pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
+                                     quality_param(7), stress_param(50)])
+def test_end_to_end(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 
     client = Client(cluster)
-
-    print("Running nn: " + str(client))
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
@@ -66,34 +73,26 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         from sklearn.datasets import make_blobs
 
-        print("Calling make_blobs")
-
-        X, _ = make_blobs(n_samples=int(nrows), n_features=ncols,
-                          centers=nclusters, cluster_std=0.01)
+        X, y = make_blobs(n_samples=int(nrows),
+                          n_features=ncols,
+                          centers=nclusters)
 
         X = X.astype(np.float32)
 
-        print("Done.")
-
-        X_cudf = _prep_training_data(client, X, 2)
-
-        print("Done calling prep_training_data")
+        X_cudf = _prep_training_data(client, X, n_parts)
 
         wait(X_cudf)
 
-        print("Creating models")
-
-        cumlModel = daskNN(verbose=1, n_neighbors=10)
-
+        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors)
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-        print(str(out_i.compute()))
+        local_i = np.array(out_i.compute().as_gpu_matrix())
 
-        print(str(out_d.compute()))
+        y_hat, _ = predict(local_i, y, n_neighbors)
 
-        print(str(cumlNN().fit(X).kneighbors(X, 10)))
+        assert array_equal(y_hat, y)
 
     finally:
         client.close()
