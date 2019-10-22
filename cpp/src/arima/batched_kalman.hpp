@@ -75,6 +75,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
 /* Convenience function for batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters. (takes host array and returns host array)
  * @param p Number of AR parameters
+ * @param d Trend parameter
  * @param q Number of MA parameters
  * @param num_batches Number of time series analyzed.
  * @param isInv Do the inverse transform?
