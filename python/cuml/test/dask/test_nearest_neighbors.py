@@ -18,6 +18,8 @@ import cudf
 import dask_cudf
 import pandas as pd
 
+import numpy as np
+
 from cuml.dask.common import utils as dask_utils
 
 from dask.distributed import Client, wait
@@ -28,8 +30,15 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 def _prep_training_data(c, X_train, partitions_per_worker):
     workers = c.has_what().keys()
     n_partitions = partitions_per_worker * len(workers)
+
+    print(str(n_partitions))
     X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+
+    print("CUDF!")
+
     X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+
+    print("Calling persist")
 
     X_train_df, = dask_utils.persist_across_workers(c,
                                                     [X_train_df],
@@ -49,17 +58,29 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
     client = Client(cluster)
 
+    print("Running nn: " + str(client))
+
     try:
         from cuml.dask.neighbors import NearestNeighbors as cumlNN
 
         from sklearn.datasets import make_blobs
 
+        print("Calling make_blobs")
+
         X, _ = make_blobs(n_samples=int(nrows), n_features=ncols,
                           centers=nclusters, cluster_std=0.01)
 
+        X = X.astype(np.float32)
+
+        print("Done.")
+
         X_cudf = _prep_training_data(client, X, 5)
 
+        print("Done calling prep_training_data")
+
         wait(X_cudf)
+
+        print("Creating models")
 
         cumlModel = cumlNN(verbose=1, n_neighbors=10)
 
