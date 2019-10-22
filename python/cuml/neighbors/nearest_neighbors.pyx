@@ -257,7 +257,7 @@ class NearestNeighbors(Base):
 
         return self
 
-    def kneighbors(self, X, k=None, convert_dtype=True):
+    def kneighbors(self, X, k=None, return_distance=True, convert_dtype=True):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -271,6 +271,8 @@ class NearestNeighbors(Base):
         k: Integer
             Number of neighbors to search
 
+        return_distance: Boolean
+            If False, distances will not be returned
 
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
@@ -354,4 +356,4 @@ class NearestNeighbors(Base):
         free(inputs)
         free(sizes)
 
-        return dists, inds
+        return (dists, inds) if return_distance else inds
