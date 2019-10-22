@@ -44,7 +44,7 @@ namespace Stationarity {
  * @retval   0  All series passed the test for d=0
  * @retval   1  Some series passed for d=0, the others for d=1
  */
-int stationarity(const ML::cumlHandle& handle, const float* y_d, int* d,
+int stationarity(const cumlHandle& handle, const float* y_d, int* d,
                  int n_batches, int n_samples, float pval_threshold);
 int stationarity(const ML::cumlHandle& handle, const double* y_d, int* d,
                  int n_batches, int n_samples, double pval_threshold);
