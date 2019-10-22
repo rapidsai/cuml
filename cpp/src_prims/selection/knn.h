@@ -43,7 +43,7 @@ namespace Selection {
 template <class C>
 void merge_tables(int64_t n, int k, int nshard, float *distances,
                   int64_t *labels, float *all_distances, int64_t *all_labels,
-                  int64_t *translations) {
+                  int64_t *shard_offsets) {
   if (k == 0) {
     return;
   }
@@ -84,8 +84,8 @@ void merge_tables(int64_t n, int k, int nshard, float *distances,
           int &p = pointer[s];
           D[j] = heap_vals[0];
 
-          printf("Translation[%d] %s", s, translations[s]);
-          I[j] = I_in[stride * s + p] + translations[s];
+          printf("Translation[%d] %d", s, shard_offsets[s]);
+          I[j] = I_in[stride * s + p] + shard_offsets[s];
 
           faiss::heap_pop<C>(heap_size--, heap_vals, shard_ids);
           p++;
