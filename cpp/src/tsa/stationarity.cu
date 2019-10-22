@@ -28,12 +28,10 @@ int stationarity_helper(const cumlHandle& handle, const DataT* y_d, int* d,
                         int n_batches, int n_samples, DataT pval_threshold) {
   const auto& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
-  cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
 
   return MLCommon::TimeSeries::stationarity(y_d, d, n_batches, n_samples,
-                                            allocator, stream, cublas_handle,
-                                            pval_threshold);
+                                            allocator, stream, pval_threshold);
 }
 
 int stationarity(const cumlHandle& handle, const float* y_d, int* d,

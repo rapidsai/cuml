@@ -86,7 +86,7 @@ class StationarityTest
 
     MLCommon::TimeSeries::stationarity(y_d, d_out.data(), params.n_batches,
                                        params.n_samples, allocator, stream,
-                                       cublas_handle, static_cast<DataT>(0.05));
+                                       static_cast<DataT>(0.05));
   }
 
   void TearDown() override {

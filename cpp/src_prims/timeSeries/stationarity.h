@@ -222,7 +222,6 @@ struct which_col : thrust::unary_function<IdxT, IdxT> {
  * @param[in]   n_samples       Number of samples
  * @param[in]   allocator       cuML device memory allocator
  * @param[in]   stream          CUDA stream
- * @param[in]   cublas_handle   cuBLAS handle
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary 
  */
@@ -230,8 +229,7 @@ template <typename DataT, typename IdxT>
 static void _is_stationary(const DataT* y_d, bool* results, IdxT n_batches,
                            IdxT n_samples,
                            std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                           cudaStream_t stream, cublasHandle_t cublas_handle,
-                           DataT pval_threshold) {
+                           cudaStream_t stream, DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(n_batches);
   dim3 grid(ceildiv<IdxT>(n_samples, block.x),
@@ -335,7 +333,6 @@ static void _is_stationary(const DataT* y_d, bool* results, IdxT n_batches,
  * @param[in]   n_samples       Number of samples
  * @param[in]   allocator       cuML device memory allocator
  * @param[in]   stream          CUDA stream
- * @param[in]   cublas_handle   cuBLAS handle
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary
  * 
@@ -347,14 +344,11 @@ static void _is_stationary(const DataT* y_d, bool* results, IdxT n_batches,
 template <typename DataT, typename IdxT>
 int stationarity(const DataT* y_d, int* d, IdxT n_batches, IdxT n_samples,
                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                 cudaStream_t stream, cublasHandle_t cublas_handle,
-                 DataT pval_threshold = 0.05) {
-  cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
-
+                 cudaStream_t stream, DataT pval_threshold = 0.05) {
   // Run the test for d=0
   bool is_statio[n_batches];
   _is_stationary(y_d, is_statio, n_batches, n_samples, allocator, stream,
-                 cublas_handle, pval_threshold);
+                 pval_threshold);
 
   // Check the results
   std::vector<int> gather_map_h;
@@ -390,7 +384,7 @@ int stationarity(const DataT* y_d, int* d, IdxT n_batches, IdxT n_samples,
 
   // Test these series with d=1
   _is_stationary(y_diff_d, is_statio, n_diff_batches, n_diff_samples, allocator,
-                 stream, cublas_handle, pval_threshold);
+                 stream, pval_threshold);
 
   // Check the results
   int ret_value = 1;
