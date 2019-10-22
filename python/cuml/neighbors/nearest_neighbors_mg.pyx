@@ -158,7 +158,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
                    queries, query_m, query_partsToRanks,
-                   rank, k, convert_dtype=True):
+                   rank, n_neighbors=None, convert_dtype=True):
         """
         Query the kneighbors of an index
         :param indices: [__cuda_array_interface__] of local index partitions
@@ -172,6 +172,9 @@ class NearestNeighborsMG(NearestNeighbors):
         :param k: int number of nearest neighbors to query
         :return:
         """
+
+        n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
+
         self.n_dims = n
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -251,9 +254,9 @@ class NearestNeighborsMG(NearestNeighbors):
         for query_part in query_ints:
 
             n_rows = query_part["shape"][0]
-            i_ary = rmm.to_device(zeros((n_rows, k), order="C",
+            i_ary = rmm.to_device(zeros((n_rows, n_neighbors), order="C",
                                         dtype=np.int64))
-            d_ary = rmm.to_device(zeros((n_rows, k), order="C",
+            d_ary = rmm.to_device(zeros((n_rows, n_neighbors), order="C",
                                         dtype=np.float32))
 
             output_i_arrs.append(i_ary)
@@ -263,10 +266,10 @@ class NearestNeighborsMG(NearestNeighbors):
             d_ptr = get_dev_array_ptr(d_ary)
 
             out_i_vec.push_back(new int64Data_t(
-                <int64_t*>i_ptr, n_rows * k))
+                <int64_t*>i_ptr, n_rows * n_neighbors))
 
             out_d_vec.push_back(new floatData_t(
-                <float*>d_ptr, n_rows * k))
+                <float*>d_ptr, n_rows * n_neighbors))
 
         brute_force_knn(
             handle_[0],
@@ -276,7 +279,7 @@ class NearestNeighborsMG(NearestNeighbors):
             deref(index_descriptor),
             deref(local_query_parts),
             deref(query_descriptor),
-            k,
+            n_neighbors,
             1<<15,
             <bool>self.verbose
         )

@@ -79,12 +79,10 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
 class NearestNeighbors(Base):
     """
-    NearestNeighbors is an unsupervised algorithm for querying neighborhoods
-    from a given set of datapoints. Currently, cuML supports k-NN queries,
-    which define the neighborhood as the closest `k` neighbors to each query
-    point.
-    Note: Should_downcast is deprecated and will be removed in 0.10,
-        please use the convert_dtypes variable instead.
+    NearestNeighbors is an queries neighborhoods from a given set of
+    datapoints. Currently, cuML supports k-NN queries, which define
+    the neighborhood as the closest `k` neighbors to each query point.
+
     Examples
     ---------
     .. code-block:: python
@@ -154,11 +152,7 @@ class NearestNeighbors(Base):
     verbose : bool print logging
     handle : cuml.Handle cuML handle to use for underlying resource
     metric : string distance metric to use. default = "seuclidean". Currently,
-        only "euclidean" and "sqeuclidean" are supported.
-    should_downcast : bool (default = None)
-        Currently only single precision is supported in the underlying undex.
-        Setting this to true will allow single-precision input arrays to be
-        automatically downcasted to single precision.
+        only "euclidean" and "seuclidean" are supported.
 
     Notes
     ------
@@ -253,7 +247,8 @@ class NearestNeighbors(Base):
 
         return self
 
-    def kneighbors(self, X, k=None, return_distance=True, convert_dtype=True):
+    def kneighbors(self, X=None, n_neighbors=None,
+                   return_distance=True, convert_dtype=True):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -264,8 +259,9 @@ class NearestNeighbors(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        k: Integer
-            Number of neighbors to search
+        n_neighbors : Integer
+            Number of neighbors to search. If not provided, the n_neighbors
+            from the model instance is used (default=10)
 
         return_distance: Boolean
             If False, distances will not be returned
@@ -285,10 +281,16 @@ class NearestNeighbors(Base):
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        k = self.n_neighbors if k is None else k
+        n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
+        X = self.X if X is None else X
 
-        if (k is None and self.n_neighbors is None) or k <= 0:
+        if (n_neighbors is None and self.n_neighbors is None) \
+                or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
+
+        if X is None:
+            raise ValueError("Model needs to be trained "
+                             "before calling kneighbors()")
 
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
@@ -297,8 +299,8 @@ class NearestNeighbors(Base):
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = rmm.to_device(zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = rmm.to_device(zeros(N*k, dtype=np.float32, order="C"))
+        I_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.int64, order="C"))
+        D_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.float32, order="C"))
 
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
@@ -324,13 +326,13 @@ class NearestNeighbors(Base):
             <int>N,
             <int64_t*>I_ptr,
             <float*>D_ptr,
-            <int>k,
+            <int>n_neighbors,
             False,
             False
         )
 
-        I_ndarr = I_ndarr.reshape((N, k))
-        D_ndarr = D_ndarr.reshape((N, k))
+        I_ndarr = I_ndarr.reshape((N, n_neighbors))
+        D_ndarr = D_ndarr.reshape((N, n_neighbors))
 
         if isinstance(X, cudf.DataFrame):
             inds = cudf.DataFrame()

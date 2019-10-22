@@ -81,25 +81,25 @@ class NearestNeighbors(object):
         i, d = f
         return i[idx]
 
-    def kneighbors(self, X, k=None):
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True):
         """
         Query the NearestNeighbors index
-        :param X : dask_cudf.Dataframe list of vectors to query
-        :param k : Number of neighbors to query for each row in X
-        :param replicate : bool, string, or int. If X is small enough, it
-                can be replicated onto the workers containing the indices.
-                If the indices are replicated, this means only a single
-                worker needs to perform the predict, otherwise, the results
-                of the query are able to be reduced to a single partition.
-                Setting replicate to True or False explicitly turns it
-                on or off. Setting it to a string, specifies the threshold,
-                using a format like "2GB", for determining whether X should
-                be replicated. If this value is an int, the number of
-                elements is used as a threshold.
-        :return : dask_cudf.Dataframe containing the results
+        :param X : dask_cudf.Dataframe list of vectors to query. If not
+                   provided, neighbors of each indexed point are returned.
+        :param n_neighbors : Number of neighbors to query for each row in
+                             X. If not provided, the n_neighbors on the
+                             model are used.
+        :param return_distance : If false, only indices are returned
+        :return : dask_cudf.DataFrame containing distances
+        :return : dask_cudf.DataFrame containing indices
         """
-        if self.kwargs["n_neighbors"] is not None and k is None:
-            k = self.kwargs["n_neighbors"]
+        if self.kwargs["n_neighbors"] is not None and n_neighbors is None:
+            n_neighbors = self.kwargs["n_neighbors"]
+
+        X = self.X if X is None else X
+
+        if X is None:
+            raise ValueError("Model needs to be trained before calling kneighbors()")
 
         index_futures = self.client.sync(extract_ddf_partitions,
                                          self.X, agg=False)
@@ -183,7 +183,7 @@ class NearestNeighbors(object):
                         query_M,
                         query_partsToRanks,
                         worker_info[worker]["r"],
-                        k,
+                        n_neighbors,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
                        for idx, worker in enumerate(workers)])
@@ -212,4 +212,7 @@ class NearestNeighbors(object):
 
             completed_part_map[rank] += 1
 
-        return to_dask_cudf(out_d_futures), to_dask_cudf(out_i_futures)
+        if return_distance:
+            return to_dask_cudf(out_d_futures), to_dask_cudf(out_i_futures)
+        else:
+            return to_dask_cudf(out_i_futures)
