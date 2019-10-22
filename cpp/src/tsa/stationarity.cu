@@ -24,7 +24,7 @@ namespace ML {
 namespace Stationarity {
 
 template <typename DataT>
-int stationarity_helper(const ML::cumlHandle& handle, const DataT* y_d, int* d,
+int stationarity_helper(const cumlHandle& handle, const DataT* y_d, int* d,
                         int n_batches, int n_samples, DataT pval_threshold) {
   const ML::cumlHandle_impl& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
