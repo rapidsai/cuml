@@ -26,6 +26,9 @@ import cuml.decomposition
 import umap
 import numpy as np
 
+from cuml.benchmark.bench_helper_funcs \
+    import fit, fit_kneighbors, fit_transform
+
 
 class AlgorithmPair:
     """
@@ -48,6 +51,7 @@ class AlgorithmPair:
         accepts_labels=True,
         data_prep_hook=None,
         accuracy_function=None,
+        bench_func=fit,
     ):
         """
         Parameters
@@ -69,12 +73,15 @@ class AlgorithmPair:
            Optional function to run on input data before passing to fit
         accuracy_function : function (y_test, y_pred)
            Function that returns a scalar representing accuracy
+        bench_func : custom function to perform fit/predict/transform
+                     calls.
         """
         if name:
             self.name = name
         else:
             self.name = cuml_class.__name__
         self.accepts_labels = accepts_labels
+        self.bench_func = bench_func
         self.cpu_class = cpu_class
         self.cuml_class = cuml_class
         self.shared_args = shared_args
@@ -97,9 +104,9 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            cpu_obj.fit(data[0], data[1])
+            self.bench_func(cpu_obj, data[0], data[1])
         else:
-            cpu_obj.fit(data[0])
+            self.bench_func(cpu_obj, data[0])
 
         return cpu_obj
 
@@ -112,16 +119,16 @@ class AlgorithmPair:
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
-            cuml_obj.fit(data[0], data[1])
+            self.bench_func(cuml_obj, data[0], data[1])
         else:
-            cuml_obj.fit(data[0])
+            self.bench_func(cuml_obj, data[0])
 
         return cuml_obj
 
 
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
-    return (data[0], data[1].astype(np.int32))
+    return data[0], data[1].astype(np.int32)
 
 
 def all_algorithms():
@@ -152,18 +159,20 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.random_projection.GaussianRandomProjection,
             cuml.random_projection.GaussianRandomProjection,
-            shared_args=dict(n_components=10),
+            shared_args=dict(n_components="auto"),
             name="GaussianRandomProjection",
+            bench_func=fit_transform,
             accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
-            cpu_args=dict(algorithm="brute"),
+            cpu_args=dict(algorithm="brute", n_jobs=-1),
             cuml_args={},
             name="NearestNeighbors",
             accepts_labels=False,
+            bench_func=fit_kneighbors
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
@@ -194,6 +203,14 @@ def all_algorithms():
             cuml.linear_model.Lasso,
             shared_args={},
             name="Lasso",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.linear_model.Ridge,
+            cuml.linear_model.Ridge,
+            shared_args={},
+            name="Ridge",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
