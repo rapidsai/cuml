@@ -124,7 +124,7 @@ class LogisticRegression(Base):
     solver: 'qn', 'lbfgs', 'owl' (default=qn).
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
-        depending on the condictions of the l1 regularization described
+        depending on the conditions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
 
