@@ -427,7 +427,8 @@ class TreeliteFilTest : public BaseFilTest {
     params.algo = ps.algo;
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::THRESHOLD) != 0;
-    params.sparse = dense ? fil::sparse_t::DENSE : fil::sparse_t::SPARSE;
+    params.storage_type =
+      dense ? fil::storage_type_t::DENSE : fil::storage_type_t::SPARSE;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
