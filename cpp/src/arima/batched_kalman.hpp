@@ -24,10 +24,10 @@ namespace ML {
 
 /* An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
  * provide the resulting prediction as well as loglikelihood fit.
- * @param h_ys_b The (batched) time series with shape (nobs, num_batches) in column major layout. Memory on device.
+ * @param d_ys_b The (batched) time series with shape (nobs, num_batches) in column major layout. Memory on device.
  * @param nobs The number of samples per time series
- * @param b_ar_params The AR parameters, in groups of size `p` with total length `p * num_batches` (device)
- * @param b_ma_params The mA parameters, in groups of size `q` with total length `q * num_batches` (device)
+ * @param d_b_ar_params The AR parameters, in groups of size `p` with total length `p * num_batches` (device)
+ * @param d_b_ma_params The mA parameters, in groups of size `q` with total length `q * num_batches` (device)
  * @param p The number of AR parameters
  * @param q The number of MA parameters
  * @param num_batches The number of series making up the batch
@@ -44,9 +44,9 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
 
 /* Turns linear array of parameters into arrays of mu, ar, and ma parameters. (using device arrays)
  * @param d_params Linear array of all parameters grouped by batch [mu, ar, ma] (device)
- * @param mu trend parameter (device)
- * @param ar AR parameters (device)
- * @param ma MA parameters (device)
+ * @param d_mu trend parameter (device)
+ * @param d_ar AR parameters (device)
+ * @param d_ma MA parameters (device)
  * @param batchSize Number of time series analyzed.
  * @param p Number of AR parameters
  * @param d Trend parameter
@@ -61,12 +61,12 @@ void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
  * @param p Number of AR parameters
  * @param d Trend parameter
  * @param q Number of MA parameters
- * @param num_batches Number of time series analyzed.
+ * @param batchSize Number of time series analyzed.
  * @param isInv Do the inverse transform?
- * @param ar AR parameters (device)
- * @param ma MA parameters (device)
- * @param ar Transformed AR parameters. Allocated internally (device)
- * @param ma Transformed MA parameters. Allocated internally (device)
+ * @param d_ar AR parameters (device)
+ * @param d_ma MA parameters (device)
+ * @param d_Tar Transformed AR parameters. Allocated internally (device)
+ * @param d_Tma Transformed MA parameters. Allocated internally (device)
  */
 void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
                              bool isInv, const double* d_ar, const double* d_ma,
@@ -77,7 +77,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
  * @param p Number of AR parameters
  * @param d Trend parameter
  * @param q Number of MA parameters
- * @param num_batches Number of time series analyzed.
+ * @param batchSize Number of time series analyzed.
  * @param isInv Do the inverse transform?
  * @param h_params Linearized ARIMA parameters by batch (mu, ar, ma) (host)
  * @param h_Tparams Transformed ARIMA parameters (expects pre-allocated array of size (p+q)*batchSize) (host)
