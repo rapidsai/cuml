@@ -50,9 +50,10 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('min_impurity_decrease',[0.0, 1e-10])
 def test_rf_classification(datatype, split_algo,
                            n_info, nrows, ncols,
-                           rows_sample, max_features):
+                           rows_sample, max_features, min_impurity_decrease):
     use_handle = True
 
     train_rows = np.int32(nrows*0.8)
@@ -69,7 +70,8 @@ def test_rf_classification(datatype, split_algo,
     sk_model = skrfc(n_estimators=40,
                      max_depth=16,
                      min_samples_split=2, max_features=max_features,
-                     random_state=10)
+                     random_state=10,
+                     min_impurity_decrease=min_impurity_decrease)
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_acc = accuracy_score(y_test, sk_predict)
@@ -80,7 +82,8 @@ def test_rf_classification(datatype, split_algo,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
+                       max_depth=16,
+                       min_impurity_decrease=min_impurity_decrease)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
@@ -105,8 +108,10 @@ def test_rf_classification(datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('min_impurity_decrease',[0.0, 1e-10])
 def test_rf_regression(datatype, split_algo, rows_sample,
-                       n_info, mode, ncols, max_features):
+                       n_info, mode, ncols, max_features,
+                       min_impurity_decrease):
     use_handle = True
 
     if mode == 'unit':
@@ -136,7 +141,9 @@ def test_rf_regression(datatype, split_algo, rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse',
+                       min_impurity_decrease=min_impurity_decrease)
+
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
@@ -147,7 +154,8 @@ def test_rf_regression(datatype, split_algo, rows_sample,
     # sklearn's random forest regression model
     sk_model = skrfr(n_estimators=50, max_depth=16,
                      min_samples_split=2, max_features=max_features,
-                     random_state=10)
+                     random_state=10,
+                     min_impurity_decrease=min_impurity_decrease)
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
