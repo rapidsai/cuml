@@ -36,6 +36,8 @@ ExternalProject_Add(googletest
   UPDATE_COMMAND    ""
 )
 
+add_dependencies(googletest ${CUML_CPP_TARGET})
+
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
 
@@ -241,6 +243,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
+      prims/stationarity.cu
       prims/stddev.cu
       prims/strided_reduction.cu
       prims/subtract.cu
