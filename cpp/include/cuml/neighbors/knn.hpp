@@ -47,7 +47,8 @@ namespace ML {
 void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
-                     bool rowMajorIndex = false, bool rowMajorQuery = false);
+                     bool rowMajorIndex = false,
+                     bool rowMajorQuery = false);
 
 class kNN {
   float **ptrs;
@@ -79,6 +80,7 @@ class kNN {
      * @param res_I        pointer to device memory for returning k nearest indices
      * @param res_D        pointer to device memory for returning k nearest distances
      * @param k            number of neighbors to query
+     * @param rowMajor     is the query array in row major layout?
      */
   void search(float *search_items, int search_items_size, int64_t *res_I,
               float *res_D, int k, bool rowMajor = false);
@@ -88,6 +90,7 @@ class kNN {
      * instances of kNNParams.
      * @param input  an array of pointers to data on (possibly different) devices
      * @param N      number of items in input array.
+     * @param rowMajor is the index array in rowMajor layout?
      */
   void fit(float **input, int *sizes, int N, bool rowMajor = false);
 };

@@ -172,7 +172,6 @@ class NearestNeighbors(Base):
     def __init__(self,
                  n_neighbors=5,
                  verbose=False,
-                 should_downcast=None,
                  handle=None,
                  algorithm="brute",
                  metric="seuclidean"):
@@ -189,40 +188,23 @@ class NearestNeighbors(Base):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
 
+        if metric != "euclidean" and metric != "sqeuclidean":
+            raise ValueError("Only Euclidean (euclidean) and Squared Euclidean (sqeuclidean)"
+                             "metrics are supported currently")
+
         self.n_neighbors = n_neighbors
-        self._should_downcast = should_downcast
         self.n_indices = 0
         self.metric = metric
         self.algorithm = algorithm
-        self.sizes = None
-        self.input = None
-
-    def __del__(self):
-
-        # Explicitly free these since they were allocated
-        # on the heap.
-        if self.n_indices > 0:
-            if self.sizes is not None:
-                free(<int*><size_t>self.sizes)
-            if self.input is not None:
-                free(<float**><size_t>self.input)
-            self.n_indices = 0
 
     def __getstate__(self):
         state = self.__dict__.copy()
-
-        if self.n_indices > 1:
-            print("n_indices: " + str(self.n_indices))
-            raise Exception("Serialization of multi-GPU models is "
-                            "not yet supported")
 
         del state['handle']
 
         # Only need to store index if fit() was called
         if self.n_indices == 1:
             state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-            del state["sizes"]
-            del state["input"]
 
         return state
 
@@ -230,27 +212,11 @@ class NearestNeighbors(Base):
         super(NearestNeighbors, self).__init__(handle=None,
                                                verbose=state['verbose'])
 
-        cdef float** input_arr
-        cdef int* sizes_arr
-
         cdef uintptr_t x_ctype
         # Only need to recover state if model had been previously fit
         if state["n_indices"] == 1:
 
             state['X_m'] = row_matrix(state['X_m'])
-
-            X_m = state["X_m"]
-
-            input_arr = <float**> malloc(sizeof(float *))
-            sizes_arr = <int*> malloc(sizeof(int))
-
-            x_ctype = X_m.device_ctypes_pointer.value
-
-            sizes_arr[0] = <int>len(X_m)
-            input_arr[0] = <float*>x_ctype
-
-            self.input = <size_t>input_arr
-            self.sizes = <size_t>sizes_arr
 
         self.__dict__.update(state)
 
@@ -272,12 +238,6 @@ class NearestNeighbors(Base):
                 deprecated in 0.10
         """
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit and kneighbors "
-                          " methods instead. ")
-            convert_dtype = True
-
         self.__del__()
 
         if len(X.shape) != 2:
@@ -287,65 +247,15 @@ class NearestNeighbors(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t X_ctype = -1
-        cdef uintptr_t dev_ptr = -1
-
-        cdef float** input_arr
-        cdef int* sizes_arr
-
         self.X_m, X_ctype, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
                                                  if convert_dtype
                                                  else None))
 
-        input_arr = <float**> malloc(sizeof(float *))
-        sizes_arr = <int*> malloc(sizeof(int))
-
-        sizes_arr[0] = <int>len(X)
-        input_arr[0] = <float*>X_ctype
-
         self.n_indices = 1
 
-        self.input = <size_t>input_arr
-        self.sizes = <size_t>sizes_arr
-
         return self
-
-    def _fit_mg(self, n_dims, alloc_info):
-        """
-        Fits a model using multiple GPUs. This method takes in a list of dict
-        objects representing the distribution of the underlying device
-        pointers. The device information can be extracted from the pointers.
-
-        :param n_dims
-            the number of features for each vector
-        :param alloc_info
-            a list of __cuda_array_interface__ dicts
-        :return:
-        """
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        self.__del__()
-
-        cdef float** input_arr = \
-            <float**> malloc(len(alloc_info) * sizeof(float*))
-        cdef int* sizes_arr = <int*>malloc(len(alloc_info)*sizeof(int))
-
-        self.n_indices = len(alloc_info)
-
-        cdef uintptr_t input_ptr
-        for i in range(len(alloc_info)):
-            sizes_arr[i] = < int > alloc_info[i]["shape"][0]
-
-            input_ptr = alloc_info[i]["data"][0]
-            input_arr[i] = < float * > input_ptr
-
-        self.sizes = <size_t>sizes_arr
-        self.input = <size_t>input_arr
-
-        self.n_dims = n_dims
 
     def kneighbors(self, X, k=None, convert_dtype=True):
         """
@@ -380,13 +290,6 @@ class NearestNeighbors(Base):
         if k is None:
             k = self.n_neighbors
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit and kneighbors"
-                          " methods instead. ")
-
-            convert_dtype = True
-
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
@@ -400,8 +303,12 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef float** inputs = <float**><size_t>self.input
-        cdef int* sizes = <int*><size_t>self.sizes
+        cdef float** inputs = <float**> malloc(sizeof(float *))
+        cdef int* sizes = <int*> malloc(sizeof(int))
+
+        cdef uintptr_t idx_ptr = get_dev_array_ptr(self.X_m)
+        inputs[0] = <float*>idx_ptr
+        sizes[0] = <int>self.X_m.shape[0]
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -443,5 +350,8 @@ class NearestNeighbors(Base):
         del I_ndarr
         del D_ndarr
         del X_m
+
+        free(inputs)
+        free(sizes)
 
         return dists, inds
