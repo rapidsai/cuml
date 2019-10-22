@@ -2,7 +2,7 @@ import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
 from scipy.optimize import _lbfgsb
-from cuml.ts.nvtx import pynvtx_range_push, pynvtx_range_pop
+from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 
 from collections import deque
 
@@ -61,7 +61,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
               Maximum number of line-search iterations.
     """
 
-    pynvtx_range_push("LBFGS")
+    nvtx_range_push("LBFGS")
     n = len(x0) // num_batches
 
     if fprime is None:
@@ -108,7 +108,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     warn_flag = np.zeros(num_batches)
 
     while not all(converged):
-        pynvtx_range_push("LBFGS-ITERATION")
+        nvtx_range_push("LBFGS-ITERATION")
         for ib in range(num_batches):
             if converged[ib]:
                 continue
@@ -141,7 +141,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 warn_flag[ib] = 2
                 continue
 
-        pynvtx_range_pop()
+        nvtx_range_pop()
     xk = np.concatenate(x)
 
     if iprint > 0:
@@ -153,5 +153,5 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 if warn_flag[ib] > 0:
                     print("WARNING: id={} convergence issue: {}".format(ib, task[ib].tostring()))
 
-    pynvtx_range_pop()
+    nvtx_range_pop()
     return xk, n_iterations, warn_flag

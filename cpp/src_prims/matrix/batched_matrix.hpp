@@ -35,8 +35,20 @@
 namespace MLCommon {
 namespace Matrix {
 
-/* An allocation function for `BatchedMatrixMemory`. Written as a free function because I had trouble
- * getting the __device__ lambda to compile as a member function of the `BatchedMatrixMemory` struct.
+/**
+ * @brief An allocation function for `BatchedMatrixMemory`.
+ * 
+ * @note Written as a free function because I had trouble getting the
+ *       __device__ lambda to compile as a member function of the
+ *       `BatchedMatrixMemory` struct.
+ * 
+ * @param[in]  shape        Shape of each matrix (rows, columns)
+ * @param[in]  num_batches  Number of matrices in the batch
+ * @param[in]  allocator    Device memory allocator
+ * @param[in]  stream       CUDA stream
+ * 
+ * @return Pair (A_dense, A_array): pointer to the raw data and pointer
+ *         to the array of pointers to each matrix in the batch
  */
 std::pair<double*, double**> BMM_Allocate(
   std::pair<int, int> shape, int num_batches, bool setZero,
@@ -51,10 +63,10 @@ std::pair<double*, double**> BMM_Allocate(
     CUDA_CHECK(cudaMemsetAsync(A_dense, 0, sizeof(double) * m * n * num_batches,
                                stream));
 
-  // allocate and fill array of pointers to each batch matrix
+  // Allocate and fill array of pointers to each batch matrix
   double** A_array =
     (double**)allocator->allocate(sizeof(double*) * num_batches, stream);
-  // fill array of pointers to each batch matrix.
+  // Fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + num_batches,
@@ -62,28 +74,38 @@ std::pair<double*, double**> BMM_Allocate(
   return std::make_pair(A_dense, A_array);
 }
 
-//! Kernel to creates an Identity matrix
-__global__ void identity_matrix_kernel(double** I, int r) {
-  int bid = blockIdx.x;
-  int tid = threadIdx.x;
-  for (int b = 0; b < r; b += blockDim.x) {
-    int idx = tid + b;
-    if (idx < r) {
-      I[bid][idx + r * idx] = 1;
-    }
+/**
+ * @brief Kernel to creates an identity matrix
+ * 
+ * @note The block id is the batch id, and the thread id is the starting
+ *       row/column for this thread (then looping to cover all the diagonal)
+ * 
+ * @param[out]  I  Pointer to the raw data of the identity matrix to create
+ * @param[in]   m  Number of rows/columns of matrix
+ */
+__global__ void identity_matrix_kernel(double* I, int m) {
+  double* I_b = I + blockIdx.x * m * m;
+  int stride = (m + 1);
+  for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+    I_b[idx * stride] = 1;
   }
 }
 
-//! The BatchedMatrix class provides storage and a number of linear operations on collections (batches) of matrices of identical shape.
+/**
+ * @brief The BatchedMatrix class provides storage and a number of linear
+ *        operations on collections (batches) of matrices of identical shape.
+ */
 class BatchedMatrix {
  public:
-  /* Constructor that allocates memory using the memory pool.
-  * @param m Number of rows
-  * @param n Number of columns
-  * @param num_batches Number of matrices in the batch
-  * @param pool The memory pool
-  * @param setZero Should matrix be zeroed on allocation?
-  */
+  /**
+   * @brief Constructor that allocates memory using the memory pool.
+   * 
+   * @param[in]  m            Number of rows
+   * @param[in]  n            Number of columns
+   * @param[in]  num_batches  Number of matrices in the batch
+   * @param[in]  pool         The memory pool
+   * @param[in]  setZero      Should matrix be zeroed on allocation?
+   */
   BatchedMatrix(int m, int n, int num_batches, cublasHandle_t cublasHandle,
                 std::shared_ptr<ML::deviceAllocator> allocator,
                 cudaStream_t stream, bool setZero = true)
@@ -93,16 +115,17 @@ class BatchedMatrix {
       m_stream(stream) {
     m_shape = std::make_pair(m, n);
 
-    // allocate memory
+    // Allocate memory
     auto memory =
       BMM_Allocate(m_shape, num_batches, setZero, allocator, stream);
 
-    // Take these references to extract them from member-storage for the
-    // lambda below. There are better C++14 ways to do this, but I'll keep it C++11 for now.
+    /* Take these references to extract them from member-storage for the
+     * lambda below. There are better C++14 ways to do this, but I'll keep
+     * it C++11 for now. */
     auto& shape = m_shape;
 
-    // note: we create this "free" function with explicit copies to ensure that the
-    // deallocate function gets called with the correct values.
+    /* Note: we create this "free" function with explicit copies to ensure that
+     * the deallocate function gets called with the correct values. */
     auto f1 = [allocator, num_batches, shape, stream](double* A) {
       allocator->deallocate(
         A, num_batches * shape.first * shape.second * sizeof(double), stream);
@@ -126,7 +149,7 @@ class BatchedMatrix {
   //! Return allocator
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
 
-  //! return stream
+  //! Return stream
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
@@ -135,8 +158,14 @@ class BatchedMatrix {
   //! Return pointer array
   double** data() const { return m_A_batches.get(); }
 
-  /* Return specific matrix pointer
-   * @param id Return the pointer to `id` matrix.
+  //! Return pointer to the underlying memory
+  double* raw_data() const { return m_A_dense.get(); }
+
+  /**
+   * @brief Return pointer to the data of a specific matrix
+   * 
+   * @param[in]  id  id of the matrix
+   * @return         A pointer to the raw data of the matrix
    */
   double* operator[](int id) const {
     return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
@@ -149,15 +178,18 @@ class BatchedMatrix {
     int r = m * n;
     BatchedMatrix toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
-    cudaMemcpyAsync(toVec[0], this->operator[](0),
+    cudaMemcpyAsync(toVec[0], m_A_dense.get(),
                     m_num_batches * r * sizeof(double),
                     cudaMemcpyDeviceToDevice, m_stream);
     return toVec;
   }
 
-  /* Create a matrix from a long vector.
-   * @param m Number of desired rows
-   * @param n Number of desired columns
+  /**
+   * @brief Create a matrix from a long vector.
+   * 
+   * @param[in]  m  Number of desired rows
+   * @param[in]  n  Number of desired columns
+   * @return        A batched matrix
    */
   BatchedMatrix mat(int m, int n) const {
     const int r = m_shape.first * m_shape.second;
@@ -167,7 +199,7 @@ class BatchedMatrix {
         "into desired size");
     BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
-    cudaMemcpyAsync(toMat[0], this->operator[](0),
+    cudaMemcpyAsync(toMat[0], m_A_dense.get(),
                     m_num_batches * r * sizeof(double),
                     cudaMemcpyDeviceToDevice, m_stream);
 
@@ -189,10 +221,14 @@ class BatchedMatrix {
     }
   }
 
-  /* Initialize a batched identity matrix.
-   * @param m Number of rows/columns of matrix
-   * @param num_batches Number of matrices in batch
-   * @param pool Memory pool
+  /**
+   * @brief Initialize a batched identity matrix.
+   * 
+   * @param[in]  m            Number of rows/columns of matrix
+   * @param[in]  num_batches  Number of matrices in batch
+   * @param[in]  pool         Memory pool
+   * 
+   * @return A batched identity matrix
    */
   static BatchedMatrix Identity(int m, int num_batches, cublasHandle_t handle,
                                 std::shared_ptr<ML::deviceAllocator> allocator,
@@ -200,7 +236,7 @@ class BatchedMatrix {
     BatchedMatrix I(m, m, num_batches, handle, allocator, stream, true);
 
     identity_matrix_kernel<<<num_batches, std::min(1024, m), 0, stream>>>(
-      I.data(), m);
+      I.raw_data(), m);
     CUDA_CHECK(cudaGetLastError());
     return I;
   }
@@ -223,51 +259,54 @@ class BatchedMatrix {
   cudaStream_t m_stream;
 };
 
-/* Computes batched kronecker prodcut between AkB <- A (x) B
- * @param A Array of pointers to matrices `A`
- * @param m number of rows (A)
- * @param n number of columns (A)
- * @param B Array of pointers to matrices `B`
- * @param p number of rows (B)
- * @param q number of columns (B)
- * @param AkB Result kronecker product pointer array.
- * @param k_m Result number of rows
- * @param k_n Result number of columns
+/**
+ * @brief Computes batched kronecker product between AkB <- A (x) B
+ * 
+ * @note The block x is the batch id, the thread x is the starting row
+ *       in B and the thread y is the starting column in B
+ * 
+ * @param[in]   A    Pointer to the raw data of matrix `A`
+ * @param[in]   m    Number of rows (A)
+ * @param[in]   n    Number of columns (A)
+ * @param[in]   B    Pointer to the raw data of matrix `B`
+ * @param[in]   p    Number of rows (B)
+ * @param[in]   q    Number of columns (B)
+ * @param[out]  AkB  Pointer to raw data of the result kronecker product
+ * @param[in]   k_m  Number of rows of the result    (m * p)
+ * @param[in]   k_n  Number of columns of the result (n * q)
  */
-__global__ void kronecker_product_kernel(double** A, int m, int n, double** B,
-                                         int p, int q, double** AkB, int k_m,
+__global__ void kronecker_product_kernel(const double* A, int m, int n, const double* B,
+                                         int p, int q, double* AkB, int k_m,
                                          int k_n) {
-  int bid = blockIdx.x;
+  const double* A_b = A + blockIdx.x * m * n;
+  const double* B_b = B + blockIdx.x * p * q;
+  double* AkB_b = AkB + blockIdx.x * k_m * k_n;
 
   for (int ia = 0; ia < n; ia++) {
     for (int ja = 0; ja < m; ja++) {
-      double A_ia_ja = A[bid][ia + ja * m];
+      double A_ia_ja = A_b[ia + ja * m];
 
-      for (int iblock = 0; iblock < p; iblock += blockDim.x) {
-        int ib = threadIdx.x + iblock * blockDim.x;
-        if (ib < p) {
-          for (int jblock = 0; jblock < q; jblock += blockDim.y) {
-            int jb = threadIdx.y + jblock * blockDim.y;
-            if (jb < q) {
-              int i_ab = ia * p + ib;
-              int j_ab = ja * q + jb;
-              AkB[bid][i_ab + j_ab * k_m] = A_ia_ja * B[bid][ib + jb * p];
-            }
-          }
+      for (int ib = threadIdx.x; ib < p; ib += blockDim.x) {
+        for (int jb = threadIdx.y; jb < q; jb += blockDim.y) {
+          int i_ab = ia * p + ib;
+          int j_ab = ja * q + jb;
+          AkB_b[i_ab + j_ab * k_m] = A_ia_ja * B_b[ib + jb * p];
         }
       }
     }
   }
 }
 
-/* Multiplies each matrix in a batch-A with it's batch-B counterpart.
- * A = [A1,A2,A3], B=[B1,B2,B3]
- * returns [A1*B1, A2*B2, A3*B3]
- * @param A First matrix batch
- * @param B Second matrix batch
- * @param aT Is `A` transposed?
- * @param bT is `B` transposed?
- * @return member-wise A*B
+/**
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
+ *        A = [A1,A2,A3], B=[B1,B2,B3] returns [A1*B1, A2*B2, A3*B3]
+ * 
+ * @param[in]  A   First matrix batch
+ * @param[in]  B   Second matrix batch
+ * @param[in]  aT  Is `A` transposed?
+ * @param[in]  bT  is `B` transposed?
+ * 
+ * @return Member-wise A*B
  */
 BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
                      bool aT = false, bool bT = false) {
@@ -275,7 +314,7 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
     throw std::runtime_error("A & B must have same number of batches");
   }
 
-  // logic for matrix dimensions with optional transpose
+  // Logic for matrix dimensions with optional transpose
   // m = number of rows of matrix op(A) and C.
   int m = !aT ? A.shape().first : A.shape().second;
 
@@ -324,11 +363,14 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   return C;
 }
 
-/* A utility method to implement pointwise operations between elements of two batched matrices.
- * @param A First matrix
- * @param B Second matrix
- * @param binary_op The binary operation used on elements of `A` and `B`
- * @return The result of `A` `binary_op` `B`
+/**
+ * @brief A utility method to implement pointwise operations between elements
+ *        of two batched matrices.
+ * 
+ * @param[in]  A          Batched matrix A
+ * @param[in]  B          Batched matrix B
+ * @param[in]  binary_op  The binary operation used on elements of A and B
+ * @return A batched matrix, the result of A binary_op B
  */
 template <typename F>
 BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
@@ -349,44 +391,51 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
   BatchedMatrix C(m, n, num_batches, A.cublasHandle(), A.allocator(),
                   A.stream());
 
-  LinAlg::binaryOp(C[0], A[0], B[0], m * n * num_batches, binary_op,
-                   A.stream());
+  LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(),
+                   m * n * num_batches, binary_op, A.stream());
 
   return C;
 }
 
-/* Multiplies each matrix in a batch-A with it's batch-B counterpart.
- * A = [A1,A2,A3], B=[B1,B2,B3]
- * return [A1*B1, A2*B2, A3*B3]
- * @param A Matrix `A`
- * @param B Matrix `B`
- * @returns The result of the batched matrix-matrix multiplication of `A` x `B`
+/**
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
+ *        A = [A1,A2,A3], B=[B1,B2,B3] return [A1*B1, A2*B2, A3*B3]
+ * 
+ * @param[in]  A  Batched matrix A
+ * @param[in]  B  Batched matrix B
+ * @return The result of the batched matrix-matrix multiplication of A * B
  */
 BatchedMatrix operator*(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_gemm(A, B);
 }
 
-/* Adds two batched matrices together element-wise.
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief Adds two batched matrices together element-wise.
+ * 
+ * @param[in]  A  Batched matrix A
+ * @param[in]  B  Batched matrix B
  * @return A+B
  */
 BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_aA_op_B(A, B, [] __device__(double a, double b) { return a + b; });
 }
 
-/* Subtract two batched matrices together element-wise.
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief Subtract two batched matrices together element-wise.
+ * 
+ * @param[in]  A  Batched matrix A
+ * @param[in]  B  Batched matrix B
  * @return A-B
  */
 BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_aA_op_B(A, B, [] __device__(double a, double b) { return a - b; });
 }
 
-/* Solve Ax = b for given batched matrix A and batched vector b
- * @param Matrix A
- * @param vector b
+/**
+ * @brief Solve Ax = b for given batched matrix A and batched vector b
+ * 
+ * @param[in]  A  Batched matrix A
+ * @param[in]  b  Batched vector b
  * @return A\b
  */
 BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
@@ -414,9 +463,12 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   return x;
 }
 
-/* The batched kroneker product A (x) B for given batched matrix A and batched matrix B
- * @param Matrix A
- * @param Matrix B
+/**
+ * @brief The batched kroneker product A (x) B for given batched matrix A
+ *        and batched matrix B
+ * 
+ * @param[in]  A  Matrix A
+ * @param[in]  B  Matrix B
  * @return A (x) B
  */
 BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
@@ -426,17 +478,17 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int p = A.shape().first;
   int q = B.shape().second;
 
-  // resulting shape
-  int km = m * p;
-  int kn = n * q;
+  // Resulting shape
+  int k_m = m * p;
+  int k_n = n * q;
 
-  BatchedMatrix AkB(km, kn, A.batches(), A.cublasHandle(), A.allocator(),
+  BatchedMatrix AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(),
                     A.stream());
 
-  // run kronecker...
+  // Run kronecker
   dim3 threads(std::min(p, 32), std::min(q, 32));
   kronecker_product_kernel<<<A.batches(), threads, 0, A.stream()>>>(
-    A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
+    A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n);
   CUDA_CHECK(cudaGetLastError());
   return AkB;
 }
