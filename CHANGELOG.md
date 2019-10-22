@@ -13,6 +13,7 @@
 - PR #1277: Change dependency order in cmake for better printing at compile time
 - PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
+- PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
