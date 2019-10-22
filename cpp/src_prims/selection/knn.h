@@ -108,13 +108,15 @@ void merge_tables(int64_t n, int64_t k, int64_t nshard, float *distances,
    * @param res_D      pointer to device memory for returning k nearest distances
    * @param k        number of neighbors to query
    * @param s the cuda stream to use
+   * @param translations translation ids for indices when index rows represent
+   *        non-contiguous partitions
    */
 template <typename IntType = int,
           Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
 void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
                      float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k, cudaStream_t s) {
-
+                     float *res_D, IntType k, cudaStream_t s,
+                     std::vector<int64_t> *translations = nullptr) {
   // TODO: Also pass internal streams down from handle.
 
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
@@ -122,14 +124,15 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
          "currently.");
 
-  std::vector<int64_t> *id_ranges = new std::vector<long>();
-
-  IntType total_n = 0;
-
-  for (int i = 0; i < n_params; i++) {
-    if (i < n_params)  // if i < sizes[i]
-      id_ranges->push_back(total_n);
-    total_n += sizes[i];
+  std::vector<int64_t> *id_ranges = translations;
+  if (translations == nullptr) {
+    id_ranges = new std::vector<int64_t>();
+    IntType total_n = 0;
+    for (int i = 0; i < n_params; i++) {
+      if (i < n_params)  // if i < sizes[i]
+        id_ranges->push_back(total_n);
+      total_n += sizes[i];
+    }
   }
 
   float *result_D = new float[k * n];
@@ -207,6 +210,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   delete result_D;
   delete result_I;
+
+  if (translations == nullptr) delete id_ranges;
 };
 
 };  // namespace Selection
