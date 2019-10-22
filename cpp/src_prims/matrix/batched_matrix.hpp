@@ -275,9 +275,9 @@ class BatchedMatrix {
  * @param[in]   k_m  Number of rows of the result    (m * p)
  * @param[in]   k_n  Number of columns of the result (n * q)
  */
-__global__ void kronecker_product_kernel(const double* A, int m, int n, const double* B,
-                                         int p, int q, double* AkB, int k_m,
-                                         int k_n) {
+__global__ void kronecker_product_kernel(const double* A, int m, int n,
+                                         const double* B, int p, int q,
+                                         double* AkB, int k_m, int k_n) {
   const double* A_b = A + blockIdx.x * m * n;
   const double* B_b = B + blockIdx.x * p * q;
   double* AkB_b = AkB + blockIdx.x * k_m * k_n;
@@ -447,13 +447,18 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, 0);
   int* info = (int*)allocator->allocate(sizeof(int) * num_batches, 0);
 
+  // A copy of A is necessary as the cublas operations write in A
+  BatchedMatrix Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
+                      A.stream());
+  copy(Acopy.raw_data(), A.raw_data(), n * n * num_batches, A.stream());
+
   BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, A.data(), n, P,
-                                                    info, num_batches));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n,
+                                                    P, info, num_batches));
   CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(
-    handle, n, A.data(), n, P, Ainv.data(), n, info, num_batches));
+    handle, n, Acopy.data(), n, P, Ainv.data(), n, info, num_batches));
 
   BatchedMatrix x = Ainv * b;
 

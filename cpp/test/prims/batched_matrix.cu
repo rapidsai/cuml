@@ -127,12 +127,9 @@ class BatchedMatrixTest
                       stream);
     BatchedMatrix ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.n_batches, handle,
                       allocator, stream);
-    BatchedMatrix AbM_copy(params.m, params.n, params.n_batches, handle,
-                           allocator, stream);
 
     // Copy the data to the device
     updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    updateDevice(AbM_copy.raw_data(), A.data(), A.size(), stream);
     if (use_B) updateDevice(BbM.raw_data(), B.data(), B.size(), stream);
     if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
@@ -161,7 +158,7 @@ class BatchedMatrixTest
         break;
       case AsolveZ_op:
         // A * A\Z -> should be Z
-        *res_bM = AbM_copy * b_solve(AbM, ZbM);
+        *res_bM = AbM * b_solve(AbM, ZbM);
         break;
     }
 
