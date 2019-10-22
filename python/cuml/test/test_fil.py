@@ -222,7 +222,8 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('storage_type', ['AUTO', 'DENSE', 'SPARSE'])
+@pytest.mark.parametrize('storage_type',
+                         ['AUTO', 'DENSE', 'SPARSE', 'auto', 'dense', 'sparse'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
