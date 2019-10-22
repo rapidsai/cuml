@@ -61,7 +61,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
     print("Running nn: " + str(client))
 
     try:
-        from cuml.dask.neighbors import NearestNeighbors as cumlNN
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+        from cuml.neighbors import NearestNeighbors as cumlNN
 
         from sklearn.datasets import make_blobs
 
@@ -74,7 +75,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         print("Done.")
 
-        X_cudf = _prep_training_data(client, X, 5)
+        X_cudf = _prep_training_data(client, X, 2)
 
         print("Done calling prep_training_data")
 
@@ -82,7 +83,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         print("Creating models")
 
-        cumlModel = cumlNN(verbose=1, n_neighbors=10)
+        cumlModel = daskNN(verbose=1, n_neighbors=10)
 
         cumlModel.fit(X_cudf)
 
@@ -90,9 +91,9 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         print(str(out_i.compute()))
 
-        from sklearn.neighbors import NearestNeighbors
+        print(str(out_d.compute()))
 
-        print(str(NearestNeighbors().fit(X).kneighbors(X, 10)))
+        print(str(cumlNN().fit(X).kneighbors(X, 10)))
 
     finally:
         client.close()
