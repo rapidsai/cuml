@@ -80,7 +80,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
  * @param num_batches Number of time series analyzed.
  * @param isInv Do the inverse transform?
  * @param params Linearized ARIMA parameters by batch (mu, ar, ma) (host)
- * @param Tparams Transformed ARIMA parameters (expects pre-allocated array of size (p+q)*batchSize) (host)
+ * @param h_Tparams Transformed ARIMA parameters (expects pre-allocated array of size (p+q)*batchSize) (host)
  */
 void batched_jones_transform(cumlHandle& handle, int p, int d, int q,
                              int batchSize, bool isInv, const double* h_params,
