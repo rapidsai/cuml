@@ -292,6 +292,10 @@ class NearestNeighbors(Base):
             raise ValueError("Model needs to be trained "
                              "before calling kneighbors()")
 
+        if X.shape[1] != self.n_dims:
+            raise ValueError("Dimensions of X need to match dimensions of "
+                             "indices (%d)" % self.n_dims)
+
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
