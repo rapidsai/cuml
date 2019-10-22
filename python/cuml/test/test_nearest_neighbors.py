@@ -59,7 +59,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
-    neigh_ind = knn_cu.kneighbors(X, k=n_neighbors, return_distance=False)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors, return_distance=False)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
