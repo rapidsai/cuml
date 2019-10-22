@@ -98,6 +98,8 @@ class NearestNeighbors(object):
                 elements is used as a threshold.
         :return : dask_cudf.Dataframe containing the results
         """
+
+        print("Inside kneighbors")
         if self.kwargs["n_neighbors"] is not None and k is None:
             k = self.kwargs["n_neighbors"]
 
@@ -123,6 +125,8 @@ class NearestNeighbors(object):
 
         comms = CommsContext(comms_p2p=True)
         comms.init(workers=workers)
+
+        print("Finished init comms")
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -150,6 +154,8 @@ class NearestNeighbors(object):
         query_M = reduce(lambda a, b: a+b, map(lambda x: x[1],
                                                query_partsToRanks))
 
+        print("Creating models")
+
         """
         Each Dask worker creates a single model
         """
@@ -165,6 +171,8 @@ class NearestNeighbors(object):
         wait(nn_models.values())
 
         raise_exception_from_futures(nn_models.values())
+
+        print("Calling fit")
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
@@ -191,6 +199,8 @@ class NearestNeighbors(object):
         wait(list(nn_fit.values()))
         raise_exception_from_futures(list(nn_fit.values()))
         comms.destroy()
+
+        print("Done")
 
         """
         Gather resulting partitions and return dask_cudfs
