@@ -241,6 +241,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
+      prims/stationarity.cu
       prims/stddev.cu
       prims/strided_reduction.cu
       prims/subtract.cu

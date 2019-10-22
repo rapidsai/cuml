@@ -450,8 +450,6 @@ def test_fit_predict_forecast(plot=False):
     np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=rtol)
     
 
-
-
 def test_grid_search(num_batches=2):
     ns = len(t)
     y_b = np.zeros((ns, num_batches))
@@ -463,24 +461,6 @@ def test_grid_search(num_batches=2):
 
     if num_batches == 2:
         np.testing.assert_array_equal(best_order, [(0, 1, 1), (0, 1, 1)])
-
-
-def test_stationarity():
-
-    num_samples = 200
-    xs = np.linspace(0, 1, num_samples)
-    np.random.seed(12)
-    noise = np.random.normal(scale=0.1, size=num_samples)
-    ys1 = noise + 0.5*xs
-    ys2 = noise
-
-    num_batches = 2
-    ys_df = np.zeros((num_samples, num_batches), order="F")
-    ys_df[:, 0] = ys1
-    ys_df[:, 1] = ys2
-
-    d_b = stationarity(ys_df)
-    np.testing.assert_array_equal(d_b, [1, 0])
 
 
 def demo():
