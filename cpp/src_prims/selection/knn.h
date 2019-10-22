@@ -127,24 +127,28 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
          "currently.");
 
-  std::vector<int64_t> *id_ranges = translations;
+  std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
+
     std::cout << "Translations was NULL!" << std::endl;
 
     id_ranges = new std::vector<int64_t>();
     int64_t total_n = 0;
     for (int i = 0; i < n_params; i++) {
-      if (i < n_params)  // if i < sizes[i]
+      if (i < n_params) {
         id_ranges->push_back(total_n);
+      }
       total_n += sizes[i];
     }
 
-    std::cout << "Translations size: " << id_ranges->size() << std::endl;
+    std::cout << "Translations size: " << id_ranges->size() << " = " << id_ranges[0] << std::endl;
   } else {
+    id_ranges = translations;
 
     std::cout << "Using translations: [" << std::endl;
-    for (int i = 0; i < translations->size(); i++) {
-      int64_t s = (*translations)[i];
+
+    for (int i = 0; i < id_ranges->size(); i++) {
+      int64_t s = (*id_ranges)[i];
       std::cout << (int)s << ", ";
     }
 
@@ -210,7 +214,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   }
 
   merge_tables<faiss::CMin<float, IntType>>(n, k, n_params, result_D, result_I,
-                                            all_D, all_I, id_ranges->data());
+                                            all_D, all_I, (*id_ranges).data());
 
   if (DistanceType == Distance::EucUnexpandedL2Sqrt) {
     MLCommon::LinAlg::unaryOp<float>(
@@ -220,8 +224,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   MLCommon::updateDevice(res_D, result_D, k * n, s);
   MLCommon::updateDevice(res_I, result_I, k * n, s);
-
-
 
   delete all_D;
   delete all_I;
