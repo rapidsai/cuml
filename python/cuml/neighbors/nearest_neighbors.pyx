@@ -188,8 +188,8 @@ class NearestNeighbors(Base):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
 
-        if metric != "euclidean" and metric != "sqeuclidean":
-            raise ValueError("Only Euclidean (euclidean) and Squared Euclidean (sqeuclidean)"
+        if metric != "euclidean" and metric != "seuclidean":
+            raise ValueError("Only Euclidean (euclidean) and Squared Euclidean (seuclidean)"
                              "metrics are supported currently")
 
         self.n_neighbors = n_neighbors
@@ -238,14 +238,10 @@ class NearestNeighbors(Base):
                 deprecated in 0.10
         """
 
-        self.__del__()
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
         self.n_dims = X.shape[1]
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         self.X_m, X_ctype, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
@@ -289,8 +285,10 @@ class NearestNeighbors(Base):
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        if k is None:
-            k = self.n_neighbors
+        k = self.n_neighbors if k is None else k
+
+        if (k is None and self.n_neighbors is None) or k <= 0:
+            raise ValueError("k or n_neighbors must be a positive integers")
 
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
