@@ -37,6 +37,8 @@ extern "C" {
    * @param res_I the resulting index array of size n * k
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
+   * @param rowMajorIndex is the index array in row major layout?
+   * @param rowMajorQuery is the query array in row major layout?
    */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
