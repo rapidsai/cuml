@@ -8,10 +8,52 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
 2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
 
-## Thread safety
-cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
+## Threading Model
 
-The implementation of cuML is single threaded.
+With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
+assumed to be single threaded. This means they should be able to be called from multiple host threads so 
+long as different instances of `cumlHandle` are used.
+
+Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
+in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
+threads within cuML algorithms should be used only to maintain concurrency of the underlying CUDA streams. 
+Multiple host threads should be used sparingly, be bounded, and should steer clear of performing CPU-intensive 
+computations.
+
+A good example of an acceptable use of host threads within a cuML algorithm might look like the following
+
+```
+cudaStreamSynchronize(handle.getStream());
+
+int n_streams = handle.getNumInternalStreams();
+
+#pragma omp parallel for num_threads(n_threads)
+for(int i = 0; i < n; i++) {
+    int thread_num = omp_get_thread_num() % n_threads;
+    cudaStream_t s = handle.getInternalStream(thread_num);
+    ... possible light cpu pre-processing ...
+    my_kernel1<<<b, tpb, 0, s>>>(...);
+    ...
+    ... some possible async d2h / h2d copies ...
+    my_kernel2<<<b, tpb, 0, s>>>(...);
+    ...
+    cudaStreamSynchronize(s);
+    ... possible light cpu post-processing ...
+}
+```
+
+In the example above, if there is no CPU pre-processing at the beginning of the for-loop, an event can be registered in
+each of the streams within the for-loop to make them wait on the stream from the handle. 
+
+This can be done easily by replacing `cudaStreamSynchronize(handle.getStream())` with `handle.waitOnUserStream()` 
+for a lighter-weight synchronization. If there is no CPU post-processing at the end of each for-loop iteration, 
+`cudaStreamSynchronize(s)` can be replaced with a single `handle.waitOnInternalStreams()` after the for-loop. 
+
+To avoid compatibility issues between different threading models, the only threading programming allowed in cuML is OpenMP.
+Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
+disabled. If the CPU pre- and post-processing were not needed in the example above, OpenMP would not be needed.
+
+The use of threads in third-party libraries is allowed, though they should still avoid depending on a specific OpenMP runtime. 
 
 ## Public cuML interface
 ### Terminology

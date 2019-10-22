@@ -100,6 +100,43 @@ struct dense_storage {
   int node_pitch_ = 0;
 };
 
+/** sparse_node is a single node in a sparse forest */
+struct sparse_node : base_node {
+  int left_idx;
+  __host__ __device__ sparse_node() : left_idx(0), base_node() {}
+  sparse_node(sparse_node_t node)
+    : base_node(dense_node_t{node.val, node.bits}), left_idx(node.left_idx) {}
+  sparse_node(float output, float thresh, int fid, bool def_left, bool is_leaf,
+              int left_index)
+    : base_node(output, thresh, fid, def_left, is_leaf), left_idx(left_index) {}
+  __host__ __device__ int left_index() const { return left_idx; }
+  /** index of the left child, where curr is the index of the current node */
+  __host__ __device__ int left(int curr) const { return left_idx; }
+};
+
+/** sparse_tree is a sparse tree */
+struct sparse_tree {
+  __host__ __device__ sparse_tree(sparse_node* nodes) : nodes_(nodes) {}
+  __host__ __device__ const sparse_node& operator[](int i) const {
+    return nodes_[i];
+  }
+  sparse_node* nodes_ = nullptr;
+};
+
+/** sparse_storage stores the forest as a collection of sparse nodes */
+struct sparse_storage {
+  int* trees_ = nullptr;
+  sparse_node* nodes_ = nullptr;
+  int num_trees_ = 0;
+  __host__ __device__ sparse_storage(int* trees, sparse_node* nodes,
+                                     int num_trees)
+    : trees_(trees), nodes_(nodes), num_trees_(num_trees) {}
+  __host__ __device__ int num_trees() const { return num_trees_; }
+  __host__ __device__ sparse_tree operator[](int i) const {
+    return sparse_tree(&nodes_[trees_[i]]);
+  }
+};
+
 // predict_params are parameters for prediction
 struct predict_params {
   // Model parameters.

@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #1129: C++: Separate include folder for C++ API distribution
+- PR #1242: Initial implementation of FIL sparse forests
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
@@ -9,6 +10,7 @@
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
 - PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1277: Change dependency order in cmake for better printing at compile time
 - PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
 
@@ -54,6 +56,7 @@
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1219: Adding custom bench_func and verbose logging to cuml.benchmark
 - PR #1247: Improved MNMG RF error checking
 
 ## Bug Fixes
@@ -231,6 +234,7 @@
 - PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
+- PR #820: Updating DEVELOPER GUIDE threading guidelines
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
