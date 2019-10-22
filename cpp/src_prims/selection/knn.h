@@ -141,7 +141,10 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
       total_n += sizes[i];
     }
 
-    std::cout << "Translations size: " << id_ranges->size() << " = " << id_ranges[0] << std::endl;
+    int64_t d = id_ranges->data()[0];
+    int size = id_ranges->size();
+
+    std::cout << "Translations size: " << size << " = " << d << std::endl;
   } else {
     id_ranges = translations;
 
@@ -149,7 +152,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
     for (int i = 0; i < id_ranges->size(); i++) {
       int64_t s = (*id_ranges)[i];
-      std::cout << (int)s << ", ";
+      std::cout << s << ", ";
     }
 
     std::cout << "]" << std::endl;
