@@ -310,7 +310,7 @@ class ForestInference(Base):
     https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
-    infererence. ForestInference can also accept a numpy array directly at the
+    inference. ForestInference can also accept a numpy array directly at the
     cost of a slight performance overhead.
 
     >>> # Assume that the file 'xgb.model' contains a classifier model that was
