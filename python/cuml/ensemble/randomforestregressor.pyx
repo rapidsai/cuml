@@ -172,7 +172,7 @@ class RandomForestRegressor(Base):
     trees in an ensemble.
     Note that the underlying algorithm for tree node splits differs from that
     used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithms to determine splits, rather than an exact
+    histogram-based algorithm to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
     **Known Limitations**: This is an initial release of the cuML
@@ -216,7 +216,7 @@ class RandomForestRegressor(Base):
     split_algo : int (default = 1)
                  0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
-                 HIST curently uses a slower tree-building algorithm
+                 HIST currently uses a slower tree-building algorithm
                  so GLOBAL_QUANTILE is recommended for most cases.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
