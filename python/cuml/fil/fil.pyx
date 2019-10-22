@@ -139,7 +139,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         TREE_REORG,
         BATCH_TREE_REORG
 
-    cdef enum sparse_t:
+    cdef enum storage_type_t:
         AUTO,
         DENSE,
         SPARSE
@@ -153,7 +153,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         algo_t algo
         bool output_class
         float threshold
-        sparse_t sparse
+        storage_type_t storage_type
 
     cdef void free(cumlHandle& handle,
                    forest_t)
@@ -187,14 +187,17 @@ cdef class ForestInference_impl():
                             ' to the documentation')
         return algo_dict[algo_str]
 
-    def get_sparse(self, sparse_str):
-        sparse_dict={'AUTO': sparse_t.AUTO,
-                     'DENSE': sparse_t.DENSE,
-                     'SPARSE': sparse_t.SPARSE}
-        if sparse_str not in sparse_dict.keys():
-            raise Exception(' Wrong sparsity selected please refer'
-                            ' to the documentation')
-        return sparse_dict[sparse_str]
+    def get_storage_type(self, storage_type_str):
+        storage_type_dict={'AUTO': storage_type_t.AUTO,
+                           'auto': storage_type_t.AUTO,
+                           'DENSE': storage_type_t.DENSE,
+                           'dense': storage_type_t.DENSE,
+                           'SPARSE': storage_type_t.SPARSE,
+                           'sparse': storage_type_t.SPARSE}
+        if storage_type_str not in storage_type_dict.keys():
+            raise ValueError(' Wrong sparsity selected please refer'
+                             ' to the documentation')
+        return storage_type_dict[storage_type_str]
 
     def predict(self, X, preds=None):
         """
@@ -240,13 +243,13 @@ cdef class ForestInference_impl():
                                  bool output_class,
                                  str algo,
                                  float threshold,
-                                 str sparse):
+                                 str storage_type):
 
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
-        treelite_params.sparse = self.get_sparse(sparse)
+        treelite_params.storage_type = self.get_storage_type(storage_type)
 
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
@@ -264,14 +267,14 @@ cdef class ForestInference_impl():
                                bool output_class,
                                str algo,
                                float threshold,
-                               str sparse):
+                               str storage_type):
 
         cdef treelite_params_t treelite_params
 
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
-        treelite_params.sparse = self.get_sparse(sparse)
+        treelite_params.storage_type = self.get_storage_type(storage_type)
 
         self.forest_data = NULL
         cdef cumlHandle* handle_ =\
@@ -381,7 +384,7 @@ class ForestInference(Base):
     def load_from_treelite_model(self, model, output_class,
                                  algo='TREE_REORG',
                                  threshold=0.5,
-                                 sparse='DENSE'):
+                                 storage_type='DENSE'):
         """
         Creates a FIL model using the treelite model
         passed to the function.
@@ -404,14 +407,14 @@ class ForestInference(Base):
            applied if output_class == True, else it is ignored
         """
         return self._impl.load_from_treelite_model(model, output_class,
-                                                   algo, threshold, sparse)
+                                                   algo, threshold, storage_type)
 
     @staticmethod
     def load(filename,
              output_class=False,
              threshold=0.50,
              algo='TREE_REORG',
-             sparse='DENSE',
+             storage_type='DENSE',
              model_type="xgboost",
              handle=None):
         """
@@ -441,7 +444,7 @@ class ForestInference(Base):
         cuml_fm.load_from_treelite_model(tl_model,
                                          algo=algo,
                                          output_class=output_class,
-                                         sparse=sparse,
+                                         storage_type=storage_type,
                                          threshold=threshold)
         return cuml_fm
 
@@ -449,10 +452,8 @@ class ForestInference(Base):
                                model_handle,
                                output_class=False,
                                algo='TREE_REORG',
-                               sparse='DENSE',
+                               storage_type='DENSE',
                                threshold=0.50):
 
         return self._impl.load_from_randomforest(model_handle, output_class,
-                                                 algo, threshold, sparse)
-
-# FINISHED HERE
+                                                 algo, threshold, storage_type)

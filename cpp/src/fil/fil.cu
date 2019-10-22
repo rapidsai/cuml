@@ -484,12 +484,14 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
-  sparse_t sparse = tl_params->sparse;
+  storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
-  if (sparse == sparse_t::AUTO) sparse = sparse_t::DENSE;
+  if (storage_type == storage_type_t::AUTO) {
+    storage_type = storage_type_t::DENSE;
+  }
 
-  switch (sparse) {
-    case sparse_t::DENSE: {
+  switch (storage_type) {
+    case storage_type_t::DENSE: {
       forest_params_t params;
       std::vector<dense_node_t> nodes;
       tl2fil_dense(&nodes, &params, *(tl::Model*)model, tl_params);
@@ -499,7 +501,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
       break;
     }
-    case sparse_t::SPARSE: {
+    case storage_type_t::SPARSE: {
       forest_params_t params;
       std::vector<int> trees;
       std::vector<sparse_node_t> nodes;
