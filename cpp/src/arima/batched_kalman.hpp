@@ -49,6 +49,7 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
  * @param ma MA parameters (device)
  * @param batchSize Number of time series analyzed.
  * @param p Number of AR parameters
+ * @param d Trend parameter
  * @param q Number of MA parameters
  * @param stream CUDA stream
  */
