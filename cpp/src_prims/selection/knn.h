@@ -83,8 +83,6 @@ void merge_tables(int64_t n, int k, int nshard, float *distances,
           int s = shard_ids[0];
           int &p = pointer[s];
           D[j] = heap_vals[0];
-
-          printf("Translation[%d] %d", s, shard_offsets[s]);
           I[j] = I_in[stride * s + p] + shard_offsets[s];
 
           faiss::heap_pop<C>(heap_size--, heap_vals, shard_ids);
