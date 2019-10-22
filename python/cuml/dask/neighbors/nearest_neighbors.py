@@ -73,13 +73,11 @@ class NearestNeighbors(object):
 
     @staticmethod
     def _func_get_d(f, idx):
-        print("f=" + str(f))
         i, d = f
         return d[idx]
 
     @staticmethod
     def _func_get_i(f, idx):
-        print("f=" + str(f))
         i, d = f
         return i[idx]
 
@@ -112,15 +110,13 @@ class NearestNeighbors(object):
         for w, p in index_futures:
             if w not in index_worker_to_parts:
                 index_worker_to_parts[w] = []
-                index_worker_to_parts[w].append(p)
-
-        print(str(index_worker_to_parts))
+            index_worker_to_parts[w].append(p)
 
         query_worker_to_parts = OrderedDict()
         for w, p in query_futures:
             if w not in query_worker_to_parts:
                 query_worker_to_parts[w] = []
-                query_worker_to_parts[w].append(p)
+            query_worker_to_parts[w].append(p)
 
         workers = set(map(lambda x: x[0], index_futures))
         workers.update(list(map(lambda x: x[0], query_futures)))

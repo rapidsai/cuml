@@ -14,9 +14,27 @@
 #
 import pytest
 
+import cudf
+import dask_cudf
+import pandas as pd
+
+from cuml.dask.common import utils as dask_utils
+
 from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
+
+
+def _prep_training_data(c, X_train, partitions_per_worker):
+    workers = c.has_what().keys()
+    n_partitions = partitions_per_worker * len(workers)
+    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+
+    X_train_df, = dask_utils.persist_across_workers(c,
+                                                    [X_train_df],
+                                                    workers=workers)
+    return X_train_df
 
 
 @pytest.mark.mg
@@ -34,10 +52,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
     try:
         from cuml.dask.neighbors import NearestNeighbors as cumlNN
 
-        from cuml.dask.datasets import make_blobs
+        from sklearn.datasets import make_blobs
 
-        X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True)
+        X, _ = make_blobs(n_samples=int(nrows), n_features=ncols,
+                          centers=nclusters, cluster_std=0.01)
+
+        X_cudf = _prep_training_data(client, X, 5)
 
         wait(X_cudf)
 
@@ -47,8 +67,11 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-        print(str(out_d))
-        print(str(out_i))
+        print(str(out_i.compute()))
+
+        from sklearn.neighbors import NearestNeighbors
+
+        print(str(NearestNeighbors().fit(X).kneighbors(X, 10)))
 
     finally:
         client.close()

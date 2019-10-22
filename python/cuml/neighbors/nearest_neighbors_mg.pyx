@@ -156,7 +156,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
                    queries, query_m, query_partsToRanks,
-                   rank, k):
+                   rank, k, convert_dtype=True):
         """
         Query the kneighbors of an index
         :param indices: [__cuda_array_interface__] of local index partitions
@@ -184,7 +184,10 @@ class NearestNeighborsMG(NearestNeighbors):
         for arr in queries:
             X_m, input_ptr, n_rows, n_cols, dtype = \
                 input_to_dev_array(arr, order="C",
-                                   check_dtype=[np.float32, np.float64])
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None),
+                                   check_dtype=[np.float32])
             query_ints.append({"obj": X_m,
                                "data": input_ptr,
                                "shape": (n_rows, n_cols)})
@@ -192,7 +195,8 @@ class NearestNeighborsMG(NearestNeighbors):
         for arr in indices:
             X_m, input_ptr, n_rows, n_cols, dtype = \
                 input_to_dev_array(arr, order="C",
-                                   check_dtype=[np.float32, np.float64])
+                                   convert_to_dtype=np.float32,
+                                   check_dtype=[np.float32])
             index_ints.append({"obj": X_m,
                                "data": input_ptr,
                                "shape": (n_rows, n_cols)})
