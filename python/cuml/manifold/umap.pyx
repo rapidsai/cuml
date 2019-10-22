@@ -188,8 +188,8 @@ class UMAP(Base):
     However, there are a number of differences and features that are not yet
     implemented in cuml.umap:
       * Specifying the random seed
-      * Using a non-euclidean distance metric (support for a fixed set
-        of non-euclidean metrics is planned for an upcoming release).
+      * Using a non-Euclidean distance metric (support for a fixed set
+        of non-Euclidean metrics is planned for an upcoming release).
       * Using a pre-computed pairwise distance matrix (under consideration
         for future releases)
       * Manual initialization of initial embedding positions
