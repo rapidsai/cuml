@@ -25,7 +25,7 @@ namespace Stationarity {
  * @brief Compute recommended trend parameter (d=0 or 1) for a batched series
  * 
  * @details This function operates a stationarity test on the given series
- *          and for the series that fails the test, differenciates them
+ *          and for the series that fails the test, differentiates them
  *          and runs the test again on the first difference.
  * 
  * @note The data is a column-major matrix where the series are columns.
