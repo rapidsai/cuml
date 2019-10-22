@@ -178,15 +178,14 @@ class Ridge(Base, RegressorMixin):
     ------
     Ridge provides L2 regularization. This means that the coefficients can
     shrink to become very small, but not zero. This can cause issues of
-    interpretabiliy on the coefficients.
+    interpretability on the coefficients.
     Consider using Lasso, or thresholding small coefficients to zero.
 
     **Applications of Ridge**
 
-        Ridge Regression is used in the same way as LinearRegression, but is
-        used frequently as it does not suffer from multicollinearity issues.
-        Ridge is used in insurance premium prediction, stock market analysis
-        and much more.
+        Ridge Regression is used in the same way as LinearRegression, but does 
+        not suffer from multicollinearity issues.  Ridge is used in insurance 
+        premium prediction, stock market analysis and much more.
 
 
     For additional docs, see `scikitlearn's Ridge
