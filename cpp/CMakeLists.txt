@@ -269,6 +269,12 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   ""
 )
 
+# dependencies will be added in sequence, so if a new project `project_b` is added
+# after `project_a`, please add the dependency add_dependencies(project_b project_a)
+# This allows the cloning to happen sequentially, enhancing the printing at
+# compile time, helping significantly to troubleshoot build issues.
+add_dependencies(cutlass cub)
+
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
 
@@ -291,6 +297,8 @@ ExternalProject_Add(faiss
   BUILD_IN_SOURCE   1
 )
 
+add_dependencies(faiss cutlass)
+
 ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
@@ -310,6 +318,8 @@ ExternalProject_Add(treelite
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
     UPDATE_COMMAND    ""
 )
+
+add_dependencies(treelite faiss)
 
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
@@ -375,15 +385,13 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/ws_util.cu
+    src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
     src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
     )
-
-  add_dependencies(${CUML_CPP_TARGET} cub)
-  add_dependencies(${CUML_CPP_TARGET} cutlass)
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
