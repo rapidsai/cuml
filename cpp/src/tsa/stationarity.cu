@@ -36,7 +36,7 @@ int stationarity_helper(const cumlHandle& handle, const DataT* y_d, int* d,
                                             pval_threshold);
 }
 
-int stationarity(const ML::cumlHandle& handle, const float* y_d, int* d,
+int stationarity(const cumlHandle& handle, const float* y_d, int* d,
                  int n_batches, int n_samples, float pval_threshold) {
   return stationarity_helper<float>(handle, y_d, d, n_batches, n_samples,
                                     pval_threshold);
