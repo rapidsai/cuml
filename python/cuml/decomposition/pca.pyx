@@ -259,7 +259,7 @@ class PCA(Base):
     Notes
     ------
     PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
+    maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
     T-SNE for a locally important embedding.
 
