@@ -41,7 +41,7 @@ namespace Selection {
    * @param translations  label translations to apply, size nshard
    */
 template <class C>
-void merge_tables(int64_t n, int64_t k, int64_t nshard, float *distances,
+void merge_tables(int64_t n, int k, int nshard, float *distances,
                   int64_t *labels, float *all_distances, int64_t *all_labels,
                   int64_t *translations) {
   if (k == 0) {
@@ -138,6 +138,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
         id_ranges->push_back(total_n);
       total_n += sizes[i];
     }
+
+    std::cout << "Translations size: " << id_ranges->size() << std::endl;
   } else {
 
     std::cout << "Using translations: [" << std::endl;
