@@ -99,7 +99,7 @@ class RandomForestClassifier:
                         The minimum number of samples (rows) needed
                         to split a node.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
+                        Whether quantile is computed for individual trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
@@ -109,7 +109,7 @@ class RandomForestClassifier:
 
     Examples
     ---------
-    For usage examples, please see the RAPIDS notebookss repository:
+    For usage examples, please see the RAPIDS notebooks repository:
     https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
     """
 
