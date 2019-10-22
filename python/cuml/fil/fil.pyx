@@ -405,15 +405,16 @@ class ForestInference(Base):
                                     multiple rows per thread block
         threshold : threshold is used to for classification
            applied if output_class == True, else it is ignored
-        storage_type : string name of the storage type (from storage_type_t enum)
-           for the FIL forest 
+        storage_type : string name of the storage type
+           (from storage_type_t enum) for the FIL forest
              'AUTO' - choose the storage type automatically
                         (currently DENSE is always used)
              'DENSE' - create a dense forest
              'SPARSE' - create a sparse forest; requires algo='NAIVE'
         """
         return self._impl.load_from_treelite_model(model, output_class,
-                                                   algo, threshold, storage_type)
+                                                   algo, threshold,
+                                                   storage_type)
 
     @staticmethod
     def load(filename,
@@ -441,8 +442,9 @@ class ForestInference(Base):
         algo : string
            Which inference algorithm to use.
            See documentation in FIL.load_from_treelite_model
-        storage_type : string name of the storage type (from storage_type_t enum)
-           for the FIL forest. See documentation in FIL.load_from_treelite_model
+        storage_type : string name of the storage type
+           (from storage_type_t enum) for the FIL forest.
+           See documentation in FIL.load_from_treelite_model
         model_type : str
             Format of saved treelite model to load.
             Can be 'xgboost', 'lightgbm', or 'protobuf'
