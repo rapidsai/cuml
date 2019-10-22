@@ -64,7 +64,7 @@ void merge_tables(int64_t n, int64_t k, int64_t nshard, float *distances,
       const int64_t *I_in = all_labels + i * k;
       int heap_size = 0;
 
-      for (int64_t s = 0; s < nshard; s++) {
+      for (int s = 0; s < nshard; s++) {
         pointer[s] = 0;
         if (I_in[stride * s] >= 0)
           faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
@@ -116,6 +116,7 @@ template <typename IntType = int,
 void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
                      float *search_items, IntType n, int64_t *res_I,
                      float *res_D, IntType k, cudaStream_t s,
+                     bool rowMajorIndex = true, bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr) {
   // TODO: Also pass internal streams down from handle.
 
@@ -182,8 +183,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
           gpu_res.setCudaMallocWarning(false);
           gpu_res.setDefaultStream(att.device, stream);
 
-          faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, true, size,
-                                    search_items, true, n, D, k,
+          faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size,
+                                    search_items, rowMajorQuery, n, D, k,
                                     all_D + (i * k * n), all_I + (i * k * n));
 
           CUDA_CHECK(cudaPeekAtLastError());
@@ -215,6 +216,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   MLCommon::updateDevice(res_D, result_D, k * n, s);
   MLCommon::updateDevice(res_I, result_I, k * n, s);
+
+
 
   delete all_D;
   delete all_I;
