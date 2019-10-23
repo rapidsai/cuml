@@ -104,17 +104,12 @@ class Rng {
   /**
    * @brief Seed (and thus re-initialize) the underlying RNG engine
    * @param _s 64b seed used to initialize the RNG
-   * @note pass a value of 0 for `_s` to seed the internal engine using the C+11
-   *       `std::random_device` class. The resulting random number sequence,
-   *       however, will not be reproducible.
+   * @note If you need non-reproducibility, pass a seed that's, for example, a
+   *       function of timestamp. Another example is to use the c++11's
+   *       `std::random_device` for setting seed.
    */
   void seed(uint64_t _s) {
-    if (_s == 0) {
-      std::random_device rd;
-      gen.seed(rd());
-    } else {
-      gen.seed(_s);
-    }
+    gen.seed(_s);
     offset = 0;
   }
 
