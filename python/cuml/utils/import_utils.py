@@ -71,3 +71,11 @@ def has_pytest_benchmark():
         return True
     except ImportError:
         return False
+
+
+def has_pytorch():
+    try:
+        import torch  # NOQA
+        return True
+    except ImportError:
+        return False
