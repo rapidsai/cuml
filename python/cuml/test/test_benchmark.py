@@ -91,4 +91,5 @@ def test_accuracy_runner():
         [20], [5], dataset_name='zeros', test_fraction=0.20
     )
     results = runner.run(pair)[0]
+
     assert results["cuml_acc"] == pytest.approx(0.80)
