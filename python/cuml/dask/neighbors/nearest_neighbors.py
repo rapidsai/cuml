@@ -26,6 +26,12 @@ from functools import reduce
 from uuid import uuid1
 
 
+def _raise_import_exception():
+    raise Exception("cuML has not been built with multiGPU support "
+                    "enabled. Build with the --multigpu flag to"
+                    " enable multiGPU support.")
+
+
 class NearestNeighbors(object):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
@@ -54,9 +60,7 @@ class NearestNeighbors(object):
             from cuml.neighbors.nearest_neighbors_mg import \
                 NearestNeighborsMG as cumlNN
         except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
+            _raise_import_exception()
 
         handle = worker_state(sessionId)["handle"]
         return cumlNN(handle=handle, **kwargs)
@@ -93,13 +97,23 @@ class NearestNeighbors(object):
         :return : dask_cudf.DataFrame containing distances
         :return : dask_cudf.DataFrame containing indices
         """
-        if self.kwargs["n_neighbors"] is not None and n_neighbors is None:
-            n_neighbors = self.kwargs["n_neighbors"]
+        if n_neighbors is None:
+              if "n_neighbors" in self.kwargs \
+                      and self.kwargs["n_neighbors"] \
+                      is not None:
+                  n_neighbors = self.kwargs["n_neighbors"]
+              else:
+                  try:
+                      from cuml.neighbors.nearest_neighbors_mg import \
+                          NearestNeighborsMG as cumlNN
+                  except ImportError:
+                      _raise_import_exception()
+                  n_neighbors = cumlNN().n_neighbors
 
         X = self.X if X is None else X
 
         if X is None:
-            raise ValueError("Model needs to be trained "
+            raise ValueError("Model needs to be trained using fit() "
                              "before calling kneighbors()")
 
         index_futures = self.client.sync(extract_ddf_partitions,

@@ -154,10 +154,10 @@ class NearestNeighborsMG(NearestNeighbors):
         return <size_t>dataF
 
     def _free_mem(self, index_vec, index_desc,
-                 query_vec, query_desc,
-                 out_i_vec, out_d_vec,
-                 local_index_parts,
-                 local_query_parts):
+                  query_vec, query_desc,
+                  out_i_vec, out_d_vec,
+                  local_index_parts,
+                  local_query_parts):
 
         cdef vector[floatData_t *] *index_vec_c \
             = <vector[floatData_t *]*><size_t>index_vec
@@ -204,7 +204,6 @@ class NearestNeighborsMG(NearestNeighbors):
         for elm in range(local_query_parts_c.size()):
             free(local_query_parts_c.at(elm))
         free(local_query_parts_c)
-
 
     def _freeFloatD(self, data):
         cdef uintptr_t data_ptr = data

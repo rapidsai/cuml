@@ -77,6 +77,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         bool rowMajorQuery
     ) except +
 
+
 class NearestNeighbors(Base):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
@@ -183,7 +184,8 @@ class NearestNeighbors(Base):
         super(NearestNeighbors, self).__init__(handle, verbose)
 
         if metric != "euclidean" and metric != "seuclidean":
-            raise ValueError("Only Euclidean (euclidean) and Squared Euclidean (seuclidean)"
+            raise ValueError("Only Euclidean (euclidean) and "
+                             "Squared Euclidean (seuclidean) "
                              "metrics are supported currently")
 
         self.n_neighbors = n_neighbors
@@ -303,8 +305,10 @@ class NearestNeighbors(Base):
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.int64, order="C"))
-        D_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.float32, order="C"))
+        I_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.int64,
+                                      order="C"))
+        D_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.float32,
+                                      order="C"))
 
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
