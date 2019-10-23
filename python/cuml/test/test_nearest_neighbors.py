@@ -14,8 +14,13 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+
+from cuml.test.utils import array_equal, unit_param, quality_param, \
+    stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
+
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
 import cudf
@@ -116,13 +121,13 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
 
     elif input_type == 'ndarray':
 
-        knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.kneighbors(X, k)
-        assert type(D_cuml) == np.ndarray
-        assert type(I_cuml) == np.ndarray
+    knn_cu.fit(X)
+    D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+    assert type(D_cuml) == np.ndarray
+    assert type(I_cuml) == np.ndarray
 
-        D_cuml_arr = D_cuml
-        I_cuml_arr = I_cuml
+    D_cuml_arr = D_cuml
+    I_cuml_arr = I_cuml
 
     if nrows < 500000:
         knn_sk = skKNN(metric="sqeuclidean")
@@ -141,7 +146,7 @@ def test_knn_fit_twice():
     fit() is called more than once.
     """
 
-    n_samples = 50
+    n_samples = 1000
     n_feats = 50
     k = 5
 
@@ -177,10 +182,6 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-
     knn_cu = cuKNN()
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-
     with pytest.raises(Exception):
         knn_cu.fit(X, convert_dtype=False)
