@@ -59,7 +59,8 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 
     knn_cu = cuKNN()
     knn_cu.fit(X)
-    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors, return_distance=False)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                  return_distance=False)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
@@ -101,7 +102,8 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
     knn_cu = cuKNN()
 
     if input_type == 'dataframe':
-        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i
+                             in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X_pd)
         knn_cu.fit(X_cudf)
         D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, k)

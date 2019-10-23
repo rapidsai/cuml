@@ -33,7 +33,7 @@ from cuml.test.utils import array_equal
 
 def predict(neigh_ind, _y, n_neighbors):
 
-    neigh_ind = neigh_ind.astype(np.int32)
+    neigh_ind = neigh_ind.astype(np.int64)
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
@@ -53,7 +53,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e5),
+@pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
 @pytest.mark.parametrize("ncols", [10, 30])
@@ -84,6 +84,51 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
         wait(X_cudf)
 
         cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors)
+        cumlModel.fit(X_cudf)
+
+        out_d, out_i = cumlModel.kneighbors(X_cudf)
+
+        local_i = np.array(out_i.compute().as_gpu_matrix())
+
+        y_hat, _ = predict(local_i, y, n_neighbors)
+
+        assert array_equal(y_hat, y)
+
+    finally:
+        client.close()
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [unit_param(1000)])
+@pytest.mark.parametrize("ncols", [10])
+@pytest.mark.parametrize("n_parts", [unit_param(10)])
+@pytest.mark.parametrize("batch_size", [unit_param(100)])
+def test_batch_size(nrows, ncols, n_parts,
+                  batch_size, cluster):
+
+    client = Client(cluster)
+
+    n_neighbors = 10
+    n_clusters = 5
+
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+        from cuml.neighbors import NearestNeighbors as cumlNN
+
+        from sklearn.datasets import make_blobs
+
+        X, y = make_blobs(n_samples=int(nrows),
+                          n_features=ncols,
+                          centers=n_clusters)
+
+        X = X.astype(np.float32)
+
+        X_cudf = _prep_training_data(client, X, n_parts)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors,
+                           batch_size=batch_size)
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
