@@ -226,7 +226,7 @@ class NearestNeighborsMG(NearestNeighbors):
         :param query_m: number of total query rows
         :param query_partsToRanks: mappings of query partitions to ranks
         :param rank: int rank of current worker
-        :param k: int number of nearest neighbors to query
+        :param n_neighbors: int number of nearest neighbors to query
         :return:
         """
 
@@ -239,6 +239,7 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
         cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
 
+        # Build device arrays for local partitions
         query_ints = []
         index_ints = []
         for arr in queries:

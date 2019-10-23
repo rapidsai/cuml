@@ -69,7 +69,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
-        from cuml.neighbors import NearestNeighbors as cumlNN
 
         from sklearn.datasets import make_blobs
 
@@ -104,7 +103,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 @pytest.mark.parametrize("n_parts", [unit_param(10)])
 @pytest.mark.parametrize("batch_size", [unit_param(100)])
 def test_batch_size(nrows, ncols, n_parts,
-                  batch_size, cluster):
+                    batch_size, cluster):
 
     client = Client(cluster)
 
@@ -113,7 +112,6 @@ def test_batch_size(nrows, ncols, n_parts,
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
-        from cuml.neighbors import NearestNeighbors as cumlNN
 
         from sklearn.datasets import make_blobs
 
