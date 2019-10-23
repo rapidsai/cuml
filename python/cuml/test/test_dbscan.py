@@ -13,30 +13,18 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
+
 from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
+from cuml.test.utils import get_pattern, unit_param, \
+    quality_param, stress_param
+
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets.samples_generator import make_blobs
-import pandas as pd
-import cudf
-import numpy as np
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern
-
 from sklearn.metrics import adjusted_rand_score
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
@@ -45,7 +33,6 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 
 @pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
                          stress_param(500000)])
@@ -57,8 +44,8 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                                        unit_param(np.int64),
                                        quality_param("int32"),
                                        stress_param("int32")])
-def test_dbscan(datatype, input_type, use_handle,
-                nrows, ncols, max_mbytes_per_batch, out_dtype):
+def test_dbscan(datatype, use_handle, nrows, ncols,
+                max_mbytes_per_batch, out_dtype):
     n_samples = nrows
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
@@ -68,13 +55,7 @@ def test_dbscan(datatype, input_type, use_handle,
     cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
                         max_mbytes_per_batch=max_mbytes_per_batch)
 
-    if input_type == 'dataframe':
-        X = pd.DataFrame(
-            {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X)
-        cu_labels = cudbscan.fit_predict(X_cudf, out_dtype=out_dtype)
-    else:
-        cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
+    cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
         skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
@@ -110,16 +91,42 @@ def test_dbscan_sklearn_comparison(name, nrows):
     X = StandardScaler().fit_transform(X)
 
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
-    cu_y_pred, cu_n_clusters = fit_predict(cuml_dbscan,
-                                           'cuml_DBSCAN', X)
+    cu_y_pred = cuml_dbscan.fit_predict(X)
 
     if nrows < 500000:
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
-        sk_y_pred, sk_n_clusters = fit_predict(dbscan,
-                                               'sk_DBSCAN', X)
-
+        sk_y_pred = dbscan.fit_predict(X)
         score = adjusted_rand_score(sk_y_pred, cu_y_pred)
         assert(score == 1.0)
+
+
+@pytest.mark.parametrize("name", [
+                                 'noisy_moons',
+                                 'blobs',
+                                 'no_structure'])
+def test_dbscan_default(name):
+    default_base = {'quantile': .3,
+                    'eps': .5,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 2}
+    n_samples = 20
+    pat = get_pattern(name, n_samples)
+    params = default_base.copy()
+    params.update(pat[1])
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    cuml_dbscan = cuDBSCAN()
+    cu_y_pred = cuml_dbscan.fit_predict(X)
+
+    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+    sk_y_pred = dbscan.fit_predict(X)
+
+    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+    assert(score == 1.0)
 
 
 @pytest.mark.xfail(strict=True, raises=ValueError)

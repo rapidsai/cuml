@@ -14,6 +14,7 @@
 - PR #1277: Change dependency order in cmake for better printing at compile time
 - PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
+- PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
@@ -44,6 +45,7 @@
 - PR #1093: Unified inference kernels for different FIL algorithms
 - PR #1076: Paying off some UMAP / Spectral tech debt.
 - PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1110: Adding tests to use default values of parameters of the models
 - PR #1108: input_to_host_array function in input_utils for input processing to host arrays
 - PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
 - PR #1138: Implementing ANY_RANK semantics on irecv
@@ -56,6 +58,7 @@
 - PR #1186: Using LocalCUDACluster Pytest fixture
 - PR #1173: Docs: Barnes Hut TSNE documentation
 - PR #1176: Use new RMM API based on Cython
+- PR #1219: Adding custom bench_func and verbose logging to cuml.benchmark
 - PR #1247: Improved MNMG RF error checking
 
 ## Bug Fixes
