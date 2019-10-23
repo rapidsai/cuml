@@ -98,17 +98,16 @@ class NearestNeighbors(object):
         :return : dask_cudf.DataFrame containing indices
         """
         if n_neighbors is None:
-              if "n_neighbors" in self.kwargs \
-                      and self.kwargs["n_neighbors"] \
-                      is not None:
+            if "n_neighbors" in self.kwargs \
+                    and self.kwargs["n_neighbors"] is not None:
                   n_neighbors = self.kwargs["n_neighbors"]
-              else:
-                  try:
-                      from cuml.neighbors.nearest_neighbors_mg import \
-                          NearestNeighborsMG as cumlNN
-                  except ImportError:
-                      _raise_import_exception()
-                  n_neighbors = cumlNN().n_neighbors
+            else:
+                try:
+                    from cuml.neighbors.nearest_neighbors_mg import \
+                        NearestNeighborsMG as cumlNN
+                except ImportError:
+                    _raise_import_exception()
+                n_neighbors = cumlNN().n_neighbors
 
         X = self.X if X is None else X
 

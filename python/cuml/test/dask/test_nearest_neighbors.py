@@ -218,6 +218,5 @@ def test_default_n_neighbors(cluster):
 
         assert ret.shape[1] == k
 
-
     finally:
         client.close()
