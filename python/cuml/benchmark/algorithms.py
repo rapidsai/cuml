@@ -27,7 +27,7 @@ import umap
 import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, fil_classification_set_up, predict
+    import fit, fit_kneighbors, fit_transform, predict, _fil_classification_set_up
 
 class AlgorithmPair:
     """
@@ -51,7 +51,8 @@ class AlgorithmPair:
         data_prep_hook=None,
         accuracy_function=None,
         bench_func=fit,
-        set_up_func=None,
+        setup_cpu_func=None,
+        setup_cuml_func=None, 
     ):
         """
         Parameters
@@ -82,7 +83,8 @@ class AlgorithmPair:
             self.name = cuml_class.__name__
         self.accepts_labels = accepts_labels
         self.bench_func = bench_func
-        self.set_up_func = set_up_func
+        self.setup_cpu_func = setup_cpu_func
+        self.setup_cuml_func = setup_cuml_func
         self.cpu_class = cpu_class
         self.cuml_class = cuml_class
         self.shared_args = shared_args
@@ -90,47 +92,56 @@ class AlgorithmPair:
         self.cpu_args = cpu_args
         self.data_prep_hook = data_prep_hook
         self.accuracy_function = accuracy_function
+        self.cpu_obj = None 
+        self.cuml_obj = None 
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
 
-    def run_cpu(self, data, **override_args):
+    def run_cpu(self, data):
         """Runs the cpu-based algorithm's fit method on specified data"""
+        if self.cpu_obj is None:
+            raise ValueError("No CPU object for %s" % self.name)
+
+        if self.data_prep_hook:
+            data = self.data_prep_hook(data)
+        if self.accepts_labels:
+            self.bench_func(self.cpu_obj, data[0], data[1])
+        else:
+            self.bench_func(self.cpu_obj, data[0])
+
+        return self.cpu_obj
+
+    def run_cuml(self, data):
+        """Runs the cuml-based algorithm's fit method on specified data"""
+
+        if self.data_prep_hook:
+            data = self.data_prep_hook(data)
+        if self.accepts_labels:
+            self.bench_func(self.cuml_obj, data[0], data[1])
+        else:
+            self.bench_func(self.cuml_obj, data[0])
+
+        return self.cuml_obj
+
+    def setup_cpu(self, data, **override_args):
         if self.cpu_class is None:
             raise ValueError("No CPU implementation for %s" % self.name)
+
         all_args = {**self.shared_args, **self.cpu_args}
         all_args = {**all_args, **override_args}
-
-        if self.data_prep_hook:
-            data = self.data_prep_hook(data)
-        if self.set_up_func:
-            cpu_obj = self.set_up_func(self.cpu_class, data, all_args)
+        if self.setup_cpu_func is not None:
+            self.cpu_obj = self.setup_cpu_func(self.cpu_class, data, all_args)
         else:
-            cpu_obj = self.cpu_class(**all_args)
-        if self.accepts_labels:
-            self.bench_func(cpu_obj, data[0], data[1])
-        else:
-            self.bench_func(cpu_obj, data[0])
+            self.cpu_obj = self.cpu_class(**all_args)
 
-        return cpu_obj
-
-    def run_cuml(self, data, **override_args):
-        """Runs the cuml-based algorithm's fit method on specified data"""
+    def setup_cuml(self, data, **override_args):
         all_args = {**self.shared_args, **self.cuml_args}
         all_args = {**all_args, **override_args}
-
-        if self.data_prep_hook:
-            data = self.data_prep_hook(data)
-        if self.set_up_func:
-            cuml_obj = self.set_up_func(self.cuml_class, data, all_args)
+        if self.setup_cuml_func is not None:
+            self.cuml_obj = self.setup_cuml_func(self.cuml_class, data, all_args)
         else:
-            cuml_obj = self.cuml_class(**all_args)
-        if self.accepts_labels:
-            self.bench_func(cuml_obj, data[0], data[1])
-        else:
-            self.bench_func(cuml_obj, data[0])
-
-        return cuml_obj
+            self.cuml_obj = self.cuml_class(**all_args)
 
 
 def _labels_to_int_hook(data):
@@ -277,7 +288,7 @@ def all_algorithms():
             cuml_args=dict(algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, num_rounds=10, max_depth=10), 
             name="FIL",
             accepts_labels=False,
-            set_up_func=fil_classification_set_up,
+            setup_cuml_func=_fil_classification_set_up,
             accuracy_function=metrics.accuracy_score,
             bench_func=predict,
         ), 
