@@ -69,6 +69,7 @@ cdef extern from "<vector>" namespace "std":
         iterator begin()
         iterator end()
         void resize(size_t n)
+        int size()
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
         "MLCommon::Matrix":
@@ -108,10 +109,12 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
         PartDescriptor &query_desc,
+        bool rowMajorIndex,
+        bool rowMajorQuery,
         int k,
         size_t batch_size,
         bool verbose
-    )
+    ) except +
 
 
 class NearestNeighborsMG(NearestNeighbors):
@@ -123,8 +126,9 @@ class NearestNeighborsMG(NearestNeighbors):
     existing distributed system. Refer to the Dask NearestNeighbors
      implementation in `cuml.dask.neighbors.nearest_neighbors`.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, batch_size=1<<21, **kwargs):
         super(NearestNeighborsMG, self).__init__(**kwargs)
+        self.batch_size = batch_size
 
     def _build_dataFloat(self, arr_interfaces):
         """
@@ -149,10 +153,63 @@ class NearestNeighborsMG(NearestNeighbors):
 
         return <size_t>dataF
 
-    def _freeFloatD(self, data, arr_interfaces):
+    def _free_mem(self, index_vec, index_desc,
+                 query_vec, query_desc,
+                 out_i_vec, out_d_vec,
+                 local_index_parts,
+                 local_query_parts):
+
+        cdef vector[floatData_t *] *index_vec_c \
+            = <vector[floatData_t *]*><size_t>index_vec
+        cdef PartDescriptor *index_desc_c \
+            = <PartDescriptor*><size_t>index_desc
+        for elm in range(index_vec_c.size()):
+            free(index_vec_c.at(elm))
+        free(index_vec_c)
+        free(index_desc_c)
+
+        cdef vector[floatData_t *] *query_vec_c \
+            = <vector[floatData_t *]*><size_t>query_vec
+        cdef PartDescriptor *query_desc_c \
+            = <PartDescriptor*><size_t>query_desc
+        for elm in range(query_vec_c.size()):
+            free(query_vec_c.at(elm))
+        free(query_vec_c)
+        free(query_desc_c)
+
+        cdef vector[int64Data_t *] *out_i_vec_c \
+            = <vector[int64Data_t *]*><size_t>out_i_vec
+        cdef int64Data_t *del_idx_ptr
+        for elm in range(out_i_vec_c.size()):
+            del_idx_ptr = out_i_vec_c.at(elm)
+            del del_idx_ptr
+        free(out_i_vec_c)
+
+        cdef vector[floatData_t *] *out_d_vec_c \
+            = <vector[floatData_t *]*><size_t>out_d_vec
+        cdef floatData_t *del_ptr
+        for elm in range(out_d_vec_c.size()):
+            del_ptr = out_d_vec_c.at(elm)
+            del del_ptr
+        free(out_d_vec_c)
+
+        cdef vector[RankSizePair *] *local_index_parts_c \
+            = <vector[RankSizePair *]*><size_t>local_index_parts
+        for elm in range(local_index_parts_c.size()):
+            free(local_index_parts_c.at(elm))
+        free(local_index_parts_c)
+
+        cdef vector[RankSizePair *] *local_query_parts_c \
+            = <vector[RankSizePair *]*><size_t>local_query_parts
+        for elm in range(local_query_parts_c.size()):
+            free(local_query_parts_c.at(elm))
+        free(local_query_parts_c)
+
+
+    def _freeFloatD(self, data):
         cdef uintptr_t data_ptr = data
         cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
-        for x_i in range(len(arr_interfaces)):
+        for x_i in range(d.size()):
             free(d.at(x_i))
         free(d)
 
@@ -254,9 +311,11 @@ class NearestNeighborsMG(NearestNeighbors):
         for query_part in query_ints:
 
             n_rows = query_part["shape"][0]
-            i_ary = rmm.to_device(zeros((n_rows, n_neighbors), order="C",
+            i_ary = rmm.to_device(zeros((n_rows, n_neighbors),
+                                        order="C",
                                         dtype=np.int64))
-            d_ary = rmm.to_device(zeros((n_rows, n_neighbors), order="C",
+            d_ary = rmm.to_device(zeros((n_rows, n_neighbors),
+                                        order="C",
                                         dtype=np.float32))
 
             output_i_arrs.append(i_ary)
@@ -279,8 +338,10 @@ class NearestNeighborsMG(NearestNeighbors):
             deref(index_descriptor),
             deref(local_query_parts),
             deref(query_descriptor),
+            False,
+            False,
             n_neighbors,
-            1<<15,
+            <size_t>self.batch_size,
             <bool>self.verbose
         )
 
@@ -291,6 +352,13 @@ class NearestNeighborsMG(NearestNeighbors):
         output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
                             output_d_arrs))
 
-        # TODO: Free memory allocated above
+        self._free_mem(<size_t>index_vec,
+                       <size_t>index_descriptor,
+                       <size_t>query_vec,
+                       <size_t>query_descriptor,
+                       <size_t>out_i_vec,
+                       <size_t>out_d_vec,
+                       <size_t>local_index_parts,
+                       <size_t>local_query_parts)
 
         return output_i, output_d

@@ -83,8 +83,8 @@ class NearestNeighbors(object):
 
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True):
         """
-        Query the NearestNeighbors index
-        :param X : dask_cudf.Dataframe list of vectors to query. If not
+        Query the distributed nearest neighbors index
+        :param X : dask_cudf.Dataframe Vectors to query. If not
                    provided, neighbors of each indexed point are returned.
         :param n_neighbors : Number of neighbors to query for each row in
                              X. If not provided, the n_neighbors on the
