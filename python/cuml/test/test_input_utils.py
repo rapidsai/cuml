@@ -22,7 +22,8 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
+from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy, \
+    has_pytorch
 
 from cuml.utils.input_utils import convert_dtype, check_numba_order
 
@@ -37,7 +38,7 @@ test_dtypes_acceptable = [
 ]
 
 test_input_types = [
-    'numpy', 'numba', 'cupy', 'dataframe'
+    'numpy', 'numba', 'cupy', 'dataframe', 'pytorch'
 ]
 
 test_num_rows = [1, 100]
@@ -255,6 +256,13 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         if type == 'dataframe':
             X_df = cudf.DataFrame()
             result = X_df.from_gpu_matrix(cuda.as_cuda_array(rand_mat))
+
+        if type == 'pytorch':
+            # using dlpack due to cupy/pytorch interaction bug going from
+            # cupy to pytorch
+            if has_pytorch:
+                from torch.utils.dlpack import from_dlpack
+                result = from_dlpack(rand_mat.toDlpack())
 
         if out_dtype:
             return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),
