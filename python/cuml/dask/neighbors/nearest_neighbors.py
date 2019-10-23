@@ -99,7 +99,8 @@ class NearestNeighbors(object):
         X = self.X if X is None else X
 
         if X is None:
-            raise ValueError("Model needs to be trained before calling kneighbors()")
+            raise ValueError("Model needs to be trained "
+                             "before calling kneighbors()")
 
         index_futures = self.client.sync(extract_ddf_partitions,
                                          self.X, agg=False)
