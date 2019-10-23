@@ -100,7 +100,7 @@ class NearestNeighbors(object):
         if n_neighbors is None:
             if "n_neighbors" in self.kwargs \
                     and self.kwargs["n_neighbors"] is not None:
-                  n_neighbors = self.kwargs["n_neighbors"]
+                n_neighbors = self.kwargs["n_neighbors"]
             else:
                 try:
                     from cuml.neighbors.nearest_neighbors_mg import \
