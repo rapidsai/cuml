@@ -121,6 +121,10 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             and input_type != 'numpy':
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
+    if (dtype in [np.uint8, np.uint16, np.uint32, np.uint64]
+            and input_type == 'pytorch'):
+        pytest.xfail("pytorch doesn't support uint dtypes")
+
     input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
 
     if input_type == 'cupy' and input_data is None:
@@ -159,6 +163,9 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
         if input_type == 'dataframe':
             pytest.xfail("unsigned int types not yet supported by \
                          cuDF")
+        if input_type == 'pytorch':
+            pytest.xfail("unsigned int types not yet supported by \
+                         pytorch")
         elif not has_cupy():
             pytest.xfail("unsigned int types not yet supported by \
                          cuDF and cuPy is not installed.")
@@ -262,7 +269,8 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
             # cupy to pytorch
             if has_pytorch:
                 from torch.utils.dlpack import from_dlpack
-                result = from_dlpack(rand_mat.toDlpack())
+                res = rand_mat.toDlpack()
+                result = from_dlpack(res)
 
         if out_dtype:
             return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),
