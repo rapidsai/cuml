@@ -21,6 +21,7 @@
 namespace ML {
 
 /* Compute the loglikelihood of the given parameter on the given time series in a batched context.
+ * 
  * @param handle cuML handle
  * @param y series to fit: shape = (nobs, num_bathces) and expects column major data layout. Memory on Device.
  * @param num_batches number of time series
@@ -84,5 +85,13 @@ void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
               int batch_size, int nobs, double* d_y, double* d_y_diff,
               double* d_vs, double* d_params, double* d_y_fc);
+
+/**
+ * TODO: doc
+ * TODO: take mu, AR, MA as params. Host or device?
+ * Provide initial estimates to ARIMA parameters mu, AR, and MA
+ */
+void estimate_x0(cumlHandle& handle, const double* d_y, int num_batches, int nobs, int p, int d,
+                 int q);
 
 }  // namespace ML
