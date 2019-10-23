@@ -121,10 +121,10 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
 
     elif input_type == 'ndarray':
 
-    knn_cu.fit(X)
-    D_cuml, I_cuml = knn_cu.kneighbors(X, k)
-    assert type(D_cuml) == np.ndarray
-    assert type(I_cuml) == np.ndarray
+        knn_cu.fit(X)
+        D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+        assert type(D_cuml) == np.ndarray
+        assert type(I_cuml) == np.ndarray
 
     D_cuml_arr = D_cuml
     I_cuml_arr = I_cuml
