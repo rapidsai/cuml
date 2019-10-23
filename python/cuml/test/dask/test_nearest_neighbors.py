@@ -28,6 +28,9 @@ from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
+from cuml.neighbors.nearest_neighbors_mg import \
+    NearestNeighborsMG as cumlNN
+
 from cuml.test.utils import array_equal
 
 
@@ -136,6 +139,85 @@ def test_batch_size(nrows, ncols, n_parts,
         y_hat, _ = predict(local_i, y, n_neighbors)
 
         assert array_equal(y_hat, y)
+
+    finally:
+        client.close()
+
+
+def test_return_distance(cluster):
+
+    client = Client(cluster)
+
+    n_samples = 50
+    n_feats = 50
+    k = 5
+
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+
+        from sklearn.datasets import make_blobs
+
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
+
+        X = X.astype(np.float32)
+
+        X_cudf = _prep_training_data(client, X, 1)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=0)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
+        assert not isinstance(ret, tuple)
+        ret = ret.compute()
+        assert ret.shape == (n_samples, k)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=True)
+        assert isinstance(ret, tuple)
+        assert len(ret) == 2
+
+    finally:
+        client.close()
+
+
+def test_default_n_neighbors(cluster):
+
+    client = Client(cluster)
+
+    n_samples = 50
+    n_feats = 50
+    k = 15
+
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+
+        from sklearn.datasets import make_blobs
+
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
+
+        X = X.astype(np.float32)
+
+        X_cudf = _prep_training_data(client, X, 1)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=0)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, return_distance=False)
+
+        assert ret.shape[1] == cumlNN().n_neighbors
+
+        cumlModel = daskNN(verbose=0, n_neighbors=k)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
+
+        assert ret.shape[1] == k
+
 
     finally:
         client.close()
