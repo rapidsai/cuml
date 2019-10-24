@@ -166,7 +166,10 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
   __syncthreads();
   auto binOffset = col * nbins;
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
-    atomicAdd(bins + binOffset + i, sbins[i]);
+    auto val = sbins[i];
+    if (val > 0) {
+      atomicAdd(bins + binOffset + i, val);
+    }
   }
 }
 
