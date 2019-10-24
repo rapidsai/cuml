@@ -116,7 +116,9 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category);
+                           int num_features, int task_category, bool pickling,
+                           const char* filename,
+                           std::vector<unsigned char> data);
 
 std::vector<unsigned char> save_model(ModelHandle model, const char* filename);
 
@@ -151,13 +153,11 @@ void predictGetAll(const cumlHandle& user_handle,
                    bool verbose = false);
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierF* forest, const float* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose = false);
+                 const RandomForestClassifierF* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose = false);
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierD* forest, const double* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose = false);
+                 const RandomForestClassifierD* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose = false);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
@@ -186,11 +186,9 @@ void predict(const cumlHandle& user_handle,
              int n_rows, int n_cols, double* predictions, bool verbose = false);
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorF* forest, const float* input,
-                 const float* ref_labels, int n_rows, int n_cols,
-                 float* predictions, bool verbose = false);
+                 const RandomForestRegressorF* forest, const float* ref_labels,
+                 int n_rows, float* predictions, bool verbose = false);
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorD* forest, const double* input,
-                 const double* ref_labels, int n_rows, int n_cols,
-                 double* predictions, bool verbose = false);
+                 const RandomForestRegressorD* forest, const double* ref_labels,
+                 int n_rows, double* predictions, bool verbose = false);
 };  // namespace ML

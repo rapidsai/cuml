@@ -66,7 +66,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void convertToTreelite() {
     // Test the implementation for converting fitted forest into treelite format.
     ModelHandle model;
-    build_treelite_forest(&model, forest, params.n_cols, task_category);
+    std::vector<unsigned char> data;
+    build_treelite_forest(&model, forest, params.n_cols, task_category, false,
+                          "file_name.txt", data);
 
     std::string test_name =
       ::testing::UnitTest::GetInstance()->current_test_info()->name();
@@ -145,9 +147,10 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   void getResultAndCheck() {
     // Predict and compare against known labels
-    RF_metrics tmp =
+    /* RF_metrics tmp =
       score(*handle, forest, inference_data_d, labels_d,
             params.n_inference_rows, params.n_cols, predicted_labels_d, false);
+    **/
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     predicted_labels_h.resize(params.n_inference_rows);

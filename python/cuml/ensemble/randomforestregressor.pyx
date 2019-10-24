@@ -125,8 +125,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
-                          float*,
-                          int,
                           int,
                           float*,
                           bool) except +
@@ -134,8 +132,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
-                          double*,
-                          int,
                           int,
                           double*,
                           bool) except +
@@ -143,12 +139,18 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[float, float]*,
                                     int,
-                                    int) except +
+                                    int,
+                                    bool,
+                                    char*,
+                                    vector[unsigned char]) except +
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, double]*,
                                     int,
-                                    int) except +
+                                    int,
+                                    bool,
+                                    char*,
+                                    vector[unsigned char]) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -346,6 +348,8 @@ class RandomForestRegressor(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = n_streams
         self.pickle = False
+        self.model_protobuf_bytes = None
+        self.seed = seed
         if file_name is None:
             tmpdir = tempfile.mkdtemp()
             file_name = os.path.join(tmpdir, "model.buffer")
@@ -512,6 +516,7 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
+    """
     def _predict_model_with_pickling(self, X,
                                      algo='BATCH_TREE_REORG'):
         filename_bytes = (self.file_name).encode("UTF-8")
@@ -524,25 +529,37 @@ class RandomForestRegressor(Base):
                                               model_type="protobuf")
         preds = self.fil_model.predict(X)
         return preds
+    """
 
     def _predict_model_on_gpu(self, X,
                               output_class,
-                              algo):
+                              algo, task_category=1):
+
+        cdef ModelHandle cuml_model_ptr
         _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+
         # task category = 1 for regression
-        treelite_model = self._get_treelite(num_features=n_cols,
-                                            task_category=1)
+        treelite_handle = build_treelite_forest(& cuml_model_ptr,
+                                                rf_forest,
+                                                <int> n_cols,
+                                                <int> task_category,
+                                                <bool> self.pickle,
+                                                <char*> self.file_name,
+                                                <vector[unsigned char]> \
+                                                    self.model_protobuf_bytes)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model,
+            fil_model.load_from_randomforest(treelite_handle,
                                              output_class=False,
-                                             algo='BATCH_TREE_REORG')
+                                             algo=algo)
         preds = tl_to_fil_model.predict(X)
         return preds
 
@@ -630,10 +647,7 @@ class RandomForestRegressor(Base):
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if self.pickle:
-            preds = self._predict_model_with_pickling(X)
-
-        elif self.dtype == np.float64:
+        if self.dtype == np.float64:
             print("self.dtype : ", self.dtype)
             raise TypeError("GPU predict model only accepts float32 dtype"
                             " as input, convert the data to float32 or "
@@ -642,12 +656,13 @@ class RandomForestRegressor(Base):
         elif predict_model == "GPU":
             preds = self._predict_model_on_gpu(X,
                                                output_class,
-                                               algo)
+                                               algo, task_category=1)
         else:
             preds = self._predict_model_on_cpu(X)
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG'):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -665,16 +680,17 @@ class RandomForestRegressor(Base):
         mean_abs_error : float
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
+        _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
-        preds = np.zeros(n_rows,
-                         dtype=self.dtype)
+        preds = self._predict_model_on_gpu(X, output_class=False,
+                                           algo=algo)
         cdef uintptr_t preds_ptr
+        print(" preds in cython : ", np.asarray(preds))
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
 
@@ -690,20 +706,16 @@ class RandomForestRegressor(Base):
         if self.dtype == np.float32:
             self.temp_stats = score(handle_[0],
                                     rf_forest,
-                                    <float*> X_ptr,
                                     <float*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <float*> preds_ptr,
                                     <bool> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
                                     rf_forest64,
-                                    <double*> X_ptr,
                                     <double*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <double*> preds_ptr,
                                     <bool> self.verbose)
 
@@ -715,7 +727,6 @@ class RandomForestRegressor(Base):
             stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return stats
@@ -786,6 +797,7 @@ class RandomForestRegressor(Base):
         else:
             print_rf_detailed(rf_forest)
 
+"""
     def _get_treelite(self, num_features,
                       task_category=1, model=None):
 
@@ -811,3 +823,4 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_ptr).value
+"""

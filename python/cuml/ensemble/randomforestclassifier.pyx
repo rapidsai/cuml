@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -148,27 +149,29 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[float, int]*,
                                     int,
-                                    int)
+                                    int,
+                                    bool,
+                                    const char*,
+                                    vector[unsigned char])
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, int]*,
                                     int,
-                                    int)
+                                    int,
+                                    bool,
+                                    const char*,
+                                    vector[unsigned char])
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
-                          float*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, int]*,
-                          double*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
@@ -195,7 +198,9 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
-    cdef void write_model_to_file(vector[unsigned char], const char* filename)
+    cdef void convert_bytes_to_tl_pointer(vector[unsigned char],
+                                          const char*,
+                                          ModelHandle*)
 
 
 class RandomForestClassifier(Base):
@@ -308,7 +313,7 @@ class RandomForestClassifier(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False, file_name=None,
+                 type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -370,7 +375,8 @@ class RandomForestClassifier(Base):
         file_name = os.path.join(tmpdir, "model.buffer")
         self.file_name = file_name
         self.pickle = False
-
+        self.seed = seed
+        self.model_protobuf_bytes = None
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
@@ -561,32 +567,49 @@ class RandomForestClassifier(Base):
         del(y_m)
         return self
 
+    """
     def _predict_model_with_pickling(self, X,
                                      algo='BATCH_TREE_REORG'):
 
         filename_bytes = (self.file_name).encode("UTF-8")
-        write_model_to_file(<vector[unsigned char]> self.model_protobuf_bytes,
-                            filename_bytes)
+        # write_model_to_file(<vector[unsigned char]> self.model_protobuf_bytes,
+        #                    filename_bytes)
         self.fil_model = ForestInference.load(filename=self.file_name,
                                               output_class=True,
                                               algo=algo,
                                               model_type="protobuf")
         preds = self.fil_model.predict(X)
         return preds
+    """
 
     def _predict_model_on_gpu(self, X, output_class,
-                              threshold, algo, num_classes):
-        _, _, n_rows, n_cols, _ = \
+                              threshold, algo,
+                              num_classes):
+
+        cdef ModelHandle cuml_model_ptr = NULL
+        _, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C')
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        treelite_model = self._get_treelite(num_features=n_cols,
-                                            task_category=num_classes)
+        filename_bytes = (self.file_name).encode("UTF-8")
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> n_cols,
+                              <int> num_classes,
+                              <bool> self.pickle,
+                              <char*> filename_bytes,
+                              <vector[unsigned char]> self.model_protobuf_bytes)
+        mod_ptr = <size_t> cuml_model_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model,
+            fil_model.load_from_randomforest(treelite_handle,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
@@ -685,10 +708,7 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if self.pickle:
-            preds = self._predict_model_with_pickling(X)
-
-        elif self.dtype == np.float64:
+        if self.dtype == np.float64:
             raise TypeError("GPU predict model only accepts float32 dtype"
                             " as input, convert the data to float32 or "
                             "use the CPU predict with `predict_model='CPU'`.")
@@ -767,7 +787,8 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG', num_classes=2):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -786,7 +807,7 @@ class RandomForestClassifier(Base):
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
+        _, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
@@ -796,8 +817,11 @@ class RandomForestClassifier(Base):
         if y.dtype != np.int32:
             raise TypeError("The labels `y` need to be of dtype `np.int32`")
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
+        preds = self.predict(X, output_class=True,
+                             threshold=threshold, algo=algo,
+                             num_classes=num_classes)
+
+        preds = np.asarray(preds).astype(np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -811,22 +835,19 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
 
+
         if self.dtype == np.float32:
             self.stats = score(handle_[0],
                                rf_forest,
-                               <float*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
-                               <double*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         else:
@@ -835,7 +856,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return self.stats['accuracy']
@@ -907,6 +927,7 @@ class RandomForestClassifier(Base):
         else:
             print_rf_detailed(rf_forest)
 
+    """
     def _get_treelite(self, num_features,
                       task_category=1, model=None):
 
@@ -931,3 +952,4 @@ class RandomForestClassifier(Base):
         mod_ptr = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_ptr).value
+    """
