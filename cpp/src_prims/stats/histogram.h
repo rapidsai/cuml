@@ -355,6 +355,12 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
   flushHashTable(ht, hashSize, bins, nbins, col);
 }
 
+inline int computeHashTableSize() {
+  int smem = getSharedMemPerBlock();
+  // divide-by-2 because hash table entry stores 2 elements: idx and count
+  int binsPossible = smem / sizeof(unsigned) / 2;
+}
+
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp binner, cudaStream_t stream) {
