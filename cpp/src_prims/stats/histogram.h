@@ -339,6 +339,9 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
     if (iNeedFlush) {
       int hidx = findEntry(ht, hashSize, binId);
+      // all threads are bound to get one valid entry as all threads in this
+      // block will make forward progress due to the __syncthreads call in the
+      // subsequent iteration
       atomicAdd(&(ht[hidx].y), 1);
     }
   };
