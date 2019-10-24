@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #1129: c++: a separate include folder for C++ API distribution
+- PR #1295: Cython side of MNMG PCA
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
