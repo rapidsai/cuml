@@ -240,6 +240,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sample_without_replacement.cu
       prims/scatter.cu
       prims/score.cu
+      prims/seive.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
