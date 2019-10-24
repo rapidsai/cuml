@@ -278,7 +278,6 @@ class PCAMG(PCA):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        print("Fill will be called")
         cdef uintptr_t data
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
@@ -323,7 +322,6 @@ class PCAMG(PCA):
             # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         
-        print("Done")
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
