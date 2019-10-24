@@ -295,7 +295,6 @@ DI int findEntry(int2* ht, int hashSize, int binId) {
 }
 
 DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
-  __syncthreads();
   int binOffset = col * nbins;
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     if (ht[i].x != INVALID_KEY && ht[i].y > 0) {
@@ -303,7 +302,6 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
     }
     ht[i] = {INVALID_KEY, 0};
   }
-  __syncthreads();
 }
 #undef INVALID_KEY
 
@@ -331,7 +329,9 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
     __syncthreads();
     if (needFlush[0]) {
+      __syncthreads();
       flushHashTable(ht, hashSize, bins, nbins, col);
+      __syncthreads();
       if (threadIdx.x == 0) {
         needFlush[0] = 0;
       }
