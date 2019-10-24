@@ -39,6 +39,8 @@ ExternalProject_Add(benchmark
   UPDATE_COMMAND    ""
 )
 
+add_dependencies(benchmark ${CUML_CPP_TARGET})
+
 add_library(benchmarklib STATIC IMPORTED)
 add_dependencies(benchmarklib benchmark)
 set_property(TARGET benchmarklib PROPERTY IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
