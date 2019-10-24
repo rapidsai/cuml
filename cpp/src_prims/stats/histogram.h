@@ -16,6 +16,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <common/seive.cuh>
 #include "cuda_utils.h"
 #include "utils.h"
 #include "vectorized.h"
@@ -356,9 +357,16 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
 }
 
 inline int computeHashTableSize() {
-  int smem = getSharedMemPerBlock();
+  // we shouldn't have this much of shared memory available anytime soon!
+  static const unsigned maxBinsEverPossible = 256 * 1024;
+  static Seive primes(maxBinsEverPossible);
+  unsigned smem = getSharedMemPerBlock();
   // divide-by-2 because hash table entry stores 2 elements: idx and count
-  int binsPossible = smem / sizeof(unsigned) / 2;
+  auto binsPossible = smem / sizeof(unsigned) / 2;
+  for (; binsPossible > 1; --binsPossible) {
+    if (primes.isPrime(binsPossible)) return (int)binsPossible;
+  }
+  return 1;  // should not happen!
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
@@ -366,8 +374,7 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp binner, cudaStream_t stream) {
   auto blks = computeGridDim<IdxT, 1>(
     nrows, ncols, (const void*)smemHashHistKernel<DataT, BinnerOp, IdxT, 1>);
-  // NOTE: assumes 48kB smem!
-  int hashSize = 6047;
+  int hashSize = computeHashTableSize();
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
