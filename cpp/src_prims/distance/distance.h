@@ -161,12 +161,12 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
   return worksize;
 }
 
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-// #pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
+// #if CUDART_VERSION >= 10010
+// // With optimization enabled, CUDA 10.1 generates segfaults for distance
+// // prims, so disable optimization until another workaround is found
+// // #pragma GCC push_options
+// #pragma GCC optimize("O0")
+// #endif
 
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
@@ -243,10 +243,10 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-#if CUDART_VERSION >= 10010
-// Undo special optimization options set earlier
-#pragma GCC reset_options
-#endif
+// #if CUDART_VERSION >= 10010
+// // Undo special optimization options set earlier
+// #pragma GCC reset_options
+// #endif
 
 /**
  * @defgroup PairwiseDistance
