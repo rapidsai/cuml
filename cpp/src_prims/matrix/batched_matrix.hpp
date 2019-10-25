@@ -275,15 +275,15 @@ class BatchedMatrix {
  * @param[in]   k_m  Number of rows of the result    (m * p)
  * @param[in]   k_n  Number of columns of the result (n * q)
  */
-__global__ void kronecker_product_kernel(const double* A, int m, int n, const double* B,
-                                         int p, int q, double* AkB, int k_m,
-                                         int k_n) {
+__global__ void kronecker_product_kernel(const double* A, int m, int n,
+                                         const double* B, int p, int q,
+                                         double* AkB, int k_m, int k_n) {
   const double* A_b = A + blockIdx.x * m * n;
   const double* B_b = B + blockIdx.x * p * q;
   double* AkB_b = AkB + blockIdx.x * k_m * k_n;
 
-  for (int ia = 0; ia < n; ia++) {
-    for (int ja = 0; ja < m; ja++) {
+  for (int ia = 0; ia < m; ia++) {
+    for (int ja = 0; ja < n; ja++) {
       double A_ia_ja = A_b[ia + ja * m];
 
       for (int ib = threadIdx.x; ib < p; ib += blockDim.x) {
@@ -447,13 +447,18 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, 0);
   int* info = (int*)allocator->allocate(sizeof(int) * num_batches, 0);
 
+  // A copy of A is necessary as the cublas operations write in A
+  BatchedMatrix Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
+                      A.stream());
+  copy(Acopy.raw_data(), A.raw_data(), n * n * num_batches, A.stream());
+
   BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, A.data(), n, P,
-                                                    info, num_batches));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n,
+                                                    P, info, num_batches));
   CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(
-    handle, n, A.data(), n, P, Ainv.data(), n, info, num_batches));
+    handle, n, Acopy.data(), n, P, Ainv.data(), n, info, num_batches));
 
   BatchedMatrix x = Ainv * b;
 
@@ -475,7 +480,7 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int m = A.shape().first;
   int n = A.shape().second;
 
-  int p = A.shape().first;
+  int p = B.shape().first;
   int q = B.shape().second;
 
   // Resulting shape
@@ -489,7 +494,7 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   dim3 threads(std::min(p, 32), std::min(q, 32));
   kronecker_product_kernel<<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n);
-  CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
   return AkB;
 }
 
