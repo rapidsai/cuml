@@ -16,7 +16,6 @@
 
 
 import numpy as np
-import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 import cuml.tsa.arima as arima
 from cuml.tsa.stationarity import stationarity
@@ -24,7 +23,6 @@ from scipy.optimize.optimize import _approx_fprime_helper
 
 from cuml.utils.input_utils import input_to_host_array
 
-# from IPython.core.debugger import set_trace
 
 # test data time
 t = np.array([1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20,
@@ -151,7 +149,6 @@ def test_transform():
                                               -1.20404762e+02, 1.02466627e-04, -1.43219144e+00]))
 
     # print("sm(success)", _ma_invtransparams(np.array([-0.237406, -0.761594])))
-    # print("sm(NaN)", _ma_invtransparams(np.array([-0.761594, -0.761594])))
 
 
 def test_log_likelihood():
@@ -170,7 +167,6 @@ def test_log_likelihood():
         y0 = np.zeros((len(t), 1), order='F')
         y0[:, 0] = y[:, 0]
         ll = arima.ll_f(1, len(t), order, y0, np.copy(x0[p-1]), trans=True)
-        # print("ll=", ll)
         np.testing.assert_almost_equal(ll, ref_ll[p-1])
 
 
@@ -179,7 +175,6 @@ def test_log_likelihood():
     ll = arima.ll_f(2, len(t), (1, 1, 1), y, np.array(x))
     np.set_printoptions(precision=14)
     ll_ref = np.array([-418.2732740315433, -413.7692130741877])
-    # print("ll=", ll)
     np.testing.assert_allclose(ll, ll_ref)
 
 def test_gradient_ref():
@@ -191,7 +186,6 @@ def test_gradient_ref():
     g = arima.ll_gf(2, len(t), 3, (1, 1, 1), y, x)
     g_ref = np.array([-7.16227077646181e-04, -4.09565927839139e+00, -4.10715017551411e+00,
                       -1.02602371043758e-03, -4.46265460141149e+00, -4.18378931499319e+00])
-    # print("g=", g)
     np.testing.assert_allclose(g, g_ref, rtol=1e-6)
 
 def test_gradient():
@@ -214,9 +208,7 @@ def test_gradient():
 
         p, d, q = order
         num_parameters = d + p + q
-        # print("Batched Gradient")
         g = arima.ll_gf(num_batches, num_samples, num_parameters, order, ys_df, x)
-        # print("One-at-a-time Gradient")
         grad_fd = np.zeros(len(x))
         h = 1e-8
         for i in range(len(x)):
@@ -232,7 +224,6 @@ def test_gradient():
             f_mh = fx(xmh)
             grad_fd[i] = (f_ph-f_mh)/(2*h)
 
-        # print("g={}, g_ref={}".format(g, grad_fd))
         np.testing.assert_allclose(g, grad_fd, rtol=1e-4)
 
         def f(xk):
@@ -267,9 +258,7 @@ def test_bic():
                                     ma0,
                                     opt_disp=-1, h=1e-9)
 
-        # print("Batched_model: ", batched_model)
 
-        # print("BIC({}, 1, 1): ".format(p), batched_model.bic)
         np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
 
 
@@ -348,7 +337,6 @@ def test_predict(plot=False):
             np.testing.assert_allclose(y_b_p[:, 0], yp_ref[0])
             np.testing.assert_allclose(y_b_p[:, 1], yp_ref[1])
 
-        # print("l2_error(p={}):".format(p), l2_error_predict)
 
 def test_forecast(plot=False):
     _, y = get_data()
@@ -372,7 +360,6 @@ def test_forecast(plot=False):
         d_y_b_fc = model.forecast(3)
         y_b_fc = input_to_host_array(d_y_b_fc).array
 
-        # print("y_b_fc:", y_b_fc.T)
         np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
 
 
@@ -430,14 +417,12 @@ def test_fit_predict_forecast(plot=False):
 
     l2_error_predict0 = np.sum((y_b_p[0][:, :] - y[:ns_train, :])**2, axis=0)
     l2_error_predict1 = np.sum((y_b_p[1][:, :] - y[:ns_train, :])**2, axis=0)
-    # print("l2_error_predict=({},{})".format(l2_error_predict0, l2_error_predict1))
 
     l2_error_ref0 = [5.1819845778009456e+08, 4.4313075823450834e+08]
     l2_error_ref1 = [5.4015810529295897e+08, 4.6489505018349826e+08]
 
     l2_error_forecast0 = np.sum((y_f_p[0][:, :] - y[ns_train-1:-1, :])**2, axis=0)
     l2_error_forecast1 = np.sum((y_f_p[1][:, :] - y[ns_train-1:-1, :])**2, axis=0)
-    # print("l2_error_forecast=({},{})".format(l2_error_forecast0, l2_error_forecast1))
 
     l2_error_fc_ref0 = [2.7841860168252653e+08, 2.4003239604745972e+08]
     l2_error_fc_ref1 = [3.728470033076098e+08, 3.039953059636233e+08]
@@ -533,4 +518,3 @@ def bench_arima(num_batches=240, plot=False):
         plt.show()
 
 
-# test_forecast()
