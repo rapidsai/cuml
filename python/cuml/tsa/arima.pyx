@@ -18,12 +18,10 @@ import numpy as np
 import cupy as cp
 from cuml.common.handle cimport cumlHandle
 import ctypes
-cimport numpy as np
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
 from libcpp cimport bool
 from libcpp.string cimport string
-cimport cython
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import rmm
 
@@ -421,7 +419,6 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
     grad = np.zeros(len(x))
 
     # 1st order FD saves 20% runtime.
-    # ll_b0 = ll_f(num_batches, num_parameters, order, y, x, trans=trans)
     assert (len(x) / num_parameters) == float(num_batches)
     for i in range(num_parameters):
         fd[i] = h
