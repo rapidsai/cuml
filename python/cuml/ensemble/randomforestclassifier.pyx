@@ -150,7 +150,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     RandomForestMetaData[float, int]*,
                                     int,
                                     int,
-                                    bool,
                                     const char*,
                                     vector[unsigned char])
 
@@ -158,7 +157,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     RandomForestMetaData[double, int]*,
                                     int,
                                     int,
-                                    bool,
                                     const char*,
                                     vector[unsigned char])
 
@@ -198,9 +196,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
-    cdef void convert_bytes_to_tl_pointer(vector[unsigned char],
-                                          const char*,
-                                          ModelHandle*)
 
 
 class RandomForestClassifier(Base):
@@ -374,9 +369,8 @@ class RandomForestClassifier(Base):
         tmpdir = tempfile.mkdtemp()
         file_name = os.path.join(tmpdir, "model.buffer")
         self.file_name = file_name
-        self.pickle = False
         self.seed = seed
-        self.model_protobuf_bytes = None
+        self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
@@ -393,7 +387,7 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_protobuf_bytes = self._get_model_info()
+        self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -403,10 +397,9 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[double, int]*>params_t64
 
         state["verbose"] = self.verbose
-        state["pickle"] = True
 
         state["file_name"] = self.file_name
-        state["model_protobuf_bytes"] = self.model_protobuf_bytes
+        state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         if state["dtype"] == np.float32:
             state["rf_params"] = rf_forest.rf_params
@@ -425,11 +418,10 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
-        self.pickle = state["pickle"]
 
         self.file_name = state["file_name"]
 
-        self.model_protobuf_bytes = state["model_protobuf_bytes"]
+        self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
@@ -454,9 +446,22 @@ class RandomForestClassifier(Base):
                              " please read the documentation")
 
     def _get_model_info(self):
-        fit_mod_ptr = self._get_treelite(num_features=self.n_cols)
-        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
+        cdef ModelHandle cuml_model_ptr = NULL
+
+        task_category = 1
         filename_bytes = (self.file_name).encode("UTF-8")
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <char*> filename_bytes,
+                              <vector[unsigned char]> self.model_pbuf_bytes)
+        mod_ptr = <size_t> cuml_model_ptr
+        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
                                           filename_bytes)
         return model_protobuf_bytes
@@ -567,21 +572,6 @@ class RandomForestClassifier(Base):
         del(y_m)
         return self
 
-    """
-    def _predict_model_with_pickling(self, X,
-                                     algo='BATCH_TREE_REORG'):
-
-        filename_bytes = (self.file_name).encode("UTF-8")
-        # write_model_to_file(<vector[unsigned char]> self.model_protobuf_bytes,
-        #                    filename_bytes)
-        self.fil_model = ForestInference.load(filename=self.file_name,
-                                              output_class=True,
-                                              algo=algo,
-                                              model_type="protobuf")
-        preds = self.fil_model.predict(X)
-        return preds
-    """
-
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes):
@@ -602,9 +592,8 @@ class RandomForestClassifier(Base):
                               rf_forest,
                               <int> n_cols,
                               <int> num_classes,
-                              <bool> self.pickle,
                               <char*> filename_bytes,
-                              <vector[unsigned char]> self.model_protobuf_bytes)
+                              <vector[unsigned char]> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         fil_model = ForestInference()
@@ -834,7 +823,6 @@ class RandomForestClassifier(Base):
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
 
         if self.dtype == np.float32:
             self.stats = score(handle_[0],

@@ -274,10 +274,11 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category, bool pickling,
+                           int num_features, int task_category,
                            const char* filename,
                            std::vector<unsigned char> data) {
-  if (pickling) {
+  bool check_val = data.empty();
+  if (not check_val) {
     std::ofstream file("filename", std::ios::binary);
     file.write((char*)&data[0], data.size());
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
@@ -473,7 +474,7 @@ void predictGetAll(const cumlHandle& user_handle,
  */
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
-                 int n_rows, int n_cols, int* predictions, bool verbose) {
+                 int n_rows, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<float>> rf_classifier =
     std::make_shared<rfClassifier<float>>(forest->rf_params);
@@ -650,18 +651,18 @@ template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
-  int num_features, int task_category, bool pickling, const char* filename,
+  int num_features, int task_category, const char* filename,
   std::vector<unsigned char> data);
 template void build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
-  int num_features, int task_category, bool pickling, const char* filename,
+  int num_features, int task_category, const char* filename,
   std::vector<unsigned char> data);
 template void build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
-  int num_features, int task_category, bool pickling, const char* filename,
+  int num_features, int task_category, const char* filename,
   std::vector<unsigned char> data);
 template void build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
-  int num_features, int task_category, bool pickling, const char* filename,
+  int num_features, int task_category, const char* filename,
   std::vector<unsigned char> data);
 }  // End namespace ML
