@@ -148,29 +148,12 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
   Rng r(seed, type);
 
-  // Use the right output buffer
-  device_buffer<DataT> tmp_out(allocator, stream);
-  device_buffer<IdxT> perms(allocator, stream);
-  device_buffer<DataT> tmp_values(allocator, stream);
-  DataT* _out;
-  DataT* _values;
-  if (shuffle) {
-    tmp_out.resize(n_rows * n_cols, stream);
-    perms.resize(n_rows, stream);
-    tmp_values.resize(n_rows * n_targets, stream);
-    _out = tmp_out.data();
-    _values = tmp_values.data();
-  } else {
-    _out = out;
-    _values = values;
-  }
-
   if (effective_rank < 0) {
     // Randomly generate a well conditioned input set
-    r.normal(_out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
+    r.normal(out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
   } else {
     // Randomly generate a low rank, fat tail input set
-    _make_low_rank_matrix(_out, n_rows, n_cols, effective_rank, tail_strength,
+    _make_low_rank_matrix(out, n_rows, n_cols, effective_rank, tail_strength,
                           r, cublas_handle, cusolver_handle, allocator, stream);
   }
 
@@ -180,6 +163,15 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
   r.uniform(ground_truth.data(), n_informative * n_targets, (DataT)0.0,
             (DataT)100.0, stream);
 
+  // Use the right output buffer for the values
+  device_buffer<DataT> tmp_values(allocator, stream);
+  DataT* _values;
+  if (shuffle) {
+    tmp_values.resize(n_rows * n_targets, stream);
+    _values = tmp_values.data();
+  } else {
+    _values = values;
+  }
   // Create a column-major matrix of output values only if it has more
   // than 1 column
   device_buffer<DataT> values_col(allocator, stream);
@@ -195,7 +187,7 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
   CUBLAS_CHECK(LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T,
                                   n_rows, n_targets, n_informative, &alpha,
-                                  _out, n_cols, ground_truth.data(), n_targets,
+                                  out, n_cols, ground_truth.data(), n_targets,
                                   &beta, _values_col, n_rows, stream));
 
   // Transpose the values from column-major to row-major if needed
@@ -218,16 +210,24 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
                 stream);
   }
 
-  // Shuffle, if asked for
-  ///@todo: currently using a poor quality shuffle for better perf!
   if (shuffle) {
-    permute<DataT, IdxT, IdxT>(perms.data(), out, _out, n_cols, n_rows, true,
+    device_buffer<DataT> tmp_out(allocator, stream);
+    device_buffer<IdxT> perms(allocator, stream);
+    tmp_out.resize(n_rows * n_cols, stream);
+    perms.resize(n_rows, stream);
+
+    // Shuffle the samples from out to tmp_out
+    permute<DataT, IdxT, IdxT>(perms.data(), tmp_out.data(), out, n_cols, n_rows, true,
                                stream);
     constexpr IdxT Nthreads = 256;
     IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
     _gather2d_kernel<<<nblks, Nthreads, 0, stream>>>(
       values, _values, perms.data(), n_rows, n_targets);
     CUDA_CHECK(cudaPeekAtLastError());
+
+    // Shuffle the features from tmp_out to out
+    permute<DataT, IdxT, IdxT>(nullptr, out, tmp_out.data(), n_rows, n_cols, false,
+                               stream);
   }
 }
 
