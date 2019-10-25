@@ -28,8 +28,8 @@ def array_eq(ref, actual):
     return success, message
 
 
-@pytest.mark.parametrize('precision', ['single', 'double'])
-@pytest.mark.parametrize('input_type', ['numpy', 'cudf'])
+@pytest.mark.parametrize('precision', ['np.float32', 'np.float64'])
+@pytest.mark.parametrize('input_type', ['numpy'])
 def test_stationarity(precision, input_type):
     """Test the kpss stationarity check.
     Note: this test is intended to test the Python wrapper.

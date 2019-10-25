@@ -1,6 +1,5 @@
 import scipy.optimize as optimize
 import numpy as np
-from IPython.core.debugger import set_trace
 from scipy.optimize import _lbfgsb
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 
