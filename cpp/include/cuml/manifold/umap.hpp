@@ -16,30 +16,26 @@
 
 #pragma once
 
-#include "common/cumlHandle.hpp"
-
-#include "knn/knn.hpp"
+#include <common/cumlHandle.hpp>
+#include <cuml/neighbors/knn.hpp>
 #include "umapparams.h"
 
 namespace ML {
 
-void transform(const cumlHandle &handle, float *X, int n, int d,
-               float *orig_X, int orig_n, float *embedding, int embedding_n,
+void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+               int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed);
 
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels
-         int n,
-         int d,
-         UMAPParams *params,
-         float *embeddings);
+         int n, int d, UMAPParams *params, float *embeddings);
 
 void fit(const cumlHandle &handle,
-            float *X,   // input matrix
-            int n,  // rows
-            int d,  // cols
-            UMAPParams *params, float *embeddings);
+         float *X,  // input matrix
+         int n,     // rows
+         int d,     // cols
+         UMAPParams *params, float *embeddings);
 
 class UMAP_API {
   float *orig_X;
@@ -77,8 +73,7 @@ class UMAP_API {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-  void fit(float *X, float *y, int n, int d,
-           float *embeddings);
+  void fit(float *X, float *y, int n, int d, float *embeddings);
 
   /**
              * Project a set of X vectors into the embedding space.
@@ -95,8 +90,8 @@ class UMAP_API {
              * @param out
              *        pointer to array for storing output embeddings (n, n_components)
              */
-  void transform(float *X, int n, int d, float *embedding,
-                 int embedding_n, float *out);
+  void transform(float *X, int n, int d, float *embedding, int embedding_n,
+                 float *out);
 
   /**
              * Get the UMAPParams instance

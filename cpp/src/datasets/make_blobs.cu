@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "make_blobs.hpp"
+#include <cuml/datasets/make_blobs.hpp>
+#include <common/cumlHandle.hpp>
 #include "random/make_blobs.h"
 
 #include "common/cumlHandle.hpp"

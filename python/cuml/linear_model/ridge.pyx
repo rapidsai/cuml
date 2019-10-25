@@ -35,7 +35,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void ridgeFit(cumlHandle& handle,
                        float *input,
@@ -89,9 +89,11 @@ class Ridge(Base, RegressorMixin):
     the conditioning of the problem.
 
     cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
-    algorithms: SVD, Eig and CD to fit a linear model. SVD is more stable,
-    but Eig (default) is much faster. CD uses Coordinate Descent and can be
-    faster when data is large.
+    algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses
+    significantly more memory and is slower than Eig. If using CUDA 10.1,
+    the memory difference is even bigger than in the other supported CUDA
+    versions. However, SVD is more stable than Eig (default). CD uses
+    Coordinate Descent and can be faster when data is large.
 
     Examples
     ---------

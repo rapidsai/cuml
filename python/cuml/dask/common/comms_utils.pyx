@@ -20,6 +20,8 @@
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
 
+from cpython.long cimport PyLong_AsVoidPtr
+
 from libcpp cimport bool
 
 
@@ -35,7 +37,7 @@ cdef extern from "common/cuML_comms_impl.cpp" namespace "MLCommon":
     cdef cppclass cumlCommunicator
 
 
-cdef extern from "cuML.hpp" namespace "ML":
+cdef extern from "cuml/cuml.hpp" namespace "ML":
     cdef cppclass cumlHandle:
         cumlHandle() except +
 
@@ -59,6 +61,8 @@ cdef extern from "comms/cuML_comms_test.hpp" namespace "ML::Comms":
     bool test_collective_allreduce(const cumlHandle &h) except +
     bool test_pointToPoint_simple_send_recv(const cumlHandle &h,
                                             int numTrials) except +
+    bool test_pointToPoint_recv_any_rank(const cumlHandle& h,
+                                         int numTrials) except +
 
 
 def is_ucx_enabled():
@@ -81,6 +85,15 @@ def perform_test_comms_send_recv(handle, n_trials):
     """
     cdef const cumlHandle *h = <cumlHandle*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_recv_any_rank(handle, n_trials):
+    """
+    Performs a p2p send/recv on the current worker
+    :param handle: Handle handle containing cumlCommunicator to use
+    """
+    cdef const cumlHandle * h = < cumlHandle * > < size_t > handle.getHandle()
+    return test_pointToPoint_recv_any_rank(deref(h), < int > n_trials)
 
 
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
@@ -118,10 +131,14 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
-    cdef size_t ep_st
+    cdef void* ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ucp_eps[i] = <size_t>eps[i].get_ep()
+            print("Convering endpoint %s" % (i))
+            print("Is Endpoint Closed? %s" % eps[i].closed())
+            ep_st = PyLong_AsVoidPtr(eps[i]._ucp_endpoint)
+            pv = <size_t>&ep_st
+            ucp_eps[i] = pv
         else:
             ucp_eps[i] = 0
 

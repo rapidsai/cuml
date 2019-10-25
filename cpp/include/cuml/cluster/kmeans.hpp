@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
@@ -56,7 +56,7 @@ struct KMeansParams {
   int metric = 0;
 
   // Oversampling factor for use in the k-means|| algorithm.
-  int oversampling_factor = 2;
+  double oversampling_factor = 2.0;
 
   int batch_size = 1 << 15;
 

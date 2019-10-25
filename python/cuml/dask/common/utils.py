@@ -121,3 +121,12 @@ def persist_across_workers(client, objects, workers=None):
     if workers is None:
         workers = client.has_what().keys()  # Default to all workers
     return client.persist(objects, workers={o: workers for o in objects})
+
+
+def raise_exception_from_futures(futures):
+    """Raises a RuntimeError if any of the futures indicates an exception"""
+    errs = [f.exception() for f in futures if f.exception()]
+    if errs:
+        raise RuntimeError("%d of %d worker jobs failed: %s" % (
+            len(errs), len(futures), ", ".join(map(str, errs))
+            ))
