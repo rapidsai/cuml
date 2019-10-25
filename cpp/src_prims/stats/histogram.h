@@ -279,14 +279,14 @@ DI void clearHashTable(int2* ht, int hashSize) {
   }
 }
 
-DI int findEntry(int2* ht, int hashSize, int binId) {
+DI int findEntry(int2* ht, int hashSize, int binId, int threshold) {
   int idx = binId % hashSize;
   int t;
   int count = 0;
   while ((t = atomicCAS(&(ht[idx].x), INVALID_KEY, binId)) != INVALID_KEY &&
          t != binId) {
     ++count;
-    if (count >= hashSize) {
+    if (count >= threshold) {
       idx = INVALID_KEY;
       break;
     }
@@ -312,7 +312,8 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
 ///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT nbins, BinnerOp binner, int hashSize) {
+                                   IdxT nbins, BinnerOp binner, int hashSize,
+                                   int threshold) {
   extern __shared__ int2 ht[];
   int* needFlush = (int*)&(ht[hashSize]);
   if (threadIdx.x == 0) {
@@ -323,7 +324,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     bool iNeedFlush = false;
     if (row < nrows) {
-      int hidx = findEntry(ht, hashSize, binId);
+      int hidx = findEntry(ht, hashSize, binId, threshold);
       if (hidx >= 0) {
         atomicAdd(&(ht[hidx].y), 1);
       } else {
@@ -342,7 +343,7 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
       __syncthreads();
     }
     if (iNeedFlush) {
-      int hidx = findEntry(ht, hashSize, binId);
+      int hidx = findEntry(ht, hashSize, binId, threshold);
       // all threads are bound to get one valid entry as all threads in this
       // block will make forward progress due to the __syncthreads call in the
       // subsequent iteration
@@ -372,13 +373,15 @@ inline int computeHashTableSize() {
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
                   IdxT ncols, BinnerOp binner, cudaStream_t stream) {
+  static const int flushThreshold = 10;
   auto blks = computeGridDim<IdxT, 1>(
     nrows, ncols, (const void*)smemHashHistKernel<DataT, BinnerOp, IdxT, 1>);
   int hashSize = computeHashTableSize();
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
     <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
-                                                  binner, hashSize);
+                                                  binner, hashSize,
+                                                  flushThreshold);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
