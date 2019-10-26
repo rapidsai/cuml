@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, raise_exception_from_futures
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -89,6 +89,10 @@ class PCA(object):
         return f[0]
 
     @staticmethod
+    def _func_get_idx(f, idx):
+        return f[idx]
+
+    @staticmethod
     def _func_xform(model, df):
         """
         Runs on each worker to call fit on local KMeans instance
@@ -146,7 +150,7 @@ class PCA(object):
             for idx, wf in enumerate(worker_to_parts.items())]
 
         key = uuid1()
-        pca_fit = [self.client.submit(
+        pca_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
             PCA._func_fit,
             wf[1],
             M, N,
@@ -154,10 +158,11 @@ class PCA(object):
             worker_info[wf[0]]["r"],
             _transform,
             key="%s-%s" % (key, idx),
-            workers=[wf[0]])
-            for idx, wf in enumerate(pca_models)]
+            workers=[wf[0]]))
+            for idx, wf in enumerate(pca_models)])
 
-        wait(pca_fit)
+        wait(list(pca_fit.values()))
+        raise_exception_from_futures(list(pca_fit.values()))
 
         comms.destroy()
 
@@ -170,10 +175,30 @@ class PCA(object):
         self.singular_values_ = self.local_model.singular_values_
         self.noise_variance = self.local_model.noise_variance_
 
+        '''
         if _transform:
-            return to_dask_cudf(pca_fit)
-        else:
-            return self
+            out_futures = []
+            for w in pca_fit:
+                lm = self.client.submit(PCA._func_get_first, w)
+                out_futures.append(lm)
+            
+            return to_dask_cudf(out_futures) 
+        '''
+
+        out_futures = []
+        if _transform:
+            completed_part_map = {}
+            for rank, size in partsToRanks:
+                if rank not in completed_part_map:
+                    completed_part_map[rank] = 0
+           
+                f = pca_fit[rank]
+                out_futures.append(self.client.submit(
+                    PCA._func_get_idx, f, completed_part_map[rank]))
+
+                completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_futures)
 
     def _parallel_func(self, X, func):
         """
