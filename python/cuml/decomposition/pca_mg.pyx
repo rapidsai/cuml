@@ -29,6 +29,7 @@ from libc.stdlib cimport malloc, free
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -42,10 +43,12 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
     namespace "MLCommon::Matrix":
 
     cdef cppclass floatData_t:
+        floatData_t(float *ptr, size_t totalSize)
         float *ptr
         size_t totalSize
 
     cdef cppclass doubleData_t:
+        doubleData_t(double *ptr, size_t totalSize)
         double *ptr
         size_t totalSize
 
@@ -58,37 +61,11 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **input,
-                  size_t n_parts,
-                  floatData_t **rank_sizes,
-                  float *components,
-                  float *explained_var,
-                  float *explained_var_ratio,
-                  float *singular_vals,
-                  float *mu,
-                  float *noise_vars,
-                  paramsPCA prms,
-                  bool verbose) except +
-
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **input,
-                  size_t n_parts,
-                  doubleData_t **rank_sizes,
-                  double *components,
-                  double *explained_var,
-                  double *explained_var_ratio,
-                  double *singular_vals,
-                  double *mu,
-                  double *noise_vars,
-                  paramsPCA prms,
-                  bool verbose) except +
-
     cdef void fit_transform(cumlHandle& handle,
-                  RankSizePair **input,
+                  RankSizePair **rank_sizes,
                   size_t n_parts,
-                  floatData_t **rank_sizes,
-                  float *trans_input,
+                  floatData_t **input,
+                  floatData_t **trans_input,
                   float *components,
                   float *explained_var,
                   float *explained_var_ratio,
@@ -99,10 +76,10 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
     cdef void fit_transform(cumlHandle& handle,
-                  RankSizePair **input,
+                  RankSizePair **rank_sizes,
                   size_t n_parts,
-                  doubleData_t **rank_sizes,
-                  double *trans_input,
+                  doubleData_t **input,
+                  doubleData_t **trans_input,
                   double *components,
                   double *explained_var,
                   double *explained_var_ratio,
@@ -113,22 +90,22 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
     cdef void transform(cumlHandle& handle,
-                  RankSizePair **input,
+                  RankSizePair **rank_sizes,
                   size_t n_parts,
-                  floatData_t **rank_sizes,
+                  floatData_t **input,
                   float *components,
-                  float *trans_input,            
+                  floatData_t **trans_input,            
                   float *singular_vals,
                   float *mu,                
                   paramsPCA prms,
                   bool verbose) except +
 
     cdef void transform(cumlHandle& handle,
-                  RankSizePair **input,
+                  RankSizePair **rank_sizes,
                   size_t n_parts,
-                  doubleData_t **rank_sizes,
+                  doubleData_t **input,
                   double *components,
-                  double *trans_input,
+                  doubleData_t **trans_input,
                   double *singular_vals,
                   double *mu,
                   paramsPCA prms,
@@ -142,9 +119,6 @@ class PCAMG(PCA):
 
     def _initialize_arrays_2(self, n_components, n_rows, n_cols, n_part_rows):
 
-        self.trans_input_ = rmm.to_device(zeros(n_part_rows*n_components,
-                                                dtype=self.dtype))
-   
         self.components_ary = rmm.to_device(zeros(n_components*n_cols,
                                                   dtype=self.dtype))
 
@@ -246,6 +220,7 @@ class PCAMG(PCA):
 
         indx = 0
         n_part_row = 0
+        
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:            
@@ -274,19 +249,34 @@ class PCAMG(PCA):
         cdef uintptr_t noise_vars_ptr = \
             get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
-
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t data
+        cdef uintptr_t trans_data
+        arr_interfaces_trans = []
+                    
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            
+
+            for idx, rankSize in enumerate(partsToRanks):
+                rank, size = rankSize
+                if rnk == rank:            
+                    trans_ary = rmm.to_device(zeros((size, self.n_components),
+                                        order="F",
+                                        dtype=np.float32))
+
+                    trans_ptr = get_dev_array_ptr(trans_ary)
+                    arr_interfaces_trans.append({"obj": trans_ary,
+                                   "data": trans_ptr,
+                                   "shape": (size, self.n_components)})
+
+            trans_data = self._build_dataFloat(arr_interfaces_trans)
+
             fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <floatData_t**> data,
-                <float*> t_input_ptr,
+                <floatData_t**> trans_data,
                 <float*> comp_ptr,
                 <float*> explained_var_ptr,
                 <float*> explained_var_ratio_ptr,
@@ -295,18 +285,29 @@ class PCAMG(PCA):
                 <float*> noise_vars_ptr,
                 params,
                 True)
-            
-            self.handle.sync()
-            self._freeFloatD(data, arr_interfaces)
-
         else:
             data = self._build_dataDouble(arr_interfaces)
+
+            for idx, rankSize in enumerate(partsToRanks):
+                rank, size = rankSize
+                if rnk == rank:            
+                    trans_ary = rmm.to_device(zeros((size, self.n_components),
+                                        order="F",
+                                        dtype=np.float64))
+
+                    trans_ptr = get_dev_array_ptr(trans_ary)
+                    arr_interfaces_trans.append({"obj": trans_ary,
+                                   "data": trans_ptr,
+                                   "data_ary": trans_ary,
+                                   "shape": (size, self.n_components)})
+
+                trans_data = self._build_dataFloat(arr_interfaces_trans)
             
             fit_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
                 <doubleData_t**> data,
-                <double*> t_input_ptr,
+                <doubleData_t**> trans_data,
                 <double*> comp_ptr,
                 <double*> explained_var_ptr,
                 <double*> explained_var_ratio_ptr,
@@ -316,9 +317,8 @@ class PCAMG(PCA):
                 params,
                 True)
               
-            self.handle.sync()
-            self._freeDoubleD(data, arr_interfaces)
-
+        self.handle.sync()
+                     
             # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         
@@ -333,14 +333,20 @@ class PCAMG(PCA):
             n_c = params.n_components
             self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
-        
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
         
-        if not _transform:
-            del(self.trans_input_)
+        trans_cudf = []  
+        if _transform:
+            for x_i in arr_interfaces_trans:
+                trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["data_ary"]))
 
-        return self
+        if self.dtype == np.float32:
+            self._freeFloatD(trans_data, arr_interfaces_trans)    
+            self._freeFloatD(data, arr_interfaces)        
+        else:
+            self._freeDoubleD(trans_data, arr_interfaces_trans)
+            self._freeDoubleD(data, arr_interfaces)
 
-
+        return trans_cudf
     
