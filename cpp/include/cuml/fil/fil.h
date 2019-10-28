@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <treelite/c_api.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -163,11 +162,12 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 /** from_treelite uses a treelite model to initialize the forest
  * @param handle cuML handle used by this function
  * @param pforest pointer to where to store the newly created forest
- * @param model treelite model used to initialize the forest
+ * @param model treelite model (of type ModelHandle)
+     used to initialize the forest; note that ModelHandle is really void*
  * @param tl_params additional parameters for the forest
  */
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
-                   ModelHandle model, const treelite_params_t* tl_params);
+void from_treelite(const cumlHandle& handle, forest_t* pforest, void* model,
+                   const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
