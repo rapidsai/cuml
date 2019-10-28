@@ -382,7 +382,7 @@ class ForestInference(Base):
              'TREE_REORG' or 'tree_reorg' - similar to naive but trees
                               rearranged to be more coalescing-friendly
              'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
-                                    but predicting multiple rows 
+                                    but predicting multiple rows
                                     per thread block
         threshold : threshold is used to for classification
            applied if output_class == True, else it is ignored
