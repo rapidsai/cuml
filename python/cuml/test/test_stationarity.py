@@ -35,11 +35,6 @@ def test_stationarity(precision, input_type):
     Note: this test is intended to test the Python wrapper.
     Another more exhaustive test is part of the C++ unit tests.
     """
-    if precision == 'single':
-        dtype = np.float32
-    else:
-        dtype = np.float64
-
     inc_rates = [-0.7, 0.0, 0.5]
     offsets = [-0.3, 0.5, 0.0]
     d_ref = [1, 0, 1]

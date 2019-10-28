@@ -1,24 +1,23 @@
-# 
+#
 # Copyright (c) 2019, NVIDIA CORPORATION.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 
 
 import numpy as np
 from timeit import default_timer as timer
 import cuml.tsa.arima as arima
-from cuml.tsa.stationarity import stationarity
 from scipy.optimize.optimize import _approx_fprime_helper
 
 from cuml.utils.input_utils import input_to_host_array
@@ -113,6 +112,7 @@ def get_data():
     d[:, 1] = data1
     return (t, d)
 
+
 def test_arima_start_params():
     """
     Tests start_params function for multiple (p,d,q) options
@@ -130,25 +130,24 @@ def test_arima_start_params():
 
 
 def test_transform():
-    
-    x0 = np.array([ -36.24493319,   -0.76159416,   -0.76159516, -167.65533746,
-                    -0.76159416,   -0.76159616])
+    """Test the parameter transformation code."""
+    x0 = np.array([-36.24493319, -0.76159416, -0.76159516, -167.65533746,
+                   -0.76159416, -0.76159616])
 
     # Without corrections to the MA parameters, this inverse transform will return NaN
     Tx0 = arima._batch_invtrans(0, 1, 2, 2, x0)
 
     assert(not np.isnan(Tx0).any())
-    
+
     Tx0 = arima._batch_invtrans(2, 1, 0, 2, x0)
 
     assert(not np.isnan(Tx0).any())
 
-    Tx0 = arima._batch_invtrans(1, 1, 1, 2, np.array([-1.27047619e+02,  1.90024682e-02, -5.88867176e-01,
-                                                       -1.20404762e+02, 5.12333137e-05, -6.14485076e-01]))
-    np.testing.assert_allclose(Tx0, np.array([-1.27047619e+02,  3.80095119e-02, -1.35186024e+00,
+    Tx0 = arima._batch_invtrans(1, 1, 1, 2, np.array([-1.27047619e+02, 1.90024682e-02,
+                                                      -5.88867176e-01, -1.20404762e+02,
+                                                      5.12333137e-05, -6.14485076e-01]))
+    np.testing.assert_allclose(Tx0, np.array([-1.27047619e+02, 3.80095119e-02, -1.35186024e+00,
                                               -1.20404762e+02, 1.02466627e-04, -1.43219144e+00]))
-
-    # print("sm(success)", _ma_invtransparams(np.array([-0.237406, -0.761594])))
 
 
 def test_log_likelihood():
@@ -169,15 +168,16 @@ def test_log_likelihood():
         ll = arima.ll_f(1, len(t), order, y0, np.copy(x0[p-1]), trans=True)
         np.testing.assert_almost_equal(ll, ref_ll[p-1])
 
-
-    x = [-1.2704761899e+02,  3.8009501900e-02, -1.3518602400e+00, -1.2040476199e+02,
+    x = [-1.2704761899e+02, 3.8009501900e-02, -1.3518602400e+00, -1.2040476199e+02,
          1.0245662700e-04, -1.4321914400e+00]
     ll = arima.ll_f(2, len(t), (1, 1, 1), y, np.array(x))
     np.set_printoptions(precision=14)
     ll_ref = np.array([-418.2732740315433, -413.7692130741877])
     np.testing.assert_allclose(ll, ll_ref)
 
+
 def test_gradient_ref():
+    """Tests the gradient based on a reference output"""
     x = np.array([-1.2704761899e+02, 3.8009511900e-02, -1.3518602400e+00, -1.2040476199e+02,
                   1.0246662700e-04, -1.4321914400e+00])
 
@@ -188,8 +188,9 @@ def test_gradient_ref():
                       -1.02602371043758e-03, -4.46265460141149e+00, -4.18378931499319e+00])
     np.testing.assert_allclose(g, g_ref, rtol=1e-6)
 
+
 def test_gradient():
-    """test gradient implementation"""
+    """test gradient implementation using FD"""
     num_samples = 100
     xs = np.linspace(0, 1, num_samples)
     np.random.seed(12)
@@ -251,39 +252,40 @@ def test_bic():
 
         nb = 2
         mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
-        
-        batched_model = arima.fit(y, order,
-                                    mu0,
-                                    ar0,
-                                    ma0,
-                                    opt_disp=-1, h=1e-9)
 
+        batched_model = arima.fit(y, order,
+                                  mu0,
+                                  ar0,
+                                  ma0,
+                                  opt_disp=-1, h=1e-9)
 
         np.testing.assert_allclose(batched_model.bic, bic_reference[p-1], rtol=1e-4)
 
 
 def test_fit():
+    """Test the `fit()` function against reference parameters."""
     _, y = get_data()
 
-    mu_ref = [[-217.7230173548441, -206.81064091237104], [-217.72325384510506, -206.77224439903458]]
-    ar_ref = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])], [np.array([ 0.0309027562133337, -0.0191533926207157]), np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma_ref = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])], [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+    mu_ref = [[-217.7230173548441, -206.81064091237104],
+              [-217.72325384510506, -206.77224439903458]]
+    ar_ref = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
+              [np.array([0.0309027562133337, -0.0191533926207157]),
+               np.array([-0.0386322768036704, -0.0330133336831984])]]
+    ma_ref = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
+              [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
 
-    ll_ref = [[-414.7628631782474, -410.049081775547 ], [-414.7559799310751, -410.0285309839064]]
+    ll_ref = [[-414.7628631782474, -410.049081775547],
+              [-414.7559799310751, -410.0285309839064]]
 
     for p in range(1, 3):
         order = (p, 1, 1)
-
-        nb = 2
-
-        p, d, q = order
         mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
 
         batched_model = arima.fit(y, order,
-                                    mu0,
-                                    ar0,
-                                    ma0,
-                                    opt_disp=-1, h=1e-9)
+                                  mu0,
+                                  ar0,
+                                  ma0,
+                                  opt_disp=-1, h=1e-9)
 
         print("num iterations: ", batched_model.niter)
 
@@ -292,7 +294,8 @@ def test_fit():
         llx = arima.ll_f(2, len(t), (p, 1, 1), y, x, trans=False)
 
         rtol = 1e-2
-        # parameter differences are more difficult to test precisely due to the nonlinear-optimization.
+        # parameter differences are more difficult to test precisely due to the
+        # nonlinear-optimization.
         np.testing.assert_allclose(batched_model.mu, mu_ref[p-1], rtol=rtol)
         np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1], rtol=rtol)
         np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1], rtol=rtol)
@@ -302,19 +305,22 @@ def test_fit():
 
 
 def test_predict(plot=False):
+    """Test the `predict_in_sample()` function using provided parameters"""
     _, y = get_data()
 
-    mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
-    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])], [np.array([ 0.0309027562133337, -0.0191533926207157]), np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])], [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+    mu = [np.array([-217.7230173548441, -206.81064091237104]),
+          np.array([-217.72325384510506, -206.77224439903458])]
+    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
+          [np.array([0.0309027562133337, -0.0191533926207157]),
+           np.array([-0.0386322768036704, -0.0330133336831984])]]
+    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
+          [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
 
-    l2err_ref = [[7.611525998416604e+08, 7.008862739645946e+08], [7.663156224285843e+08, 6.993847054122686e+08]]
+    l2err_ref = [[7.611525998416604e+08, 7.008862739645946e+08],
+                 [7.663156224285843e+08, 6.993847054122686e+08]]
 
-    
     for p in range(1, 3):
         order = (p, 1, 1)
-
-        nb = 2
 
         model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
 
@@ -322,6 +328,7 @@ def test_predict(plot=False):
         y_b_p = input_to_host_array(d_y_b_p).array
 
         if plot:
+            import matplotlib.pyplot as plt
             nb_plot = 2
             fig, axes = plt.subplots(nb_plot, 1)
             axes[0].plot(t, y[:, 0], t, y_b_p[:, 0], "r-")
@@ -338,12 +345,17 @@ def test_predict(plot=False):
             np.testing.assert_allclose(y_b_p[:, 1], yp_ref[1])
 
 
-def test_forecast(plot=False):
+def test_forecast():
+    """Test forecast using provided parameters"""
     _, y = get_data()
 
-    mu = [np.array([-217.7230173548441, -206.81064091237104]), np.array([-217.72325384510506, -206.77224439903458])]
-    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])], [np.array([ 0.0309027562133337, -0.0191533926207157]), np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])], [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+    mu = [np.array([-217.7230173548441, -206.81064091237104]),
+          np.array([-217.72325384510506, -206.77224439903458])]
+    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
+          [np.array([0.0309027562133337, -0.0191533926207157]),
+           np.array([-0.0386322768036704, -0.0330133336831984])]]
+    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
+          [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
 
     y_fc_ref = [np.array([[8291.97380664, 7993.55508519, 7773.33550351],
                           [7648.10631132, 7574.38185979, 7362.6238661]]),
@@ -352,8 +364,6 @@ def test_forecast(plot=False):
 
     for p in range(1, 3):
         order = (p, 1, 1)
-
-        nb = 2
 
         model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
 
@@ -369,7 +379,7 @@ def test_fit_predict_forecast(plot=False):
     """
     np.set_printoptions(precision=16)
 
-    t, y = get_data()
+    _, y = get_data()
 
     ns_train = 35
     ns_test = len(t) - ns_train
@@ -386,7 +396,7 @@ def test_fit_predict_forecast(plot=False):
         for i in range(nb):
             y_train[:, i] = y[:ns_train, i]
 
-        p, d, q = order
+        p, _, _ = order
         mu0, ar0, ma0 = arima.estimate_x0(order, 2, y_train)
 
         batched_model = arima.fit(y_train, order,
@@ -404,8 +414,9 @@ def test_fit_predict_forecast(plot=False):
         y_f_p.append(y_fc)
 
     if plot:
+        import matplotlib.pyplot as plt
         nb_plot = 2
-        fig, axes = plt.subplots(nb_plot, 1)
+        _, axes = plt.subplots(nb_plot, 1)
         axes[0].plot(t, y[:, 0], t[:ns_train], y_b_p[0][:, 0], "r-", t[ns_train-1:-1], y_f_p[0][:, 0], "--")
         axes[0].plot(t[:ns_train], y_b_p[1][:, 0], "g-", t[ns_train-1:-1], y_f_p[1][:, 0], "y--")
         axes[0].plot(t, yp_ref[0], "b--")
@@ -433,9 +444,10 @@ def test_fit_predict_forecast(plot=False):
     rtol = 1e-3
     np.testing.assert_allclose(l2_error_forecast0, l2_error_fc_ref0, rtol=rtol)
     np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=rtol)
-    
+
 
 def test_grid_search(num_batches=2):
+    """Tests grid search using random data over the default range of p,q parameters"""
     ns = len(t)
     y_b = np.zeros((ns, num_batches))
 
@@ -449,6 +461,8 @@ def test_grid_search(num_batches=2):
 
 
 def demo():
+    """Demo example from the documentation"""
+    import matplotlib.pyplot as plt
     num_samples = 200
     xs = np.linspace(0, 1, num_samples)
     np.random.seed(12)
@@ -463,7 +477,7 @@ def demo():
     plt.plot(xs, ys1, xs, ys2)
 
     mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
-    
+
     model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
 
     d_yp = model.predict_in_sample()
@@ -477,6 +491,8 @@ def demo():
 
 
 def bench_arima(num_batches=240, plot=False):
+    """A parameterized benchmark allowing an arbitrarily large number of similar,
+    but not identical batches"""
 
     ns = len(t)
     y_b = np.zeros((ns, num_batches))
@@ -484,15 +500,8 @@ def bench_arima(num_batches=240, plot=False):
     for i in range(num_batches):
         y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
 
-    # if plot:
-    #     plt.plot(t, data_smooth, "r--", t, data0, "k-", t, y_b[:, 0], t, y_b[:, 1], t, y_b[:, 2])
-    #     plt.show()
-    # return
-
     p, d, q = (1, 1, 1)
     order = (p, d, q)
-
-    x0 = np.array([])
 
     start = timer()
 
@@ -507,14 +516,15 @@ def bench_arima(num_batches=240, plot=False):
     end = timer()
 
     print("GPU Time ({} batches) = {} s".format(num_batches, end - start))
-    print("Solver iterations (max/min/avg): ", np.max(batched_model.niter), np.min(batched_model.niter),
+    print("Solver iterations (max/min/avg): ",
+          np.max(batched_model.niter),
+          np.min(batched_model.niter),
           np.mean(batched_model.niter))
 
     d_yt_b = batched_model.predict_in_sample()
     yt_b = input_to_host_array(d_yt_b).array
 
     if plot:
+        import matplotlib.pyplot as plt
         plt.plot(t, y_b[:, 0], "k-", t, yt_b[:, 0], "r--", t, data0, "g--", t, data_smooth, "y--")
         plt.show()
-
-
