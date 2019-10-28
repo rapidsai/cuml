@@ -214,6 +214,7 @@ if(BUILD_PRIMS_TESTS)
       prims/log.cu
       prims/logisticReg.cu
       prims/make_blobs.cu
+      prims/make_regression.cu
       prims/map_then_reduce.cu
       prims/math.cu
       prims/matrix.cu
