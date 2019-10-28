@@ -32,7 +32,7 @@ def predict(m, x, y=None):
     m.predict(x) if y is None else m.predict(x, y)
 
 
-def _fil_classification_set_up(m, data, arg={}):
+def _fil_classification_setup(m, data, arg={}):
     from cuml.utils.import_utils import has_xgboost
     if has_xgboost():
         import xgboost as xgb
@@ -40,8 +40,8 @@ def _fil_classification_set_up(m, data, arg={}):
         raise ImportError("No XGBoost package found which is required for benchmarking FIL")
     import os 
 
-    # use maximum 10000 rows to train the model 
-    train_size = min(data[0].shape[0], 10000)
+    # use maximum 1e6 rows to train the model 
+    train_size = min(data[0].shape[0], 1000000)
     dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
     params = {"silent": 1, "eval_metric": "error", "objective": "binary:logistic"}
     params.update(arg)
