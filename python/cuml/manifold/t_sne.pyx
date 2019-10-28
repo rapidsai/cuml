@@ -41,7 +41,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "tsne/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
         const cumlHandle &handle,
         const float *X,
