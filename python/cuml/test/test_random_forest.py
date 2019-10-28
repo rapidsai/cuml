@@ -40,8 +40,10 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('min_impurity_decrease', [0.0, 1e-10])
 def test_rf_classification(datatype, split_algo, rows_sample,
-                           nrows, column_info, max_features):
+                           nrows, column_info, max_features,
+                           min_impurity_decrease):
     use_handle = True
     ncols, n_info = column_info
 
@@ -65,7 +67,8 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
+                       max_depth=16,
+                       min_impurity_decrease=min_impurity_decrease)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
@@ -80,7 +83,8 @@ def test_rf_classification(datatype, split_algo, rows_sample,
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
                          min_samples_split=2, max_features=max_features,
-                         random_state=10)
+                         random_state=10,
+                         min_impurity_decrease=min_impurity_decrease)
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_predict)
@@ -97,8 +101,10 @@ def test_rf_classification(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('min_impurity_decrease', [0.0, 1e-10])
 def test_rf_regression(datatype, split_algo, mode,
-                       column_info, max_features, rows_sample):
+                       column_info, max_features,
+                       rows_sample, min_impurity_decrease):
 
     ncols, n_info = column_info
     use_handle = True
@@ -131,24 +137,27 @@ def test_rf_regression(datatype, split_algo, mode,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse',
+                       min_impurity_decrease=min_impurity_decrease)
+
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+    assert fil_r2 >= (cu_r2 - 0.02)
     # Initialize, fit and predict using
     # sklearn's random forest regression model
-    sk_model = skrfr(n_estimators=50, max_depth=16,
-                     min_samples_split=2, max_features=max_features,
-                     random_state=10)
-    sk_model.fit(X_train, y_train)
-    sk_predict = sk_model.predict(X_test)
-    sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
-    print(fil_r2, cu_r2, sk_r2)
-    assert fil_r2 >= (cu_r2 - 0.02)
-    assert fil_r2 >= (sk_r2 - 0.07)
+    if mode != 'stress':
+        sk_model = skrfr(n_estimators=50, max_depth=16,
+                         min_samples_split=2, max_features=max_features,
+                         random_state=10,
+                         min_impurity_decrease=min_impurity_decrease)
+        sk_model.fit(X_train, y_train)
+        sk_predict = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        assert fil_r2 >= (sk_r2 - 0.07)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
