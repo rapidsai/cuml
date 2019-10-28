@@ -20,6 +20,7 @@
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
+- PR #1302: Updates for numba 0.46
 
 # cuML 0.10.0 (16 Oct 2019)
 
