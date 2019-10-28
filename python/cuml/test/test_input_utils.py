@@ -24,8 +24,6 @@ from copy import deepcopy
 
 from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
 from cuml.utils.input_utils import convert_dtype, check_numba_order
-from cuml.utils.import_utils import check_min_cupy_version, \
-    check_min_numba_version
 
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
