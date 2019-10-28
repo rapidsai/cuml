@@ -174,8 +174,11 @@ cdef class ForestInference_impl():
 
     def get_algo(self, algo_str):
         algo_dict={'NAIVE': algo_t.NAIVE,
+                   'naive': algo_t.NAIVE,
                    'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
-                   'TREE_REORG': algo_t.TREE_REORG}
+                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
+                   'TREE_REORG': algo_t.TREE_REORG,
+                   'tree_reorg': algo_t.TREE_REORG}
         if algo_str not in algo_dict.keys():
             raise Exception(' Wrong algorithm selected please refer'
                             ' to the documentation')
@@ -375,11 +378,12 @@ class ForestInference(Base):
            If true, return a 1 or 0 depending on whether the raw prediction
            exceeds the threshold. If False, just return the raw prediction.
         algo : string name of the algo from (from algo_t enum)
-             'NAIVE' - simple inference using shared memory
-             'TREE_REORG' - similar to naive but trees rearranged to be more
-                              coalescing-friendly
-             'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-                                    multiple rows per thread block
+             'NAIVE' or 'naive' - simple inference using shared memory
+             'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+                              rearranged to be more coalescing-friendly
+             'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
+                                    but predicting multiple rows 
+                                    per thread block
         threshold : threshold is used to for classification
            applied if output_class == True, else it is ignored
         """
