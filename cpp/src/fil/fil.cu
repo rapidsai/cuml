@@ -372,12 +372,16 @@ void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
   // inner node
   ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
          "only numerical split nodes are supported");
+  // tl_left and tl_right are indices of the children in the treelite tree
+  // (stored  as an array of nodes)
   int tl_left = node.cleft(), tl_right = node.cright();
   bool default_left = node.default_left();
   float threshold = node.threshold();
   adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, node);
 
   // reserve space for child nodes
+  // left is the offset of the left child node relative to the tree root
+  // in the array of all nodes of the FIL sparse forest
   int left = pnodes->size() - root;
   pnodes->push_back(sparse_node_t());
   pnodes->push_back(sparse_node_t());
