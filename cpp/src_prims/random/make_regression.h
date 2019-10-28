@@ -189,7 +189,7 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
   }
 
   // Generate a ground truth model with only n_informative features
-  r.uniform(_coef, n_informative * n_targets, (DataT)0.0, (DataT)100.0, stream);
+  r.uniform(_coef, n_informative * n_targets, (DataT)1.0, (DataT)100.0, stream);
   if (coef && n_informative != n_cols) {
     CUDA_CHECK(cudaMemsetAsync(
       _coef + n_informative * n_targets, 0,

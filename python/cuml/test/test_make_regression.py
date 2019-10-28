@@ -13,8 +13,9 @@
 # limitations under the License.
 #
 
-# Note: this isn't a very strict test, the goal is to test the Cython
-# interface and cover all the parameters
+# Note: this isn't a strict test, the goal is to test the Cython interface
+# and cover all the parameters.
+# See the C++ test for an actual correction test
 
 import cuml
 import pytest
