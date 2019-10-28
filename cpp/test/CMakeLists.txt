@@ -36,6 +36,8 @@ ExternalProject_Add(googletest
   UPDATE_COMMAND    ""
 )
 
+add_dependencies(googletest ${CUML_CPP_TARGET})
+
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
 
@@ -97,6 +99,7 @@ if(BUILD_CUML_TESTS)
       sg/sgd.cu
       sg/spectral_test.cu
       sg/svc_test.cu
+      sg/trustworthiness_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
       sg/umap_test.cu

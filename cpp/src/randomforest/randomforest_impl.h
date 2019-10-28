@@ -15,9 +15,9 @@
  */
 
 #pragma once
+#include <cuml/ensemble/randomforest.hpp>
 #include <map>
 #include "decisiontree/decisiontree_impl.h"
-#include "randomforest.hpp"
 
 namespace ML {
 
@@ -63,10 +63,8 @@ class rfClassifier : public rf<T, int> {
                      int n_cols, int* predictions,
                      const RandomForestMetaData<T, int>* forest,
                      bool verbose = false);
-  RF_metrics score(const cumlHandle& user_handle, const T* input,
-                   const int* ref_labels, int n_rows, int n_cols,
-                   int* predictions, const RandomForestMetaData<T, int>* forest,
-                   bool verbose = false) const;
+  RF_metrics score(const cumlHandle& user_handle, const int* ref_labels,
+                   int n_rows, int* predictions, bool verbose = false) const;
 };
 
 template <class T>
@@ -85,9 +83,7 @@ class rfRegressor : public rf<T, T> {
                int n_cols, T* predictions,
                const RandomForestMetaData<T, T>* forest,
                bool verbose = false) const;
-  RF_metrics score(const cumlHandle& user_handle, const T* input,
-                   const T* ref_labels, int n_rows, int n_cols, T* predictions,
-                   const RandomForestMetaData<T, T>* forest,
-                   bool verbose = false) const;
+  RF_metrics score(const cumlHandle& user_handle, const T* ref_labels,
+                   int n_rows, T* predictions, bool verbose = false) const;
 };
 }  //End namespace ML

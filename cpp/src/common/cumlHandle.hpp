@@ -25,12 +25,17 @@
 #include <cusolverDn.h>
 #include <cusparse.h>
 
-#include "common/cuml_comms_int.hpp"
+#include <common/cuml_comms_int.hpp>
 
-#include "../cuML.hpp"
-#include "../cuML_api.h"
+#include <cuml/cuml_api.h>
+#include <cuml/cuml.hpp>
+
+#include <cuml/common/cuml_allocator.hpp>
 
 namespace ML {
+
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
 
 /**
  * @todo: Add doxygen documentation

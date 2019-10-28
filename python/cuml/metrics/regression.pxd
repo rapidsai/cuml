@@ -21,7 +21,7 @@
 
 from cuml.common.handle cimport cumlHandle
 
-cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     float r2_score_py(const cumlHandle& handle,
                       float *y,
