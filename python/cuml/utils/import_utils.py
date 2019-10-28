@@ -83,3 +83,10 @@ def check_min_numba_version(version):
 
 def check_min_cupy_version(version):
     return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
+
+
+def test_numba_cupy_version_conflict():
+    if check_min_numba_version("0.46") and not check_min_cupy_version("7.0"):
+        return True
+    else:
+        return False
