@@ -38,6 +38,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
         long n_rows,
         long n_cols,
         long n_informative,
+        float* coef,
         long n_targets,
         float bias,
         long effective_rank,
@@ -53,6 +54,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
         long n_rows,
         long n_cols,
         long n_informative,
+        double* coef,
         long n_targets,
         double bias,
         long effective_rank,
@@ -71,8 +73,8 @@ inp_to_dtype = {
 
 def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                     bias=0.0, effective_rank=None, tail_strength=0.5,
-                    noise=0.0, shuffle=True, random_state=None, dtype='single',
-                    handle=None):
+                    noise=0.0, shuffle=True, coef=False, random_state=None,
+                    dtype='single', handle=None):
     """TODO: docs"""
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
@@ -92,6 +94,12 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     values = zeros((n_samples, n_targets), dtype=dtype, order='C')
     cdef uintptr_t values_ptr = get_dev_array_ptr(values)
 
+    cdef uintptr_t coef_ptr
+    coef_ptr = <uintptr_t> NULL
+    if coef:
+        coefs = zeros((n_features, n_targets), dtype=dtype, order='C')
+        coef_ptr = get_dev_array_ptr(coefs)
+
     if random_state is None:
         random_state = randint(0, 1e18)
 
@@ -99,7 +107,7 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
         cpp_make_regression(handle_[0], <float*> out_ptr,
                             <float*> values_ptr, <long> n_samples,
                             <long> n_features, <long> n_informative,
-                            <long> n_targets, <float> bias,
+                            <float*> coef_ptr, <long> n_targets, <float> bias,
                             <long> effective_rank, <float> tail_strength,
                             <float> noise, <bool> shuffle,
                             <uint64_t> random_state)
@@ -108,9 +116,12 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
         cpp_make_regression(handle_[0], <double*> out_ptr,
                             <double*> values_ptr, <long> n_samples,
                             <long> n_features, <long> n_informative,
-                            <long> n_targets, <double> bias,
-                            <long> effective_rank, <double> tail_strength,
-                            <double> noise, <bool> shuffle,
-                            <uint64_t> random_state)
+                            <double*> coef_ptr, <long> n_targets,
+                            <double> bias, <long> effective_rank,
+                            <double> tail_strength, <double> noise,
+                            <bool> shuffle, <uint64_t> random_state)
 
-    return out, values
+    if coef:
+        return out, values, coefs
+    else:
+        return out, values

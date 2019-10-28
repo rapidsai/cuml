@@ -139,8 +139,9 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
                      IdxT n_informative, cublasHandle_t cublas_handle,
                      cusolverDnHandle_t cusolver_handle,
                      std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t stream, IdxT n_targets = (IdxT)1,
-                     DataT bias = (DataT)0.0, IdxT effective_rank = (IdxT)-1,
+                     cudaStream_t stream, DataT* coef = nullptr,
+                     IdxT n_targets = (IdxT)1, DataT bias = (DataT)0.0,
+                     IdxT effective_rank = (IdxT)-1,
                      DataT tail_strength = (DataT)0.5, DataT noise = (DataT)0.0,
                      bool shuffle = true, uint64_t seed = 0ULL,
                      GeneratorType type = GenPhilox) {
@@ -153,15 +154,9 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
     r.normal(out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
   } else {
     // Randomly generate a low rank, fat tail input set
-    _make_low_rank_matrix(out, n_rows, n_cols, effective_rank, tail_strength,
-                          r, cublas_handle, cusolver_handle, allocator, stream);
+    _make_low_rank_matrix(out, n_rows, n_cols, effective_rank, tail_strength, r,
+                          cublas_handle, cusolver_handle, allocator, stream);
   }
-
-  // Generate a ground truth model with only n_informative features
-  device_buffer<DataT> ground_truth(allocator, stream);
-  ground_truth.resize(n_informative * n_targets, stream);
-  r.uniform(ground_truth.data(), n_informative * n_targets, (DataT)0.0,
-            (DataT)100.0, stream);
 
   // Use the right output buffer for the values
   device_buffer<DataT> tmp_values(allocator, stream);
@@ -183,12 +178,29 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
     _values_col = _values;
   }
 
+  // Use the right buffer for the coefficients
+  device_buffer<DataT> tmp_coef(allocator, stream);
+  DataT* _coef;
+  if (coef != nullptr && !shuffle) {
+    _coef = coef;
+  } else {
+    tmp_coef.resize(n_cols * n_targets, stream);
+    _coef = tmp_coef.data();
+  }
+
+  // Generate a ground truth model with only n_informative features
+  r.uniform(_coef, n_informative * n_targets, (DataT)0.0, (DataT)100.0, stream);
+  if (coef && n_informative != n_cols) {
+    CUDA_CHECK(cudaMemsetAsync(
+      _coef + n_informative * n_targets, 0,
+      (n_cols - n_informative) * n_targets * sizeof(DataT), stream));
+  }
+
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  CUBLAS_CHECK(LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T,
-                                  n_rows, n_targets, n_informative, &alpha,
-                                  out, n_cols, ground_truth.data(), n_targets,
-                                  &beta, _values_col, n_rows, stream));
+  CUBLAS_CHECK(LinAlg::cublasgemm(
+    cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, n_rows, n_targets, n_informative,
+    &alpha, out, n_cols, _coef, n_targets, &beta, _values_col, n_rows, stream));
 
   // Transpose the values from column-major to row-major if needed
   if (n_targets > 1) {
@@ -212,22 +224,33 @@ void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,
 
   if (shuffle) {
     device_buffer<DataT> tmp_out(allocator, stream);
-    device_buffer<IdxT> perms(allocator, stream);
+    device_buffer<IdxT> perms_samples(allocator, stream);
+    device_buffer<IdxT> perms_features(allocator, stream);
     tmp_out.resize(n_rows * n_cols, stream);
-    perms.resize(n_rows, stream);
+    perms_samples.resize(n_rows, stream);
+    perms_features.resize(n_cols, stream);
+
+    constexpr IdxT Nthreads = 256;
 
     // Shuffle the samples from out to tmp_out
-    permute<DataT, IdxT, IdxT>(perms.data(), tmp_out.data(), out, n_cols, n_rows, true,
-                               stream);
-    constexpr IdxT Nthreads = 256;
-    IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
-    _gather2d_kernel<<<nblks, Nthreads, 0, stream>>>(
-      values, _values, perms.data(), n_rows, n_targets);
+    permute<DataT, IdxT, IdxT>(perms_samples.data(), tmp_out.data(), out,
+                               n_cols, n_rows, true, stream);
+    IdxT nblks_rows = ceildiv<IdxT>(n_rows, Nthreads);
+    _gather2d_kernel<<<nblks_rows, Nthreads, 0, stream>>>(
+      values, _values, perms_samples.data(), n_rows, n_targets);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Shuffle the features from tmp_out to out
-    permute<DataT, IdxT, IdxT>(nullptr, out, tmp_out.data(), n_rows, n_cols, false,
-                               stream);
+    permute<DataT, IdxT, IdxT>(perms_features.data(), out, tmp_out.data(),
+                               n_rows, n_cols, false, stream);
+
+    // Shuffle the coefficients accordingly
+    if (coef != nullptr) {
+      IdxT nblks_cols = ceildiv<IdxT>(n_cols, Nthreads);
+      _gather2d_kernel<<<nblks_cols, Nthreads, 0, stream>>>(
+        coef, _coef, perms_features.data(), n_cols, n_targets);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
   }
 }
 
