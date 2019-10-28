@@ -129,6 +129,7 @@ def zeros(size, dtype, order='F'):
     Return device array of zeros generated on device.
     """
     out = rmm.device_array(size, dtype=dtype, order=order)
+
     if isinstance(size, tuple):
         tpb = driver.get_device().MAX_THREADS_PER_BLOCK
         nrows = size[0]

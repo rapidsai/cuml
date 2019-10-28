@@ -19,8 +19,9 @@ from dask.dataframe import from_delayed
 
 import cudf
 
-from dask.distributed import default_client
+from dask.distributed import default_client, wait
 
+import numba.cuda as cuda
 
 import numpy as np
 
@@ -35,11 +36,16 @@ def create_df(m, n, centers, cluster_std, random_state, dtype):
     """
     Returns Dask Dataframes on device for X and y.
     """
+
     X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                       random_state=random_state, dtype=dtype)
 
+    # X = cuda.to_device(X.astype(dtype))
+    # y = cuda.to_device(y)
+
     X = cudf.DataFrame.from_gpu_matrix(X)
     y = cudf.DataFrame.from_gpu_matrix(y.reshape(y.shape[0], 1))
+
     return X, y
 
 
@@ -94,11 +100,12 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     rows_per_part = math.ceil(nrows/n_parts)
 
     if not isinstance(centers, np.ndarray):
-        centers = np.random.uniform(center_box[0], center_box[1],
-                                    size=(centers, ncols)).astype(np.float32)
+        centers = np.random.RandomState(random_state)\
+            .uniform(center_box[0], center_box[1],
+                     size=(centers, ncols)).astype(dtype)
 
     if verbose:
-        print("Generating %d samples acgraross %d partitions on "
+        print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
               (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
 
@@ -113,8 +120,13 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
         else:
             worker_rows = (int(nrows) - rows_so_far)
 
-        dfs.append(client.submit(create_df, worker_rows, ncols,
-                                 centers, cluster_std, random_state, dtype,
+        dfs.append(client.submit(create_df,
+                                 worker_rows,
+                                 ncols,
+                                 centers,
+                                 cluster_std,
+                                 random_state,
+                                 dtype,
                                  key="%s-%s" % (key, idx),
                                  workers=[worker]))
 

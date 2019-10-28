@@ -75,6 +75,7 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
                 bool rowMajor = true, cublasHandle_t cublas_h = nullptr,
                 GeneratorType type = GenPhilox) {
+  std::cout << out << std::endl;
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
@@ -85,8 +86,10 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
               center_box_max, stream);
     _centers = rand_centers.data();
   } else {
+    std::cout << "CENTERS!" << std::endl;
     _centers = centers;
   }
+
   // use the right output buffer
   device_buffer<DataT> tmp_out(allocator, stream);
   device_buffer<IdxT> perms(allocator, stream);
@@ -141,6 +144,8 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   if (shuffle) {
     permute<DataT, IdxT, IdxT>(perms.data(), final_out, _out, n_cols, n_rows,
                                true, stream);
+    std::cout << "shuffle final_out=" << final_out << std::endl;
+    std::cout << "shuffle _out=" << _out << std::endl;
     constexpr long Nthreads = 256;
     IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
     gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
@@ -150,6 +155,8 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   // Transpose to column major, if asked for
   if (!rowMajor) {
     LinAlg::transpose(final_out, out, n_rows, n_cols, cublas_h, stream);
+    std::cout << "transpose final_out=" << final_out << std::endl;
+    std::cout << "transpose out=" << out << std::endl;
   }
 }
 
