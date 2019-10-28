@@ -196,7 +196,7 @@ class PatchedNumbaDeviceArray(object):
         self.parent = numba_array
 
     def __getattr__(self, name):
-        if name is not '__cuda_array_interface__':
+        if name != '__cuda_array_interface__':
             return getattr(self.parent, name)
         else:
             if self.parent.device_ctypes_pointer.value is not None:

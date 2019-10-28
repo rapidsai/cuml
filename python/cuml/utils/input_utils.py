@@ -20,8 +20,8 @@ import cudf
 import numpy as np
 import warnings
 
-from cuml.import_utils import has_cupy, test_numba_cupy_version_conflict
-from cuml.numba_utils import PatchedNumbaDeviceArray
+from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
+from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 from collections import namedtuple
 from collections.abc import Collection
@@ -265,7 +265,7 @@ def convert_dtype(X, to_dtype=np.float32):
         if has_cupy():
             import cupy as cp
 
-            if test_numba_cupy_version_conflict():
+            if test_numba_cupy_version_conflict(X):
                 X = PatchedNumbaDeviceArray(X)
 
             X_m = cp.asarray(X)

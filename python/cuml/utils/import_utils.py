@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
-from distutils.version import LooseVersion
-import numba
 import cupy
+import numba
+
+from numba import cuda
+from distutils.version import LooseVersion
 
 
 def has_dask():
@@ -85,8 +87,11 @@ def check_min_cupy_version(version):
     return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
 
 
-def test_numba_cupy_version_conflict():
-    if check_min_numba_version("0.46") and not check_min_cupy_version("7.0"):
+def test_numba_cupy_version_conflict(X):
+    if cuda.devicearray.is_cuda_ndarray(X) and \
+            check_min_numba_version("0.46") and \
+            not check_min_cupy_version("7.0"):
         return True
+
     else:
         return False
