@@ -33,6 +33,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
+from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -271,10 +273,15 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        try:
-            import cupy
-            self.num_classes = len(cupy.unique(y_m)) - 1
-        except ImportError:
+        if has_cupy():
+            import cupy as cp
+
+            if test_numba_cupy_version_conflict(y_m):
+                y_m = PatchedNumbaDeviceArray(y_m)
+
+            self.num_classes = len(cp.unique(y_m)) - 1
+
+        else:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
             self.num_classes = len(np.unique(y_m)) - 1
