@@ -26,9 +26,10 @@ import numpy as np
 dtype = ['single', 'double']
 n_samples = [100, 100000]
 n_features = [10, 100]
-n_informative = [5, 7]
+n_informative = [7]
 n_targets = [1, 3]
 shuffle = [True, False]
+coef = [True, False]
 effective_rank = [None, 6]
 random_state = [None, 1234]
 bias = [-4.0]
@@ -41,25 +42,30 @@ noise = [3.5]
 @pytest.mark.parametrize('n_informative', n_informative)
 @pytest.mark.parametrize('n_targets', n_targets)
 @pytest.mark.parametrize('shuffle', shuffle)
+@pytest.mark.parametrize('coef', coef)
 @pytest.mark.parametrize('effective_rank', effective_rank)
 @pytest.mark.parametrize('random_state', random_state)
 @pytest.mark.parametrize('bias', bias)
 @pytest.mark.parametrize('noise', noise)
 def test_make_blobs_scalar_parameters(dtype, n_samples, n_features,
-                                      n_informative, n_targets, shuffle,
+                                      n_informative, n_targets, shuffle, coef,
                                       effective_rank, random_state, bias,
                                       noise):
 
-    out, values = cuml.make_regression(n_samples=n_samples,
-                                       n_features=n_features,
-                                       n_informative=n_informative,
-                                       n_targets=n_targets, bias=bias,
-                                       effective_rank=effective_rank,
-                                       noise=noise, shuffle=shuffle,
-                                       random_state=random_state, dtype=dtype)
+    result = cuml.make_regression(n_samples=n_samples, n_features=n_features,
+                                  n_informative=n_informative,
+                                  n_targets=n_targets, bias=bias,
+                                  effective_rank=effective_rank, noise=noise,
+                                  shuffle=shuffle,
+                                  coef=coef, random_state=random_state, dtype=dtype)
 
-    # we can use cupy in the future
-    labels_np = values.copy_to_host()
+    if coef:
+        out, values, coefs = result
+    else:
+        out, values = result
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
     assert values.shape == (n_samples, n_targets), "values shape mismatch"
+    
+    if coef:
+        assert coefs.shape == (n_features, n_targets), "coefs shape mismatch"

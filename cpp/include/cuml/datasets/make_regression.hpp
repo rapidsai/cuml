@@ -26,31 +26,31 @@ namespace Datasets {
  */
 void make_regression(const cumlHandle& handle, float* out, float* values,
                      int64_t n_rows, int64_t n_cols, int64_t n_informative,
-                     int64_t n_targets = 1LL, float bias = 0.0f,
-                     int64_t effective_rank = -1LL, float tail_strength = 0.5f,
-                     float noise = 0.0f, bool shuffle = true,
-                     uint64_t seed = 0ULL);
+                     float* coef = nullptr, int64_t n_targets = 1LL,
+                     float bias = 0.0f, int64_t effective_rank = -1LL,
+                     float tail_strength = 0.5f, float noise = 0.0f,
+                     bool shuffle = true, uint64_t seed = 0ULL);
 
 void make_regression(const cumlHandle& handle, double* out, double* values,
                      int64_t n_rows, int64_t n_cols, int64_t n_informative,
-                     int64_t n_targets = 1LL, double bias = 0.0,
-                     int64_t effective_rank = -1LL, double tail_strength = 0.5,
-                     double noise = 0.0, bool shuffle = true,
-                     uint64_t seed = 0ULL);
+                     double* coef = nullptr, int64_t n_targets = 1LL,
+                     double bias = 0.0, int64_t effective_rank = -1LL,
+                     double tail_strength = 0.5, double noise = 0.0,
+                     bool shuffle = true, uint64_t seed = 0ULL);
 
 void make_regression(const cumlHandle& handle, float* out, float* values,
                      int n_rows, int n_cols, int n_informative,
-                     int n_targets = 1LL, float bias = 0.0f,
-                     int effective_rank = -1LL, float tail_strength = 0.5f,
-                     float noise = 0.0f, bool shuffle = true,
-                     uint64_t seed = 0ULL);
+                     float* coef = nullptr, int n_targets = 1LL,
+                     float bias = 0.0f, int effective_rank = -1LL,
+                     float tail_strength = 0.5f, float noise = 0.0f,
+                     bool shuffle = true, uint64_t seed = 0ULL);
 
 void make_regression(const cumlHandle& handle, double* out, double* values,
                      int n_rows, int n_cols, int n_informative,
-                     int n_targets = 1LL, double bias = 0.0,
-                     int effective_rank = -1LL, double tail_strength = 0.5,
-                     double noise = 0.0, bool shuffle = true,
-                     uint64_t seed = 0ULL);
+                     double* coef = nullptr, int n_targets = 1LL,
+                     double bias = 0.0, int effective_rank = -1LL,
+                     double tail_strength = 0.5, double noise = 0.0,
+                     bool shuffle = true, uint64_t seed = 0ULL);
 
 /// @todo other variants
 
