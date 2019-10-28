@@ -407,10 +407,11 @@ class ForestInference(Base):
            applied if output_class == True, else it is ignored
         storage_type : string name of the storage type
            (from storage_type_t enum) for the FIL forest
-             'AUTO' - choose the storage type automatically
-                        (currently DENSE is always used)
-             'DENSE' - create a dense forest
-             'SPARSE' - create a sparse forest; requires algo='NAIVE'
+             'AUTO' or 'auto' - choose the storage type automatically
+                                (currently DENSE is always used)
+             'DENSE' or 'dense' - create a dense forest
+             'SPARSE' or 'sparse' - create a sparse forest;
+                                    requires algo='NAIVE'
         """
         return self._impl.load_from_treelite_model(model, output_class,
                                                    algo, threshold,
