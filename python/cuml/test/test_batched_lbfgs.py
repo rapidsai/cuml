@@ -99,7 +99,8 @@ def test_batched_lbfgs_rosenbrock():
         res_true[i*2:(i+1)*2] = np.array([a[i], a[i]**2])
 
     # our new batch-aware l-bfgs optimizer
-    res_xk, _, _ = batched_fmin_lbfgs_b(f, x0, num_batches, gf, iprint=-1, factr=100)
+    res_xk, _, _ = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
+                                        iprint=-1, factr=100)
 
     np.testing.assert_allclose(res_xk, res_true, rtol=1e-5)
 
