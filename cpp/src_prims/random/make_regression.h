@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-// Adapted from scikit-learn/sklearn/datasets/samples_generator.py
-// TODO: check if need to include license (BSD 3 clause)
+/* Adapted from scikit-learn
+ * https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/datasets/_samples_generator.py
+ */
 
 #pragma once
 
@@ -35,6 +36,7 @@
 namespace MLCommon {
 namespace Random {
 
+/* Internal auxiliary function to help build the singular profile */
 template <bool square, typename DataT, typename IdxT>
 static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
                                                 DataT strength, DataT coef,
@@ -47,9 +49,7 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
   }
 }
 
-/*
- * TODO: quick docs (internal auxiliary function)
- */
+/* Internal auxiliary function to generate a low-rank matrix */
 template <typename DataT, typename IdxT>
 static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
                                   IdxT effective_rank, DataT tail_strength,
@@ -112,9 +112,8 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
                     stream);
 }
 
-/*
- * TODO: quick docs (internal auxiliary function)
- */
+/* Internal auxiliary function to permute rows in the given matrix according
+ * to a given permutation vector */
 template <typename DataT, typename IdxT>
 static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
                                         const IdxT* perms, IdxT n_rows,
@@ -131,8 +130,41 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
 }
 
 /**
- * TODO: docs
- * TODO: add support for returning coefficients?
+ * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
+ * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+ * 
+ * @tparam  DataT  Scalar type
+ * @tparam  IdxT   Index type
+ * 
+ * @param[out]  out             Row-major (samples, features) matrix to store
+ *                              the problem data
+ * @param[out]  values          Row-major (samples, targets) matrix to store
+ *                              the values for the regression problem
+ * @param[in]   n_rows          Number of samples
+ * @param[in]   n_cols          Number of features
+ * @param[in]   n_informative   Number of informative features (non-zero
+ *                              coefficients)
+ * @param[in]   cublas_handle   cuBLAS handle
+ * @param[in]   cusolver_handle cuSOLVER handle
+ * @param[in]   allocator       Device memory allocator
+ * @param[in]   stream          CUDA stream
+ * @param[out]  coef            Row-major (features, targets) matrix to store
+ *                              the coefficients used to generate the values
+ *                              for the regression problem. If nullptr is
+ *                              given, nothing will be written
+ * @param[in]   n_targets       Number of targets (generated values per sample)
+ * @param[in]   bias            A scalar that will be added to the values
+ * @param[in]   effective_rank  The approximate rank of the data matrix (used
+ *                              to create correlations in the data). -1 is the
+ *                              code to use well-conditioned data
+ * @param[in]   tail_strength   The relative importance of the fat noisy tail
+ *                              of the singular values profile if
+ *                              effective_rank is not -1
+ * @param[in]   noise           Standard deviation of the gaussian noise
+ *                              applied to the output
+ * @param[in]   shuffle         Shuffle the samples and the features
+ * @param[in]   seed            Seed for the random number generator
+ * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
 void make_regression(DataT* out, DataT* values, IdxT n_rows, IdxT n_cols,

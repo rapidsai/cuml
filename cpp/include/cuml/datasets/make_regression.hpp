@@ -22,7 +22,34 @@ namespace ML {
 namespace Datasets {
 
 /**
- * @todo docs 
+ * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
+ * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+ * 
+ * @param[in]   handle          cuML handle
+ * @param[out]  out             Row-major (samples, features) matrix to store
+ *                              the problem data
+ * @param[out]  values          Row-major (samples, targets) matrix to store
+ *                              the values for the regression problem
+ * @param[in]   n_rows          Number of samples
+ * @param[in]   n_cols          Number of features
+ * @param[in]   n_informative   Number of informative features (non-zero
+ *                              coefficients)
+ * @param[out]  coef            Row-major (features, targets) matrix to store
+ *                              the coefficients used to generate the values
+ *                              for the regression problem. If nullptr is
+ *                              given, nothing will be written
+ * @param[in]   n_targets       Number of targets (generated values per sample)
+ * @param[in]   bias            A scalar that will be added to the values
+ * @param[in]   effective_rank  The approximate rank of the data matrix (used
+ *                              to create correlations in the data). -1 is the
+ *                              code to use well-conditioned data
+ * @param[in]   tail_strength   The relative importance of the fat noisy tail
+ *                              of the singular values profile if
+ *                              effective_rank is not -1
+ * @param[in]   noise           Standard deviation of the gaussian noise
+ *                              applied to the output
+ * @param[in]   shuffle         Shuffle the samples and the features
+ * @param[in]   seed            Seed for the random number generator
  */
 void make_regression(const cumlHandle& handle, float* out, float* values,
                      int64_t n_rows, int64_t n_cols, int64_t n_informative,
@@ -51,8 +78,6 @@ void make_regression(const cumlHandle& handle, double* out, double* values,
                      double bias = 0.0, int effective_rank = -1LL,
                      double tail_strength = 0.5, double noise = 0.0,
                      bool shuffle = true, uint64_t seed = 0ULL);
-
-/// @todo other variants
 
 }  // namespace Datasets
 }  // namespace ML

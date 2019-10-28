@@ -75,7 +75,80 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                     bias=0.0, effective_rank=None, tail_strength=0.5,
                     noise=0.0, shuffle=True, coef=False, random_state=None,
                     dtype='single', handle=None):
-    """TODO: docs"""
+    """Generate a random regression problem.
+    
+    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+
+    Example
+    -------
+
+    .. code-block:: python
+
+        from cuml.datasets.regression import make_regression
+        from cuml.linear_model import LinearRegression
+
+        # Create regression problem
+        data, values = make_regression(n_samples=200, n_features=12,
+                                       n_informative=7, bias=-4.2, noise=0.3)
+
+        # Perform a linear regression on this problem
+        lr = LinearRegression(fit_intercept = True, normalize = False,
+                              algorithm = "eig")
+        reg = lr.fit(data, values)
+        print(reg.coef_)
+
+    Parameters
+    ----------
+    n_samples : int, optional (default=100)
+        The number of samples.
+    n_features : int, optional (default=2)
+        The number of features.
+    n_informative : int, optional (default=2)
+        The number of informative features, i.e., the number of features used
+        to build the linear model used to generate the output.
+    n_targets : int, optional (default=1)
+        The number of regression targets, i.e., the dimension of the y output
+        vector associated with a sample. By default, the output is a scalar.
+    bias : float, optional (default=0.0)
+        The bias term in the underlying linear model.
+    effective_rank : int or None, optional (default=None)
+        if not None:
+            The approximate number of singular vectors required to explain most
+            of the input data by linear combinations. Using this kind of
+            singular spectrum in the input allows the generator to reproduce
+            the correlations often observed in practice.
+        if None:
+            The input set is well conditioned, centered and gaussian with
+            unit variance.
+    tail_strength : float between 0.0 and 1.0, optional (default=0.5)
+        The relative importance of the fat noisy tail of the singular values
+        profile if `effective_rank` is not None.
+    noise : float, optional (default=0.0)
+        The standard deviation of the gaussian noise applied to the output.
+    shuffle : boolean, optional (default=True)
+        Shuffle the samples and the features.
+    coef : boolean, optional (default=False)
+        If True, the coefficients of the underlying linear model are returned.
+    random_state : int, RandomState instance or None (default)
+        Seed for the random number generator for dataset creation.
+    dtype: string or numpy dtype (default: 'single')
+        Type of the data. Possible values: float32, float64, 'single', 'float'
+        or 'double'.
+    handle: cuml.Handle
+        If it is None, a new one is created just for this function call
+
+    Returns
+    -------
+    out : array of shape [n_samples, n_features]
+        The input samples.
+
+    values : array of shape [n_samples, n_targets]
+        The output values.
+
+    coef : array of shape [n_features, n_targets], optional
+        The coefficient of the underlying linear model. It is returned only if
+        coef is True.
+    """
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
