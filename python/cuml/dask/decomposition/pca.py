@@ -85,6 +85,19 @@ class PCA(object):
         return m.fit(dfs, M, N, partsToRanks, rank, transform)
 
     @staticmethod
+    def _func_transform(f, M, N, partsToRanks, rank, inverse):
+        """
+        Runs on each worker to call fit on local PCA instance.
+        Extracts centroids
+        :param model: Local KMeans instance
+        :param dfs: List of cudf.Dataframes to use
+        :param r: Stops memoizatiion caching
+        :return: The fit model
+        """
+        m, dfs = f
+        return m.transform(dfs, M, N, partsToRanks, rank, inverse)
+
+    @staticmethod
     def _func_get_first(f):
         return f[0]
 
@@ -140,7 +153,7 @@ class PCA(object):
         M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_models = [(wf[0], self.client.submit(
+        self.pca_models = [(wf[0], self.client.submit(
             PCA._func_create_model,
             comms.sessionId,
             wf[1],
@@ -159,7 +172,7 @@ class PCA(object):
             _transform,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(pca_models)])
+            for idx, wf in enumerate(self.pca_models)])
 
         wait(list(pca_fit.values()))
         raise_exception_from_futures(list(pca_fit.values()))
@@ -167,23 +180,13 @@ class PCA(object):
         comms.destroy()
 
         self.local_model = self.client.submit(PCA._func_get_first,
-                                              pca_models[0][1]).result()
+                                              self.pca_models[0][1]).result()
 
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
         self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
         self.noise_variance = self.local_model.noise_variance_
-
-        '''
-        if _transform:
-            out_futures = []
-            for w in pca_fit:
-                lm = self.client.submit(PCA._func_get_first, w)
-                out_futures.append(lm)
-            
-            return to_dask_cudf(out_futures) 
-        '''
 
         out_futures = []
         if _transform:
@@ -198,33 +201,70 @@ class PCA(object):
 
                 completed_part_map[rank] += 1
 
-        return to_dask_cudf(out_futures)
+            return to_dask_cudf(out_futures)
 
-    def _parallel_func(self, X, func):
+    def _transform(self, X, _inverse=False):
         """
-        Predicts the labels using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to predict
-        :return: A dask_cudf.Dataframe containing label predictions
+        Fits a distributed KMeans model
+        :param X: dask_cudf.Dataframe to fit
+        :return: This KMeans instance
         """
+        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
+
+        workers = list(map(lambda x: x[0], gpu_futures))
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
         key = uuid1()
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-        pca_predict = [self.client.submit(
-            func,
-            self.local_model,
+        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+            PCA._func_get_size,
             wf[1],
             workers=[wf[0]],
-            key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(gpu_futures)]
 
-        return to_dask_cudf(pca_predict)
+        N = X.shape[1]
+        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
-    def transform(self, X):
-        """
-        Predicts the labels using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to predict
-        :return: A dask_cudf.Dataframe containing label predictions
-        """
-        return self.parallel_func(X, PCA._func_xform)
+        key = uuid1()
+        pca_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
+            PCA._func_transform,
+            wf[1],
+            M, N,
+            partsToRanks,
+            worker_info[wf[0]]["r"],
+            _inverse,
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(self.pca_models)])
+
+        wait(list(pca_transform.values()))
+        raise_exception_from_futures(list(pca_transform.values()))
+
+        comms.destroy()
+
+        out_futures = []       
+        completed_part_map = {}
+        for rank, size in partsToRanks:
+            if rank not in completed_part_map:
+                completed_part_map[rank] = 0
+           
+            f = pca_transform[rank]
+            out_futures.append(self.client.submit(
+                PCA._func_get_idx, f, completed_part_map[rank]))
+
+            completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_futures)
 
     def fit_transform(self, X):
         """
@@ -233,6 +273,14 @@ class PCA(object):
         :return: A dask_cudf.Dataframe containing label predictions
         """
         return self.fit(X, _transform=True)
+
+    def transform(self, X):
+        """
+        Calls fit followed by transform using a distributed KMeans model
+        :param X: dask_cudf.Dataframe to fit & predict
+        :return: A dask_cudf.Dataframe containing label predictions
+        """
+        return self._transform(X, _inverse=False)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
