@@ -23,8 +23,9 @@ from numba import cuda
 from copy import deepcopy
 
 from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
-
 from cuml.utils.input_utils import convert_dtype, check_numba_order
+from cuml.utils.import_utils import check_min_cupy_version, \
+    check_min_numba_version
 
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
@@ -150,6 +151,11 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
                              num_cols, order):
+
+    if input_type in ['numba', 'dataframe']:
+        if check_min_numba_version("0.46"):
+            if not check_min_cupy_version("7.0"):
+                pytest.xfail("Need cupy >= 7.0 for numba >=0.46")
 
     if from_dtype == np.float16 and input_type != 'numpy':
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
