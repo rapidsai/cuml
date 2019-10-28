@@ -139,13 +139,13 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
 
     Returns
     -------
-    out : array of shape [n_samples, n_features]
+    out : device array of shape [n_samples, n_features]
         The input samples.
 
-    values : array of shape [n_samples, n_targets]
+    values : device array of shape [n_samples, n_targets]
         The output values.
 
-    coef : array of shape [n_features, n_targets], optional
+    coef : device array of shape [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """
