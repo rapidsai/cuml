@@ -36,7 +36,7 @@ test_dtypes_acceptable = [
 ]
 
 test_input_types = [
-    'numpy', 'numba', 'cupy', 'dataframe'
+    'dataframe'
 ]
 
 test_num_rows = [1, 100]

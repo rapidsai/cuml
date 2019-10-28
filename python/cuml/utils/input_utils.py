@@ -258,7 +258,7 @@ def convert_dtype(X, to_dtype=np.float32):
                                 "in data loss.")
             return X_m
 
-    elif isinstance(X, cudf.Series):
+    elif isinstance(X, cudf.Series) or isinstance(X, cudf.DataFrame):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
@@ -281,20 +281,6 @@ def convert_dtype(X, to_dtype=np.float32):
                 X = X_df.from_gpu_matrix(X)
                 X = convert_dtype(X, to_dtype=to_dtype)
                 return X.as_gpu_matrix()
-
-    elif isinstance(X, cudf.DataFrame):
-        dtype = np.dtype(X[X.columns[0]]._column.dtype)
-        if dtype != to_dtype:
-            new_cols = [(col, X._cols[col].astype(to_dtype))
-                        for col in X._cols]
-            overflowed = sum([len(colval[colval >= np.inf])
-                              for colname, colval in new_cols])
-
-            if overflowed > 0:
-                raise TypeError("Data type conversion resulted"
-                                "in data loss.")
-
-            return cudf.DataFrame(new_cols)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
