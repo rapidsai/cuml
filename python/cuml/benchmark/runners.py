@@ -48,17 +48,17 @@ class SpeedupComparisonRunner:
             self.dataset_name, self.input_type, n_samples, n_features
         )
         
-        algo_pair.set_up_cuml(data, **param_overrides, **cuml_param_overrides)
+        setup_overrides = algo_pair.setup_cuml(data, **param_overrides, **cuml_param_overrides)
         
         cu_start = time.time()
-        algo_pair.run_cuml(data)
+        algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides, **setup_overrides)
         cu_elapsed = time.time() - cu_start
 
         if run_cpu and algo_pair.cpu_class is not None:
-            algo_pair.set_up_cpu(data, **param_overrides)
+            setup_overrides = algo_pair.set_up_cpu(data, **param_overrides)
 
             cpu_start = time.time()
-            algo_pair.run_cpu(data)
+            algo_pair.run_cpu(data, **param_overrides, **setup_overrides)
             cpu_elapsed = time.time() - cpu_start
         else:
             cpu_elapsed = 0.0
@@ -152,13 +152,14 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         )
         X_test, y_test = data[2:]
 
-        algo_pair.setup_cuml(
+        setup_override = algo_pair.setup_cuml(
             data, **{**param_overrides, **cuml_param_overrides}
         )
 
         cu_start = time.time()
-        cuml_model = algo_pair.run_cuml(data)
-
+        cuml_model = algo_pair.run_cuml(
+            data, **{**param_overrides, **cuml_param_overrides, **setup_override}
+        )
         cu_elapsed = time.time() - cu_start
         if algo_pair.accuracy_function:
             if hasattr(cuml_model, 'predict'):
@@ -173,10 +174,10 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
 
         cpu_accuracy = 0.0
         if run_cpu and algo_pair.cpu_class is not None:
-            algo_pair.setup_cpu(data, **param_overrides)
+            setup_override = algo_pair.setup_cpu(data, **param_overrides)
 
             cpu_start = time.time()
-            cpu_model = algo_pair.run_cpu(data)
+            cpu_model = algo_pair.run_cpu(data, **param_overrides, **setup_override)
             cpu_elapsed = time.time() - cpu_start
 
             if algo_pair.accuracy_function:
@@ -254,8 +255,12 @@ def run_variations(
                     raise_on_error=raise_on_error,
                 )
                 for r in results:
+                    if "algo" in r:
+                        algo_name = algo.name + "_" + r["algo"]
+                    else:
+                        algo_name = algo.name
                     all_results.append(
-                        {'algo': algo.name, 'input': input_type, **r}
+                        {**r, 'algo': algo_name, 'input': input_type}
                     )
 
     print("Finished all benchmark runs")
