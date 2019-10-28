@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import scipy.optimize as optimize
 import numpy as np
 from scipy.optimize import _lbfgsb
@@ -5,7 +21,9 @@ from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 
 from collections import deque
 
+
 def _fd_fprime(x, f, h):
+    """(internal) Computes finite difference."""
     g = np.zeros(len(x))
     for i in range(len(x)):
         xph = np.copy(x)
@@ -17,6 +35,7 @@ def _fd_fprime(x, f, h):
         g[i] = (fph - fmh)/(2*h)
 
     return g
+
 
 def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                          bounds=None, m=10, factr=1e7, pgtol=1e-5,

@@ -15,6 +15,7 @@
 #
 
 import numpy as np
+cimport numpy as np
 import cupy as cp
 from cuml.common.handle cimport cumlHandle
 import ctypes
@@ -260,9 +261,16 @@ class ARIMAModel(Base):
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         
-        predict_in_sample(handle_[0], <double*>d_y_ptr,
-                          self.num_batches, self.num_samples, p, d, q,
-                          <double*>d_params_ptr, <double*>d_vs_ptr, <double*>d_y_p_ptr)
+        predict_in_sample(handle_[0],
+                          <double*>d_y_ptr,
+                          self.num_batches,
+                          self.num_samples,
+                          p,
+                          d,
+                          q,
+                          <double*>d_params_ptr,
+                          <double*>d_vs_ptr,
+                          <double*>d_y_p_ptr)
 
         self.yp = d_y_p
         return d_y_p
@@ -435,6 +443,7 @@ def ll_gf(num_batches, nobs, num_parameters, order, y, x, h=1e-8, trans=True, ha
         np.seterr(all='raise')
         # first derivative second order accuracy
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
+
         # first derivative first order accuracy
         # grad_i_b = (ll_b_ph - ll_b0)/(h)
 
@@ -524,7 +533,7 @@ def fit(y,
     x, niter, flags = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
                                            iprint=opt_disp, factr=1000)
 
-    # TODO: Better Handle non-zero `flag` array values: 0 -> ok, 1,2 -> optimizer had trouble
+    # Handle non-zero flags with Warning
     if (flags != 0).any():
         print("WARNING(`fit()`): Some batch members had optimizer problems.")
 
@@ -618,7 +627,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
 def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    nvtx_range_push("unpack(x) -> (ar,ma,mu)")
+    nvtx_range_push("unpack(x) -> (mu,ar,ma)")
     num_parameters = d + p + q
     mu = np.zeros(nb)
     ar = []
@@ -637,7 +646,7 @@ def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
 
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    nvtx_range_push("pack(ar,ma,mu) -> x")
+    nvtx_range_push("pack(mu,ar,ma) -> x")
     num_parameters = d + p + q
     x = np.zeros(num_parameters*nb)
     for i in range(nb):
@@ -649,9 +658,7 @@ def pack(p, d, q, nb, mu, ar, ma):
             xi[j+d] = ar[i][j]
         for j in range(q):
             xi[j+p+d] = ma[i][j]
-        # xi = np.array([mu[i]])
-        # xi = np.r_[xi, ar[i]]
-        # xi = np.r_[xi, ma[i]]
+
         x[i*num_parameters:(i+1)*num_parameters] = xi
 
     nvtx_range_pop()
@@ -670,7 +677,6 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
         handle = cuml.common.handle.Handle()
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
     cdef np.ndarray[double] Tx = np.zeros(nb*(d+p+q))
-
     batched_jones_transform(handle_[0], p, d, q, nb, isInv, &x[0], &Tx[0])
 
     nvtx_range_pop()
@@ -697,8 +703,8 @@ def _start_params(order, y_diff):
 
     if p != 0:
 
-        # TODO: `statsmodels` uses BIC to pick the "best" `p` for this initial
-        # fit. The "best" model is probably a p=1, so we will assume that for now.
+        # `statsmodels` uses BIC to pick the "best" `p` for this initial
+        # fit. The "best" model frequently has p=1, so this is a reasonable assumption.
         p_best = 1
         x = np.zeros((len(y) - p_best, p_best))
         # create lagged series set
@@ -710,8 +716,7 @@ def _start_params(order, y_diff):
         y_ar = y[p_best:]
 
         (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
-        # print("initial_ar_fit:", ar_fit)
-        # set_trace()
+
         if q == 0:
             params_init[d:] = ar_fit
         else:
@@ -738,7 +743,6 @@ def _start_params(order, y_diff):
         # case when p == 0 and q>0
 
         # when p==0, MA params are often -1
-        # TODO: See how `statsmodels` handles this case
         params_init[d:] = -1*np.ones(q)
 
     return params_init
