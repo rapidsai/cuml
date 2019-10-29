@@ -21,7 +21,6 @@ import rmm
 
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
-from numba.cuda.cudadrv.devicearray import array_core
 
 
 def row_matrix(df):
