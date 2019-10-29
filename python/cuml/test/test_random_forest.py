@@ -182,7 +182,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
     sk_acc = accuracy_score(y_test, sk_predict)
 
     # compare the accuracy of the two models
-    # github issue
+    # github issue 1306: had to increase margin to avoid random CI fails
     # assert cu_acc >= (sk_acc - 0.07)
     assert cu_acc >= (sk_acc - 0.2)
 
