@@ -17,7 +17,6 @@
 import cupy
 import numba
 
-from numba import cuda
 from distutils.version import LooseVersion
 
 

@@ -22,12 +22,8 @@
 from cuml.solvers import QN
 from cuml.common.base import Base
 
-import numpy as np
-import warnings
-
 from cuml.utils import input_to_dev_array
 from cuml.utils.cupy_utils import checked_cupy_unique
-from cuml.utils.import_utils import has_cupy
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
 
