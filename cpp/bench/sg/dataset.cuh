@@ -17,8 +17,9 @@
 #pragma once
 
 #include <cuda_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <linalg/transpose.h>
 #include <random/make_blobs.h>
+#include <random/make_regression.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 #include <fstream>
@@ -50,6 +51,17 @@ struct BlobsParams {
   double cluster_std;
   bool shuffle;
   double center_box_min, center_box_max;
+  uint64_t seed;
+};
+
+/** Holds params needed to generate regression dataset */
+struct RegressionParams {
+  int n_informative;
+  int effective_rank;
+  double bias;
+  double tail_strength;
+  double noise;
+  bool shuffle;
   uint64_t seed;
 };
 
@@ -92,9 +104,13 @@ struct Dataset {
              const BlobsParams& b) {
     ASSERT(isClassification(),
            "make_blobs: is only for classification/clustering problems!");
-    auto* tmpX = X;
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+    const auto& handle_impl = handle.getImpl();
+    cudaStream_t stream = handle_impl.getStream();
+    cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+    auto allocator = handle_impl.getDeviceAllocator();
+
+    D* tmpX = X;
+
     if (!p.rowMajor) {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
@@ -103,10 +119,38 @@ struct Dataset {
       nullptr, D(b.cluster_std), b.shuffle, D(b.center_box_min),
       D(b.center_box_max), b.seed);
     if (!p.rowMajor) {
-      D alpha = (D)1.0, beta = (D)0.0;
-      MLCommon::LinAlg::cublasgeam<D>(
-        handle.getImpl().getCublasHandle(), CUBLAS_OP_T, CUBLAS_OP_N, p.nrows,
-        p.ncols, &alpha, tmpX, p.ncols, &beta, X, p.nrows, X, p.nrows, stream);
+      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
+                                  stream);
+      allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
+    }
+  }
+
+  /**
+   * Generate random regression data. Args are the same as in make_regression.
+   * Assumes that the user has already called `allocate`
+   */
+  void regression(const cumlHandle& handle, const DatasetParams& p,
+                  const RegressionParams& r) {
+    ASSERT(!isClassification(),
+           "make_regression: is only for regression problems!");
+    const auto& handle_impl = handle.getImpl();
+    cudaStream_t stream = handle_impl.getStream();
+    cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+    cusolverDnHandle_t cusolver_handle = handle_impl.getcusolverDnHandle();
+    auto allocator = handle_impl.getDeviceAllocator();
+
+    D* tmpX = X;
+
+    if (!p.rowMajor) {
+      tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
+    }
+    MLCommon::Random::make_regression(
+      tmpX, y, p.nrows, p.ncols, r.n_informative, cublas_handle,
+      cusolver_handle, allocator, stream, (D*)nullptr, 1, D(r.bias),
+      r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle, r.seed);
+    if (!p.rowMajor) {
+      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
+                                  stream);
       allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
     }
   }
