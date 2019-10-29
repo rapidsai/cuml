@@ -44,6 +44,7 @@ namespace Matrix {
  * 
  * @param[in]  shape        Shape of each matrix (rows, columns)
  * @param[in]  num_batches  Number of matrices in the batch
+ * @param[in]  setZero      Whether to initialize the allocated matrix with all zeros
  * @param[in]  allocator    Device memory allocator
  * @param[in]  stream       CUDA stream
  * 
@@ -103,7 +104,9 @@ class BatchedMatrix {
    * @param[in]  m            Number of rows
    * @param[in]  n            Number of columns
    * @param[in]  num_batches  Number of matrices in the batch
-   * @param[in]  pool         The memory pool
+   * @param[in]  cublasHandle cublas handle
+   * @param[in]  allocator    device allocator
+   * @param[in]  stream       cuda stream where to schedule work
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
   BatchedMatrix(int m, int n, int num_batches, cublasHandle_t cublasHandle,
@@ -226,7 +229,9 @@ class BatchedMatrix {
    * 
    * @param[in]  m            Number of rows/columns of matrix
    * @param[in]  num_batches  Number of matrices in batch
-   * @param[in]  pool         Memory pool
+   * @param[in]  handle       cuml handle
+   * @param[in]  allocator    device allocator
+   * @param[in]  stream       cuda stream to schedule work on
    * 
    * @return A batched identity matrix
    */
@@ -444,8 +449,8 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
 
   int n = A.shape().first;
   auto allocator = A.allocator();
-  int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, 0);
-  int* info = (int*)allocator->allocate(sizeof(int) * num_batches, 0);
+  int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, A.stream());
+  int* info = (int*)allocator->allocate(sizeof(int) * num_batches, A.stream());
 
   // A copy of A is necessary as the cublas operations write in A
   BatchedMatrix Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
