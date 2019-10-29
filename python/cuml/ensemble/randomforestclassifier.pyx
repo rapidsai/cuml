@@ -36,13 +36,13 @@ from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
-cimport cuml.common.cuda
-
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
 from cuml.utils.numba_utils import PatchedNumbaDeviceArray
+
+cimport cuml.common.handle
+cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -466,7 +466,7 @@ class RandomForestClassifier(Base):
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if has_cupy():
-            import cupy as cp
+            import cupy as cp  # noqa: E402
 
             if test_numba_cupy_version_conflict(y_m):
                 y_m = PatchedNumbaDeviceArray(y_m)
