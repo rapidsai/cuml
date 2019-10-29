@@ -26,6 +26,7 @@ import numpy as np
 import warnings
 
 from cuml.utils import input_to_dev_array
+from cuml.utils.cupy_utils import checked_cupy_unique
 from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
 from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
@@ -209,19 +210,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        if has_cupy():
-            import cupy as cp
-
-            if test_numba_cupy_version_conflict(y_m):
-                y_m = PatchedNumbaDeviceArray(y_m)
-
-            unique_labels = cp.unique(y_m)
-
-        else:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            unique_labels = np.unique(y_m.copy_to_host())
-
+        unique_labels = checked_cupy_unique(y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:
