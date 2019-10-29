@@ -155,7 +155,7 @@ def test_rf_regression(datatype, split_algo, mode,
 @pytest.mark.parametrize('column_info', [unit_param([16, 7]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
                          stress_param(500000)])
 def test_rf_classification_default(datatype, column_info, nrows):
 
@@ -189,7 +189,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
 @pytest.mark.parametrize('column_info', [unit_param([16, 7]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
                          stress_param(500000)])
 def test_rf_regression_default(datatype, column_info, nrows):
 
