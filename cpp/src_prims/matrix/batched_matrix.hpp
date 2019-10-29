@@ -30,6 +30,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <common/cumlHandle.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
 namespace MLCommon {
@@ -196,10 +197,10 @@ class BatchedMatrix {
    */
   BatchedMatrix mat(int m, int n) const {
     const int r = m_shape.first * m_shape.second;
-    if (r != m * n)
-      throw std::runtime_error(
-        "ERROR BatchedMatrix::mat(m,n): Size mismatch - Cannot reshape array "
-        "into desired size");
+    ASSERT(
+      r == m * n,
+      "ERROR BatchedMatrix::mat(m,n): Size mismatch - Cannot reshape array "
+      "into desired size");
     BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
     cudaMemcpyAsync(toMat[0], m_A_dense.get(),
@@ -315,9 +316,7 @@ __global__ void kronecker_product_kernel(const double* A, int m, int n,
  */
 BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
                      bool aT = false, bool bT = false) {
-  if (A.batches() != B.batches()) {
-    throw std::runtime_error("A & B must have same number of batches");
-  }
+  ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   // Logic for matrix dimensions with optional transpose
   // m = number of rows of matrix op(A) and C.
@@ -330,9 +329,7 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   int k = !aT ? A.shape().second : A.shape().first;
   int kB = !bT ? B.shape().first : B.shape().second;
 
-  if (k != kB) {
-    throw std::runtime_error("Matrix-Multiplication dimensions don't match!");
-  }
+  ASSERT(k == kB, "Matrix-Multiplication dimensions don't match!");
 
   auto num_batches = A.batches();
   const auto& handle = A.cublasHandle();
@@ -380,14 +377,11 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
 template <typename F>
 BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
                         F binary_op) {
-  if (A.shape().first != B.shape().first &&
-      A.shape().second != B.shape().second) {
-    throw std::runtime_error(
-      "Batched Matrix Addition ERROR: Matrices must be same size");
-  }
-  if (A.batches() != B.batches()) {
-    throw std::runtime_error("A & B must have same number of batches");
-  }
+  ASSERT(
+    A.shape().first == B.shape().first && A.shape().second == B.shape().second,
+    "Batched Matrix Addition ERROR: Matrices must be same size");
+
+  ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   auto num_batches = A.batches();
   int m = A.shape().first;
@@ -460,10 +454,11 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n,
-                                                    P, info, num_batches));
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(
-    handle, n, Acopy.data(), n, P, Ainv.data(), n, info, num_batches));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(
+    handle, n, Acopy.data(), n, P, info, num_batches, A.stream()));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(handle, n, Acopy.data(), n,
+                                                    P, Ainv.data(), n, info,
+                                                    num_batches, A.stream()));
 
   BatchedMatrix x = Ainv * b;
 
