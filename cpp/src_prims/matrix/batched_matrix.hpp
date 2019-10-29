@@ -346,22 +346,23 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   double beta = 0.0;
 
   // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
-  CUBLAS_CHECK(
-    MLCommon::LinAlg::cublasgemmBatched(handle,
-                                        opA,     // A.T?
-                                        opB,     // B.T?
-                                        m,       // rows op(A), C
-                                        n,       // cols of op(B), C
-                                        k,       // cols of op(A), rows of op(B)
-                                        &alpha,  // alpha * A * B
-                                        A.data(),
-                                        A.shape().first,  // rows of A
-                                        B.data(),
-                                        B.shape().first,  // rows of B
-                                        &beta,            // + beta * C
-                                        C.data(),
-                                        C.shape().first,  // rows of C
-                                        num_batches, A.stream()));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmStridedBatched(
+    handle,
+    opA,     // A.T?
+    opB,     // B.T?
+    m,       // rows op(A), C
+    n,       // cols of op(B), C
+    k,       // cols of op(A), rows of op(B)
+    &alpha,  // alpha * A * B
+    A.raw_data(),
+    A.shape().first,  // rows of A
+    A.shape().first * A.shape().second, B.raw_data(),
+    B.shape().first,  // rows of B
+    B.shape().first * B.shape().second,
+    &beta,  // + beta * C
+    C.raw_data(),
+    C.shape().first,  // rows of C
+    C.shape().first * C.shape().second, num_batches, A.stream()));
   return C;
 }
 
