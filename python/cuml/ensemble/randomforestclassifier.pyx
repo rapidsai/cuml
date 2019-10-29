@@ -476,7 +476,6 @@ class RandomForestClassifier(Base):
             else:
                 unique_labels = cp.unique(y_m)
 
-
         else:
             warnings.warn("Using NumPy for number of class detection,"
                           "install CuPy for faster processing.")
