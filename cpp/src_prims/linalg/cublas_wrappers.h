@@ -192,7 +192,7 @@ cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
                                  const T *alpha, const T *const Aarray[],
                                  int lda, const T *const Barray[], int ldb,
                                  const T *beta, T *Carray[], int ldc,
-                                 int batchCount, cudaStream_t stream = 0);
+                                 int batchCount, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasgemmBatched(
@@ -227,7 +227,7 @@ cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
                                   T *const A[],    /*Device pointer*/
                                   int lda, int *P, /*Device Pointer*/
                                   int *info,       /*Device Pointer*/
-                                  int batchSize, cudaStream_t stream = 0);
+                                  int batchSize, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
@@ -255,7 +255,7 @@ cublasStatus_t cublasgetriBatched(cublasHandle_t handle, int n,
                                   int lda, const int *P, /*Device pointer*/
                                   T *const C[],          /*Device pointer*/
                                   int ldc, int *info, int batchSize,
-                                  cudaStream_t stream = 0);
+                                  cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasgetriBatched(
