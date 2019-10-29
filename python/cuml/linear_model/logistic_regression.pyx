@@ -27,8 +27,7 @@ import warnings
 
 from cuml.utils import input_to_dev_array
 from cuml.utils.cupy_utils import checked_cupy_unique
-from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
+from cuml.utils.import_utils import has_cupy
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
 

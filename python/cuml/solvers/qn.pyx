@@ -34,8 +34,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
-from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
+from cuml.utils.import_utils import has_cupy
 
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
