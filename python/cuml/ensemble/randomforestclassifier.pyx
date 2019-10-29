@@ -287,7 +287,7 @@ class RandomForestClassifier(Base):
     seed : int (default = -1)
            If int, then the seed is used by the models random number
            generator. It is used to reproduce the same result over multiple
-           runs of the code.
+           runs.
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -363,8 +363,10 @@ class RandomForestClassifier(Base):
         self.seed = seed
 
         if ((seed != -1) and (n_streams != 1)):
-            warnings.warn("If n_stream!=1 then setting the seed will not"
-                          " work")
+            warnings.warn("n_stream should be equal to 1 while setting the "
+                          "seed. If n_streams!=1 then setting the seed will"
+                          "not help in making the result reproducible over"
+                          " multiple runs")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
