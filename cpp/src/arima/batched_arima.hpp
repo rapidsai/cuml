@@ -24,9 +24,10 @@ namespace ML {
  * Compute the loglikelihood of the given parameter on the given time series in a batched context.
  *
  * @param[in]  handle      cuML handle
- * @param[in]  y           Series to fit: shape = (nobs, num_bathces) and expects column major data layout.
+ * @param[in]  d_y           Series to fit: shape = (nobs, num_bathces) and expects column major data layout.
                            Memory on Device.
  * @param[in]  num_batches number of time series
+ * @param[in] nobs number of observations in a time series
  * @param[in]  p           Number of AR parameters
  * @param[in]  d           Difference parameter
  * @param[in]  q           Number of MA parameters

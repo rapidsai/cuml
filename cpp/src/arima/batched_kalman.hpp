@@ -26,6 +26,7 @@ namespace ML {
  * An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
  * provide the resulting prediction as well as loglikelihood fit.
  *
+ * @param[in]  handle                       cuml handle
  * @param[in]  d_ys_b                       The (batched) time series with shape (nobs, num_batches)
                                             in column major layout. Memory on device.
  * @param[in]  nobs                         The number of samples per time series
@@ -70,8 +71,8 @@ void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
  * Public interface to batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters.
  *
+ * @param[in]  handle    cuml handle
  * @param[in]  p         Number of AR parameters
- * @param[in]  d         Trend parameter
  * @param[in]  q         Number of MA parameters
  * @param[in]  batchSize Number of time series analyzed.
  * @param[in]  isInv     Do the inverse transform?
@@ -88,6 +89,7 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
  * Convenience function for batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters. (takes host array and returns host array)
  *
+ * @param[in]  handle    cuml handle
  * @param[in]  p         Number of AR parameters
  * @param[in]  d         Trend parameter
  * @param[in]  q         Number of MA parameters
