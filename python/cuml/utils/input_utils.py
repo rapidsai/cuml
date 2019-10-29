@@ -20,7 +20,8 @@ import cudf
 import numpy as np
 import warnings
 
-from cuml.utils.import_utils import has_cupy, test_numba_cupy_version_conflict
+from cuml.utils.import_utils import has_cupy
+from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
 from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 from collections import namedtuple
