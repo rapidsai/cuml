@@ -218,6 +218,45 @@ inline cublasStatus_t cublasgemmBatched(
 /** @} */
 
 /**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const T *alpha, const T *const Aarray, int lda,
+  long long int strideA, const T *const Barray, int ldb, long long int strideB,
+  const T *beta, T *Carray, int ldc, long long int strideC, int batchCount,
+  cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const float *alpha, const float *const Aarray, int lda,
+  long long int strideA, const float *const Barray, int ldb,
+  long long int strideB, const float *beta, float *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const double *alpha, const double *const Aarray, int lda,
+  long long int strideA, const double *const Barray, int ldb,
+  long long int strideB, const double *beta, double *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+/** @} */
+
+/**
  * @defgroup solverbatched cublas getrf/gettribatched calls
  * @{
  */
