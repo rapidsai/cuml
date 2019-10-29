@@ -20,7 +20,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
 from cuml.test.utils import get_handle, unit_param, \
-    quality_param, stress_param
+    quality_param, stress_param, array_equal
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -30,7 +30,7 @@ from sklearn.datasets import fetch_california_housing, \
 from sklearn.model_selection import train_test_split
 
 
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([16, 7]),
                          quality_param([200, 100]),
@@ -57,13 +57,13 @@ def test_rf_classification(datatype, split_algo, rows_sample,
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=8)
+    handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
-                       min_rows_per_node=2,
+                       min_rows_per_node=2, seed=124, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     cuml_model.fit(X_train, y_train)
@@ -107,7 +107,7 @@ def test_rf_regression(datatype, split_algo, mode,
                      " please convert the data to dtype np.float32")
 
     if mode == 'unit':
-        X, y = make_regression(n_samples=200, n_features=ncols,
+        X, y = make_regression(n_samples=500, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
 
@@ -124,12 +124,12 @@ def test_rf_regression(datatype, split_algo, mode,
                                                         random_state=0)
 
     # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=8)
+    handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
-                       min_rows_per_node=2,
+                       min_rows_per_node=2, seed=124, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
@@ -152,10 +152,10 @@ def test_rf_regression(datatype, split_algo, mode,
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_rf_classification_default(datatype, column_info, nrows):
 
@@ -169,7 +169,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
                                                         random_state=0)
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc()
+    cuml_model = curfc(seed=124, n_streams=1)
     cuml_model.fit(X_train, y_train)
     cu_predict = cuml_model.predict(X_test)
     cu_acc = accuracy_score(y_test, cu_predict)
@@ -191,7 +191,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
 @pytest.mark.parametrize('column_info', [unit_param([16, 7]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_rf_regression_default(datatype, column_info, nrows):
 
@@ -206,7 +206,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfr()
+    cuml_model = curfr(seed=124, n_streams=1)
     cuml_model.fit(X_train, y_train)
 
     # predict using FIL
@@ -228,3 +228,97 @@ def test_rf_regression_default(datatype, column_info, nrows):
     except AssertionError:
         pytest.xfail("failed due to AssertionError error, "
                      "fix will be merged soon")
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+def test_rf_regression_seed(datatype, column_info, nrows):
+
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=100, n_features=ncols,
+                           n_informative=n_info,
+                           random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfr(seed=124, n_streams=1)
+    cuml_model.fit(X_train, y_train)
+
+    # predict using FIL
+    fil_preds_orig = cuml_model.predict(X_test,
+                                        predict_model="GPU").copy_to_host()
+    cu_preds_orig = cuml_model.predict(X_test,
+                                       predict_model="CPU")
+    cu_r2_orig = r2_score(y_test, cu_preds_orig, convert_dtype=datatype)
+    fil_r2_orig = r2_score(y_test, fil_preds_orig, convert_dtype=datatype)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfr(seed=124, n_streams=1)
+    cuml_model.fit(X_train, y_train)
+
+    # predict using FIL
+    fil_preds_rerun = cuml_model.predict(X_test,
+                                         predict_model="GPU").copy_to_host()
+    cu_preds_rerun = cuml_model.predict(X_test, predict_model="CPU")
+    cu_r2_rerun = r2_score(y_test, cu_preds_rerun, convert_dtype=datatype)
+    fil_r2_rerun = r2_score(y_test, fil_preds_rerun, convert_dtype=datatype)
+    assert fil_r2_orig == fil_r2_rerun
+    assert cu_r2_orig == cu_r2_rerun
+    assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
+    assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+def test_rf_classification_seed(datatype, column_info, nrows):
+
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=0, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(seed=124, n_streams=1)
+    cuml_model.fit(X_train, y_train)
+
+    # predict using FIL
+    fil_preds_orig = cuml_model.predict(X_test,
+                                        predict_model="GPU").copy_to_host()
+    cu_preds_orig = cuml_model.predict(X_test,
+                                       predict_model="CPU")
+    cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
+    fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(seed=124, n_streams=1)
+    cuml_model.fit(X_train, y_train)
+
+    # predict using FIL
+    fil_preds_rerun = cuml_model.predict(X_test,
+                                         predict_model="GPU").copy_to_host()
+    cu_preds_rerun = cuml_model.predict(X_test, predict_model="CPU")
+    cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
+    fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
+    assert fil_acc_orig == fil_acc_rerun
+    assert cu_acc_orig == cu_acc_rerun
+    assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
+    assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
