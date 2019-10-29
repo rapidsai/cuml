@@ -55,12 +55,6 @@ class PCA(object):
 
     @staticmethod
     def _func_create_model(sessionId, dfs, **kwargs):
-        """
-        Builds a PCA model on a worker
-        :param sessionId:
-        :param kwargs:
-        :return:
-        """
         try:
             from cuml.decomposition.pca_mg import PCAMG as cumlPCA
         except ImportError:
@@ -73,29 +67,18 @@ class PCA(object):
 
     @staticmethod
     def _func_fit(f, M, N, partsToRanks, rank, transform):
-        """
-        Runs on each worker to call fit on local PCA instance.
-        Extracts centroids
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
-        """
         m, dfs = f
         return m.fit(dfs, M, N, partsToRanks, rank, transform)
 
     @staticmethod
-    def _func_transform(f, M, N, partsToRanks, rank, inverse):
-        """
-        Runs on each worker to call fit on local PCA instance.
-        Extracts centroids
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
-        """
+    def _func_transform(f, M, N, partsToRanks, rank):
         m, dfs = f
-        return m.transform(dfs, M, N, partsToRanks, rank, inverse)
+        return m.transform(dfs, M, N, partsToRanks, rank)
+
+    @staticmethod
+    def _func_inverse_transform(f, M, N, partsToRanks, rank):        
+        m, dfs = f
+        return m.inverse_transform(dfs, M, N, partsToRanks, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -106,14 +89,7 @@ class PCA(object):
         return f[idx]
 
     @staticmethod
-    def _func_xform(model, df):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
-        """
+    def _func_xform(model, df):       
         return model.transform(df)
 
     @staticmethod
@@ -121,11 +97,6 @@ class PCA(object):
         return df.shape[0]
 
     def fit(self, X, _transform=False):
-        """
-        Fits a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit
-        :return: This KMeans instance
-        """
         gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
         worker_to_parts = OrderedDict()
@@ -203,12 +174,7 @@ class PCA(object):
 
             return to_dask_cudf(out_futures)
 
-    def _transform(self, X, _inverse=False):
-        """
-        Fits a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit
-        :return: This KMeans instance
-        """
+    def _transform(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
         worker_to_parts = OrderedDict()
@@ -242,7 +208,6 @@ class PCA(object):
             M, N,
             partsToRanks,
             worker_info[wf[0]]["r"],
-            _inverse,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
             for idx, wf in enumerate(self.pca_models)])
@@ -266,21 +231,71 @@ class PCA(object):
 
         return to_dask_cudf(out_futures)
 
-    def fit_transform(self, X):
-        """
-        Calls fit followed by transform using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit & predict
-        :return: A dask_cudf.Dataframe containing label predictions
-        """
+    def _inverse_transform(self, X):       
+        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
+
+        workers = list(map(lambda x: x[0], gpu_futures))
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        key = uuid1()
+        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+            PCA._func_get_size,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(gpu_futures)]
+
+        N = X.shape[1]
+        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
+
+        key = uuid1()
+        pca_inverse_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
+            PCA._func_inverse_transform,
+            wf[1],
+            M, N,
+            partsToRanks,
+            worker_info[wf[0]]["r"],
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(self.pca_models)])
+
+        wait(list(pca_inverse_transform.values()))
+        raise_exception_from_futures(list(pca_inverse_transform.values()))
+
+        comms.destroy()
+
+        out_futures = []       
+        completed_part_map = {}
+        for rank, size in partsToRanks:
+            if rank not in completed_part_map:
+                completed_part_map[rank] = 0
+           
+            f = pca_inverse_transform[rank]
+            out_futures.append(self.client.submit(
+                PCA._func_get_idx, f, completed_part_map[rank]))
+
+            completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_futures)
+
+    def fit_transform(self, X):     
         return self.fit(X, _transform=True)
 
     def transform(self, X):
-        """
-        Calls fit followed by transform using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit & predict
-        :return: A dask_cudf.Dataframe containing label predictions
-        """
-        return self._transform(X, _inverse=False)
+        return self._transform(X)
+
+    def inverse_transform(self, X):
+        return self._inverse_transform(X)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
