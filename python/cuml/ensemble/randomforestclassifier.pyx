@@ -469,12 +469,9 @@ class RandomForestClassifier(Base):
             import cupy as cp  # noqa: E402
 
             if test_numba_cupy_version_conflict(y_m):
-                y_m2 = PatchedNumbaDeviceArray(y_m)
-                unique_labels = cp.unique(y_m2)
-                del(y_m2)
+                y_m = PatchedNumbaDeviceArray(y_m)
 
-            else:
-                unique_labels = cp.unique(y_m)
+            unique_labels = cp.unique(y_m)
 
         else:
             warnings.warn("Using NumPy for number of class detection,"
