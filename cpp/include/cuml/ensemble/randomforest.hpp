@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 
@@ -112,10 +113,8 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest);
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 
-// model should be of type ModelHandle*,
-// i.e. a pointer to a treelite model handle
 template <class T, class L>
-void build_treelite_forest(void** model,
+void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category);
 
