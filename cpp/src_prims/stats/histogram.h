@@ -334,7 +334,6 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
     __syncthreads();
     if (needFlush[0]) {
-      __syncthreads();
       flushHashTable(ht, hashSize, bins, nbins, col);
       __syncthreads();
       if (threadIdx.x == 0) {
@@ -379,9 +378,8 @@ void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
   int hashSize = computeHashTableSize();
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
   smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
-                                                  binner, hashSize,
-                                                  flushThreshold);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(
+      bins, data, nrows, nbins, binner, hashSize, flushThreshold);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
