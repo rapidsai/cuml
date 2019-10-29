@@ -196,25 +196,14 @@ class PatchedNumbaDeviceArray(object):
         self.parent = numba_array
 
     def __getattr__(self, name):
+        if name == "parent":
+            raise AttributeError()
+
         if name != '__cuda_array_interface__':
             return getattr(self.parent, name)
+
         else:
-            if self.parent.device_ctypes_pointer.value is not None:
-                ptr = self.parent.device_ctypes_pointer.value
-            else:
-                ptr = 0
-
-            if array_core(self.parent).flags['C_CONTIGUOUS']:
-                strides = None
-            else:
-                strides = tuple(self.parent.strides)
-
-            rtn = {
-                 'shape': tuple(self.parent.shape),
-                 'data': (ptr, False),
-                 'typestr': self.parent.dtype.str,
-                 'version': 1,
-             }
-            if strides:
-                rtn['strides'] = strides
+            rtn = self.parent.__cuda_array_interface__
+            if rtn.get("strides") is None:
+                rtn.pop("strides")
             return rtn
