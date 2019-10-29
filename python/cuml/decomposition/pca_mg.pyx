@@ -111,6 +111,29 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   paramsPCA prms,
                   bool verbose) except +
 
+    cdef void inverse_transform(cumlHandle& handle,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  floatData_t **trans_input,
+                  float *components,
+                  floatData_t **input,            
+                  float *singular_vals,
+                  float *mu,                
+                  paramsPCA prms,
+                  bool verbose) except +
+
+    cdef void inverse_transform(cumlHandle& handle,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  doubleData_t **trans_input,
+                  double *components,
+                  doubleData_t **input,
+                  double *singular_vals,
+                  double *mu,
+                  paramsPCA prms,
+                  bool verbose) except +
+
+
 class PCAMG(PCA):
 
     def __init__(self, **kwargs):
@@ -173,19 +196,19 @@ class PCAMG(PCA):
             free(d[x_i])
         free(d)
 
-    def _build_transData(self, partsToRanks, rnk, dtype):
+    def _build_transData(self, partsToRanks, rnk, n_cols, dtype):
         arr_interfaces_trans = []
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:            
-                trans_ary = rmm.to_device(zeros((size, self.n_components),
+                trans_ary = rmm.to_device(zeros((size, n_cols),
                                     order="F",
                                     dtype=dtype))
 
                 trans_ptr = get_dev_array_ptr(trans_ary)
                 arr_interfaces_trans.append({"obj": trans_ary,
                                "data": trans_ptr,
-                               "shape": (size, self.n_components)})
+                               "shape": (size, n_cols)})
 
         return arr_interfaces_trans
 
@@ -267,7 +290,7 @@ class PCAMG(PCA):
                     
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, np.float32)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_components, np.float32)
             trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
@@ -285,7 +308,7 @@ class PCAMG(PCA):
                 True)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, np.float64)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_components, np.float64)
             trans_data = self._build_dataDouble(arr_interfaces_trans)
             
             fit_transform(handle_[0],
@@ -337,7 +360,7 @@ class PCAMG(PCA):
             return trans_cudf
     
 
-    def transform(self, X, M, N, partsToRanks, rnk, _inverse=False):
+    def transform(self, X, M, N, partsToRanks, rnk):
         """
         Transform function for PCA MG. This not meant to be used as
         part of the public API.
@@ -350,11 +373,11 @@ class PCAMG(PCA):
        
         arr_interfaces = []
         for arr in X:
-            X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
+            X_m, input_ptr, n_rows, n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m,
                                    "data": input_ptr,
-                                   "shape": (n_rows, self.n_cols)})
+                                   "shape": (n_rows, n_cols)})
        
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -402,7 +425,7 @@ class PCAMG(PCA):
                     
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, np.float32)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_components, np.float32)
             trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             transform(handle_[0],
@@ -417,7 +440,7 @@ class PCAMG(PCA):
                 True)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, np.float64)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_components, np.float64)
             trans_data = self._build_dataDouble(arr_interfaces_trans)
             
             transform(handle_[0],
@@ -432,10 +455,125 @@ class PCAMG(PCA):
                 True)
               
         self.handle.sync()
-                     
-            # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
+                    
+        for idx in range(n_total_parts):
+            free(<RankSizePair*>rankSizePair[idx])
+        free(<RankSizePair**>rankSizePair)
+
+        if (isinstance(X, cudf.DataFrame)):
+            del(X_m)
         
+        trans_cudf = []         
+ 
+        for x_i in arr_interfaces_trans:
+            trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
+
+        if self.dtype == np.float32:
+            self._freeFloatD(trans_data, arr_interfaces_trans)    
+            self._freeFloatD(data, arr_interfaces)        
+        else:
+            self._freeDoubleD(trans_data, arr_interfaces_trans)
+            self._freeDoubleD(data, arr_interfaces)
+
+        return trans_cudf
+
+    
+    def inverse_transform(self, X, M, N, partsToRanks, rnk):
+        """
+        Transform function for PCA MG. This not meant to be used as
+        part of the public API.
+        :param X: array of local dataframes / array partitions
+        :param M: total number of rows
+        :param N: total number of cols
+        :param partsToRanks: array of tuples in the format: [(rank,size)]
+        :return: self
+        """
+       
+        arr_interfaces = []
+        for arr in X:
+            X_m, input_ptr, n_rows, n_cols, self.dtype = \
+                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            arr_interfaces.append({"obj": X_m,
+                                   "data": input_ptr,
+                                   "shape": (n_rows, n_cols)})
+       
+        cpdef paramsPCA params
+        params.n_components = self.n_components
+        params.n_rows = M
+        params.n_cols = N
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
+
+        n_total_parts = 0
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:
+                n_total_parts = n_total_parts + 1
+
+        cdef RankSizePair **rankSizePair = <RankSizePair**> \
+                                            malloc(sizeof(RankSizePair**) \
+                                                   * n_total_parts)
+
+        indx = 0
+        n_part_row = 0
+        
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:            
+                rankSizePair[indx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+                rankSizePair[indx].rank = <int>rank
+                rankSizePair[indx].size = <size_t>size    
+                n_part_row = n_part_row + rankSizePair[indx].size
+                indx = indx + 1
+        
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
+
+        cdef uintptr_t singular_vals_ptr = \
+            get_cudf_column_ptr(self.singular_values_)
+
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        cdef uintptr_t data
+        cdef uintptr_t trans_data
+        arr_interfaces_trans = []
+                    
+        if self.dtype == np.float32:
+            data = self._build_dataFloat(arr_interfaces)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_cols, np.float32)
+            trans_data = self._build_dataFloat(arr_interfaces_trans)
+
+            inverse_transform(handle_[0],
+                <RankSizePair**>rankSizePair,
+                <size_t> n_total_parts,
+                <floatData_t**> data,               
+                <float*> comp_ptr,
+                <floatData_t**> trans_data,
+                <float*> singular_vals_ptr,
+                <float*> mean_ptr,
+                params,
+                True)
+        else:
+            data = self._build_dataDouble(arr_interfaces)
+            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_cols, np.float64)
+            trans_data = self._build_dataDouble(arr_interfaces_trans)
+            
+            inverse_transform(handle_[0],
+                <RankSizePair**>rankSizePair,
+                <size_t> n_total_parts,
+                <doubleData_t**> data,               
+                <double*> comp_ptr,
+                <doubleData_t**> trans_data,
+                <double*> singular_vals_ptr,
+                <double*> mean_ptr,
+                params,
+                True)
+              
+        self.handle.sync()
+                    
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
