@@ -284,7 +284,10 @@ class RandomForestClassifier(Base):
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
-
+    seed : int (default = -1)
+           If int, then the seed is used by the models random number
+           generator. It is used to reproduce the same result over multiple
+           runs of the code.
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -358,6 +361,10 @@ class RandomForestClassifier(Base):
         self.n_cols = None
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+
+        if ((seed != -1) and (n_streams != 1)):
+            warnings.warn("If n_stream!=1 then setting the seed will not"
+                          " work")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()

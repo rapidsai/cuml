@@ -263,6 +263,10 @@ class RandomForestRegressor(Base):
                       for median of abs error : 'median_ae'
                       for mean of abs error : 'mean_ae'
                       for mean square error' : 'mse'
+    seed : int (default = -1)
+           If int, then the seed is used by the models random number
+           generator. It is used to reproduce the same result over multiple
+           runs of the code.
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -338,6 +342,10 @@ class RandomForestRegressor(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+
+        if ((seed != -1) and (n_streams != 1)):
+            warnings.warn("If n_stream!=1 then setting the seed will not"
+                          " work")
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
