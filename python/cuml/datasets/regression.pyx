@@ -71,12 +71,13 @@ inp_to_dtype = {
     np.float64: np.float64
 }
 
+
 def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                     bias=0.0, effective_rank=None, tail_strength=0.5,
                     noise=0.0, shuffle=True, coef=False, random_state=None,
                     dtype='single', handle=None):
     """Generate a random regression problem.
-    
+
     See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
 
     Example
@@ -148,7 +149,7 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     coef : device array of shape [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
-    """
+    """  # noqa
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")

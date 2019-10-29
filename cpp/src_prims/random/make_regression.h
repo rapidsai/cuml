@@ -37,15 +37,16 @@ namespace MLCommon {
 namespace Random {
 
 /* Internal auxiliary function to help build the singular profile */
-template <bool square, typename DataT, typename IdxT>
+template <typename DataT, typename IdxT>
 static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
-                                                DataT strength, DataT coef,
+                                                DataT tail_strength,
                                                 IdxT rank) {
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     DataT sval = static_cast<DataT>(tid) / rank;
-    if (square) sval *= sval;
-    out[tid] = strength * myExp(coef * sval);
+    DataT low_rank = ((DataT)1.0 - tail_strength) * myExp(-sval * sval);
+    DataT tail = tail_strength * myExp((DataT)-0.1 * sval);
+    out[tid] = low_rank + tail;
   }
 }
 
@@ -76,23 +77,17 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
                  allocator);
 
   // Build the singular profile by assembling signal and noise components
-  device_buffer<DataT> low_rank(allocator, stream);
-  device_buffer<DataT> tail(allocator, stream);
-  device_buffer<DataT> singular(allocator, stream);
-  low_rank.resize(n, stream);
-  tail.resize(n, stream);
-  _singular_profile_kernel<true><<<ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
-    low_rank.data(), n, (DataT)1.0 - tail_strength, (DataT)-1.0,
-    effective_rank);
+  device_buffer<DataT> singular_vec(allocator, stream);
+  device_buffer<DataT> singular_mat(allocator, stream);
+  singular_vec.resize(n, stream);
+  _singular_profile_kernel<<<ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
+    singular_vec.data(), n, tail_strength, effective_rank);
   CUDA_CHECK(cudaPeekAtLastError());
-  _singular_profile_kernel<false><<<ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
-    tail.data(), n, tail_strength, (DataT)-0.1, effective_rank);
-  CUDA_CHECK(cudaPeekAtLastError());
-  LinAlg::add(low_rank.data(), low_rank.data(), tail.data(), n, stream);
-  singular.resize(n * n, stream);
-  CUDA_CHECK(cudaMemsetAsync(singular.data(), 0, n * sizeof(DataT), stream));
-  Matrix::initializeDiagonalMatrix(low_rank.data(), singular.data(), n, n,
-                                   stream);
+  singular_mat.resize(n * n, stream);
+  CUDA_CHECK(
+    cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
+  Matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n,
+                                   n, stream);
 
   // Generate the column-major matrix
   device_buffer<DataT> temp_q0s(allocator, stream);
@@ -101,7 +96,7 @@ static void _make_low_rank_matrix(DataT* out, IdxT n_rows, IdxT n_cols,
   temp_out.resize(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
   LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n_rows, n, n,
-                     &alpha, q0.data(), n_rows, singular.data(), n, &beta,
+                     &alpha, q0.data(), n_rows, singular_mat.data(), n, &beta,
                      temp_q0s.data(), n_rows, stream);
   LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n_rows, n_cols, n,
                      &alpha, temp_q0s.data(), n_rows, q1.data(), n_cols, &beta,

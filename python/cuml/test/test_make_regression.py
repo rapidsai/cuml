@@ -19,7 +19,6 @@
 
 import cuml
 import pytest
-import numpy as np
 
 
 # Testing parameters
@@ -58,7 +57,8 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features,
                                   n_targets=n_targets, bias=bias,
                                   effective_rank=effective_rank, noise=noise,
                                   shuffle=shuffle,
-                                  coef=coef, random_state=random_state, dtype=dtype)
+                                  coef=coef, random_state=random_state,
+                                  dtype=dtype)
 
     if coef:
         out, values, coefs = result
@@ -67,6 +67,6 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features,
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
     assert values.shape == (n_samples, n_targets), "values shape mismatch"
-    
+
     if coef:
         assert coefs.shape == (n_features, n_targets), "coefs shape mismatch"
