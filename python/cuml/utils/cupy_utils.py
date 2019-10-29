@@ -25,8 +25,8 @@ from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 def test_numba_cupy_version_conflict(X):
     """
-    Function to test cuda_array_interface version conflict between
-    CuPy < 7.0 and Numba >= 0.46.
+    Function to test whether cuda_array_interface version conflict
+    may cause issues with array X. True if CuPy < 7.0 and Numba >= 0.46.
     """
     if cuda.devicearray.is_cuda_ndarray(X) and \
             check_min_numba_version("0.46") and \
@@ -58,9 +58,8 @@ def checked_cupy_fn(cupy_fn, *argv):
 
 def checked_cupy_unique(x):
     """
-    Function to call cupy.unique acoiding numba/cupy version conflict.
-    Uses PatchedNumbaArray if there is a conflict, falls back to NumPy
-    if there is no CuPy installed.
+    Returns the unique elements from X as an array, using either cupy (if
+    installed) or numpy (fallback).
     """
 
     if has_cupy():
@@ -74,5 +73,7 @@ def checked_cupy_unique(x):
             unique = np.unique(x)
         else:
             unique = np.unique(x.copy_to_host())
+
+        unique = cp.asarray(unique)
 
     return unique
