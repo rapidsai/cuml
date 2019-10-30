@@ -278,8 +278,8 @@ def test_rf_regression_seed(datatype, column_info, nrows):
     cu_preds_rerun = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2_rerun = r2_score(y_test, cu_preds_rerun, convert_dtype=datatype)
     fil_r2_rerun = r2_score(y_test, fil_preds_rerun, convert_dtype=datatype)
-    assert fil_r2_orig == fil_r2_rerun
-    assert cu_r2_orig == cu_r2_rerun
+    assert array_equal(fil_r2_orig, fil_r2_rerun, tol=1e-3)
+    assert array_equal(cu_r2_orig, cu_r2_rerun, tol=1e-3)
     assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
     assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
 
@@ -325,7 +325,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
     cu_preds_rerun = cuml_model.predict(X_test, predict_model="CPU")
     cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
     fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
-    assert fil_acc_orig == fil_acc_rerun
-    assert cu_acc_orig == cu_acc_rerun
+    assert array_equal(fil_acc_orig, fil_acc_rerun, tol=1e-3)
+    assert array_equal(cu_acc_orig, cu_acc_rerun, tol=1e-3)
     assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
     assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
