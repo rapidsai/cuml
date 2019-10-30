@@ -21,9 +21,179 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros, row_matrix
+
+import numpy as np
+
+from cuml.common.handle cimport cumlHandle
+
+
+from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
+
+import rmm
+from libc.stdlib cimport malloc, free
+
+from libc.stdint cimport uintptr_t, int64_t
+from libc.stdlib cimport calloc, malloc, free
+
+from numba import cuda
+import rmm
+
+cimport cuml.common.handle
+cimport cuml.common.cuda
+
+cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
+    cdef cppclass deviceAllocator:
+        pass
+
+    cdef cppclass cumlHandle:
+        cumlHandle() except +
+        void setStream(cuml.common.cuda._Stream s) except +
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
+        cuml.common.cuda._Stream getStream() except +
+
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+
+    void knn_classify(
+        cumlHandle &handle,
+        int *out,
+        int64_t *knn_indices,
+        int *y,
+        size_t n_samples,
+        int k,
+        int n_unique_classes
+    ) except +
+
+    void knn_class_proba(
+        cumlHandle &handle,
+        float *out,
+        int64_t *knn_indices,
+        int *y,
+        size_t n_samples,
+        int k,
+        int n_unique_classes
+    ) except +
+
 class KNeighborsClassifier(NearestNeighbors):
 
     def __init__(self, **kwargs):
+        """
+
+        :param kwargs:
+        """
         super(KNeighborsClassifier, self).__init__(**kwargs)
+        self.y = None
 
+    def fit(self, X, y, convert_dtype=True):
+        """
+        Fit a k-nearest neighbors classifier model.
+        :param X:
+        :param y:
+        :param convert_dtype:
+        :return:
+        """
+        super(NearestNeighbors, self).fit(X, convert_dtype)
+        self.y, _, _, _, _ = \
+            input_to_dev_array(X, order='C', check_dtype=np.int32,
+                               convert_to_dtype=(np.int32
+                                                 if convert_dtype
+                                                 else None))
 
+        self.n_unique_classes = self.y.unique()
+        self.handle.sync()
+
+    def predict(self, X, convert_dtype=True):
+        """
+        Use the trained k-nearest neighbors classifier to
+        predict the labels for X
+        :param X:
+        :param convert_dtype:
+        :return:
+        """
+
+        knn_indices = self.kneighbors(X, convert_dtype)
+
+        cdef uintptr_t inds_ctype
+
+        inds, inds_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(knn_indices, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
+
+        classes = rmm.to_device(zeros(n_rows, dtype=np.int32,
+                                      order="C"))
+
+        cdef uintptr_t classes_ptr = get_dev_array_ptr(classes)
+        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        knn_classify(
+            handle_[0],
+            <int*>classes_ptr,
+            <int64_t*>inds_ctype,
+            <int*> y_ptr,
+            <size_t>X.shape[0],
+            <int>self.n_neighbors,
+            <int>self.n_unique_classes
+        )
+
+        self.handle.sync()
+        return classes
+
+    def predict_proba(self, X, convert_dtype=True):
+        """
+        Use the trained k-nearest neighbors classifier to
+        predict the label probabilities for X
+        :param X:
+        :param convert_dtype:
+        :return:
+        """
+
+        knn_indices = self.kneighbors(X, convert_dtype)
+
+        cdef uintptr_t inds_ctype
+
+        inds, inds_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(knn_indices, order='C',
+                               check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
+
+        classes = rmm.to_device(zeros(n_rows*self.n_unique_classes,
+                                      dtype=np.float32,
+                                      order="C"))
+
+        cdef uintptr_t classes_ptr = get_dev_array_ptr(classes)
+        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        knn_class_proba(
+            handle_[0],
+            <float*>classes_ptr,
+            <int64_t*>inds_ctype,
+            <int*> y_ptr,
+            <size_t>X.shape[0],
+            <int>self.n_neighbors,
+            <int>self.n_unique_classes
+        )
+
+        self.handle.sync()
+        return classes
+
+    def score(self, X, y, sample_weight=None):
+        """
+        Compute the accuracy score using the given labels and
+        the trained k-nearest neighbors classifier to predict
+        the classes for X.
+        :param X:
+        :param y:
+        :param sample_weight:
+        :return:
+        """
+        pass
