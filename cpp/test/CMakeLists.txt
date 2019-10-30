@@ -53,7 +53,10 @@ set(ML_BENCH_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
 )
 
-include_directories(${GTEST_DIR}/include)
+include_directories(
+  ${GTEST_DIR}/include
+  ${TREELITE_DIR}/runtime/native/include
+)
 
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------
