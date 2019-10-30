@@ -125,7 +125,7 @@ def stationarity(y, pval_threshold=0.05, handle=None):
                                      <int> n_batches,
                                      <int> n_samples,
                                      <double> pval_threshold)
-    
+
     if ret_value < 0:
         raise ValueError("Stationarity test failed for d=0 or 1.")
 

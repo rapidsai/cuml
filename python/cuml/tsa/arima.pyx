@@ -203,7 +203,8 @@ class ARIMAModel(Base):
         self.ma_params = ma_params
 
         # get host and device pointers. Float64 only for now.
-        h_y, h_y_ptr, n_samples, n_series, dtype = input_to_host_array(y, check_dtype=np.float64)
+        h_y, h_y_ptr, n_samples, n_series, dtype = \
+            input_to_host_array(y, check_dtype=np.float64)
         d_y, d_y_ptr, _, _, _ = input_to_dev_array(y, check_dtype=np.float64)
 
         self.h_y = h_y
