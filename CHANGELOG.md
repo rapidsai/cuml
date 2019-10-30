@@ -22,7 +22,7 @@
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
 - PR #1302: Updates for numba 0.46
-- PR #1308: Updated the RF tests to set the seed and n_streams
+- PR #1313: Updated the RF tests to set the seed and n_streams
 
 # cuML 0.10.0 (16 Oct 2019)
 
