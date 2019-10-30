@@ -32,6 +32,15 @@
 namespace MLCommon {
 namespace LinAlg {
 
+
+#if CUDART_VERSION >= 10010
+// With optimization enabled, CUDA 10.1 generates segfaults for distance
+// prims, so disable optimization until another workaround is found
+// #pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+  
+
 /**
  * this type has been mostly customized for float/double data-types
  * might require changes to the template params for others!
@@ -720,6 +729,12 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 /** @} */
+
+  
+#if CUDART_VERSION >= 10010
+// Undo special optimization options set earlier
+#pragma GCC reset_options
+#endif
 
 };  // end namespace LinAlg
 };  // end namespace MLCommon
