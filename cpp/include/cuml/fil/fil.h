@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <treelite/c_api.h>
 #include <cuml/cuml.hpp>
+#include <cuml/ensemble/treelite_defs.hpp>
 
 namespace ML {
 namespace fil {

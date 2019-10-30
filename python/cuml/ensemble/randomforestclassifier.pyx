@@ -38,6 +38,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
+
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -468,18 +470,9 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        try:
-            import cupy as cp
-            unique_labels = cp.unique(y_m)
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            if isinstance(y, np.ndarray):
-                unique_labels = np.unique(y)
-            else:
-                unique_labels = np.unique(y_m.copy_to_host())
-
+        unique_labels = checked_cupy_unique(y_m)
         num_unique_labels = len(unique_labels)
+
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
