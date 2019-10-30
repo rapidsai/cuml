@@ -30,23 +30,6 @@
 
 namespace ML {
 
-/**
-   * @brief Flat C++ API function to perform a brute force knn on
-   * a series of input arrays and combine the results into a single
-   * output array for indexes and distances.
-   *
-   * @param handle the cuml handle to use
-   * @param input an array of pointers to the input arrays
-   * @param sizes an array of sizes of input arrays
-   * @param n_params array size of input and sizes
-   * @param D the dimensionality of the arrays
-   * @param search_items array of items to search of dimensionality D
-   * @param n number of rows in search_items
-   * @param res_I the resulting index array of size n * k
-   * @param res_D the resulting distance array of size n * k
-   * @param k the number of nearest neighbors to return
-   * @param rowMajorQuery is the query array in row major layout?
-   */
 void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
@@ -54,6 +37,50 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
   MLCommon::Selection::brute_force_knn(
     input, sizes, n_params, D, search_items, n, res_I, res_D, k,
     handle.getImpl().getStream(), rowMajorIndex, rowMajorQuery);
+}
+
+//
+//template<int TPB_X=32>
+//void knn_classify(int *out, const int64_t *knn_indices,
+//    const int *y, size_t n_rows, int k, int n_classes,
+//    std::shared_ptr<deviceAllocator> &allocator,
+//    cudaStream_t stream) {
+//
+//  device_buffer<float> probs(allocator, stream, n_rows * n_classes);
+//
+//  /**
+//   * Compute class probabilities
+//   */
+//  class_probs(probs.data(), knn_indices, n_rows, k, y, n_classes, stream);
+//
+//  dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
+//  dim3 blk(TPB_X, 1, 1);
+//
+//  /**
+//   * Choose max probability
+//   */
+//  class_vote_kernel<<<grid, blk, 0, stream>>>(out, probs.data(), n_samples, n_classes);
+//}
+//
+void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int *y,
+                  size_t n_samples, int k, int n_unique_classes) {
+  auto d_alloc = handle.getDeviceAllocator();
+
+  MLCommon::Selection::knn_classify(out, knn_indices, y, n_samples, k,
+                                    n_unique_classes, d_alloc,
+                                    handle.getStream());
+}
+
+void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
+                 size_t n_samples, int k) {
+  MLCommon::Selection::knn_regress(out, knn_indices, y, n_samples, k,
+                                   handle.getStream());
+}
+
+void knn_class_proba(cumlHandle &handle, float *out, int64_t *knn_indices,
+                     int *y, size_t n_samples, int k, int n_unique_classes) {
+  MLCommon::Selection::class_probs(out, knn_indices, y, n_samples, k,
+                                   n_unique_classes, handle.getStream());
 }
 
 /**
