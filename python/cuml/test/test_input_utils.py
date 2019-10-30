@@ -23,7 +23,6 @@ from numba import cuda
 from copy import deepcopy
 
 from cuml.utils import input_to_dev_array, input_to_host_array, has_cupy
-
 from cuml.utils.input_utils import convert_dtype, check_numba_order
 
 test_dtypes_all = [
