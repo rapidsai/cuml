@@ -372,6 +372,7 @@ class RandomForestClassifier(Base):
                           "seed. If n_streams!=1 then setting the seed will"
                           "not help in making the result reproducible over"
                           " multiple runs")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest

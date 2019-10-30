@@ -275,8 +275,8 @@ class RandomForestRegressor(Base):
            If int, then the seed is used by the models random number
            generator. It is used to reproduce the same result over multiple
            runs.
-   """
 
+    """
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
