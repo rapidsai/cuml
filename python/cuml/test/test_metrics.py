@@ -20,8 +20,8 @@ import pytest
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
-from cuml.test.utils import get_handle, \
-    fit_predict, get_pattern, array_equal
+from cuml.test.utils import get_handle, get_pattern, array_equal, \
+    unit_param, quality_param, stress_param
 
 from numba import cuda
 
@@ -80,18 +80,6 @@ def test_sklearn_search():
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)
     assert sk_cu_grid.best_params_ == {'alpha': 0.1}
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 @pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
@@ -160,8 +148,7 @@ def test_rand_index_score(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred, _ = fit_predict(cuml_kmeans,
-                               'cuml_Kmeans', X)
+    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
 
     cu_score = cu_ars(y, cu_y_pred)
     cu_score_using_sk = sk_ars(y, cu_y_pred)
