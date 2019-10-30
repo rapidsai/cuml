@@ -100,9 +100,11 @@ std::vector<RegParams> getInputs() {
   p.rf.n_trees = 500;
   p.rf.n_streams = 8;
   std::vector<Triplets> rowcols = {
-    {160000, 64, 32},
-    {640000, 64, 32},
-    {1184000, 968, 512},
+    {500000, 450, 400},
+    {600000, 500, 450},
+    // gbm-benchmark datasets:
+    {515345, 90, 80},     // get_year
+    {10000000, 100, 90},  // get_synthetic_regression
   };
   for (auto& rc : rowcols) {
     // Let's run Bosch only for float type
@@ -110,7 +112,7 @@ std::vector<RegParams> getInputs() {
     p.data.nrows = rc.nrows;
     p.data.ncols = rc.ncols;
     p.regression.n_informative = rc.n_informative;
-    p.rf.tree_params.max_features = 1.f / std::sqrt(float(rc.ncols));
+    p.rf.tree_params.max_features = 1.f;
     for (auto max_depth : std::vector<int>({8, 10})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
