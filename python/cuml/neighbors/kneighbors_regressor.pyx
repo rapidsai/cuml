@@ -26,6 +26,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 import numpy as np
 
+import cudf
 
 
 from cuml.common.handle cimport cumlHandle
@@ -79,7 +80,7 @@ class KNeighborsRegressor(NearestNeighbors):
 
     def fit(self, X, y, convert_dtype=True):
         """
-        Fit a k-nearest neighbors classifier model.
+        Fit a k-nearest neighbors regressor model.
         :param X:
         :param y:
         :param convert_dtype:
@@ -87,16 +88,16 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         super(NearestNeighbors, self).fit(X, convert_dtype)
         self.y, _, _, _, _ = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
+            input_to_dev_array(y, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
                                                  if convert_dtype
                                                  else None))
 
-       self.handle.sync()
+        self.handle.sync()
 
     def predict(self, X, convert_dtype=True):
         """
-        Use the trained k-nearest neighbors classifier to
+        Use the trained k-nearest neighbors regressor to
         predict the labels for X
         :param X:
         :param convert_type:
@@ -130,7 +131,12 @@ class KNeighborsRegressor(NearestNeighbors):
         )
 
         self.handle.sync()
-        return results
+        if isinstance(X, np.array):
+            return np.array(results)
+        elif isinstance(X, cudf.DataFrame):
+            return cudf.DataFrame.from_gpu_matrix(results)
+        else:
+            return results
 
 
     def score(self, X, y, sample_weight=None, convert_dtype=True):
