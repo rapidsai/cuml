@@ -24,6 +24,8 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
+from cuml.metrics import r2_score
+
 import numpy as np
 
 import cudf
@@ -138,7 +140,6 @@ class KNeighborsRegressor(NearestNeighbors):
         else:
             return results
 
-
     def score(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Compute the R^2 score using the given labels and
@@ -149,6 +150,5 @@ class KNeighborsRegressor(NearestNeighbors):
         :param sample_weight:
         :return:
         """
-
-        labels = self.predict(X, y, convert_dtype)
-        # Compute the coefficient of determination
+        y_hat = self.predict(X, convert_dtype)
+        return r2_score(y, y_hat, convert_dtype)

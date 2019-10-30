@@ -26,6 +26,8 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 import numpy as np
 
+from cuml.metrics import accuracy_score
+
 import cudf
 
 from cuml.common.handle cimport cumlHandle
@@ -199,7 +201,7 @@ class KNeighborsClassifier(NearestNeighbors):
         else:
             return classes
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Compute the accuracy score using the given labels and
         the trained k-nearest neighbors classifier to predict
@@ -209,4 +211,5 @@ class KNeighborsClassifier(NearestNeighbors):
         :param sample_weight:
         :return:
         """
-        pass
+        y_hat = self.predict(X, convert_dtype)
+        return accuracy_score(y, y_hat)
