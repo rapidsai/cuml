@@ -26,6 +26,8 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 import numpy as np
 
+import cudf
+
 from cuml.common.handle cimport cumlHandle
 
 
@@ -96,7 +98,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         super(NearestNeighbors, self).fit(X, convert_dtype)
         self.y, _, _, _, _ = \
-            input_to_dev_array(X, order='C', check_dtype=np.int32,
+            input_to_dev_array(y, order='C', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
                                                  if convert_dtype
                                                  else None))
@@ -142,7 +144,12 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        return classes
+        if isinstance(X, np.array):
+            return np.array(classes)
+        elif isinstance(X, cudf.DataFrame):
+            return cudf.DataFrame.from_gpu_matrix(X)
+        else:
+            return classes
 
     def predict_proba(self, X, convert_dtype=True):
         """
@@ -184,7 +191,13 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        return classes
+
+        if isinstance(X, np.array):
+            return np.array(classes)
+        elif isinstance(X, cudf.DataFrame):
+            return cudf.DataFrame.from_gpu_matrix(classes)
+        else:
+            return classes
 
     def score(self, X, y, sample_weight=None):
         """
