@@ -22,10 +22,8 @@
 from cuml.solvers import QN
 from cuml.common.base import Base
 
-import numpy as np
-import warnings
-
 from cuml.utils import input_to_dev_array
+from cuml.utils.cupy_utils import checked_cupy_unique
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
 
@@ -207,14 +205,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        try:
-            import cupy as cp
-            unique_labels = cp.unique(y_m)
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            unique_labels = np.unique(y_m.copy_to_host())
-
+        unique_labels = checked_cupy_unique(y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:

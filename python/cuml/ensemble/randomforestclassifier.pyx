@@ -38,6 +38,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
+
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -61,6 +63,7 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         int n_bins
         int split_algo
         int min_rows_per_node
+        float min_impurity_decrease
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
@@ -175,6 +178,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int,
                                     int,
                                     int,
+                                    float,
                                     bool,
                                     bool,
                                     int,
@@ -278,6 +282,9 @@ class RandomForestClassifier(Base):
                         to split a node.
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
+    min_impurity_decrease : float (default = 0.0)
+                            Minimum decrease in impurity requried for
+                            node to be spilt.
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
@@ -287,6 +294,7 @@ class RandomForestClassifier(Base):
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
+                 'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
@@ -299,7 +307,7 @@ class RandomForestClassifier(Base):
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
-                 max_leaf_nodes=None, min_impurity_decrease=None,
+                 max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
                  seed=-1):
@@ -308,7 +316,6 @@ class RandomForestClassifier(Base):
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_decrease": min_impurity_decrease,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
                           "random_state": random_state,
@@ -342,6 +349,7 @@ class RandomForestClassifier(Base):
             self.split_criterion = criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
+        self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
         self.max_leaves = max_leaves
@@ -462,18 +470,9 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        try:
-            import cupy as cp
-            unique_labels = cp.unique(y_m)
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            if isinstance(y, np.ndarray):
-                unique_labels = np.unique(y)
-            else:
-                unique_labels = np.unique(y_m.copy_to_host())
-
+        unique_labels = checked_cupy_unique(y_m)
         num_unique_labels = len(unique_labels)
+
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
@@ -495,6 +494,7 @@ class RandomForestClassifier(Base):
                                      <int> self.n_bins,
                                      <int> self.split_algo,
                                      <int> self.min_rows_per_node,
+                                     <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
