@@ -192,14 +192,14 @@ class PCA(object):
         return m.fit(dfs, M, N, partsToRanks, rank, transform)
 
     @staticmethod
-    def _func_transform(f, M, N, partsToRanks, rank):
+    def _func_transform(f, df, M, N, partsToRanks, rank):
         m, dfs = f
-        return m.transform(dfs, M, N, partsToRanks, rank)
+        return m.transform(df, M, N, partsToRanks, rank)
 
     @staticmethod
-    def _func_inverse_transform(f, M, N, partsToRanks, rank):        
+    def _func_inverse_transform(f, df, M, N, partsToRanks, rank):        
         m, dfs = f
-        return m.inverse_transform(dfs, M, N, partsToRanks, rank)
+        return m.inverse_transform(df, M, N, partsToRanks, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -334,6 +334,7 @@ class PCA(object):
         pca_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
             PCA._func_transform,
             wf[1],
+            worker_to_parts[wf[0]],
             M, N,
             partsToRanks,
             worker_info[wf[0]]["r"],
@@ -391,6 +392,7 @@ class PCA(object):
         pca_inverse_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
             PCA._func_inverse_transform,
             wf[1],
+            worker_to_parts[wf[0]],
             M, N,
             partsToRanks,
             worker_info[wf[0]]["r"],

@@ -231,6 +231,7 @@ class PCAMG(PCA):
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
        
+        self.n_cols = N
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = M
@@ -370,6 +371,10 @@ class PCAMG(PCA):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
+
+        if N != self.n_cols:
+            raise Exception("Number of columns of the X has to match with "
+                            "number of columns of the data was fit to model.")
        
         arr_interfaces = []
         for arr in X:
@@ -382,7 +387,7 @@ class PCAMG(PCA):
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = M
-        params.n_cols = N
+        params.n_cols = self.n_cols
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
@@ -488,19 +493,23 @@ class PCAMG(PCA):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
-       
-        arr_interfaces = []
+
+        if N != self.n_components:
+            raise Exception("Number of columns of the X has to match with "
+                            "number of principal components.")
+    
+        arr_inter_tran = []
         for arr in X:
             X_m, input_ptr, n_rows, n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m,
+            arr_inter_tran.append({"obj": X_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, n_cols)})
        
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = M
-        params.n_cols = N
+        params.n_cols = self.n_cols
         params.whiten = self.whiten
         params.n_iterations = self.iterated_power
         params.tol = self.tol
@@ -539,34 +548,34 @@ class PCAMG(PCA):
 
         cdef uintptr_t data
         cdef uintptr_t trans_data
-        arr_interfaces_trans = []
+        arr_interfaces = []
                     
         if self.dtype == np.float32:
+            trans_data = self._build_dataFloat(arr_inter_tran)
+            arr_interfaces = self._build_transData(partsToRanks, rnk, self.n_cols, np.float32)
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_cols, np.float32)
-            trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             inverse_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
-                <floatData_t**> data,               
+                <floatData_t**> trans_data,               
                 <float*> comp_ptr,
-                <floatData_t**> trans_data,
+                <floatData_t**> data,
                 <float*> singular_vals_ptr,
                 <float*> mean_ptr,
                 params,
                 True)
         else:
+            trans_data = self._build_dataDouble(arr_inter_tran)
+            arr_interfaces = self._build_transData(partsToRanks, rnk, self.n_cols, np.float64)
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, self.n_cols, np.float64)
-            trans_data = self._build_dataDouble(arr_interfaces_trans)
             
             inverse_transform(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
-                <doubleData_t**> data,               
+                <doubleData_t**> trans_data,               
                 <double*> comp_ptr,
-                <doubleData_t**> trans_data,
+                <doubleData_t**> data,
                 <double*> singular_vals_ptr,
                 <double*> mean_ptr,
                 params,
@@ -583,14 +592,14 @@ class PCAMG(PCA):
         
         trans_cudf = []         
  
-        for x_i in arr_interfaces_trans:
+        for x_i in arr_interfaces:
             trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
 
         if self.dtype == np.float32:
-            self._freeFloatD(trans_data, arr_interfaces_trans)    
-            self._freeFloatD(data, arr_interfaces)        
+            self._freeFloatD(trans_data, arr_interfaces)    
+            self._freeFloatD(data, arr_inter_tran)        
         else:
-            self._freeDoubleD(trans_data, arr_interfaces_trans)
-            self._freeDoubleD(data, arr_interfaces)
+            self._freeDoubleD(trans_data, arr_interfaces)
+            self._freeDoubleD(data, arr_inter_tran)
 
         return trans_cudf
