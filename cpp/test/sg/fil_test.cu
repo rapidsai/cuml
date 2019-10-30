@@ -17,6 +17,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
 #include <cmath>

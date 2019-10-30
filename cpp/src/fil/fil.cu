@@ -19,6 +19,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
