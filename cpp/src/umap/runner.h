@@ -244,6 +244,8 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
                 T *transformed) {
   cudaStream_t stream = handle.getStream();
 
+  std::cout << "Transform" << std::endl;
+
   /**
    * Perform kNN of X
    */

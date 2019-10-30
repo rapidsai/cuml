@@ -300,6 +300,7 @@ class UMAP(Base):
 
         state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
         state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
         state["n_epochs"] = umap_params.n_epochs
@@ -334,7 +335,6 @@ class UMAP(Base):
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
-        self.X_m = None
         umap_params.n_neighbors = state["n_neighbors"]
         umap_params.n_components = state["n_components"]
         umap_params.n_epochs = state["n_epochs"]
@@ -356,6 +356,7 @@ class UMAP(Base):
         state["umap_params"] = <size_t>umap_params
 
         self.__dict__.update(state)
+
 
     def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
@@ -393,13 +394,12 @@ class UMAP(Base):
             <UMAPParams*> < size_t > self.umap_params
         umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
         self.n_dims = n_cols
-        self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
         self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
                                               umap_params.n_components),
                                              order="C", dtype=np.float32))
-        self.embeddings = \
+        embeddings = \
             self.arr_embed.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
@@ -408,7 +408,7 @@ class UMAP(Base):
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
 
-        cdef uintptr_t embed_raw = self.embeddings
+        cdef uintptr_t embed_raw = embeddings
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
@@ -516,9 +516,9 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> < size_t > self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.raw_data
+        cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
 
-        cdef uintptr_t embed_ptr = self.embeddings
+        cdef uintptr_t embed_ptr = self.arr_embed.device_ctypes_pointer.value
 
         transform(handle_[0],
                   < float*>x_ptr,
@@ -530,6 +530,8 @@ class UMAP(Base):
                   < int > self.arr_embed.shape[0],
                   < UMAPParams*> umap_params,
                   < float*> xformed_ptr)
+
+
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
