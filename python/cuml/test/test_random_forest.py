@@ -188,8 +188,8 @@ def test_rf_classification_default(datatype, column_info, nrows):
     # github issue 1306: had to increase margin to avoid random CI fails
     # assert cu_acc >= (sk_acc - 0.07)
     try:
-        assert fil_acc >= (cu_acc - 0.2)
-        assert fil_acc >= (sk_acc - 0.7)
+        assert fil_acc >= (cu_acc - 0.02)
+        assert fil_acc >= (sk_acc - 0.07)
     except AssertionError:
         pytest.xfail("Failed due to the results changing as the seeds is, "
                      " not set")
