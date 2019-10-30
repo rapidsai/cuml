@@ -7,6 +7,7 @@
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
+- PR #1239: Updated the treelite version
 - PR #1225: setup.py clone dependencies like cmake and correct include paths
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
