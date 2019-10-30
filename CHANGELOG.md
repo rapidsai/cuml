@@ -4,9 +4,11 @@
 - PR #1129: C++: Separate include folder for C++ API distribution
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
+- PR #1301: Add make_regression to generate regression datasets
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
+- PR #1239: Updated the treelite version
 - PR #1225: setup.py clone dependencies like cmake and correct include paths
 - PR #1224: Refactored FIL to prepare for sparse trees
 - PR #1249: Include libcuml.so C API in installed targets
@@ -15,12 +17,14 @@
 - PR #1264: Add -s flag to GPU CI pytest for better error printing
 - PR #1271: Updated the Ridge regression documentation
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
+- PR #1300: Lowercase parameter versions for FIL algorithms
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
+- PR #1302: Updates for numba 0.46
 
 # cuML 0.10.0 (16 Oct 2019)
 
