@@ -26,6 +26,12 @@
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
+#include <thrust/device_vector.h>
+#include <thrust/iterator/transform_iterator.h>
+
+#include <cuml/common/cuml_allocator.hpp>
+#include "common/device_buffer.hpp"
+
 #include <iostream>
 
 namespace MLCommon {
@@ -217,6 +223,128 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   if (translations == nullptr) delete id_ranges;
 };
+
+template <typename OutType>
+__global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
+                                   const int *labels, size_t n_samples,
+                                   int n_neighbors, int n_classes) {
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int i = row * n_neighbors;
+
+  if (row >= n_samples) return;
+
+  // should work for moderately small number of classes
+  for (int j = 0; j < n_neighbors; j++) {
+    int64_t neighbor_idx = knn_indices[i + j];
+    int out_label = labels[neighbor_idx];
+    out[i + out_label] += 1.0;
+  }
+}
+
+template <typename OutType, typename ProbaType>
+__global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
+                                  size_t n_samples, int n_classes) {
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int i = row * n_classes;
+
+  if (row >= n_samples) return;
+
+  int cur_max = -1;
+  int cur_label = -1;
+  for (int j = 0; j < n_classes; j++) {
+    int cur_count = class_proba[i + j];
+    if (cur_count > cur_max) {
+      cur_max = cur_count;
+      cur_label = j;
+    }
+  }
+
+  out[row] = cur_label;
+}
+
+template <typename LabelType>
+__global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
+                                   const LabelType *labels, size_t n_samples,
+                                   int n_neighbors) {
+  int row = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int i = row * n_neighbors;
+
+  if (row >= n_samples) return;
+
+  // should work for moderately small number of classes
+
+  LabelType pred = 0;
+  for (int j = 0; j < n_neighbors; j++) {
+    int64_t neighbor_idx = knn_indices[i + j];
+    pred += labels[neighbor_idx];
+  }
+
+  out[row] = pred / n_neighbors;
+}
+
+/**
+ * A naive knn classifier to predict probabilities
+ *
+ * @param out output array of size (n_samples * n_classes)
+ */
+template <int TPB_X = 32>
+void class_probs(float *out, const int64_t *knn_indices, const int *y,
+                 size_t n_rows, int k, int n_unique_classes,
+                 cudaStream_t stream) {
+  CUDA_CHECK(cudaMemsetAsync(out, 0, n_rows * n_unique_classes, stream));
+
+  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  /**
+   * Build array class probability arrays from
+   * knn_indices and labels
+   */
+  class_probs_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y, n_rows, k,
+                                               n_unique_classes);
+
+  /**
+   * Normalize numbers between 0 and 1
+   */
+  LinAlg::unaryOp<float>(
+    out, out, n_rows * n_unique_classes,
+    [=] __device__(int64_t input) { return input / k; }, stream);
+}
+
+template <int TPB_X = 32>
+void knn_classify(int *out, const int64_t *knn_indices, const int *y,
+                  size_t n_rows, int k, int n_unique_classes,
+                  std::shared_ptr<deviceAllocator> &allocator,
+                  cudaStream_t stream) {
+  device_buffer<float> probs(allocator, stream, n_rows * n_unique_classes);
+
+  /**
+   * Compute class probabilities
+   */
+  class_probs(probs.data(), knn_indices, y, n_rows, k, n_unique_classes,
+              stream);
+
+  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  /**
+   * Choose max probability
+   */
+  class_vote_kernel<<<grid, blk, 0, stream>>>(out, probs.data(), n_rows,
+                                              n_unique_classes);
+}
+
+template <typename ValType, int TPB_X = 32>
+void knn_regress(ValType *out, const int64_t *knn_indices, const ValType *y,
+                 size_t n_rows, int k, cudaStream_t stream) {
+  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  /**
+   * Vote average regression value
+   */
+  regress_avg_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y, n_rows, k);
+}
 
 };  // namespace Selection
 };  // namespace MLCommon

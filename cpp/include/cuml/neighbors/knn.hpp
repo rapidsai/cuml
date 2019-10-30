@@ -47,8 +47,42 @@ namespace ML {
 void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
-                     bool rowMajorIndex = false,
-                     bool rowMajorQuery = false);
+                     bool rowMajorIndex = false, bool rowMajorQuery = false);
+
+/**
+ * @brief Flat C++ API function to perform a knn classification using a
+ * given array of labels.
+ *
+ * @param handle the cuml handle to use
+ * @param out output array on device (size n_samples)
+ * @param knn_indices array on device of knn indices (size n_samples * k)
+ * @param y array of labels on device (size n_samples)
+ * @param n_samples number of samples in knn_indices and out
+ * @param k number of nearest neighbors in knn_indices
+ */
+void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int *y,
+                  int n_samples, int k, int n_unique_classes);
+
+/**
+ * @brief Flat C++ API function to perform a knn regression using
+ * a given array of labels
+ *
+ * @param handle the cuml handle to use
+ * @param out output array on device (size n_samples)
+ * @param knn_indices array on device of knn indices (size n_samples * k)
+ * @param y array of labels on device (size n_samples)
+ * @param n_samples number of samples in knn_indices and out
+ * @param k number of nearest neighbors in knn_indices
+ */
+void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
+                 int n_samples, int k);
+
+/**
+ * @brief Flat C++ API function to compute knn class probabilities
+ * using a given array of discrete class labels
+ */
+void knn_class_proba(cumlHandle &handle, float *out, int64_t *knn_indices,
+                     int *y, int n_samples, int k, int n_unique_classes);
 
 class kNN {
   float **ptrs;
