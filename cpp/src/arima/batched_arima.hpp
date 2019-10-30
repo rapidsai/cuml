@@ -91,7 +91,8 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
  * TODO: take mu, AR, MA as params. Host or device?
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  */
-void estimate_x0(cumlHandle& handle, const double* d_y, int num_batches, int nobs, int p, int d,
+void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
+                 const double* d_y, int num_batches, int nobs, int p, int d,
                  int q);
 
 }  // namespace ML
