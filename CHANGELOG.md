@@ -5,6 +5,7 @@
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1307: Add RF regression benchmark
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
