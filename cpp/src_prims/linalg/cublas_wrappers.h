@@ -280,6 +280,45 @@ inline cublasStatus_t cublasgetriBatched(
 /** @} */
 
 /**
+ * @defgroup gelsbatched cublas gelsbatched calls
+ * @{
+ */
+
+template <typename T>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, T *Aarray[], int lda,
+                                        T *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream = 0);
+
+template <>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, float *Aarray[], int lda,
+                                        float *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc,
+                            info, devInfoArray, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, double *Aarray[], int lda,
+                                        double *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc,
+                            info, devInfoArray, batchSize);
+}
+
+/** @} */
+
+/**
  * @defgroup geam cublas geam calls
  * @{
  */

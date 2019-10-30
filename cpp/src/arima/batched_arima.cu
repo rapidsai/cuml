@@ -21,6 +21,7 @@
 #include "batched_arima.hpp"
 #include "batched_kalman.hpp"
 #include "cuda_utils.h"
+#include "utils.h"
 
 #include <common/nvtx.hpp>
 
@@ -34,7 +35,9 @@
 
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/lstsq.h>
+#include <linalg/matrix_vector_op.h>
+#include <stats/mean.h>
+#include <matrix/batched_matrix.hpp>
 
 namespace ML {
 
@@ -262,14 +265,31 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
  * TODO: quick doc (internal auxiliary function)
  * Note: the block id is the batch id and the thread id is the starting index
  */
+static __global__ void batched_offset_copy_kernel(double* out, double* in,
+                                                  int offset, int ld, int len) {
+  const double* batch_in = in + blockIdx.x * ld + offset;
+  double* batch_out = out + blockIdx.x * len;
+
+  for (int i = threadIdx.x; i < len; i += blockDim.x) {
+    batch_out[i] = batch_in[i];
+  }
+}
+
+/*
+ * TODO: quick doc (internal auxiliary function)
+ * Note: the block id is the batch id and the thread id is the starting index
+ */
 static __global__ void _batched_ls_set_kernel(double* lagged_series,
                                               const double* data, int ls_width,
-                                              int ls_height, int nobs) {
-  const double* batch_in = data + blockIdx.x * nobs;
-  double* batch_out = lagged_series + blockIdx.x * ls_height * ls_width;
+                                              int ls_height, int offset, int ld,
+                                              int ls_batch_offset,
+                                              int ls_batch_stride) {
+  const double* batch_in = data + blockIdx.x * ld + offset;
+  double* batch_out =
+    lagged_series + blockIdx.x * ls_batch_offset + ls_batch_stride;
 
   for (int lag = 1; lag <= ls_width; lag++) {
-    for (int i = threadIdx.x; i < ls_height; i++) {
+    for (int i = threadIdx.x; i < ls_height; i += blockDim.x) {
       batch_out[lag * ls_height + i] = batch_in[i + ls_width - lag];
     }
   }
@@ -279,8 +299,8 @@ static __global__ void _batched_ls_set_kernel(double* lagged_series,
  * TODO: quick doc (internal auxiliary function)
  * Note: the block id is the batch id and the thread id is the starting index
  */
-static __global__void _batched_fill_kernel(double* out, const double* in,
-                                           int n_fill) {
+static __global__ void _batched_fill_kernel(double* out, const double* in,
+                                            int n_fill) {
   double* batch_out = out + blockIdx.x * n_fill;
   const double batch_in = in[blockIdx.x];
   for (int i = threadIdx.x; i < n_fill; i += blockDim.x) {
@@ -288,37 +308,26 @@ static __global__void _batched_fill_kernel(double* out, const double* in,
   }
 }
 
-/*
+/**
  * TODO: quick doc (internal auxiliary function)
  *
  * @note: d_yd is mutated!
- *
+ *        Also using gelsBatched requires p + q < nobs / 2...
+ *        -> if we want to support other cases, we need another batched solver
+ *        
  * A quick approach to determine reasonable starting mu, AR, and MA parameters
  */
-static void _start_params(double* d_x0, double* d_yd, int num_batches, int nobs,
-                          int p, int d, int q,
-                          cusolverDnHandle_t cusolver_handle,
+static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
+                          int num_batches, int nobs, int p, int d, int q,
                           cublasHandle_t cublas_handle,
                           std::shared_ptr<MLCommon::deviceAllocator> allocator,
                           cudaStream_t stream) {
-  int N = p + d + q;
-
   const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
-
-  // TODO: will be passed as arguments later I guess
-  double* mu;
-  double* ar;
-  double* ma;
-  d_mu = (double*)allocator->allocate(sizeof(double) * num_batches, stream);
-  d_ar = (double*)allocator->allocate(sizeof(double) * p * num_batches, stream);
-  d_ma = (double*)allocator->allocate(sizeof(double) * q * num_batches, stream);
 
   // Initialize params
   cudaMemsetAsync(d_mu, 0, sizeof(double) * num_batches, stream);
   cudaMemsetAsync(d_ar, 0, sizeof(double) * p * num_batches, stream);
   cudaMemsetAsync(d_ma, 0, sizeof(double) * q * num_batches, stream);
-  cudaMemsetAsync(d_x0, 0, sizeof(double) * N * num_batches,
-                  stream);  // TODO: remove
 
   if (d > 0) {
     // Compute means and write them in mu
@@ -327,110 +336,119 @@ static void _start_params(double* d_x0, double* d_yd, int num_batches, int nobs,
     // Center the series around their means in-place
     MLCommon::LinAlg::matrixVectorOp(
       d_y, d_y, d_mu, num_batches, nobs, false, true,
-      [] __device__(DataT a, DataT b) { return a - b; }, stream);
+      [] __device__(double a, double b) { return a - b; }, stream);
   }
 
   if (p == 0 && q == 0) {
     // do nothing (return later when no deallocation to be done at the end)
   } else if (p != 0) {
-    // TODO: statsmodels uses BIC to pick the "best" p for this initial fit.
+    ///@todo statsmodels uses BIC to pick the "best" p for this initial fit.
     // The "best" model is probably p = 1, so we will assume that for now.
     int p_best = 1;
 
     // Create lagged series set
     int ls_height = nobs - p_best;
-    int ls_size = ls_height * p_best;
-    double* d_ls = (double*)allocator->allocate(
-      sizeof(double) * ls_size * num_batches, stream);
-    _batched_ls_set_kernel<<<num_batches, TPB>>>(d_ls, d_y, p_best, nobs);
+    MLCommon::Matrix::BatchedMatrix bm_ls(
+      ls_height, p_best, num_batches, cublas_handle, allocator, stream, false);
+    _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
+      bm_ls.raw_data(), d_y, p_best, ls_height, 0, nobs, 0, p_best * ls_height);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    // Initial AR fit
-    // TODO: batched version if possible? -> otherwise bottleneck
-    double* d_ar_fit = (double*)allocator->allocate(
-      sizeof(double) * p_best * num_batches, stream);
-    for (int bi = 0; bi < num_batches; bi++) {
-      lstsqSVD(d_ls + bi * ls_size, ls_height, p_best, d_y + bi * nobs + p_best,
-               d_ar_fit + bi * p_best, cusolver_handle, cublas_handle,
-               allocator, stream);
+    // Initial AR fit (note: larger dimensions because gels works in-place)
+    MLCommon::Matrix::BatchedMatrix bm_ar_fit(
+      ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
+    batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+      bm_ar_fit.raw_data(), d_y, p_best, nobs, ls_height);
+
+    // Residual if q != 0, initialized as offset y to avoid one kernel call
+    MLCommon::Matrix::BatchedMatrix bm_residual(q != 0 ? ls_height : 1, 1,
+                                                num_batches, cublas_handle,
+                                                allocator, stream, false);
+    if (q != 0) {
+      MLCommon::copy(bm_residual.raw_data(), bm_ar_fit.raw_data(),
+                     ls_height * num_batches, stream);
     }
+
+    ///@todo check that p_best < n_obs / 2
+    // Note: this overwrites bm_ls
+    int ar_fit_info;
+    CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
+      cublas_handle, CUBLAS_OP_N, ls_height, p_best, 1, bm_ls.data(), ls_height,
+      bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr, num_batches));
+    ///@todo raise exception if info < 0? (need to sync stream)
 
     if (q == 0) {
       // Note: works only for p_best == 1 ; what to do here when p_best > 1?
       // Fill AR parameters with ar_fit
-      _batched_fill_kernel<<<num_batches, TPB, 0, stream>>>(d_ar, d_ar_fit, p);
+      // TODO: matrix-vector op?
+      _batched_fill_kernel<<<num_batches, TPB, 0, stream>>>(
+        d_ar, bm_ar_fit.raw_data(), p);
       CUDA_CHECK(cudaPeekAtLastError());
     } else {
-      // Calculate residual
-      double* d_residual = (double*)allocator->allocate(
-        sizeof(double) * ls_height * num_batches, stream);
-      // TODO: batch this (batched gemv prim is row-major...)
-      cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
+      // Compute residual (technically a gemv but we're missing a col-major
+      // batched gemv if I'm correct)
       double alpha = -1.0;
       double beta = 1.0;
-      for (int bi = 0; bi < num_batches; bi++) {
-        // We could avoid these copies with a custom batched kernel
-        copy(d_residual + bi * ls_height, d_y + bi * nobs + p_best, ls_height,
-             stream);
-        CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-          cublas_handle, CUBLAS_OP_N, ls_height, p_best, &alpha, d_ls,
-          ls_height, d_ar_fit + bi * p, 1, d_residual + bi * ls_height, 1,
-          stream));
-      }
+      CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmBatched(
+        cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, ls_height, 1, p_best, &alpha,
+        bm_ls.data(), ls_height, bm_ar_fit.data(), p_best, &beta,
+        bm_residual.data(), ls_height, num_batches, stream));
 
-      // TODO: useless? At the moment p == 1 and later we can fix p_best to
-      // the min of p and whetever value works for p_best
+      // TODO: useless? At the moment p_best == 1 and later we can fix p_best
+      // to the min of p and whetever value works for p_best
       if (p < p_best) {
         throw std::runtime_error("p must be greater than p_best");
       }
-
       int p_diff = p - p_best;
 
-      double* d_ls_res = (double*)allocator->allocate(
-        sizeof(double) * ls_size * num_batches, stream);
-
-      // Create lagged residual and AR term
-      int ls_res_height = ls_height - q - p_diff;
-      int ls_res_size = ls_res_height * q;
-      int ls_ar_height = ls_height - q - p_diff;
-      int ls_ar_size = ls_ar_height * p;
-      double* d_ls_res = (double*)allocator->allocate(
-        sizeof(double) * ls_res_size * num_batches, stream);
-      double* d_ls_ar = (double*)allocator->allocate(
-        sizeof(double) * ls_ar_size * num_batches, stream);
-      _batched_ls_set_kernel<<<num_batches, TPB>>>(d_ls_res, d_residual, q, ls_height);
+      // Create matrices made of the concatenation of lagged sets for ar terms
+      // and the residual respectively, side by side
+      int ls_ar_res_height = ls_height - q - p_diff;
+      int ls_res_size = ls_ar_res_height * q;
+      int ls_ar_size = ls_ar_res_height * p;
+      int ls_ar_res_size = ls_res_size + ls_ar_size;
+      MLCommon::Matrix::BatchedMatrix bm_ls_ar_res(ls_ar_res_height, p + q,
+                                                   num_batches, cublas_handle,
+                                                   allocator, stream, false);
+      _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
+        bm_ls_ar_res.raw_data(), bm_residual.raw_data(), q, ls_ar_res_height,
+        p_diff, ls_height, ls_ar_size, ls_ar_res_size);
       CUDA_CHECK(cudaPeekAtLastError());
-      _batched_ls_set_kernel<<<num_batches, TPB>>>(d_ls_ar, d_y, p, ls_height);
+      _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
+        bm_ls_ar_res.raw_data(), d_y, p, ls_ar_res_height, q, nobs, 0,
+        ls_ar_res_size);
       CUDA_CHECK(cudaPeekAtLastError());
 
-      //
-      // TODO: update ls_set_kernel to handle these cases
-      //
+      // ARMA fit (note: larger dimensions because gels works in-place)
+      MLCommon::Matrix::BatchedMatrix bm_arma_fit(ls_ar_res_height, 1,
+                                                  num_batches, cublas_handle,
+                                                  allocator, stream, false);
+      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+        bm_arma_fit.raw_data(), d_y, p_best + q + p_diff, nobs,
+        nobs - ls_ar_res_height);
 
-      // TODO: column stack
+      ///@todo check that p + q < n_obs / 2
+      // Note: this overwrites bm_ls
+      int arma_fit_info;
+      CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
+        cublas_handle, CUBLAS_OP_N, ls_ar_res_height, p + q, 1,
+        bm_ls_ar_res.data(), ls_ar_res_height, bm_arma_fit.data(),
+        ls_ar_res_height, &arma_fit_info, nullptr, num_batches));
+      ///@todo raise exception if info < 0? (need to sync stream)
 
-      // TODO: compute arma_fit
-
-      // TODO: write params
-
-      allocator->deallocate(d_residual,
-                            sizeof(double) * ls_height * num_batches, stream);
-      allocator->deallocate(d_ls_res, sizeof(double) * ls_res_size * num_batches,
-                            stream);
-      allocator->deallocate(d_ls_ar, sizeof(double) * ls_ar_size * num_batches,
-                            stream);
+      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+        d_ar, bm_arma_fit.raw_data(), 0, p + q, p);
+      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+        d_ma, bm_arma_fit.raw_data(), p, p + q, q);
     }
-
-    allocator->deallocate(d_ls, sizeof(double) * ls_size * num_batches, stream);
-    allocator->deallocate(d_ar_fit, sizeof(double) * p_best * num_batches,
-                          stream);
   } else {  // p == 0 && q > 0
-  }
+    ///@todo See how `statsmodels` handles this case
 
-  // TODO: when passed as params, remove deallocation
-  allocator->deallocate(mu, sizeof(double) * num_batches, stream);
-  allocator->deallocate(ar, sizeof(double) * num_batches * p, stream);
-  allocator->deallocate(ma, sizeof(double) * num_batches * q, stream);
+    // Set MA params to -1
+    thrust::device_ptr<double> __ma = thrust::device_pointer_cast(d_ma);
+    thrust::fill(thrust::cuda::par.on(stream), __ma, __ma + q * num_batches,
+                 -1.0);
+  }
 }
 
 /*
@@ -439,8 +457,7 @@ static void _start_params(double* d_x0, double* d_yd, int num_batches, int nobs,
  * @note: The thread id is the starting position and the block id is the
  *        batch id.
  */
-template <DataT>
-static __global__ void _batched_diff_kernel(const DataT* in, DataT* out,
+static __global__ void _batched_diff_kernel(const double* in, double* out,
                                             int n_elem) {
   const double* batch_in = in + n_elem * blockIdx.x;
   double* batch_out = out + (n_elem - 1) * blockIdx.x;
@@ -450,20 +467,23 @@ static __global__ void _batched_diff_kernel(const DataT* in, DataT* out,
   }
 }
 
-void estimate_x0(cumlHandle& handle, const double* d_y, int num_batches,
-                 int nobs, int p, int d, int q) {
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
-  auto cublas_handle = handle.getCublasHandle();
-  auto cusolver_handle = handle.getcusolverDnHandle();
-
-  int N = p + d + q;
-  double* d_x0 =
-    (double*)allocator->allocate(sizeof(double) * N * num_batches, stream);
+/**
+ * @todo: docs
+ *
+ * @note: if p == 0, we should expect d_ar to be nullptr, and if q == 0 d_ma
+ *        to be nullptr (though we don't need to verify it)
+ */
+void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
+                 const double* d_y, int num_batches, int nobs, int p, int d,
+                 int q) {
+  const auto& handle_impl = handle.getImpl();
+  cudaStream_t stream = handle_impl.getStream();
+  cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+  auto allocator = handle_impl.getDeviceAllocator();
 
   /* Based on d, differenciate the series or simply copy it
    * Note: the copy is needed because _start_params writes in it */
-  const double* d_yd;
+  double* d_yd;
   int actual_nobs = nobs - d;
   d_yd = (double*)allocator->allocate(
     sizeof(double) * actual_nobs * num_batches, stream);
@@ -477,13 +497,9 @@ void estimate_x0(cumlHandle& handle, const double* d_y, int num_batches,
   }
 
   // Do the computation of the initial parameters
-  _start_params(d_x0, d_yd, num_batches, actual_nobs, p, d, q, cusolver_handle,
+  _start_params(d_mu, d_ar, d_ma, d_yd, num_batches, actual_nobs, p, d, q,
                 cublas_handle, allocator, stream);
 
-  // Unpack
-  // TODO
-
-  allocator->deallocate(d_x0, sizeof(double) * N * num_batches, stream);
   allocator->deallocate(d_yd, sizeof(double) * actual_nobs * num_batches,
                         stream);
 }
