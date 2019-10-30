@@ -21,6 +21,13 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros, row_matrix
+
+import numpy as np
+
+
+
 from cuml.common.handle cimport cumlHandle
 
 
@@ -79,9 +86,13 @@ class KNeighborsRegressor(NearestNeighbors):
         :return:
         """
         super(NearestNeighbors, self).fit(X, convert_dtype)
-        self.y = y
+        self.y, _, _, _, _ = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
 
-        self.handle.sync()
+       self.handle.sync()
 
     def predict(self, X, convert_dtype=True):
         """
@@ -91,13 +102,35 @@ class KNeighborsRegressor(NearestNeighbors):
         :param convert_type:
         :return:
         """
-
         knn_indices = self.kneighbors(X, convert_dtype)
 
+        cdef uintptr_t inds_ctype
 
+        inds, inds_ctype, n_rows, n_cols, dtype = \
+            input_to_dev_array(knn_indices, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
+
+        results = rmm.to_device(zeros(n_rows, dtype=np.float32,
+                                      order="C"))
+
+        cdef uintptr_t results_ptr = get_dev_array_ptr(results)
+        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        knn_regress(
+            handle_[0],
+            <float*>results_ptr,
+            <int64_t*>inds_ctype,
+            <float*> y_ptr,
+            <size_t>X.shape[0],
+            <int>self.n_neighbors,
+        )
 
         self.handle.sync()
-        pass
+        return results
 
 
     def score(self, X, y, sample_weight=None, convert_dtype=True):
