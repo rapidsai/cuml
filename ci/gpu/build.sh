@@ -43,7 +43,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
-      "cupy>=6.5" \
+      "cupy>=6.5,<7.0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
