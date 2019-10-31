@@ -1,0 +1,19 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b07f9c6..108603a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -22,12 +22,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ 
+ # Protobuf
+ if (ENABLE_PROTOBUF)
+-  set(protobuf_BUILD_TESTS OFF CACHE BOOL "enable tests for protobuf" FORCE)
+-  set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "enable shared libs for protobuf" FORCE)
+-  add_subdirectory(3rdparty/protobuf/cmake)
+-  set(PROTOBUF_PROTOC_EXECUTABLE protoc)
+-  set(PROTOBUF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src")
+-  set(PROTOBUF_LIBRARIES libprotobuf)
++  set(Protobuf_USE_STATIC_LIBS ON)
++  find_package(Protobuf REQUIRED)
+   add_definitions(-DTREELITE_PROTOBUF_SUPPORT)
+ else()
+   set(PROTOBUF_LIBRARIES "")
