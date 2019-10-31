@@ -201,6 +201,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
+@pytest.mark.xfail(raises=AssertionError)
 def test_rf_regression_default(datatype, column_info, nrows):
 
     ncols, n_info = column_info
@@ -230,12 +231,8 @@ def test_rf_regression_default(datatype, column_info, nrows):
     sk_predict = sk_model.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
     print(fil_r2, cu_r2, sk_r2)
-    try:
-        assert fil_r2 >= (cu_r2 - 0.02)
-        assert fil_r2 >= (sk_r2 - 0.07)
-    except AssertionError:
-        pytest.xfail("failed due to AssertionError error, "
-                     "fix will be merged soon")
+    assert fil_r2 >= (cu_r2 - 0.02)
+    assert fil_r2 >= (sk_r2 - 0.07)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -244,6 +241,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
+@pytest.mark.xfail(raises=AssertionError)
 def test_rf_regression_seed(datatype, column_info, nrows):
 
     ncols, n_info = column_info
@@ -281,15 +279,11 @@ def test_rf_regression_seed(datatype, column_info, nrows):
         cu_r2_rerun = r2_score(y_test, cu_preds_rerun, convert_dtype=datatype)
         fil_r2_rerun = r2_score(y_test, fil_preds_rerun,
                                 convert_dtype=datatype)
-        try:
-            assert array_equal(fil_r2_orig, fil_r2_rerun, tol=1e-3)
-            assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
-            assert array_equal(cu_r2_orig, cu_r2_rerun, tol=1e-3)
-            assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
 
-        except AssertionError:
-            pytest.xfail("failed due to AssertionError error as setting the"
-                         " seed in not creating reproducible results")
+        assert array_equal(fil_r2_orig, fil_r2_rerun, tol=1e-3)
+        assert array_equal(fil_preds_orig, fil_preds_rerun, tol=1e-3)
+        assert array_equal(cu_r2_orig, cu_r2_rerun, tol=1e-3)
+        assert array_equal(cu_preds_orig, cu_preds_rerun, tol=1e-3)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])

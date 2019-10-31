@@ -353,10 +353,7 @@ class RandomForestRegressor(Base):
         self.seed = seed
 
         if ((seed != -1) and (n_streams != 1)):
-            warnings.warn("n_stream should be equal to 1 while setting the "
-                          "seed. If n_streams!=1 then setting the seed will"
-                          "not help in making the result reproducible over"
-                          " multiple runs")
+            warnings.warn("Random seed only works with n_streams=1.")
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
