@@ -28,9 +28,9 @@ class Lasso:
     Lasso extends LinearRegression by providing L1 regularization on the
     coefficients when predicting response y with a linear combination of the
     predictors in X. It can zero some of the coefficients for feature
-    selection, and improves the conditioning of the problem.
+    selection and improves the conditioning of the problem.
 
-    cuML's Lasso an array-like object or cuDF DataFrame, and
+    cuML's Lasso an array-like object or cuDF DataFrame and
     uses coordinate descent to fit a linear model.
 
     Examples
