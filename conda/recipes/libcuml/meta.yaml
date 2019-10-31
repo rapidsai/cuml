@@ -36,6 +36,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - libcumlprims {{ minor_version }}
     - lapack
+    - protobuf >=3.4.1,<4.0.0
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
