@@ -82,13 +82,17 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
 class KNeighborsClassifier(NearestNeighbors):
 
-    def __init__(self, **kwargs):
+    def __init__(self, weights="uniform", **kwargs):
         """
 
         :param kwargs:
         """
         super(KNeighborsClassifier, self).__init__(**kwargs)
         self.y = None
+        self.weights = weights
+
+        if weights != "uniform":
+            raise ValueError("Only uniform weighting strategy is supported currently.")
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -98,14 +102,14 @@ class KNeighborsClassifier(NearestNeighbors):
         :param convert_dtype:
         :return:
         """
-        super(NearestNeighbors, self).fit(X, convert_dtype)
+        super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _, _ = \
             input_to_dev_array(y, order='C', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
                                                  if convert_dtype
                                                  else None))
 
-        self.n_unique_classes = self.y.unique()
+        self.n_unique_classes = len(np.unique(np.asarray(y)))
         self.handle.sync()
 
     def predict(self, X, convert_dtype=True):
@@ -117,13 +121,13 @@ class KNeighborsClassifier(NearestNeighbors):
         :return:
         """
 
-        knn_indices = self.kneighbors(X, convert_dtype)
+        knn_indices = self.kneighbors(X, return_distance=False,
+                                      convert_dtype=convert_dtype)
 
         cdef uintptr_t inds_ctype
-
-        inds, inds_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(knn_indices, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
+        inds, inds_ctype, n_rows, _, _ = \
+            input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
+                               convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
 
@@ -146,7 +150,7 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        if isinstance(X, np.array):
+        if isinstance(X, np.ndarray):
             return np.array(classes)
         elif isinstance(X, cudf.DataFrame):
             return cudf.DataFrame.from_gpu_matrix(X)
@@ -211,5 +215,5 @@ class KNeighborsClassifier(NearestNeighbors):
         :param sample_weight:
         :return:
         """
-        y_hat = self.predict(X, convert_dtype)
+        y_hat = self.predict(X, convert_dtype=convert_dtype)
         return accuracy_score(y, y_hat)

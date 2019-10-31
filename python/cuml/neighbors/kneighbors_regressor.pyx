@@ -72,13 +72,16 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
 class KNeighborsRegressor(NearestNeighbors):
 
-    def __init__(self, **kwargs):
+    def __init__(self, weights="uniform", **kwargs):
         """
 
         :param kwargs:
         """
         super(KNeighborsRegressor, self).__init__(**kwargs)
         self.y = None
+        self.weights = weights
+        if weights != "uniform":
+            raise ValueError("Only uniform weighting strategy is supported currently.")
 
     def fit(self, X, y, convert_dtype=True):
         """
