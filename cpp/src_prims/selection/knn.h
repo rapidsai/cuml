@@ -237,7 +237,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
     int out_label = labels[neighbor_idx];
-    out[i + out_label] += 1.0;
+    out[(row * n_classes) + out_label] += 1.0;
   }
 }
 

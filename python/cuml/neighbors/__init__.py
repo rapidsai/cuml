@@ -15,3 +15,5 @@
 #
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
+from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor

@@ -284,11 +284,14 @@ class NearestNeighbors(Base):
         """
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
-        X = self.X if X is None else X
+        X = self.X_m if X is None else X
 
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
+
+        if n_neighbors > self.X_m.shape[0]:
+            raise ValueError("n_neighbors must be <= number of samples in index")
 
         if X is None:
             raise ValueError("Model needs to be trained "
