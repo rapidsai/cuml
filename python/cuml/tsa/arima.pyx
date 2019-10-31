@@ -854,6 +854,7 @@ def _start_params(order, y_diff):
                 x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
 
             X = np.column_stack((x_ar2, x_resid))
+            print(y_ar[(q+p_diff):].T)
             (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
                                                   rcond=None)
 
