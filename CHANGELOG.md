@@ -18,6 +18,7 @@
 - PR #1271: Updated the Ridge regression documentation
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 - PR #1300: Lowercase parameter versions for FIL algorithms
+- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
