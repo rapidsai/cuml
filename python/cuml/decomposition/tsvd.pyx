@@ -204,7 +204,7 @@ class TruncatedSVD(Base):
     TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number
     of components you want is much smaller than the number of features. The
     approximation to the largest singular values and vectors is very robust,
-    however, this method loses a lot of accuracy when you want many many
+    however, this method loses a lot of accuracy when you want many, many
     components.
 
     **Applications of TruncatedSVD**
