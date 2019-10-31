@@ -284,11 +284,11 @@ static __global__ void _batched_ls_set_kernel(double* lagged_series,
                                               int ls_height, int offset, int ld,
                                               int ls_batch_offset,
                                               int ls_batch_stride) {
-  const double* batch_in = data + blockIdx.x * ld + offset;
+  const double* batch_in = data + blockIdx.x * ld + offset - 1;
   double* batch_out =
-    lagged_series + blockIdx.x * ls_batch_offset + ls_batch_stride;
+    lagged_series + blockIdx.x * ls_batch_stride + ls_batch_offset;
 
-  for (int lag = 1; lag <= ls_width; lag++) {
+  for (int lag = 0; lag < ls_width; lag++) {
     for (int i = threadIdx.x; i < ls_height; i += blockDim.x) {
       batch_out[lag * ls_height + i] = batch_in[i + ls_width - lag];
     }
@@ -300,9 +300,9 @@ static __global__ void _batched_ls_set_kernel(double* lagged_series,
  * Note: the block id is the batch id and the thread id is the starting index
  */
 static __global__ void _batched_fill_kernel(double* out, const double* in,
-                                            int n_fill) {
+                                            int n_fill, int stride) {
   double* batch_out = out + blockIdx.x * n_fill;
-  const double batch_in = in[blockIdx.x];
+  const double batch_in = in[blockIdx.x * stride];
   for (int i = threadIdx.x; i < n_fill; i += blockDim.x) {
     batch_out[i] = batch_in;
   }
@@ -369,12 +369,19 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
                      ls_height * num_batches, stream);
     }
 
+    // Make a copy of the lagged set because gels modifies it in-place
+    MLCommon::Matrix::BatchedMatrix<double> bm_ls_copy(
+      ls_height, p_best, num_batches, cublas_handle, allocator, stream, false);
+    MLCommon::copy(bm_ls_copy.raw_data(), bm_ls.raw_data(),
+                   ls_height * p_best * num_batches, stream);
+
     ///@todo check that p_best < n_obs / 2
     // Note: this overwrites bm_ls
     int ar_fit_info;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
-      cublas_handle, CUBLAS_OP_N, ls_height, p_best, 1, bm_ls.data(), ls_height,
-      bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr, num_batches));
+      cublas_handle, CUBLAS_OP_N, ls_height, p_best, 1, bm_ls_copy.data(),
+      ls_height, bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr,
+      num_batches));
     ///@todo raise exception if info < 0? (need to sync stream)
 
     if (q == 0) {
@@ -382,7 +389,7 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       // Fill AR parameters with ar_fit
       // TODO: matrix-vector op?
       _batched_fill_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ar, bm_ar_fit.raw_data(), p);
+        d_ar, bm_ar_fit.raw_data(), p, ls_height);
       CUDA_CHECK(cudaPeekAtLastError());
     } else {
       // Compute residual (technically a gemv but we're missing a col-major
@@ -391,7 +398,7 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       double beta = 1.0;
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmBatched(
         cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, ls_height, 1, p_best, &alpha,
-        bm_ls.data(), ls_height, bm_ar_fit.data(), p_best, &beta,
+        bm_ls.data(), ls_height, bm_ar_fit.data(), ls_height, &beta,
         bm_residual.data(), ls_height, num_batches, stream));
 
       // TODO: useless? At the moment p_best == 1 and later we can fix p_best
@@ -425,7 +432,10 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
         false);
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
         bm_arma_fit.raw_data(), d_y, p_best + q + p_diff, nobs,
-        nobs - ls_ar_res_height);
+        ls_ar_res_height);
+
+      MLCommon::myPrintDevVector("fit init", bm_arma_fit.raw_data(),
+                                 ls_ar_res_height * num_batches);
 
       ///@todo check that p + q < n_obs / 2
       // Note: this overwrites bm_ls
@@ -437,9 +447,9 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       ///@todo raise exception if info < 0? (need to sync stream)
 
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ar, bm_arma_fit.raw_data(), 0, p + q, p);
+        d_ar, bm_arma_fit.raw_data(), 0, ls_ar_res_height, p);
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ma, bm_arma_fit.raw_data(), p, p + q, q);
+        d_ma, bm_arma_fit.raw_data(), p, ls_ar_res_height, q);
     }
   } else {  // p == 0 && q > 0
     ///@todo See how `statsmodels` handles this case
