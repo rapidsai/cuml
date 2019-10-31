@@ -279,7 +279,7 @@ def test_bic():
     for p in range(1, 3):
         order = (p, 1, 1)
 
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y)
 
         batched_model = arima.fit(y, order,
                                   mu0,
@@ -311,7 +311,7 @@ def test_fit():
 
     for p in range(1, 3):
         order = (p, 1, 1)
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y)
 
         batched_model = arima.fit(y, order,
                                   mu0,
@@ -434,7 +434,7 @@ def test_fit_predict_forecast(plot=False):
             y_train[:, i] = y[:ns_train, i]
 
         p, _, _ = order
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y_train)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y_train)
 
         batched_model = arima.fit(y_train, order,
                                   mu0,
@@ -521,7 +521,7 @@ def demo():
 
     plt.plot(xs, ys1, xs, ys2)
 
-    mu0, ar0, ma0 = arima.estimate_x0((1, 1, 1), 2, ys)
+    mu0, ar0, ma0 = arima.estimate_x0((1, 1, 1), ys)
 
     model = arima.fit(ys, (1, 1, 1), mu0, ar0, ma0)
 
@@ -550,7 +550,7 @@ def bench_arima(num_batches=240, plot=False):
 
     start = timer()
 
-    mu0, ar0, ma0 = arima.estimate_x0(order, num_batches, y_b)
+    mu0, ar0, ma0 = arima.estimate_x0(order, y_b)
 
     batched_model = arima.fit(y_b, order,
                               mu0,
