@@ -16,13 +16,6 @@
 
 #pragma once
 
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-// #pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
-
 #include "distance/algo1.h"
 #include "distance/distance_fragment_multiply_add.h"
 #include "linalg/custom_accum.h"
@@ -167,8 +160,3 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
 
 };  // end namespace Distance
 };  // end namespace MLCommon
-
-#if CUDART_VERSION >= 10010
-// Undo special optimization options set earlier
-#pragma GCC reset_options
-#endif
