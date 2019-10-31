@@ -348,22 +348,22 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
 
     // Create lagged series set
     int ls_height = nobs - p_best;
-    MLCommon::Matrix::BatchedMatrix bm_ls(
+    MLCommon::Matrix::BatchedMatrix<double> bm_ls(
       ls_height, p_best, num_batches, cublas_handle, allocator, stream, false);
     _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
       bm_ls.raw_data(), d_y, p_best, ls_height, 0, nobs, 0, p_best * ls_height);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Initial AR fit (note: larger dimensions because gels works in-place)
-    MLCommon::Matrix::BatchedMatrix bm_ar_fit(
+    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
       ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
     batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
       bm_ar_fit.raw_data(), d_y, p_best, nobs, ls_height);
 
     // Residual if q != 0, initialized as offset y to avoid one kernel call
-    MLCommon::Matrix::BatchedMatrix bm_residual(q != 0 ? ls_height : 1, 1,
-                                                num_batches, cublas_handle,
-                                                allocator, stream, false);
+    MLCommon::Matrix::BatchedMatrix<double> bm_residual(
+      q != 0 ? ls_height : 1, 1, num_batches, cublas_handle, allocator, stream,
+      false);
     if (q != 0) {
       MLCommon::copy(bm_residual.raw_data(), bm_ar_fit.raw_data(),
                      ls_height * num_batches, stream);
@@ -407,9 +407,9 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       int ls_res_size = ls_ar_res_height * q;
       int ls_ar_size = ls_ar_res_height * p;
       int ls_ar_res_size = ls_res_size + ls_ar_size;
-      MLCommon::Matrix::BatchedMatrix bm_ls_ar_res(ls_ar_res_height, p + q,
-                                                   num_batches, cublas_handle,
-                                                   allocator, stream, false);
+      MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
+        ls_ar_res_height, p + q, num_batches, cublas_handle, allocator, stream,
+        false);
       _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
         bm_ls_ar_res.raw_data(), bm_residual.raw_data(), q, ls_ar_res_height,
         p_diff, ls_height, ls_ar_size, ls_ar_res_size);
@@ -420,9 +420,9 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       CUDA_CHECK(cudaPeekAtLastError());
 
       // ARMA fit (note: larger dimensions because gels works in-place)
-      MLCommon::Matrix::BatchedMatrix bm_arma_fit(ls_ar_res_height, 1,
-                                                  num_batches, cublas_handle,
-                                                  allocator, stream, false);
+      MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit(
+        ls_ar_res_height, 1, num_batches, cublas_handle, allocator, stream,
+        false);
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
         bm_arma_fit.raw_data(), d_y, p_best + q + p_diff, nobs,
         nobs - ls_ar_res_height);
