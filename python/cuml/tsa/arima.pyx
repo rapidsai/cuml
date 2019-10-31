@@ -39,8 +39,6 @@ from libc.stdlib cimport malloc, free
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
-cimport numpy as np
-
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(cumlHandle& handle,
                          double* y,
@@ -402,7 +400,7 @@ def estimate_x0(order: Tuple[int, int, int],
     return mu, ar, ma
 
 
-def ll_f(num_batches, nobs, order, y, np.ndarray[double] x,
+def ll_f(num_batches, nobs, order, y, x,
          trans=True, handle=None):
     """Computes batched loglikelihood for given parameters and series.
 
@@ -687,7 +685,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar_params, best_ma_params, best_ic)
 
 
-def unpack(p, d, q, nb, np.ndarray[double, ndim=1] x):
+def unpack(p, d, q, nb, x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
     nvtx_range_push("unpack(x) -> (mu,ar,ma)")
     num_parameters = d + p + q
@@ -727,7 +725,7 @@ def pack(p, d, q, nb, mu, ar, ma):
     return x
 
 
-def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
+def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
@@ -738,8 +736,12 @@ def _batched_transform(p, d, q, nb, np.ndarray[double] x, isInv, handle=None):
     if handle is None:
         handle = cuml.common.handle.Handle()
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-    cdef np.ndarray[double] Tx = np.zeros(nb*(d+p+q))
-    batched_jones_transform(handle_[0], p, d, q, nb, isInv, &x[0], &Tx[0])
+    Tx = np.zeros(nb*(d+p+q))
+
+    cdef uintptr_t x_ptr = x.ctypes.data
+    cdef uintptr_t Tx_ptr = Tx.ctypes.data
+    batched_jones_transform(handle_[0], p, d, q, nb, isInv,
+                            <double*>x_ptr, <double*>Tx_ptr)
 
     nvtx_range_pop()
     return (Tx)
@@ -849,7 +851,7 @@ def _batch_invtrans(p, d, q, nb, x, handle=None):
     return Tx
 
 
-def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x,
+def _batched_loglike(num_batches, nobs, order, y, x,
                      trans=False, handle=None):
     cdef vector[double] vec_loglike
     cdef vector[double] vec_y_cm
@@ -864,17 +866,17 @@ def _batched_loglike(num_batches, nobs, order, y, np.ndarray[double] x,
 
     cdef uintptr_t d_y_ptr
     cdef uintptr_t d_x_ptr
-    cdef uintptr_t d_vs_ptr
-    cdef np.ndarray[double, ndim=2, mode="fortran"] vs = \
-        np.zeros(((nobs-d), num_batches), order="F")
+
     # note: make sure you explicitly have d_y_array. Otherwise it gets garbage
     # collected (I think).
     d_y_array, d_y_ptr, _, _, dtype_y = \
         input_to_dev_array(y, check_dtype=np.float64)
     d_x_array, d_x_ptr, _, _, _ = \
         input_to_dev_array(x, check_dtype=np.float64)
-    d_vs, d_vs_ptr, _, _, _ = \
-        input_to_dev_array(vs, check_dtype=np.float64)
+
+    d_vs = rmm.device_array((nobs - d, num_batches),
+                            dtype=np.float64, order="F")
+    cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
 
     if handle is None:
         handle = cuml.common.handle.Handle()
