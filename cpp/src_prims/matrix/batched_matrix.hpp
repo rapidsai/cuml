@@ -52,22 +52,22 @@ namespace Matrix {
  * @return Pair (A_dense, A_array): pointer to the raw data and pointer
  *         to the array of pointers to each matrix in the batch
  */
-std::pair<double*, double**> BMM_Allocate(
-  std::pair<int, int> shape, int num_batches, bool setZero,
-  std::shared_ptr<ML::deviceAllocator> allocator, cudaStream_t stream) {
+template <typename T>
+std::pair<T*, T**> BMM_Allocate(std::pair<int, int> shape, int num_batches,
+                                bool setZero,
+                                std::shared_ptr<ML::deviceAllocator> allocator,
+                                cudaStream_t stream) {
   int m = shape.first;
   int n = shape.second;
 
   // Allocate dense batched matrix and possibly set to zero
-  double* A_dense =
-    (double*)allocator->allocate(sizeof(double) * m * n * num_batches, stream);
+  T* A_dense = (T*)allocator->allocate(sizeof(T) * m * n * num_batches, stream);
   if (setZero)
-    CUDA_CHECK(cudaMemsetAsync(A_dense, 0, sizeof(double) * m * n * num_batches,
-                               stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(A_dense, 0, sizeof(T) * m * n * num_batches, stream));
 
   // Allocate and fill array of pointers to each batch matrix
-  double** A_array =
-    (double**)allocator->allocate(sizeof(double*) * num_batches, stream);
+  T** A_array = (T**)allocator->allocate(sizeof(T*) * num_batches, stream);
   // Fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(
@@ -85,8 +85,9 @@ std::pair<double*, double**> BMM_Allocate(
  * @param[out]  I  Pointer to the raw data of the identity matrix to create
  * @param[in]   m  Number of rows/columns of matrix
  */
-__global__ void identity_matrix_kernel(double* I, int m) {
-  double* I_b = I + blockIdx.x * m * m;
+template <typename T>
+__global__ void identity_matrix_kernel(T* I, int m) {
+  T* I_b = I + blockIdx.x * m * m;
   int stride = (m + 1);
   for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
     I_b[idx * stride] = 1;
@@ -97,6 +98,7 @@ __global__ void identity_matrix_kernel(double* I, int m) {
  * @brief The BatchedMatrix class provides storage and a number of linear
  *        operations on collections (batches) of matrices of identical shape.
  */
+template <typename T>
 class BatchedMatrix {
  public:
   /**
@@ -121,7 +123,7 @@ class BatchedMatrix {
 
     // Allocate memory
     auto memory =
-      BMM_Allocate(m_shape, num_batches, setZero, allocator, stream);
+      BMM_Allocate<T>(m_shape, num_batches, setZero, allocator, stream);
 
     /* Take these references to extract them from member-storage for the
      * lambda below. There are better C++14 ways to do this, but I'll keep
@@ -130,18 +132,18 @@ class BatchedMatrix {
 
     /* Note: we create this "free" function with explicit copies to ensure that
      * the deallocate function gets called with the correct values. */
-    auto f1 = [allocator, num_batches, shape, stream](double* A) {
+    auto f1 = [allocator, num_batches, shape, stream](T* A) {
       allocator->deallocate(
-        A, num_batches * shape.first * shape.second * sizeof(double), stream);
+        A, num_batches * shape.first * shape.second * sizeof(T), stream);
     };
 
-    auto f2 = [allocator, num_batches, stream](double** A) {
-      allocator->deallocate(A, sizeof(double*) * num_batches, stream);
+    auto f2 = [allocator, num_batches, stream](T** A) {
+      allocator->deallocate(A, sizeof(T*) * num_batches, stream);
     };
 
     // When this shared pointer count goes to 0, `f` is called to deallocate the memory
-    m_A_dense = std::shared_ptr<double>(memory.first, f1);
-    m_A_batches = std::shared_ptr<double*>(memory.second, f2);
+    m_A_dense = std::shared_ptr<T>(memory.first, f1);
+    m_A_batches = std::shared_ptr<T*>(memory.second, f2);
   }
 
   //! Return batches
@@ -160,10 +162,10 @@ class BatchedMatrix {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return pointer array
-  double** data() const { return m_A_batches.get(); }
+  T** data() const { return m_A_batches.get(); }
 
   //! Return pointer to the underlying memory
-  double* raw_data() const { return m_A_dense.get(); }
+  T* raw_data() const { return m_A_dense.get(); }
 
   /**
    * @brief Return pointer to the data of a specific matrix
@@ -171,7 +173,7 @@ class BatchedMatrix {
    * @param[in]  id  id of the matrix
    * @return         A pointer to the raw data of the matrix
    */
-  double* operator[](int id) const {
+  T* operator[](int id) const {
     return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
   }
 
@@ -182,8 +184,7 @@ class BatchedMatrix {
     int r = m * n;
     BatchedMatrix toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
-    cudaMemcpyAsync(toVec[0], m_A_dense.get(),
-                    m_num_batches * r * sizeof(double),
+    cudaMemcpyAsync(toVec[0], m_A_dense.get(), m_num_batches * r * sizeof(T),
                     cudaMemcpyDeviceToDevice, m_stream);
     return toVec;
   }
@@ -203,8 +204,7 @@ class BatchedMatrix {
       "into desired size");
     BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
                         m_stream);
-    cudaMemcpyAsync(toMat[0], m_A_dense.get(),
-                    m_num_batches * r * sizeof(double),
+    cudaMemcpyAsync(toMat[0], m_A_dense.get(), m_num_batches * r * sizeof(T),
                     cudaMemcpyDeviceToDevice, m_stream);
 
     return toMat;
@@ -213,7 +213,7 @@ class BatchedMatrix {
   //! Visualize the first matrix.
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_num_batches;
-    std::vector<double> A(len);
+    std::vector<T> A(len);
     updateHost(A.data(), m_A_dense.get(), len, m_stream);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
@@ -241,8 +241,8 @@ class BatchedMatrix {
                                 cudaStream_t stream) {
     BatchedMatrix I(m, m, num_batches, handle, allocator, stream, true);
 
-    identity_matrix_kernel<<<num_batches, std::min(1024, m), 0, stream>>>(
-      I.raw_data(), m);
+    identity_matrix_kernel<T>
+      <<<num_batches, std::min(1024, m), 0, stream>>>(I.raw_data(), m);
     CUDA_CHECK(cudaGetLastError());
     return I;
   }
@@ -252,10 +252,10 @@ class BatchedMatrix {
   std::pair<int, int> m_shape;
 
   //! Array(pointer) to each matrix.
-  std::shared_ptr<double*> m_A_batches;
+  std::shared_ptr<T*> m_A_batches;
 
   //! Data pointer to first element of dense matrix data.
-  std::shared_ptr<double> m_A_dense;
+  std::shared_ptr<T> m_A_dense;
 
   //! Number of matrices in batch
   size_t m_num_batches;
@@ -281,16 +281,17 @@ class BatchedMatrix {
  * @param[in]   k_m  Number of rows of the result    (m * p)
  * @param[in]   k_n  Number of columns of the result (n * q)
  */
-__global__ void kronecker_product_kernel(const double* A, int m, int n,
-                                         const double* B, int p, int q,
-                                         double* AkB, int k_m, int k_n) {
-  const double* A_b = A + blockIdx.x * m * n;
-  const double* B_b = B + blockIdx.x * p * q;
-  double* AkB_b = AkB + blockIdx.x * k_m * k_n;
+template <typename T>
+__global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
+                                         int p, int q, T* AkB, int k_m,
+                                         int k_n) {
+  const T* A_b = A + blockIdx.x * m * n;
+  const T* B_b = B + blockIdx.x * p * q;
+  T* AkB_b = AkB + blockIdx.x * k_m * k_n;
 
   for (int ia = 0; ia < m; ia++) {
     for (int ja = 0; ja < n; ja++) {
-      double A_ia_ja = A_b[ia + ja * m];
+      T A_ia_ja = A_b[ia + ja * m];
 
       for (int ib = threadIdx.x; ib < p; ib += blockDim.x) {
         for (int jb = threadIdx.y; jb < q; jb += blockDim.y) {
@@ -314,8 +315,9 @@ __global__ void kronecker_product_kernel(const double* A, int m, int n,
  * 
  * @return Member-wise A*B
  */
-BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
-                     bool aT = false, bool bT = false) {
+template <typename T>
+BatchedMatrix<T> b_gemm(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
+                        bool aT = false, bool bT = false) {
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   // Logic for matrix dimensions with optional transpose
@@ -339,11 +341,11 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Create C(m,n)
-  BatchedMatrix C(m, n, num_batches, A.cublasHandle(), A.allocator(),
-                  A.stream());
+  BatchedMatrix<T> C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+                     A.stream());
 
-  double alpha = 1.0;
-  double beta = 0.0;
+  T alpha = 1.0;
+  T beta = 0.0;
 
   // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
   CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmStridedBatched(
@@ -375,9 +377,9 @@ BatchedMatrix b_gemm(const BatchedMatrix& A, const BatchedMatrix& B,
  * @param[in]  binary_op  The binary operation used on elements of A and B
  * @return A batched matrix, the result of A binary_op B
  */
-template <typename F>
-BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
-                        F binary_op) {
+template <typename T, typename F>
+BatchedMatrix<T> b_aA_op_B(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
+                           F binary_op) {
   ASSERT(
     A.shape().first == B.shape().first && A.shape().second == B.shape().second,
     "Batched Matrix Addition ERROR: Matrices must be same size");
@@ -388,8 +390,8 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
   int m = A.shape().first;
   int n = A.shape().second;
 
-  BatchedMatrix C(m, n, num_batches, A.cublasHandle(), A.allocator(),
-                  A.stream());
+  BatchedMatrix<T> C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+                     A.stream());
 
   LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(),
                    m * n * num_batches, binary_op, A.stream());
@@ -405,7 +407,9 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix& A, const BatchedMatrix& B,
  * @param[in]  B  Batched matrix B
  * @return The result of the batched matrix-matrix multiplication of A * B
  */
-BatchedMatrix operator*(const BatchedMatrix& A, const BatchedMatrix& B) {
+template <typename T>
+BatchedMatrix<T> operator*(const BatchedMatrix<T>& A,
+                           const BatchedMatrix<T>& B) {
   return b_gemm(A, B);
 }
 
@@ -416,8 +420,10 @@ BatchedMatrix operator*(const BatchedMatrix& A, const BatchedMatrix& B) {
  * @param[in]  B  Batched matrix B
  * @return A+B
  */
-BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
-  return b_aA_op_B(A, B, [] __device__(double a, double b) { return a + b; });
+template <typename T>
+BatchedMatrix<T> operator+(const BatchedMatrix<T>& A,
+                           const BatchedMatrix<T>& B) {
+  return b_aA_op_B(A, B, [] __device__(T a, T b) { return a + b; });
 }
 
 /**
@@ -427,8 +433,10 @@ BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
  * @param[in]  B  Batched matrix B
  * @return A-B
  */
-BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
-  return b_aA_op_B(A, B, [] __device__(double a, double b) { return a - b; });
+template <typename T>
+BatchedMatrix<T> operator-(const BatchedMatrix<T>& A,
+                           const BatchedMatrix<T>& B) {
+  return b_aA_op_B(A, B, [] __device__(T a, T b) { return a - b; });
 }
 
 /**
@@ -438,7 +446,8 @@ BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
  * @param[in]  b  Batched vector b
  * @return A\b
  */
-BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
+template <typename T>
+BatchedMatrix<T> b_solve(const BatchedMatrix<T>& A, const BatchedMatrix<T>& b) {
   auto num_batches = A.batches();
   const auto& handle = A.cublasHandle();
 
@@ -448,12 +457,12 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
   int* info = (int*)allocator->allocate(sizeof(int) * num_batches, A.stream());
 
   // A copy of A is necessary as the cublas operations write in A
-  BatchedMatrix Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
-                      A.stream());
+  BatchedMatrix<T> Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
+                         A.stream());
   copy(Acopy.raw_data(), A.raw_data(), n * n * num_batches, A.stream());
 
-  BatchedMatrix Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
-                     A.stream());
+  BatchedMatrix<T> Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
+                        A.stream());
 
   CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(
     handle, n, Acopy.data(), n, P, info, num_batches, A.stream()));
@@ -461,7 +470,7 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
                                                     P, Ainv.data(), n, info,
                                                     num_batches, A.stream()));
 
-  BatchedMatrix x = Ainv * b;
+  BatchedMatrix<T> x = Ainv * b;
 
   allocator->deallocate(P, sizeof(int) * n * num_batches, A.stream());
   allocator->deallocate(info, sizeof(int) * num_batches, A.stream());
@@ -477,7 +486,8 @@ BatchedMatrix b_solve(const BatchedMatrix& A, const BatchedMatrix& b) {
  * @param[in]  B  Matrix B
  * @return A (x) B
  */
-BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
+template <typename T>
+BatchedMatrix<T> b_kron(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B) {
   int m = A.shape().first;
   int n = A.shape().second;
 
@@ -488,12 +498,12 @@ BatchedMatrix b_kron(const BatchedMatrix& A, const BatchedMatrix& B) {
   int k_m = m * p;
   int k_n = n * q;
 
-  BatchedMatrix AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(),
-                    A.stream());
+  BatchedMatrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(),
+                       A.stream());
 
   // Run kronecker
   dim3 threads(std::min(p, 32), std::min(q, 32));
-  kronecker_product_kernel<<<A.batches(), threads, 0, A.stream()>>>(
+  kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n);
   CUDA_CHECK(cudaPeekAtLastError());
   return AkB;

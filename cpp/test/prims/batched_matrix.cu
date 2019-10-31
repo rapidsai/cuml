@@ -121,12 +121,12 @@ class BatchedMatrixTest
     auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
 
     // Created batched matrices
-    BatchedMatrix AbM(params.m, params.n, params.n_batches, handle, allocator,
-                      stream);
-    BatchedMatrix BbM(params.p, params.q, params.n_batches, handle, allocator,
-                      stream);
-    BatchedMatrix ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.n_batches, handle,
-                      allocator, stream);
+    BatchedMatrix<T> AbM(params.m, params.n, params.n_batches, handle,
+                         allocator, stream);
+    BatchedMatrix<T> BbM(params.p, params.q, params.n_batches, handle,
+                         allocator, stream);
+    BatchedMatrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.n_batches, handle,
+                         allocator, stream);
 
     // Copy the data to the device
     updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
@@ -134,7 +134,7 @@ class BatchedMatrixTest
     if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
     // Create fake batched matrices to be overwritten by results
-    res_bM = new BatchedMatrix(1, 1, 1, handle, allocator, stream);
+    res_bM = new BatchedMatrix<T>(1, 1, 1, handle, allocator, stream);
 
     // Compute the tested results
     switch (params.operation) {
@@ -177,7 +177,7 @@ class BatchedMatrixTest
         naiveAdd(res_h.data(), A.data(), B.data(), A.size());
         break;
       case AmB_op:
-        naiveAdd(res_h.data(), A.data(), B.data(), A.size(), -1.0);
+        naiveAdd(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
         break;
       case AkB_op:
         for (int bid = 0; bid < params.n_batches; bid++) {
@@ -218,7 +218,7 @@ class BatchedMatrixTest
 
  protected:
   BatchedMatrixInputs<T> params;
-  BatchedMatrix *res_bM;
+  BatchedMatrix<T> *res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
   cudaStream_t stream;
@@ -232,14 +232,29 @@ const std::vector<BatchedMatrixInputs<double>> inputsd = {
   {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
   {AsolveZ_op, 6, 17, 17, 1, 1, 1e-6}};
 
+// Test parameters (op, n_batches, m, n, p, q, tolerance)
+const std::vector<BatchedMatrixInputs<float>> inputsf = {
+  {AB_op, 7, 15, 37, 37, 11, 1e-6},   {AZT_op, 5, 33, 65, 1, 1, 1e-6},
+  {ZA_op, 8, 12, 41, 1, 1, 1e-6},     {ApB_op, 4, 16, 48, 16, 48, 1e-6},
+  {AmB_op, 17, 9, 3, 9, 3, 1e-6},     {AkB_op, 5, 3, 13, 31, 8, 1e-6},
+  {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
+  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-3}};
+
 using BatchedMatrixTestD = BatchedMatrixTest<double>;
+using BatchedMatrixTestF = BatchedMatrixTest<float>;
 TEST_P(BatchedMatrixTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
                               CompareApprox<double>(params.tolerance), stream));
 }
+TEST_P(BatchedMatrixTestF, Result) {
+  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
+                              CompareApprox<float>(params.tolerance), stream));
+}
 
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
                         ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestF,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace Matrix
 }  // namespace MLCommon
