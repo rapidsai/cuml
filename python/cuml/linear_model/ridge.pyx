@@ -183,8 +183,8 @@ class Ridge(Base, RegressorMixin):
 
     **Applications of Ridge**
 
-        Ridge Regression is used in the same way as LinearRegression, but does 
-        not suffer from multicollinearity issues.  Ridge is used in insurance 
+        Ridge Regression is used in the same way as LinearRegression, but does
+        not suffer from multicollinearity issues.  Ridge is used in insurance
         premium prediction, stock market analysis and much more.
 
 
