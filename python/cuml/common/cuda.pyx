@@ -23,9 +23,9 @@ from libcpp.string cimport string
 
 cdef extern from "common/nvtx.hpp" namespace "ML":
 
-  void PUSH_RANGE(string msg)
+    void PUSH_RANGE(string msg)
 
-  void POP_RANGE()
+    void POP_RANGE()
 
 
 def nvtx_range_push(msg: str):

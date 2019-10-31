@@ -30,20 +30,21 @@ from cuml.utils.input_utils import input_to_dev_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
-  int cpp_stationarity "ML::Stationarity::stationarity" (
-      const cumlHandle& handle,
-      const float* y_d,
-      int* d,
-      int n_batches,
-      int n_samples,
-      float pval_threshold)
-  int cpp_stationarity "ML::Stationarity::stationarity" (
-      const cumlHandle& handle,
-      const double* y_d,
-      int* d,
-      int n_batches,
-      int n_samples,
-      double pval_threshold)
+    int cpp_stationarity "ML::Stationarity::stationarity" (
+        const cumlHandle& handle,
+        const float* y_d,
+        int* d,
+        int n_batches,
+        int n_samples,
+        float pval_threshold)
+
+    int cpp_stationarity "ML::Stationarity::stationarity" (
+        const cumlHandle& handle,
+        const double* y_d,
+        int* d,
+        int n_batches,
+        int n_samples,
+        double pval_threshold)
 
 
 def stationarity(y, pval_threshold=0.05, handle=None):
@@ -56,7 +57,7 @@ def stationarity(y, pval_threshold=0.05, handle=None):
 
         import numpy as np
         from cuml.tsa.stationarity import stationarity
-        
+
         num_samples = 200
         xs = np.linspace(0, 1, num_samples)
         np.random.seed(12)
@@ -99,7 +100,8 @@ def stationarity(y, pval_threshold=0.05, handle=None):
 
     """
     cdef uintptr_t y_d_ptr
-    y_d, y_d_ptr, n_samples, n_batches, dtype = input_to_dev_array(y)
+    y_d, y_d_ptr, n_samples, n_batches, dtype = \
+        input_to_dev_array(y, check_dtype=[np.float32, np.float64])
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -110,19 +112,19 @@ def stationarity(y, pval_threshold=0.05, handle=None):
 
     # Call C++ function
     if dtype == np.float32:
-        ret_value = cpp_stationarity(handle_[0], <float*> y_d_ptr,
+        ret_value = cpp_stationarity(handle_[0],
+                                     <float*> y_d_ptr,
                                      <int*> d.data(),
-                                     <int> n_batches, <int> n_samples,
+                                     <int> n_batches,
+                                     <int> n_samples,
                                      <float> pval_threshold)
     elif dtype == np.float64:
-        ret_value = cpp_stationarity(handle_[0], <double*> y_d_ptr,
+        ret_value = cpp_stationarity(handle_[0],
+                                     <double*> y_d_ptr,
                                      <int*> d.data(),
-                                     <int> n_batches, <int> n_samples,
+                                     <int> n_batches,
+                                     <int> n_samples,
                                      <double> pval_threshold)
-    else:
-        raise TypeError("Stationarity test supports only float32 and float64"
-                        " input, but input type {} was passed."
-                        "".format(str(dtype)))
 
     if ret_value < 0:
         raise ValueError("Stationarity test failed for d=0 or 1.")
