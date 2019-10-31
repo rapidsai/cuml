@@ -434,9 +434,6 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
         bm_arma_fit.raw_data(), d_y, p_best + q + p_diff, nobs,
         ls_ar_res_height);
 
-      MLCommon::myPrintDevVector("fit init", bm_arma_fit.raw_data(),
-                                 ls_ar_res_height * num_batches);
-
       ///@todo check that p + q < n_obs / 2
       // Note: this overwrites bm_ls
       int arma_fit_info;

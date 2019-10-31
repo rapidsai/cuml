@@ -156,7 +156,7 @@ class ARIMAModel(Base):
         plt.plot(xs, ys1, xs, ys2)
 
         # get parameter estimates
-        mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
+        mu0, ar0, ma0 = arima.estimate_x0((1,1,1), ys)
 
         # fine-tune parameter estimates
         model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
@@ -384,7 +384,7 @@ class ARIMAModel(Base):
         return d_y_fc
 
 
-def estimate_x0(order: Tuple[int, int, int],
+def estimate_x0_legacy(order: Tuple[int, int, int],
                 nb: int,
                 yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
@@ -412,8 +412,8 @@ def estimate_x0(order: Tuple[int, int, int],
 
     return mu, ar, ma
 
-def estimate_x0_gpu(order, y, handle=None):
-    """TODO: replace legacy version with this one"""
+def estimate_x0(order, y, handle=None):
+    """TODO: remove legacy version"""
     nvtx_range_push("estimate x0")
 
     p, d, q = order
@@ -706,7 +706,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
             if p == 0 and q == 0:
                 continue
 
-            mu0, ar0, ma0 = estimate_x0((p, d, q), 2, y_b)
+            mu0, ar0, ma0 = estimate_x0((p, d, q), y_b)
 
             b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
@@ -854,7 +854,6 @@ def _start_params(order, y_diff):
                 x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
 
             X = np.column_stack((x_ar2, x_resid))
-            print(y_ar[(q+p_diff):].T)
             (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
                                                   rcond=None)
 
