@@ -27,7 +27,7 @@ import umap
 import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, predict, _fil_classification_setup
+    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier
 
 class AlgorithmPair:
     """
@@ -104,10 +104,10 @@ class AlgorithmPair:
         all_args = {**self.shared_args, **self.cpu_args}
         all_args = {**all_args, **override_args}
 
-        if "cpu_obj" not in all_args:
+        if "cpu_setup_result" not in all_args:
             cpu_obj = self.cpu_class(**all_args)
         else:
-            cpu_obj = all_args["cpu_obj"]
+            cpu_obj = all_args["cpu_setup_result"]
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
@@ -122,10 +122,10 @@ class AlgorithmPair:
         all_args = {**self.shared_args, **self.cuml_args}
         all_args = {**all_args, **override_args}
 
-        if "cuml_obj" not in all_args:
+        if "cuml_setup_result" not in all_args:
             cuml_obj = self.cuml_class(**all_args)
         else:
-            cuml_obj = all_args["cuml_obj"]
+            cuml_obj = all_args["cuml_setup_result"]
         if self.data_prep_hook:
             data = self.data_prep_hook(data)
         if self.accepts_labels:
@@ -139,7 +139,7 @@ class AlgorithmPair:
         if self.setup_cpu_func is not None:
             all_args = {**self.shared_args, **self.cpu_args}
             all_args = {**all_args, **override_args}
-            return {"cpu_obj" : self.setup_cpu_func(self.cpu_class, data, all_args)}
+            return {"cpu_setup_result" : self.setup_cpu_func(self.cpu_class, data, all_args)}
         else:
             return {}
 
@@ -147,7 +147,7 @@ class AlgorithmPair:
         if self.setup_cuml_func is not None:
             all_args = {**self.shared_args, **self.cuml_args}
             all_args = {**all_args, **override_args}
-            return {"cuml_obj" : self.setup_cuml_func(self.cuml_class, data, all_args)}
+            return {"cuml_setup_result" : self.setup_cuml_func(self.cuml_class, data, all_args)}
         else:
             return {}
 
@@ -296,7 +296,7 @@ def all_algorithms():
             cuml_args=dict(algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, num_rounds=10, max_depth=10), 
             name="FIL",
             accepts_labels=False,
-            setup_cuml_func=_fil_classification_setup,
+            setup_cuml_func=_build_fil_classifier,
             accuracy_function=metrics.accuracy_score,
             bench_func=predict,
         ), 
