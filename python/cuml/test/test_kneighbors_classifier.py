@@ -66,3 +66,21 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
     predictions = knn_cu.predict(X)
 
     assert array_equal(predictions.astype(np.int32), y.astype(np.int32))
+
+
+@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("ncols", [50, 100])
+@pytest.mark.parametrize("n_neighbors", [2, 5, 10])
+@pytest.mark.parametrize("n_clusters", [2, 10])
+def test_score(nrows, ncols, n_neighbors, n_clusters):
+
+    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
+                      n_features=ncols, random_state=0,
+                      cluster_std=0.01)
+
+    X = X.astype(np.float32)
+
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X, y)
+
+    assert knn_cu.score(X, y) == 1.0
