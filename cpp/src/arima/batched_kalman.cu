@@ -50,7 +50,7 @@ using MLCommon::updateHost;
 using MLCommon::Matrix::b_gemm;
 using MLCommon::Matrix::b_kron;
 using MLCommon::Matrix::b_solve;
-using MLCommon::Matrix::BatchedMatrix;
+using BatchedMatrix = MLCommon::Matrix::BatchedMatrix<double>;
 
 ////////////////////////////////////////////////////////////
 #include <iostream>
