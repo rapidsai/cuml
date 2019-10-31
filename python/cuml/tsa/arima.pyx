@@ -27,6 +27,7 @@ from cuml.utils.input_utils import get_dev_array_ptr
 
 from typing import List, Tuple
 import cudf
+from cuml.utils import get_dev_array_ptr, zeros
 
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 
@@ -85,6 +86,18 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                   double* d_vs,
                   double* d_params,
                   double* d_y_fc)
+
+    void cpp_estimate_x0 "estimate_x0" (
+        cumlHandle& handle,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        const double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
@@ -398,6 +411,45 @@ def estimate_x0(order: Tuple[int, int, int],
     nvtx_range_pop()
 
     return mu, ar, ma
+
+def estimate_x0_gpu(order, y, handle=None):
+    """TODO: replace legacy version with this one"""
+    nvtx_range_push("estimate x0")
+
+    p, d, q = order
+
+    cdef uintptr_t d_y_ptr
+    d_y, d_y_ptr, num_samples, num_batches, dtype = \
+        input_to_dev_array(y, check_dtype=np.float64)
+
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    # Create mu, ar and ma arrays
+    cdef uintptr_t d_mu_ptr
+    cdef uintptr_t d_ar_ptr
+    cdef uintptr_t d_ma_ptr
+    d_mu = zeros(num_batches, dtype=dtype)
+    d_ar = zeros((p, num_batches), dtype=dtype, order='F')
+    d_ma = zeros((q, num_batches), dtype=dtype, order='F')
+    d_mu_ptr = get_dev_array_ptr(d_mu)
+    d_ar_ptr = get_dev_array_ptr(d_ar)
+    d_ma_ptr = get_dev_array_ptr(d_ma)
+
+    # Call C++ function
+    cpp_estimate_x0(handle_[0],
+                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                    <double*> d_y_ptr,
+                    <int> num_batches, <int> num_samples,
+                    <int> p, <int> d, <int> q)
+
+    nvtx_range_pop()
+
+    # TODO: return device pointers
+    return (d_mu.copy_to_host(),
+            d_ar.copy_to_host(),
+            d_ma.copy_to_host())
 
 
 def ll_f(num_batches, nobs, order, y, x,
