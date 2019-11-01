@@ -29,9 +29,11 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize("n_clusters", [2, 5])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 
-    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
-                      n_features=ncols, random_state=0,
-                      cluster_std=0.01)
+    X, y = make_blobs(n_samples=nrows,
+                      centers=n_clusters,
+                      n_features=ncols,
+                      cluster_std=0.01,
+                      random_state=0)
 
     X = X.astype(np.float32)
 
@@ -64,21 +66,25 @@ def test_score(nrows, ncols, n_neighbors, n_clusters):
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 10])
-@pytest.mark.parametrize("n_clusters", [2, 10])
+@pytest.mark.parametrize("n_clusters", [2, 5])
 def test_predict_proba(nrows, ncols, n_neighbors, n_clusters):
 
-    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
-                      n_features=ncols, random_state=0,
-                      cluster_std=0.01)
+    X, y = make_blobs(n_samples=nrows,
+                      centers=n_clusters,
+                      n_features=ncols,
+                      cluster_std=0.01,
+                      random_state=0)
 
     X = X.astype(np.float32)
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X, y)
 
-    p = np.argmax(np.array(knn_cu.predict_proba(X)), axis=1)
+    predictions = knn_cu.predict_proba(X)
 
-    assert array_equal(p.astype(np.int32), y.astype(np.int32))
+    y_hat = np.argmax(np.array(predictions), axis=1)
+
+    assert array_equal(y_hat.astype(np.int32), y.astype(np.int32))
 
 
 def test_nonmonotonic_labels():
@@ -86,6 +92,20 @@ def test_nonmonotonic_labels():
     X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
 
     y = np.array([15, 5]).astype(np.int32)
+
+    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu.fit(X, y)
+
+    p = knn_cu.predict(X)
+
+    assert array_equal(p.astype(np.int32), y)
+
+
+def test_predict_multioutput():
+
+    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+
+    y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     knn_cu = cuKNN(n_neighbors=1)
     knn_cu.fit(X, y)

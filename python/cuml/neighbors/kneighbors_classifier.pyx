@@ -30,7 +30,10 @@ from cuml.metrics import accuracy_score
 
 import cudf
 
+from cython.operator cimport dereference as deref
+
 from cuml.common.handle cimport cumlHandle
+from cuml.common.vector cimport vector
 
 
 from libcpp cimport bool
@@ -48,32 +51,22 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s) except +
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
-        cuml.common.cuda._Stream getStream() except +
-
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_classify(
         cumlHandle &handle,
-        int *out,
+        int* out,
         int64_t *knn_indices,
-        int *y,
+        vector[int*] &y,
         size_t n_samples,
         int k
     ) except +
 
     void knn_class_proba(
         cumlHandle &handle,
-        float *out,
+        vector[float*] &out,
         int64_t *knn_indices,
-        int *y,
+        vector[int*] &y,
         size_t n_samples,
         int k
     ) except +
@@ -101,8 +94,9 @@ class KNeighborsClassifier(NearestNeighbors):
         :return:
         """
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
+
         self.y, _, _, _, _ = \
-            input_to_dev_array(y, order='C', check_dtype=np.int32,
+            input_to_dev_array(y, order='F', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
                                                  if convert_dtype
                                                  else None))
@@ -128,19 +122,33 @@ class KNeighborsClassifier(NearestNeighbors):
                                                  if convert_dtype
                                                  else None))
 
-        classes = rmm.to_device(zeros(n_rows, dtype=np.int32,
+        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+
+        out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
+
+        classes = rmm.to_device(zeros(out_shape,
+                                      dtype=np.int32,
                                       order="C"))
 
+        cdef vector[int*] *y_vec = new vector[int*]()
+
+        # If necessary, separate columns of y to support multilabel
+        # classification
+        cdef uintptr_t y_ptr
+        for i in range(out_cols):
+            col = self.y[:,i] if out_cols > 1 else self.y
+            y_ptr = get_dev_array_ptr(col)
+            y_vec.push_back(<int*>y_ptr)
+
         cdef uintptr_t classes_ptr = get_dev_array_ptr(classes)
-        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
-            <int*>classes_ptr,
+            <int*> classes_ptr,
             <int64_t*>inds_ctype,
-            <int*> y_ptr,
+            deref(y_vec),
             <size_t>X.shape[0],
             <int>self.n_neighbors
         )
@@ -174,22 +182,33 @@ class KNeighborsClassifier(NearestNeighbors):
                                                  if convert_dtype
                                                  else None))
 
+        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
+
+        cdef vector[int*] *y_vec = new vector[int*]()
+        cdef vector[float*] *out_vec = new vector[float*]()
 
 
-        classes = rmm.to_device(zeros((n_rows, len(np.unique(np.asarray(self.y)))),
-                                      dtype=np.float32,
-                                      order="C"))
+        cdef uintptr_t classes_ptr
+        cdef uintptr_t y_ptr
+        for out_col in range(out_cols):
+            classes = rmm.to_device(zeros((n_rows,
+                                           len(np.unique(np.asarray(self.y)))),
+                                          dtype=np.float32,
+                                          order="C"))
+            classes_ptr = get_dev_array_ptr(classes)
+            out_vec.push_back(<float*>classes_ptr)
 
-        cdef uintptr_t classes_ptr = get_dev_array_ptr(classes)
-        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
+            col = self.y[:,out_col] if out_cols > 1 else self.y
+            y_ptr = get_dev_array_ptr(col)
+            y_vec.push_back(<int*>y_ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         knn_class_proba(
             handle_[0],
-            <float*>classes_ptr,
+            deref(out_vec),
             <int64_t*>inds_ctype,
-            <int*> y_ptr,
+            deref(y_vec),
             <size_t>X.shape[0],
             <int>self.n_neighbors
         )
