@@ -18,7 +18,7 @@ import pytest
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_blobs
 
 from sklearn.utils.validation import check_random_state
 from sklearn.model_selection import train_test_split
@@ -77,14 +77,17 @@ def test_KNeighborsRegressor_multioutput_uniform_weight():
 
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
-@pytest.mark.parametrize("n_neighbors", [1])
-@pytest.mark.parametrize("n_informative", [2, 10])
-def test_score(nrows, ncols, n_neighbors, n_informative):
+@pytest.mark.parametrize("n_neighbors", [2, 5, 10])
+@pytest.mark.parametrize("n_clusters", [2, 5, 10])
+def test_score(nrows, ncols, n_neighbors, n_clusters):
 
-    X, y = make_regression(n_samples=nrows, n_informative=n_informative,
+    # Using make_blobs here to check averages and neighborhoods
+    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
+                      cluster_std=0.01,
                       n_features=ncols, random_state=0)
 
     X = X.astype(np.float32)
+    y = y.astype(np.float32)
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X, y)
