@@ -14,12 +14,9 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
-
-from cuml.metrics import r2_score
 
 from sklearn.datasets import make_regression
 
@@ -27,33 +24,7 @@ from sklearn.utils.validation import check_random_state
 from sklearn.model_selection import train_test_split
 from numpy.testing import assert_array_almost_equal
 
-
-import cudf
-import pandas as pd
 import numpy as np
-from cuml.test.utils import array_equal
-
-import scipy.stats as stats
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
-def predict(neigh_ind, _y, n_neighbors):
-
-    neigh_ind = neigh_ind.astype(np.int32)
-
-    ypred, count = stats.mode(_y[neigh_ind], axis=1)
-    return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
 
 
 def test_kneighbors_regressor(n_samples=40,
