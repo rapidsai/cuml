@@ -318,7 +318,7 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-		      -DENABLE_PROTOBUF=ON
+		              -DENABLE_PROTOBUF=ON
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
@@ -403,7 +403,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
-    ${Protobuf_LIBRARY}
+    ${Protobuf_LIBRARIES}
     treelitelib
     dmlclib
     faisslib
