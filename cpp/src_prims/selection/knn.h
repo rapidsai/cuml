@@ -307,7 +307,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
 template <typename OutType, typename ProbaType>
 __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
                                   int *unique_labels, int n_uniq_labels,
-                                  size_t n_samples) {
+                                  size_t n_samples, int output_offset) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_uniq_labels;
 
@@ -330,7 +330,7 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
       cur_label = j;
     }
   }
-  out[row] = label_cache[cur_label];
+  out[row + output_offset] = label_cache[cur_label];
 }
 
 template <typename LabelType>
@@ -358,29 +358,35 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param out output array of size (n_samples * n_classes)
  */
 template <int TPB_X = 32>
-void class_probs(float *out, const int64_t *knn_indices, const int *y,
-                 size_t n_rows, int k, int *uniq_labels, int n_unique,
+void class_probs(float *out, const int64_t *knn_indices, int **y, size_t n_rows,
+                 int k, int **uniq_labels, int *n_unique, int n_parts,
                  std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t stream) {
-  // need to get unique classes
-  CUDA_CHECK(cudaMemsetAsync(out, 0, n_rows * n_unique, stream));
+  int total_processed = 0;
+  for (int i = 0; i < n_parts; i++) {
+    int n_labels = n_unique[i];
+    int cur_size = n_rows * n_labels;
+    int begin_offset = total_processed * n_rows;
 
-  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
+    CUDA_CHECK(cudaMemsetAsync(out + begin_offset, 0, cur_size, stream));
 
-  /**
-   * Build array class probability arrays from
-   * knn_indices and labels
-   */
-  int smem = sizeof(int) * n_unique;
-  class_probs_kernel<<<grid, blk, smem, stream>>>(
-    out, knn_indices, y, uniq_labels, n_unique, n_rows, k);
+    dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
 
-  /**
-   * Normalize numbers between 0 and 1
-   */
+    /**
+     * Build array class probability arrays from
+     * knn_indices and labels
+     */
+    int smem = sizeof(int) * n_labels;
+    class_probs_kernel<<<grid, blk, smem, stream>>>(
+      out + begin_offset, knn_indices, y[i], uniq_labels[i], n_labels, n_rows,
+      k);
+
+    total_processed += n_labels;
+  }
+
   LinAlg::unaryOp(
-    out, out, n_rows * n_unique,
+    out, out, total_processed * n_rows,
     [=] __device__(float input) {
       float n_neighbors = k;
       return input / n_neighbors;
@@ -389,27 +395,36 @@ void class_probs(float *out, const int64_t *knn_indices, const int *y,
 }
 
 template <int TPB_X = 32>
-void knn_classify(int *out, const int64_t *knn_indices, const int *y,
-                  size_t n_rows, int k, int *uniq_labels, int n_unique,
+void knn_classify(int *out, const int64_t *knn_indices, int **y, size_t n_rows,
+                  int k, int **uniq_labels, int *n_unique, int n_parts,
                   std::shared_ptr<deviceAllocator> &allocator,
                   cudaStream_t stream) {
-  device_buffer<float> probs(allocator, stream, n_rows * n_unique);
+  int total_unique_lables = 0;
+  for (int i = 0; i < n_parts; i++) total_unique_lables += n_unique[i];
+
+  device_buffer<float> probs(allocator, stream, n_rows * total_unique_lables);
+
   /**
    * Compute class probabilities
    */
-
   class_probs(probs.data(), knn_indices, y, n_rows, k, uniq_labels, n_unique,
-              allocator, stream);
+              n_parts, allocator, stream);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  /**
-   * Choose max probability
-   */
-  int smem = sizeof(int) * n_unique;
-  class_vote_kernel<<<grid, blk, smem, stream>>>(out, probs.data(), uniq_labels,
-                                                 n_unique, n_rows);
+  int total_processed = 0;
+  for (int i = 0; i < n_parts; i++) {
+    int n_labels = n_unique[i];
+    int begin_offset = total_processed * n_rows;
+
+    /**
+     * Choose max probability
+     */
+    int smem = sizeof(int) * n_labels;
+    class_vote_kernel<<<grid, blk, smem, stream>>>(
+      out, probs.data() + begin_offset, uniq_labels[i], n_labels, n_rows, i);
+  }
 }
 
 template <typename ValType, int TPB_X = 32>

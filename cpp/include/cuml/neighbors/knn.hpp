@@ -59,9 +59,11 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
  * @param y array of labels on device (size n_samples)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
+ * @param output_offset to support multiple outputs- specifies the
+ *                      offset to use.
  */
-void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int *y,
-                  size_t n_samples, int k);
+void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int **y,
+                  size_t n_samples, int k, int n_parts);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -82,7 +84,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
  * using a given array of discrete class labels
  */
 void knn_class_proba(cumlHandle &handle, float *out, int64_t *knn_indices,
-                     int *y, size_t n_samples, int k);
+                     int **y, size_t n_samples, int k, int n_parts);
 
 class kNN {
   float **ptrs;

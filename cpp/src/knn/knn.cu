@@ -40,18 +40,22 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
     handle.getImpl().getStream(), rowMajorIndex, rowMajorQuery);
 }
 
-void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int *y,
-                  size_t n_samples, int k) {
+void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int **y,
+                  size_t n_samples, int k, int n_parts) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  int *uniq_labels;
-  int n_unique;
+  int **uniq_labels = new int *[n_parts];
+  int *n_unique = new int[n_parts];
 
-  MLCommon::Label::getUniqueLabels(y, n_samples, &(uniq_labels), &n_unique,
-                                   stream, d_alloc);
+  for (int i = 0; i < n_parts; i++) {
+    MLCommon::Label::getUniqueLabels(y[i], n_samples, &(uniq_labels[i]),
+                                     &(n_unique[i]), stream, d_alloc);
+  }
+
   MLCommon::Selection::knn_classify(out, knn_indices, y, n_samples, k,
-                                    uniq_labels, n_unique, d_alloc, stream);
+                                    uniq_labels, n_unique, n_parts, d_alloc,
+                                    stream);
   cudaFree(uniq_labels);
 }
 
@@ -62,17 +66,21 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
 }
 
 void knn_class_proba(cumlHandle &handle, float *out, int64_t *knn_indices,
-                     int *y, size_t n_samples, int k) {
+                     int **y, size_t n_samples, int k, int n_parts) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  int *uniq_labels;
-  int n_unique;
+  int **uniq_labels = new int *[n_parts];
+  int *n_unique = new int[n_parts];
 
-  MLCommon::Label::getUniqueLabels(y, n_samples, &(uniq_labels), &n_unique,
-                                   stream, d_alloc);
+  for (int i = 0; i < n_parts; i++) {
+    MLCommon::Label::getUniqueLabels(y[i], n_samples, &(uniq_labels[i]),
+                                     &(n_unique[i]), stream, d_alloc);
+  }
+
   MLCommon::Selection::class_probs(out, knn_indices, y, n_samples, k,
-                                   uniq_labels, n_unique, d_alloc, stream);
+                                   uniq_labels, n_unique, n_parts, d_alloc,
+                                   stream);
   cudaFree(uniq_labels);
 }
 
