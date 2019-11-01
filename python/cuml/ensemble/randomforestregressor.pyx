@@ -360,6 +360,7 @@ class RandomForestRegressor(Base):
         tmpdir = tempfile.mkdtemp()
         file_name = os.path.join(tmpdir, "model.buffer")
         self.file_name = file_name
+        self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest

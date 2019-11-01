@@ -113,10 +113,11 @@ def make_dataset(datatype, nrows, ncols, n_info):
 
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('model', rf_regression_model.values())
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_rf_regression_pickle(tmpdir, datatype, model, nrows, ncols):
-    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols)
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_rf_regression_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = np.asarray(model.predict(X_test))

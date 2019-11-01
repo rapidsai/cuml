@@ -314,7 +314,7 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           600afd55d1fa9bb94fc88fd3a3043cb2d5b20651
+    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -371,6 +371,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/comms/cuML_comms_test.cpp
     src/common/nvtx.cu
     src/datasets/make_blobs.cu
+    src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/fil/fil.cu
@@ -409,7 +410,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
 
   if(OPENMP_FOUND)
-
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -459,8 +459,8 @@ if(BUILD_CUML_MPI_COMMS)
 	add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
-##############################################################################
-# - build examples -----------------------------------------------------------
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
 
 if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
