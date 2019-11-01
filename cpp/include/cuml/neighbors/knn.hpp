@@ -51,23 +51,25 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a
- * given array of labels.
+ * given a vector of label arrays. This supports multilabel classification
+ * by classifying on multiple label arrays. Note that each label is
+ * classified independently, as is done in scikit-learn.
  *
  * @param handle the cuml handle to use
- * @param out output array on device (size n_samples)
- * @param knn_indices array on device of knn indices (size n_samples * k)
- * @param y array of labels on device (size n_samples)
- * @param n_samples number of samples in knn_indices and out
+ * @param out output array on device (size n_samples * size of y vector)
+ * @param knn_indices index array on device resulting from knn query (size n_samples * k)
+ * @param y vector of label arrays on device vector size is number of (size n_samples)
+ * @param n_samples number of samples in knn_indices
  * @param k number of nearest neighbors in knn_indices
- * @param output_offset to support multiple outputs- specifies the
- *                      offset to use.
  */
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_samples, int k);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
- * a given array of labels
+ * a given a vector of label arrays. This supports multilabel
+ * regression by clasifying on multiple label arrays. Note that
+ * each label is classified independently, as is done in scikit-learn.
  *
  * @param handle the cuml handle to use
  * @param out output array on device (size n_samples)
@@ -76,12 +78,12 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
-void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, std::vector<float *> &y,
-                 size_t n_samples, int k);
+void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
+                 std::vector<float *> &y, size_t n_samples, int k);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
- * using a given array of discrete class labels
+ * using a vector of device arrays containing discrete class labels.
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,

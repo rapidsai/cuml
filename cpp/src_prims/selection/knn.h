@@ -273,7 +273,7 @@ __device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
   return -1;
 }
 
-template <typename OutType>
+template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
                                    const int *labels, int *unique_labels,
                                    int n_uniq_labels, size_t n_samples,
@@ -301,7 +301,9 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
     // for the mappings.
     int out_label_idx =
       label_binary_search(label_cache, n_uniq_labels, out_label);
-    out[(row * n_uniq_labels) + out_label_idx] += 1.0;
+
+    int out_idx = row * n_uniq_labels + out_label_idx;
+    out[out_idx] += 1.0f;
   }
 }
 
@@ -379,11 +381,12 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t stream) {
+  // todo: Use separate streams
   for (int i = 0; i < y.size(); i++) {
     int n_labels = n_unique[i];
     int cur_size = n_rows * n_labels;
 
-    CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size, stream));
+    CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(int), stream));
 
     dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
@@ -395,9 +398,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     int smem = sizeof(int) * n_labels;
     class_probs_kernel<<<grid, blk, smem, stream>>>(
       out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
-
     LinAlg::unaryOp(
-      out[i], out[i], n_rows * n_labels,
+      out[i], out[i], cur_size,
       [=] __device__(float input) {
         float n_neighbors = k;
         return input / n_neighbors;
@@ -450,7 +452,6 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
-
 
   // todo: Use separate streams
   for (int i = 0; i < y.size(); i++) {

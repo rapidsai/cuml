@@ -26,7 +26,7 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
-@pytest.mark.parametrize("n_clusters", [2, 5])
+@pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 
     X, y = make_blobs(n_samples=nrows,
@@ -48,7 +48,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
-@pytest.mark.parametrize("n_clusters", [2, 5])
+@pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_score(nrows, ncols, n_neighbors, n_clusters):
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -65,8 +65,8 @@ def test_score(nrows, ncols, n_neighbors, n_clusters):
 
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
-@pytest.mark.parametrize("n_neighbors", [2, 10])
-@pytest.mark.parametrize("n_clusters", [2, 5])
+@pytest.mark.parametrize("n_neighbors", [2, 5, 10])
+@pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_predict_proba(nrows, ncols, n_neighbors, n_clusters):
 
     X, y = make_blobs(n_samples=nrows,
@@ -81,6 +81,9 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters):
     knn_cu.fit(X, y)
 
     predictions = knn_cu.predict_proba(X)
+
+    assert len(predictions[predictions<0]) == 0
+    assert len(predictions[predictions>1]) == 0
 
     y_hat = np.argmax(np.array(predictions), axis=1)
 
@@ -113,3 +116,25 @@ def test_predict_multioutput():
     p = knn_cu.predict(X)
 
     assert array_equal(p.astype(np.int32), y)
+
+
+def test_predict_proba_multioutput():
+
+    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+
+    y = np.array([[15, 2], [5, 4]]).astype(np.int32)
+
+    expected = (np.array([[0., 1.], [1., 0.]]).astype(np.float32),
+                np.array([[1., 0.], [0., 1.]]).astype(np.float32))
+
+    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu.fit(X, y)
+
+    p = knn_cu.predict_proba(X)
+
+    assert isinstance(p, tuple)
+
+    print(str(p))
+
+    assert array_equal(p[0].astype(np.float32), expected[0])
+    assert array_equal(p[1].astype(np.float32), expected[1])

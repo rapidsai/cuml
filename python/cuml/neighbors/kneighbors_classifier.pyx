@@ -188,17 +188,19 @@ class KNeighborsClassifier(NearestNeighbors):
         cdef vector[float*] *out_vec = new vector[float*]()
 
 
+        out_classes = []
         cdef uintptr_t classes_ptr
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
+            col = self.y[:,out_col] if out_cols > 1 else self.y
             classes = rmm.to_device(zeros((n_rows,
-                                           len(np.unique(np.asarray(self.y)))),
+                                           len(np.unique(np.asarray(col)))),
                                           dtype=np.float32,
                                           order="C"))
+            out_classes.append(classes)
             classes_ptr = get_dev_array_ptr(classes)
             out_vec.push_back(<float*>classes_ptr)
 
-            col = self.y[:,out_col] if out_cols > 1 else self.y
             y_ptr = get_dev_array_ptr(col)
             y_vec.push_back(<int*>y_ptr)
 
@@ -215,12 +217,18 @@ class KNeighborsClassifier(NearestNeighbors):
 
         self.handle.sync()
 
-        if isinstance(X, np.ndarray):
-            return np.array(classes)
-        elif isinstance(X, cudf.DataFrame):
-            return cudf.DataFrame.from_gpu_matrix(classes)
-        else:
-            return classes
+        final_classes = []
+        for out_class in out_classes:
+            if isinstance(X, np.ndarray):
+                final_class = np.array(out_class)
+            elif isinstance(X, cudf.DataFrame):
+                final_class =  cudf.DataFrame.from_gpu_matrix(out_class)
+            else:
+                final_class = out_class
+            final_classes.append(final_class)
+
+        return final_classes[0] \
+            if len(final_classes) == 1 else tuple(final_classes)
 
     def score(self, X, y, sample_weight=None, convert_dtype=True):
         """
@@ -233,4 +241,8 @@ class KNeighborsClassifier(NearestNeighbors):
         :return:
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
-        return accuracy_score(y, y_hat)
+        if isinstance(y_hat, tuple):
+            return (accuracy_score(y, y_hat_i) for y_hat_i in y_hat)
+        else:
+            return accuracy_score(y, y_hat)
+
