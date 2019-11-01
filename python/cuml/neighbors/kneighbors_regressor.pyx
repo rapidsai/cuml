@@ -30,9 +30,11 @@ import numpy as np
 
 import cudf
 
+from cython.operator cimport dereference as deref
+
+from cuml.common.vector cimport vector
 
 from cuml.common.handle cimport cumlHandle
-
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -65,7 +67,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         cumlHandle &handle,
         float *out,
         int64_t *knn_indices,
-        float *y,
+        vector[float *] &y,
         size_t n_samples,
         int k,
     ) except +
@@ -93,7 +95,7 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _, _ = \
-            input_to_dev_array(y, order='C', check_dtype=np.float32,
+            input_to_dev_array(y, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
                                                  if convert_dtype
                                                  else None))
@@ -119,11 +121,19 @@ class KNeighborsRegressor(NearestNeighbors):
                                                  if convert_dtype
                                                  else None))
 
-        results = rmm.to_device(zeros(n_rows, dtype=np.float32,
+        res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
+        res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
+        results = rmm.to_device(zeros(res_shape, dtype=np.float32,
                                       order="C"))
 
         cdef uintptr_t results_ptr = get_dev_array_ptr(results)
-        cdef uintptr_t y_ptr = get_dev_array_ptr(self.y)
+        cdef uintptr_t y_ptr
+        cdef vector[float*] *y_vec = new vector[float*]()
+
+        for col_num in range(res_cols):
+            col = self.y if res_cols == 1 else self.y[:,col_num]
+            y_ptr = get_dev_array_ptr(col)
+            y_vec.push_back(<float*>y_ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -131,7 +141,7 @@ class KNeighborsRegressor(NearestNeighbors):
             handle_[0],
             <float*>results_ptr,
             <int64_t*>inds_ctype,
-            <float*> y_ptr,
+            deref(y_vec),
             <size_t>X.shape[0],
             <int>self.n_neighbors
         )

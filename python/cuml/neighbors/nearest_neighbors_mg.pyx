@@ -35,6 +35,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
+from cuml.common.vector cimport vector
 
 import scipy.stats as stats
 
@@ -55,21 +56,6 @@ import rmm
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "<vector>" namespace "std":
-    cdef cppclass vector[T]:
-        cppclass iterator:
-            T operator*()
-            iterator operator++()
-            bint operator==(iterator)
-            bint operator!=(iterator)
-        vector()
-        void push_back(T&)
-        T& operator[](int)
-        T& at(int)
-        iterator begin()
-        iterator end()
-        void resize(size_t n)
-        int size()
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
         "MLCommon::Matrix":

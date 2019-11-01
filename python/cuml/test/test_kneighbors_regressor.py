@@ -26,6 +26,8 @@ from numpy.testing import assert_array_almost_equal
 
 import numpy as np
 
+from cuml.test.utils import array_equal
+
 
 def test_kneighbors_regressor(n_samples=40,
                               n_features=5,
@@ -88,3 +90,17 @@ def test_score(nrows, ncols, n_neighbors, n_informative):
     knn_cu.fit(X, y)
 
     assert knn_cu.score(X, y) >= 0.9999
+
+
+def test_predict_multioutput():
+
+    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+
+    y = np.array([[15.0, 2.0], [5.0, 4.0]]).astype(np.int32)
+
+    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu.fit(X, y)
+
+    p = knn_cu.predict(X)
+
+    assert array_equal(p.astype(np.int32), y)
