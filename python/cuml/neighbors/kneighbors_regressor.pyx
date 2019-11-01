@@ -91,7 +91,7 @@ class KNeighborsRegressor(NearestNeighbors):
         :param convert_dtype:
         :return:
         """
-        super(NearestNeighbors, self).fit(X, convert_dtype)
+        super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _, _ = \
             input_to_dev_array(y, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
@@ -108,13 +108,14 @@ class KNeighborsRegressor(NearestNeighbors):
         :param convert_type:
         :return:
         """
-        knn_indices = self.kneighbors(X, convert_dtype)
+        knn_indices = self.kneighbors(X, return_distance=False,
+                                      convert_dtype=convert_dtype)
 
         cdef uintptr_t inds_ctype
 
         inds, inds_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(knn_indices, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
+            input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
+                               convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
 
@@ -132,11 +133,11 @@ class KNeighborsRegressor(NearestNeighbors):
             <int64_t*>inds_ctype,
             <float*> y_ptr,
             <size_t>X.shape[0],
-            <int>self.n_neighbors,
+            <int>self.n_neighbors
         )
 
         self.handle.sync()
-        if isinstance(X, np.array):
+        if isinstance(X, np.ndarray):
             return np.array(results)
         elif isinstance(X, cudf.DataFrame):
             return cudf.DataFrame.from_gpu_matrix(results)
@@ -153,5 +154,5 @@ class KNeighborsRegressor(NearestNeighbors):
         :param sample_weight:
         :return:
         """
-        y_hat = self.predict(X, convert_dtype)
-        return r2_score(y, y_hat, convert_dtype)
+        y_hat = self.predict(X, convert_dtype=convert_dtype)
+        return r2_score(y, y_hat, convert_dtype=convert_dtype)
