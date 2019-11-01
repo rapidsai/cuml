@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <distance/fused_l2_nn.h>
 #include <gtest/gtest.h>
 #include <linalg/norm.h>
 #include <random/rng.h>
@@ -24,8 +25,8 @@ namespace MLCommon {
 namespace Distance {
 
 template <typename DataT>
-__global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y,
-                            int m, int n, int k, int *workspace) {
+__global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y, int m,
+                            int n, int k, int *workspace) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -36,22 +37,28 @@ __global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  while (atomicCAS(workspace, 0, 1) == 1);
+  while (atomicCAS(workspace, 0, 1) == 1)
+    ;
   if (acc < minDist[midx]) {
     minDist[midx] = acc;
     min[midx] = nidx;
   }
+  __threadfence();
   atomicCAS(workspace, 1, 0);
 }
 
 template <typename DataT>
 void naive(int *min, DataT *minDist, DataT *x, DataT *y, int m, int n, int k,
            int *workspace, cudaStream_t stream) {
-  static const dim3 TPB(16, 32, 1);
+  static const dim3 TPB(32, 16, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int), stream));
-  naiveKernel<DataT><<<nblks, TPB, 0, stream>>>(min, minDist, x, y, m, n, k,
-                                                workspace);
+  auto blks = ceildiv(m, 256);
+  initKernel<DataT, int, int><<<blks, 256, 0, stream>>>(
+    min, minDist, m, std::numeric_limits<DataT>::max());
+  CUDA_CHECK(cudaGetLastError());
+  naiveKernel<DataT>
+    <<<nblks, TPB, 0, stream>>>(min, minDist, x, y, m, n, k, workspace);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -76,8 +83,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     allocate(y, n * k);
     allocate(xn, m);
     allocate(yn, n);
-    allocate(minDist_ref, m);
-    allocate(minDist, m);
+    allocate(minDist_ref, m * n);
+    allocate(minDist, m * n);
     allocate(workspace, m);
     allocate(min, m);
     allocate(min_ref, m);
@@ -113,8 +120,12 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   cudaStream_t stream;
 };
 
+///@todo: enable testing of arbitrary values of 'k'
 const std::vector<Inputs<float>> inputsf = {
-  {0.001f, 32, 32, 32, 1234ULL},
+  {0.001f, 32, 32, 32, 1234ULL},   {0.001f, 32, 64, 32, 1234ULL},
+  {0.001f, 64, 32, 32, 1234ULL},   {0.001f, 64, 64, 32, 1234ULL},
+  {0.001f, 128, 32, 32, 1234ULL},  {0.001f, 128, 64, 32, 1234ULL},
+  {0.001f, 128, 128, 64, 1234ULL}, {0.001f, 64, 128, 128, 1234ULL},
 };
 typedef FusedL2NNTest<float> FusedL2NNTestF;
 TEST_P(FusedL2NNTestF, Result) {

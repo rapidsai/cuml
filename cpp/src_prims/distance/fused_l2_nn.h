@@ -17,29 +17,25 @@
 #pragma once
 
 #include <cuda_utils.h>
-#include <limits>
 #include <stdint.h>
+#include <limits>
 
 namespace MLCommon {
 namespace Distance {
 
-DI void sts(float* addr, const float& x) {
-  *addr = x;
-}
+DI void sts(float* addr, const float& x) { *addr = x; }
 DI void sts(float* addr, const float (&x)[2]) {
   float2 v2 = make_float2(x[0], x[1]);
   auto* s2 = reinterpret_cast<float2*>(addr);
   *s2 = v2;
 }
 DI void sts(float* addr, const float (&x)[4]) {
-  float2 v4 = make_float4(x[0], x[1], x[2], x[3]);
+  float4 v4 = make_float4(x[0], x[1], x[2], x[3]);
   auto* s4 = reinterpret_cast<float4*>(addr);
   *s4 = v4;
 }
 
-DI void lds(float& x, float* addr) {
-  x = *addr;
-}
+DI void lds(float& x, float* addr) { x = *addr; }
 DI void lds(float (&x)[2], float* addr) {
   auto* s2 = reinterpret_cast<float2*>(addr);
   auto v2 = *s2;
@@ -60,11 +56,13 @@ DI void ldg(float& x, float* addr) {
 }
 DI void ldg(float (&x)[2], float* addr) {
   asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%4];"
-               : "=f"(x[0]), "=f"(x[1]) : "l"(addr));
+               : "=f"(x[0]), "=f"(x[1])
+               : "l"(addr));
 }
 DI void ldg(float (&x)[4], float* addr) {
   asm volatile("ld.global.cg.v4.f32 {%0, %1, %2, %3}, [%4];"
-               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3]) : "l"(addr));
+               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
+               : "l"(addr));
 }
 
 template <typename K, typename V>
@@ -114,9 +112,10 @@ struct KernelPolicy {
     /** size of one smem page */
     SmemPage = SmemPageX + SmemPageY,
     /** size (in B) for smem needed */
-    SmemSize = 2 * SmemPage * sizeof(DataT),
+    ///@todo: enable double-buffering
+    SmemSize = SmemPage * sizeof(DataT),
   };  // enum
-};  // struct KernelPolicy
+};    // struct KernelPolicy
 
 struct P64x64_v4_k32_f : public KernelPolicy<float, 4, 32, 4, 4, 16, 16> {};
 
@@ -127,8 +126,8 @@ struct FusedL2NN {
 
   IdxT m, n, k, xrowid, yrowid;
   DataT *x, *y, *xn, *yn, *minDist;
-  OutT *min;
-  int *mutex;
+  OutT* min;
+  int* mutex;
 
   int srowid, scolid;
   int accrowid, acccolid;
@@ -147,19 +146,30 @@ struct FusedL2NN {
 
  public:
   DI FusedL2NN(OutT* _min, DataT* _minDist, DataT* _x, DataT* _y, DataT* _xn,
-               DataT* _yn, IdxT _m, IdxT _n, IdxT _k, char* _smem,
-               DataT _mv, int* _mut)
-    : m(_m), n(_n), k(_k),
+               DataT* _yn, IdxT _m, IdxT _n, IdxT _k, char* _smem, DataT _mv,
+               int* _mut)
+    : m(_m),
+      n(_n),
+      k(_k),
       xrowid(IdxT(blockIdx.x) * P::Mblk + threadIdx.x / P::LdgThK),
       yrowid(IdxT(blockIdx.y) * P::Nblk + threadIdx.x / P::LdgThK),
-      x(_x + xrowid * k), y(_y + yrowid * k), xn(_xn), yn(_yn),
-      minDist(_minDist), min(_min), mutex(_mut),
-      srowid(threadIdx.x / P::LdgThK), scolid(threadIdx.x % P::LdgThK),
+      x(_x + xrowid * k),
+      y(_y + yrowid * k),
+      xn(_xn),
+      yn(_yn),
+      minDist(_minDist),
+      min(_min),
+      mutex(_mut),
+      srowid(threadIdx.x / P::LdgThK),
+      scolid((threadIdx.x % P::LdgThK) * P::Veclen),
       accrowid(threadIdx.x / P::AccThCols),
-      acccolid(threadIdx.x % P::AccThCols), sx((DataT*)_smem),
-      sy(&(sx[P::SmemPageX])), sxNorm((DataT*)_smem),
-      syNorm(&(sxNorm[P::Mblk])), pageWr(0), maxVal(_mv) {
-  }
+      acccolid(threadIdx.x % P::AccThCols),
+      sx((DataT*)_smem),
+      sy(&(sx[P::SmemPageX])),
+      sxNorm((DataT*)_smem),
+      syNorm(&(sxNorm[P::Mblk])),
+      pageWr(0),
+      maxVal(_mv) {}
 
   DI void run() {
     prolog();
@@ -169,21 +179,21 @@ struct FusedL2NN {
 
  private:
   DI void prolog() {
-    ldgsts(0);
-    #pragma unroll
+    //ldgsts(0);
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      #pragma unroll
+#pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         acc[i][j] = Zero;
       }
     }
-    __syncthreads();
+    //__syncthreads();
   }
 
   DI void ldgsts(IdxT kidx) {
     ldgstsX(kidx, sx + pageWr * P::SmemPage);
     ldgstsY(kidx, sy + pageWr * P::SmemPage);
-    pageWr ^= 1;
+    //pageWr ^= 1;
   }
 
   DI void ldgstsX(IdxT kidx, DataT* smem) {
@@ -194,15 +204,15 @@ struct FusedL2NN {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
         ldg(data[i], x + i * P::LdgRowsX * k + koffset);
       } else {
-        #pragma unroll
-        for (int j = 0; j < P::Veclen ; ++j) {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
           data[i][j] = Zero;
         }
       }
     }
     // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid * P::Veclen;
-    #pragma unroll
+    auto* saddr = smem + srowid * P::SmemStride + scolid;
+#pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
       sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
     }
@@ -216,39 +226,47 @@ struct FusedL2NN {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
         ldg(data[i], y + i * P::LdgRowsY * k + koffset);
       } else {
-        #pragma unroll
-        for (int j = 0; j < P::Veclen ; ++j) {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
           data[i][j] = Zero;
         }
       }
     }
     // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid * P::Veclen;
-    #pragma unroll
+    auto* saddr = smem + srowid * P::SmemStride + scolid;
+#pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
       sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
     }
   }
 
   DI void ldsXY(int kidx) {
-    auto* saddrx = sx + pageWr * P::SmemPage + accrowid * P::SmemStride + kidx;
-    #pragma unroll
+    ldsX(kidx, sx + pageWr * P::SmemPage);
+    ldsY(kidx, sy + pageWr * P::SmemPage);
+  }
+
+  DI void ldsX(int kidx, DataT* smem) {
+    auto* saddr = smem + accrowid * P::SmemStride + kidx;
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      lds(regx[i], saddrx + i * P::AccThRows * P::SmemStride);
+      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
     }
-    auto* saddry = sy + pageWr * P::SmemPage + acccolid * P::SmemStride + kidx;
-    #pragma unroll
+  }
+
+  DI void ldsY(int kidx, DataT* smem) {
+    auto* saddr = smem + acccolid * P::SmemStride + kidx;
+#pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
-      lds(regy[i], saddry + i * P::AccThCols * P::SmemStride);
+      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
     }
   }
 
   DI void accumulate() {
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      #pragma unroll
+#pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        #pragma unroll
+#pragma unroll
         for (int v = 0; v < P::Veclen; ++v) {
           acc[i][j] += regx[i][v] * regy[j][v];
         }
@@ -257,15 +275,16 @@ struct FusedL2NN {
   }
 
   DI void loop() {
-    for (int kidx = P::Kblk; kidx < k; kidx += P::Kblk) {
+    for (int kidx = 0; kidx < k; kidx += P::Kblk) {
       ldgsts(kidx);
-      #pragma unroll
+      __syncthreads();
+#pragma unroll
       for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
         ldsXY(ki);
+        accumulate();
         if (ki == P::Kblk - P::Veclen) {
           __syncthreads();
         }
-        accumulate();
       }
     }
   }
@@ -282,18 +301,18 @@ struct FusedL2NN {
     }
     __syncthreads();
     DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       regxn[i] = sxNorm[i * P::AccThRows + accrowid];
     }
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
       regyn[i] = syNorm[i * P::AccThCols + acccolid];
     }
-    // compute
-    #pragma unroll
+// compute
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      #pragma unroll
+#pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         acc[i][j] = regxn[i] + regyn[j] - Two * acc[i][j];
       }
@@ -301,11 +320,11 @@ struct FusedL2NN {
     // reduce
     KVP<OutT, DataT> val[P::AccRowsPerTh];
     auto lid = threadIdx.x % WarpSize;
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       val[i].k = -1;
       val[i].v = maxVal;
-      #pragma unroll
+#pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto tmpk = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
         if (tmpk < n && acc[i][j] < val[i].v) {
@@ -313,7 +332,7 @@ struct FusedL2NN {
           val[i].v = acc[i][j];
         }
       }
-      #pragma unroll
+#pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
         auto tmpk = shfl(val[i].k, lid + j);
         auto tmpv = shfl(val[i].v, lid + j);
@@ -325,16 +344,18 @@ struct FusedL2NN {
     }
     if (lid % P::AccThCols == 0) {
       auto ridx = IdxT(blockIdx.x) * P::Mblk + accrowid;
-      #pragma unroll
+#pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
         auto rid = ridx + i * P::AccThRows;
         if (rid < m) {
-          while (atomicCAS(mutex + rid, 0, 1) == 1);
+          while (atomicCAS(mutex + rid, 0, 1) == 1)
+            ;
           auto tmpv = minDist[rid];
           if (val[i].v < tmpv) {
             min[rid] = val[i].k;
             minDist[rid] = val[i].v;
           }
+          __threadfence();
           atomicCAS(mutex + rid, 1, 0);
         }
       }
@@ -343,10 +364,9 @@ struct FusedL2NN {
 };
 
 template <typename DataT, typename OutT, typename IdxT, typename Policy>
-__global__ __launch_bounds__(Policy::Nthreads, 2)
-  void fusedL2NNkernel(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
-                       DataT* yn, IdxT m, IdxT n, IdxT k, DataT maxVal,
-                       int* mutex) {
+__global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2NNkernel(
+  OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
+  IdxT n, IdxT k, DataT maxVal, int* mutex) {
   extern __shared__ char smem[];
   FusedL2NN<DataT, OutT, IdxT, Policy> obj(min, minDist, x, y, xn, yn, m, n, k,
                                            smem, maxVal, mutex);
@@ -395,12 +415,12 @@ void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
   auto nblks = ceildiv<int>(m, Policy::Nthreads);
   auto maxVal = std::numeric_limits<DataT>::max();
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  initKernel<DataT, IdxT><<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist,
-                                                                  m, maxVal);
+  initKernel<DataT, IdxT>
+    <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
   CUDA_CHECK(cudaGetLastError());
   fusedL2NNkernel<DataT, OutT, IdxT, Policy>
-    <<<grid, blk, Policy::SmemSize, stream>>>(
-      min, minDist, x, y, xn, yn, m, n, k, maxVal, workspace);
+    <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
+                                              k, maxVal, workspace);
   CUDA_CHECK(cudaGetLastError());
 }
 
