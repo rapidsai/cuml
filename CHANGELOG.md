@@ -6,6 +6,7 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1316: RF pickling using treelite, protobuf and FIL
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules

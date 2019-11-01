@@ -124,6 +124,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf REQUIRED)
+
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
@@ -149,7 +152,6 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 
 set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
-
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -312,11 +314,13 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
+    GIT_TAG           600afd55d1fa9bb94fc88fd3a3043cb2d5b20651
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+		      -DENABLE_PROTOBUF=ON
     UPDATE_COMMAND    ""
+    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
 
 add_dependencies(treelite faiss)
@@ -367,7 +371,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/comms/cuML_comms_test.cpp
     src/common/nvtx.cu
     src/datasets/make_blobs.cu
-    src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/fil/fil.cu
@@ -399,12 +402,14 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    ${Protobuf_LIBRARY}
     treelitelib
     dmlclib
     faisslib
     )
 
   if(OPENMP_FOUND)
+
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
   endif(OPENMP_FOUND)
 
@@ -454,8 +459,8 @@ if(BUILD_CUML_MPI_COMMS)
 	add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
-###################################################################################################
-# - build examples -------------------------------------------------------------------------
+##############################################################################
+# - build examples -----------------------------------------------------------
 
 if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
