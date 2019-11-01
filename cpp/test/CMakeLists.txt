@@ -201,6 +201,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu
+      prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
       prims/gram.cu
