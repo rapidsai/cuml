@@ -110,7 +110,6 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
-
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('model', rf_regression_model.values())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
