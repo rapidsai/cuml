@@ -66,8 +66,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int64_t *knn_indices,
         int *y,
         size_t n_samples,
-        int k,
-        int n_unique_classes
+        int k
     ) except +
 
     void knn_class_proba(
@@ -76,8 +75,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int64_t *knn_indices,
         int *y,
         size_t n_samples,
-        int k,
-        int n_unique_classes
+        int k
     ) except +
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -109,7 +107,6 @@ class KNeighborsClassifier(NearestNeighbors):
                                                  if convert_dtype
                                                  else None))
 
-        self.n_unique_classes = len(np.unique(np.asarray(y)))
         self.handle.sync()
 
     def predict(self, X, convert_dtype=True):
@@ -145,8 +142,7 @@ class KNeighborsClassifier(NearestNeighbors):
             <int64_t*>inds_ctype,
             <int*> y_ptr,
             <size_t>X.shape[0],
-            <int>self.n_neighbors,
-            <int>self.n_unique_classes
+            <int>self.n_neighbors
         )
 
         self.handle.sync()
@@ -166,18 +162,21 @@ class KNeighborsClassifier(NearestNeighbors):
         :return:
         """
 
-        knn_indices = self.kneighbors(X, convert_dtype)
+        knn_indices = self.kneighbors(X, return_distance=False,
+                                      convert_dtype=convert_dtype)
 
         cdef uintptr_t inds_ctype
 
         inds, inds_ctype, n_rows, n_cols, dtype = \
             input_to_dev_array(knn_indices, order='C',
-                               check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
+                               check_dtype=np.int64,
+                               convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
 
-        classes = rmm.to_device(zeros(n_rows*self.n_unique_classes,
+
+
+        classes = rmm.to_device(zeros((n_rows, len(np.unique(np.asarray(self.y)))),
                                       dtype=np.float32,
                                       order="C"))
 
@@ -192,13 +191,12 @@ class KNeighborsClassifier(NearestNeighbors):
             <int64_t*>inds_ctype,
             <int*> y_ptr,
             <size_t>X.shape[0],
-            <int>self.n_neighbors,
-            <int>self.n_unique_classes
+            <int>self.n_neighbors
         )
 
         self.handle.sync()
 
-        if isinstance(X, np.array):
+        if isinstance(X, np.ndarray):
             return np.array(classes)
         elif isinstance(X, cudf.DataFrame):
             return cudf.DataFrame.from_gpu_matrix(classes)

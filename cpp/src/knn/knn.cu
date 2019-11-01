@@ -20,6 +20,7 @@
 
 #include "ml_mg_utils.h"
 
+#include "label/classlabels.h"
 #include "selection/knn.h"
 
 #include <cuda_runtime.h>
@@ -39,36 +40,19 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
     handle.getImpl().getStream(), rowMajorIndex, rowMajorQuery);
 }
 
-//
-//template<int TPB_X=32>
-//void knn_classify(int *out, const int64_t *knn_indices,
-//    const int *y, size_t n_rows, int k, int n_classes,
-//    std::shared_ptr<deviceAllocator> &allocator,
-//    cudaStream_t stream) {
-//
-//  device_buffer<float> probs(allocator, stream, n_rows * n_classes);
-//
-//  /**
-//   * Compute class probabilities
-//   */
-//  class_probs(probs.data(), knn_indices, n_rows, k, y, n_classes, stream);
-//
-//  dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
-//  dim3 blk(TPB_X, 1, 1);
-//
-//  /**
-//   * Choose max probability
-//   */
-//  class_vote_kernel<<<grid, blk, 0, stream>>>(out, probs.data(), n_samples, n_classes);
-//}
-//
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices, int *y,
-                  size_t n_samples, int k, int n_unique_classes) {
+                  size_t n_samples, int k) {
   auto d_alloc = handle.getDeviceAllocator();
+  cudaStream_t stream = handle.getStream();
 
+  int *uniq_labels;
+  int n_unique;
+
+  MLCommon::Label::getUniqueLabels(y, n_samples, &(uniq_labels), &n_unique,
+                                   stream, d_alloc);
   MLCommon::Selection::knn_classify(out, knn_indices, y, n_samples, k,
-                                    n_unique_classes, d_alloc,
-                                    handle.getStream());
+                                    uniq_labels, n_unique, d_alloc, stream);
+  cudaFree(uniq_labels);
 }
 
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
@@ -78,9 +62,18 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices, float *y,
 }
 
 void knn_class_proba(cumlHandle &handle, float *out, int64_t *knn_indices,
-                     int *y, size_t n_samples, int k, int n_unique_classes) {
+                     int *y, size_t n_samples, int k) {
+  auto d_alloc = handle.getDeviceAllocator();
+  cudaStream_t stream = handle.getStream();
+
+  int *uniq_labels;
+  int n_unique;
+
+  MLCommon::Label::getUniqueLabels(y, n_samples, &(uniq_labels), &n_unique,
+                                   stream, d_alloc);
   MLCommon::Selection::class_probs(out, knn_indices, y, n_samples, k,
-                                   n_unique_classes, handle.getStream());
+                                   uniq_labels, n_unique, d_alloc, stream);
+  cudaFree(uniq_labels);
 }
 
 /**

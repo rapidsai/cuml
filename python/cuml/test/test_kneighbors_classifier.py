@@ -14,19 +14,13 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
 
 from cuml.neighbors import KNeighborsClassifier as cuKNN
 
 from sklearn.datasets import make_blobs
-import cudf
-import pandas as pd
 import numpy as np
 from cuml.test.utils import array_equal
-
-import scipy.stats as stats
-
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -40,18 +34,10 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-def predict(neigh_ind, _y, n_neighbors):
-
-    neigh_ind = neigh_ind.astype(np.int32)
-
-    ypred, count = stats.mode(_y[neigh_ind], axis=1)
-    return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
-
-
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
-@pytest.mark.parametrize("n_clusters", [2, 10])
+@pytest.mark.parametrize("n_clusters", [2, 5])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -71,7 +57,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters):
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
-@pytest.mark.parametrize("n_clusters", [2, 10])
+@pytest.mark.parametrize("n_clusters", [2, 5])
 def test_score(nrows, ncols, n_neighbors, n_clusters):
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -84,3 +70,37 @@ def test_score(nrows, ncols, n_neighbors, n_clusters):
     knn_cu.fit(X, y)
 
     assert knn_cu.score(X, y) == 1.0
+
+
+@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("ncols", [50, 100])
+@pytest.mark.parametrize("n_neighbors", [2, 10])
+@pytest.mark.parametrize("n_clusters", [2, 10])
+def test_predict_proba(nrows, ncols, n_neighbors, n_clusters):
+
+    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
+                      n_features=ncols, random_state=0,
+                      cluster_std=0.01)
+
+    X = X.astype(np.float32)
+
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X, y)
+
+    p = np.argmax(np.array(knn_cu.predict_proba(X)), axis=1)
+
+    assert array_equal(p.astype(np.int32), y.astype(np.int32))
+
+
+def test_nonmonotonic_labels():
+
+    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+
+    y = np.array([15, 5]).astype(np.int32)
+
+    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu.fit(X, y)
+
+    p = knn_cu.predict(X)
+
+    assert array_equal(p.astype(np.int32), y)

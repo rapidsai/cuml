@@ -224,42 +224,113 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   if (translations == nullptr) delete id_ranges;
 };
 
+/**
+ * Binary tree recursion for finding a label in the unique_labels array.
+ * This provides a good middle-ground between having to create a new
+ * labels array just to map non-monotonically increasing labels, or
+ * the alternative, which is having to search over O(n) space for the labels
+ * array in each thread. This is going to cause warp divergence of log(n)
+ * per iteration.
+ */
+template <typename IdxType = int>
+__device__ int find_label(IdxType *unique_labels, IdxType n_labels,
+                          IdxType target_val) {
+  int out_label_idx = -1;
+
+  int level = 1;
+  int cur_break_idx = round(n_labels / (2.0 * level));
+  while (out_label_idx == -1) {
+    int cur_cached_label = unique_labels[cur_break_idx];
+
+    // If we found our label, terminate
+    if (cur_cached_label == target_val) {
+      return cur_break_idx;
+
+      // check left neighbor
+    } else if (cur_break_idx > 0 &&
+               unique_labels[cur_break_idx - 1] == target_val) {
+      return cur_break_idx - 1;
+
+      // check right neighbor
+    } else if (cur_break_idx < n_labels - 1 &&
+               unique_labels[cur_break_idx + 1] == target_val) {
+      return cur_break_idx + 1;
+
+      // traverse
+    } else {
+      level += 1;
+
+      int subtree = round(n_labels / (2.0 * level));
+      if (target_val < cur_cached_label) {
+        // take left subtree
+        cur_break_idx -= subtree;
+      } else {
+        // take right subtree
+        cur_break_idx += subtree;
+      }
+    }
+  }
+  return -1;
+}
+
 template <typename OutType>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
-                                   const int *labels, size_t n_samples,
-                                   int n_neighbors, int n_classes) {
+                                   const int *labels, int *unique_labels,
+                                   int n_uniq_labels, size_t n_samples,
+                                   int n_neighbors) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
+  extern __shared__ int label_cache[];
+
+  if (threadIdx.x == 0) {
+    for (int j = 0; j < n_uniq_labels; j++) label_cache[j] = unique_labels[j];
+  }
+
+  __syncthreads();
+
   if (row >= n_samples) return;
 
-  // should work for moderately small number of classes
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
     int out_label = labels[neighbor_idx];
-    out[(row * n_classes) + out_label] += 1.0;
+
+    // Trading off warp divergence in the outputs so that we don't
+    // need to copy / modify the label memory to do these mappings.
+    // Found a middle-ground between between using shared memory
+    // for the mappings.
+    int out_label_idx = find_label(label_cache, n_uniq_labels, out_label);
+    out[(row * n_uniq_labels) + out_label_idx] += 1.0;
   }
 }
 
 template <typename OutType, typename ProbaType>
 __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
-                                  size_t n_samples, int n_classes) {
+                                  int *unique_labels, int n_uniq_labels,
+                                  size_t n_samples) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int i = row * n_classes;
+  int i = row * n_uniq_labels;
+
+  extern __shared__ int label_cache[];
+  if (threadIdx.x == 0) {
+    for (int j = 0; j < n_uniq_labels; j++) {
+      label_cache[j] = unique_labels[j];
+    }
+  }
+
+  __syncthreads();
 
   if (row >= n_samples) return;
-
   int cur_max = -1;
   int cur_label = -1;
-  for (int j = 0; j < n_classes; j++) {
+  for (int j = 0; j < n_uniq_labels; j++) {
     int cur_count = class_proba[i + j];
     if (cur_count > cur_max) {
       cur_max = cur_count;
       cur_label = j;
     }
   }
-
-  out[row] = cur_label;
+  out[row] = label_cache[cur_label];
 }
 
 template <typename LabelType>
@@ -272,14 +343,13 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   if (row >= n_samples) return;
 
   // should work for moderately small number of classes
-
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
     pred += labels[neighbor_idx];
   }
 
-  out[row] = pred / n_neighbors;
+  out[row] = pred / (LabelType)n_neighbors;
 }
 
 /**
@@ -289,9 +359,11 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  */
 template <int TPB_X = 32>
 void class_probs(float *out, const int64_t *knn_indices, const int *y,
-                 size_t n_rows, int k, int n_unique_classes,
+                 size_t n_rows, int k, int *uniq_labels, int n_unique,
+                 std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t stream) {
-  CUDA_CHECK(cudaMemsetAsync(out, 0, n_rows * n_unique_classes, stream));
+  // need to get unique classes
+  CUDA_CHECK(cudaMemsetAsync(out, 0, n_rows * n_unique, stream));
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -300,29 +372,34 @@ void class_probs(float *out, const int64_t *knn_indices, const int *y,
    * Build array class probability arrays from
    * knn_indices and labels
    */
-  class_probs_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y, n_rows, k,
-                                               n_unique_classes);
+  int smem = sizeof(int) * n_unique;
+  class_probs_kernel<<<grid, blk, smem, stream>>>(
+    out, knn_indices, y, uniq_labels, n_unique, n_rows, k);
 
   /**
    * Normalize numbers between 0 and 1
    */
-  LinAlg::unaryOp<float>(
-    out, out, n_rows * n_unique_classes,
-    [=] __device__(int64_t input) { return input / k; }, stream);
+  LinAlg::unaryOp(
+    out, out, n_rows * n_unique,
+    [=] __device__(float input) {
+      float n_neighbors = k;
+      return input / n_neighbors;
+    },
+    stream);
 }
 
 template <int TPB_X = 32>
 void knn_classify(int *out, const int64_t *knn_indices, const int *y,
-                  size_t n_rows, int k, int n_unique_classes,
+                  size_t n_rows, int k, int *uniq_labels, int n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
                   cudaStream_t stream) {
-  device_buffer<float> probs(allocator, stream, n_rows * n_unique_classes);
-
+  device_buffer<float> probs(allocator, stream, n_rows * n_unique);
   /**
    * Compute class probabilities
    */
-  class_probs(probs.data(), knn_indices, y, n_rows, k, n_unique_classes,
-              stream);
+
+  class_probs(probs.data(), knn_indices, y, n_rows, k, uniq_labels, n_unique,
+              allocator, stream);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -330,8 +407,9 @@ void knn_classify(int *out, const int64_t *knn_indices, const int *y,
   /**
    * Choose max probability
    */
-  class_vote_kernel<<<grid, blk, 0, stream>>>(out, probs.data(), n_rows,
-                                              n_unique_classes);
+  int smem = sizeof(int) * n_unique;
+  class_vote_kernel<<<grid, blk, smem, stream>>>(out, probs.data(), uniq_labels,
+                                                 n_unique, n_rows);
 }
 
 template <typename ValType, int TPB_X = 32>
