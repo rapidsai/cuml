@@ -119,7 +119,6 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   cudaStream_t stream;
 };
 
-///@todo: enable testing of arbitrary values of 'k'
 const std::vector<Inputs<float>> inputsf = {
   {0.001f, 32, 32, 32, 1234ULL},   {0.001f, 32, 64, 32, 1234ULL},
   {0.001f, 64, 32, 32, 1234ULL},   {0.001f, 64, 64, 32, 1234ULL},
