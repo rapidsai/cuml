@@ -143,8 +143,7 @@ struct KernelPolicy {
     /** size of one smem page */
     SmemPage = SmemPageX + SmemPageY,
     /** size (in B) for smem needed */
-    ///@todo: enable double-buffering
-    SmemSize = SmemPage * sizeof(DataT),
+    SmemSize = 2 * SmemPage * sizeof(DataT),
   };  // enum
 };    // struct KernelPolicy
 
@@ -163,7 +162,7 @@ struct FusedL2NN {
 
   DataT *sx, *sy;
   DataT *sxNorm, *syNorm;
-  int pageWr;
+  int pageWr, pageRd;
 
   DataT maxVal;
 
@@ -198,17 +197,20 @@ struct FusedL2NN {
       sxNorm((DataT*)_smem),
       syNorm(&(sxNorm[P::Mblk])),
       pageWr(0),
+      pageRd(0),
       maxVal(_mv) {}
 
   DI void run() {
     prolog();
     loop();
+    __syncthreads();  // so that we can safely reuse smem
     epilog();
   }
 
  private:
   DI void prolog() {
-    //ldgsts(0);
+    ldgsts(0);
+    pageWr ^= 1;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -216,110 +218,21 @@ struct FusedL2NN {
         acc[i][j] = Zero;
       }
     }
-    //__syncthreads();
-  }
-
-  DI void ldgsts(IdxT kidx) {
-    ldgstsX(kidx, sx + pageWr * P::SmemPage);
-    ldgstsY(kidx, sy + pageWr * P::SmemPage);
-    //pageWr ^= 1;
-  }
-
-  DI void ldgstsX(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
-    auto koffset = kidx + scolid;
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
-      } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
-        }
-      }
-    }
-    // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
-    }
-  }
-
-  DI void ldgstsY(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
-    auto koffset = kidx + scolid;
-    for (int i = 0; i < P::LdgPerThY; ++i) {
-      if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
-      } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
-        }
-      }
-    }
-    // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
-    }
-  }
-
-  DI void ldsXY(int kidx) {
-    ldsX(kidx, sx + pageWr * P::SmemPage);
-    ldsY(kidx, sy + pageWr * P::SmemPage);
-  }
-
-  DI void ldsX(int kidx, DataT* smem) {
-    auto* saddr = smem + accrowid * P::SmemStride + kidx;
-#pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
-    }
-  }
-
-  DI void ldsY(int kidx, DataT* smem) {
-    auto* saddr = smem + acccolid * P::SmemStride + kidx;
-#pragma unroll
-    for (int i = 0; i < P::AccColsPerTh; ++i) {
-      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
-    }
-  }
-
-  DI void accumulate() {
-#pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-      for (int j = 0; j < P::AccColsPerTh; ++j) {
-#pragma unroll
-        for (int v = 0; v < P::Veclen; ++v) {
-          acc[i][j] += regx[i][v] * regy[j][v];
-        }
-      }
-    }
+    __syncthreads();
   }
 
   DI void loop() {
-    for (int kidx = 0; kidx < k; kidx += P::Kblk) {
+    for (int kidx = P::Kblk; kidx < k; kidx += P::Kblk) {
       ldgsts(kidx);
+      accumulate();
       __syncthreads();
-#pragma unroll
-      for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
-        ldsXY(ki);
-        accumulate();
-        if (ki == P::Kblk - P::Veclen) {
-          __syncthreads();
-        }
-      }
+      pageWr ^= 1;
+      pageRd ^= 1;
     }
+    accumulate();  // last iteration
   }
 
   DI void epilog() {
-    __syncthreads();  // so that we can safely reuse smem
     for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
       auto idx = blockIdx.x * P::Mblk + i;
       sxNorm[i] = idx < m ? xn[idx] : maxVal;
@@ -388,6 +301,93 @@ struct FusedL2NN {
           atomicCAS(mutex + rid, 1, 0);
         }
       }
+    }
+  }
+
+  DI void accumulate() {
+#pragma unroll
+    for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
+      ldsXY(ki);
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+#pragma unroll
+        for (int j = 0; j < P::AccColsPerTh; ++j) {
+#pragma unroll
+          for (int v = 0; v < P::Veclen; ++v) {
+            acc[i][j] += regx[i][v] * regy[j][v];
+          }
+        }
+      }
+    }
+  }
+
+  DI void ldgsts(IdxT kidx) {
+    ldgstsX(kidx, sx + pageWr * P::SmemPage);
+    ldgstsY(kidx, sy + pageWr * P::SmemPage);
+  }
+
+  DI void ldgstsX(IdxT kidx, DataT* smem) {
+    DataT data[P::LdgPerThX][P::Veclen];
+    // LDG
+    auto koffset = kidx + scolid;
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
+        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
+      } else {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
+          data[i][j] = Zero;
+        }
+      }
+    }
+    // STS
+    auto* saddr = smem + srowid * P::SmemStride + scolid;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
+    }
+  }
+
+  DI void ldgstsY(IdxT kidx, DataT* smem) {
+    DataT data[P::LdgPerThX][P::Veclen];
+    // LDG
+    auto koffset = kidx + scolid;
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
+        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
+      } else {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
+          data[i][j] = Zero;
+        }
+      }
+    }
+    // STS
+    auto* saddr = smem + srowid * P::SmemStride + scolid;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
+    }
+  }
+
+  DI void ldsXY(int kidx) {
+    ldsX(kidx, sx + pageRd * P::SmemPage);
+    ldsY(kidx, sy + pageRd * P::SmemPage);
+  }
+
+  DI void ldsX(int kidx, DataT* smem) {
+    auto* saddr = smem + accrowid * P::SmemStride + kidx;
+#pragma unroll
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
+    }
+  }
+
+  DI void ldsY(int kidx, DataT* smem) {
+    auto* saddr = smem + acccolid * P::SmemStride + kidx;
+#pragma unroll
+    for (int i = 0; i < P::AccColsPerTh; ++i) {
+      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
     }
   }
 };
