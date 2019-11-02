@@ -144,6 +144,31 @@ TEST_P(FusedL2NNTestF, Result) {
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF,
                         ::testing::ValuesIn(inputsf));
 
+const std::vector<Inputs<double>> inputsd = {
+  {0.00001, 32, 32, 32, 1234ULL},   {0.00001, 32, 64, 32, 1234ULL},
+  {0.00001, 64, 32, 32, 1234ULL},   {0.00001, 64, 64, 32, 1234ULL},
+  {0.00001, 128, 32, 32, 1234ULL},  {0.00001, 128, 64, 32, 1234ULL},
+  {0.00001, 128, 128, 64, 1234ULL}, {0.00001, 64, 128, 128, 1234ULL},
+
+  {0.00001, 32, 32, 34, 1234ULL},   {0.00001, 32, 64, 34, 1234ULL},
+  {0.00001, 64, 32, 34, 1234ULL},   {0.00001, 64, 64, 34, 1234ULL},
+  {0.00001, 128, 32, 34, 1234ULL},  {0.00001, 128, 64, 34, 1234ULL},
+  {0.00001, 128, 128, 66, 1234ULL}, {0.00001, 64, 128, 130, 1234ULL},
+
+  {0.00001, 32, 32, 33, 1234ULL},   {0.00001, 32, 64, 33, 1234ULL},
+  {0.00001, 64, 32, 33, 1234ULL},   {0.00001, 64, 64, 33, 1234ULL},
+  {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
+  {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
+};
+typedef FusedL2NNTest<double> FusedL2NNTestD;
+TEST_P(FusedL2NNTestD, Result) {
+  ASSERT_TRUE(devArrMatch(minDist_ref, minDist, params.m,
+                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(min_ref, min, params.m, Compare<int>()));
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD,
+                        ::testing::ValuesIn(inputsd));
+
 ///@todo: enable double tests
 
 }  // end namespace Distance
