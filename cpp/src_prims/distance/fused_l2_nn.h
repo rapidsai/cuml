@@ -24,6 +24,7 @@ namespace MLCommon {
 namespace Distance {
 
 DI void sts(float* addr, const float& x) { *addr = x; }
+DI void sts(float* addr, const float (&x)[1]) { *addr = x[0]; }
 DI void sts(float* addr, const float (&x)[2]) {
   float2 v2 = make_float2(x[0], x[1]);
   auto* s2 = reinterpret_cast<float2*>(addr);
@@ -36,6 +37,7 @@ DI void sts(float* addr, const float (&x)[4]) {
 }
 
 DI void lds(float& x, float* addr) { x = *addr; }
+DI void lds(float (&x)[1], float* addr) { x[0] = *addr; }
 DI void lds(float (&x)[2], float* addr) {
   auto* s2 = reinterpret_cast<float2*>(addr);
   auto v2 = *s2;
@@ -54,8 +56,11 @@ DI void lds(float (&x)[4], float* addr) {
 DI void ldg(float& x, float* addr) {
   asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x) : "l"(addr));
 }
+DI void ldg(float (&x)[1], float* addr) {
+  asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x[0]) : "l"(addr));
+}
 DI void ldg(float (&x)[2], float* addr) {
-  asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%4];"
+  asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%2];"
                : "=f"(x[0]), "=f"(x[1])
                : "l"(addr));
 }
@@ -116,8 +121,6 @@ struct KernelPolicy {
     SmemSize = SmemPage * sizeof(DataT),
   };  // enum
 };    // struct KernelPolicy
-
-struct P64x64_v4_k32_f : public KernelPolicy<float, 4, 32, 4, 4, 16, 16> {};
 
 template <typename DataT, typename OutT, typename IdxT, typename Policy>
 struct FusedL2NN {
@@ -382,6 +385,25 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
   }
 }
 
+template <typename DataT, typename OutT, typename IdxT, int VecLen>
+void fusedL2NNImpl(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
+                   DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+                   cudaStream_t stream) {
+  typedef KernelPolicy<DataT, VecLen, 32, 4, 4, 16, 16> Policy;
+  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
+  dim3 blk(Policy::Nthreads);
+  auto nblks = ceildiv<int>(m, Policy::Nthreads);
+  auto maxVal = std::numeric_limits<DataT>::max();
+  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
+  initKernel<DataT, IdxT>
+    <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
+  CUDA_CHECK(cudaGetLastError());
+  fusedL2NNkernel<DataT, OutT, IdxT, Policy>
+    <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
+                                              k, maxVal, workspace);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *        The benefits of such a call are 2-fold: 1) eliminate the need for an
@@ -391,7 +413,6 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
  * @tparam DataT data type
  * @tparam OutT output type to store 1-NN indices
  * @tparam IdxT indexing arithmetic type
- * @tparam Policy Inherited from `KernelPolicy` to configure gemm perf behavior
  * @param[out] min will contain the indicies for 1-NN computation. Length = `m`.
  *                 It should be on device.
  * @param[out] minDist will contain the minimum distance value from the 1-NN
@@ -406,22 +427,20 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
  * @param[in] workspace temporary workspace. Length = `m`. Should be on device.
  * @param[in] stream cuda stream
  */
-template <typename DataT, typename OutT, typename IdxT, typename Policy>
+template <typename DataT, typename OutT, typename IdxT>
 void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
                DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                cudaStream_t stream) {
-  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
-  dim3 blk(Policy::Nthreads);
-  auto nblks = ceildiv<int>(m, Policy::Nthreads);
-  auto maxVal = std::numeric_limits<DataT>::max();
-  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  initKernel<DataT, IdxT>
-    <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
-  CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<DataT, OutT, IdxT, Policy>
-    <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
-                                              k, maxVal, workspace);
-  CUDA_CHECK(cudaGetLastError());
+  if (k % 4 == 0) {
+    fusedL2NNImpl<DataT, OutT, IdxT, 4>(min, minDist, x, y, xn, yn, m, n, k,
+                                        workspace, stream);
+  } else if (k % 2 == 0) {
+    fusedL2NNImpl<DataT, OutT, IdxT, 2>(min, minDist, x, y, xn, yn, m, n, k,
+                                        workspace, stream);
+  } else {
+    fusedL2NNImpl<DataT, OutT, IdxT, 1>(min, minDist, x, y, xn, yn, m, n, k,
+                                        workspace, stream);
+  }
 }
 
 }  // namespace Distance

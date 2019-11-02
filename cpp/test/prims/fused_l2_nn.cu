@@ -93,9 +93,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     naive(min_ref, minDist_ref, x, y, m, n, k, workspace, stream);
     LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
     LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
-    typedef KernelPolicy<DataT, 4, 32, 4, 4, 16, 16> Policy;
-    fusedL2NN<DataT, int, int, Policy>(min, minDist, x, y, xn, yn, m, n, k,
-                                       workspace, stream);
+    fusedL2NN<DataT, int, int>(min, minDist, x, y, xn, yn, m, n, k, workspace,
+                               stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -126,6 +125,16 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 64, 32, 32, 1234ULL},   {0.001f, 64, 64, 32, 1234ULL},
   {0.001f, 128, 32, 32, 1234ULL},  {0.001f, 128, 64, 32, 1234ULL},
   {0.001f, 128, 128, 64, 1234ULL}, {0.001f, 64, 128, 128, 1234ULL},
+
+  {0.001f, 32, 32, 34, 1234ULL},   {0.001f, 32, 64, 34, 1234ULL},
+  {0.001f, 64, 32, 34, 1234ULL},   {0.001f, 64, 64, 34, 1234ULL},
+  {0.001f, 128, 32, 34, 1234ULL},  {0.001f, 128, 64, 34, 1234ULL},
+  {0.001f, 128, 128, 66, 1234ULL}, {0.001f, 64, 128, 130, 1234ULL},
+
+  {0.001f, 32, 32, 33, 1234ULL},   {0.001f, 32, 64, 33, 1234ULL},
+  {0.001f, 64, 32, 33, 1234ULL},   {0.001f, 64, 64, 33, 1234ULL},
+  {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
+  {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
 };
 typedef FusedL2NNTest<float> FusedL2NNTestF;
 TEST_P(FusedL2NNTestF, Result) {
