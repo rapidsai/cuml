@@ -411,20 +411,20 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
   }
 }
 
-template <typename DataT, typename OutT, typename IdxT, int VecLen>
-void fusedL2NNImpl(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
-                   DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+template <typename OutT, typename IdxT, int VecLen>
+void fusedL2NNImpl(OutT* min, float* minDist, float* x, float* y, float* xn,
+                   float* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    cudaStream_t stream) {
-  typedef KernelPolicy<DataT, VecLen, 32, 4, 4, 16, 16> Policy;
+  typedef KernelPolicy<float, VecLen, 32, 4, 4, 16, 16> Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   auto nblks = ceildiv<int>(m, Policy::Nthreads);
-  auto maxVal = std::numeric_limits<DataT>::max();
+  auto maxVal = std::numeric_limits<float>::max();
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  initKernel<DataT, IdxT>
+  initKernel<float, IdxT>
     <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
   CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<DataT, OutT, IdxT, Policy>
+  fusedL2NNkernel<float, OutT, IdxT, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
                                               k, maxVal, workspace);
   CUDA_CHECK(cudaGetLastError());
@@ -458,14 +458,14 @@ void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
                DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                cudaStream_t stream) {
   if (k % 4 == 0) {
-    fusedL2NNImpl<DataT, OutT, IdxT, 4>(min, minDist, x, y, xn, yn, m, n, k,
-                                        workspace, stream);
+    fusedL2NNImpl<OutT, IdxT, 4>(min, minDist, x, y, xn, yn, m, n, k, workspace,
+                                 stream);
   } else if (k % 2 == 0) {
-    fusedL2NNImpl<DataT, OutT, IdxT, 2>(min, minDist, x, y, xn, yn, m, n, k,
-                                        workspace, stream);
+    fusedL2NNImpl<OutT, IdxT, 2>(min, minDist, x, y, xn, yn, m, n, k, workspace,
+                                 stream);
   } else {
-    fusedL2NNImpl<DataT, OutT, IdxT, 1>(min, minDist, x, y, xn, yn, m, n, k,
-                                        workspace, stream);
+    fusedL2NNImpl<OutT, IdxT, 1>(min, minDist, x, y, xn, yn, m, n, k, workspace,
+                                 stream);
   }
 }
 
