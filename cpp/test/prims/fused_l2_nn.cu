@@ -169,7 +169,5 @@ TEST_P(FusedL2NNTestD, Result) {
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD,
                         ::testing::ValuesIn(inputsd));
 
-///@todo: enable double tests
-
 }  // end namespace Distance
 }  // end namespace MLCommon
