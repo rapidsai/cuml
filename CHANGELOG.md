@@ -1,6 +1,7 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
+- PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1286: Importing treelite models as FIL sparse forests
