@@ -430,6 +430,25 @@ void fusedL2NNImpl(OutT* min, float* minDist, float* x, float* y, float* xn,
   CUDA_CHECK(cudaGetLastError());
 }
 
+template <typename OutT, typename IdxT, int VecLen>
+void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
+                   double* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+                   cudaStream_t stream) {
+  typedef KernelPolicy<double, VecLen, 16, 4, 4, 16, 16> Policy;
+  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
+  dim3 blk(Policy::Nthreads);
+  auto nblks = ceildiv<int>(m, Policy::Nthreads);
+  auto maxVal = std::numeric_limits<double>::max();
+  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
+  initKernel<double, IdxT>
+    <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
+  CUDA_CHECK(cudaGetLastError());
+  fusedL2NNkernel<double, OutT, IdxT, Policy>
+    <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
+                                              k, maxVal, workspace);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *        The benefits of such a call are 2-fold: 1) eliminate the need for an
@@ -457,12 +476,13 @@ template <typename DataT, typename OutT, typename IdxT>
 void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
                DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                cudaStream_t stream) {
-  if (k % 4 == 0) {
-    fusedL2NNImpl<OutT, IdxT, 4>(min, minDist, x, y, xn, yn, m, n, k, workspace,
-                                 stream);
-  } else if (k % 2 == 0) {
-    fusedL2NNImpl<OutT, IdxT, 2>(min, minDist, x, y, xn, yn, m, n, k, workspace,
-                                 stream);
+  size_t bytes = sizeof(DataT) * k;
+  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
+    fusedL2NNImpl<OutT, IdxT, 16 / sizeof(DataT)>(min, minDist, x, y, xn, yn, m,
+                                                  n, k, workspace, stream);
+  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
+    fusedL2NNImpl<OutT, IdxT, 8 / sizeof(DataT)>(min, minDist, x, y, xn, yn, m,
+                                                 n, k, workspace, stream);
   } else {
     fusedL2NNImpl<OutT, IdxT, 1>(min, minDist, x, y, xn, yn, m, n, k, workspace,
                                  stream);
