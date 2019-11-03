@@ -20,6 +20,7 @@
 - PR #1271: Updated the Ridge regression documentation
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 - PR #1300: Lowercase parameter versions for FIL algorithms
+- PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 
 ## Bug Fixes
