@@ -435,7 +435,7 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
         ls_ar_res_height);
 
       ///@todo check that p + q < n_obs / 2
-      // Note: this overwrites bm_ls
+      // Note: this overwrites bm_ls_ar_res
       int arma_fit_info;
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
         cublas_handle, CUBLAS_OP_N, ls_ar_res_height, p + q, 1,
