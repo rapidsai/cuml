@@ -105,8 +105,8 @@ struct Dataset {
     ASSERT(isClassification(),
            "make_blobs: is only for classification/clustering problems!");
     const auto& handle_impl = handle.getImpl();
-    cudaStream_t stream = handle_impl.getStream();
-    cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
+    auto stream = handle_impl.getStream();
+    auto cublas_handle = handle_impl.getCublasHandle();
     auto allocator = handle_impl.getDeviceAllocator();
 
     D* tmpX = X;
@@ -134,9 +134,9 @@ struct Dataset {
     ASSERT(!isClassification(),
            "make_regression: is only for regression problems!");
     const auto& handle_impl = handle.getImpl();
-    cudaStream_t stream = handle_impl.getStream();
-    cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
-    cusolverDnHandle_t cusolver_handle = handle_impl.getcusolverDnHandle();
+    auto stream = handle_impl.getStream();
+    auto cublas_handle = handle_impl.getCublasHandle();
+    auto cusolver_handle = handle_impl.getcusolverDnHandle();
     auto allocator = handle_impl.getDeviceAllocator();
 
     D* tmpX = X;
