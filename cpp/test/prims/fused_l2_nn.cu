@@ -24,7 +24,7 @@
 namespace MLCommon {
 namespace Distance {
 
-template <typename DataT>
+template <typename DataT, bool Sqrt>
 __global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y, int m,
                             int n, int k, int *workspace) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -37,6 +37,9 @@ __global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y, int m,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
+  if (Sqrt) {
+    acc = mySqrt(acc);
+  }
   while (atomicCAS(workspace, 0, 1) == 1)
     ;
   if (acc < minDist[midx]) {
@@ -47,7 +50,7 @@ __global__ void naiveKernel(int *min, DataT *minDist, DataT *x, DataT *y, int m,
   atomicCAS(workspace, 1, 0);
 }
 
-template <typename DataT>
+template <typename DataT, bool Sqrt>
 void naive(int *min, DataT *minDist, DataT *x, DataT *y, int m, int n, int k,
            int *workspace, cudaStream_t stream) {
   static const dim3 TPB(32, 16, 1);
@@ -57,7 +60,7 @@ void naive(int *min, DataT *minDist, DataT *x, DataT *y, int m, int n, int k,
   initKernel<DataT, int, int><<<blks, 256, 0, stream>>>(
     min, minDist, m, std::numeric_limits<DataT>::max());
   CUDA_CHECK(cudaGetLastError());
-  naiveKernel<DataT>
+  naiveKernel<DataT, Sqrt>
     <<<nblks, TPB, 0, stream>>>(min, minDist, x, y, m, n, k, workspace);
   CUDA_CHECK(cudaGetLastError());
 }
@@ -69,7 +72,7 @@ struct Inputs {
   unsigned long long int seed;
 };
 
-template <typename DataT>
+template <typename DataT, bool Sqrt>
 class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
   void SetUp() override {
@@ -90,11 +93,11 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     allocate(min_ref, m);
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
-    naive(min_ref, minDist_ref, x, y, m, n, k, workspace, stream);
+    naive<DataT, Sqrt>(min_ref, minDist_ref, x, y, m, n, k, workspace, stream);
     LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
     LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
-    fusedL2NN<DataT, int, int>(min, minDist, x, y, xn, yn, m, n, k, workspace,
-                               stream);
+    fusedL2NN<DataT, int, int, Sqrt>(min, minDist, x, y, xn, yn, m, n, k,
+                                     workspace, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -135,13 +138,21 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
   {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
 };
-typedef FusedL2NNTest<float> FusedL2NNTestF;
-TEST_P(FusedL2NNTestF, Result) {
+typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
+TEST_P(FusedL2NNTestF_Sq, Result) {
   ASSERT_TRUE(devArrMatch(minDist_ref, minDist, params.m,
                           CompareApprox<float>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(min_ref, min, params.m, Compare<int>()));
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF,
+INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sq,
+                        ::testing::ValuesIn(inputsf));
+typedef FusedL2NNTest<float, true> FusedL2NNTestF_Sqrt;
+TEST_P(FusedL2NNTestF_Sqrt, Result) {
+  ASSERT_TRUE(devArrMatch(minDist_ref, minDist, params.m,
+                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(min_ref, min, params.m, Compare<int>()));
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sqrt,
                         ::testing::ValuesIn(inputsf));
 
 const std::vector<Inputs<double>> inputsd = {
@@ -160,13 +171,21 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
 };
-typedef FusedL2NNTest<double> FusedL2NNTestD;
-TEST_P(FusedL2NNTestD, Result) {
+typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
+TEST_P(FusedL2NNTestD_Sq, Result) {
   ASSERT_TRUE(devArrMatch(minDist_ref, minDist, params.m,
                           CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(min_ref, min, params.m, Compare<int>()));
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD,
+INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sq,
+                        ::testing::ValuesIn(inputsd));
+typedef FusedL2NNTest<double, true> FusedL2NNTestD_Sqrt;
+TEST_P(FusedL2NNTestD_Sqrt, Result) {
+  ASSERT_TRUE(devArrMatch(minDist_ref, minDist, params.m,
+                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(min_ref, min, params.m, Compare<int>()));
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt,
                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace Distance
