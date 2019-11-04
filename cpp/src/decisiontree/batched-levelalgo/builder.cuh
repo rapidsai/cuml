@@ -79,7 +79,6 @@ struct Builder {
   /** range of the currently worked upon nodes */
   IdxT node_start, node_end;
 
-
   /** checks if this struct is being used for classification or regression */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
@@ -199,8 +198,8 @@ struct Builder {
   void init(cudaStream_t s) {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = params.n_blks_for_cols;
-    CUDA_CHECK(cudaMemsetAsync(done_count, 0,
-                               sizeof(int) * max_batch * n_col_blks, s));
+    CUDA_CHECK(
+      cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, s));
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     rootGain = initialMetric(s);
@@ -280,9 +279,8 @@ struct Builder {
 
   /** computes the initial metric needed for root node split decision */
   DataT initialMetric(cudaStream_t s) {
-    static constexpr int TPB = 256;
     static constexpr int NITEMS = 8;
-    int nblks = ceildiv(nSampledRows, TPB * NITEMS);
+    int nblks = ceildiv(input.nSampledRows, TPB_DEFAULT * NITEMS);
     size_t smemSize = sizeof(int) * input.nclasses;
     auto out = DataT(1.0);
     ///@todo: support for regression
@@ -291,13 +289,13 @@ struct Builder {
       // reusing `hist` for initial bin computation only
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
       initialClassHistKernel<DataT, LabelT, IdxT><<<nblks, TPB, smemSize, s>>>(
-        hist, rowids, input.labels, input.nclasses, nSampledRows);
+        hist, input.rowids, input.labels, input.nclasses, input.nSampledRows);
       CUDA_CHECK(cudaGetLastError());
       MLCommon::updateHost(h_hist, hist, input.nclasses, s);
       CUDA_CHECK(cudaStreamSynchronize(s));
       // better to compute the initial metric (after class histograms) on CPU
       ///@todo: support other metrics
-      auto invlen = out / DataT(nSampledRows);
+      auto invlen = out / DataT(input.nSampledRows);
       for (IdxT i = 0; i < input.nclasses; ++i) {
         auto val = h_hist[i] * invlen;
         out -= val * val;
