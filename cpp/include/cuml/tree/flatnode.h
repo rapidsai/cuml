@@ -22,12 +22,13 @@
  * index is assumed to be `left_child_id + 1`
  * @tparam T data type
  * @tparam L label type
+ * @tparam IdxT type used for indexing operations
  */
-template <class T, class L>
+template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
-  L prediction;
-  int colid = -1;
-  T quesval;
-  T best_metric_val;
-  int left_child_id = -1;
+  LabelT prediction;
+  IdxT colid;
+  DataT quesval;
+  DataT best_metric_val;
+  IdxT left_child_id;
 };
