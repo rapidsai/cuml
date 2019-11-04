@@ -76,10 +76,10 @@ class RFRegressor : public RegressionFixture<D> {
 
 template <typename D>
 std::vector<RegParams> getInputs() {
-  struct Triplets {
+  struct DimInfo {
     int nrows, ncols, n_informative;
   };
-  std::vector<RegParams> out;
+  struct std::vector<RegParams> out;
   RegParams p;
   p.data.rowMajor = false;
   p.regression.shuffle = true;  // better to shuffle when n_informative < ncols
@@ -99,21 +99,15 @@ std::vector<RegParams> getInputs() {
   p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
   p.rf.n_trees = 500;
   p.rf.n_streams = 8;
-  std::vector<Triplets> rowcols = {
-    {500000, 450, 400},
-    {600000, 500, 450},
-    // gbm-benchmark datasets:
-    {515345, 90, 80},     // get_year
-    {10000000, 100, 90},  // get_synthetic_regression
-  };
-  for (auto& rc : rowcols) {
+  std::vector<DimInfo> dim_info = {{500000, 500, 400}};
+  for (auto& di : dim_info) {
     // Let's run Bosch only for float type
-    if (!std::is_same<D, float>::value && rc.ncols == 968) continue;
-    p.data.nrows = rc.nrows;
-    p.data.ncols = rc.ncols;
-    p.regression.n_informative = rc.n_informative;
+    if (!std::is_same<D, float>::value && di.ncols == 968) continue;
+    p.data.nrows = di.nrows;
+    p.data.ncols = di.ncols;
+    p.regression.n_informative = di.n_informative;
     p.rf.tree_params.max_features = 1.f;
-    for (auto max_depth : std::vector<int>({8, 10})) {
+    for (auto max_depth : std::vector<int>({8, 12, 16})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
     }
