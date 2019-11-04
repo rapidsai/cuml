@@ -86,9 +86,10 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
  * @param isRowMajor whether the input and output matrices are row major
  */
 
-#if CUDART_VERSION >= 10010
-#pragma GCC optimize("O0 fsanitize=address fsanitize=undefined")
-#endif
+
+// #if CUDART_VERSION >= 10010
+// #pragma GCC optimize("O0")
+// #endif
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
@@ -158,15 +159,16 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
     [enable_sqrt] HD(EpiParams & p) {
-      int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
-      return err;
+      return 0;
+      // int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
+      // return err;
     },
     fin_op, stream);
 }
 
-#if CUDART_VERSION >= 10010
-#pragma GCC reset_options
-#endif
+// #if CUDART_VERSION >= 10010
+// #pragma GCC reset_options
+// #endif
 
 };  // end namespace Distance
 };  // end namespace MLCommon
