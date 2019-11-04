@@ -318,7 +318,8 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-		              -DENABLE_PROTOBUF=ON
+		      -DENABLE_PROTOBUF=ON 
+		      -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX}
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
