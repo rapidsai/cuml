@@ -124,6 +124,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf REQUIRED)
+
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
@@ -149,7 +152,6 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 
 set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
-
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -316,7 +318,9 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+		              -DENABLE_PROTOBUF=ON
     UPDATE_COMMAND    ""
+    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
 
 add_dependencies(treelite faiss)
@@ -399,6 +403,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    ${Protobuf_LIBRARIES}
     treelitelib
     dmlclib
     faisslib

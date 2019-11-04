@@ -30,6 +30,7 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.14
+    - protobuf >=3.4.1,<4.0.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
@@ -39,7 +40,6 @@ requirements:
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - cupy>=6.5,<7.0
     - nccl 2.4.*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
@@ -48,3 +48,4 @@ about:
   license: Apache-2.0
   # license_file: LICENSE
   summary: cuML library
+  
