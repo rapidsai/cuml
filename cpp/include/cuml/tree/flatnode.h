@@ -27,8 +27,8 @@
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
   LabelT prediction;
-  IdxT colid;
+  IdxT colid = IdxT(-1);
   DataT quesval;
   DataT best_metric_val;
-  IdxT left_child_id;
+  IdxT left_child_id = IdxT(-1);
 };
