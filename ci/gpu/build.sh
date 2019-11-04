@@ -43,7 +43,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
-      "cupy>=6.5,<7.0" \
+      "rapidsai/label/cuda${CUDA_REL}::cupy>=6.2" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
@@ -52,6 +52,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
+      "protobuf" \
       "nccl>=2.4" \
       "dask=2.5.0" \
       "distributed=2.5.1" \
