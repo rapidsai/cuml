@@ -16,8 +16,13 @@
 
 #pragma once
 
+#include <cuml/tree/decisiontree.hpp>
+#include "input.cuh"
+#include "node.cuh"
+#include "split.cuh"
+
 namespace ML {
-namespace decisiontree {
+namespace DecisionTree {
 
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
@@ -28,37 +33,23 @@ namespace decisiontree {
 template <typename DataT, typename LabelT, typename IdxT>
 struct Builder {
   typedef Node<DataT, LabelT, IdxT> NodeT;
-  typedef SparseTree<DataT, LabelT, IdxT> SpTreeT;
   typedef Split<DataT, IdxT> SplitT;
+  typedef Input<DataT, LabelT, IdxT> InputT;
 
-  /** number of sampled rows */
-  IdxT nrows;
-  /** number of sampled columns */
-  IdxT ncols;
+  /** DT params */
+  DecisionTreeParams params;
+  /** input dataset */
+  InputT input;
+
   /** max nodes that we can create */
-  IdxT max_nodes;
-  /** number of blocks used to parallelize column-wise computations */
-  IdxT nBlksForCols;
+  IdxT maxNodes;
   /** total number of histogram bins */
   IdxT nHistBins;
-  /** DT params */
-  Params<DataT, IdxT> params;
-  /** training input */
-  Input<DataT, LabelT, IdxT> input;
-  /** will contain the final learned tree */
-  SpTreeT tree;
-  /** gain before splitting root node */
+  /** gain/metric before splitting root node */
   DataT rootGain;
 
-  /** sampled row id's */
-  IdxT* rowids;
-  /** sampled column id's */
-  ///@todo: support for per-node col-subsampling
-  IdxT* colids;
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
-  /** quantiles computed on the dataset (col-major) */
-  DataT* quantiles;
   /** class histograms */
   int* hist;
   /** threadblock arrival count */
@@ -71,6 +62,7 @@ struct Builder {
   SplitT* splits;
   /** current batch of nodes */
   NodeT* curr_nodes;
+
   /** next batch of nodes */
   NodeT* next_nodes;
   /** host copy of the number of new nodes in current branch */
@@ -88,37 +80,58 @@ struct Builder {
    * @param d_wsize (in B) of the device workspace to be allocated
    * @param h_wsize (in B) of the host workspace to be allocated
    * @param p the input params
-   * @param in the input data
+   * @param data input col-major dataset on device (dim = totalRows x totalCols)
+   * @param labels output label for each row in the dataset (len = totalRows)
+   *               It should be on device.
+   * @param totalRows total rows in the dataset
+   * @param totalCols total cols in the dataset
+   * @param sampledRows number of rows sampled in the dataset
+   * @param sampledCols number of cols sampled in the dataset
+   * @param rowids sampled row ids (on device) (len = sampledRows)
+   * @param colids sampled col ids (on device) (len = sampledCols)
+   * @param nclasses number of output classes (only for classification)
+   * @param quantiles histogram/quantile bins of the input dataset, for each of
+   *                  its column. Pass a nullptr if this needs to be computed
+   *                  fresh. (on device, col-major) (dim = nbins x sampledCols)
    */
   void workspaceSize(size_t& d_wsize, size_t& h_wsize,
-                     const Params<DataT, IdxT>& p,
-                     const Input<DataT, LabelT, IdxT>& in) {
+                     const DecisionTreeParams& p, DataT* data, LabelT* labels,
+                     IdxT totalRows, IdxT totalCols, IdxT sampledRows,
+                     IdxT sampledCols, IdxT* rowids, IdxT* colids,
+                     IdxT nclasses, DataT* quantiles) {
     ASSERT(!isRegression(), "Currently only classification is supported!");
-    nrows = static_cast<IdxT>(p.row_subsample * in.M);
-    ncols = static_cast<IdxT>(p.col_subsample * in.N);
-    nBlksForCols = std::min(ncols, p.nBlksForCols);
-    auto max_batch = params.max_batch_size;
-    nHistBins = 2 * max_batch * (p.nbins + 1) * nBlksForCols;
-    // x3 just to be safe since we can't strictly adhere to max_leaves
-    max_nodes = p.max_leaves * 3;
+    ASSERT(quantiles != nullptr,
+           "Currently quantiles need to be computed before this call!");
     params = p;
-    input = in;
-    d_wsize = static_cast<size_t>(0);
-    d_wsize += sizeof(IdxT) * nrows;                    // rowids
-    d_wsize += sizeof(IdxT) * ncols;                    // colids
-    d_wsize += sizeof(IdxT);                            // n_nodes
-    d_wsize += sizeof(DataT) * p.nbins * in.N;          // quantiles
-    d_wsize += sizeof(int) * nHistBins;                 // hist
-    d_wsize += sizeof(int) * max_batch * nBlksForCols;  // done_count
-    d_wsize += sizeof(int) * max_batch;                 // mutex
-    d_wsize += sizeof(IdxT);                            // n_leaves
-    d_wsize += sizeof(SplitT) * max_batch;              // splits
-    d_wsize += sizeof(NodeT) * max_batch;               // curr_nodes
-    d_wsize += sizeof(NodeT) * 2 * max_batch;           // next_nodes
+    params.n_blks_for_cols = std::min(nSampledCols, p.n_blks_for_cols);
+    input.data = data;
+    input.labels = labels;
+    input.M = totalRows;
+    input.N = totalCols;
+    input.nSampledRows = nSampledRows;
+    input.nSampledCols = nSampledCols;
+    input.rowids = rowids;
+    input.colids = colids;
+    input.nclasses = nclasses;
+    input.quantiles = quantiles;
+    auto max_batch = params.max_batch_size;
+    auto n_col_blks = params.n_blks_for_cols;
+    nHistBins = 2 * max_batch * (params.n_bins + 1) * n_col_blks;
+    // x3 just to be safe since we can't strictly adhere to max_leaves
+    maxNodes = params.max_leaves * 3;
+    d_wsize = 0;
+    d_wsize += sizeof(IdxT);                          // n_nodes
+    d_wsize += sizeof(int) * nHistBins;               // hist
+    d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
+    d_wsize += sizeof(int) * max_batch;               // mutex
+    d_wsize += sizeof(IdxT);                          // n_leaves
+    d_wsize += sizeof(SplitT) * max_batch;            // splits
+    d_wsize += sizeof(NodeT) * max_batch;             // curr_nodes
+    d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
     // all nodes in the tree
     h_wsize = sizeof(IdxT);                   // h_n_nodes
     h_wsize += sizeof(int) * input.nclasses;  // h_hist
-    h_wsize += (sizeof(NodeT) + sizeof(SplitT)) * max_nodes;
+    h_wsize += (sizeof(NodeT) + sizeof(SplitT)) * maxNodes;
   }
 
   /**
@@ -126,23 +139,17 @@ struct Builder {
    * @param d_wspace device buffer allocated by the user for the workspace. Its
    *                 size should be atleast workspaceSize()
    * @param h_wspace pinned host buffer mainly needed to store the learned nodes
-   * @param s cuda stream where to schedule work
    */
   void assignWorkspace(char* d_wspace, char* h_wspace) {
     auto max_batch = params.max_batch_size;
+    auto n_col_blks = params.n_blks_for_cols;
     // device
-    rowids = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += sizeof(IdxT) * nrows;
-    colids = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += sizeof(IdxT) * ncols;
     n_nodes = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += sizeof(IdxT);
-    quantiles = reinterpret_cast<DataT*>(d_wspace);
-    d_wspace += sizeof(DataT) * params.nbins * ncols;
     hist = reinterpret_cast<int*>(d_wspace);
     d_wspace += sizeof(int) * nHistBins;
     done_count = reinterpret_cast<int*>(d_wspace);
-    d_wspace += sizeof(int) * max_batch * nBlksForCols;
+    d_wspace += sizeof(int) * max_batch * n_col_blks;
     mutex = reinterpret_cast<int*>(d_wspace);
     d_wspace += sizeof(int) * max_batch;
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
@@ -157,34 +164,6 @@ struct Builder {
     h_wspace += sizeof(IdxT);
     h_hist = reinterpret_cast<int*>(h_wspace);
     h_wspace += sizeof(IdxT) * input.nclasses;
-    tree.assignWorkspace(h_wspace, max_nodes);
-  }
-
-  /**
-   * @brief Main training method. To be called only after `assignWorkspace()`
-   * @param bootstrap whether to bootstrap the rows or sample w/o replacement
-   * @param allocator device allocator
-   * @param s cuda stream
-   * @param seed seed to initialize the underlying RNG (for reproducibility)
-   */
-  void subsampleRows(bool bootstrap,
-                     const std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t s, uint64_t seed = 0ULL) {
-    if (bootstrap) {
-      if (seed == 0ULL) seed = static_cast<uint64_t>(time(NULL));
-      MLCommon::Random::Rng r(seed);
-      r.uniformInt(rowids, nrows, 0, nrows, s);
-    } else {
-      MLCommon::device_buffer<IdxT> outkeys(allocator, s, input.M);
-      IdxT* outPtr = outkeys.data();
-      int* dummy = nullptr;
-      MLCommon::Random::permute(outPtr, dummy, dummy, 1, input.M, false, s);
-      // outkeys has more rows than selected_rows; doing the shuffling before
-      // the resize to differentiate the per-tree rows sample.
-      CUDA_CHECK(cudaMemcpyAsync(rowids, outPtr, nrows * sizeof(IdxT),
-                                 cudaMemcpyDeviceToDevice, s));
-      outkeys.release(s);
-    }
   }
 
   /** Main training method. To be called only after `subsampleRows()` */
@@ -205,7 +184,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     rootGain = initialMetric(s);
-    tree.init(nrows, rootGain);
+    tree.init(nSampledRows, rootGain);
   }
 
   /** default threads per block for most kernels in here */
@@ -219,7 +198,7 @@ struct Builder {
    * @return the number of newly created nodes
    */
   IdxT doSplit(cudaStream_t s) {
-    auto nbins = params.nbins;
+    auto nbins = params.n_bins;
     auto nclasses = input.nclasses;
     auto binSize = nbins * 2 * nclasses;
     auto len = binSize + 2 * nbins;
@@ -235,7 +214,7 @@ struct Builder {
     MLCommon::updateDevice(curr_nodes, tree.nodes + tree.start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
-    dim3 grid(params.nBlksForRows, nBlksForCols, batchSize);
+    dim3 grid(params.n_blks_for_rows, nBlksForCols, batchSize);
     for (IdxT c = 0; c < ncols; c += nBlksForCols) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
       computeSplitKernel<DataT, LabelT, SplitT, TPB_DEFAULT>
@@ -265,7 +244,7 @@ struct Builder {
   DataT initialMetric(cudaStream_t s) {
     static constexpr int TPB = 256;
     static constexpr int NITEMS = 8;
-    int nblks = ceildiv(nrows, TPB * NITEMS);
+    int nblks = ceildiv(nSampledRows, TPB * NITEMS);
     size_t smemSize = sizeof(int) * input.nclasses;
     auto out = DataT(1.0);
     ///@todo: support for regression
@@ -274,13 +253,13 @@ struct Builder {
       // reusing `hist` for initial bin computation only
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
       initialClassHistKernel<DataT, LabelT, IdxT><<<nblks, TPB, smemSize, s>>>(
-        hist, rowids, input.labels, input.nclasses, nrows);
+        hist, rowids, input.labels, input.nclasses, nSampledRows);
       CUDA_CHECK(cudaGetLastError());
       MLCommon::updateHost(h_hist, hist, input.nclasses, s);
       CUDA_CHECK(cudaStreamSynchronize(s));
       // better to compute the initial metric (after class histograms) on CPU
       ///@todo: support other metrics
-      auto invlen = out / DataT(nrows);
+      auto invlen = out / DataT(nSampledRows);
       for (IdxT i = 0; i < input.nclasses; ++i) {
         auto val = h_hist[i] * invlen;
         out -= val * val;
@@ -290,5 +269,5 @@ struct Builder {
   }
 };  // end Builder
 
-}  // namespace decisiontree
+}  // namespace DecisionTree
 }  // namespace ML

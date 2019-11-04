@@ -69,6 +69,24 @@ struct DecisionTreeParams {
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
   float min_impurity_decrease;
+
+  /**
+   * max amount of ndoes that can be processed in a given batch. This is used
+   * only for batched-level algo
+   */
+  int max_batch_size;
+  /**
+   * number of blocks used to parallelize column-wise computations. This is used
+   * only for batched-level algo
+   */
+  int n_blks_for_cols;
+  /**
+   * number of blocks used to parallelize row-wise computations. This is used
+   * only for batched-level algo
+   */
+  int n_blks_for_rows;
+  /** Depth beyond which to switch-over to the batched-level algo */
+  int batched_depth;
 };
 
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,

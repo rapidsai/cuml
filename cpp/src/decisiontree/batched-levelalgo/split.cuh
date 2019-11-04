@@ -19,7 +19,7 @@
 #include <cuda_utils.h>
 
 namespace ML {
-namespace decisiontree {
+namespace DecisionTree {
 
 /** All info pertaining to splitting a node */
 template <typename DataT, typename IdxT>
@@ -89,5 +89,5 @@ void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   CUDA_CHECK(cudaGetLastError());
 }
 
-}  // namespace decisiontree
+}  // namespace DecisionTree
 }  // namespace ML
