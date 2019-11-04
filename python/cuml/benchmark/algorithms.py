@@ -29,6 +29,12 @@ import numpy as np
 from cuml.benchmark.bench_helper_funcs \
     import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier, _build_treelite_classifier
 
+from cuml.utils.import_utils import has_treelite
+if has_treelite():
+    import treelite
+    import treelite.runtime
+
+
 class AlgorithmPair:
     """
     Wraps a cuML algorithm and (optionally) a cpu-based algorithm
@@ -292,7 +298,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
-            None,
+            None, 
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
             cuml_args=dict(eta0=0.005, epochs=100),
@@ -301,10 +307,10 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
-            treelite, 
+            treelite if has_treelite() else None, 
             cuml.ForestInference,
-            shared_args={},
-            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, num_rounds=10, max_depth=10), 
+            shared_args=dict(num_rounds=10, max_depth=10),
+            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5), 
             name="FIL",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
