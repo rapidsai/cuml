@@ -392,12 +392,13 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     dim3 blk(TPB_X, 1, 1);
 
     /**
-     * Build array class probability arrays from
+     * Build array of class probability arrays from
      * knn_indices and labels
      */
     int smem = sizeof(int) * n_labels;
     class_probs_kernel<<<grid, blk, smem, stream>>>(
       out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
+
     LinAlg::unaryOp(
       out[i], out[i], cur_size,
       [=] __device__(float input) {

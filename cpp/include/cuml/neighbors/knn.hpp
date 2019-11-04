@@ -84,6 +84,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
 /**
  * @brief Flat C++ API function to compute knn class probabilities
  * using a vector of device arrays containing discrete class labels.
+ * Note that the output is a vector, which is
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
