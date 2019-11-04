@@ -9,7 +9,7 @@ dependencies:
 - libclang=8.0.0
 - cmake=3.14.5
 - numba=0.45*
-- rapidsai/label/cuda9.2::cupy>=6*
+- cupy>=6.5, <7.0
 - cudf=0.11*
 - rmm=0.11*
 - cython>=0.29,<0.30
