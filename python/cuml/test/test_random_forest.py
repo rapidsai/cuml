@@ -45,7 +45,7 @@ def stress_param(*args, **kwargs):
                          stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.85),
                          stress_param(0.9)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -100,7 +100,7 @@ def test_rf_classification(datatype, split_algo,
                          stress_param(400)])
 @pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
                          stress_param(100)])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.8), quality_param(0.85),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.85),
                          stress_param(0.9)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
