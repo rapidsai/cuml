@@ -226,7 +226,7 @@ template <DistanceType distanceType, typename InType, typename AccType,
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
               cudaStream_t stream, bool isRowMajor = true) {
-  auto default_fin_op = [] __host__ __device__(AccType d_val, Index_ g_d_idx) {
+  auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
   distance<distanceType, InType, AccType, OutType, OutputTile_,
