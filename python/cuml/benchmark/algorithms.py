@@ -27,7 +27,7 @@ import umap
 import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier
+    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier, _build_treelite_classifier
 
 class AlgorithmPair:
     """
@@ -155,6 +155,17 @@ class AlgorithmPair:
 def _labels_to_int_hook(data):
     """Helper function converting labels to int32"""
     return data[0], data[1].astype(np.int32)
+
+
+def _treelite_format_hook(data):
+    """Helper function converting data into treelite format"""
+    from cuml.utils.import_utils import has_treelite
+    if has_treelite():
+        import treelite
+        import treelite.runtime
+    else:
+        raise ImportError("No treelite package found which is required for benchmarking FIL")
+    return treelite.runtime.Batch.from_npy2d(data[0])
 
 
 def all_algorithms():
@@ -290,12 +301,13 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
-            None, 
+            treelite, 
             cuml.ForestInference,
             shared_args={},
-            cuml_args=dict(algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, num_rounds=10, max_depth=10), 
+            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, num_rounds=10, max_depth=10), 
             name="FIL",
             accepts_labels=False,
+            setup_cpu_func=_build_treelite_classifier,
             setup_cuml_func=_build_fil_classifier,
             accuracy_function=metrics.accuracy_score,
             bench_func=predict,

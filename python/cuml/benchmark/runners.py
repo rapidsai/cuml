@@ -255,14 +255,10 @@ def run_variations(
                     raise_on_error=raise_on_error,
                 )
                 for r in results:
-                    if "algo" in r:
-                        algo_name = algo.name + "_" + r["algo"]
-                    else:
-                        algo_name = algo.name
                     all_results.append(
-                        {**r, 'algo': algo_name, 'input': input_type}
+                        {'algo': algo.name, 'input': input_type, **r}
                     )
-
+                    
     print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)
     print(results_df)
