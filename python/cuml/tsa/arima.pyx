@@ -176,10 +176,14 @@ class ARIMAModel(Base):
             The ARIMA order (p, d, q) of the model
     mu    : array-like (host)
             (if d>0) Array of trend parameters, one for each series
-    ar_params : List[array-like] (host)
-                List of AR parameters, grouped (`p`) per series
-    ma_params : List[array-like] (host)
-                List of MA parameters, grouped (`q`) per series
+    ar_params : List[array-like] (host) or numpy.ndarray
+                List of AR parameters, grouped (`p`) per series.
+                If passed as a numpy array, the shape must be (p, num_batches)
+                and the order column-major ('F').
+    ma_params : List[array-like] (host) or numpy.ndarray
+                List of MA parameters, grouped (`q`) per series.
+                If passed as a numpy array, the shape must be (q, num_batches)
+                and the order column-major ('F').
     y : array-like (device or host)
         The time series series data. If given as `ndarray`, assumed to have
         each time series in columns.
@@ -209,9 +213,20 @@ class ARIMAModel(Base):
                  handle=None):
         super().__init__(handle)
         self.order = order
-        self.mu = mu
-        self.ar_params = ar_params
-        self.ma_params = ma_params
+
+        # Convert the parameters to numpy arrays if needed
+        if type(mu) is list:
+            self.mu = np.array(mu)
+        else:
+            self.mu = mu
+        if type(ar_params) is list:
+            self.ar_params = np.transpose(ar_params)
+        else:
+            self.ar_params = ar_params
+        if type(ma_params) is list:
+            self.ma_params = np.transpose(ma_params)
+        else:
+            self.ma_params = ma_params
 
         # get host and device pointers. Float64 only for now.
         h_y, h_y_ptr, n_samples, n_series, dtype = \
@@ -384,33 +399,33 @@ class ARIMAModel(Base):
         return d_y_fc
 
 
-def estimate_x0_legacy(order: Tuple[int, int, int],
-                nb: int,
-                yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
-    """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
-    the batched input `yb`"""
-    nvtx_range_push("estimate x0")
-    (p, d, q) = order
-    N = p + d + q
-    x0 = np.zeros(N * nb)
+# def estimate_x0_legacy(order: Tuple[int, int, int],
+#                 nb: int,
+#                 yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
+#     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
+#     the batched input `yb`"""
+#     nvtx_range_push("estimate x0")
+#     (p, d, q) = order
+#     N = p + d + q
+#     x0 = np.zeros(N * nb)
 
-    for ib in range(nb):
-        y = yb[:, ib]
+#     for ib in range(nb):
+#         y = yb[:, ib]
 
-        if d == 1:
-            yd = np.diff(y)
-        else:
-            yd = np.copy(y)
+#         if d == 1:
+#             yd = np.diff(y)
+#         else:
+#             yd = np.copy(y)
 
-        x0ib = _start_params((p, q, d), yd)
+#         x0ib = _start_params((p, q, d), yd)
 
-        x0[ib*N:(ib+1)*N] = x0ib
+#         x0[ib*N:(ib+1)*N] = x0ib
 
-    mu, ar, ma = unpack(p, d, q, nb, x0)
+#     mu, ar, ma = unpack(p, d, q, nb, x0)
 
-    nvtx_range_pop()
+#     nvtx_range_pop()
 
-    return mu, ar, ma
+#     return mu, ar, ma
 
 def estimate_x0(order, y, handle=None):
     """TODO: remove legacy version"""
@@ -446,7 +461,7 @@ def estimate_x0(order, y, handle=None):
 
     nvtx_range_pop()
 
-    # TODO: return device pointers
+    # TODO: return device pointers?
     return (d_mu.copy_to_host(),
             d_ar.copy_to_host(),
             d_ma.copy_to_host())
@@ -558,8 +573,8 @@ def ll_gf(num_batches, nobs, num_parameters, order,
 def fit(y,
         order: Tuple[int, int, int],
         mu0: np.ndarray,
-        ar_params0: List[np.ndarray],
-        ma_params0: List[np.ndarray],
+        ar_params0: np.ndarray,
+        ma_params0: np.ndarray,
         opt_disp=-1,
         h=1e-9,
         handle=None):
@@ -574,10 +589,10 @@ def fit(y,
             The ARIMA order (p, d, q)
     mu0 : array-like
           Array of trend-parameter estimates. Only used if `d>0`.
-    ar_params0 : List of arrays
+    ar_params0 : List of arrays (TODO: this is outdated; support lists?)
                  List of AR parameter-arrays, one array per series,
                  each series has `p` parameters.
-    ma_params0 : List of arrays
+    ma_params0 : List of arrays (TODO: this is outdated; support lists?)
                  List of MA parameter-arrays, one array per series,
                  each series has `q` parameters.
     opt_disp : int
@@ -740,17 +755,13 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 def unpack(p, d, q, nb, x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
     nvtx_range_push("unpack(x) -> (mu,ar,ma)")
-    num_parameters = d + p + q
-    mu = np.zeros(nb)
-    ar = []
-    ma = []
-    for i in range(nb):
-        xi = x[i*num_parameters:(i+1)*num_parameters]
-        if d > 0:
-            mu[i] = xi[0]
-        if p > 0:
-            ar.append(xi[d:(d+p)])
-        ma.append(xi[d+p:])
+    # TODO: copy instead of reference?
+    if d > 0:
+        mu = x[0]
+    else:
+        mu = np.zeros(nb)
+    ar = x[d:d+p]
+    ma = x[d+p:]
 
     nvtx_range_pop()
     return (mu, ar, ma)
@@ -759,22 +770,11 @@ def unpack(p, d, q, nb, x):
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
     nvtx_range_push("pack(mu,ar,ma) -> x")
-    num_parameters = d + p + q
-    x = np.zeros(num_parameters*nb)
-    for i in range(nb):
-        xi = np.zeros(num_parameters)
-        if d > 0:
-            xi[0] = mu[i]
-
-        for j in range(p):
-            xi[j+d] = ar[i][j]
-        for j in range(q):
-            xi[j+p+d] = ma[i][j]
-
-        x[i*num_parameters:(i+1)*num_parameters] = xi
-
-    nvtx_range_pop()
-    return x
+    print(mu.shape, ar.shape, ma.shape)
+    if d > 0:
+        return np.vstack((mu, ar, ma))
+    else:
+        return np.vstack((ar, ma))
 
 
 def _batched_transform(p, d, q, nb, x, isInv, handle=None):
