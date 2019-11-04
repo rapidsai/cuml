@@ -16,14 +16,6 @@
 
 #pragma once
 
-  
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-// #pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
-
 
 #include <cutlass/convert.h>
 #include <cutlass/coord.h>
@@ -454,8 +446,3 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
 
 }  // end namespace Distance
 }  // end namespace MLCommon
-
-#if CUDART_VERSION >= 10010
-// Undo special optimization options set earlier
-#pragma GCC reset_options
-#endif
