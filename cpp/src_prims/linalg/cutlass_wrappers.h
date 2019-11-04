@@ -347,6 +347,11 @@ struct CustomGemm : public BaseClass {
   static void launch(Params const& params, FinalLambda fin_op,
                      cudaStream_t stream) {
     // Setup the grid.
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
     dim3 grid;
     grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
     grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
@@ -359,6 +364,11 @@ struct CustomGemm : public BaseClass {
       reinterpret_cast<void*>(&custom_gemm_kernel<This_, FinalLambda>), grid,
       block, const_cast<void**>(args), 0, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 
   static void launch(Params const& params, cudaStream_t stream) {

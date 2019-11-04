@@ -84,6 +84,12 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
           OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  
   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
