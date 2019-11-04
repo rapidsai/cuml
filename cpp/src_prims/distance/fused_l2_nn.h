@@ -147,7 +147,8 @@ struct KernelPolicy {
   };  // enum
 };    // struct KernelPolicy
 
-template <typename DataT, typename OutT, typename IdxT, typename Policy>
+template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
+          typename Policy>
 struct FusedL2NN {
  private:
   typedef Policy P;
@@ -251,12 +252,20 @@ struct FusedL2NN {
     for (int i = 0; i < P::AccColsPerTh; ++i) {
       regyn[i] = syNorm[i * P::AccThCols + acccolid];
     }
-// compute
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         acc[i][j] = regxn[i] + regyn[j] - Two * acc[i][j];
+      }
+    }
+    if (Sqrt) {
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+#pragma unroll
+        for (int j = 0; j < P::AccColsPerTh; ++j) {
+          acc[i][j] = mySqrt(acc[i][j]);
+        }
       }
     }
     // reduce
@@ -392,13 +401,14 @@ struct FusedL2NN {
   }
 };
 
-template <typename DataT, typename OutT, typename IdxT, typename Policy>
+template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
+          typename Policy>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2NNkernel(
   OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
   IdxT n, IdxT k, DataT maxVal, int* mutex) {
   extern __shared__ char smem[];
-  FusedL2NN<DataT, OutT, IdxT, Policy> obj(min, minDist, x, y, xn, yn, m, n, k,
-                                           smem, maxVal, mutex);
+  FusedL2NN<DataT, OutT, IdxT, Sqrt, Policy> obj(min, minDist, x, y, xn, yn, m,
+                                                 n, k, smem, maxVal, mutex);
   obj.run();
 }
 
@@ -411,7 +421,7 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
   }
 }
 
-template <typename OutT, typename IdxT, int VecLen>
+template <typename OutT, typename IdxT, bool Sqrt, int VecLen>
 void fusedL2NNImpl(OutT* min, float* minDist, float* x, float* y, float* xn,
                    float* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    cudaStream_t stream) {
@@ -424,13 +434,13 @@ void fusedL2NNImpl(OutT* min, float* minDist, float* x, float* y, float* xn,
   initKernel<float, IdxT>
     <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
   CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<float, OutT, IdxT, Policy>
+  fusedL2NNkernel<float, OutT, IdxT, Sqrt, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
                                               k, maxVal, workspace);
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename OutT, typename IdxT, int VecLen>
+template <typename OutT, typename IdxT, bool Sqrt, int VecLen>
 void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
                    double* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    cudaStream_t stream) {
@@ -443,7 +453,7 @@ void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
   initKernel<double, IdxT>
     <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
   CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<double, OutT, IdxT, Policy>
+  fusedL2NNkernel<double, OutT, IdxT, Sqrt, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
                                               k, maxVal, workspace);
   CUDA_CHECK(cudaGetLastError());
@@ -458,6 +468,7 @@ void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
  * @tparam DataT data type
  * @tparam OutT output type to store 1-NN indices
  * @tparam IdxT indexing arithmetic type
+ * @tparam Sqrt Whether the output `minDist` should contain L2-sqrt or not
  * @param[out] min will contain the indicies for 1-NN computation. Length = `m`.
  *                 It should be on device.
  * @param[out] minDist will contain the minimum distance value from the 1-NN
@@ -472,20 +483,20 @@ void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
  * @param[in] workspace temporary workspace. Length = `m`. Should be on device.
  * @param[in] stream cuda stream
  */
-template <typename DataT, typename OutT, typename IdxT>
+template <typename DataT, typename OutT, typename IdxT, bool Sqrt>
 void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
                DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    fusedL2NNImpl<OutT, IdxT, 16 / sizeof(DataT)>(min, minDist, x, y, xn, yn, m,
-                                                  n, k, workspace, stream);
+    fusedL2NNImpl<OutT, IdxT, Sqrt, 16 / sizeof(DataT)>(
+      min, minDist, x, y, xn, yn, m, n, k, workspace, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    fusedL2NNImpl<OutT, IdxT, 8 / sizeof(DataT)>(min, minDist, x, y, xn, yn, m,
-                                                 n, k, workspace, stream);
+    fusedL2NNImpl<OutT, IdxT, Sqrt, 8 / sizeof(DataT)>(
+      min, minDist, x, y, xn, yn, m, n, k, workspace, stream);
   } else {
-    fusedL2NNImpl<OutT, IdxT, 1>(min, minDist, x, y, xn, yn, m, n, k, workspace,
-                                 stream);
+    fusedL2NNImpl<OutT, IdxT, Sqrt, 1>(min, minDist, x, y, xn, yn, m, n, k,
+                                       workspace, stream);
   }
 }
 
