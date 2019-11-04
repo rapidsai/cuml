@@ -89,12 +89,17 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  
+
   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
                                                A, lda, B, ldb, beta, C, ldc, D,
                                                op, fin_op, stream);
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
 /**
