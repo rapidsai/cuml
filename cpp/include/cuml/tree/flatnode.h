@@ -13,11 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
-/* sparse node same tree node in Decsion Tree.
-* This however used an index instead of pointer to left child
-* Right child index is left_child_id + 1
-*/
+
+/**
+ * A node in Decision Tree.
+ * This however uses an index instead of pointer to left child. Right child
+ * index is assumed to be `left_child_id + 1`
+ * @tparam T data type
+ * @tparam L label type
+ */
 template <class T, class L>
 struct SparseTreeNode {
   L prediction;
