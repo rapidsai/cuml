@@ -86,7 +86,7 @@ class MBSGDRegressor:
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
@@ -107,8 +107,8 @@ class MBSGDRegressor:
 
     def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
-                 batch_size=32, n_iter_no_change=5, handle=None):
+                 shuffle=True, learning_rate='constant', eta0=0.001,
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
 
         if loss in ['squared_loss']:
             self.loss = loss
