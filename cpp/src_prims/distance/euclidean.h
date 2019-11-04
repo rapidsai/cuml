@@ -86,18 +86,16 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
  * @param isRowMajor whether the input and output matrices are row major
  */
 
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-// #pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
-
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
+
+  #if CUDART_VERSION >= 10010
+  #pragma GCC optimize("O0")
+  #endif
+
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type
     EffOutType;
@@ -164,12 +162,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
       return err;
     },
     fin_op, stream);
-}
 
-#if CUDART_VERSION >= 10010
-// Undo special optimization options set earlier
-#pragma GCC reset_options
-#endif
+  #if CUDART_VERSION >= 10010
+  #pragma GCC reset_options
+  #endif
+}
 
 };  // end namespace Distance
 };  // end namespace MLCommon
