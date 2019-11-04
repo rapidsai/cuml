@@ -46,7 +46,11 @@ class NearestNeighbors(object):
         :param X : dask_cudf.Dataframe
         :return : NearestNeighbors model
         """
+
         self.X = X
+        self.index_futures = self.client.sync(extract_ddf_partitions,
+                                              self.X, agg=False)
+
 
         return self
 
@@ -85,7 +89,8 @@ class NearestNeighbors(object):
         i, d = f
         return i[idx]
 
-    def kneighbors(self, X=None, n_neighbors=None, return_distance=True):
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
+                   _return_futures=False):
         """
         Query the distributed nearest neighbors index
         :param X : dask_cudf.Dataframe Vectors to query. If not
@@ -115,13 +120,11 @@ class NearestNeighbors(object):
             raise ValueError("Model needs to be trained using fit() "
                              "before calling kneighbors()")
 
-        index_futures = self.client.sync(extract_ddf_partitions,
-                                         self.X, agg=False)
         query_futures = self.client.sync(extract_ddf_partitions,
                                          X, agg=False)
 
         index_worker_to_parts = OrderedDict()
-        for w, p in index_futures:
+        for w, p in self.index_futures:
             if w not in index_worker_to_parts:
                 index_worker_to_parts[w] = []
             index_worker_to_parts[w].append(p)
@@ -132,7 +135,7 @@ class NearestNeighbors(object):
                 query_worker_to_parts[w] = []
             query_worker_to_parts[w].append(p)
 
-        workers = set(map(lambda x: x[0], index_futures))
+        workers = set(map(lambda x: x[0], self.index_futures))
         workers.update(list(map(lambda x: x[0], query_futures)))
 
         comms = CommsContext(comms_p2p=True)
@@ -149,7 +152,7 @@ class NearestNeighbors(object):
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(index_futures)]
+            for idx, wf in enumerate(self.index_futures)]
 
         query_partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
             NearestNeighbors._func_get_size,
@@ -227,6 +230,12 @@ class NearestNeighbors(object):
             completed_part_map[rank] += 1
 
         if return_distance:
-            return to_dask_cudf(out_d_futures), to_dask_cudf(out_i_futures)
+            if _return_futures:
+                return nn_fit, out_d_futures, out_i_futures
+            else:
+                return to_dask_cudf(out_d_futures), to_dask_cudf(out_i_futures)
         else:
-            return to_dask_cudf(out_i_futures)
+            if _return_futures:
+                return nn_fit, out_i_futures
+            else:
+                return to_dask_cudf(out_i_futures)
