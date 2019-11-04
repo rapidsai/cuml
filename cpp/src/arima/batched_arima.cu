@@ -321,14 +321,18 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
                           int num_batches, int nobs, int p, int d, int q,
                           cublasHandle_t cublas_handle,
                           std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                          cudaStream_t stream) {
+                          cudaStream_t stream, int p_lags = -1) {
   const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
 
   // Initialize params
-  cudaMemsetAsync(d_mu, 0, sizeof(double) * num_batches, stream);
   cudaMemsetAsync(d_ar, 0, sizeof(double) * p * num_batches, stream);
   cudaMemsetAsync(d_ma, 0, sizeof(double) * q * num_batches, stream);
 
+  ///@todo statsmodels uses BIC to pick the "best" p for this initial fit.
+  if(p_lags == -1) {
+    p_lags = 1;
+  }
+  
   if (d > 0) {
     // Compute means and write them in mu
     MLCommon::Stats::mean(d_mu, d_y, num_batches, nobs, false, false, stream);
@@ -342,23 +346,19 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
   if (p == 0 && q == 0) {
     // do nothing (return later when no deallocation to be done at the end)
   } else if (p != 0) {
-    ///@todo statsmodels uses BIC to pick the "best" p for this initial fit.
-    // The "best" model is probably p = 1, so we will assume that for now.
-    int p_best = 1;
-
     // Create lagged series set
-    int ls_height = nobs - p_best;
+    int ls_height = nobs - p_lags;
     MLCommon::Matrix::BatchedMatrix<double> bm_ls(
-      ls_height, p_best, num_batches, cublas_handle, allocator, stream, false);
+      ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
     _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
-      bm_ls.raw_data(), d_y, p_best, ls_height, 0, nobs, 0, p_best * ls_height);
+      bm_ls.raw_data(), d_y, p_lags, ls_height, 0, nobs, 0, p_lags * ls_height);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Initial AR fit (note: larger dimensions because gels works in-place)
     MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
       ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
     batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-      bm_ar_fit.raw_data(), d_y, p_best, nobs, ls_height);
+      bm_ar_fit.raw_data(), d_y, p_lags, nobs, ls_height);
 
     // Residual if q != 0, initialized as offset y to avoid one kernel call
     MLCommon::Matrix::BatchedMatrix<double> bm_residual(
@@ -371,21 +371,21 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
 
     // Make a copy of the lagged set because gels modifies it in-place
     MLCommon::Matrix::BatchedMatrix<double> bm_ls_copy(
-      ls_height, p_best, num_batches, cublas_handle, allocator, stream, false);
+      ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
     MLCommon::copy(bm_ls_copy.raw_data(), bm_ls.raw_data(),
-                   ls_height * p_best * num_batches, stream);
+                   ls_height * p_lags * num_batches, stream);
 
-    ///@todo check that p_best < n_obs / 2
+    ///@todo check that p_lags < n_obs / 2
     // Note: this overwrites bm_ls
     int ar_fit_info;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
-      cublas_handle, CUBLAS_OP_N, ls_height, p_best, 1, bm_ls_copy.data(),
+      cublas_handle, CUBLAS_OP_N, ls_height, p_lags, 1, bm_ls_copy.data(),
       ls_height, bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr,
       num_batches));
     ///@todo raise exception if info < 0? (need to sync stream)
 
     if (q == 0) {
-      // Note: works only for p_best == 1 ; what to do here when p_best > 1?
+      // Note: works only for p_lags == 1 ; what to do here when p_lags > 1?
       // Fill AR parameters with ar_fit
       // TODO: matrix-vector op?
       _batched_fill_kernel<<<num_batches, TPB, 0, stream>>>(
@@ -397,20 +397,20 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
       double alpha = -1.0;
       double beta = 1.0;
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmBatched(
-        cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, ls_height, 1, p_best, &alpha,
+        cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, ls_height, 1, p_lags, &alpha,
         bm_ls.data(), ls_height, bm_ar_fit.data(), ls_height, &beta,
         bm_residual.data(), ls_height, num_batches, stream));
 
-      // TODO: useless? At the moment p_best == 1 and later we can fix p_best
-      // to the min of p and whetever value works for p_best
-      if (p < p_best) {
-        throw std::runtime_error("p must be greater than p_best");
+      // TODO: useless? At the moment p_lags == 1 and later we can fix p_lags
+      // to the min of p and whetever value works for p_lags
+      if (p < p_lags) {
+        throw std::runtime_error("p must be greater than p_lags");
       }
-      int p_diff = p - p_best;
+      int p_diff = p - p_lags;
 
       // Create matrices made of the concatenation of lagged sets for ar terms
       // and the residual respectively, side by side
-      int ls_ar_res_height = ls_height - q - p_diff;
+      int ls_ar_res_height = nobs - p - q;
       int ls_res_size = ls_ar_res_height * q;
       int ls_ar_size = ls_ar_res_height * p;
       int ls_ar_res_size = ls_res_size + ls_ar_size;
@@ -431,8 +431,7 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
         ls_ar_res_height, 1, num_batches, cublas_handle, allocator, stream,
         false);
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        bm_arma_fit.raw_data(), d_y, p_best + q + p_diff, nobs,
-        ls_ar_res_height);
+        bm_arma_fit.raw_data(), d_y, p + q, nobs, ls_ar_res_height);
 
       ///@todo check that p + q < n_obs / 2
       // Note: this overwrites bm_ls_ar_res
@@ -442,6 +441,9 @@ static void _start_params(double* d_mu, double* d_ar, double* d_ma, double* d_y,
         bm_ls_ar_res.data(), ls_ar_res_height, bm_arma_fit.data(),
         ls_ar_res_height, &arma_fit_info, nullptr, num_batches));
       ///@todo raise exception if info < 0? (need to sync stream)
+
+      MLCommon::myPrintDevVector("arma_fit0", bm_arma_fit[0], p + q);
+      MLCommon::myPrintDevVector("arma_fit1", bm_arma_fit[1], p + q);
 
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
         d_ar, bm_arma_fit.raw_data(), 0, ls_ar_res_height, p);
@@ -482,7 +484,7 @@ static __global__ void _batched_diff_kernel(const double* in, double* out,
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
-                 int q) {
+                 int q, int start_ar_lags) {
   const auto& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
   cublasHandle_t cublas_handle = handle_impl.getCublasHandle();
@@ -505,7 +507,7 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
 
   // Do the computation of the initial parameters
   _start_params(d_mu, d_ar, d_ma, d_yd, num_batches, actual_nobs, p, d, q,
-                cublas_handle, allocator, stream);
+                cublas_handle, allocator, stream, start_ar_lags);
 
   allocator->deallocate(d_yd, sizeof(double) * actual_nobs * num_batches,
                         stream);

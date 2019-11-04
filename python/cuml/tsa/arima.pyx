@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import numpy as np
 import cupy as cp
 
@@ -97,7 +103,8 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         int nobs,
         int p,
         int d,
-        int q)
+        int q,
+        int start_ar_lags)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
@@ -399,36 +406,9 @@ class ARIMAModel(Base):
         return d_y_fc
 
 
-# def estimate_x0_legacy(order: Tuple[int, int, int],
-#                 nb: int,
-#                 yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
-#     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
-#     the batched input `yb`"""
-#     nvtx_range_push("estimate x0")
-#     (p, d, q) = order
-#     N = p + d + q
-#     x0 = np.zeros(N * nb)
 
-#     for ib in range(nb):
-#         y = yb[:, ib]
 
-#         if d == 1:
-#             yd = np.diff(y)
-#         else:
-#             yd = np.copy(y)
-
-#         x0ib = _start_params((p, q, d), yd)
-
-#         x0[ib*N:(ib+1)*N] = x0ib
-
-#     mu, ar, ma = unpack(p, d, q, nb, x0)
-
-#     nvtx_range_pop()
-
-#     return mu, ar, ma
-
-def estimate_x0(order, y, handle=None):
-    """TODO: remove legacy version"""
+def estimate_x0(order, y, handle=None, start_ar_lags=None):
     nvtx_range_push("estimate x0")
 
     p, d, q = order
@@ -442,29 +422,37 @@ def estimate_x0(order, y, handle=None):
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     # Create mu, ar and ma arrays
-    cdef uintptr_t d_mu_ptr
-    cdef uintptr_t d_ar_ptr
-    cdef uintptr_t d_ma_ptr
-    d_mu = zeros(num_batches, dtype=dtype)
-    d_ar = zeros((p, num_batches), dtype=dtype, order='F')
-    d_ma = zeros((q, num_batches), dtype=dtype, order='F')
-    d_mu_ptr = get_dev_array_ptr(d_mu)
-    d_ar_ptr = get_dev_array_ptr(d_ar)
-    d_ma_ptr = get_dev_array_ptr(d_ma)
+    cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+    cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+    cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+    if p > 0:
+        d_ar = zeros((p, num_batches), dtype=dtype, order='F')
+        d_ar_ptr = get_dev_array_ptr(d_ar)
+    if q > 0:
+        d_ma = zeros((q, num_batches), dtype=dtype, order='F')
+        d_ma_ptr = get_dev_array_ptr(d_ma)
+    if d > 0:
+        d_mu = zeros(num_batches, dtype=dtype)
+        d_mu_ptr = get_dev_array_ptr(d_mu)
+
+    if start_ar_lags is None:
+        start_ar_lags = -1
 
     # Call C++ function
     cpp_estimate_x0(handle_[0],
                     <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
                     <double*> d_y_ptr,
                     <int> num_batches, <int> num_samples,
-                    <int> p, <int> d, <int> q)
+                    <int> p, <int> d, <int> q, <int> start_ar_lags)
 
     nvtx_range_pop()
 
+    h_mu = d_mu.copy_to_host() if d > 0 else np.array([])
+    h_ar = d_ar.copy_to_host() if p > 0 else np.zeros(shape=(0, num_batches))
+    h_ma = d_ma.copy_to_host() if q > 0 else np.zeros(shape=(0, num_batches))
+
     # TODO: return device pointers?
-    return (d_mu.copy_to_host(),
-            d_ar.copy_to_host(),
-            d_ma.copy_to_host())
+    return h_mu, h_ar, h_ma
 
 
 def ll_f(num_batches, nobs, order, y, x,
@@ -713,10 +701,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     best_ma_params = num_batches*[None]
 
     for p in range(0, max_p):
-        arparams = np.zeros(p)
         for q in range(0, max_q):
-            maparams = np.zeros(q)
-
             # skip 0,0 case
             if p == 0 and q == 0:
                 continue
@@ -739,11 +724,11 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
                     best_mu[i] = b_model.mu[i]
 
                     if p > 0:
-                        best_ar_params[i] = b_model.ar_params[i]
+                        best_ar_params[i] = b_model.ar_params[:, i]
                     else:
                         best_ar_params[i] = []
                     if q > 0:
-                        best_ma_params[i] = b_model.ma_params[i]
+                        best_ma_params[i] = b_model.ma_params[:, i]
                     else:
                         best_ma_params[i] = []
 
@@ -755,13 +740,16 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 def unpack(p, d, q, nb, x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
     nvtx_range_push("unpack(x) -> (mu,ar,ma)")
-    # TODO: copy instead of reference?
+    if type(x) is list or x.shape != (p + d + q, nb):
+        x_mat = np.reshape(x, (p + d + q, nb), order='F')
+    else:
+        x_mat = x
     if d > 0:
-        mu = x[0]
+        mu = x_mat[0]
     else:
         mu = np.zeros(nb)
-    ar = x[d:d+p]
-    ma = x[d+p:]
+    ar = x_mat[d:d+p]
+    ma = x_mat[d+p:]
 
     nvtx_range_pop()
     return (mu, ar, ma)
@@ -770,7 +758,6 @@ def unpack(p, d, q, nb, x):
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
     nvtx_range_push("pack(mu,ar,ma) -> x")
-    print(mu.shape, ar.shape, ma.shape)
     if d > 0:
         return np.vstack((mu, ar, ma))
     else:
@@ -797,76 +784,6 @@ def _batched_transform(p, d, q, nb, x, isInv, handle=None):
 
     nvtx_range_pop()
     return (Tx)
-
-
-def _start_params(order, y_diff):
-    """A quick approach to determine reasonable starting mu (trend),
-    AR, and MA parameters"""
-
-    # y is mutated so we need a copy
-    y = np.copy(y_diff)
-    nobs = len(y)
-
-    p, q, d = order
-    params_init = np.zeros(p+q+d)
-    if d > 0:
-        # center y (in `statsmodels`, this is result when exog = [1, 1, 1...])
-        mean_y = np.mean(y)
-        params_init[0] = mean_y
-        y -= mean_y
-
-    if p == 0 and q == 0:
-        return params_init
-
-    if p != 0:
-
-        # `statsmodels` uses BIC to pick the "best" `p` for this initial
-        # fit. The "best" model frequently has p=1,
-        # so this is a reasonable assumption.
-        p_best = 1
-        x = np.zeros((len(y) - p_best, p_best))
-        # create lagged series set
-        for lag in range(1, p_best+1):
-            # create lag and trim appropriately from front
-            # so they are all the same size
-            x[:, lag-1] = y[p_best-lag:-lag].T
-
-        # LS fit a*X - Y
-        y_ar = y[p_best:]
-
-        (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
-
-        if q == 0:
-            params_init[d:] = ar_fit
-        else:
-            residual = y[p_best:] - np.dot(x, ar_fit)
-
-            assert p >= p_best
-            p_diff = p - p_best
-
-            x_resid = np.zeros((len(residual) - q - p_diff, q))
-            x_ar2 = np.zeros((len(residual) - q - p_diff, p))
-
-            # create lagged residual and ar term
-            for lag in range(1, q+1):
-                x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
-            for lag in range(1, p+1):
-                x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
-
-            X = np.column_stack((x_ar2, x_resid))
-            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
-                                                  rcond=None)
-
-            params_init[d:] = arma_fit
-
-    else:
-        # case when p == 0 and q>0
-
-        # when p==0, MA params are often -1
-        params_init[d:] = -1*np.ones(q)
-
-    return params_init
-
 
 def _model_complexity(order):
     (p, d, q) = order
@@ -951,3 +868,108 @@ def _batched_loglike(num_batches, nobs, order, y, x,
 
     nvtx_range_pop()
     return vec_loglike
+
+
+### deprecated ###
+
+def _start_params(order, y_diff):
+    """A quick approach to determine reasonable starting mu (trend),
+    AR, and MA parameters"""
+
+    # y is mutated so we need a copy
+    y = np.copy(y_diff)
+    nobs = len(y)
+
+    p, q, d = order
+    params_init = np.zeros(p+q+d)
+    if d > 0:
+        # center y (in `statsmodels`, this is result when exog = [1, 1, 1...])
+        mean_y = np.mean(y)
+        params_init[0] = mean_y
+        y -= mean_y
+
+    if p == 0 and q == 0:
+        return params_init
+
+    if p != 0:
+
+        # `statsmodels` uses BIC to pick the "best" `p` for this initial
+        # fit. The "best" model frequently has p=1,
+        # so this is a reasonable assumption.
+        p_best = 1
+        x = np.zeros((len(y) - p_best, p_best))
+        # create lagged series set
+        for lag in range(1, p_best+1):
+            # create lag and trim appropriately from front
+            # so they are all the same size
+            x[:, lag-1] = y[p_best-lag:-lag].T
+
+        # LS fit a*X - Y
+        y_ar = y[p_best:]
+
+        (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
+
+        if q == 0:
+            params_init[d:] = ar_fit
+        else:
+            residual = y[p_best:] - np.dot(x, ar_fit)
+
+            assert p >= p_best
+            p_diff = p - p_best
+
+            x_resid = np.zeros((len(residual) - q - p_diff, q))
+            x_ar2 = np.zeros((len(residual) - q - p_diff, p))
+
+            # create lagged residual and ar term
+            for lag in range(1, q+1):
+                x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
+            for lag in range(1, p+1):
+                x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
+
+            X = np.column_stack((x_ar2, x_resid))
+
+            # print(X)
+            # print(y_ar[(q+p_diff):])
+
+            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
+                                                  rcond=None)
+
+            print(arma_fit)
+
+            params_init[d:] = arma_fit
+
+    else:
+        # case when p == 0 and q>0
+
+        # when p==0, MA params are often -1
+        params_init[d:] = -1*np.ones(q)
+
+    return params_init
+
+def _estimate_x0(order: Tuple[int, int, int],
+                nb: int,
+                yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
+    """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
+    the batched input `yb`"""
+    nvtx_range_push("estimate x0")
+    (p, d, q) = order
+    N = p + d + q
+    x0 = np.zeros(N * nb)
+
+    for ib in range(nb):
+        y = yb[:, ib]
+
+        if d == 1:
+            yd = np.diff(y)
+        else:
+            yd = np.copy(y)
+
+        x0ib = _start_params((p, q, d), yd)
+
+        x0[ib*N:(ib+1)*N] = x0ib
+
+    mu, ar, ma = unpack(p, d, q, nb, x0)
+
+    nvtx_range_pop()
+
+    return mu, ar, ma

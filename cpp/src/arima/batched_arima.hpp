@@ -106,6 +106,6 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
-                 int q);
+                 int q, int start_ar_lags = -1);
 
 }  // namespace ML
