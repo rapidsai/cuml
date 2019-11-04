@@ -72,9 +72,21 @@ struct Split {
 };  // struct Split
 
 template <typename DataT, typename IdxT>
-__global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT batchSize) {
+__global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
   IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid < batchSize) splits[tid].init();
+  if (tid < len) splits[tid].init();
+}
+
+/**
+ * @brief Initialize the split array
+ * @param splits the array to be initialized
+ * @param len length of this array
+ * @param s cuda stream where to schedule work
+ */
+template <typename DataT, typename IdxT, int TPB = 256>
+void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
+  initSplitKernel<DataT, IdxT><<<nblks, TPB, 0, s>>>(splits, len);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 }  // namespace decisiontree
