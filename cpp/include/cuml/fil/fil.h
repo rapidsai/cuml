@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <treelite/c_api.h>
 #include <cuml/cuml.hpp>
+#include <cuml/ensemble/treelite_defs.hpp>
 
 namespace ML {
 namespace fil {
@@ -68,6 +68,16 @@ enum output_t {
   /** threshold: apply threshold to the output of the previous stage to get the
       class (0 or 1) */
   THRESHOLD = 0x100,
+};
+
+/** storage_type_t defines whether to import the forests as dense or sparse */
+enum storage_type_t {
+  /** decide automatically; currently always builds dense forests */
+  AUTO,
+  /** import the forest as dense */
+  DENSE,
+  /** import the forest as sparse */
+  SPARSE
 };
 
 /** dense_node_t is a node in a densely-stored forest */
@@ -138,6 +148,8 @@ struct treelite_params_t {
   // threshold is used for thresholding if output_class == true,
   // and is ignored otherwise
   float threshold;
+  // storage_type indicates whether the forest should be imported as dense or sparse
+  storage_type_t storage_type;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
