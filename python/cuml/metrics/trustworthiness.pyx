@@ -16,9 +16,8 @@
 
 # cython: profile=False
 # distutils: language = c++
-# distutils: extra_compile_args = -Og
-# cython: embedsignature = True
-# cython: language_level = 3
+# distutils: extra_compile_args = -Og -O0
+# cython: embedsignature = True, language_level = 3
 
 import cudf
 import numpy as np
