@@ -24,12 +24,6 @@
 namespace MLCommon {
 namespace LinAlg {
 
-#if CUDART_VERSION >= 10010
-// With optimization enabled, CUDA 10.1 generates segfaults for distance
-// prims, so disable optimization until another workaround is found
-// #pragma GCC push_options
-#pragma GCC optimize("O0")
-#endif
   
 /**
  * @brief the gemm function for the cases with detailed epilogue customization
@@ -143,11 +137,6 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     stream);
 }
   
-#if CUDART_VERSION >= 10010
-// Undo special optimization options set earlier
-#pragma GCC reset_options
-#endif
-
 /**
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
