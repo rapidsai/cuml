@@ -347,38 +347,27 @@ struct CustomGemm : public BaseClass {
   static void launch(Params const& params, FinalLambda fin_op,
                      cudaStream_t stream) {
     // Setup the grid.
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
     dim3 grid;
     grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
     grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     // The number of threads.
     dim3 block;
     block.x = BaseClass::kThreads;
     // Launch the kernel.
     void const* args[] = {&params, &fin_op};
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     cudaLaunchKernel(
       reinterpret_cast<void*>(&custom_gemm_kernel<This_, FinalLambda>), grid,
       block, const_cast<void**>(args), 0, stream);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 
   static void launch(Params const& params, cudaStream_t stream) {
-
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
     BaseClass::launch(params, stream);
+    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 
   /// Ctor.
@@ -468,8 +457,6 @@ struct CustomGemm : public BaseClass {
                       BaseClass::params.n);
     epilogue.epilogue(cutlass::make_Coord(0, block.y, block.x), accumulators,
                       fin_op);
-
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 };  // end struct CustomGemm
 
@@ -547,36 +534,17 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
                            MainLoopFunctor_, Index_, GemmConfig_,
                            EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>
     GemmTraits;
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   typedef CustomGemm<GemmTraits> Gemm;
   typename Gemm::Params params;
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
-
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
-
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
   Gemm::launch(params, fin_op, stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
@@ -605,14 +573,18 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
                            MainLoopFunctor_, Index_, GemmConfig_,
                            EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>
     GemmTraits;
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   typedef cutlass::gemm::Gemm<GemmTraits> Gemm;
   typename Gemm::Params params;
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
   Gemm::launch(params, stream);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 /** @} */
 
@@ -676,9 +648,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               cudaStream_t stream) {
 
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
@@ -713,10 +682,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
            (int)transB);
   }
   CUDA_CHECK(cudaPeekAtLastError());
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
@@ -738,6 +703,7 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
@@ -771,6 +737,7 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
            (int)transB);
   }
   CUDA_CHECK(cudaPeekAtLastError());
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 /** @} */
 
