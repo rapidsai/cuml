@@ -88,7 +88,7 @@ struct Node {
     nodes[pos].parentGain = split.best_metric_val;
     nodes[pos].depth = depth + 1;
     nodes[pos].start = range.x + split.nLeft;
-    node[pos].end = range.y - split.nLeft;
+    nodes[pos].end = range.y - split.nLeft;
     return pos;
   }
 };  // end Node
