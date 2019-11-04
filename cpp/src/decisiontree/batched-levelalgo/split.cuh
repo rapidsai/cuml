@@ -34,12 +34,12 @@ struct Split {
   /** feature index */
   IdxT colid;
   /** best info gain on this node */
-  DataT gain;
+  DataT best_metric_val;
   /** number of samples in the left child */
   IdxT nLeft;
 
   DI void init() {
-    quesval = gain = Min;
+    quesval = best_metric_val = Min;
     colid = Invalid;
     nLeft = 0;
   }
@@ -47,13 +47,13 @@ struct Split {
   DI Split<DataT, IdxT>& operator=(const Split<DataT, IdxT>& other) {
     quesval = other.quesval;
     colid = other.colid;
-    gain = other.gain;
+    best_metric_val = other.best_metric_val;
     nLeft = other.nLeft;
   }
 
   /** updates the current split if the input gain is better */
   DI void update(const Split<DataT, IdxT>& other) {
-    if (other.gain > gain) *this = other;
+    if (other.best_metric_val > best_metric_val) *this = other;
   }
 
   /** reduce the split info in the warp. Best split will be with 0th lane */
@@ -64,9 +64,9 @@ struct Split {
       auto id = lane + i;
       auto qu = MLCommon::shfl(quesval, id);
       auto co = MLCommon::shfl(colid, id);
-      auto ga = MLCommon::shfl(gain, id);
+      auto be = MLCommon::shfl(best_metric_val, id);
       auto nl = MLCommon::shfl(nLeft, id);
-      update(Split<DataT, IdxT>(qu, co, ga, nl));
+      update(Split<DataT, IdxT>(qu, co, be, nl));
     }
   }
 };  // struct Split
