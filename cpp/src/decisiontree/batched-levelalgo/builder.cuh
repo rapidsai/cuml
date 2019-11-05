@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include <cuda_utils.h>
-#include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
+#include <common/cumlHandle.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include "input.cuh"
 #include "kernels.cuh"
 #include "node.cuh"
@@ -304,7 +304,6 @@ struct Builder {
   }
 };  // end Builder
 
-
 ///@todo: support different metrics
 ///@todo: support regression
 ///@todo: support building from an arbitrary depth
@@ -330,17 +329,16 @@ struct Builder {
 template <typename DataT, typename LabelT, typename IdxT>
 void grow_tree(const std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                const std::shared_ptr<MLCommon::hostAllocator> h_allocator,
-               const DataT *data, IdxT ncols, IdxT nrows, const LabelT *labels,
-               const DataT *quantiles, IdxT *rowids, IdxT *colids,
+               const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
+               const DataT* quantiles, IdxT* rowids, IdxT* colids,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
-               std::vector<SparseTreeNode<DataT, LabelT>> &sparsetree) {
+               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
   Builder<DataT, LabelT, IdxT> builder;
   size_t d_wsize, h_wsize;
-  builder.workspaceSize(d_wsize, h_wsize, params, data, labels,
-                        nrows, ncols, n_sampled_rows,
-                        IdxT(params.max_features * ncols), rowids, colids,
-                        unique_labels, quantiles);
+  builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
+                        n_sampled_rows, IdxT(params.max_features * ncols),
+                        rowids, colids, unique_labels, quantiles);
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
   MLCommon::host_buffer<Node<DataT, LabelT, IdxT>> h_nodes(h_allocator, stream,

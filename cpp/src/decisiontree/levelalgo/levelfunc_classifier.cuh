@@ -158,4 +158,24 @@ void grow_deep_tree_classification(
       get_class_hist(&h_child_hist[(i - sparsesize_nextitr) * n_unique_labels],
                      n_unique_labels);
   }
+
+  // Start of gather algorithm
+  //Convertor
+  CUDA_CHECK(cudaDeviceSynchronize());
+  unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
+  int max_nodes = tempmem->max_nodes_per_level;
+  printf("nodes %d nodes next %d\n", n_nodes, n_nodes_nextitr);
+  CUDA_CHECK(cudaMallocManaged((void**)&d_nodecount,
+                               (max_nodes + 1) * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMallocManaged((void**)&d_nodestart,
+                               (max_nodes + 1) * sizeof(unsigned int)));
+  CUDA_CHECK(
+    cudaMemset(d_nodestart, 0, (max_nodes + 1) * sizeof(unsigned int)));
+  CUDA_CHECK(
+    cudaMallocManaged((void**)&d_samplelist, nrows * sizeof(unsigned int)));
+
+  convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes_nextitr, nrows,
+                            d_nodecount, d_nodestart, d_samplelist);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes_nextitr);
 }
