@@ -23,9 +23,9 @@ namespace DecisionTree {
 template <typename DataT, typename LabelT, typename IdxT>
 struct Input {
   /** input dataset (assumed to be col-major) */
-  DataT* data;
+  const DataT* data;
   /** input labels */
-  LabelT* labels;
+  const LabelT* labels;
   /** total rows in dataset */
   IdxT M;
   /** total cols in dataset */
@@ -41,7 +41,7 @@ struct Input {
   /** number of classes (useful only in classification) */
   IdxT nclasses;
   /** quantiles/histogram computed on the dataset (col-major) */
-  DataT* quantiles;
+  const DataT* quantiles;
 };
 
 
