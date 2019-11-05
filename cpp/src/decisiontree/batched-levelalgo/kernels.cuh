@@ -29,8 +29,8 @@ template <typename DataT, typename LabelT, typename IdxT>
 __global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
                                        const LabelT* labels, IdxT nclasses,
                                        IdxT nrows) {
-  extern __shared__ int* shist;
-  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x) shist = 0;
+  extern __shared__ int shist[];
+  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x) shist[i] = 0;
   __syncthreads();
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   IdxT stride = blockDim.x * gridDim.x;

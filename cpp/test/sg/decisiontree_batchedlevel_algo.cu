@@ -48,11 +48,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                     inparams.min_gain, false, CRITERION::GINI, false, false, 32,
                     10, 4, 0);
     prepareDataset();
-    auto impl = handle.getImpl();
-    grow_tree<T, L, I>(impl.getDeviceAllocator(), impl.getHostAllocator(), data,
-                       inparams.N, inparams.M, labels, quantiles, rowids,
-                       colids, inparams.M, inparams.nclasses, params, stream,
-                       sparsetree);
   }
 
   void TearDown() {
@@ -102,10 +97,17 @@ const std::vector<DtTestParams> all = {
   {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
 };
-typedef DtBaseTest<float> DtTestF;
-///@todo
-TEST_P(DtTestF, Test) {}
-INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtTestF, ::testing::ValuesIn(all));
+typedef DtBaseTest<float> DISABLED_DtTestF;
+///@todo: add checks
+TEST_P(DISABLED_DtTestF, Test) {
+  auto impl = handle.getImpl();
+  grow_tree<float, int, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
+                             data, inparams.N, inparams.M, labels, quantiles,
+                             rowids, colids, inparams.M, inparams.nclasses,
+                             params, stream, sparsetree);
+}
+INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DISABLED_DtTestF,
+                        ::testing::ValuesIn(all));
 
 }  // end namespace DecisionTree
 }  // end namespace ML
