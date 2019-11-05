@@ -55,7 +55,7 @@ struct Node {
    * @param pred the prediction for this leaf node
    * @note to be called only by one thread across all participating threadblocks
    */
-  DI void makeLeaf(IdxT* n_leaves, LabelT pred) {
+  DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
     info.left_child_id = Leaf;
     info.prediction = pred;
     atomicAdd(n_leaves, 1);
@@ -71,7 +71,7 @@ struct Node {
    * @note to be called only by one thread across all participating threadblocks
    */
   DI IdxT makeChildNodes(IdxT* n_nodes, IdxT total_nodes, volatile NodeT* nodes,
-                         const SplitT& split) {
+                         const SplitT& split) volatile {
     IdxT pos = atomicAdd(n_nodes, 2);
     // current
     info.colid = split.colid;
@@ -81,14 +81,14 @@ struct Node {
     // left
     nodes[pos].parentGain = split.best_metric_val;
     nodes[pos].depth = depth + 1;
-    nodes[pos].start = range.x;
-    node[pos].end = split.nLeft;
+    nodes[pos].start = start;
+    nodes[pos].end = split.nLeft;
     // right
     ++pos;
     nodes[pos].parentGain = split.best_metric_val;
     nodes[pos].depth = depth + 1;
-    nodes[pos].start = range.x + split.nLeft;
-    nodes[pos].end = range.y - split.nLeft;
+    nodes[pos].start = start + split.nLeft;
+    nodes[pos].end = end - split.nLeft;
     return pos;
   }
 };  // end Node

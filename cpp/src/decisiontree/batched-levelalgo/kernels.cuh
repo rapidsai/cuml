@@ -102,7 +102,7 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
 
 namespace internal {
 struct Int2Max {
-  int2 operator()(const int2& a, const int2& b) {
+  DI int2 operator()(const int2& a, const int2& b) {
     int2 out;
     if (a.y > b.y)
       out = a;
@@ -161,9 +161,9 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
                          const Split<DataT, IdxT>* splits,
-                         Node<DataT, LabelT, IdxT>* curr_nodes,
-                         Node<DataT, LabelT, IdxT>* next_nodes,
-                         volatile IdxT* n_nodes, IdxT total_nodes, char* smem) {
+                         volatile Node<DataT, LabelT, IdxT>* curr_nodes,
+                         volatile Node<DataT, LabelT, IdxT>* next_nodes,
+                         IdxT* n_nodes, IdxT total_nodes, char* smem) {
   typedef cub::BlockScan<int, TPB> BlockScanT;
   __shared__ typename BlockScanT::TempStorage temp1, temp2;
   volatile auto* rowids = reinterpret_cast<volatile IdxT*>(input.rowids);
@@ -222,22 +222,21 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
-                                volatile IdxT* n_nodes,
-                                const Split<DataT, IdxT>* splits,
+                                IdxT* n_nodes, const Split<DataT, IdxT>* splits,
                                 IdxT* n_leaves, IdxT total_nodes) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
-  auto node = curr_nodes[nid];
-  auto range_start = node.start, range_len = node.end;
+  volatile auto* node = curr_nodes + nid;
+  auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node.depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    computePrediction<DataT, LabelT, IdxT, TPB>(
-      range_start, range_len, input, curr_nodes + nid, n_leaves, smem);
+    computePrediction<DataT, LabelT, IdxT, TPB>(range_start, range_len, input,
+                                                node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
-    input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, smem);
+    input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
 }
 
 ///@todo: support regression
