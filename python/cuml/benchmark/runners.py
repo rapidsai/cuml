@@ -47,18 +47,26 @@ class SpeedupComparisonRunner:
         data = datagen.gen_data(
             self.dataset_name, self.input_type, n_samples, n_features
         )
-        
-        setup_overrides = algo_pair.setup_cuml(data, **param_overrides, **cuml_param_overrides)
+
+        setup_overrides = algo_pair.setup_cuml(
+            data, **param_overrides, **cuml_param_overrides
+        )
         
         cu_start = time.time()
-        algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides, **setup_overrides)
+        algo_pair.run_cuml(
+            data, **param_overrides, **cuml_param_overrides, **setup_overrides
+        )
         cu_elapsed = time.time() - cu_start
 
         if run_cpu and algo_pair.cpu_class is not None:
-            setup_overrides = algo_pair.set_up_cpu(data, **param_overrides)
+            setup_overrides = algo_pair.set_up_cpu(
+                data, **param_overrides
+            )
 
             cpu_start = time.time()
-            algo_pair.run_cpu(data, **param_overrides, **setup_overrides)
+            algo_pair.run_cpu(
+                data, **param_overrides, **setup_overrides
+            )
             cpu_elapsed = time.time() - cpu_start
         else:
             cpu_elapsed = 0.0
@@ -160,7 +168,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             data, **{**param_overrides, **cuml_param_overrides, **setup_override}
         )
         cu_elapsed = time.time() - cu_start
-        
+
         if algo_pair.accuracy_function:
             if algo_pair.cuml_data_prep_hook is not None:
                 X_test, y_test = algo_pair.cuml_data_prep_hook(data[2:])
@@ -182,9 +190,11 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             setup_override = algo_pair.setup_cpu(data, **param_overrides)
 
             cpu_start = time.time()
-            cpu_model = algo_pair.run_cpu(data, **param_overrides, **setup_override)
+            cpu_model = algo_pair.run_cpu(
+                data, **param_overrides, **setup_override
+            )
             cpu_elapsed = time.time() - cpu_start
-        
+
             if algo_pair.accuracy_function:
                 if algo_pair.cpu_data_prep_hook is not None:
                     X_test, y_test = algo_pair.cpu_data_prep_hook(data[2:])
@@ -267,7 +277,7 @@ def run_variations(
                     all_results.append(
                         {'algo': algo.name, 'input': input_type, **r}
                     )
-                    
+
     print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)
     print(results_df)

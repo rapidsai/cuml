@@ -27,8 +27,9 @@ import umap
 import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier, \
-            _build_treelite_classifier, _treelite_fil_accuracy_score
+    import fit, fit_kneighbors, fit_transform, predict, \
+        _build_fil_classifier, _build_treelite_classifier, \
+        _treelite_fil_accuracy_score
 
 from cuml.utils.import_utils import has_treelite
 if has_treelite():
@@ -60,7 +61,7 @@ class AlgorithmPair:
         accuracy_function=None,
         bench_func=fit,
         setup_cpu_func=None,
-        setup_cuml_func=None, 
+        setup_cuml_func=None,
     ):
         """
         Parameters
@@ -148,7 +149,8 @@ class AlgorithmPair:
         if self.setup_cpu_func is not None:
             all_args = {**self.shared_args, **self.cpu_args}
             all_args = {**all_args, **override_args}
-            return {"cpu_setup_result" : self.setup_cpu_func(self.cpu_class, data, all_args)}
+            return {"cpu_setup_result": \
+                self.setup_cpu_func(self.cpu_class, data, all_args)}
         else:
             return {}
 
@@ -156,7 +158,8 @@ class AlgorithmPair:
         if self.setup_cuml_func is not None:
             all_args = {**self.shared_args, **self.cuml_args}
             all_args = {**all_args, **override_args}
-            return {"cuml_setup_result" : self.setup_cuml_func(self.cuml_class, data, all_args)}
+            return {"cuml_setup_result": \
+                self.setup_cuml_func(self.cuml_class, data, all_args)}
         else:
             return {}
 
@@ -173,7 +176,7 @@ def _treelite_format_hook(data):
         import treelite
         import treelite.runtime
     else:
-        raise ImportError("No treelite package found which is required for benchmarking FIL")
+        raise ImportError("No treelite package found")
     return treelite.runtime.Batch.from_npy2d(data[0]), data[1]
 
 
@@ -302,7 +305,7 @@ def all_algorithms():
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
-            None, 
+            None,
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
             cuml_args=dict(eta0=0.005, epochs=100),
@@ -311,10 +314,11 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None, 
+            treelite if has_treelite() else None,
             cuml.ForestInference,
             shared_args=dict(num_rounds=10, max_depth=10),
-            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, storage_type="AUTO"), 
+            cuml_args=dict(fil_algo="BATCH_TREE_REORG", 
+                output_class=True, threshold=0.5, storage_type="AUTO"),
             name="FIL",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
@@ -322,7 +326,7 @@ def all_algorithms():
             cpu_data_prep_hook=_treelite_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
-        ), 
+        ),
     ]
 
 
