@@ -288,7 +288,7 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   sp.init();
   giniInfoGain<DataT, LabelT, IdxT>(shist, sbins, parentGain, sp, col,
                                     range_len, nbins, nclasses);
-  evalBestSplit<DataT, IdxT>(sp, smem, splits + nid, mutex + nid);
+  sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
 }  // namespace DecisionTree

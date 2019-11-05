@@ -71,10 +71,38 @@ struct Split {
       update(SplitT(qu, co, be, nl));
     }
   }
+
+  /**
+   * @brief Computes the best split across the threadblocks
+   * @param smem shared mem for scratchpad purposes
+   * @param split current split to be updated
+   * @param mutex location which provides exclusive access to node update
+   * @note all threads in the block must enter this function together. At the
+   *       end thread0 will contain the best split.
+   */
+  DI void evalBestSplit(void* smem, SplitT* split, int* mutex) {
+    auto* sbest = reinterpret_cast<SplitT*>(smem);
+    warpReduce();
+    auto warp = threadIdx.x / MLCommon::WarpSize;
+    auto nWarps = blockDim.x / MLCommon::WarpSize;
+    auto lane = MLCommon::laneId();
+    if (lane == 0) sbest[warp] = *this;
+    __syncthreads();
+    if (lane < nWarps) *this = sbest[lane];
+    warpReduce();
+    if (threadIdx.x == 0) {
+      while (atomicCAS(mutex, 0, 1))
+        ;
+      split->update(s.quesval, colid, gain, nLeft);
+      __threadfence();
+      atomicCAS(mutex, 1, 0);
+    }
+    __syncthreads();
+  }
 };  // struct Split
 
 template <typename DataT, typename IdxT>
-__global__ void initSplitKernel(SplitT* splits, IdxT len) {
+__global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
   IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid < len) splits[tid].init();
 }
@@ -86,39 +114,9 @@ __global__ void initSplitKernel(SplitT* splits, IdxT len) {
  * @param s cuda stream where to schedule work
  */
 template <typename DataT, typename IdxT, int TPB = 256>
-void initSplit(SplitT* splits, IdxT len, cudaStream_t s) {
+void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   initSplitKernel<DataT, IdxT><<<nblks, TPB, 0, s>>>(splits, len);
   CUDA_CHECK(cudaGetLastError());
-}
-
-/**
- * @brief Computes the best split across the threadblocks
- * @param s per-thread best split (thread0 will contain the best split)
- * @param smem shared mem for scratchpad purposes
- * @param split current split to be updated
- * @param mutex location which provides exclusive access to node update
- * @note all threads in the block must enter this function together.
- */
-template <typename DataT, typename IdxT>
-DI void evalBestSplit(Split<DataT, IdxT>& s, void* smem,
-                      Split<DataT, IdxT>* split, int* mutex) {
-  auto* sbest = reinterpret_cast<Split<DataT, IdxT>*>(smem);
-  s.warpReduce();
-  auto warp = threadIdx.x / MLCommon::WarpSize;
-  auto nWarps = blockDim.x / MLCommon::WarpSize;
-  auto lane = MLCommon::laneId();
-  if (lane == 0) sbest[warp] = s;
-  __syncthreads();
-  if (lane < nWarps) s = sbest[lane];
-  s.warpReduce();
-  if (threadIdx.x == 0) {
-    while (atomicCAS(mutex, 0, 1))
-      ;
-    split->update(s.quesval, s.colid, s.gain, s.nLeft);
-    __threadfence();
-    atomicCAS(mutex, 1, 0);
-  }
-  __syncthreads();
 }
 
 }  // namespace DecisionTree
