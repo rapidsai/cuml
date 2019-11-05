@@ -16,12 +16,12 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <test_utils.h>
-#include <cuml/cuml.hpp>
-#include <common/cumlHandle.hpp>
-#include <decisiontree/batched-levelalgo/builder.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <random/make_blobs.h>
+#include <test_utils.h>
+#include <common/cumlHandle.hpp>
+#include <cuml/cuml.hpp>
+#include <decisiontree/batched-levelalgo/builder.cuh>
 
 namespace ML {
 namespace DecisionTree {
@@ -43,11 +43,14 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.setStream(stream);
-    prepareParams();
+    set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
+                    inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
+                    inparams.min_gain, false, CRITERION::GINI, false, false, 32,
+                    10, 4, 0);
     prepareDataset();
     auto impl = handle.getImpl();
-    grow_tree<T, L, I>(impl.getDeviceAllocator(), impl.getHostAllocator(),
-                       data, inparams.N, inparams.M, labels, quantiles, rowids,
+    grow_tree<T, L, I>(impl.getDeviceAllocator(), impl.getHostAllocator(), data,
+                       inparams.N, inparams.M, labels, quantiles, rowids,
                        colids, inparams.M, inparams.nclasses, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -73,24 +76,14 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   DtTestParams inparams;
 
  private:
-  void prepareParams() {
-    set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
-                    inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
-                    inparams.min_gain, false, CRITERION::GINI, false, false);
-    params.max_batch_size = 32;
-    params.n_blks_for_cols = 10;
-    params.n_blks_for_rows = 4;
-    params.batched_depth = 0;
-  }
-
   ///@todo: support regression
   void prepareDataset() {
     auto allocator = handle.getImpl().getDeviceAllocator();
     auto cublas = handle.getImpl().getCublasHandle();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
-    auto* tmp = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N,
-                                        stream);
+    auto* tmp =
+      (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     MLCommon::Random::make_blobs<T>(
       tmp, labels, inparams.M, inparams.N, inparams.nclasses, allocator, stream,
       nullptr, nullptr, T(1.0), false, T(10.0), T(-10.0), inparams.seed);
