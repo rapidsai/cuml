@@ -40,24 +40,29 @@ def _build_fil_classifier(m, data, arg={}):
     if has_xgboost():
         import xgboost as xgb
     else:
-        raise ImportError("No XGBoost package found which is required for benchmarking FIL")
+        raise ImportError("No XGBoost package found")
 
-    # use maximum 1e6 rows to train the model 
+    # use maximum 1e6 rows to train the model
     train_size = min(data[0].shape[0], 1000000)
     dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
-    params = {"silent": 1, "eval_metric": "error", "objective": "binary:logistic"}
+    params = {
+        "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
+    }
     params.update(arg)
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
-    n_features = data[0].shape[1]
+    n_feature = data[0].shape[1]
 
     tmpdir = tempfile.mkdtemp()
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_features}_{train_size}.model"
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
 
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
-    return m.load(model_path, algo=arg["fil_algo"], output_class=arg["output_class"], threshold=arg["threshold"], storage_type=arg["storage_type"])
+    return m.load(model_path, algo=arg["fil_algo"], 
+        output_class=arg["output_class"],
+        threshold=arg["threshold"], 
+        storage_type=arg["storage_type"])
 
 
 def _build_treelite_classifier(m, data, arg={}):
@@ -67,28 +72,33 @@ def _build_treelite_classifier(m, data, arg={}):
         import treelite
         import treelite.runtime
     else:
-        raise ImportError("No treelite package found which is required for benchmarking FIL")
+        raise ImportError("No treelite package found")
     if has_xgboost():
         import xgboost as xgb
     else:
-        raise ImportError("No XGBoost package found which is required for benchmarking FIL")
+        raise ImportError("No XGBoost package found")
 
-    # use maximum 1e6 rows to train the model 
+    # use maximum 1e6 rows to train the model
     train_size = min(data[0].shape[0], 1000000)
     dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
-    params = {"silent": 1, "eval_metric": "error", "objective": "binary:logistic"}
+    params = {
+        "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
+    }
     params.update(arg)
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
-    n_features = data[0].shape[1]
+    n_feature = data[0].shape[1]
 
     tmpdir = tempfile.mkdtemp()
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_features}_{train_size}.model"
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
 
     bst = xgb.train(params, dtrain, num_rounds)
     tl_model = treelite.Model.from_xgboost(bst)
-    tl_model.export_lib(toolchain="gcc", libpath=model_path+"treelite.so", params={'parallel_comp': 40}, verbose=False)
+    tl_model.export_lib(
+        toolchain="gcc", libpath=model_path+"treelite.so", \
+        params={'parallel_comp': 40}, verbose=False
+    )
     return treelite.runtime.Predictor(model_path+"treelite.so", verbose=False)
 
 
