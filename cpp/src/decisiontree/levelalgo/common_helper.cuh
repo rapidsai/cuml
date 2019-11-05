@@ -185,3 +185,26 @@ unsigned int getQuesColumn(const unsigned int *colids, const int colstart_local,
   }
   return col;
 }
+
+void convert_scatter_to_gather(const unsigned int *flagsptr,
+                               const unsigned int *sample_cnt,
+                               const int n_nodes, const int n_rows,
+                               unsigned int *nodecount, unsigned int *nodestart,
+                               unsigned int *samplelist) {
+  int nthreads = 128;
+  int nblocks = (int)(n_rows / nthreads);
+  if (n_rows % nthreads != 0) nblocks++;
+  fill_counts<<<nblocks, nthreads>>>(flagsptr, sample_cnt, n_rows, nodecount);
+
+  void *d_temp_storage = NULL;
+  size_t temp_storage_bytes = 0;
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
+                                nodestart, n_nodes + 1);
+  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
+                                nodestart, n_nodes + 1);
+  CUDA_CHECK(cudaFree(d_temp_storage));
+  cudaMemset(nodecount, 0, n_nodes * sizeof(unsigned int));
+  build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, n_rows, nodecount,
+                                    samplelist);
+}

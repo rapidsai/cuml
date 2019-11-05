@@ -246,3 +246,32 @@ struct MinMaxQues {
 
   DI T operator()(const int binid) { return (min + (binid + 1) * delta); }
 };
+
+__global__ void fill_counts(const unsigned int* __restrict__ flagsptr,
+                            const unsigned int* __restrict__ sample_cnt,
+                            const int n_rows, unsigned int* nodecount) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_rows) {
+    unsigned int nodeid = flagsptr[tid];
+    if (nodeid != LEAF) {
+      unsigned int count = sample_cnt[tid];
+      atomicAdd(&nodecount[nodeid], count);
+    }
+  }
+}
+
+__global__ void build_list(const unsigned int* __restrict__ flagsptr,
+                           const unsigned int* __restrict__ nodestart,
+                           const int n_rows, unsigned int* nodecount,
+                           unsigned int* samplelist) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_rows) {
+    unsigned int nodeid = flagsptr[tid];
+    if (nodeid != LEAF) {
+      unsigned int start = nodestart[nodeid];
+      unsigned int currcnt = atomicAdd(&nodecount[nodeid], 1);
+      samplelist[start + currcnt] = tid;
+    }
+  }
+}
+
