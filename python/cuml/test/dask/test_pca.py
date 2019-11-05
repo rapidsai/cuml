@@ -22,10 +22,10 @@ import numpy as np
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e3, 1e5, 5e5])
-@pytest.mark.parametrize("ncols", [10, 30])
-@pytest.mark.parametrize("n_parts", [None, 50])
-def test_end_to_end(nrows, ncols, n_parts, client=None):
+@pytest.mark.parametrize("nrows", [6e6])
+@pytest.mark.parametrize("ncols", [20, 253])
+@pytest.mark.parametrize("n_parts", [84])
+def test_pca(nrows, ncols, n_parts, client=None):
 
     owns_cluster = False
     if client is None:
@@ -33,22 +33,38 @@ def test_end_to_end(nrows, ncols, n_parts, client=None):
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
 
-    from cuml.dask.decomposition import PCA
+    from cuml.dask.decomposition import PCA as daskPCA
+    from sklearn.decomposition import PCA
 
     from cuml.dask.datasets import make_blobs
 
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=0.01, verbose=True,
+                           cluster_std=0.5, verbose=True,
                            random_state=10, dtype=np.float32)
 
     wait(X_cudf)
+    
+    X = X_cudf.compute().to_pandas().values
 
-    cumlModel = PCA()
-    cumlModel.fit(X_cudf)
+    cupca = daskPCA(n_components=ncols, whiten=False)
+    cupca.fit(X_cudf)
 
-    # xformed = cumlModel.transform(X_cudf)
-    #
-    # print(str(xformed))
+    skpca = PCA(n_components=ncols, whiten=False)    
+    skpca.fit(X)
+    
+    from cuml.test.utils import array_equal
+
+    #all_attr = ['singular_values_', 'components_', 'explained_variance_',
+    #                 'explained_variance_ratio_', 'noise_variance_']
+    all_attr = ['components_']
+            
+    for attr in all_attr:
+        with_sign = False if attr in ['components_'] else True
+        cuml_res = (getattr(cupca, attr))
+        if type(cuml_res) == np.ndarray:
+            cuml_res = cuml_res.as_matrix()
+        skl_res = getattr(skpca, attr)
+        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 
     if owns_cluster:
         client.close()
