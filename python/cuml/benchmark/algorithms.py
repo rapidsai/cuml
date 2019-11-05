@@ -28,8 +28,8 @@ import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
     import fit, fit_kneighbors, fit_transform, predict, \
-            _build_fil_classifier, _build_treelite_classifier, \
-            _treelite_fil_accuracy_score
+           _build_fil_classifier, _build_treelite_classifier, \
+           _treelite_fil_accuracy_score
 
 from cuml.utils.import_utils import has_treelite
 if has_treelite():
@@ -318,7 +318,8 @@ def all_algorithms():
             cuml.ForestInference,
             shared_args=dict(num_rounds=10, max_depth=10),
             cuml_args=dict(fil_algo="BATCH_TREE_REORG",
-                    output_class=True, threshold=0.5, storage_type="AUTO"),
+                            output_class=True,
+                            threshold=0.5, storage_type="AUTO"),
             name="FIL",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
