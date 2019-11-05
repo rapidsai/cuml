@@ -51,7 +51,7 @@ class SpeedupComparisonRunner:
         setup_overrides = algo_pair.setup_cuml(
             data, **param_overrides, **cuml_param_overrides
         )
-        
+
         cu_start = time.time()
         algo_pair.run_cuml(
             data, **param_overrides, **cuml_param_overrides, **setup_overrides
@@ -158,14 +158,15 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             n_features,
             test_fraction=self.test_fraction,
         )
-        
+
         setup_override = algo_pair.setup_cuml(
             data, **{**param_overrides, **cuml_param_overrides}
         )
 
         cu_start = time.time()
         cuml_model = algo_pair.run_cuml(
-            data, **{**param_overrides, **cuml_param_overrides, **setup_override}
+            data, 
+            **{**param_overrides, **cuml_param_overrides, **setup_override}
         )
         cu_elapsed = time.time() - cu_start
 
