@@ -17,6 +17,7 @@ import os
 import tempfile
 import cuml
 
+
 def fit_kneighbors(m, x):
     m.fit(x)
     m.kneighbors(x)
@@ -59,10 +60,10 @@ def _build_fil_classifier(m, data, arg={}):
 
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
-    return m.load(model_path, algo=arg["fil_algo"], 
-        output_class=arg["output_class"],
-        threshold=arg["threshold"], 
-        storage_type=arg["storage_type"])
+    return m.load(model_path, algo=arg["fil_algo"],
+                    output_class=arg["output_class"],
+                    threshold=arg["threshold"],
+                    storage_type=arg["storage_type"])
 
 
 def _build_treelite_classifier(m, data, arg={}):
@@ -96,7 +97,7 @@ def _build_treelite_classifier(m, data, arg={}):
     bst = xgb.train(params, dtrain, num_rounds)
     tl_model = treelite.Model.from_xgboost(bst)
     tl_model.export_lib(
-        toolchain="gcc", libpath=model_path+"treelite.so", \
+        toolchain="gcc", libpath=model_path+"treelite.so",
         params={'parallel_comp': 40}, verbose=False
     )
     return treelite.runtime.Predictor(model_path+"treelite.so", verbose=False)
