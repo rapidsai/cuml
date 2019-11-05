@@ -22,8 +22,8 @@ import numpy as np
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [6e6])
-@pytest.mark.parametrize("ncols", [20, 253])
+@pytest.mark.parametrize("nrows", [6e5])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [84])
 def test_pca(nrows, ncols, n_parts, client=None):
 
@@ -46,17 +46,16 @@ def test_pca(nrows, ncols, n_parts, client=None):
     
     X = X_cudf.compute().to_pandas().values
 
-    cupca = daskPCA(n_components=ncols, whiten=False)
+    cupca = daskPCA(n_components=10, whiten=True)
     cupca.fit(X_cudf)
 
-    skpca = PCA(n_components=ncols, whiten=False)    
+    skpca = PCA(n_components=10, whiten=True)    
     skpca.fit(X)
     
     from cuml.test.utils import array_equal
 
-    #all_attr = ['singular_values_', 'components_', 'explained_variance_',
-    #                 'explained_variance_ratio_', 'noise_variance_']
-    all_attr = ['components_']
+    all_attr = ['singular_values_', 'components_', 'explained_variance_',
+                     'explained_variance_ratio_']
             
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
