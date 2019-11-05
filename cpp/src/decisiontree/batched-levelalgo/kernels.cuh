@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <common/grid_sync.h>
+#include <cuda_utils.h>
 #include "input.cuh"
 #include "node.cuh"
 #include "split.cuh"
@@ -231,7 +231,7 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
                                    const Node<DataT, LabelT, IdxT>* nodes,
                                    IdxT colStart, int* done_count, int* mutex,
                                    const IdxT* n_leaves,
-                                   Split<DataT, IdxT>* splits, IdxT ncols) {
+                                   Split<DataT, IdxT>* splits) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -251,7 +251,7 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
-  if (col >= ncols) return;
+  if (col >= input.nSampledCols) return;
   for (IdxT i = 0; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = 0; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];

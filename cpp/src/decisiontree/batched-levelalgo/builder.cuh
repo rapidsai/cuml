@@ -248,20 +248,22 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = params.n_blks_for_cols;
     dim3 grid(params.n_blks_for_rows, n_col_blks, batchSize);
-    for (IdxT c = 0; c < ncols; c += n_col_blks) {
+    for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
       computeSplitKernel<DataT, LabelT, SplitT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
-          hist, params, input, curr_nodes, c, done_count, mutex, n_leaves,
-          rowids, splits, ncols, colids, quantiles);
+          hist, params.n_bins, params.max_depth, params.min_rows_per_node,
+          params.max_leaves, input, curr_nodes, c, done_count, mutex, n_leaves,
+          splits);
       CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
     smemSize = std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * nclasses);
     nodeSplitKernel<DataT, LabelT, IdxT, TPB_SPLIT>
-      <<<batchSize, TPB_SPLIT, smemSize, s>>>(params, input, curr_nodes,
-                                              next_nodes, n_nodes, rowids,
-                                              splits, n_leaves, h_total_nodes);
+      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
+        params.max_depth, params.min_rows_per_node, params.max_leaves,
+        params.min_impurity_decrease, input, curr_nodes, next_nodes, n_nodes,
+        splits, n_leaves, h_total_nodes);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
