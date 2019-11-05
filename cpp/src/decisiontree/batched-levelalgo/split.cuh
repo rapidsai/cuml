@@ -51,6 +51,7 @@ struct Split {
     colid = other.colid;
     best_metric_val = other.best_metric_val;
     nLeft = other.nLeft;
+    return *this;
   }
 
   /** updates the current split if the input gain is better */
@@ -68,7 +69,7 @@ struct Split {
       auto co = MLCommon::shfl(colid, id);
       auto be = MLCommon::shfl(best_metric_val, id);
       auto nl = MLCommon::shfl(nLeft, id);
-      update(SplitT(qu, co, be, nl));
+      update({qu, co, be, nl});
     }
   }
 
@@ -93,7 +94,7 @@ struct Split {
     if (threadIdx.x == 0) {
       while (atomicCAS(mutex, 0, 1))
         ;
-      split->update(s.quesval, colid, gain, nLeft);
+      split->update(*this);
       __threadfence();
       atomicCAS(mutex, 1, 0);
     }

@@ -75,7 +75,7 @@ DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
       gain += rval * invRight * rval * invlen;
     }
     gain = parentGain - One + gain;
-    sp.update(sbins[i], col, gain, nLeft);
+    sp.update({sbins[i], col, gain, nLeft});
   }
 }
 
@@ -305,8 +305,8 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  giniInfoGain<DataT, LabelT, IdxT>(shist, sbins, parentGain, sp, col,
-                                    range_len, nbins, nclasses);
+  giniInfoGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
+                            nclasses);
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
