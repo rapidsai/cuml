@@ -71,9 +71,5 @@ def test_make_blobs(nrows,
             assert len(cp.unique(y)) == centers
             assert y.dtype == dtype
 
-
-
     finally:
         c.close()
-
-
