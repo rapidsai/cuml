@@ -85,7 +85,10 @@ struct DecisionTreeParams {
    * only for batched-level algo
    */
   int n_blks_for_rows;
-  /** Depth beyond which to switch-over to the batched-level algo */
+  /**
+   * Depth beyond which to switch-over to the batched-level algo.
+   * A value of -1 means batched-levelalgo is disabled.
+   */
   int batched_depth;
 };
 
@@ -97,7 +100,9 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      bool cfg_quantile_per_tree = false,
-                     bool cfg_shuffle_features = false);
+                     bool cfg_shuffle_features = false,
+                     int cfg_max_batch_size = 128, int cfg_n_blks_for_cols = 10,
+                     int cfg_n_blks_for_rows = 4, int cfg_batched_depth = -1);
 void validity_check(const DecisionTreeParams params);
 void print(const DecisionTreeParams params);
 

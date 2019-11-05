@@ -34,13 +34,23 @@ namespace DecisionTree {
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_shuffle_features: whether to shuffle column ids or not
+ * @param[in] cfg_max_batch_size: batch size for batched-level-algo
+ * @param[in] cfg_n_blks_for_cols: number of threadblks assigned across columns
+ *            for the batched-level-algo
+ * @param[in] cfg_n_blks_for_rows: number of threadblks assigned for a row in
+ *            the batched-level-algo
+ * @param[in] cfg_batched_depth: from what depth to switch to batched-level-algo
+ *            pass a -1 to disable batched-level-algo altogether.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
                      float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree, bool cfg_shuffle_features) {
+                     bool cfg_quantile_per_tree, bool cfg_shuffle_features,
+                     int cfg_max_batch_size, int cfg_n_blks_for_cols,
+                     int cfg_n_blks_for_rows, int cfg_batched_depth) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -52,6 +62,10 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.quantile_per_tree = cfg_quantile_per_tree;
   params.shuffle_features = cfg_shuffle_features;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
+  params.max_batch_size = cfg_max_batch_size;
+  params.n_blks_for_cols = cfg_n_blks_for_cols;
+  params.n_blks_for_rows = cfg_n_blks_for_rows;
+  params.batched_depth = cfg_batched_depth;
 }
 
 /**
