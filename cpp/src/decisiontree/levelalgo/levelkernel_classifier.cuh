@@ -289,3 +289,64 @@ __global__ void get_best_split_classification_kernel(
     }
   }
 }
+
+template <typename F>
+DI float node_info_gain_classification(unsigned int* shmemhist_parent,
+                                       unsigned int* shmemhist_left,
+                                       const int nsamples) {}
+
+template <typename T, typename QuesionType, typename F>
+__global__ void best_split_gather_classification(
+  const T* __restrict__ data, const int* __restrict__ labels,
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart,
+  const unsigned int* __restrict__ g_nodestart,
+  const unsigned int* __restrict__ samplelist, const int n_nodes,
+  const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
+  const int ncols_sampled) {
+  extern __shared___ unsigned int shmemhist_parent[];
+  unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
+
+  int colstart_local = -1;
+  unsigned int colid;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+  if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
+
+  //Compute parent histograms
+  for (int i = threadIdx.x; i < n_unique_labels; i += blockDim.x) {
+    shmemhist_parent[i] = 0;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    unsigned int dataid = samplelist[nodestart + tid];
+    int local_label = labels[dataid];
+    atomicAdd(&shmemhist_parent[local_label], 1);
+  }
+
+  //Loop over cols
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,
+                          blockIdx.x);
+    for (int i = threadIdx.x; i < nbins * n_unique_labels; i += blockDim.x) {
+      shmemhist_left[i] = 0;
+    }
+    QuestionType question(question_ptr, colid, colcnt, n_nodes, blockIdx.x,
+                          nbins);
+    __syncthreads();
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      unsigned int dataid = samplelist[nodestart + tid];
+      T local_data = data[dataid + colid * nrows];
+      int local_label = labels[dataid];
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        int histid = binid * n_unique_labels + local_label;
+        if (local_data <= question(binid)) {
+          atomicAdd(&shmemhist_left[histid], 1);
+        }
+      }
+    }
+    __syncthreads();
+    float gain = node_info_gain<F>(shmemhist_parent, shmemhist_left, count);
+  }
+
