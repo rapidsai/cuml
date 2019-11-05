@@ -125,7 +125,7 @@ template <typename DataT, typename LabelT, typename IdxT, int TPB>
 DI void computePrediction(IdxT range_start, IdxT range_len,
                           const Input<DataT, LabelT, IdxT>& input,
                           volatile Node<DataT, LabelT, IdxT>* nodes,
-                          volatile IdxT* n_leaves, void* smem) {
+                          IdxT* n_leaves, void* smem) {
   typedef cub::BlockReduce<int2, TPB> BlockReduceT;
   __shared__ typename BlockReduceT::TempStorage temp;
   auto* shist = reinterpret_cast<int*>(smem);
@@ -224,16 +224,16 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
                                 volatile IdxT* n_nodes,
                                 const Split<DataT, IdxT>* splits,
-                                volatile IdxT* n_leaves, IdxT total_nodes) {
+                                IdxT* n_leaves, IdxT total_nodes) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   auto node = curr_nodes[nid];
   auto range_start = node.start, range_len = node.end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node.depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (isLeaf || splits[nid].gain < min_impurity_decrease) {
-    computePrediction<DataT, LabelT, IdxT>(range_start, range_len, input,
-                                           curr_nodes + nid, n_leaves, smem);
+  if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
+    computePrediction<DataT, LabelT, IdxT, TPB>(
+      range_start, range_len, input, curr_nodes + nid, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
