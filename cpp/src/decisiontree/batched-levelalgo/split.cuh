@@ -91,5 +91,36 @@ void initSplit(SplitT* splits, IdxT len, cudaStream_t s) {
   CUDA_CHECK(cudaGetLastError());
 }
 
+/**
+ * @brief Computes the best split across the threadblocks
+ * @param s per-thread best split (thread0 will contain the best split)
+ * @param smem shared mem for scratchpad purposes
+ * @param split current split to be updated
+ * @param mutex location which provides exclusive access to node update
+ * @note all threads in the block must enter this function together.
+ */
+template <typename DataT, typename IdxT>
+DI void evalBestSplit(Split<DataT, IdxT>& s, void* smem,
+                      Split<DataT, IdxT>* split, int* mutex) {
+  auto* sbest = reinterpret_cast<Split<DataT, IdxT>*>(smem);
+  s.warpReduce();
+  auto warp = threadIdx.x / MLCommon::WarpSize;
+  auto nWarps = blockDim.x / MLCommon::WarpSize;
+  auto lane = MLCommon::laneId();
+  if (lane == 0) sbest[warp] = s;
+  __syncthreads();
+  if (lane < nWarps) s = sbest[lane];
+  s.warpReduce();
+  if (threadIdx.x == 0) {
+    while (atomicCAS(mutex, 0, 1))
+      ;
+    split->update(s.quesval, s.colid, s.gain, s.nLeft);
+    __threadfence();
+    atomicCAS(mutex, 1, 0);
+    __threadfence();
+  }
+  __syncthreads();
+}
+
 }  // namespace DecisionTree
 }  // namespace ML
