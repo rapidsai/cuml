@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <common/grid_sync.h>
 #include "input.cuh"
 #include "node.cuh"
 #include "split.cuh"
@@ -71,8 +72,9 @@ DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
  * @return true if the current node is to be declared as a leaf, else false
  */
 template <typename DataT, typename IdxT>
-DI bool leafBasedOnParams(IdxT myDepth, int max_depth, int min_rows_per_node,
-                          int max_leaves, const IdxT* n_leaves, IdxT nSamples) {
+DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
+                          IdxT max_leaves, const IdxT* n_leaves,
+                          IdxT nSamples) {
   if (myDepth < max_depth) return false;
   if (nSamples >= min_rows_per_node) return false;
   if (*n_leaves < max_leaves) return false;
@@ -196,8 +198,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(int max_depth, int min_rows_per_node,
-                                int max_leaves, DataT min_impurity_decrease,
+__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
+                                IdxT max_leaves, DataT min_impurity_decrease,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
@@ -221,24 +223,26 @@ __global__ void nodeSplitKernel(int max_depth, int min_rows_per_node,
 
 ///@todo: support regression
 ///@todo: support other metrics
+///@todo: special-case this for gridDim.x == 1
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void computeSplitKernel(int* hist, Params<DataT, IdxT> params,
+__global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
+                                   IdxT min_rows_per_node, IdxT max_leaves,
                                    Input<DataT, LabelT, IdxT> input,
                                    const Node<DataT, LabelT, IdxT>* nodes,
                                    IdxT colStart, int* done_count, int* mutex,
-                                   const IdxT* n_leaves, const IdxT* rowids,
-                                   Split<DataT, IdxT>* splits, IdxT ncols,
-                                   const IdxT* colids, const DataT* quantiles) {
+                                   const IdxT* n_leaves,
+                                   Split<DataT, IdxT>* splits, IdxT ncols) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
-  auto range = node.range;
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, params, n_leaves, range.y)) {
+  auto range_start = node.start;
+  auto range_len = node.end;
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
+                                     max_leaves, n_leaves, range_len)) {
     return;
   }
   auto parentGain = node.parentGain;
-  auto end = range.x + range.y;
-  auto nbins = params.nbins;
+  auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto binSize = nbins * 2 * nclasses;
   auto len = binSize + 2 * nbins;
@@ -246,16 +250,16 @@ __global__ void computeSplitKernel(int* hist, Params<DataT, IdxT> params,
   auto* sbins = reinterpret_cast<DataT*>(smem + sizeof(int) * len);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col = colids[colStart + blockIdx.y];
+  auto col = input.colids[colStart + blockIdx.y];
   if (col >= ncols) return;
   for (IdxT i = 0; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = 0; b < nbins; b += blockDim.x)
-    sbins[b] = quantiles[col * nbins + b];
+    sbins[b] = input.quantiles[col * nbins + b];
   __syncthreads();
   auto coloffset = col * input.M;
   // compute class histogram for all bins for all classes in shared mem
-  for (auto i = range.x + tid; i < end; i += stride) {
-    auto row = rowids[i];
+  for (auto i = range_start + tid; i < end; i += stride) {
+    auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
     for (IdxT b = 0; b < nbins; ++b) {
@@ -282,8 +286,8 @@ __global__ void computeSplitKernel(int* hist, Params<DataT, IdxT> params,
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  giniInfoGain<DataT, LabelT, IdxT>(shist, sbins, parentGain, sp, col, range.y,
-                                    nbins, nclasses);
+  giniInfoGain<DataT, LabelT, IdxT>(shist, sbins, parentGain, sp, col,
+                                    range_len, nbins, nclasses);
   evalBestSplit<DataT, IdxT>(sp, smem, splits + nid, mutex + nid);
 }
 
