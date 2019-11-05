@@ -61,9 +61,9 @@ def _build_fil_classifier(m, data, arg={}):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return m.load(model_path, algo=arg["fil_algo"],
-                    output_class=arg["output_class"],
-                    threshold=arg["threshold"],
-                    storage_type=arg["storage_type"])
+                  output_class=arg["output_class"],
+                  threshold=arg["threshold"],
+                  storage_type=arg["storage_type"])
 
 
 def _build_treelite_classifier(m, data, arg={}):

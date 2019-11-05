@@ -165,7 +165,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
 
         cu_start = time.time()
         cuml_model = algo_pair.run_cuml(
-            data, 
+            data,
             **{**param_overrides, **cuml_param_overrides, **setup_override}
         )
         cu_elapsed = time.time() - cu_start
