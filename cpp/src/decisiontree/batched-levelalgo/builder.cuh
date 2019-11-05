@@ -67,15 +67,13 @@ struct Builder {
   NodeT* next_nodes;
 
   /** host copy of the number of new nodes in current branch */
-  IdxT* h_new_n_nodes;
+  IdxT* h_n_nodes;
   /** host copy for initial histograms */
   int* h_hist;
   /** list of nodes (must be allocated using cudaMallocHost!) */
   NodeT* h_nodes;
-  /** list of splits (must be allocated using cudaMallocHost!) */
-  SplitT* h_splits;
   /** total number of nodes created so far */
-  IdxT h_n_nodes;
+  IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
   IdxT node_start, node_end;
 
@@ -138,10 +136,9 @@ struct Builder {
     d_wsize += sizeof(NodeT) * max_batch;             // curr_nodes
     d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
     // all nodes in the tree
-    h_wsize = sizeof(IdxT);                   // h_new_n_nodes
+    h_wsize = sizeof(IdxT);                   // h_n_nodes
     h_wsize += sizeof(int) * input.nclasses;  // h_hist
     h_wsize += sizeof(NodeT) * maxNodes;      // h_nodes
-    h_wsize += sizeof(SplitT) * maxNodes;     // h_splits
   }
 
   /**
@@ -170,13 +167,11 @@ struct Builder {
     d_wspace += sizeof(NodeT) * max_batch;
     next_nodes = reinterpret_cast<NodeT*>(d_wspace);
     // host
-    h_new_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
+    h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
     h_wspace += sizeof(IdxT);
     h_hist = reinterpret_cast<int*>(h_wspace);
     h_wspace += sizeof(int) * input.nclasses;
     h_nodes = reinterpret_cast<NodeT*>(h_wspace);
-    h_wspace += sizeof(NodeT) * maxNodes;
-    h_splits = reinterpret_cast<Split*>(h_wspace);
   }
 
   /** Main training method. To be called only after `assignWorkspace()` */
@@ -184,7 +179,7 @@ struct Builder {
     init(s);
     while (!isOver()) {
       auto new_nodes = doSplit(s);
-      h_n_nodes += new_nodes;
+      h_total_nodes += new_nodes;
       updateNodeRange();
     }
   }
@@ -204,7 +199,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     rootGain = initialMetric(s);
     node_start = 0;
-    node_end = h_n_nodes = 1;  // start with root node
+    node_end = h_total_nodes = 1;  // start with root node
     h_nodes[0].parentGain = rootGain;
     h_nodes[0].start = 0;
     h_nodes[0].end = input.nSampledRows;
@@ -212,7 +207,7 @@ struct Builder {
   }
 
   /** check whether any more nodes need to be processed or not */
-  bool isOver() const { return node_end == h_n_nodes; }
+  bool isOver() const { return node_end == h_total_nodes; }
 
   /**
    * @brief After the current batch is finished processing, update the range
@@ -220,7 +215,7 @@ struct Builder {
    */
   void updateNodeRange() {
     node_start = node_end;
-    auto nodes_remaining = h_n_nodes - node_end;
+    auto nodes_remaining = h_total_nodes - node_end;
     node_end = std::min(nodes_remaining, params.max_batch_size) + node_end;
   }
 
@@ -265,16 +260,14 @@ struct Builder {
     nodeSplitKernel<DataT, LabelT, IdxT, TPB_SPLIT>
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(params, input, curr_nodes,
                                               next_nodes, n_nodes, rowids,
-                                              splits, n_leaves, h_n_nodes);
+                                              splits, n_leaves, h_total_nodes);
     CUDA_CHECK(cudaGetLastError());
-    // copy the best splits to host
-    MLCommon::updateHost(h_splits + node_start, splits, batchSize, s);
     // copy the updated (due to leaf creation) and newly created child nodes
     MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
-    MLCommon::updateHost(h_new_n_nodes, n_nodes, 1, s);
+    MLCommon::updateHost(h_n_nodes, n_nodes, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
-    MLCommon::updateHost(h_nodes + h_n_nodes, next_nodes, *h_new_n_nodes, s);
-    return *h_new_n_nodes;
+    MLCommon::updateHost(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
+    return *h_n_nodes;
   }
 
   /** computes the initial metric needed for root node split decision */
