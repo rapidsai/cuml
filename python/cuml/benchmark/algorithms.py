@@ -27,7 +27,8 @@ import umap
 import numpy as np
 
 from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier, _build_treelite_classifier
+    import fit, fit_kneighbors, fit_transform, predict, _build_fil_classifier, \
+            _build_treelite_classifier, _treelite_fil_accuracy_score
 
 from cuml.utils.import_utils import has_treelite
 if has_treelite():
@@ -54,7 +55,8 @@ class AlgorithmPair:
         cpu_args={},
         name=None,
         accepts_labels=True,
-        data_prep_hook=None,
+        cpu_data_prep_hook=None,
+        cuml_data_prep_hook=None,
         accuracy_function=None,
         bench_func=fit,
         setup_cpu_func=None,
@@ -96,7 +98,8 @@ class AlgorithmPair:
         self.shared_args = shared_args
         self.cuml_args = cuml_args
         self.cpu_args = cpu_args
-        self.data_prep_hook = data_prep_hook
+        self.cpu_data_prep_hook = cpu_data_prep_hook
+        self.cuml_data_prep_hook = cuml_data_prep_hook
         self.accuracy_function = accuracy_function
 
     def __str__(self):
@@ -114,8 +117,8 @@ class AlgorithmPair:
             cpu_obj = self.cpu_class(**all_args)
         else:
             cpu_obj = all_args["cpu_setup_result"]
-        if self.data_prep_hook:
-            data = self.data_prep_hook(data)
+        if self.cpu_data_prep_hook:
+            data = self.cpu_data_prep_hook(data)
         if self.accepts_labels:
             self.bench_func(cpu_obj, data[0], data[1])
         else:
@@ -132,8 +135,8 @@ class AlgorithmPair:
             cuml_obj = self.cuml_class(**all_args)
         else:
             cuml_obj = all_args["cuml_setup_result"]
-        if self.data_prep_hook:
-            data = self.data_prep_hook(data)
+        if self.cuml_data_prep_hook:
+            data = self.cuml_data_prep_hook(data)
         if self.accepts_labels:
             self.bench_func(cuml_obj, data[0], data[1])
         else:
@@ -171,7 +174,7 @@ def _treelite_format_hook(data):
         import treelite.runtime
     else:
         raise ImportError("No treelite package found which is required for benchmarking FIL")
-    return treelite.runtime.Batch.from_npy2d(data[0])
+    return treelite.runtime.Batch.from_npy2d(data[0]), data[1]
 
 
 def all_algorithms():
@@ -271,7 +274,8 @@ def all_algorithms():
             shared_args={"max_features": 1.0, "n_estimators": 10},
             name="RandomForestClassifier",
             accepts_labels=True,
-            data_prep_hook=_labels_to_int_hook,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook,
             accuracy_function=metrics.accuracy_score,
         ),
         AlgorithmPair(
@@ -310,12 +314,13 @@ def all_algorithms():
             treelite if has_treelite() else None, 
             cuml.ForestInference,
             shared_args=dict(num_rounds=10, max_depth=10),
-            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5), 
+            cuml_args=dict(fil_algo="BATCH_TREE_REORG", output_class=True, threshold=0.5, storage_type="AUTO"), 
             name="FIL",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
             setup_cuml_func=_build_fil_classifier,
-            accuracy_function=metrics.accuracy_score,
+            cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ), 
     ]
