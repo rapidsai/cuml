@@ -208,3 +208,26 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
   build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, n_rows, nodecount,
                                     samplelist);
 }
+
+void print_convertor(unsigned int *nodecount, unsigned int *nodestart,
+                     unsigned int *samplelist, int n_nodes) {
+  std::cout << "Printing node count\n";
+  for (int i = 0; i < n_nodes + 1; i++) {
+    printf("%u ", nodecount[i]);
+  }
+  printf("\n");
+  std::cout << "Printing node start\n";
+  for (int i = 0; i < n_nodes + 1; i++) {
+    printf("%u ", nodestart[i]);
+  }
+  printf("\n");
+  std::cout << "Printing sample list\n";
+  for (int i = 0; i < n_nodes; i++) {
+    printf("\nNode id %d --> ", i);
+    for (int j = nodestart[i]; j < nodestart[i + 1]; j++) {
+      printf("%u ", samplelist[j]);
+    }
+  }
+  printf("\n\n");
+}
+
