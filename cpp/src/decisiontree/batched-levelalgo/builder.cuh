@@ -70,8 +70,6 @@ struct Builder {
   IdxT* h_n_nodes;
   /** host copy for initial histograms */
   int* h_hist;
-  /** list of nodes (must be allocated using cudaMallocHost!) */
-  NodeT* h_nodes;
   /** total number of nodes created so far */
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
@@ -138,7 +136,6 @@ struct Builder {
     // all nodes in the tree
     h_wsize = sizeof(IdxT);                   // h_n_nodes
     h_wsize += sizeof(int) * input.nclasses;  // h_hist
-    h_wsize += sizeof(NodeT) * maxNodes;      // h_nodes
   }
 
   /**
@@ -170,27 +167,30 @@ struct Builder {
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
     h_wspace += sizeof(IdxT);
     h_hist = reinterpret_cast<int*>(h_wspace);
-    h_wspace += sizeof(int) * input.nclasses;
-    h_nodes = reinterpret_cast<NodeT*>(h_wspace);
   }
 
-  /** Main training method. To be called only after `assignWorkspace()` */
-  void train(cudaStream_t s) {
-    init(s);
-    while (!isOver()) {
-      auto new_nodes = doSplit(s);
+  /**
+   * @brief Main training method. To be called only after `assignWorkspace()`
+   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
+   * @param s cuda steam
+   */
+  void train(NodeT* h_nodes, cudaStream_t s) {
+    init(h_nodes, s);
+    do {
+      auto new_nodes = doSplit(h_nodes, s);
       h_total_nodes += new_nodes;
       updateNodeRange();
-    }
+    } while (!isOver());
   }
 
  private:
   ///@todo: support starting from arbitrary nodes
   /**
    * @brief Initialize buffers and state
+   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
    * @param s cuda stream
    */
-  void init(cudaStream_t s) {
+  void init(NodeT* h_nodes, cudaStream_t s) {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = params.n_blks_for_cols;
     CUDA_CHECK(
@@ -227,10 +227,11 @@ struct Builder {
   /**
    * Computes best split across all nodes in the current batch and splits the
    * nodes accordingly
+   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
    * @param s cuda stream
    * @return the number of newly created nodes
    */
-  IdxT doSplit(cudaStream_t s) {
+  IdxT doSplit(NodeT* h_nodes, cudaStream_t s) {
     auto nbins = params.n_bins;
     auto nclasses = input.nclasses;
     auto binSize = nbins * 2 * nclasses;

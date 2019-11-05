@@ -24,6 +24,8 @@ namespace DecisionTree {
 /** All info pertaining to splitting a node */
 template <typename DataT, typename IdxT>
 struct Split {
+  typedef Split<DataT, IdxT> SplitT;
+
   /** start with this as the initial gain */
   static constexpr DataT Min = std::numeric_limits<DataT>::min();
   /** special value to represent invalid column id */
@@ -44,7 +46,7 @@ struct Split {
     nLeft = 0;
   }
 
-  DI Split<DataT, IdxT>& operator=(const Split<DataT, IdxT>& other) {
+  DI SplitT& operator=(const SplitT& other) {
     quesval = other.quesval;
     colid = other.colid;
     best_metric_val = other.best_metric_val;
@@ -52,7 +54,7 @@ struct Split {
   }
 
   /** updates the current split if the input gain is better */
-  DI void update(const Split<DataT, IdxT>& other) {
+  DI void update(const SplitT& other) {
     if (other.best_metric_val > best_metric_val) *this = other;
   }
 
@@ -66,13 +68,13 @@ struct Split {
       auto co = MLCommon::shfl(colid, id);
       auto be = MLCommon::shfl(best_metric_val, id);
       auto nl = MLCommon::shfl(nLeft, id);
-      update(Split<DataT, IdxT>(qu, co, be, nl));
+      update(SplitT(qu, co, be, nl));
     }
   }
 };  // struct Split
 
 template <typename DataT, typename IdxT>
-__global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
+__global__ void initSplitKernel(SplitT* splits, IdxT len) {
   IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid < len) splits[tid].init();
 }
@@ -84,7 +86,7 @@ __global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
  * @param s cuda stream where to schedule work
  */
 template <typename DataT, typename IdxT, int TPB = 256>
-void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
+void initSplit(SplitT* splits, IdxT len, cudaStream_t s) {
   initSplitKernel<DataT, IdxT><<<nblks, TPB, 0, s>>>(splits, len);
   CUDA_CHECK(cudaGetLastError());
 }
