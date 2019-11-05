@@ -32,13 +32,15 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 @pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
                                     quality_param(100),
                                     stress_param(1000)])
+@pytest.mark.parametrize("output", ['array', 'dataframe'])
 def test_make_blobs(nrows,
                     ncols,
                     centers,
                     cluster_std,
                     dtype,
                     nparts,
-                    cluster):
+                    cluster,
+                    output):
 
     c = Client(cluster)
     try:
@@ -48,7 +50,8 @@ def test_make_blobs(nrows,
                           centers=centers,
                           cluster_std=cluster_std,
                           dtype=dtype,
-                          n_parts=nparts)
+                          n_parts=nparts,
+                          output=output)
 
         assert X.npartitions == nparts
         assert y.npartitions == nparts
@@ -59,9 +62,18 @@ def test_make_blobs(nrows,
         assert X.shape == (nrows, ncols)
         assert y.shape == (nrows, 1)
 
-        assert len(y[0].unique()) == centers
+        if output == 'dataframe':
+            assert len(y[0].unique()) == centers
+            assert X.dtypes.unique() == [dtype]
 
-        assert X.dtypes.unique() == [dtype]
+        elif output == 'array':
+            import cupy as cp
+            assert len(cp.unique(y)) == centers
+            assert y.dtype == dtype
+
+
 
     finally:
         c.close()
+
+
