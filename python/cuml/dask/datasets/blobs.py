@@ -38,11 +38,11 @@ def create_local_data(m, n, centers, cluster_std, random_state,
 
     if type == 'array':
         X = cp.asarray(X.astype(dtype))
-        y = cp.asarray(y.astype(dtype))
+        y = cp.asarray(y.astype(dtype)).reshape(m, 1)
 
     elif type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-        y = cudf.DataFrame.from_pandas(pd.DataFrame(y)).reshape(m, 1)
+        y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
 
     else:
         raise ValueError('type must be array or dataframe')
@@ -65,7 +65,7 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, output='array'):
+               dtype=np.float32, output='dataframe'):
 
     """
     Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -88,8 +88,8 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     :param random_state : sets random seed
     :param verbose : enables / disables verbose printing.
     :param dtype : (default = np.float32) datatype to generate
-    :param output : (default = 'array') whether to generate dask array or dask
-    dataframe output
+    :param output : (default = 'dataframe') whether to generate dask array or
+    dask dataframe output. Default will be array soon.
 
     :return: (dask.Dataframe for X, dask.Series for labels)
     """
