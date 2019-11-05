@@ -19,6 +19,8 @@
 #include <cuda_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <common/host_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include "input.cuh"
 #include "kernels.cuh"
@@ -61,7 +63,7 @@ struct Builder {
   /** mutex array used for atomically updating best split */
   int* mutex;
   /** number of leaves created so far */
-  volatile IdxT* n_leaves;
+  IdxT* n_leaves;
   /** best splits for the current batch of nodes */
   SplitT* splits;
   /** current batch of nodes */
@@ -111,13 +113,13 @@ struct Builder {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
-    params.n_blks_for_cols = std::min(nSampledCols, p.n_blks_for_cols);
+    params.n_blks_for_cols = std::min(sampledCols, p.n_blks_for_cols);
     input.data = data;
     input.labels = labels;
     input.M = totalRows;
     input.N = totalCols;
-    input.nSampledRows = nSampledRows;
-    input.nSampledCols = nSampledCols;
+    input.nSampledRows = sampledRows;
+    input.nSampledCols = sampledCols;
     input.rowids = rowids;
     input.colids = colids;
     input.nclasses = nclasses;
@@ -253,7 +255,7 @@ struct Builder {
     dim3 grid(params.n_blks_for_rows, n_col_blks, batchSize);
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
-      computeSplitKernel<DataT, LabelT, SplitT, TPB_DEFAULT>
+      computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
           hist, params.n_bins, params.max_depth, params.min_rows_per_node,
           params.max_leaves, input, curr_nodes, c, done_count, mutex, n_leaves,
@@ -279,7 +281,8 @@ struct Builder {
   /** computes the initial metric needed for root node split decision */
   DataT initialMetric(cudaStream_t s) {
     static constexpr int NITEMS = 8;
-    int nblks = ceildiv(input.nSampledRows, TPB_DEFAULT * NITEMS);
+    auto nblks =
+      MLCommon::ceildiv<int>(input.nSampledRows, TPB_DEFAULT * NITEMS);
     size_t smemSize = sizeof(int) * input.nclasses;
     auto out = DataT(1.0);
     ///@todo: support for regression
@@ -287,8 +290,9 @@ struct Builder {
     } else {
       // reusing `hist` for initial bin computation only
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
-      initialClassHistKernel<DataT, LabelT, IdxT><<<nblks, TPB, smemSize, s>>>(
-        hist, input.rowids, input.labels, input.nclasses, input.nSampledRows);
+      initialClassHistKernel<DataT, LabelT, IdxT>
+        <<<nblks, TPB_DEFAULT, smemSize, s>>>(
+          hist, input.rowids, input.labels, input.nclasses, input.nSampledRows);
       CUDA_CHECK(cudaGetLastError());
       MLCommon::updateHost(h_hist, hist, input.nclasses, s);
       CUDA_CHECK(cudaStreamSynchronize(s));

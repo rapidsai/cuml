@@ -115,6 +115,7 @@ __global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
+  auto nblks = MLCommon::ceildiv<IdxT>(len, TPB);
   initSplitKernel<DataT, IdxT><<<nblks, TPB, 0, s>>>(splits, len);
   CUDA_CHECK(cudaGetLastError());
 }

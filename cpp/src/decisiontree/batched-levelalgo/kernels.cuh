@@ -25,6 +25,25 @@
 namespace ML {
 namespace DecisionTree {
 
+template <typename DataT, typename LabelT, typename IdxT>
+__global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
+                                       const LabelT* labels, IdxT nclasses,
+                                       IdxT nrows) {
+  extern __shared__ int* shist;
+  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x) shist = 0;
+  __syncthreads();
+  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxT stride = blockDim.x * gridDim.x;
+  for (auto i = tid; i < nrows; i += stride) {
+    auto row = rowids[i];
+    auto label = labels[row];
+    atomicAdd(shist + label, 1);
+  }
+  __syncthreads();
+  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x)
+    atomicAdd(gclasshist + i, shist[i]);
+}
+
 /**
  * @brief Compute gain based on gini impurity metric
  * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
@@ -277,8 +296,8 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   }
   __syncthreads();
   // last threadblock will go ahead and compute the best split
-  auto last = signalDone(done_count + nid * gridDim.y + blockIdx.y, gridDim.x,
-                         blockIdx.x == 0, smem);
+  auto last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                   gridDim.x, blockIdx.x == 0, smem);
   if (!last) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     shist[i] = hist[nid * len + i];
