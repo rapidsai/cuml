@@ -42,7 +42,7 @@ def create_local_data(m, n, centers, cluster_std, random_state,
 
     elif type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-        y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
+        y = cudf.DataFrame.from_pandas(pd.DataFrame(y)).reshape(m, 1)
 
     else:
         raise ValueError('type must be array or dataframe')
@@ -115,15 +115,16 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     # Create dfs on each worker (gpu)
 
     parts = []
+    worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
         if rows_so_far+rows_per_part <= nrows:
             rows_so_far += rows_per_part
-            worker_rows = rows_per_part
+            worker_rows.append(rows_per_part)
         else:
-            worker_rows = (int(nrows) - rows_so_far)
+            worker_rows.append((int(nrows) - rows_so_far))
 
-        parts.append(client.submit(create_local_data, worker_rows, ncols,
+        parts.append(client.submit(create_local_data, worker_rows[idx], ncols,
                                    centers, cluster_std, random_state, dtype,
                                    output,
                                    key="%s-%s" % (key, idx),
@@ -147,10 +148,12 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     elif output == 'array':
 
-        X = [da.from_delayed(delayed(chunk), shape=(500,1000), dtype=dtype)
-             for chunk in X]
-        y = [da.from_delayed(delayed(chunk), shape=(500,), dtype=dtype)
-             for chunk in y]
+        X = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], ncols),
+                             dtype=dtype)
+             for idx, chunk in enumerate(X)]
+        y = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], 1),
+                             dtype=dtype)
+             for idx, chunk in enumerate(y)]
 
         X = da.concatenate(X, axis=0)
         y = da.concatenate(y, axis=0)
