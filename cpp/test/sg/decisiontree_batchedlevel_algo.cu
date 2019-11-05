@@ -51,16 +51,15 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     auto impl = handle.getImpl();
     grow_tree<T, L, I>(impl.getDeviceAllocator(), impl.getHostAllocator(), data,
                        inparams.N, inparams.M, labels, quantiles, rowids,
-                       colids, inparams.M, inparams.nclasses, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+                       colids, inparams.M, inparams.nclasses, params, stream,
+                       sparsetree);
   }
 
   void TearDown() {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto allocator = handle.getImpl().getDeviceAllocator();
-    allocator->deallocate(input.data, sizeof(T) * inparams.M * inparams.N,
-                          stream);
-    allocator->deallocate(input.labels, sizeof(L) * inparams.M, stream);
+    allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
+    allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
     ///@todo: deallocate rowids and colids
     ///@todo: deallocate quantiles
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -74,6 +73,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   I *rowids, *colids;
   DecisionTreeParams params;
   DtTestParams inparams;
+  std::vector<SparseTreeNode<T, L>> sparsetree;
 
  private:
   ///@todo: support regression

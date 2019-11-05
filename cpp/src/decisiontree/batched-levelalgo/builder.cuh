@@ -327,8 +327,8 @@ struct Builder {
  * @param sparsetree output learned tree
  */
 template <typename DataT, typename LabelT, typename IdxT>
-void grow_tree(const std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
-               const std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
+               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
                const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
                const DataT* quantiles, IdxT* rowids, IdxT* colids,
                int n_sampled_rows, int unique_labels,
