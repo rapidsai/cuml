@@ -15,29 +15,38 @@
 #
 
 
-from dask.dataframe import from_delayed
+import cudf
+import cupy as cp
+import dask.array as da
+import math
+import numpy as np
 import pandas as pd
 
-import cudf
-
+from dask import delayed
+from dask.dataframe import from_delayed
 from dask.distributed import default_client
 
 from sklearn.datasets import make_blobs as skl_make_blobs
 
-import numpy as np
-
 from uuid import uuid1
-import math
 
 
-def create_df(m, n, centers, cluster_std, random_state, dtype):
-    """
-    Returns Dask Dataframes on device for X and y.
-    """
+def create_local_data(m, n, centers, cluster_std, random_state,
+                      dtype, type):
     X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                           random_state=random_state)
-    X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-    y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
+
+    if type == 'array':
+        X = cp.asarray(X.astype(dtype))
+        y = cp.asarray(y.astype(dtype))
+
+    elif type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
+        y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
+
+    else:
+        raise ValueError('type must be array or dataframe')
+
     return X, y
 
 
@@ -56,7 +65,7 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32):
+               dtype=np.float32, output='array'):
 
     """
     Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -79,6 +88,8 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     :param random_state : sets random seed
     :param verbose : enables / disables verbose printing.
     :param dtype : (default = np.float32) datatype to generate
+    :param output : (default = 'array') whether to generate dask array or dask
+    dataframe output
 
     :return: (dask.Dataframe for X, dask.Series for labels)
     """
@@ -102,7 +113,8 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     key = str(uuid1())
     # Create dfs on each worker (gpu)
-    dfs = []
+
+    parts = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
         if rows_so_far+rows_per_part <= nrows:
@@ -111,22 +123,36 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
         else:
             worker_rows = (int(nrows) - rows_so_far)
 
-        dfs.append(client.submit(create_df, worker_rows, ncols,
-                                 centers, cluster_std, random_state, dtype,
-                                 key="%s-%s" % (key, idx),
-                                 workers=[worker]))
+        parts.append(client.submit(create_local_data, worker_rows, ncols,
+                                   centers, cluster_std, random_state, dtype,
+                                   output,
+                                   key="%s-%s" % (key, idx),
+                                   workers=[worker]))
 
     x_key = str(uuid1())
     y_key = str(uuid1())
+
     X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
-         for idx, f in enumerate(dfs)]
+         for idx, f in enumerate(parts)]
     y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
-         for idx, f in enumerate(dfs)]
+         for idx, f in enumerate(parts)]
 
-    meta_X = client.submit(get_meta, X[0]).result()
-    X_cudf = from_delayed(X, meta=meta_X)
+    if output == 'dataframe':
 
-    meta_y = client.submit(get_meta, y[0]).result()
-    y_cudf = from_delayed(y, meta=meta_y)
+        meta_X = client.submit(get_meta, X[0]).result()
+        X = from_delayed(X, meta=meta_X)
 
-    return X_cudf, y_cudf
+        meta_y = client.submit(get_meta, y[0]).result()
+        y = from_delayed(y, meta=meta_y)
+
+    elif output == 'array':
+
+        X = [da.from_delayed(delayed(chunk), shape=(500,1000), dtype=dtype)
+             for chunk in X]
+        y = [da.from_delayed(delayed(chunk), shape=(500,), dtype=dtype)
+             for chunk in y]
+
+        X = da.concatenate(X, axis=0)
+        y = da.concatenate(y, axis=0)
+
+    return X, y
