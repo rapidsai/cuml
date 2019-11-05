@@ -117,7 +117,6 @@ DI void evalBestSplit(Split<DataT, IdxT>& s, void* smem,
     split->update(s.quesval, s.colid, s.gain, s.nLeft);
     __threadfence();
     atomicCAS(mutex, 1, 0);
-    __threadfence();
   }
   __syncthreads();
 }
