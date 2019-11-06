@@ -162,7 +162,7 @@ struct GiniDevFunctor {
     }
     return gval;
   }
-  static DI void execshared(cosnt unsigned int* hist, float* metric,
+  static DI void execshared(const unsigned int* hist, float* metric,
                             const int nrows, const int n_unique_labels) {
     auto& tid = threadIdx.x;
     if (tid == 0) metric[0] = 1.0;
@@ -421,4 +421,3 @@ __global__ void best_split_gather_classification(
       shmem_col = colcnt;
     }
   }
-
