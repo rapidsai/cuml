@@ -23,6 +23,7 @@ from cuml.test.utils import array_equal, unit_param, \
 from cuml.utils.import_utils import has_xgboost, has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -127,6 +128,53 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     print("XGB accuracy = ", xgb_acc, " ForestInference accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
+
+@pytest.mark.parametrize('n_rows', [ unit_param(10000)])
+@pytest.mark.parametrize('n_columns', [unit_param(20)])
+@pytest.mark.parametrize('n_estimators', [unit_param(10)])
+@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+def test_fil_skl_classification(n_rows, n_columns, n_estimators, storage_type):
+    # settings
+    classification = True  # change this to false to use regression
+    n_rows = n_rows  # we'll use 1 millions rows
+    n_columns = n_columns
+    n_categories = 2
+    random_state = np.random.RandomState(43210)
+
+    X, y = simulate_data(n_rows, n_columns, n_categories,
+                         random_state=random_state,
+                         classification=classification)
+    # identify shape and indices
+    n_rows, n_columns = X.shape
+    train_size = 0.80
+
+    X_train, X_validation, y_train, y_validation = train_test_split(
+        X, y, train_size=train_size, random_state=0)
+
+    skl_model = RandomForestClassifier(n_estimators=n_estimators, max_depth=5,
+                                       max_features=0.3, n_jobs=-1)
+    skl_model.fit(X_train, y_train)
+    
+    skl_preds = skl_model.predict(X_validation)
+    skl_preds_int = np.around(skl_preds)
+
+    skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
+
+    print("Converting the SKL model to FIL")
+
+    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+
+    fm = ForestInference.load_from_skl(skl_model,
+                                       algo=algo,
+                                       output_class=True,
+                                       threshold=0.50,
+                                       storage_type=storage_type)
+    fil_preds = np.asarray(fm.predict(X_validation))
+    fil_acc = accuracy_score(y_validation, fil_preds)
+
+    print("SKL accuracy = ", skl_acc, " ForestInference accuracy: ", fil_acc)
+    assert fil_acc == pytest.approx(skl_acc, 0.01)
+    assert array_equal(fil_preds, skl_preds_int)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
