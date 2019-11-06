@@ -732,7 +732,7 @@ template <
 
   typename EpilogueFunctor_,
 
-  typename GemmEpilogueTraits,
+  typename GemmEpilogueTraits_,
 
   typename GemmEpilogue_,
 
