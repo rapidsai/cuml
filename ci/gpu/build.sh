@@ -41,7 +41,6 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Activate conda env..."
-conda update -n base conda
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
       "cupy>=6.5,<7.0" \
