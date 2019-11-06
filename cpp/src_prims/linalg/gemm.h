@@ -16,9 +16,9 @@
 
 #pragma once
 
-#if CUDART_VERSION >= 10010
-#pragma GCC optimize("O0")
-#endif
+// #if CUDART_VERSION >= 10010
+// #pragma GCC optimize("O0")
+// #endif
 
 #include <cublas_v2.h>
 #include "cublas_wrappers.h"
@@ -287,6 +287,6 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
 }  // end namespace LinAlg
 }  // end namespace MLCommon
 
-#if CUDART_VERSION >= 10010
-#pragma GCC reset_options
-#endif
+// #if CUDART_VERSION >= 10010
+// #pragma GCC reset_options
+// #endif
