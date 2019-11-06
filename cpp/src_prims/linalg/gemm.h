@@ -119,7 +119,8 @@ template <
   typename EpilogueFunctor_ = LinearScaling<OType>,
   typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>>
+  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>
+  >
 void gemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
@@ -141,6 +142,46 @@ void gemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
+
+template <
+  typename Lambda,
+  typename IType, typename AccType, typename OType, typename OutputTile_,
+  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
+  typename GemmConfig_ =
+    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+                     MainLoopFunctor_>,
+  typename EpilogueFunctor_ = LinearScaling<OType>,
+  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
+    GemmConfig_, EpilogueFunctor_, Index_>,
+  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>
+  >
+void gemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+          Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
+          IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
+          OType *D, Lambda op, cudaStream_t stream) {
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+  fprintf(stderr, "Op = [%p], \n", (void*)&op);
+  fprintf(stderr, "Op = [%p], \n", (void*)&op);
+  fprintf(stderr, "Op = [%p], \n", (void*)&op);
+
+  baseGemm3<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+           MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+           GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
+                                               A, lda, B, ldb, beta, C, ldc, D, op, stream);
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+}
 
 /**
  * @brief the gemm function for the case where no or simple customization is

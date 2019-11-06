@@ -679,10 +679,42 @@ void baseGemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, cudaStream_t stream)
 {
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
+}
+
+
+template <
+  typename Lambda,
+  typename IType,
+  typename AccType,
+  typename OType,
+  typename OutputTile_,
+  typename AccumulatorsPerThread_,
+
+  typename MainLoopFunctor_,
+
+  typename Index_,
+
+  typename GemmConfig_,
+
+  typename EpilogueFunctor_,
+
+  typename GemmEpilogueTraits,
+
+  typename GemmEpilogue_
+>
+void baseGemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+              Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
+              IType const* B, Index_ ldb, OType beta, OType const* C,
+              Index_ ldc, OType* D, Lambda op, cudaStream_t stream)
+{
+  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
 }
 
 
