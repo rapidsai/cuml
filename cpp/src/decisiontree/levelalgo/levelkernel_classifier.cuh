@@ -344,8 +344,8 @@ DI GainIdxPair bin_info_gain_classification(
   return tid_pair;
 }
 
-template <typename T, typename QuestionType, typename FDEV, typename TPB>
-__global__ void best_split_gather_classification(
+template <typename T, typename QuestionType, typename FDEV>
+__global__ void best_split_gather_classification_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ colids,
   const unsigned int* __restrict__ colstart, const T* __restrict__ question_ptr,
