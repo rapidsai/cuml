@@ -162,6 +162,17 @@ struct GiniDevFunctor {
     }
     return gval;
   }
+  static DI void execshared(cosnt unsigned int* hist, float* metric,
+                            const int nrows, const int n_unique_labels) {
+    auto& tid = threadIdx.x;
+    if (tid == 0) metric[0] = 1.0;
+    __syncthreads();
+    if (tid < n_unique_labels) {
+      float prob = ((float)hist[tid]) / nrows;
+      prob = -1.0 * prob * prob;
+      atomicAdd(metric, prob);
+    }
+  }
 };
 
 struct EntropyDevFunctor {
@@ -174,6 +185,18 @@ struct EntropyDevFunctor {
       }
     }
     return (-1 * eval);
+  }
+  static DI void execshared(const unsigned int* hist, float* metric,
+                            const int nrows, const int n_unique_labels) {
+    auto& tid = threadIdx.x;
+    if (tid == 0) metric[0] = 0.0;
+    if (tid < n_unique_labels) {
+      if (hist[tid] != 0) {
+        float prob = ((float)hist[tid]) / nrows;
+        prob = -1 * prob * logf(prob);
+        atomicAdd(metric, prob);
+      }
+    }
   }
 };
 //This is device equialent of best split finding reduction.
@@ -291,11 +314,37 @@ __global__ void get_best_split_classification_kernel(
 }
 
 template <typename F>
-DI float node_info_gain_classification(unsigned int* shmemhist_parent,
-                                       unsigned int* shmemhist_left,
-                                       const int nsamples) {}
+DI GainIdxPair node_info_gain_classification(
+  const unsigned int* shmemhist_parent, const float* parent_metric,
+  const unsigned int* shmemhist_left, const int nsamples, const int nbins,
+  const int n_unique_labels) {
+  GainIdxPair tid_pair;
+  tid_pair.gaim = 0.0;
+  tid_pair.idx = -1;
+  for (int tid = threadIdx.x; tid < nbins; tid++) {
+    int nrows_left = 0;
+    unsigned int* shmemhist = &shmemhist_left[tid * n_unique_labels];
+    for (int i = 0; i < n_unique_labels; i++) {
+      nrows_left += shmemhist[i];
+    }
+    float left_metric = F::exec(shmemhist, nrows_left, n_unique_labels);
+    int nrows_right = nsamples - nrows_left;
+    for (int i = 0; i < n_unique_labels; i++) {
+      shmemhist[i] = shmem_parent[i] - shmemhist[i];
+    }
+    float right_metric = F::exec(shmemhist, nrows_right, n_unique_labels);
+    impurity = ((nrows_left * 1.0f) / nsamples) * left_metric +
+               ((nrows_right * 1.0f) / nsamples) * right_metric;
+    float info_gain = parent_metric[0] - impurity;
+    if (info_gain > tid_pair.gain) {
+      tid_pair.gain = info_gain;
+      tid_pair.idx = tid;
+    }
+  }
+  return tid_pair;
+}
 
-template <typename T, typename QuesionType, typename F>
+template <typename T, typename QuesionType, typename FDEV, typename TPB>
 __global__ void best_split_gather_classification(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ colids,
@@ -304,8 +353,16 @@ __global__ void best_split_gather_classification(
   const unsigned int* __restrict__ samplelist, const int n_nodes,
   const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
   const int ncols_sampled) {
+  //shmemhist_parent[n_unique_labels]
   extern __shared___ unsigned int shmemhist_parent[];
+  //shmemhist_left[n_unique_labels*nbins]
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
+  //parent_metric[1]
+  float* parent_metric = (float*)(shmemhist_left + n_unique_labels * nbins);
+  __shared__ GainIdxPair shmem_pair;
+  __shared__ unsigned int shmem_col;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
 
   int colstart_local = -1;
   unsigned int colid;
@@ -317,12 +374,18 @@ __global__ void best_split_gather_classification(
   for (int i = threadIdx.x; i < n_unique_labels; i += blockDim.x) {
     shmemhist_parent[i] = 0;
   }
+  if (threadIdx.x == blockDim.x - 1) {
+    shmem_pair.gain = 0.0f;
+    shmem_pair.idx = -1;
+  }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
     int local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
+  __syncthreads();
+  FDEV::execshared(shmemhist_parent, parent_metric, count, n_unique_labels);
 
   //Loop over cols
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
@@ -347,6 +410,15 @@ __global__ void best_split_gather_classification(
       }
     }
     __syncthreads();
-    float gain = node_info_gain<F>(shmemhist_parent, shmemhist_left, count);
+    GainIdxPair bin_pair =
+      node_info_gain<FDEV>(shmemhist_parent, parent_metric, shmemhist_left,
+                           count, nbins, n_unique_labels);
+    GainIdxPair best_bin_pair =
+      BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+
+    if ((best_bin_pair.gain > shmem_pair[0].gain) && (threadIdx.x == 0)) {
+      shmem_pair = best_bin_pair;
+      shmem_col = colcnt;
+    }
   }
 
