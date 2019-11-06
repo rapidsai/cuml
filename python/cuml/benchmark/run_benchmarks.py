@@ -15,7 +15,7 @@
 #
 """Command-line ML benchmark runner"""
 
-from cuml.benchmark import algorithms, runners
+from cuml.benchmark import algorithms, datagen, runners
 import numpy as np
 import json
 
@@ -49,9 +49,21 @@ def extract_param_overrides(params_to_sweep):
     dict_list = [dict(tl) for tl in tuple_list]
     return dict_list
 
-
 if __name__ == '__main__':
     import argparse
+    import sys
+
+    class PrintAlgorithms(argparse.Action):
+        def __call__(self, parse, namespace, values, option_string=None):
+            for algo in algorithms.all_algorithms():
+                print(algo.name)
+            sys.exit()
+
+    class PrintDatasets(argparse.Action):
+        def __call__(self, parse, namespace, values, option_string=None):
+            for dataset in datagen.all_datasets().keys():
+                print(dataset)
+            sys.exit()
 
     parser = argparse.ArgumentParser(
         prog='run_benchmarks',
@@ -81,6 +93,9 @@ if __name__ == '__main__':
           # Use a real dataset at its default size
           python run_benchmarks.py --dataset higgs --default-size \
                 RandomForestClassifier LogisticRegression
+
+          # Print available algorithms and exit
+          python run_benchmarks.py --algos
 
         ''',
         formatter_class=argparse.RawTextHelpFormatter,
@@ -141,6 +156,18 @@ if __name__ == '__main__':
         '--raise-on-error',
         action='store_true',
         help='Throw exception on a failed benchmark',
+    )
+    parser.add_argument(
+        '--algos',
+        action=PrintAlgorithms,
+        nargs=0,
+        help='Print the list of all available algorithms and exit',
+    )
+    parser.add_argument(
+        '--datasets',
+        action=PrintDatasets,
+        nargs=0,
+        help='Print the list of all available datasets and exit',
     )
     parser.add_argument(
         'algorithms',
