@@ -191,6 +191,12 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                MainLoopFunctor_, Index_, EpilogueFunctor_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast, stream);
+
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
 // #if CUDART_VERSION >= 10010
