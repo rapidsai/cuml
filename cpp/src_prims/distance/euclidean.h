@@ -158,23 +158,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 
-  // LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
-  //              MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-  //              GemmEpilogueTraits_, GemmEpilogue_>(
-  //   transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-  //   (EffOutType)0, nullptr, ldd, pDCast,
-  //   [enable_sqrt] HD(EpiParams & p)
-  //   {
-  //     fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  //     fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  //     fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  //     fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      
-  //     const int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
-  //     return err;
-  //   },
-  //   fin_op, stream);
-
   LinAlg::gemm2<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
@@ -205,10 +188,80 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     (EffOutType)0, nullptr, ldd, pDCast, stream);
 
 
+  fprintf(stderr, "DefaultLambda[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, EpilogueFunctor_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [](typename EpilogueFunctor_::Params &p) { return 0; },
+    0,
+    stream);
+
+  fprintf(stderr, "DefaultLambda+finop[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, EpilogueFunctor_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [](typename EpilogueFunctor_::Params &p) { return 0; },
+    fin_op,
+    stream);
+
+  fprintf(stderr, "Lambda[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+
+  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, EpilogueFunctor_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    
+    [enable_sqrt] HD(EpiParams & p)
+    {
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      
+      const int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
+      return err;
+    },
+
+    0,
+    stream);
+
+
+  fprintf(stderr, "Lambda+op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+    LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [enable_sqrt] HD(EpiParams & p)
+    {
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+      
+      const int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
+      return err;
+    },
+    fin_op, stream);
 }
 
 // #if CUDART_VERSION >= 10010
