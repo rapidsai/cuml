@@ -687,7 +687,6 @@ void baseGemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 
 
 template <
-  typename Lambda,
   typename IType,
   typename AccType,
   typename OType,
@@ -704,19 +703,19 @@ template <
 
   typename GemmEpilogueTraits,
 
-  typename GemmEpilogue_
+  typename GemmEpilogue_,
+  typename FinalLambda
 >
 void baseGemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
-              Index_ ldc, OType* D, Lambda op, cudaStream_t stream)
+              Index_ ldc, OType* D, FinalLambda fin_op, cudaStream_t stream)
 {
-  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
 }
-
 
 template <
   typename IType,
@@ -746,10 +745,10 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ ldc, OType* D, Lambda op, FinalLambda fin_op,
               cudaStream_t stream) {
 
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
 
   // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
   //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
@@ -815,10 +814,10 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
 
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
 
   // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
   //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,

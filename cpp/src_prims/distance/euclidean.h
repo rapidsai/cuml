@@ -179,7 +179,19 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-    (EffOutType)0, nullptr, ldd, pDCast, [] {return 1;}, stream);
+    (EffOutType)0, nullptr, ldd, pDCast, stream);
+
+
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+
+  LinAlg::gemm3<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+               GemmEpilogueTraits_, GemmEpilogue_>(
+    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+    (EffOutType)0, nullptr, ldd, pDCast, fin_op, stream);
 
 
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);

@@ -143,8 +143,8 @@ void gemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 }
 
 
+
 template <
-  typename Lambda,
   typename IType, typename AccType, typename OType, typename OutputTile_,
   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
@@ -156,31 +156,27 @@ template <
   typename EpilogueFunctor_ = LinearScaling<OType>,
   typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>
-  >
+  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+  typename FinalLambda>
 void gemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, Lambda op, cudaStream_t stream) {
+          OType *D, FinalLambda fin_op, cudaStream_t stream) {
 
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
-  fprintf(stderr, "Op = [%p], \n", (void*)&op);
-  fprintf(stderr, "Op = [%p], \n", (void*)&op);
-  fprintf(stderr, "Op = [%p], \n", (void*)&op);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
 
   baseGemm3<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
-                                               A, lda, B, ldb, beta, C, ldc, D, op, stream);
+                                               A, lda, B, ldb, beta, C, ldc, D, fin_op, stream);
 
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
 }
 
 /**
