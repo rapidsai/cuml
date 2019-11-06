@@ -537,9 +537,9 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   typedef CustomGemm<GemmTraits> Gemm;
   typename Gemm::Params params;
-  int err =
-    params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  // int err =
+  //   params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
+  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   /*
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
