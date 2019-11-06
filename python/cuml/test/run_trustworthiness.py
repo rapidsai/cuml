@@ -24,24 +24,11 @@ from sklearn.datasets import load_digits as load
 X, y = load().data, load().target
 n_components = 2
 
-X_embedded = \
-    UMAP(n_components=n_components).fit_transform(X)
+X_embedded = UMAP(n_components=n_components).fit_transform(X)
 X = X.astype(np.float32)
+
 X_embedded = X_embedded.astype(np.float32)
-
-if input_type == 'dataframe':
-    gdf = cudf.DataFrame()
-    for i in range(X.shape[1]):
-        gdf[str(i)] = np.asarray(X[:, i], dtype=np.float32)
-
-    gdf_embedded = cudf.DataFrame()
-    for i in range(X_embedded.shape[1]):
-        gdf_embedded[str(i)] = np.asarray(X_embedded[:, i],
-                                          dtype=np.float32)
-
-    score = cuml_trustworthiness(gdf, gdf_embedded)
-else:
-    score = cuml_trustworthiness(X, X_embedded)
+score = cuml_trustworthiness(X, X_embedded)
 
 sk_score = sklearn_trustworthiness(X, X_embedded)
 
