@@ -673,9 +673,6 @@ template <
   typename GemmEpilogueTraits,
 
   typename GemmEpilogue_,
-
-  typename Lambda,
-  typename FinalLambda
 >
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
