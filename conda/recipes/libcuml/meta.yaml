@@ -35,6 +35,7 @@ requirements:
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - libcumlprims {{ minor_version }}
+    - lapack
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
