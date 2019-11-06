@@ -22,6 +22,7 @@ import numpy as np
 
 from sklearn.datasets import load_digits as load
 X, y = load().data, load().target
+n_components = 2
 
 X_embedded = \
     UMAP(n_components=n_components).fit_transform(X)
