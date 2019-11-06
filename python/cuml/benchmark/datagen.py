@@ -230,6 +230,8 @@ _data_converters = {
     'gpuarray': _convert_to_gpuarray,
 }
 
+def all_datasets():
+    return _data_generators
 
 @functools.lru_cache(maxsize=8)
 def gen_data(
