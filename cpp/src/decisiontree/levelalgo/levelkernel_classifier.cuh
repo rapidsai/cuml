@@ -314,12 +314,14 @@ __global__ void get_best_split_classification_kernel(
 }
 
 template <typename F>
-DI GainIdxPair node_info_gain_classification(
-  const unsigned int* shmemhist_parent, const float* parent_metric,
-  const unsigned int* shmemhist_left, const int nsamples, const int nbins,
-  const int n_unique_labels) {
+DI GainIdxPair node_info_gain_classification(unsigned int* shmemhist_parent,
+                                             const float* parent_metric,
+                                             unsigned int* shmemhist_left,
+                                             const int nsamples,
+                                             const int nbins,
+                                             const int n_unique_labels) {
   GainIdxPair tid_pair;
-  tid_pair.gaim = 0.0;
+  tid_pair.gain = 0.0;
   tid_pair.idx = -1;
   for (int tid = threadIdx.x; tid < nbins; tid++) {
     int nrows_left = 0;
@@ -330,11 +332,11 @@ DI GainIdxPair node_info_gain_classification(
     float left_metric = F::exec(shmemhist, nrows_left, n_unique_labels);
     int nrows_right = nsamples - nrows_left;
     for (int i = 0; i < n_unique_labels; i++) {
-      shmemhist[i] = shmem_parent[i] - shmemhist[i];
+      shmemhist[i] = shmemhist_parent[i] - shmemhist[i];
     }
     float right_metric = F::exec(shmemhist, nrows_right, n_unique_labels);
-    impurity = ((nrows_left * 1.0f) / nsamples) * left_metric +
-               ((nrows_right * 1.0f) / nsamples) * right_metric;
+    float impurity = ((nrows_left * 1.0f) / nsamples) * left_metric +
+                     ((nrows_right * 1.0f) / nsamples) * right_metric;
     float info_gain = parent_metric[0] - impurity;
     if (info_gain > tid_pair.gain) {
       tid_pair.gain = info_gain;
@@ -344,17 +346,17 @@ DI GainIdxPair node_info_gain_classification(
   return tid_pair;
 }
 
-template <typename T, typename QuesionType, typename FDEV, typename TPB>
+template <typename T, typename QuestionType, typename FDEV, int TPB>
 __global__ void best_split_gather_classification(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ colids,
   const unsigned int* __restrict__ colstart,
   const unsigned int* __restrict__ g_nodestart,
   const unsigned int* __restrict__ samplelist, const int n_nodes,
-  const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
-  const int ncols_sampled) {
+  const T* __restrict__ question_ptr, const int n_unique_labels,
+  const int nbins, const int nrows, const int Ncols, const int ncols_sampled) {
   //shmemhist_parent[n_unique_labels]
-  extern __shared___ unsigned int shmemhist_parent[];
+  extern __shared__ unsigned int shmemhist_parent[];
   //shmemhist_left[n_unique_labels*nbins]
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
   //parent_metric[1]
@@ -410,14 +412,15 @@ __global__ void best_split_gather_classification(
       }
     }
     __syncthreads();
-    GainIdxPair bin_pair =
-      node_info_gain<FDEV>(shmemhist_parent, parent_metric, shmemhist_left,
-                           count, nbins, n_unique_labels);
+    GainIdxPair bin_pair = node_info_gain_classification<FDEV>(
+      shmemhist_parent, parent_metric, shmemhist_left, count, nbins,
+      n_unique_labels);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
 
-    if ((best_bin_pair.gain > shmem_pair[0].gain) && (threadIdx.x == 0)) {
+    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
       shmem_pair = best_bin_pair;
       shmem_col = colcnt;
     }
   }
+}
