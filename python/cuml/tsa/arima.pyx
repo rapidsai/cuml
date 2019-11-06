@@ -252,6 +252,7 @@ class ARIMAModel(Base):
             self.order, self.mu,
             self.ar_params, self.ma_params)
 
+    # TODO: wrap C++ version
     @property
     def bic(self):
         (p, d, q) = self.order
@@ -271,10 +272,11 @@ class ARIMAModel(Base):
         return [-2 * lli + 2 * (_model_complexity(self.order))
                 for (i, lli) in enumerate(llb)]
 
-    def _assert_same_d(self, b_order):
-        """Checks that all values of d in batched order are same"""
-        b_d = [d for _, d, _ in b_order]
-        assert (np.array(b_d) == b_d[0]).all()
+    # def _assert_same_d(self, b_order):
+    #     """Checks that all values of d in batched order are same"""
+    #     b_d = [d for _, d, _ in b_order]
+    #     assert (np.array(b_d) == b_d[0]).all()
+    # TODO: unused? remove?
 
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
@@ -872,7 +874,7 @@ def _batched_loglike(num_batches, nobs, order, y, x,
 
 ### deprecated ###
 
-def _start_params(order, y_diff):
+def _start_params(order, y_diff, p_best=1):
     """A quick approach to determine reasonable starting mu (trend),
     AR, and MA parameters"""
 
@@ -892,11 +894,6 @@ def _start_params(order, y_diff):
         return params_init
 
     if p != 0:
-
-        # `statsmodels` uses BIC to pick the "best" `p` for this initial
-        # fit. The "best" model frequently has p=1,
-        # so this is a reasonable assumption.
-        p_best = 1
         x = np.zeros((len(y) - p_best, p_best))
         # create lagged series set
         for lag in range(1, p_best+1):
@@ -948,7 +945,7 @@ def _start_params(order, y_diff):
 
 def _estimate_x0(order: Tuple[int, int, int],
                 nb: int,
-                yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
+                yb, p_best=1) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
     the batched input `yb`"""
     nvtx_range_push("estimate x0")
@@ -964,7 +961,7 @@ def _estimate_x0(order: Tuple[int, int, int],
         else:
             yd = np.copy(y)
 
-        x0ib = _start_params((p, q, d), yd)
+        x0ib = _start_params((p, q, d), yd, p_best)
 
         x0[ib*N:(ib+1)*N] = x0ib
 

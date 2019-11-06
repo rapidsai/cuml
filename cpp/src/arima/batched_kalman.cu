@@ -87,6 +87,8 @@ __device__ void MM_l(double* A, double* B, double* out) {
   }
 }
 
+// TODO: N is super confusing, shouldn't we rename the template param to r?
+
 //! Kalman loop. Each thread computes kalman filter for a single series and
 //! stores relevant matrices in registers.
 template <int N>
@@ -472,6 +474,9 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
   //Tb
   CUDA_CHECK(cudaMemcpyAsync(Tb[0], d_T_b, sizeof(double) * r * r * num_batches,
                              cudaMemcpyDeviceToDevice, stream));
+
+  /// TODO: avoid copy by simply creating matrices before and passing
+  /// their pointer
 
   ////////////////////////////////////////////////////////////
   // Computation
