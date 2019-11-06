@@ -154,29 +154,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_n = n;
   }
 
-    fprintf(stderr, "Lambda+op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
-    LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
-               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-               GemmEpilogueTraits_, GemmEpilogue_>(
-    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-    (EffOutType)0, nullptr, ldd, pDCast,
-    [enable_sqrt] HD(EpiParams & p)
-    {
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      
-      const int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
-      return err;
-    },
-    fin_op, stream);
-
-               
+  
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
