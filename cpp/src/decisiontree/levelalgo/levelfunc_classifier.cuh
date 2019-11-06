@@ -186,12 +186,12 @@ void grow_deep_tree_classification(
     best_split_gather_classification<T, GiniDevFunctor>(
       data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
       Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-      tempmem, d_outgain);
+      tempmem, d_outgain, d_sparsenodes);
   } else {
     best_split_gather_classification<T, EntropyDevFunctor>(
       data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
       Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-      tempmem, d_outgain);
+      tempmem, d_outgain, d_sparsenodes);
   }
   float* h_outgain = tempmem->h_outgain->data();
   MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);

@@ -331,7 +331,8 @@ void best_split_gather_classification(
   const unsigned int *d_samplelist, const int nrows, const int Ncols,
   const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const int split_algo,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem, float *outgain) {
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem, float *outgain,
+  SparseTreeNode<T, int> *d_sparsenodes) {
   const T *d_question_ptr = tempmem->d_quantile->data();
   if (split_algo == 0) {
     ASSERT(false, "MINMAX not yet supported in gather mode");
@@ -342,7 +343,7 @@ void best_split_gather_classification(
       <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
         d_samplelist, n_nodes, n_unique_labels, nbins, nrows, Ncols,
-        ncols_sampled, outgain);
+        ncols_sampled, outgain, d_sparsenodes);
     CUDA_CHECK(cudaGetLastError());
   }
 }

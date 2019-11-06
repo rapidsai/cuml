@@ -352,17 +352,17 @@ __global__ void best_split_gather_classification_kernel(
   const unsigned int* __restrict__ g_nodestart,
   const unsigned int* __restrict__ samplelist, const int n_nodes,
   const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
-  const int ncols_sampled, float* d_infogain) {
+  const int ncols_sampled, float* d_infogain,
+  SparseTreeNode<T, int>* d_sparsenodes) {
   __shared__ GainIdxPair shmem_pair;
   __shared__ unsigned int shmem_col;
+  __shared__ float parent_metric;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   //shmemhist_parent[n_unique_labels]
   extern __shared__ unsigned int shmemhist_parent[];
   //shmemhist_left[n_unique_labels*nbins]
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
-  //parent_metric[1]
-  float* parent_metric = (float*)(shmemhist_left + n_unique_labels * nbins);
 
   int colstart_local = -1;
   unsigned int colid;
@@ -385,7 +385,7 @@ __global__ void best_split_gather_classification_kernel(
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
   __syncthreads();
-  FDEV::execshared(shmemhist_parent, parent_metric, count, n_unique_labels);
+  FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
 
   //Loop over cols
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
@@ -411,7 +411,7 @@ __global__ void best_split_gather_classification_kernel(
     }
     __syncthreads();
     GainIdxPair bin_pair = bin_info_gain_classification<FDEV>(
-      shmemhist_parent, parent_metric, shmemhist_left, count, nbins,
+      shmemhist_parent, &parent_metric, shmemhist_left, count, nbins,
       n_unique_labels);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
@@ -421,7 +421,19 @@ __global__ void best_split_gather_classification_kernel(
       shmem_col = colcnt;
     }
   }
+  __syncthreads();
   if (threadIdx.x == 0) {
     d_infogain[blockIdx.x] = shmem_pair.gain;
+
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                          shmem_col, blockIdx.x);
+    QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
+                          nbins);
+
+    SparseTreeNode<T, int> localnode;
+    localnode.colid = colid;
+    localnode.quesval = question(shmem_pair.idx);
+    localnode.best_metric_val = parent_metric;
+    d_sparsenodes[blockIdx.x] = localnode;
   }
 }
