@@ -655,19 +655,27 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @{
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename Index_ = int,
-  typename GemmConfig_ =
-    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-                     MainLoopFunctor_>,
-  typename EpilogueFunctor_ = LinearScaling<OType>,
-  typename GemmEpilogueTraits_ =
-    CustomGemmEpilogueTraits<GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
-  typename Lambda, typename FinalLambda>
+  typename IType,
+  typename AccType,
+  typename OType,
+  typename OutputTile_,
+  typename AccumulatorsPerThread_,
+
+  typename MainLoopFunctor_,
+
+  typename Index_,
+
+  typename GemmConfig_,
+
+  typename EpilogueFunctor_,
+
+  typename GemmEpilogueTraits,
+
+  typename GemmEpilogue_,
+
+  typename Lambda,
+  typename FinalLambda
+>
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
