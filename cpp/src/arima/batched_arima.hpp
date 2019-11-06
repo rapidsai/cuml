@@ -43,6 +43,12 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      std::vector<double>& loglike, double* d_vs,
                      bool trans = true);
 
+void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
+                     int p, int d, int q, double* d_mu, double* d_ar, double* d_ma,
+                     std::vector<double>& loglike, double* d_vs,
+                     bool trans = true);
+// TODO: only one interface for batched_loglike
+
 /**
  * Batched in-sample prediction of a time-series given trend, AR, and MA parameters.
  *
@@ -101,7 +107,14 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
 
 /**
  * TODO: doc
- * TODO: take mu, AR, MA as params. Host or device?
+ */
+void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+         int d, int q, double* d_mu, double* d_ar, double* d_ma,
+         std::vector<double>& ic);
+// TODO: also aic
+
+/**
+ * TODO: doc
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
