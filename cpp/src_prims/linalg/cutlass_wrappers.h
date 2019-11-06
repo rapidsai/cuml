@@ -654,6 +654,41 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @param stream cuda stream where to launch work
  * @{
  */
+
+template <
+  typename IType,
+  typename AccType,
+  typename OType,
+  typename OutputTile_,
+  typename AccumulatorsPerThread_,
+
+  typename MainLoopFunctor_,
+
+  typename Index_,
+
+  typename GemmConfig_,
+
+  typename EpilogueFunctor_,
+
+  typename GemmEpilogueTraits,
+
+  typename GemmEpilogue_,
+
+  typename Lambda,
+  typename FinalLambda
+>
+void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+              Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
+              IType const* B, Index_ ldb, OType beta, OType const* C,
+              Index_ ldc, OType* D, cudaStream_t stream)
+{
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+}
+
+
 template <
   typename IType,
   typename AccType,
