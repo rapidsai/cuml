@@ -357,7 +357,6 @@ __global__ void best_split_gather_classification_kernel(
   __shared__ unsigned int shmem_col;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-
   //shmemhist_parent[n_unique_labels]
   extern __shared__ unsigned int shmemhist_parent[];
   //shmemhist_left[n_unique_labels*nbins]
