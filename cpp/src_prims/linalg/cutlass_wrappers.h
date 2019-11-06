@@ -714,10 +714,10 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ ldc, OType* D, Lambda op, FinalLambda fin_op,
               cudaStream_t stream) {
 
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 
   // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
   //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
@@ -783,10 +783,10 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
 
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 
   // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
   //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
