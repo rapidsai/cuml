@@ -42,7 +42,9 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
+conda remove blas
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+      "openblas=0.3.7"
       "cupy>=6.5,<7.0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
