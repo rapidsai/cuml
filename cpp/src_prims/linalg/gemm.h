@@ -71,23 +71,19 @@ template <
   typename AccType,
   typename OType,
   typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename AccumulatorsPerThread_,
 
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename MainLoopFunctor_,
 
-  typename Index_ = int,
+  typename Index_,
 
-  typename GemmConfig_ =
-    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-                     MainLoopFunctor_>,
+  typename GemmConfig_,
 
-  typename EpilogueFunctor_ = LinearScaling<OType>,
+  typename EpilogueFunctor_,
 
-  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
-    GemmConfig_, EpilogueFunctor_, Index_>,
+  typename GemmEpilogueTraits_,
 
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+  typename GemmEpilogue_,
 
   typename Lambda,
   typename FinalLambda
