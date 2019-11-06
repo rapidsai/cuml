@@ -90,9 +90,9 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 
-  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)op, (void*)fin_op);
-  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)op, (void*)fin_op);
-  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)op, (void*)fin_op);
+  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)&op, (void*)&fin_op);
+  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)&op, (void*)&fin_op);
+  fprintf(stderr, "Op = [%d], Final Op = [%d]\n", (void*)&op, (void*)&fin_op);
 
   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
