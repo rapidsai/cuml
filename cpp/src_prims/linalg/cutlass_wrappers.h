@@ -674,7 +674,7 @@ template <
 
   typename GemmEpilogue_
 >
-void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+void baseGemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, cudaStream_t stream)
