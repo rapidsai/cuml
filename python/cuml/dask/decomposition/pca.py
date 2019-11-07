@@ -228,10 +228,15 @@ class PCA(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
+        self.rnks = dict()
+        rnk_counter = 0
         worker_to_parts = OrderedDict()
         for w, p in gpu_futures:
             if w not in worker_to_parts:
                 worker_to_parts[w] = []
+            if w not in self.rnks.keys():
+                self.rnks[w] = rnk_counter
+                rnk_counter = rnk_counter + 1
             worker_to_parts[w].append(p)
 
         workers = list(map(lambda x: x[0], gpu_futures))
@@ -314,13 +319,8 @@ class PCA(object):
 
         workers = list(map(lambda x: x[0], gpu_futures))
 
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=workers)
-
-        worker_info = comms.worker_info(comms.worker_addresses)
-
         key = uuid1()
-        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+        partsToRanks = [(self.rnks[wf[0]], self.client.submit(
             PCA._func_get_size,
             wf[1],
             workers=[wf[0]],
@@ -331,21 +331,19 @@ class PCA(object):
         M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
+        pca_transform = dict([(self.rnks[wf[0]], self.client.submit(
             PCA._func_transform,
             wf[1],
             worker_to_parts[wf[0]],
             M, N,
             partsToRanks,
-            worker_info[wf[0]]["r"],
+            self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
             for idx, wf in enumerate(self.pca_models)])
 
         wait(list(pca_transform.values()))
         raise_exception_from_futures(list(pca_transform.values()))
-
-        comms.destroy()
 
         out_futures = []       
         completed_part_map = {}
@@ -372,13 +370,8 @@ class PCA(object):
 
         workers = list(map(lambda x: x[0], gpu_futures))
 
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=workers)
-
-        worker_info = comms.worker_info(comms.worker_addresses)
-
         key = uuid1()
-        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+        partsToRanks = [(self.rnks[wf[0]], self.client.submit(
             PCA._func_get_size,
             wf[1],
             workers=[wf[0]],
@@ -389,21 +382,19 @@ class PCA(object):
         M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_inverse_transform = dict([(worker_info[wf[0]]["r"], self.client.submit(
+        pca_inverse_transform = dict([(self.rnks[wf[0]], self.client.submit(
             PCA._func_inverse_transform,
             wf[1],
             worker_to_parts[wf[0]],
             M, N,
             partsToRanks,
-            worker_info[wf[0]]["r"],
+            self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
             for idx, wf in enumerate(self.pca_models)])
 
         wait(list(pca_inverse_transform.values()))
         raise_exception_from_futures(list(pca_inverse_transform.values()))
-
-        comms.destroy()
 
         out_futures = []       
         completed_part_map = {}
