@@ -323,7 +323,6 @@ class KMeans(Base):
 
         X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
-                               check_dtype=[np.float32, np.float64],
                                check_rows=check_rows,
                                check_dtype=check_dtype)
 
