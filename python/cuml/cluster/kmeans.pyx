@@ -263,7 +263,6 @@ class KMeans(Base):
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
-        self.init = init
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
@@ -275,34 +274,21 @@ class KMeans(Base):
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
-        if (isinstance(self.init, cudf.DataFrame)):
-            if(len(self.init) != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            params.init = Array
-            dim_cc = self.n_clusters * self.n_cols
-            self.cluster_centers_ = rmm.device_array(dim_cc,
-                                                     dtype=self.dtype)
-            si = self.init
-            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
-        elif (isinstance(self.init, np.ndarray)):
-            if(self.init.shape[0] != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            params.init = Array
-            self.cluster_centers_ = rmm.to_device(self.init.flatten())
-
-        elif (self.init in ['scalable-k-means++', 'k-means||']):
+        if (init in ['scalable-k-means++', 'k-means||']):
+            self.init = init
             params.init = KMeansPlusPlus
 
-        elif (self.init == 'random'):
+        elif (init == 'random'):
+            self.init = init
             params.init = Random
 
         else:
-            raise TypeError('initialization method not supported')
+            self.init = 'preset'
+            params.init = Array
+            self.cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
+                input_to_dev_array(X, order='C',
+                                   check_dtype=[np.float32, np.float64])
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
@@ -328,9 +314,14 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
 
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+        check_rows = self.n_rows if self.n_rows is not None else False
+        check_dtype = self.dtype if self.dtype is not None else False
+
+        X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
-                               check_dtype=[np.float32, np.float64])
+                               check_dtype=[np.float32, np.float64],
+                               check_rows=check_rows,
+                               check_dtype=check_dtype)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
