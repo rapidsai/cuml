@@ -54,18 +54,6 @@ if __name__ == '__main__':
     import argparse
     import sys
 
-    class PrintAlgorithms(argparse.Action):
-        def __call__(self, parse, namespace, values, option_string=None):
-            for algo in algorithms.all_algorithms():
-                print(algo.name)
-            sys.exit()
-
-    class PrintDatasets(argparse.Action):
-        def __call__(self, parse, namespace, values, option_string=None):
-            for dataset in datagen.all_datasets().keys():
-                print(dataset)
-            sys.exit()
-
     parser = argparse.ArgumentParser(
         prog='run_benchmarks',
         description=r'''
@@ -159,15 +147,15 @@ if __name__ == '__main__':
         help='Throw exception on a failed benchmark',
     )
     parser.add_argument(
-        '--algos',
-        action=PrintAlgorithms,
-        nargs=0,
+        '--algorithms',
+        dest='print_algorithms',
+        action='store_true',
         help='Print the list of all available algorithms and exit',
     )
     parser.add_argument(
         '--datasets',
-        action=PrintDatasets,
-        nargs=0,
+        dest='print_datasets',
+        action='store_true',
         help='Print the list of all available datasets and exit',
     )
     parser.add_argument(
@@ -176,6 +164,16 @@ if __name__ == '__main__':
         help='List of algorithms to run, or omit to run all',
     )
     args = parser.parse_args()
+
+    if args.print_algorithms:
+        for algo in algorithms.all_algorithms():
+            print(algo.name)
+        sys.exit()
+
+    if args.print_datasets:
+        for dataset in datagen.all_datasets().keys():
+            print(dataset)
+        sys.exit()
 
     bench_rows = np.logspace(
         np.log10(args.min_rows),
