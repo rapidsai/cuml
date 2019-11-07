@@ -25,6 +25,8 @@
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/gpu/utils/Limits.cuh>
+#include <faiss/gpu/utils/Select.cuh>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -101,6 +103,146 @@ void merge_tables(int64_t n, int k, int nshard, float *distances,
     }
   }
 };
+
+template <bool Dir, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
+__global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
+                                      int64_t *outV, size_t n_samples,
+                                      int n_parts, float initK, int64_t initV,
+                                      int k) {
+  constexpr int kNumWarps = ThreadsPerBlock / faiss::gpu::kWarpSize;
+
+  __shared__ float smemK[kNumWarps * NumWarpQ];
+  __shared__ int64_t smemV[kNumWarps * NumWarpQ];
+
+  /**
+   * Uses shared memory
+   */
+  faiss::gpu::BlockSelect<float, int64_t, Dir, faiss::gpu::Comparator<float>,
+                          NumWarpQ, NumThreadQ, ThreadsPerBlock>
+    heap(initK, initV, smemK, smemV, k);
+
+  // Grid is exactly sized to rows available
+  int row = blockIdx.x;
+  int total_k = k * n_parts;
+
+  // i is the current column of the block-expanded matrix
+  int i = threadIdx.x;
+
+  int row_offset = row * k;
+
+  // Get starting pointers for cols in current thread
+  float *inKStart = inK + row_offset;
+  int64_t *inVStart = inV + row_offset;
+
+  // Whole warps must participate in the selection
+
+  int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
+
+  for (; i < limit; i++) {
+    heap.add(*inKStart, *inVStart);
+
+    int part = (i * ThreadsPerBlock) % k;
+
+    size_t row = part * n_samples * k;
+    int col = (i * ThreadsPerBlock) % k;
+
+    inKStart += (row * k) + col;
+    inVStart += (row * k) + col;
+  }
+
+  // Handle last remainder fraction of a warp of elements
+  if (i * ThreadsPerBlock < total_k) {
+    heap.addThreadQ(*inKStart, *inVStart);
+  }
+
+  heap.reduce();
+
+  for (int i = threadIdx.x; i < k; i += ThreadsPerBlock) {
+    outK[row * k + i] = smemK[i];
+    outV[row * k + i] = smemV[i];
+  }
+}
+
+#define BLOCK_SELECT_IMPL(DIR, WARP_Q, THREAD_Q)                             \
+  void runBlockSelectPair_ ## DIR ## _ ## WARP_Q ## _(                               \
+    float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples,  \
+    int n_parts, bool dir, int k, cudaStream_t stream) {                     \
+    auto grid = dim3(n_samples);                                             \
+                                                                             \
+    constexpr int kBlockSelectNumThreads = (WARP_Q <= 1024) ? 128 : 64;      \
+    auto block = dim3(kBlockSelectNumThreads);                               \
+                                                                             \
+    auto kInit = dir ? Limits<float>::getMin() : Limits<float>::getMax();    \
+    auto vInit = -1;                                                         \
+                                                                             \
+    blockSelectPairKernel<DIR, WARP_Q, THREAD_Q, kBlockSelectNumThreads>     \
+      <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts, \
+                                   kInit, vInit, k);                         \
+    CUDA_CHECK(cudaPeekAtLastError());                                       \
+  }
+
+#define BLOCK_SELECT_DECL(DIR, WARP_Q)                                      \
+  extern void runBlockSelectPair_ ## DIR ## _ ## WARP_Q ## _(                       \
+    float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples, \
+    int n_parts, bool dir, int k, cudaStream_t stream);
+
+BLOCK_SELECT_DECL(true, 1);
+BLOCK_SELECT_DECL(true, 32);
+BLOCK_SELECT_DECL(true, 64);
+BLOCK_SELECT_DECL(true, 128);
+BLOCK_SELECT_DECL(true, 256);
+BLOCK_SELECT_DECL(true, 512);
+BLOCK_SELECT_DECL(true, 1024);
+
+BLOCK_SELECT_DECL(false, 1);
+BLOCK_SELECT_DECL(false, 32);
+BLOCK_SELECT_DECL(false, 64);
+BLOCK_SELECT_DECL(false, 128);
+BLOCK_SELECT_DECL(false, 256);
+BLOCK_SELECT_DECL(false, 512);
+BLOCK_SELECT_DECL(false, 1024);
+
+#define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q)                               \
+  runBlockSelectPair_ ## DIR ## _ ## WARP_Q ## _(inK, inV, outK, outV, n_samples, \
+                                         n_parts, dir, k, stream)
+
+inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
+                               int64_t *outV, size_t n_samples, int n_parts,
+                               bool dir, int k, cudaStream_t stream) {
+  if (dir) {
+    if (k == 1) {
+      BLOCK_SELECT_PAIR_CALL(true, 1);
+    } else if (k <= 32) {
+      BLOCK_SELECT_PAIR_CALL(true, 32);
+    } else if (k <= 64) {
+      BLOCK_SELECT_PAIR_CALL(true, 64);
+    } else if (k <= 128) {
+      BLOCK_SELECT_PAIR_CALL(true, 128);
+    } else if (k <= 256) {
+      BLOCK_SELECT_PAIR_CALL(true, 256);
+    } else if (k <= 512) {
+      BLOCK_SELECT_PAIR_CALL(true, 512);
+    } else if (k <= 1024) {
+      BLOCK_SELECT_PAIR_CALL(true, 1024);
+    }
+  } else {
+    if (k == 1) {
+      BLOCK_SELECT_PAIR_CALL(false, 1);
+    } else if (k <= 32) {
+      BLOCK_SELECT_PAIR_CALL(false, 32);
+    } else if (k <= 64) {
+      BLOCK_SELECT_PAIR_CALL(false, 64);
+    } else if (k <= 128) {
+      BLOCK_SELECT_PAIR_CALL(false, 128);
+    } else if (k <= 256) {
+      BLOCK_SELECT_PAIR_CALL(false, 256);
+    } else if (k <= 512) {
+      BLOCK_SELECT_PAIR_CALL(false, 512);
+    } else if (k <= 1024) {
+      BLOCK_SELECT_PAIR_CALL(false, 1024);
+    }
+  }
+}
 
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
@@ -203,14 +345,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     }
   }
 
-  merge_tables<faiss::CMin<float, IntType>>(n, k, n_params, result_D, result_I,
-                                            all_D, all_I, (*id_ranges).data());
+  // TODO: Need to offset based on translations
+  runBlockSelectPair(all_D, all_I, result_D, result_I, n, n_params, true, k, s);
 
-  if (DistanceType == Distance::EucUnexpandedL2Sqrt) {
-    MLCommon::LinAlg::unaryOp<float>(
-      res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
-      s);
-  }
+  MLCommon::LinAlg::unaryOp<float>(
+    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); }, s);
 
   MLCommon::updateDevice(res_D, result_D, k * n, s);
   MLCommon::updateDevice(res_I, result_I, k * n, s);
