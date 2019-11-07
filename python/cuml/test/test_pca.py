@@ -29,7 +29,7 @@ from sklearn.datasets.samples_generator import make_blobs
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('digits'),
                          stress_param('blobs')])
 def test_pca_fit(datatype, input_type, name, use_handle):
 
@@ -38,7 +38,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
 
-    elif name == 'iris':
+    elif name == 'digits':
         X, _ = datasets.load_digits(return_X_y=True)
 
     else:
