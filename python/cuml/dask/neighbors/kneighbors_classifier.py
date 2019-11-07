@@ -14,7 +14,7 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
-    raise_exception_from_futures
+    raise_exception_from_futures, workers_to_parts
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -40,7 +40,7 @@ class KNeighborsClassifier(NearestNeighbors):
     """
     def __init__(self, client=None, **kwargs):
         super(KNeighborsClassifier, self).__init__(client, **kwargs)
-        self.y = None
+        self._y = None
 
     def fit(self, X, y):
         """
@@ -49,18 +49,27 @@ class KNeighborsClassifier(NearestNeighbors):
         :return : NearestNeighbors model
         """
         super(KNeighborsClassifier, self).fit(X)
-        self.y = y
+        self._y = self.client.sync(extract_ddf_partitions, y)
+
+        if len(self.X) != len(self._y) or X.shape[0] != y.shape[0]:
+            raise ValueError("X and y must have the same number of rows and "
+                             "partitions")
 
         return self
 
     @staticmethod
-    def _predict(model, X, y, convert_dtype=True):
+    def _create_classifier_model(**kwargs):
+
+    @staticmethod
+    def _predict(model, X, y, **kwargs):
 
         if X.shape[0] != y.shape[0]:
             raise ValueError("X (%d) and y (%d) partition sizes unequal" %
                              X.shape[0], y.shape[0])
 
-        return model.predict()
+        from cuml.neighbors import KNeighborsClassifier as cumlKNC
+        return cumlKNC(**kwargs).fit(X, y).predict(X)
+
 
     def predict(self, X, convert_dtype=True):
         """
@@ -75,11 +84,12 @@ class KNeighborsClassifier(NearestNeighbors):
         :return : dask_cudf.DataFrame containing indices
         """
         nn_fit, out_i_futures = \
-            super(KNeighborsClassifier, self).kneighbors(X,
-                                                         None,
-                                                         False)
+            super(KNeighborsClassifier, self).kneighbors(X, None, False)
+
         # Co-locate X and y partitions
         y_parts = self.client.sync(extract_ddf_partitions, self.y)
+
+
 
 
 

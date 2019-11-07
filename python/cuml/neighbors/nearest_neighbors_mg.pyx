@@ -116,7 +116,14 @@ class NearestNeighborsMG(NearestNeighbors):
         super(NearestNeighborsMG, self).__init__(**kwargs)
         self.batch_size = batch_size
 
-    def _build_dataFloat(self, arr_interfaces):
+    def _free_floatD(self, data):
+        cdef uintptr_t data_ptr = data
+        cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
+        for x_i in range(d.size()):
+            free(d.at(x_i))
+        free(d)
+
+    def _build_floatD(self, arr_interfaces):
         """
         Instantiate a container object for a float data pointer
         and size.
@@ -149,18 +156,15 @@ class NearestNeighborsMG(NearestNeighbors):
             = <vector[floatData_t *]*><size_t>index_vec
         cdef PartDescriptor *index_desc_c \
             = <PartDescriptor*><size_t>index_desc
-        for elm in range(index_vec_c.size()):
-            free(index_vec_c.at(elm))
-        free(index_vec_c)
+
+        self._free_floatD(<size_t>index_vec_c)
         free(index_desc_c)
 
         cdef vector[floatData_t *] *query_vec_c \
             = <vector[floatData_t *]*><size_t>query_vec
         cdef PartDescriptor *query_desc_c \
             = <PartDescriptor*><size_t>query_desc
-        for elm in range(query_vec_c.size()):
-            free(query_vec_c.at(elm))
-        free(query_vec_c)
+        self._free_floatD(<size_t>query_vec_c)
         free(query_desc_c)
 
         cdef vector[int64Data_t *] *out_i_vec_c \
@@ -190,13 +194,6 @@ class NearestNeighborsMG(NearestNeighbors):
         for elm in range(local_query_parts_c.size()):
             free(local_query_parts_c.at(elm))
         free(local_query_parts_c)
-
-    def _freeFloatD(self, data):
-        cdef uintptr_t data_ptr = data
-        cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
-        for x_i in range(d.size()):
-            free(d.at(x_i))
-        free(d)
 
     def kneighbors(self, indices, index_m, n, index_partsToRanks,
                    queries, query_m, query_partsToRanks,
@@ -260,16 +257,16 @@ class NearestNeighborsMG(NearestNeighbors):
         for rankSize in query_partsToRanks:
             rank, size = rankSize
             query = < RankSizePair*> malloc(sizeof(RankSizePair))
-            query.rank = < int > rank
-            query.size = < size_t > size
+            query.rank = <int> rank
+            query.size = <size_t> size
 
             query_vec.push_back(query)
 
         cdef vector[floatData_t*] *local_index_parts \
-            = <vector[floatData_t*]*><size_t>self._build_dataFloat(index_ints)
+            = <vector[floatData_t*]*><size_t>self._build_FloatD(index_ints)
 
         cdef vector[floatData_t*] *local_query_parts \
-            = <vector[floatData_t*]*><size_t>self._build_dataFloat(query_ints)
+            = <vector[floatData_t*]*><size_t>self._build_FloatD(query_ints)
 
         cdef PartDescriptor *index_descriptor \
             = new PartDescriptor(<size_t>index_m,

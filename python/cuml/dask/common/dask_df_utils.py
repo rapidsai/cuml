@@ -22,9 +22,76 @@ from collections import OrderedDict
 
 from dask.distributed import wait
 
+from functools import reduce
+
+
+def workers_to_parts(futures):
+    """
+    Builds an ordered dict mapping each worker to their list
+    of parts
+    :param futures: list of (worker, part) tuples
+    :return:
+    """
+    w_to_p_map = OrderedDict()
+    for w, p in futures:
+        if w not in futures:
+            w_to_p_map[w] = []
+        w_to_p_map[w].append(p)
+    return w_to_p_map
+
+
+def _func_get_size(df):
+    return df.shape[0]
+
+
+def parts_to_ranks(self, client, worker_info, part_futures):
+    """
+    Builds a list of (rank, size) tuples of partitions
+    :param worker_info: dict of {worker, {"r": rank }}. Note: \
+        This usually comes from the underlying communicator
+    :param part_futures: list of (worker, future) tuples
+    :return:
+    """
+    key = uuid1()
+    futures = [(worker_info[wf[0]]["r"],
+                self.client.submit(
+                    _func_get_size,
+                    wf[1],
+                    workers=[wf[0]],
+                    key="%s-%s" % (key, idx)))
+               for idx, wf in enumerate(part_futures)]
+
+    sizes = client.compute(list(map(lambda x: x[1], futures)), sync=True)
+
+    total = reduce(lambda a, b: a + b, sizes)
+
+    return list(map(lambda idx, x: (futures[idx][0], sizes[idx]))), total
+
+
+def _default_part_getter(f, idx): return f[idx]
+
+
+def flatten_grouped_results(client, parts_to_ranks,
+                            worker_results_map,
+                            getter_func=_default_part_getter):
+    futures = []
+    completed_part_map = {}
+    for rank, size in parts_to_ranks:
+        if rank not in completed_part_map:
+            completed_part_map[rank] = 0
+
+        f = worker_results_map[rank]
+
+        futures.append(client.submit(
+            getter_func, f, completed_part_map[rank]))
+
+        completed_part_map[rank] += 1
+
+    return futures
+
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None, agg=True):
+def extract_ddf_partitions(ddf, client=None):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
@@ -47,21 +114,10 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
         worker = first(workers)
         worker_map[key_to_part_dict[key]] = worker
 
-    if agg:
-        # Ensure that partitions in each list have the
-        # same order as the input 'parts' list
-        worker_to_parts = OrderedDict()
-        for part in parts:
-            worker = worker_map[part]
-            if worker not in worker_to_parts:
-                worker_to_parts[worker] = []
-            worker_to_parts[worker].append(part)
-
-    else:
-        worker_to_parts = []
-        for part in parts:
-            worker = worker_map[part]
-            worker_to_parts.append((worker, part))
+    worker_to_parts = []
+    for part in parts:
+        worker = worker_map[part]
+        worker_to_parts.append((worker, part))
 
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)
