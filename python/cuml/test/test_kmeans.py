@@ -25,13 +25,13 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
 
-dataset_names = ['blobs', 'noisy_circles'] + \
-                [pytest.param(ds, marks=pytest.mark.xfail)
-                 for ds in ['noisy_moons', 'varied', 'aniso']]
+dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']# + \
+                # [pytest.param(ds, marks=pytest.mark.xfail)
+                #  for ds in ['noisy_moons', 'varied', 'aniso']]
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20),
+@pytest.mark.parametrize('nrows', [unit_param(1000),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
@@ -70,12 +70,16 @@ def test_kmeans_sklearn_comparison(name, nrows):
             assert (calculation < 2e-3) and score_test
 
         else:
+            if name == 'aniso':
+                tol = 4e-3
+            else:
+                tol = 1e-4
             assert (clusters_equal(sk_y_pred, cu_y_pred,
-                    params['n_clusters'])) and score_test
+                    params['n_clusters'], tol=tol)) and score_test
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20),
+@pytest.mark.parametrize('nrows', [unit_param(1000),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison_default(name, nrows):
@@ -103,4 +107,4 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     kmeans = cluster.KMeans(random_state=12)
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
-    assert cu_score > sk_score
+    assert cu_score >= sk_score - 0.03
