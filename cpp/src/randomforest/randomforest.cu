@@ -332,14 +332,6 @@ std::vector<unsigned char> save_model(ModelHandle model, const char* filename) {
   return bytes_info;
 }
 
-void convert_bytes_to_tl_pointer(std::vector<unsigned char> data,
-                                 const char* filename,
-                                 ModelHandle* out_handle) {
-  std::ofstream file("filename", std::ios::binary);
-  file.write((char*)&data[0], data.size());
-  TREELITE_CHECK(TreeliteLoadProtobufModel(filename, out_handle));
-}
-
 /**
  * @defgroup Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
