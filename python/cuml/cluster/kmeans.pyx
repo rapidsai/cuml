@@ -328,7 +328,7 @@ class KMeans(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
