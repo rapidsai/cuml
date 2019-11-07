@@ -43,8 +43,8 @@ def _build_fil_classifier(m, data, arg={}):
     else:
         raise ImportError("No XGBoost package found")
 
-    # use maximum 1e6 rows to train the model
-    train_size = min(data[0].shape[0], 1000000)
+    # use maximum 1e5 rows to train the model
+    train_size = min(data[0].shape[0], 100000)
     dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
     params = {
         "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
@@ -79,8 +79,8 @@ def _build_treelite_classifier(m, data, arg={}):
     else:
         raise ImportError("No XGBoost package found")
 
-    # use maximum 1e6 rows to train the model
-    train_size = min(data[0].shape[0], 1000000)
+    # use maximum 1e5 rows to train the model
+    train_size = min(data[0].shape[0], 100000)
     dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
     params = {
         "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
