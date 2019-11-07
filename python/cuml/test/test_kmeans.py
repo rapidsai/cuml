@@ -108,3 +108,32 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
     assert cu_score >= sk_score - 0.03
+
+
+@pytest.mark.parametrize('n_rows', [unit_param(100),
+                                    stress_param(500000)])
+@pytest.mark.parametrize('n_clusters', [unit_param(10),
+                                        unit_param(100),
+                                        stress_param(1000)])
+@pytest.mark.parametrize('max_iter', [100, 500, 1000])
+@pytest.mark.parametrize('oversampling_factor', [0.5, 1.0, 1.5])
+@pytest.mark.parametrize('max_samples_per_batch', [1 << 15, 1 << 10, 1 << 5])
+@pytest.mark.parametrize('init', ['k-means||',
+                                  'random',
+                                  'preset'])
+def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
+                           oversampling_factor, max_samples_per_batch):
+
+    np.random.seed(0)
+    X = np.random.rand(1000, 10)
+
+    if init == 'preset':
+        init = np.random.rand(n_clusters, 10)
+
+    cuml_kmeans = cuml.KMeans(n_clusters=n_clusters,
+                              max_iter=max_iter,
+                              init=init,
+                              oversampling_factor=oversampling_factor,
+                              max_samples_per_batch=max_samples_per_batch)
+
+    cuml_kmeans.fit_predict(X)
