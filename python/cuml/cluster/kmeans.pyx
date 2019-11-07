@@ -315,15 +315,15 @@ class KMeans(Base):
         cdef uintptr_t input_ptr
 
         if self.init == 'preset':
-            check_rows = self.n_rows
+            check_cols = self.n_cols
             check_dtype = self.dtype
         else:
-            check_rows = False
+            check_cols = False
             check_dtype = [np.float32, np.float64]
 
         X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
-                               check_rows=check_rows,
+                               check_cols=check_cols,
                                check_dtype=check_dtype)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -379,12 +379,17 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
+        print(self.cluster_centers_)
         cc_df = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            n_c = self.n_clusters
-            n_cols = self.n_cols
-            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        cc_df = cc_df.from_gpu_matrix(
+                        self.cluster_centers_.reshape(self.n_clusters,
+                                                      self.n_cols))
         self.cluster_centers_ = cc_df
+        # for i in range(0, self.n_cols):
+        #     n_c = self.n_clusters
+        #     n_cols = self.n_cols
+        #     cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        # self.cluster_centers_ = cc_df
 
         del(X_m)
 
