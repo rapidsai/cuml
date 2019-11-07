@@ -15,7 +15,7 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures
+    raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 import cudf
 
@@ -335,8 +335,8 @@ class RandomForestClassifier:
         """
         c = default_client()
 
-        X_futures = c.sync(extract_ddf_partitions, X)
-        y_futures = c.sync(extract_ddf_partitions, y)
+        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
+        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
 
         X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]

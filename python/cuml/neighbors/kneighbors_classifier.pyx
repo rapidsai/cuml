@@ -111,9 +111,13 @@ class KNeighborsClassifier(NearestNeighbors):
         :param convert_dtype:
         :return:
         """
+        return self._predict(X, convert_dtype)
+
+    def _classify(self, X, convert_dtype=True, _knn_indices=None):
 
         knn_indices = self.kneighbors(X, return_distance=False,
-                                      convert_dtype=convert_dtype)
+                                      convert_dtype=convert_dtype) if \
+            _knn_indices is None else _knn_indices
 
         cdef uintptr_t inds_ctype
         inds, inds_ctype, n_rows, _, _ = \
@@ -169,9 +173,13 @@ class KNeighborsClassifier(NearestNeighbors):
         :param convert_dtype:
         :return:
         """
+        return self._predict_proba(X, convert_dtype)
+
+    def _predict_proba(self, X, convert_dtype=True, _knn_indices=None):
 
         knn_indices = self.kneighbors(X, return_distance=False,
-                                      convert_dtype=convert_dtype)
+                                      convert_dtype=convert_dtype) if \
+            _knn_indices is None else _knn_indices
 
         cdef uintptr_t inds_ctype
 
