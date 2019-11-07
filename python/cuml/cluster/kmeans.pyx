@@ -287,7 +287,7 @@ class KMeans(Base):
             self.init = 'preset'
             params.init = Array
             self.cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(X, order='C',
+                input_to_dev_array(init, order='C',
                                    check_dtype=[np.float32, np.float64])
 
         params.max_iter = <int>self.max_iter
