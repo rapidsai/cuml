@@ -25,9 +25,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
 
-dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']# + \
-                # [pytest.param(ds, marks=pytest.mark.xfail)
-                #  for ds in ['noisy_moons', 'varied', 'aniso']]
+dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 
 @pytest.mark.parametrize('name', dataset_names)
