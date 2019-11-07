@@ -314,8 +314,12 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
 
-        check_rows = self.n_rows if self.n_rows is not None else False
-        check_dtype = self.dtype if self.dtype is not None else False
+        if self.init == 'preset':
+            check_rows = self.n_rows
+            check_dtype = self.dtype
+        else:
+            check_rows = False
+            check_dtype = False
 
         X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
