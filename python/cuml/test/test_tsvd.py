@@ -14,7 +14,6 @@
 
 import numpy as np
 import pytest
-import scipy as sp
 
 from cuml import TruncatedSVD as cuTSVD
 from cuml.test.utils import get_handle
