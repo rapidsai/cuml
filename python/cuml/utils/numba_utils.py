@@ -16,10 +16,11 @@
 import numba
 import math
 
+import numpy as np
+import rmm
+
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
-import rmm
-import numpy as np
 
 
 def row_matrix(df):
@@ -183,3 +184,25 @@ def stride_from_order(shape, order, itemsize):
     if order == 'C':
         stride.reverse()
     return tuple(stride)
+
+
+# CuPy < 7.0 and numba >= 0.46 mitigation
+# Remove after making CuPy >= 7 required!
+
+
+class PatchedNumbaDeviceArray(object):
+    def __init__(self, numba_array):
+        self.parent = numba_array
+
+    def __getattr__(self, name):
+        if name == "parent":
+            raise AttributeError()
+
+        if name != '__cuda_array_interface__':
+            return getattr(self.parent, name)
+
+        else:
+            rtn = self.parent.__cuda_array_interface__
+            if rtn.get("strides") is None:
+                rtn.pop("strides")
+            return rtn
