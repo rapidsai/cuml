@@ -18,7 +18,6 @@ import pandas as pd
 from copy import deepcopy
 
 from numbers import Number
-from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
 from sklearn import datasets
@@ -27,7 +26,6 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-
 import pytest
 
 
@@ -91,6 +89,7 @@ def normalize_clusters(a0, b0, n_clusters):
 
     return a, b
 
+
 def to_nparray(x):
     if isinstance(x, Number):
         return np.array([x])
@@ -103,6 +102,7 @@ def to_nparray(x):
     elif isinstance(x, DeviceNDArray):
         return x.copy_to_host()
     return np.array(x)
+
 
 def clusters_equal(a0, b0, n_clusters):
     a, b = normalize_clusters(a0, b0, n_clusters)
