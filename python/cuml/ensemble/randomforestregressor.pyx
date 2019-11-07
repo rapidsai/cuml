@@ -59,6 +59,7 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         int n_bins
         int split_algo
         int min_rows_per_node
+        float min_impurity_decrease
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
@@ -155,6 +156,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int,
                                     int,
                                     int,
+                                    float,
                                     bool,
                                     bool,
                                     int,
@@ -172,7 +174,7 @@ class RandomForestRegressor(Base):
     trees in an ensemble.
     Note that the underlying algorithm for tree node splits differs from that
     used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithms to determine splits, rather than an exact
+    histogram-based algorithm to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
     **Known Limitations**: This is an initial release of the cuML
@@ -216,7 +218,7 @@ class RandomForestRegressor(Base):
     split_algo : int (default = 1)
                  0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
-                 HIST curently uses a slower tree-building algorithm
+                 HIST currently uses a slower tree-building algorithm
                  so GLOBAL_QUANTILE is recommended for most cases.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
@@ -257,17 +259,25 @@ class RandomForestRegressor(Base):
                         to split a node.
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
+    min_impurity_decrease : float (default = 0.0)
+                            The minimum decrease in impurity required
+                            for node to be split
     accuracy_metric : string (default = 'mse')
                       Decides the metric used to evaluate the performance
                       of the model.
                       for median of abs error : 'median_ae'
                       for mean of abs error : 'mean_ae'
                       for mean square error' : 'mse'
-    """
+    quantile_per_tree : boolean (default = False)
+                        Whether quantile is computed for individal trees in RF.
+                        Only relevant for GLOBAL_QUANTILE split_algo.
+
+   """
 
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
+                 'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
@@ -281,7 +291,7 @@ class RandomForestRegressor(Base):
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
-                 max_leaf_nodes=None, min_impurity_decrease=None,
+                 max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None, seed=-1):
@@ -290,7 +300,6 @@ class RandomForestRegressor(Base):
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_decrease": min_impurity_decrease,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
                           "random_state": random_state,
@@ -324,6 +333,7 @@ class RandomForestRegressor(Base):
             self.split_criterion = criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
+        self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
         self.max_leaves = max_leaves
@@ -458,6 +468,7 @@ class RandomForestRegressor(Base):
                                      <int> self.n_bins,
                                      <int> self.split_algo,
                                      <int> self.min_rows_per_node,
+                                     <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
