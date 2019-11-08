@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <utils.h>
 #include "cub/cub.cuh"

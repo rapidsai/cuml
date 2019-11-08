@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <linalg/cublas_wrappers.h>
 #include <random/make_blobs.h>
@@ -58,7 +59,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
     allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
     allocator->deallocate(colids, sizeof(int) * inparams.N, stream);
-    ///@todo: deallocate quantiles
+    allocator->deallocate(quantiles, sizeof(T) * inparams.nbins * inparams.N,
+                          stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -90,11 +92,15 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       inparams.N, &beta, tmp, inparams.M, data, inparams.M, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
     allocator->deallocate(tmp, sizeof(T) * inparams.M * inparams.N, stream);
-    rowids = (int*)allocator->allocate(sizeof(int) * inparams.M, stream);
+    rowids = (I*)allocator->allocate(sizeof(I) * inparams.M, stream);
     MLCommon::iota(rowids, 0, 1, inparams.M, stream);
-    colids = (int*)allocator->allocate(sizeof(int) * inparams.N, stream);
+    colids = (I*)allocator->allocate(sizeof(I) * inparams.N, stream);
     MLCommon::iota(colids, 0, 1, inparams.N, stream);
-    ///@todo: allocate and populate quantiles
+    quantiles =
+      (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
+    preprocess_quantile<T>((const T*)data, (const unsigned*)rowids, inparams.M,
+                           inparams.N, inparams.M, inparams.nbins, (T*)nullptr,
+                           quantiles, (T*)nullptr, allocator, stream);
   }
 };  // class DtBaseTest
 
