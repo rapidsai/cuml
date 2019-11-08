@@ -21,7 +21,6 @@ build:
   script_env:
     - CC
     - CXX
-    - BUILD_ABI
     - VERSION_SUFFIX
 
 requirements:
@@ -39,6 +38,7 @@ requirements:
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
+    - cupy>=6.5,<7.0
     - nccl 2.4.*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
