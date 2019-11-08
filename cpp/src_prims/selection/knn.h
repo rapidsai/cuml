@@ -74,14 +74,6 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
   int64_t translation = 0;
 
-  if (i < total_k) {
-    printf(
-      "row=%d, i=%d, part=%d, row_idx=%ld, col=%d, inVStart=%ld, "
-      "translation=%ld, limit=%d\n",
-      row, i, part, row_idx, col, (*inVStart) + translation, translation,
-      limit);
-  }
-
   for (; i < limit; i += ThreadsPerBlock) {
     translation = translations[part];
     heap.add(*inKStart, (*inVStart) + translation);
@@ -122,9 +114,6 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
     auto kInit = dir ? faiss::gpu::Limits<float>::getMin()                   \
                      : faiss::gpu::Limits<float>::getMax();                  \
     auto vInit = -1;                                                         \
-                                                                             \
-    std::cout << "Running block select pair" << std::endl;                   \
-                                                                             \
     blockSelectPairKernel<DIR, WARP_Q, THREAD_Q, kBlockSelectNumThreads>     \
       <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts, \
                                    kInit, vInit, k, translations);           \
