@@ -379,7 +379,6 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-        print(self.cluster_centers_)
         cc_df = cudf.DataFrame()
         cc_df = cc_df.from_gpu_matrix(
             self.cluster_centers_.reshape(self.n_clusters,
