@@ -78,20 +78,12 @@ template <
 void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream)
-{
-  fprintf(stderr, "BaseGemm_finop+op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
+          OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
                                                A, lda, B, ldb, beta, C, ldc, D,
                                                op, fin_op, stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
 /**
@@ -132,13 +124,7 @@ template <
 void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, cudaStream_t stream)
-{
-  fprintf(stderr, "BaseGemm_noop[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
+          OType *D, cudaStream_t stream) {
   typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
                            AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
@@ -148,8 +134,6 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     [](typename EpilogueFunctor_::Params &p) { return 0; },
     0,  // missing final lambda here
     stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
 /**
