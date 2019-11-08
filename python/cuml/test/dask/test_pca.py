@@ -24,8 +24,8 @@ import numpy as np
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [6e5])
 @pytest.mark.parametrize("ncols", [20])
-@pytest.mark.parametrize("n_parts", [84])
-def test_pca(nrows, ncols, n_parts, client=None):
+@pytest.mark.parametrize("n_parts", [67])
+def test_pca_fit(nrows, ncols, n_parts, client=None):
 
     owns_cluster = False
     if client is None:
@@ -39,23 +39,28 @@ def test_pca(nrows, ncols, n_parts, client=None):
     from cuml.dask.datasets import make_blobs
 
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=0.5, verbose=True,
+                           cluster_std=0.5, verbose=False,
                            random_state=10, dtype=np.float32)
 
     wait(X_cudf)
     
     X = X_cudf.compute().to_pandas().values
 
-    cupca = daskPCA(n_components=10, whiten=True)
-    cupca.fit(X_cudf)
+    cupca = daskPCA(n_components=5, whiten=True)
+    XT_cudf = cupca.fit_transform(X_cudf)
+    cuXT = XT_cudf.compute().to_pandas().values
 
-    skpca = PCA(n_components=10, whiten=True)    
-    skpca.fit(X)
+    skpca = PCA(n_components=5, whiten=True, svd_solver="full")    
+    sklXT = skpca.fit_transform(X)
     
     from cuml.test.utils import array_equal
 
     all_attr = ['singular_values_', 'components_', 'explained_variance_',
                      'explained_variance_ratio_']
+
+    if owns_cluster:
+        client.close()
+        cluster.close()
             
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
@@ -63,8 +68,5 @@ def test_pca(nrows, ncols, n_parts, client=None):
         if type(cuml_res) == np.ndarray:
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
