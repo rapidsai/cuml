@@ -287,14 +287,12 @@ void get_best_split_classification(
 }
 
 template <typename T>
-void leaf_eval_classification(float *gain, int curr_depth, const int max_depth,
-                              const int n_unique_labels, const int max_leaves,
-                              unsigned int *new_node_flags,
-                              std::vector<SparseTreeNode<T, int>> &sparsetree,
-                              const int sparsesize, unsigned int *sparse_hist,
-                              int &n_nodes_next,
-                              std::vector<int> &sparse_nodelist,
-                              int &tree_leaf_cnt) {
+void leaf_eval_classification(
+  float *gain, int curr_depth, const float min_impurity_decrease,
+  const int max_depth, const int n_unique_labels, const int max_leaves,
+  unsigned int *new_node_flags, std::vector<SparseTreeNode<T, int>> &sparsetree,
+  const int sparsesize, unsigned int *sparse_hist, int &n_nodes_next,
+  std::vector<int> &sparse_nodelist, int &tree_leaf_cnt) {
   std::vector<int> tmp_sparse_nodelist(sparse_nodelist);
   sparse_nodelist.clear();
 
@@ -307,7 +305,7 @@ void leaf_eval_classification(float *gain, int curr_depth, const int max_depth,
     unsigned int node_flag;
     int sparse_nodeid = tmp_sparse_nodelist[i];
     unsigned int *nodehist = &sparse_hist[sparse_nodeid * n_unique_labels];
-    bool condition = condition_global || (gain[i] == 0.0);
+    bool condition = condition_global || (gain[i] <= min_impurity_decrease);
     if (condition) {
       node_flag = 0xFFFFFFFF;
       sparsetree[sparsesize + sparse_nodeid].colid = -1;

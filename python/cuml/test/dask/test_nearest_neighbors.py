@@ -45,8 +45,8 @@ def test_end_to_end(cluster):
 
         def create_df(f, m, n):
             X = np.random.uniform(-1, 1, (m, n))
-            ret = cudf.DataFrame([(i,
-                                   X[:, i].astype(np.float32))
+            ret = cudf.DataFrame([[i,
+                                   X[:, i].astype(np.float32)]
                                   for i in range(n)],
                                  index=RangeIndex(f * m,
                                                   f * m + m, 1))

@@ -18,13 +18,14 @@ import pandas as pd
 from copy import deepcopy
 
 from numbers import Number
-from numba import cuda
-from sklearn import datasets
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
+
+from sklearn import datasets
+from sklearn.datasets import make_classification, make_regression
+from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-
 import pytest
 
 
@@ -35,20 +36,6 @@ def array_equal(a, b, tol=1e-4, with_sign=True):
         a, b = np.abs(a), np.abs(b)
     res = np.max(np.abs(a-b)) < tol
     return res
-
-
-def to_nparray(x):
-    if isinstance(x, Number):
-        return np.array([x])
-    elif isinstance(x, pd.DataFrame):
-        return x.values
-    elif isinstance(x, cudf.DataFrame):
-        return x.to_pandas().values
-    elif isinstance(x, cudf.Series):
-        return x.to_pandas().values
-    elif isinstance(x, DeviceNDArray):
-        return x.copy_to_host()
-    return np.array(x)
 
 
 def get_pattern(name, n_samples):
@@ -89,29 +76,6 @@ def get_pattern(name, n_samples):
     return [data, params]
 
 
-def np_to_cudf(X):
-    df = cudf.DataFrame()
-    for i in range(X.shape[1]):
-        df['fea%d' % i] = cuda.to_device(np.ascontiguousarray(X[:, i]))
-    return df
-
-
-def fit_predict(algorithm, name, X):
-    if name.startswith('sk'):
-        algorithm.fit(X)
-        if hasattr(algorithm, 'labels_'):
-            y_pred = algorithm.labels_.astype(np.int)
-        else:
-            y_pred = algorithm.predict(X)
-    else:
-        df = np_to_cudf(X)
-        algorithm.fit(df)
-        y_pred = algorithm.labels_.to_pandas().values.astype(np.int)
-
-    n_clusters = len(set(y_pred)) - (1 if -1 in y_pred else 0)
-    return y_pred, n_clusters
-
-
 def normalize_clusters(a0, b0, n_clusters):
     a = to_nparray(a0)
     b = to_nparray(b0)
@@ -126,6 +90,20 @@ def normalize_clusters(a0, b0, n_clusters):
     return a, b
 
 
+def to_nparray(x):
+    if isinstance(x, Number):
+        return np.array([x])
+    elif isinstance(x, pd.DataFrame):
+        return x.values
+    elif isinstance(x, cudf.DataFrame):
+        return x.to_pandas().values
+    elif isinstance(x, cudf.Series):
+        return x.to_pandas().values
+    elif isinstance(x, DeviceNDArray):
+        return x.copy_to_host()
+    return np.array(x)
+
+
 def clusters_equal(a0, b0, n_clusters):
     a, b = normalize_clusters(a0, b0, n_clusters)
     return array_equal(a, b)
@@ -138,6 +116,29 @@ def get_handle(use_handle, n_streams=0):
     s = cuml.cuda.Stream()
     h.setStream(s)
     return h, s
+
+
+def small_regression_dataset(datatype):
+    X, y = make_regression(n_samples=500, n_features=20,
+                           n_informative=10, random_state=10)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    return X_train, X_test, y_train, y_test
+
+
+def small_classification_dataset(datatype):
+    X, y = make_classification(n_samples=500, n_features=20,
+                               n_informative=10, n_classes=2,
+                               random_state=10)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    return X_train, X_test, y_train, y_test
 
 
 def unit_param(*args, **kwargs):
