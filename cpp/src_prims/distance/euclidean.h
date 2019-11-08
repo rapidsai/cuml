@@ -163,7 +163,12 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
                GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-    (EffOutType)0, nullptr, ldd, pDCast, stream);
+    (EffOutType)0, nullptr, ldd, pDCast,
+    [](typename EpilogueFunctor_::Params &p) -> int {
+      return 0;
+    },
+    0,  // missing final lambda here
+    stream);
 }
 
 // #if CUDART_VERSION >= 10010
