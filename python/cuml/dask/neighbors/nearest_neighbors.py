@@ -151,8 +151,6 @@ class NearestNeighbors(object):
         Invoke kneighbors on Dask workers to perform distributed query
         """
 
-        print("index_worker_to_parts: " + str(index_worker_to_parts))
-
         key = uuid1()
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
