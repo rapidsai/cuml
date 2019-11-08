@@ -27,6 +27,7 @@
 - PR #1340: Updated unit tests to uses larger dataset
 
 ## Bug Fixes
+- PR #1281: Making rng.h threadsafe
 - PR #1212: Fix cmake git cloning always running configure in subprojects
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
