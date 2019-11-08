@@ -164,10 +164,10 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
-    [enable_sqrt] (typename EpilogueFunctor_::Params &p) {
-      return p.initializeExtra(nullptr, nullptr, enable_sqrt);
+    [] __host__ __device__ (typename EpilogueFunctor_::Params &p) {
+      return 0;
     },
-    fin_op,
+    fin_op,  // missing final lambda here
     stream);
 }
 
