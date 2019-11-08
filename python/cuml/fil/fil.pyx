@@ -438,7 +438,8 @@ class ForestInference(Base):
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
-                model.handle.value, output_class, algo, threshold, storage_type)
+                model.handle.value, output_class, algo, threshold,
+                storage_type)
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -453,7 +454,7 @@ class ForestInference(Base):
             tl_model, algo=algo, output_class=output_class,
             storage_type=storage_type, threshold=threshold)
         return cuml_fm
-    
+
     @staticmethod
     def load(filename,
              output_class=False,
