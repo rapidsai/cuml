@@ -359,53 +359,53 @@ static __global__ void _batched_fill_kernel(double* out, const double* in,
   }
 }
 
-static double _ar_bic(cumlHandle& handle, double* d_y, int num_batches,
-                      int nobs, int p_lags) {
-  const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
-  const auto& handle_impl = handle.getImpl();
-  auto stream = handle_impl.getStream();
-  auto cublas_handle = handle_impl.getCublasHandle();
-  auto allocator = handle_impl.getDeviceAllocator();
+// static double _ar_bic(cumlHandle& handle, double* d_y, int num_batches,
+//                       int nobs, int p_lags) {
+//   const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
+//   const auto& handle_impl = handle.getImpl();
+//   auto stream = handle_impl.getStream();
+//   auto cublas_handle = handle_impl.getCublasHandle();
+//   auto allocator = handle_impl.getDeviceAllocator();
 
-  // Create lagged series set
-  int ls_height = nobs - p_lags;
-  MLCommon::Matrix::BatchedMatrix<double> bm_ls(
-    ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
-  _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
-    bm_ls.raw_data(), d_y, p_lags, ls_height, 0, nobs, 0, p_lags * ls_height);
-  CUDA_CHECK(cudaPeekAtLastError());
+//   // Create lagged series set
+//   int ls_height = nobs - p_lags;
+//   MLCommon::Matrix::BatchedMatrix<double> bm_ls(
+//     ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
+//   _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
+//     bm_ls.raw_data(), d_y, p_lags, ls_height, 0, nobs, 0, p_lags * ls_height);
+//   CUDA_CHECK(cudaPeekAtLastError());
 
-  // Init AR fit (note: larger dimensions because gels works in-place)
-  MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
-    ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
-  batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-    bm_ar_fit.raw_data(), d_y, p_lags, nobs, ls_height);
+//   // Init AR fit (note: larger dimensions because gels works in-place)
+//   MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
+//     ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
+//   batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+//     bm_ar_fit.raw_data(), d_y, p_lags, nobs, ls_height);
 
-  // Note: this overwrites bm_ls
-  int ar_fit_info;
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
-    cublas_handle, CUBLAS_OP_N, ls_height, p_lags, 1, bm_ls.data(), ls_height,
-    bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr, num_batches));
+//   // Note: this overwrites bm_ls
+//   int ar_fit_info;
+//   CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
+//     cublas_handle, CUBLAS_OP_N, ls_height, p_lags, 1, bm_ls.data(), ls_height,
+//     bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr, num_batches));
 
-  // Copy AR fit in matrix of the right shape
-  MLCommon::Matrix::BatchedMatrix<double> bm_ar(
-    p_lags, 1, num_batches, cublas_handle, allocator, stream, false);
-  batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-    bm_ar.raw_data(), bm_ar_fit.raw_data(), 0, ls_height, p_lags);
+//   // Copy AR fit in matrix of the right shape
+//   MLCommon::Matrix::BatchedMatrix<double> bm_ar(
+//     p_lags, 1, num_batches, cublas_handle, allocator, stream, false);
+//   batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+//     bm_ar.raw_data(), bm_ar_fit.raw_data(), 0, ls_height, p_lags);
 
-  // TODO: offset y?
-  std::vector<double> all_bic = std::vector<double>(num_batches);
-  bic(handle, d_y, num_batches, nobs, p_lags, 0, 0, nullptr, bm_ar.raw_data(),
-      nullptr, all_bic);
+//   // TODO: offset y?
+//   std::vector<double> all_bic = std::vector<double>(num_batches);
+//   bic(handle, d_y, num_batches, nobs, p_lags, 0, 0, nullptr, bm_ar.raw_data(),
+//       nullptr, all_bic);
 
-  // Aggregate results ; TODO: change aggregation method?
-  double sum_bic = 0.0;
-#pragma omp parallel for reduction(+ : sum_bic)
-  for (int ib = 0; ib < num_batches; ib++) {
-    sum_bic += all_bic[ib];
-  }
-  return sum_bic / static_cast<double>(num_batches);
-}
+//   // Aggregate results ; TODO: change aggregation method?
+//   double sum_bic = 0.0;
+// #pragma omp parallel for reduction(+ : sum_bic)
+//   for (int ib = 0; ib < num_batches; ib++) {
+//     sum_bic += all_bic[ib];
+//   }
+//   return sum_bic / static_cast<double>(num_batches);
+// }
 
 /**
  * TODO: quick doc (internal auxiliary function)
@@ -416,7 +416,7 @@ static double _ar_bic(cumlHandle& handle, double* d_y, int num_batches,
  */
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma, double* d_y, int num_batches, int nobs,
-                          int p, int d, int q, int p_lags = -1) {
+                          int p, int d, int q) {
   const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
 
   const auto& handle_impl = handle.getImpl();
@@ -441,32 +441,28 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
   if (p == 0 && q == 0) {
     return;
   } else if (p != 0) {
-    /* Select the number of lags for the initial AR fit */
-    if (p_lags == -1) {
-      int maxlags = std::min(
-        static_cast<int>(
-          std::round(12.0 * std::pow(static_cast<double>(nobs) / 100.0, 0.25))),
-        p);
-      /* statsmodels uses BIC to pick the best p for its AR fit
-       * Requires to fit AR from 1 to maxlags (usually around 10)
-       * This is quite expensive... TODO: keep or remove? */
-      float best_bic;
-      /* Note: maxlags is greater than 1 */
-      for (int lag = 1; lag <= maxlags; lag++) {
-        float current_bic = _ar_bic(handle, d_y, num_batches, nobs, lag);
-        if (lag == 1 || current_bic < best_bic) {
-          best_bic = current_bic;
-          p_lags = lag;
-        }
-      }
-    } else if (p_lags > p) {
-      p_lags = p;
-    }
-    // if (p_lags >= nobs / 2) {
-    //   p_lags = (nobs - 1) / 2;
+    /* Note: clever code always gives bad values when p_lags < p... */
+    /* TODO: simplify the code if we decide to go with p_lags = p */
+    int p_lags = p;
+    // if (p_lags == -1) {
+    //   int maxlags = std::min(
+    //     static_cast<int>(
+    //       std::round(12.0 * std::pow(static_cast<double>(nobs) / 100.0, 0.25))),
+    //     p);
+    //   /* statsmodels uses BIC to pick the best p for its AR fit
+    //    * Requires to fit AR from 1 to maxlags (usually around 10) */
+    //   float best_bic;
+    //   /* Note: maxlags is greater than 1 */
+    //   for (int lag = 1; lag <= maxlags; lag++) {
+    //     float current_bic = _ar_bic(handle, d_y, num_batches, nobs, lag);
+    //     if (lag == 1 || current_bic < best_bic) {
+    //       best_bic = current_bic;
+    //       p_lags = lag;
+    //     }
+    //   }
     // }
 
-    // Create lagged series set
+    // Create lagged y
     int ls_height = nobs - p_lags;
     MLCommon::Matrix::BatchedMatrix<double> bm_ls(
       ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
@@ -495,32 +491,28 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
     MLCommon::copy(bm_ls_copy.raw_data(), bm_ls.raw_data(),
                    ls_height * p_lags * num_batches, stream);
 
-    // Note: this overwrites bm_ls
     int ar_fit_info;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
       cublas_handle, CUBLAS_OP_N, ls_height, p_lags, 1, bm_ls_copy.data(),
       ls_height, bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr,
       num_batches));
-    ///@todo raise exception if info < 0? (need to sync stream)
 
     if (q == 0) {
-      // Note: works only for p_lags == 1 ; what to do here when p_lags > 1?
-      // Fill AR parameters with ar_fit
-      // TODO: matrix-vector op?
-      _batched_fill_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ar, bm_ar_fit.raw_data(), p, ls_height);
+      // Note: if q == 0, we must always choose p_lags == p!
+      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
+        d_ar, bm_ar_fit.raw_data(), 0, ls_height, p);
       CUDA_CHECK(cudaPeekAtLastError());
     } else {
       // Compute residual (technically a gemv but we're missing a col-major
       // batched gemv if I'm correct)
+      // TODO: we don't always need all the terms of the residual, see if
+      // easy to compute only what's needed
       double alpha = -1.0;
       double beta = 1.0;
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmBatched(
         cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, ls_height, 1, p_lags, &alpha,
         bm_ls.data(), ls_height, bm_ar_fit.data(), ls_height, &beta,
         bm_residual.data(), ls_height, num_batches, stream));
-
-      int p_diff = p - p_lags;
 
       // Create matrices made of the concatenation of lagged sets for ar terms
       // and the residual respectively, side by side
@@ -556,7 +548,6 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
         cublas_handle, CUBLAS_OP_N, ls_ar_res_height, p + q, 1,
         bm_ls_ar_res.data(), ls_ar_res_height, bm_arma_fit.data(),
         ls_ar_res_height, &arma_fit_info, nullptr, num_batches));
-      ///@todo raise exception if info < 0? (need to sync stream)
 
       batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
         d_ar, bm_arma_fit.raw_data(), 0, ls_ar_res_height, p);
@@ -597,7 +588,7 @@ static __global__ void _batched_diff_kernel(const double* in, double* out,
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
-                 int q, int start_ar_lags) {
+                 int q) {
   auto stream = handle.getStream();
   auto allocator = handle.getDeviceAllocator();
 
@@ -618,7 +609,7 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
 
   // Do the computation of the initial parameters
   _start_params(handle, d_mu, d_ar, d_ma, d_yd, num_batches, actual_nobs, p, d,
-                q, start_ar_lags);
+                q);
 
   allocator->deallocate(d_yd, sizeof(double) * actual_nobs * num_batches,
                         stream);
