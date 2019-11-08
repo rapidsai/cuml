@@ -20,7 +20,7 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.utils.import_utils import has_xgboost, has_lightgbm
+from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier
@@ -133,6 +133,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 @pytest.mark.parametrize('n_columns', [unit_param(20)])
 @pytest.mark.parametrize('n_estimators', [unit_param(10)])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, storage_type):
     # settings
     classification = True  # change this to false to use regression
