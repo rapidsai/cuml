@@ -79,7 +79,7 @@ def test_return_dists():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
                          stress_param(1000)])
@@ -139,9 +139,9 @@ def test_knn_fit_twice():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
     X, y = make_blobs(n_samples=nrows,

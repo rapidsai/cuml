@@ -78,7 +78,7 @@ def _build_and_save_xgboost(model_path,
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
                                     quality_param(10000),
                                     stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(11),
+@pytest.mark.parametrize('n_columns', [unit_param(20),
                                        quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(1),
@@ -131,7 +131,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(11), quality_param(100),
+@pytest.mark.parametrize('n_columns', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(5), quality_param(10),
                          stress_param(90)])
@@ -181,7 +181,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
 @pytest.fixture(scope="session")
 def small_classifier_and_preds(tmpdir_factory):
-    X, y = simulate_data(100, 10,
+    X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
 
@@ -195,12 +195,30 @@ def small_classifier_and_preds(tmpdir_factory):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('algo', ['NAIVE', 'TREE_REORG', 'BATCH_TREE_REORG'])
+@pytest.mark.parametrize('algo', ['NAIVE', 'TREE_REORG', 'BATCH_TREE_REORG',
+                                  'naive', 'tree_reorg', 'batch_tree_reorg'])
 def test_output_algos(algo, small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
                               algo=algo,
                               output_class=True,
+                              threshold=0.50)
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.asarray(fm.predict(X))
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('storage_type',
+                         ['AUTO', 'DENSE', 'SPARSE', 'auto', 'dense',
+                          'sparse'])
+def test_output_storage_type(storage_type, small_classifier_and_preds):
+    model_path, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              algo='NAIVE',
+                              output_class=True,
+                              storage_type=storage_type,
                               threshold=0.50)
 
     xgb_preds_int = np.around(xgb_preds)
@@ -238,7 +256,7 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path):
     import lightgbm as lgb
-    X, y = simulate_data(100, 10,
+    X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
