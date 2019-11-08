@@ -214,10 +214,10 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     id_ranges = translations;
   }
 
+  std::cout << "n_int_streams: " << n_int_streams << std::endl;
+
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
-
-  CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
@@ -274,22 +274,19 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-/*  if (n_params > 1) {*/
-    runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
-                       false, k, userStream, trans.data());
-//  } else {
-//    copy(res_D, all_D.data(), n * k, userStream);
-//    copy(res_I, all_I.data(), n * k, userStream);
-//  }
+  /*  if (n_params > 1) {*/
+  runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
+                     false, k, userStream, trans.data());
+  //  } else {
+  //    copy(res_D, all_D.data(), n * k, userStream);
+  //    copy(res_I, all_I.data(), n * k, userStream);
+  //  }
 
   MLCommon::LinAlg::unaryOp<float>(
-    res_D, res_D, n * k,
-    [] __device__(float input) { return sqrt(input); },
+    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
     userStream);
 
-
   if (translations == nullptr) delete id_ranges;
-
 };
 
 /**
