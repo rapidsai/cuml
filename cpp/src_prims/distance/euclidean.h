@@ -154,7 +154,7 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_n = n;
   }
 
-    fprintf(stderr, "Lambda+op[%d]%s\n", __LINE__, __FILE__);
+  fprintf(stderr, "Lambda+op[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);

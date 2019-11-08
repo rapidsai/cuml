@@ -75,7 +75,7 @@ template <
 
   typename MainLoopFunctor_,
 
-  typename Index_ ,
+  typename Index_,
 
   typename GemmConfig_,
 

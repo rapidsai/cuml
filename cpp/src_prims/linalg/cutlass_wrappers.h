@@ -569,7 +569,7 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
                   IType const* B, Index_ ldb, OType beta, OType const* C,
                   Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
   
-  /*
+  
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
                            OutputTile_, AccumulatorsPerThread_,
                            MainLoopFunctor_, Index_, GemmConfig_,
@@ -605,7 +605,7 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  */
+  
 }
 /** @} */
 
@@ -718,27 +718,19 @@ void baseGemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 }
 
 template <
-  typename IType,
-  typename AccType,
-  typename OType,
-  typename OutputTile_,
-  typename AccumulatorsPerThread_,
-
-  typename MainLoopFunctor_,
-
-  typename Index_,
-
-  typename GemmConfig_,
-
-  typename EpilogueFunctor_,
-
-  typename GemmEpilogueTraits_,
-
-  typename GemmEpilogue_,
-
-  typename Lambda,
-  typename FinalLambda
->
+  typename IType, typename AccType, typename OType, typename OutputTile_,
+  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
+  typename GemmConfig_ =
+    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+                     MainLoopFunctor_>,
+  typename EpilogueFunctor_ = LinearScaling<OType>,
+  typename GemmEpilogueTraits_ =
+    CustomGemmEpilogueTraits<GemmConfig_, EpilogueFunctor_, Index_>,
+  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+  typename Lambda, typename FinalLambda>
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
@@ -750,39 +742,39 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
 
-  // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
-  //                cutlass::MatrixLayout::kColumnMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     fin_op, stream);
-  // } else if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_T) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
-  //                cutlass::MatrixLayout::kRowMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     fin_op, stream);
-  // } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_N) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
-  //                cutlass::MatrixLayout::kColumnMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     fin_op, stream);
-  // } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_T) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
-  //                cutlass::MatrixLayout::kRowMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     fin_op, stream);
-  // } else {
-  //   ASSERT(false, "runGemm: Bad cublasOperation_t a=%d b=%d\n", (int)transA,
-  //          (int)transB);
-  // }
-  // CUDA_CHECK(cudaPeekAtLastError());
+  if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
+                 cutlass::MatrixLayout::kColumnMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      fin_op, stream);
+  } else if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_T) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
+                 cutlass::MatrixLayout::kRowMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      fin_op, stream);
+  } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_N) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
+                 cutlass::MatrixLayout::kColumnMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      fin_op, stream);
+  } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_T) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
+                 cutlass::MatrixLayout::kRowMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      fin_op, stream);
+  } else {
+    ASSERT(false, "runGemm: Bad cublasOperation_t a=%d b=%d\n", (int)transA,
+           (int)transB);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
@@ -791,24 +783,19 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 }
 
 template <
-  typename IType,
-  typename AccType,
-  typename OType,
-  typename OutputTile_,
-  typename AccumulatorsPerThread_,
-  typename MainLoopFunctor_,
-
-  typename Index_,
-  typename GemmConfig_,
-
-  typename EpilogueFunctor_,
-
-  typename GemmEpilogueTraits_,
-
-  typename GemmEpilogue_,
-
-  typename Lambda
->
+  typename IType, typename AccType, typename OType, typename OutputTile_,
+  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
+  typename GemmConfig_ =
+    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+                     MainLoopFunctor_>,
+  typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
+  typename GemmEpilogueTraits_ =
+    CustomGemmEpilogueTraits<GemmConfig_, EpilogueFunctor_, Index_>,
+  typename GemmEpilogue_ = cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
+  typename Lambda>
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
@@ -819,40 +806,40 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
   fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
   fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
 
-  // if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
-  //                cutlass::MatrixLayout::kColumnMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     stream);
-  // } else if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_T) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
-  //                cutlass::MatrixLayout::kRowMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     stream);
-  // } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_N) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
-  //                cutlass::MatrixLayout::kColumnMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     stream);
-  // } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_T) {
-  //   gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
-  //                cutlass::MatrixLayout::kRowMajor, OutputTile_,
-  //                AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-  //                EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-  //     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
-  //     stream);
-  // } else {
-  //   ASSERT(false, "runGemm: Bad cublasOperation_t a=%d b=%d\n", (int)transA,
-  //          (int)transB);
-  // }
-  // CUDA_CHECK(cudaPeekAtLastError());
-  // fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
+  if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
+                 cutlass::MatrixLayout::kColumnMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      stream);
+  } else if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_T) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
+                 cutlass::MatrixLayout::kRowMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      stream);
+  } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_N) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
+                 cutlass::MatrixLayout::kColumnMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      stream);
+  } else if (transA == CUBLAS_OP_T && transB == CUBLAS_OP_T) {
+    gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kRowMajor,
+                 cutlass::MatrixLayout::kRowMajor, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op,
+      stream);
+  } else {
+    ASSERT(false, "runGemm: Bad cublasOperation_t a=%d b=%d\n", (int)transA,
+           (int)transB);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
+  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 /** @} */
 
