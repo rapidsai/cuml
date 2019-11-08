@@ -69,7 +69,7 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup QR decomposition, return the Q matrix
+ * @defgroup QR decomposition, return the Q and R matrices
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param R: R matrix to be returned (on GPU)
