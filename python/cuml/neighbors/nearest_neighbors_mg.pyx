@@ -49,7 +49,6 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
 import rmm
 
 
