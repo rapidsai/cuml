@@ -37,11 +37,14 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
     elements are different.
 
     """
+
+    if len(a) == 0 and len(b) == 0:
+        return True
+
     a = to_nparray(a)
     b = to_nparray(b)
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    print((np.sum(np.abs(a-b) > unit_tol)) / len(a))
     res = (np.sum(np.abs(a-b) > unit_tol)) / len(a) < total_tol
     return res
 
