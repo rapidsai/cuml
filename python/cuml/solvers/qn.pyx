@@ -278,12 +278,12 @@ class QN(Base):
         self.num_classes = len(checked_cupy_unique(y_m)) - 1
 
 
-        loss_type = self._get_loss_int(self.loss)
-        if loss_type != 2 and self.num_classes > 2:
+        self.loss_type = self._get_loss_int(self.loss)
+        if self.loss_type != 2 and self.num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
-        if loss_type == 2 and self.num_classes <= 2:
+        if self.loss_type == 2 and self.num_classes <= 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
