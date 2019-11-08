@@ -135,10 +135,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     if comms_p2p:
         if verbose:
             print("Initializing UCX Endpoints")
+
+        start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
+        end = time.time() - start
 
         if verbose:
-            print("Done initializing UCX endpoints")
+            print("Done initializing UCX endpoints. Took: %f seconds." % end)
 
         if verbose:
             print("Building handle")
@@ -462,6 +465,9 @@ class CommsContext:
         self.nccl_initialized = True
 
         self.block_for_init("handle")
+
+        if self.verbose:
+            print("Initialization complete.")
 
     def destroy(self):
         """

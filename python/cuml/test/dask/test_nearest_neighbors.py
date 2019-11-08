@@ -80,7 +80,6 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
-                          cluster_std=0.01,
                           centers=nclusters)
 
         X = X.astype(np.float32)
@@ -89,7 +88,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
@@ -214,7 +213,7 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=0, streams_per_handle=5)
+        cumlModel = daskNN(verbose=1, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
