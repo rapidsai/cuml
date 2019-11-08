@@ -29,7 +29,7 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(1000),
+@pytest.mark.parametrize('nrows', [unit_param(500),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
@@ -69,7 +69,9 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
         else:
             if name == 'aniso':
-                tol = 4e-3
+                # aniso dataset border points tend to differ in the frontier
+                # between clusters when compared to sklearn
+                tol = 2e-2
             else:
                 tol = 1e-4
             assert (clusters_equal(sk_y_pred, cu_y_pred,
@@ -77,7 +79,7 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(1000),
+@pytest.mark.parametrize('nrows', [unit_param(500),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison_default(name, nrows):
