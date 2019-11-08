@@ -228,7 +228,6 @@ class UMAP(Base):
                  target_n_neighbors=-1,
                  target_weights=0.5,
                  target_metric="categorical",
-                 should_downcast=True,
                  handle=None,
                  callback=None):
 
@@ -372,12 +371,6 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         """
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -485,12 +478,6 @@ class UMAP(Base):
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
-
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
 
         cdef uintptr_t x_ptr
         X_m, x_ptr, n_rows, n_cols, dtype = \
