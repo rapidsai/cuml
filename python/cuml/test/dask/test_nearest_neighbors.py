@@ -85,7 +85,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, n_neighbors, cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors)
+        cumlModel = daskNN(verbose=1, n_neighbors=n_neighbors)
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)

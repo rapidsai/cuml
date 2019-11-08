@@ -117,7 +117,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.batch_size = batch_size
 
     def _free_floatD(self, data):
-        cdef uintptr_t data_ptr = data
+        cdef uintptr_t data_ptr = <size_t>data
         cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
         for x_i in range(d.size()):
             free(d.at(x_i))
@@ -263,10 +263,10 @@ class NearestNeighborsMG(NearestNeighbors):
             query_vec.push_back(query)
 
         cdef vector[floatData_t*] *local_index_parts \
-            = <vector[floatData_t*]*><size_t>self._build_FloatD(index_ints)
+            = <vector[floatData_t*]*><size_t>self._build_floatD(index_ints)
 
         cdef vector[floatData_t*] *local_query_parts \
-            = <vector[floatData_t*]*><size_t>self._build_FloatD(query_ints)
+            = <vector[floatData_t*]*><size_t>self._build_floatD(query_ints)
 
         cdef PartDescriptor *index_descriptor \
             = new PartDescriptor(<size_t>index_m,

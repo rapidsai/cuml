@@ -108,7 +108,7 @@ template <bool Dir, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
 __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
                                       int64_t *outV, size_t n_samples,
                                       int n_parts, float initK, int64_t initV,
-                                      int k) {
+                                      int k, int64_t *translations) {
   constexpr int kNumWarps = ThreadsPerBlock / faiss::gpu::kWarpSize;
 
   __shared__ float smemK[kNumWarps * NumWarpQ];
@@ -132,6 +132,7 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
   // Get starting pointers for cols in current thread
   float *inKStart = inK + (row_offset + i);
   int64_t *inVStart = inV + (row_offset + i);
+  int64_t translation = translations[0];
 
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
 
@@ -139,6 +140,8 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
     heap.add(*inKStart, *inVStart);
 
     int part = (i + ThreadsPerBlock) / k;
+    translation = translations[part];
+
     size_t row_idx = part * n_samples * k;
     int col = part % k;
 
@@ -148,7 +151,7 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
 
   // Handle last remainder fraction of a warp of elements
   if (i < total_k) {
-    heap.addThreadQ(*inKStart, *inVStart);
+    heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
   heap.reduce();
@@ -162,7 +165,8 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
 #define BLOCK_SELECT_IMPL(DIR, WARP_Q, THREAD_Q)                             \
   inline void runBlockSelectPair_##DIR##_##WARP_Q##_(                        \
     float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples,  \
-    int n_parts, bool dir, int k, cudaStream_t stream) {                     \
+    int n_parts, bool dir, int k, cudaStream_t stream,                       \
+    int64_t *translations) {                                                 \
     auto grid = dim3(n_samples);                                             \
                                                                              \
     constexpr int kBlockSelectNumThreads = (WARP_Q <= 1024) ? 128 : 64;      \
@@ -174,14 +178,14 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
                                                                              \
     blockSelectPairKernel<DIR, WARP_Q, THREAD_Q, kBlockSelectNumThreads>     \
       <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts, \
-                                   kInit, vInit, k);                         \
+                                   kInit, vInit, k, translations);           \
     CUDA_CHECK(cudaPeekAtLastError());                                       \
   }
 
 #define BLOCK_SELECT_DECL(DIR, WARP_Q)                                      \
   extern void runBlockSelectPair_##DIR##_##WARP_Q##_(                       \
     float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples, \
-    int n_parts, bool dir, int k, cudaStream_t stream);
+    int n_parts, bool dir, int k, cudaStream_t stream, int64_t *translations);
 
 //BLOCK_SELECT_DECL(true, 1);
 //BLOCK_SELECT_DECL(true, 32);
@@ -203,13 +207,14 @@ BLOCK_SELECT_IMPL(false, 64, 3);
 //BLOCK_SELECT_IMPL(false, 512, 8);
 //BLOCK_SELECT_IMPL(false, 1024, 8);
 
-#define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q)                               \
-  runBlockSelectPair_##DIR##_##WARP_Q##_(inK, inV, outK, outV, n_samples, \
-                                         n_parts, dir, k, stream)
+#define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q) \
+  runBlockSelectPair_##DIR##_##WARP_Q##_(   \
+    inK, inV, outK, outV, n_samples, n_parts, dir, k, stream, translations)
 
 inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
                                int64_t *outV, size_t n_samples, int n_parts,
-                               bool dir, int k, cudaStream_t stream) {
+                               bool dir, int k, cudaStream_t stream,
+                               int64_t *translations) {
   if (k == 1) {
     BLOCK_SELECT_PAIR_CALL(false, 1);
   } else if (k <= 32) {
@@ -243,14 +248,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
                      std::vector<int64_t> *translations = nullptr) {
   // TODO: Also pass internal streams down from handle.
 
-  std::cout << "In brute_force_knn" << std::endl;
-
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
          "currently.");
 
-  std::cout << "Building translation ranges" << std::endl;
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
     id_ranges = new std::vector<int64_t>();
@@ -265,10 +267,13 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     id_ranges = translations;
   }
 
+  int64_t *trans;
+  allocate(trans, id_ranges->size(), s);
+  copy(trans, id_ranges->data(), id_ranges->size(), s);
+
   float *all_D;
   int64_t *all_I;
 
-  std::cout << "Allocating temp mem" << std::endl;
   allocate(all_D, n_params * k * n, s);
   allocate(all_I, n_params * k * n, s);
 
@@ -277,8 +282,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
   CUDA_CHECK(cudaStreamSynchronize(s));
-
-  std::cout << "Running parallel impl" << std::endl;
 
 #pragma omp parallel
   {
@@ -326,12 +329,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     }
   }
 
-  std::cout << arr2Str(all_I, 6, "all_I", s) << std::endl;
-
   //  std::cout << "Merge" << std::endl;
   //  if (n_params > 1) {
   //    // TODO: Need to offset based on translations
-  runBlockSelectPair(all_D, all_I, res_D, res_I, n, n_params, false, k, s);
+  runBlockSelectPair(all_D, all_I, res_D, res_I, n, n_params, false, k, s,
+                     trans);
   //  } else {
   //    std::cout << "Copying" << std::endl;
   //    copy(res_D, all_D, n * k, s);
@@ -339,7 +341,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   //  }
 
   CUDA_CHECK(cudaStreamSynchronize(s));
-  std::cout << arr2Str(res_I, 6, "res_I", s) << std::endl;
 
   MLCommon::LinAlg::unaryOp<float>(
     res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); }, s);
