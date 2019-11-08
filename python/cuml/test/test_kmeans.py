@@ -31,7 +31,7 @@ dataset_names = ['blobs', 'noisy_circles'] + \
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20),
+@pytest.mark.parametrize('nrows', [unit_param(500),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
@@ -75,7 +75,7 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20),
+@pytest.mark.parametrize('nrows', [unit_param(500),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison_default(name, nrows):
@@ -92,7 +92,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans()
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
 
     X, y = pat[0]
 
@@ -100,7 +100,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
-    kmeans = cluster.KMeans(random_state=12)
+    kmeans = cluster.KMeans(random_state=12, n_clusters=params['n_clusters'])
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
-    assert cu_score > sk_score
+    assert cu_score >= sk_score

@@ -33,10 +33,10 @@ from sklearn.model_selection import train_test_split
 
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.9), quality_param(0.90),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -90,10 +90,10 @@ def test_rf_classification(datatype, split_algo, rows_sample,
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 50]),
                          stress_param([400, 100])])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.9), quality_param(0.90),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -153,7 +153,7 @@ def test_rf_regression(datatype, split_algo, mode,
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
@@ -196,7 +196,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
