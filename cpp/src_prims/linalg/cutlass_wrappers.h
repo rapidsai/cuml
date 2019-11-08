@@ -31,7 +31,6 @@
 
 namespace MLCommon {
 namespace LinAlg {
-  
 
 /**
  * this type has been mostly customized for float/double data-types
@@ -350,24 +349,19 @@ struct CustomGemm : public BaseClass {
     dim3 grid;
     grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
     grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     // The number of threads.
     dim3 block;
     block.x = BaseClass::kThreads;
     // Launch the kernel.
     void const* args[] = {&params, &fin_op};
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     cudaLaunchKernel(
       reinterpret_cast<void*>(&custom_gemm_kernel<This_, FinalLambda>), grid,
       block, const_cast<void**>(args), 0, stream);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
     CUDA_CHECK(cudaPeekAtLastError());
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 
   static void launch(Params const& params, cudaStream_t stream) {
     BaseClass::launch(params, stream);
-    fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   }
 
   /// Ctor.
@@ -534,18 +528,14 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
                            MainLoopFunctor_, Index_, GemmConfig_,
                            EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>
     GemmTraits;
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   typedef CustomGemm<GemmTraits> Gemm;
   typename Gemm::Params params;
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
   Gemm::launch(params, fin_op, stream);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 
 template <
@@ -568,52 +558,21 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
                   Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
                   IType const* B, Index_ ldb, OType beta, OType const* C,
                   Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
-  
-  
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
                            OutputTile_, AccumulatorsPerThread_,
                            MainLoopFunctor_, Index_, GemmConfig_,
                            EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>
     GemmTraits;
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   typedef cutlass::gemm::Gemm<GemmTraits> Gemm;
   typename Gemm::Params params;
   int err =
     params.initialize(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, ldc);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
   err = op(params.epilogue.functor);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
   Gemm::launch(params, stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  
 }
 /** @} */
-
-
-
-// #if CUDART_VERSION >= 10010
-// #pragma GCC optimize("O0")
-// #endif
 
 /**
  * @brief the wrapper of gemmLauncher, which doesn't need to specify
@@ -654,69 +613,6 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @param stream cuda stream where to launch work
  * @{
  */
-
-template <
-  typename IType,
-  typename AccType,
-  typename OType,
-  typename OutputTile_,
-  typename AccumulatorsPerThread_,
-
-  typename MainLoopFunctor_,
-
-  typename Index_,
-
-  typename GemmConfig_,
-
-  typename EpilogueFunctor_,
-
-  typename GemmEpilogueTraits,
-
-  typename GemmEpilogue_
->
-void baseGemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-              Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
-              IType const* B, Index_ ldb, OType beta, OType const* C,
-              Index_ ldc, OType* D, cudaStream_t stream)
-{
-  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2[%d]%s\n", __LINE__, __FILE__);
-}
-
-
-template <
-  typename IType,
-  typename AccType,
-  typename OType,
-  typename OutputTile_,
-  typename AccumulatorsPerThread_,
-
-  typename MainLoopFunctor_,
-
-  typename Index_,
-
-  typename GemmConfig_,
-
-  typename EpilogueFunctor_,
-
-  typename GemmEpilogueTraits,
-
-  typename GemmEpilogue_,
-  typename FinalLambda
->
-void baseGemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-              Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
-              IType const* B, Index_ ldb, OType beta, OType const* C,
-              Index_ ldc, OType* D, FinalLambda fin_op, cudaStream_t stream)
-{
-  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "baseGemm3[%d]%s\n", __LINE__, __FILE__);
-}
-
 template <
   typename IType, typename AccType, typename OType, typename OutputTile_,
   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
@@ -736,12 +632,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, FinalLambda fin_op,
               cudaStream_t stream) {
-
-  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm2Op[%d]%s\n", __LINE__, __FILE__);
-
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
@@ -775,11 +665,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
            (int)transB);
   }
   CUDA_CHECK(cudaPeekAtLastError());
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
 }
 
 template <
@@ -800,12 +685,6 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
               Index_ n, Index_ k, OType alpha, IType const* A, Index_ lda,
               IType const* B, Index_ ldb, OType beta, OType const* C,
               Index_ ldc, OType* D, Lambda op, cudaStream_t stream) {
-
-  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "BaseGemm1Op[%d]%s\n", __LINE__, __FILE__);
-
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
@@ -839,14 +718,8 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
            (int)transB);
   }
   CUDA_CHECK(cudaPeekAtLastError());
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
 /** @} */
-
-
-// #if CUDART_VERSION >= 10010
-// #pragma GCC reset_options
-// #endif
 
 };  // end namespace LinAlg
 };  // end namespace MLCommon
