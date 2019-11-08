@@ -20,6 +20,7 @@
 #include <random/make_blobs.h>
 #include <test_utils.h>
 #include <common/cumlHandle.hpp>
+#include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
 
@@ -55,7 +56,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     auto allocator = handle.getImpl().getDeviceAllocator();
     allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
     allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
-    ///@todo: deallocate rowids and colids
+    allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
+    allocator->deallocate(colids, sizeof(int) * inparams.N, stream);
     ///@todo: deallocate quantiles
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -88,7 +90,10 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       inparams.N, &beta, tmp, inparams.M, data, inparams.M, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
     allocator->deallocate(tmp, sizeof(T) * inparams.M * inparams.N, stream);
-    ///@todo: allocate and populate rowids and colids
+    rowids = (int*)allocator->allocate(sizeof(int) * inparams.M, stream);
+    MLCommon::iota(rowids, 0, 1, inparams.M, stream);
+    colids = (int*)allocator->allocate(sizeof(int) * inparams.N, stream);
+    MLCommon::iota(colids, 0, 1, inparams.N, stream);
     ///@todo: allocate and populate quantiles
   }
 };  // class DtBaseTest
