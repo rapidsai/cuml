@@ -25,7 +25,6 @@ from sklearn.datasets.samples_generator import make_blobs
 import cudf
 import pandas as pd
 import numpy as np
-from cuml.test.utils import array_equal
 
 import scipy.stats as stats
 
