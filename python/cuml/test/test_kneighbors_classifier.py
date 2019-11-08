@@ -82,8 +82,8 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters):
 
     predictions = knn_cu.predict_proba(X)
 
-    assert len(predictions[predictions<0]) == 0
-    assert len(predictions[predictions>1]) == 0
+    assert len(predictions[predictions < 0]) == 0
+    assert len(predictions[predictions > 1]) == 0
 
     y_hat = np.argmax(np.array(predictions), axis=1)
 

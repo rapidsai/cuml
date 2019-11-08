@@ -164,13 +164,13 @@ class NearestNeighbors(object):
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_worker_to_parts[worker] if \
-                            worker in index_worker_to_parts else [],
+                        index_worker_to_parts[worker] if
+                        worker in index_worker_to_parts else [],
                         idx_M,
                         self.n_cols,
                         idx_parts_to_ranks,
-                        query_worker_to_parts[worker] if \
-                            worker in query_worker_to_parts else [],
+                        query_worker_to_parts[worker] if
+                        worker in query_worker_to_parts else [],
                         query_M,
                         query_parts_to_ranks,
                         worker_info[worker]["r"],
@@ -245,5 +245,5 @@ class NearestNeighbors(object):
                 (nn_fit, out_d_futures, out_i_futures)
         else:
             return to_dask_cudf(out_i_futures) \
-                if not return_distance else (to_dask_cudf(out_d_futures), \
+                if not return_distance else (to_dask_cudf(out_d_futures),
                                              to_dask_cudf(out_i_futures))
