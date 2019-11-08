@@ -106,23 +106,13 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
 
     knn_cu = cuKNN()
 
-    if input_type == 'dataframe':
-        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i
-                             in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        knn_cu.fit(X_cudf)
-        D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, k)
-
-        assert type(D_cuml) == cudf.DataFrame
-        assert type(I_cuml) == cudf.DataFrame
-
-        D_cuml_arr = np.asarray(D_cuml.as_gpu_matrix(order="C"))
-        I_cuml_arr = np.asarray(I_cuml.as_gpu_matrix(order="C"))
-
-    elif input_type == 'ndarray':
+    if input_type == 'ndarray':
 
         knn_cu.fit(X)
         D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+
+        print(str(D_cuml))
+        print(str(I_cuml))
         assert type(D_cuml) == np.ndarray
         assert type(I_cuml) == np.ndarray
 
@@ -130,7 +120,7 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
     I_cuml_arr = I_cuml
 
     if nrows < 500000:
-        knn_sk = skKNN(metric="sqeuclidean")
+        knn_sk = skKNN(metric="euclidean")
         knn_sk.fit(X)
         D_sk, I_sk = knn_sk.kneighbors(X, k)
 

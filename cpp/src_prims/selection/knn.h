@@ -125,30 +125,29 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
   int row = blockIdx.x;
   int total_k = k * n_parts;
 
-  // i is the current column of the block-expanded matrix
   int i = threadIdx.x;
 
   int row_offset = row * k;
 
   // Get starting pointers for cols in current thread
-  float *inKStart = inK + row_offset;
-  int64_t *inVStart = inV + row_offset;
+  float *inKStart = inK + (row_offset + i);
+  int64_t *inVStart = inV + (row_offset + i);
 
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
 
-  for (; i < limit; i++) {
+  for (; i < limit; i += ThreadsPerBlock) {
     heap.add(*inKStart, *inVStart);
 
-    int part = (i * ThreadsPerBlock) / n_samples;
-    size_t row = part * n_samples * k;
-    int col = (i * ThreadsPerBlock) % k;
+    int part = (i + ThreadsPerBlock) / k;
+    size_t row_idx = part * n_samples * k;
+    int col = part % k;
 
-    inKStart += (row * k) + col;
-    inVStart += (row * k) + col;
+    inKStart = inK + (row_idx + col);
+    inVStart = inV + (row_idx + col);
   }
 
   // Handle last remainder fraction of a warp of elements
-  if (i * ThreadsPerBlock < total_k) {
+  if (i < total_k) {
     heap.addThreadQ(*inKStart, *inVStart);
   }
 
@@ -184,37 +183,25 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
     float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples, \
     int n_parts, bool dir, int k, cudaStream_t stream);
 
-BLOCK_SELECT_DECL(true, 1);
-BLOCK_SELECT_DECL(true, 32);
-BLOCK_SELECT_DECL(true, 64);
-BLOCK_SELECT_DECL(true, 128);
-BLOCK_SELECT_DECL(true, 256);
-BLOCK_SELECT_DECL(true, 512);
-BLOCK_SELECT_DECL(true, 1024);
+//BLOCK_SELECT_DECL(true, 1);
+//BLOCK_SELECT_DECL(true, 32);
+//BLOCK_SELECT_DECL(true, 64);
+//BLOCK_SELECT_DECL(true, 128);
+//BLOCK_SELECT_DECL(true, 256);
+//BLOCK_SELECT_DECL(true, 512);
+//BLOCK_SELECT_DECL(true, 1024);
 
 BLOCK_SELECT_DECL(false, 1);
 BLOCK_SELECT_DECL(false, 32);
 BLOCK_SELECT_DECL(false, 64);
-BLOCK_SELECT_DECL(false, 128);
-BLOCK_SELECT_DECL(false, 256);
-BLOCK_SELECT_DECL(false, 512);
-BLOCK_SELECT_DECL(false, 1024);
-
-BLOCK_SELECT_IMPL(true, 1, 1);
-BLOCK_SELECT_IMPL(true, 32, 2);
-BLOCK_SELECT_IMPL(true, 64, 3);
-BLOCK_SELECT_IMPL(true, 128, 3);
-BLOCK_SELECT_IMPL(true, 256, 4);
-BLOCK_SELECT_IMPL(true, 512, 8);
-BLOCK_SELECT_IMPL(true, 1024, 8);
 
 BLOCK_SELECT_IMPL(false, 1, 1);
 BLOCK_SELECT_IMPL(false, 32, 2);
 BLOCK_SELECT_IMPL(false, 64, 3);
-BLOCK_SELECT_IMPL(false, 128, 3);
-BLOCK_SELECT_IMPL(false, 256, 4);
-BLOCK_SELECT_IMPL(false, 512, 8);
-BLOCK_SELECT_IMPL(false, 1024, 8);
+//BLOCK_SELECT_IMPL(false, 128, 3);
+//BLOCK_SELECT_IMPL(false, 256, 4);
+//BLOCK_SELECT_IMPL(false, 512, 8);
+//BLOCK_SELECT_IMPL(false, 1024, 8);
 
 #define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q)                               \
   runBlockSelectPair_##DIR##_##WARP_Q##_(inK, inV, outK, outV, n_samples, \
@@ -223,38 +210,12 @@ BLOCK_SELECT_IMPL(false, 1024, 8);
 inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
                                int64_t *outV, size_t n_samples, int n_parts,
                                bool dir, int k, cudaStream_t stream) {
-  if (dir) {
-    if (k == 1) {
-      BLOCK_SELECT_PAIR_CALL(true, 1);
-    } else if (k <= 32) {
-      BLOCK_SELECT_PAIR_CALL(true, 32);
-    } else if (k <= 64) {
-      BLOCK_SELECT_PAIR_CALL(true, 64);
-    } else if (k <= 128) {
-      BLOCK_SELECT_PAIR_CALL(true, 128);
-    } else if (k <= 256) {
-      BLOCK_SELECT_PAIR_CALL(true, 256);
-    } else if (k <= 512) {
-      BLOCK_SELECT_PAIR_CALL(true, 512);
-    } else if (k <= 1024) {
-      BLOCK_SELECT_PAIR_CALL(true, 1024);
-    }
-  } else {
-    if (k == 1) {
-      BLOCK_SELECT_PAIR_CALL(false, 1);
-    } else if (k <= 32) {
-      BLOCK_SELECT_PAIR_CALL(false, 32);
-    } else if (k <= 64) {
-      BLOCK_SELECT_PAIR_CALL(false, 64);
-    } else if (k <= 128) {
-      BLOCK_SELECT_PAIR_CALL(false, 128);
-    } else if (k <= 256) {
-      BLOCK_SELECT_PAIR_CALL(false, 256);
-    } else if (k <= 512) {
-      BLOCK_SELECT_PAIR_CALL(false, 512);
-    } else if (k <= 1024) {
-      BLOCK_SELECT_PAIR_CALL(false, 1024);
-    }
+  if (k == 1) {
+    BLOCK_SELECT_PAIR_CALL(false, 1);
+  } else if (k <= 32) {
+    BLOCK_SELECT_PAIR_CALL(false, 32);
+  } else if (k <= 64) {
+    BLOCK_SELECT_PAIR_CALL(false, 64);
   }
 }
 
@@ -365,18 +326,25 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     }
   }
 
+  std::cout << arr2Str(all_I, 6, "all_I", s) << std::endl;
+
   //  std::cout << "Merge" << std::endl;
   //  if (n_params > 1) {
   //    // TODO: Need to offset based on translations
-  runBlockSelectPair(all_D, all_I, res_D, res_I, n, n_params, true, k, s);
+  runBlockSelectPair(all_D, all_I, res_D, res_I, n, n_params, false, k, s);
   //  } else {
   //    std::cout << "Copying" << std::endl;
   //    copy(res_D, all_D, n * k, s);
   //    copy(res_I, all_I, n * k, s);
   //  }
 
+  CUDA_CHECK(cudaStreamSynchronize(s));
+  std::cout << arr2Str(res_I, 6, "res_I", s) << std::endl;
+
   MLCommon::LinAlg::unaryOp<float>(
     res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); }, s);
+
+  CUDA_CHECK(cudaStreamSynchronize(s));
 
   cudaFree(all_D);
   cudaFree(all_I);
