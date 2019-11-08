@@ -20,8 +20,6 @@ from copy import deepcopy
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
-from numbers import Number
-
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
