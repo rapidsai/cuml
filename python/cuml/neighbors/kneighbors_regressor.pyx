@@ -32,7 +32,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.vector cimport vector
+from libcpp.vector cimport vector
 
 from cuml.common.handle cimport cumlHandle
 
