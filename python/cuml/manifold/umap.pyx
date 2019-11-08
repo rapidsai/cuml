@@ -279,12 +279,6 @@ class UMAP(Base):
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        self._should_downcast = should_downcast
-        if should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-
         self.umap_params = <size_t> umap_params
 
         self.callback = callback  # prevent callback destruction
