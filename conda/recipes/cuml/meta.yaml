@@ -21,7 +21,6 @@ build:
   script_env:
     - CC
     - CXX
-    - BUILD_ABI
     - VERSION_SUFFIX
 
 requirements:
