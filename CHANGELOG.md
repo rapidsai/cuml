@@ -22,6 +22,7 @@
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
+- PR #1338: Remove BUILD_ABI references in CI scripts
 
 ## Bug Fixes
 - PR #1212: Fix cmake git cloning always running configure in subprojects
