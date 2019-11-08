@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
@@ -29,18 +28,6 @@ import numpy as np
 from cuml.test.utils import array_equal
 
 import scipy.stats as stats
-
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
 def predict(neigh_ind, _y, n_neighbors):

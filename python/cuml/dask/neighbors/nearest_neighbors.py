@@ -120,12 +120,12 @@ class NearestNeighbors(object):
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(comms.workers)])
+            for idx, worker in enumerate(comms.worker_addresses)])
 
         wait(nn_models.values())
         raise_exception_from_futures(nn_models.values())
 
-        return comms, nn_models
+        return nn_models
 
     def _query_models(self, n_neighbors,
                       comms, nn_models,
@@ -154,20 +154,20 @@ class NearestNeighbors(object):
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_worker_to_parts[worker]
-                        if worker in index_worker_to_parts else [],
+                        index_worker_to_parts[worker] if \
+                            worker in index_worker_to_parts else [],
                         idx_M,
                         self.n_cols,
                         idx_parts_to_ranks,
-                        query_worker_to_parts[worker]
-                        if worker in query_worker_to_parts else [],
+                        query_worker_to_parts[worker] if \
+                            worker in query_worker_to_parts else [],
                         query_M,
                         query_parts_to_ranks,
                         worker_info[worker]["r"],
                         n_neighbors,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
-                       for idx, worker in enumerate(comms.workers)])
+                       for idx, worker in enumerate(comms.worker_addresses)])
 
         wait(list(nn_fit.values()))
         raise_exception_from_futures(list(nn_fit.values()))
@@ -212,7 +212,7 @@ class NearestNeighbors(object):
         """
         Create communicator clique
         """
-        comms = NearestNeighbors._build_comms(self.index_futures, query_futures)
+        comms = NearestNeighbors._build_comms(self.X, query_futures)
 
         """
         Initialize models on workers
@@ -224,7 +224,7 @@ class NearestNeighbors(object):
         """
         nn_fit, out_d_futures, out_i_futures = \
             self._query_models(n_neighbors, comms, nn_models,
-                               self.index_futures, query_futures)
+                               self.X, query_futures)
 
         comms.destroy()
 

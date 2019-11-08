@@ -44,7 +44,7 @@ def _func_get_size(df):
     return df.shape[0]
 
 
-def parts_to_ranks(self, client, worker_info, part_futures):
+def parts_to_ranks(client, worker_info, part_futures):
     """
     Builds a list of (rank, size) tuples of partitions
     :param worker_info: dict of {worker, {"r": rank }}. Note: \
@@ -54,18 +54,16 @@ def parts_to_ranks(self, client, worker_info, part_futures):
     """
     key = uuid1()
     futures = [(worker_info[wf[0]]["r"],
-                self.client.submit(
-                    _func_get_size,
-                    wf[1],
-                    workers=[wf[0]],
-                    key="%s-%s" % (key, idx)))
+                client.submit(_func_get_size,
+                              wf[1],
+                              workers=[wf[0]],
+                              key="%s-%s" % (key, idx)))
                for idx, wf in enumerate(part_futures)]
 
     sizes = client.compute(list(map(lambda x: x[1], futures)), sync=True)
-
     total = reduce(lambda a, b: a + b, sizes)
 
-    return list(map(lambda idx, x: (futures[idx][0], sizes[idx]))), total
+    return [(futures[idx][0], size) for idx, size in enumerate(sizes)], total
 
 
 def _default_part_getter(f, idx): return f[idx]

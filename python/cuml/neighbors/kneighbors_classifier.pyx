@@ -111,7 +111,7 @@ class KNeighborsClassifier(NearestNeighbors):
         :param convert_dtype:
         :return:
         """
-        return self._predict(X, convert_dtype)
+        return self._classify(X, convert_dtype)
 
     def _classify(self, X, convert_dtype=True, _knn_indices=None):
 
