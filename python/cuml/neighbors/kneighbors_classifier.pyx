@@ -71,6 +71,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k
     ) except +
 
+
 class KNeighborsClassifier(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
@@ -83,7 +84,8 @@ class KNeighborsClassifier(NearestNeighbors):
         self.weights = weights
 
         if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy is supported currently.")
+            raise ValueError("Only uniform weighting strategy is "
+                             "supported currently.")
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -139,8 +141,9 @@ class KNeighborsClassifier(NearestNeighbors):
         # If necessary, separate columns of y to support multilabel
         # classification
         cdef uintptr_t y_ptr
+
         for i in range(out_cols):
-            col = self.y[:,i] if out_cols > 1 else self.y
+            col = self.y[:, i] if out_cols > 1 else self.y
             y_ptr = get_dev_array_ptr(col)
             y_vec.push_back(<int*>y_ptr)
 
@@ -195,12 +198,11 @@ class KNeighborsClassifier(NearestNeighbors):
         cdef vector[int*] *y_vec = new vector[int*]()
         cdef vector[float*] *out_vec = new vector[float*]()
 
-
         out_classes = []
         cdef uintptr_t classes_ptr
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
-            col = self.y[:,out_col] if out_cols > 1 else self.y
+            col = self.y[:, out_col] if out_cols > 1 else self.y
             classes = rmm.to_device(zeros((n_rows,
                                            len(np.unique(np.asarray(col)))),
                                           dtype=np.float32,
@@ -230,7 +232,7 @@ class KNeighborsClassifier(NearestNeighbors):
             if isinstance(X, np.ndarray):
                 final_class = np.array(out_class)
             elif isinstance(X, cudf.DataFrame):
-                final_class =  cudf.DataFrame.from_gpu_matrix(out_class)
+                final_class = cudf.DataFrame.from_gpu_matrix(out_class)
             else:
                 final_class = out_class
             final_classes.append(final_class)
@@ -253,4 +255,3 @@ class KNeighborsClassifier(NearestNeighbors):
             return (accuracy_score(y, y_hat_i) for y_hat_i in y_hat)
         else:
             return accuracy_score(y, y_hat)
-

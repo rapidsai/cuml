@@ -72,6 +72,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k,
     ) except +
 
+
 class KNeighborsRegressor(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
@@ -83,7 +84,8 @@ class KNeighborsRegressor(NearestNeighbors):
         self.y = None
         self.weights = weights
         if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy is supported currently.")
+            raise ValueError("Only uniform weighting strategy "
+                             "is supported currently.")
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -131,7 +133,7 @@ class KNeighborsRegressor(NearestNeighbors):
         cdef vector[float*] *y_vec = new vector[float*]()
 
         for col_num in range(res_cols):
-            col = self.y if res_cols == 1 else self.y[:,col_num]
+            col = self.y if res_cols == 1 else self.y[:, col_num]
             y_ptr = get_dev_array_ptr(col)
             y_vec.push_back(<float*>y_ptr)
 
