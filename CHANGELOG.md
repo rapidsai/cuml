@@ -25,6 +25,7 @@
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1345: Removing deprecated should_downcast argument
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
