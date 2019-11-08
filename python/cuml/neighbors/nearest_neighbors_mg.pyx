@@ -133,6 +133,7 @@ def _build_float_d(arr_interfaces):
 
     return < size_t > dataF
 
+
 def _free_mem(index_vec, index_desc,
               query_vec, query_desc,
               out_i_vec, out_d_vec,
@@ -313,8 +314,8 @@ class NearestNeighborsMG(NearestNeighbors):
             deref(<PartDescriptor*><uintptr_t>idx_desc),
             deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
             deref(<PartDescriptor*><uintptr_t>q_desc),
-            False, # column-major index
-            False, # column-major query
+            False,  # column-major index
+            False,  # column-major query
             n_neighbors,
             <size_t>self.batch_size,
             <bool>self.verbose

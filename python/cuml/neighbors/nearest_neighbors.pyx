@@ -291,7 +291,8 @@ class NearestNeighbors(Base):
             raise ValueError("k or n_neighbors must be a positive integers")
 
         if n_neighbors > self.X_m.shape[0]:
-            raise ValueError("n_neighbors must be <= number of samples in index")
+            raise ValueError("n_neighbors must be <= number of "
+                             "samples in index")
 
         if X is None:
             raise ValueError("Model needs to be trained "
