@@ -129,9 +129,10 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
 
+
 @pytest.mark.parametrize('n_rows', [10000])
 @pytest.mark.parametrize('n_columns', [20])
-@pytest.mark.parametrize('n_estimators', [1,10])
+@pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
@@ -156,8 +157,9 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
 
-    skl_model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                       max_features=0.3, n_jobs=-1)
+    skl_model = RandomForestClassifier(n_estimators=n_estimators,
+                                       max_depth=max_depth, max_features=0.3,
+                                       n_jobs=-1)
     skl_model.fit(X_train, y_train)
 
     skl_preds = skl_model.predict(X_validation)
