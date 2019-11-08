@@ -231,8 +231,12 @@ void DecisionTreeBase<T, L>::plant(
   split_criterion = cfg_split_criterion;
 
   if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && quantile_per_tree) {
-    preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
-                        n_bins, tempmem);
+    T *temp_data =
+      tempmem->temp_data == nullptr ? nullptr : tempmem->temp_data->data();
+    preprocess_quantile<T>(
+      data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins,
+      tempmem->h_quantile->data(), tempmem->d_quantile->data(), temp_data,
+      tempmem->device_allocator, tempmem->stream);
   }
   CUDA_CHECK(cudaStreamSynchronize(
     tempmem->stream));  // added to ensure accurate measurement
