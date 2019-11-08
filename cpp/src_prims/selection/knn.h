@@ -215,14 +215,18 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   }
 
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-  copy(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
+  updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  device_buffer<float> all_D(allocator, userStream, n_params * k * n);
-  device_buffer<int64_t> all_I(allocator, userStream, n_params * k * n);
+  CUDA_CHECK(cudaStreamSynchronize(userStream));
+
+  if (translations == nullptr) delete id_ranges;
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
+
+  device_buffer<float> all_D(allocator, userStream, n_params * k * n);
+  device_buffer<int64_t> all_I(allocator, userStream, n_params * k * n);
 
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
@@ -266,12 +270,10 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     }
   }
 
-  if (n_int_streams > 0) {
-    for (int i = 0; i < n_int_streams; i++) {
-      //TODO: Use cudaStreamWaitEvent() because it's very likely / possible we could
-      // be waiting on more streams than were used
-      CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-    }
+  for (int i = 0; i < n_int_streams; i++) {
+    //TODO: Use cudaStreamWaitEvent() because it's very likely / possible we could
+    // be waiting on more streams than were used
+    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
   if (n_params > 1) {
@@ -283,12 +285,9 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   }
 
   MLCommon::LinAlg::unaryOp<float>(
-    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
+    res_D, res_D, n * k,
+    [] __device__(float input) { return sqrt(input); },
     userStream);
-
-  CUDA_CHECK(cudaStreamSynchronize(userStream));
-
-  if (translations == nullptr) delete id_ranges;
 };
 
 /**
