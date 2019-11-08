@@ -35,7 +35,6 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
-from cuml.common.vector cimport vector
 
 import scipy.stats as stats
 
@@ -45,6 +44,7 @@ from libcpp.memory cimport shared_ptr
 
 import rmm
 from libc.stdlib cimport malloc, free
+from libcpp.vector cimport vector
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
@@ -103,6 +103,130 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
     ) except +
 
 
+def _free_floatD(data):
+    cdef uintptr_t data_ptr = <size_t>data
+    cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
+    for x_i in range(d.size()):
+        free(d.at(x_i))
+    free(d)
+
+
+def _build_floatD(arr_interfaces):
+    """
+    Instantiate a container object for a float data pointer
+    and size.
+    :param arr_interfaces:
+    :return:
+    """
+    cdef vector[floatData_t *] * dataF = new vector[floatData_t *]()
+
+    cdef uintptr_t input_ptr
+    for x_i in range(len(arr_interfaces)):
+        x = arr_interfaces[x_i]
+        input_ptr = x["data"]
+        data = < floatData_t * > malloc(sizeof(floatData_t))
+        data.ptr = < float * > input_ptr
+        data.totalSize = < size_t > (x["shape"][0] *
+                                     x["shape"][1] *
+                                     sizeof(float))
+
+        dataF.push_back(data)
+
+    return < size_t > dataF
+
+def _free_mem(index_vec, index_desc,
+              query_vec, query_desc,
+              out_i_vec, out_d_vec,
+              local_index_parts,
+              local_query_parts):
+
+    cdef vector[floatData_t *] *index_vec_c \
+        = <vector[floatData_t *]*><size_t>index_vec
+    cdef PartDescriptor *index_desc_c \
+        = <PartDescriptor*><size_t>index_desc
+
+    _free_floatD(<size_t>index_vec_c)
+    free(index_desc_c)
+
+    cdef vector[floatData_t *] *query_vec_c \
+        = <vector[floatData_t *]*><size_t>query_vec
+    cdef PartDescriptor *query_desc_c \
+        = <PartDescriptor*><size_t>query_desc
+    _free_floatD(<size_t>query_vec_c)
+    free(query_desc_c)
+
+    cdef vector[int64Data_t *] *out_i_vec_c \
+        = <vector[int64Data_t *]*><size_t>out_i_vec
+    cdef int64Data_t *del_idx_ptr
+    for elm in range(out_i_vec_c.size()):
+        del_idx_ptr = out_i_vec_c.at(elm)
+        del del_idx_ptr
+    free(out_i_vec_c)
+
+    cdef vector[floatData_t *] *out_d_vec_c \
+        = <vector[floatData_t *]*><size_t>out_d_vec
+    cdef floatData_t *del_ptr
+    for elm in range(out_d_vec_c.size()):
+        del_ptr = out_d_vec_c.at(elm)
+        del del_ptr
+    free(out_d_vec_c)
+
+    cdef vector[RankSizePair *] *local_index_parts_c \
+        = <vector[RankSizePair *]*><size_t>local_index_parts
+    for elm in range(local_index_parts_c.size()):
+        free(local_index_parts_c.at(elm))
+    free(local_index_parts_c)
+
+    cdef vector[RankSizePair *] *local_query_parts_c \
+        = <vector[RankSizePair *]*><size_t>local_query_parts
+    for elm in range(local_query_parts_c.size()):
+        free(local_query_parts_c.at(elm))
+    free(local_query_parts_c)
+
+
+def _build_part_inputs(cuda_arr_ifaces,
+                       parts_to_ranks,
+                       m, n, local_rank,
+                       convert_dtype):
+
+    cdef vector[RankSizePair*] *vec = new vector[RankSizePair*]()
+
+    arr_ints = []
+    for arr in cuda_arr_ifaces:
+        X_m, input_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(arr, order="F",
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None),
+                               check_dtype=[np.float32])
+        arr_ints.append({"obj": X_m,
+                         "data": input_ptr,
+                         "shape": (n_rows, n_cols)})
+
+    for rankSize in parts_to_ranks:
+        rank, size = rankSize
+        rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
+        rsp.rank = <int>rank
+        rsp.size = <size_t>size
+
+        vec.push_back(rsp)
+
+    cdef vector[floatData_t*] *local_parts \
+        = <vector[floatData_t*]*><size_t> _build_floatD(arr_ints)
+
+    cdef PartDescriptor *descriptor \
+        = new PartDescriptor(<size_t>m,
+                             <size_t>n,
+                             <vector[RankSizePair*]>deref(vec),
+                             <int>local_rank)
+
+    cdef uintptr_t rsp_ptr = <uintptr_t>vec
+    cdef uintptr_t local_parts_ptr = <uintptr_t>local_parts
+    cdef uintptr_t desc_ptr = <uintptr_t>descriptor
+
+    return arr_ints, rsp_ptr, local_parts_ptr, desc_ptr
+
+
 class NearestNeighborsMG(NearestNeighbors):
     """
     Multi-node multi-GPU Nearest Neighbors kneighbors query.
@@ -116,87 +240,8 @@ class NearestNeighborsMG(NearestNeighbors):
         super(NearestNeighborsMG, self).__init__(**kwargs)
         self.batch_size = batch_size
 
-    def _free_floatD(self, data):
-        cdef uintptr_t data_ptr = <size_t>data
-        cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
-        for x_i in range(d.size()):
-            free(d.at(x_i))
-        free(d)
-
-    def _build_floatD(self, arr_interfaces):
-        """
-        Instantiate a container object for a float data pointer
-        and size.
-        :param arr_interfaces:
-        :return:
-        """
-        cdef vector[floatData_t*] *dataF = new vector[floatData_t*]()
-
-        cdef uintptr_t input_ptr
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            data = <floatData_t*> malloc(sizeof(floatData_t))
-            data.ptr = <float *> input_ptr
-            data.totalSize = < size_t > (x["shape"][0] *
-                                         x["shape"][1] *
-                                         sizeof(float))
-
-            dataF.push_back(data)
-
-        return <size_t>dataF
-
-    def _free_mem(self, index_vec, index_desc,
-                  query_vec, query_desc,
-                  out_i_vec, out_d_vec,
-                  local_index_parts,
-                  local_query_parts):
-
-        cdef vector[floatData_t *] *index_vec_c \
-            = <vector[floatData_t *]*><size_t>index_vec
-        cdef PartDescriptor *index_desc_c \
-            = <PartDescriptor*><size_t>index_desc
-
-        self._free_floatD(<size_t>index_vec_c)
-        free(index_desc_c)
-
-        cdef vector[floatData_t *] *query_vec_c \
-            = <vector[floatData_t *]*><size_t>query_vec
-        cdef PartDescriptor *query_desc_c \
-            = <PartDescriptor*><size_t>query_desc
-        self._free_floatD(<size_t>query_vec_c)
-        free(query_desc_c)
-
-        cdef vector[int64Data_t *] *out_i_vec_c \
-            = <vector[int64Data_t *]*><size_t>out_i_vec
-        cdef int64Data_t *del_idx_ptr
-        for elm in range(out_i_vec_c.size()):
-            del_idx_ptr = out_i_vec_c.at(elm)
-            del del_idx_ptr
-        free(out_i_vec_c)
-
-        cdef vector[floatData_t *] *out_d_vec_c \
-            = <vector[floatData_t *]*><size_t>out_d_vec
-        cdef floatData_t *del_ptr
-        for elm in range(out_d_vec_c.size()):
-            del_ptr = out_d_vec_c.at(elm)
-            del del_ptr
-        free(out_d_vec_c)
-
-        cdef vector[RankSizePair *] *local_index_parts_c \
-            = <vector[RankSizePair *]*><size_t>local_index_parts
-        for elm in range(local_index_parts_c.size()):
-            free(local_index_parts_c.at(elm))
-        free(local_index_parts_c)
-
-        cdef vector[RankSizePair *] *local_query_parts_c \
-            = <vector[RankSizePair *]*><size_t>local_query_parts
-        for elm in range(local_query_parts_c.size()):
-            free(local_query_parts_c.at(elm))
-        free(local_query_parts_c)
-
-    def kneighbors(self, indices, index_m, n, index_partsToRanks,
-                   queries, query_m, query_partsToRanks,
+    def kneighbors(self, indices, index_m, n, index_parts_to_ranks,
+                   queries, query_m, query_parts_to_ranks,
                    rank, n_neighbors=None, convert_dtype=True):
         """
         Query the kneighbors of an index
@@ -218,67 +263,13 @@ class NearestNeighborsMG(NearestNeighbors):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef vector[RankSizePair*] *index_vec = new vector[RankSizePair*]()
-        cdef vector[RankSizePair*] *query_vec = new vector[RankSizePair*]()
+        idx_cai, idx_rsp, idx_local_parts, idx_desc = \
+            _build_part_inputs(indices, index_parts_to_ranks,
+                               index_m, n, rank, convert_dtype)
 
-        # Build device arrays for local partitions
-        query_ints = []
-        index_ints = []
-        for arr in queries:
-            X_m, input_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(arr, order="F",
-                                   convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None),
-                                   check_dtype=[np.float32])
-            query_ints.append({"obj": X_m,
-                               "data": input_ptr,
-                               "shape": (n_rows, n_cols)})
-
-        for arr in indices:
-            X_m, input_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(arr, order="F",
-                                   convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None),
-                                   check_dtype=[np.float32])
-            index_ints.append({"obj": X_m,
-                               "data": input_ptr,
-                               "shape": (n_rows, n_cols)})
-
-        for rankSize in index_partsToRanks:
-            rank, size = rankSize
-            index = <RankSizePair*> malloc(sizeof(RankSizePair))
-            index.rank = <int>rank
-            index.size = <size_t>size
-
-            index_vec.push_back(index)
-
-        for rankSize in query_partsToRanks:
-            rank, size = rankSize
-            query = < RankSizePair*> malloc(sizeof(RankSizePair))
-            query.rank = <int> rank
-            query.size = <size_t> size
-
-            query_vec.push_back(query)
-
-        cdef vector[floatData_t*] *local_index_parts \
-            = <vector[floatData_t*]*><size_t>self._build_floatD(index_ints)
-
-        cdef vector[floatData_t*] *local_query_parts \
-            = <vector[floatData_t*]*><size_t>self._build_floatD(query_ints)
-
-        cdef PartDescriptor *index_descriptor \
-            = new PartDescriptor(<size_t>index_m,
-                                 <size_t>n,
-                                 <vector[RankSizePair*]>deref(index_vec),
-                                 <int>rank)
-
-        cdef PartDescriptor *query_descriptor \
-            = new PartDescriptor(<size_t>query_m,
-                                 <size_t>n,
-                                 <vector[RankSizePair*]>deref(index_vec),
-                                 <int>rank)
+        q_cai, q_rsp, q_local_parts, q_desc = \
+            _build_part_inputs(queries, query_parts_to_ranks,
+                               query_m, n, rank, convert_dtype)
 
         cdef vector[int64Data_t*] *out_i_vec \
             = new vector[int64Data_t*]()
@@ -291,7 +282,7 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef uintptr_t i_ptr
         cdef uintptr_t d_ptr
 
-        for query_part in query_ints:
+        for query_part in q_cai:
 
             n_rows = query_part["shape"][0]
             i_ary = rmm.to_device(zeros((n_rows, n_neighbors),
@@ -317,12 +308,12 @@ class NearestNeighborsMG(NearestNeighbors):
             handle_[0],
             deref(out_i_vec),
             deref(out_d_vec),
-            deref(local_index_parts),
-            deref(index_descriptor),
-            deref(local_query_parts),
-            deref(query_descriptor),
-            False,
-            False,
+            deref(<vector[floatData_t*]*><uintptr_t>idx_local_parts),
+            deref(<PartDescriptor*><uintptr_t>idx_desc),
+            deref(<vector[floatData_t*]*><uintptr_t>q_local_parts),
+            deref(<PartDescriptor*><uintptr_t>q_desc),
+            False, # column-major index
+            False, # column-major query
             n_neighbors,
             <size_t>self.batch_size,
             <bool>self.verbose
@@ -335,13 +326,13 @@ class NearestNeighborsMG(NearestNeighbors):
         output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
                             output_d_arrs))
 
-        self._free_mem(<size_t>index_vec,
-                       <size_t>index_descriptor,
-                       <size_t>query_vec,
-                       <size_t>query_descriptor,
-                       <size_t>out_i_vec,
-                       <size_t>out_d_vec,
-                       <size_t>local_index_parts,
-                       <size_t>local_query_parts)
+        _free_mem(<size_t>idx_rsp,
+                  <size_t>idx_desc,
+                  <size_t>q_rsp,
+                  <size_t>q_desc,
+                  <size_t>out_i_vec,
+                  <size_t>out_d_vec,
+                  <size_t>idx_local_parts,
+                  <size_t>q_local_parts)
 
         return output_i, output_d
