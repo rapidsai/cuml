@@ -20,6 +20,8 @@ from copy import deepcopy
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
+from numbers import Number
+
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
@@ -38,11 +40,12 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     """
 
+    a = to_nparray(a)
+    b = to_nparray(b)
+
     if len(a) == 0 and len(b) == 0:
         return True
 
-    a = to_nparray(a)
-    b = to_nparray(b)
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
     res = (np.sum(np.abs(a-b) > unit_tol)) / len(a) < total_tol
