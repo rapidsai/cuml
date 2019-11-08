@@ -356,7 +356,6 @@ class UMAP(Base):
 
         self.__dict__.update(state)
 
-
     def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
         Parameters
@@ -517,8 +516,6 @@ class UMAP(Base):
                   < int > self.arr_embed.shape[0],
                   < UMAPParams*> umap_params,
                   < float*> xformed_ptr)
-
-
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
