@@ -93,7 +93,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
 };
 
 const std::vector<ReduceColsInputs<float>> inputsf = {
-  {0.0001f, 128, 32, 6, 1234ULL}, {0.0001f, 121, 63, 10, 1234ULL}};
+  {0.0001f, 128, 32, 6, 1234ULL}, {0.0005f, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<float> ReduceColsTestF;
 TEST_P(ReduceColsTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,

@@ -7,7 +7,8 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
-
+- PR #1289: Add Python benchmarking support for FIL
+ 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
 - PR #1239: Updated the treelite version
@@ -25,8 +26,12 @@
   to select algos
 - PR #1335: Options to print available algorithms and datasets 
   in the Python benchmark
+- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
+- PR #1338: Remove BUILD_ABI references in CI scripts
+- PR #1340: Updated unit tests to uses larger dataset
 
 ## Bug Fixes
+- PR #1281: Making rng.h threadsafe
 - PR #1212: Fix cmake git cloning always running configure in subprojects
 - PR #1261: Fix comms build errors due to cuml++ include folder changes
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
@@ -34,6 +39,7 @@
 - PR #1302: Updates for numba 0.46
 - PR #1319: Using machineName arg passed in instead of default for ASV reporting
 - PR #1326: Fix illegal memory access in make_regression (bounds issue)
+- PR #1330: Fix C++ unit test utils for better handling of differences near zero
 
 # cuML 0.10.0 (16 Oct 2019)
 
