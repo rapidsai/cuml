@@ -44,12 +44,13 @@ class NearestNeighbors(object):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=None, streams_per_handle=0, **kwargs):
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
         self.X = None
         self.Y = None
         self.n_cols = 0
+        self.streams_per_handle = streams_per_handle
 
     def fit(self, X):
         """
@@ -83,13 +84,14 @@ class NearestNeighbors(object):
         )
 
     @staticmethod
-    def _build_comms(index_futures, query_futures):
+    def _build_comms(index_futures, query_futures, streams_per_handle):
         # Communicator clique needs to include the union of workers hosting
         # query and index partitions
         workers = set(map(lambda x: x[0], index_futures))
         workers.update(list(map(lambda x: x[0], query_futures)))
 
-        comms = CommsContext(comms_p2p=True)
+        comms = CommsContext(comms_p2p=True,
+                             streams_per_handle=streams_per_handle)
         comms.init(workers=workers)
         return comms
 
@@ -213,7 +215,8 @@ class NearestNeighbors(object):
         """
         Create communicator clique
         """
-        comms = NearestNeighbors._build_comms(self.X, query_futures)
+        comms = NearestNeighbors._build_comms(self.X, query_futures,
+                                              self.streams_per_handle)
 
         """
         Initialize models on workers
