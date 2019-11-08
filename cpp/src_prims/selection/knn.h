@@ -125,25 +125,21 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
     float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples, \
     int n_parts, bool dir, int k, cudaStream_t stream, int64_t *translations);
 
-//BLOCK_SELECT_DECL(true, 1);
-//BLOCK_SELECT_DECL(true, 32);
-//BLOCK_SELECT_DECL(true, 64);
-//BLOCK_SELECT_DECL(true, 128);
-//BLOCK_SELECT_DECL(true, 256);
-//BLOCK_SELECT_DECL(true, 512);
-//BLOCK_SELECT_DECL(true, 1024);
-
 BLOCK_SELECT_DECL(false, 1);
 BLOCK_SELECT_DECL(false, 32);
 BLOCK_SELECT_DECL(false, 64);
+BLOCK_SELECT_DECL(false, 128);
+BLOCK_SELECT_DECL(false, 256);
+BLOCK_SELECT_DECL(false, 512);
+BLOCK_SELECT_DECL(false, 1024);
 
 BLOCK_SELECT_IMPL(false, 1, 1);
 BLOCK_SELECT_IMPL(false, 32, 2);
 BLOCK_SELECT_IMPL(false, 64, 3);
-//BLOCK_SELECT_IMPL(false, 128, 3);
-//BLOCK_SELECT_IMPL(false, 256, 4);
-//BLOCK_SELECT_IMPL(false, 512, 8);
-//BLOCK_SELECT_IMPL(false, 1024, 8);
+BLOCK_SELECT_IMPL(false, 128, 3);
+BLOCK_SELECT_IMPL(false, 256, 4);
+BLOCK_SELECT_IMPL(false, 512, 8);
+BLOCK_SELECT_IMPL(false, 1024, 8);
 
 #define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q) \
   runBlockSelectPair_##DIR##_##WARP_Q##_(   \
@@ -214,12 +210,11 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     id_ranges = translations;
   }
 
+  int device;
+  CUDA_CHECK(cudaGetDevice(&device));
+
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
-
-  ASSERT_DEVICE_MEM(search_items, "search items");
-  ASSERT_DEVICE_MEM(res_I, "output index array");
-  ASSERT_DEVICE_MEM(res_D, "output distance array");
 
   device_buffer<float> all_D(allocator, userStream, n_params * k * n);
   device_buffer<int64_t> all_I(allocator, userStream, n_params * k * n);
@@ -230,39 +225,25 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     const float *ptr = input[i];
     IntType size = sizes[i];
 
-    cudaPointerAttributes att;
-    cudaError_t err = cudaPointerGetAttributes(&att, ptr);
+    try {
+      faiss::gpu::StandardGpuResources gpu_res;
 
-    if (err == 0 && att.device > -1) {
-      CUDA_CHECK(cudaSetDevice(att.device));
+      cudaStream_t stream =
+        n_int_streams > 0 ? internalStreams[i % n_int_streams] : userStream;
+
+      gpu_res.noTempMemory();
+      gpu_res.setCudaMallocWarning(false);
+      gpu_res.setDefaultStream(device, stream);
+
+      faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex,
+                                size, search_items, rowMajorQuery, n, D, k,
+                                all_D.data() + (i * k * n),
+                                all_I.data() + (i * k * n));
+
       CUDA_CHECK(cudaPeekAtLastError());
 
-      try {
-        faiss::gpu::StandardGpuResources gpu_res;
-
-        cudaStream_t stream =
-          n_int_streams > 0 ? internalStreams[i % n_int_streams] : userStream;
-
-        gpu_res.noTempMemory();
-        gpu_res.setCudaMallocWarning(false);
-        gpu_res.setDefaultStream(att.device, stream);
-
-        faiss::gpu::bruteForceKnn(
-          &gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size, search_items,
-          rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
-          all_I.data() + (i * k * n));
-
-        CUDA_CHECK(cudaPeekAtLastError());
-
-      } catch (const std::exception &e) {
-        std::cout << "Exception occurred: " << e.what() << std::endl;
-      }
-
-    } else {
-      std::stringstream ss;
-      ss << "Input memory for " << ptr
-         << " failed. isDevice?=" << att.devicePointer << ", N=" << sizes[i];
-      std::cout << "Exception: " << ss.str() << std::endl;
+    } catch (const std::exception &e) {
+      std::cout << "Exception occurred: " << e.what() << std::endl;
     }
   }
 
@@ -272,13 +253,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  /*  if (n_params > 1) {*/
   runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
                      false, k, userStream, trans.data());
-  //  } else {
-  //    copy(res_D, all_D.data(), n * k, userStream);
-  //    copy(res_I, all_I.data(), n * k, userStream);
-  //  }
 
   MLCommon::LinAlg::unaryOp<float>(
     res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },

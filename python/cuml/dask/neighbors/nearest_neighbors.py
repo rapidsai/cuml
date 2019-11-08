@@ -44,13 +44,15 @@ class NearestNeighbors(object):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
-    def __init__(self, client=None, streams_per_handle=0, **kwargs):
+    def __init__(self, client=None, streams_per_handle=0, verbose=False,
+                 **kwargs):
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
         self.X = None
         self.Y = None
         self.n_cols = 0
         self.streams_per_handle = streams_per_handle
+        self.verbose = verbose
 
     def fit(self, X):
         """
@@ -84,18 +86,26 @@ class NearestNeighbors(object):
         )
 
     @staticmethod
-    def _build_comms(index_futures, query_futures, streams_per_handle):
+    def _build_comms(index_futures, query_futures, streams_per_handle,
+                     verbose):
         # Communicator clique needs to include the union of workers hosting
         # query and index partitions
         workers = set(map(lambda x: x[0], index_futures))
         workers.update(list(map(lambda x: x[0], query_futures)))
 
         comms = CommsContext(comms_p2p=True,
-                             streams_per_handle=streams_per_handle)
+                             streams_per_handle=streams_per_handle,
+                             verbose=verbose)
         comms.init(workers=workers)
         return comms
 
     def get_neighbors(self, n_neighbors):
+        """
+        Returns the default n_neighbors, initialized from the constructor,
+        if n_neighbors is None
+        :param n_neighbors:
+        :return:
+        """
         if n_neighbors is None:
             if "n_neighbors" in self.kwargs \
                     and self.kwargs["n_neighbors"] is not None:
@@ -123,9 +133,6 @@ class NearestNeighbors(object):
             workers=[worker],
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(comms.worker_addresses)])
-
-        wait(nn_models.values())
-        raise_exception_from_futures(nn_models.values())
 
         return nn_models
 
@@ -216,7 +223,8 @@ class NearestNeighbors(object):
         Create communicator clique
         """
         comms = NearestNeighbors._build_comms(self.X, query_futures,
-                                              self.streams_per_handle)
+                                              self.streams_per_handle,
+                                              self.verbose)
 
         """
         Initialize models on workers

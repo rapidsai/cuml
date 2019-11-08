@@ -103,7 +103,7 @@ cdef extern from "cumlprims/opg/selection/knn.hpp" namespace \
     ) except +
 
 
-def _free_floatD(data):
+def _free_float_d(data):
     cdef uintptr_t data_ptr = <size_t>data
     cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
     for x_i in range(d.size()):
@@ -111,7 +111,7 @@ def _free_floatD(data):
     free(d)
 
 
-def _build_floatD(arr_interfaces):
+def _build_float_d(arr_interfaces):
     """
     Instantiate a container object for a float data pointer
     and size.
@@ -124,11 +124,11 @@ def _build_floatD(arr_interfaces):
     for x_i in range(len(arr_interfaces)):
         x = arr_interfaces[x_i]
         input_ptr = x["data"]
-        data = < floatData_t * > malloc(sizeof(floatData_t))
+        data = <floatData_t *> malloc(sizeof(floatData_t))
         data.ptr = < float * > input_ptr
-        data.totalSize = < size_t > (x["shape"][0] *
-                                     x["shape"][1] *
-                                     sizeof(float))
+        data.totalSize = <size_t> (x["shape"][0] *
+                                   x["shape"][1] *
+                                   sizeof(float))
 
         dataF.push_back(data)
 
@@ -145,14 +145,14 @@ def _free_mem(index_vec, index_desc,
     cdef PartDescriptor *index_desc_c \
         = <PartDescriptor*><size_t>index_desc
 
-    _free_floatD(<size_t>index_vec_c)
+    _free_float_d(<size_t>index_vec_c)
     free(index_desc_c)
 
     cdef vector[floatData_t *] *query_vec_c \
         = <vector[floatData_t *]*><size_t>query_vec
     cdef PartDescriptor *query_desc_c \
         = <PartDescriptor*><size_t>query_desc
-    _free_floatD(<size_t>query_vec_c)
+    _free_float_d(<size_t>query_vec_c)
     free(query_desc_c)
 
     cdef vector[int64Data_t *] *out_i_vec_c \
@@ -212,7 +212,7 @@ def _build_part_inputs(cuda_arr_ifaces,
         vec.push_back(rsp)
 
     cdef vector[floatData_t*] *local_parts \
-        = <vector[floatData_t*]*><size_t> _build_floatD(arr_ints)
+        = <vector[floatData_t*]*><size_t> _build_float_d(arr_ints)
 
     cdef PartDescriptor *descriptor \
         = new PartDescriptor(<size_t>m,
