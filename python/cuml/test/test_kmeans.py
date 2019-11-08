@@ -107,7 +107,9 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     kmeans = cluster.KMeans(random_state=12, n_clusters=params['n_clusters'])
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
-    assert cu_score >= sk_score - 0.03
+
+    # cuML score should be in a close neighborhood around scikit-learn's
+    assert sk_score - 0.03 <= cu_score <= sk_score + 0.03
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(100),
