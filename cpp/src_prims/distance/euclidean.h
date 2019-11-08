@@ -164,17 +164,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                GemmEpilogueTraits_, GemmEpilogue_>(
     transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
     (EffOutType)0, nullptr, ldd, pDCast,
-    [enable_sqrt] HD(EpiParams & p)
-    {
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-      
-      const int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
-      return err;
+    [](typename EpilogueFunctor_::Params &p) {
+      return 0;
     },
-    fin_op, stream);
+    fin_op,  // missing final lambda here
+    stream);
 }
 
 // #if CUDART_VERSION >= 10010
