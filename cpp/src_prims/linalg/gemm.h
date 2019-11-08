@@ -16,10 +16,6 @@
 
 #pragma once
 
-// #if CUDART_VERSION >= 10010
-// #pragma GCC optimize("O0")
-// #endif
-
 #include <cublas_v2.h>
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
@@ -28,7 +24,6 @@
 namespace MLCommon {
 namespace LinAlg {
 
-  
 /**
  * @brief the gemm function for the cases with detailed epilogue customization
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
@@ -67,92 +62,6 @@ namespace LinAlg {
  * @param stream cuda stream where to launch work
  */
 template <
-  typename IType,
-  typename AccType,
-  typename OType,
-  typename OutputTile_,
-  typename AccumulatorsPerThread_,
-
-  typename MainLoopFunctor_,
-
-  typename Index_,
-
-  typename GemmConfig_,
-
-  typename EpilogueFunctor_,
-
-  typename GemmEpilogueTraits_,
-
-  typename GemmEpilogue_,
-
-  typename Lambda,
-  typename FinalLambda
-  >
-void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-          Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
-          IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
-  fprintf(stderr, "Op = [%p], Final Op = [%p]\n", (void*)&op, (void*)&fin_op);
-  fprintf(stderr, "Op = [%p], Final Op = [%p]\n", (void*)&op, (void*)&fin_op);
-  fprintf(stderr, "Op = [%p], Final Op = [%p]\n", (void*)&op, (void*)&fin_op);
-
-  baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-           MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-           GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
-                                               A, lda, B, ldb, beta, C, ldc, D,
-                                               op, fin_op, stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-}
-
-
-template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename Index_ = int,
-  typename GemmConfig_ =
-    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-                     MainLoopFunctor_>,
-  typename EpilogueFunctor_ = LinearScaling<OType>,
-  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
-    GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>
-  >
-void gemm2(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-          Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
-          IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, cudaStream_t stream) {
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
-  baseGemm2<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-           MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-           GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
-                                               A, lda, B, ldb, beta, C, ldc, D, stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-}
-
-
-
-template <
   typename IType, typename AccType, typename OType, typename OutputTile_,
   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
@@ -165,26 +74,16 @@ template <
   typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
-  typename FinalLambda>
-void gemm3(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+  typename Lambda, typename FinalLambda>
+void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-          OType *D, FinalLambda fin_op, cudaStream_t stream) {
-
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-
-  baseGemm3<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+          OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
+  baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
-                                               A, lda, B, ldb, beta, C, ldc, D, fin_op, stream);
-
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "gemm3[%d]%s\n", __LINE__, __FILE__);
+                                               A, lda, B, ldb, beta, C, ldc, D,
+                                               op, fin_op, stream);
 }
 
 /**
@@ -226,12 +125,6 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
           OType *D, cudaStream_t stream) {
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-
   typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
                            AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
@@ -241,13 +134,8 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
     [](typename EpilogueFunctor_::Params &p) { return 0; },
     0,  // missing final lambda here
     stream);
-
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
-  fprintf(stderr, "[%d]%s\n", __LINE__, __FILE__);
 }
-  
+
 /**
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
@@ -294,7 +182,3 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon
-
-// #if CUDART_VERSION >= 10010
-// #pragma GCC reset_options
-// #endif
