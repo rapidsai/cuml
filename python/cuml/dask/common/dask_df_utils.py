@@ -34,7 +34,7 @@ def workers_to_parts(futures):
     """
     w_to_p_map = OrderedDict()
     for w, p in futures:
-        if w not in futures:
+        if w not in w_to_p_map:
             w_to_p_map[w] = []
         w_to_p_map[w].append(p)
     return w_to_p_map
@@ -72,6 +72,14 @@ def _default_part_getter(f, idx): return f[idx]
 def flatten_grouped_results(client, parts_to_ranks,
                             worker_results_map,
                             getter_func=_default_part_getter):
+    """
+    Given a grouped map of 
+    :param client:
+    :param parts_to_ranks:
+    :param worker_results_map:
+    :param getter_func:
+    :return:
+    """
     futures = []
     completed_part_map = {}
     for rank, size in parts_to_ranks:
