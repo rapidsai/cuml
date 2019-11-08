@@ -206,6 +206,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/histogram.cu
       prims/homogeneityScore.cu
       prims/host_buffer.cu
       prims/jones_transform.cu
@@ -243,6 +244,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sample_without_replacement.cu
       prims/scatter.cu
       prims/score.cu
+      prims/seive.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu

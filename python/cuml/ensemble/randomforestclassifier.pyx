@@ -286,8 +286,8 @@ class RandomForestClassifier(Base):
                             Minimum decrease in impurity requried for
                             node to be spilt.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
+                        Whether quantile is computed for individual trees in
+                        RF. Only relevant for GLOBAL_QUANTILE split_algo.
 
     """
 

@@ -115,14 +115,14 @@ class KMeans(Base):
 
     """
     KMeans is a basic but powerful clustering method which is optimized via
-    Expectation Maximization. It randomnly selects K data points in X, and
+    Expectation Maximization. It randomly selects K data points in X, and
     computes which samples are close to these points.
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
     cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
-    the scalable KMeans++ intialization method. This method is more stable
-    than randomnly selecting K points.
+    the scalable KMeans++ initialization method. This method is more stable
+    than randomly selecting K points.
 
     Examples
     --------
@@ -200,14 +200,14 @@ class KMeans(Base):
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
-        If True, prints diagnositc information.
+        If True, prints diagnostic information.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
