@@ -114,7 +114,8 @@ def _func_ucp_listener_port(sessionId, r):
     return worker_state(sessionId)["ucp_listener"].port
 
 
-async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
+async def _func_init_all(sessionId, uniqueId, comms_p2p,
+                         worker_info, verbose, streams_per_handle):
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
@@ -142,13 +143,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
         if verbose:
             print("Building handle")
 
-        _func_build_handle_p2p(sessionId)
+        _func_build_handle_p2p(sessionId, streams_per_handle)
 
         if verbose:
             print("Done building handle.")
 
     else:
-        _func_build_handle(sessionId)
+        _func_build_handle(sessionId, streams_per_handle)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -208,7 +209,7 @@ async def _func_ucp_stop_listener(sessionId):
         print("Listener not found with sessionId=" + str(sessionId))
 
 
-def _func_build_handle_p2p(sessionId):
+def _func_build_handle_p2p(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -220,7 +221,7 @@ def _func_build_handle_p2p(sessionId):
     ucp_worker = ucp.get_ucp_worker()
     session_state = worker_state(sessionId)
 
-    handle = Handle()
+    handle = Handle(streams_per_handle)
     nccl_comm = session_state["nccl"]
     eps = session_state["ucp_eps"]
     nWorkers = session_state["nworkers"]
@@ -232,7 +233,7 @@ def _func_build_handle_p2p(sessionId):
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId):
+def _func_build_handle(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -240,7 +241,7 @@ def _func_build_handle(sessionId):
     :param workerId: int Rank of current worker
     :return:
     """
-    handle = Handle()
+    handle = Handle(streams_per_handle)
 
     session_state = worker_state(sessionId)
 
@@ -330,13 +331,16 @@ class CommsContext:
     This class is not meant to be thread-safe.
     """
 
-    def __init__(self, comms_p2p=False, client=None, verbose=False):
+    def __init__(self, comms_p2p=False, client=None, verbose=False,
+                 streams_per_handle=0):
         """
         Construct a new CommsContext instance
         :param comms_p2p: bool Should p2p comms be initialized?
         """
         self.client = client if client is not None else default_client()
         self.comms_p2p = comms_p2p
+
+        self.streams_per_handle = streams_per_handle
 
         self.sessionId = uuid.uuid4().bytes
 
@@ -441,6 +445,7 @@ class CommsContext:
                         self.comms_p2p,
                         worker_info,
                         self.verbose,
+                        self.streams_per_handle,
                         workers=self.worker_addresses,
                         wait=False)
 

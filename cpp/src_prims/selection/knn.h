@@ -214,8 +214,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     id_ranges = translations;
   }
 
-  std::cout << "n_int_streams: " << n_int_streams << std::endl;
-
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
