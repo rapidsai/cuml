@@ -39,71 +39,6 @@
 namespace MLCommon {
 namespace Selection {
 
-/** Merge results from several shards into a single result set.
-   * @param n number of elements in search array
-   * @param k number of neighbors returned
-   * @param distances output distance array
-   * @param labels output index array
-   * @param all_distances  row-wise stacked array of intermediary knn output distances size nshard * n * k
-   * @param all_labels     row-wise stacked array of intermediary knn output indices size nshard * n * k
-   * @param translations  label translations to apply, size nshard
-   */
-template <class C>
-void merge_tables(int64_t n, int k, int nshard, float *distances,
-                  int64_t *labels, float *all_distances, int64_t *all_labels,
-                  int64_t *shard_offsets) {
-  if (k == 0) {
-    return;
-  }
-
-  size_t stride = n * k;
-#pragma omp parallel
-  {
-    std::vector<int> buf(2 * nshard);
-    int *pointer = buf.data();
-    int *shard_ids = pointer + nshard;
-    std::vector<float> buf2(nshard);
-    float *heap_vals = buf2.data();
-#pragma omp for
-    for (int64_t i = 0; i < n; i++) {
-      // the heap maps values to the shard where they are
-      // produced.
-      const float *D_in = all_distances + i * k;
-      const int64_t *I_in = all_labels + i * k;
-      int heap_size = 0;
-
-      for (int s = 0; s < nshard; s++) {
-        pointer[s] = 0;
-        if (I_in[stride * s] >= 0)
-          faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
-                              D_in[stride * s], s);
-      }
-
-      float *D = distances + i * k;
-      int64_t *I = labels + i * k;
-
-      for (int j = 0; j < k; j++) {
-        if (heap_size == 0) {
-          I[j] = -1;
-          D[j] = C::neutral();
-        } else {
-          // pop best element
-          int s = shard_ids[0];
-          int &p = pointer[s];
-          D[j] = heap_vals[0];
-          I[j] = I_in[stride * s + p] + shard_offsets[s];
-
-          faiss::heap_pop<C>(heap_size--, heap_vals, shard_ids);
-          p++;
-          if (p < k && I_in[stride * s + p] >= 0)
-            faiss::heap_push<C>(++heap_size, heap_vals, shard_ids,
-                                D_in[stride * s + p], s);
-        }
-      }
-    }
-  }
-};
-
 template <bool Dir, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
 __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
                                       int64_t *outV, size_t n_samples,
@@ -127,23 +62,34 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
 
   int i = threadIdx.x;
 
-  int row_offset = row * k;
-
   // Get starting pointers for cols in current thread
-  float *inKStart = inK + (row_offset + i);
-  int64_t *inVStart = inV + (row_offset + i);
-  int64_t translation = translations[0];
+  int part = i / k;
+  size_t row_idx = (row * k) + (part * n_samples * k);
+
+  int col = i % k;
+
+  float *inKStart = inK + (row_idx + col);
+  int64_t *inVStart = inV + (row_idx + col);
 
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
+  int64_t translation = 0;
+
+  if (i < total_k) {
+    printf(
+      "row=%d, i=%d, part=%d, row_idx=%ld, col=%d, inVStart=%ld, "
+      "translation=%ld, limit=%d\n",
+      row, i, part, row_idx, col, (*inVStart) + translation, translation,
+      limit);
+  }
 
   for (; i < limit; i += ThreadsPerBlock) {
-    heap.add(*inKStart, *inVStart);
-
-    int part = (i + ThreadsPerBlock) / k;
     translation = translations[part];
+    heap.add(*inKStart, (*inVStart) + translation);
 
-    size_t row_idx = part * n_samples * k;
-    int col = part % k;
+    part = (i + ThreadsPerBlock) / k;
+    row_idx = (row * k) + (part * n_samples * k);
+
+    col = (i + ThreadsPerBlock) % k;
 
     inKStart = inK + (row_idx + col);
     inVStart = inV + (row_idx + col);
@@ -151,6 +97,7 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
 
   // Handle last remainder fraction of a warp of elements
   if (i < total_k) {
+    translation = translations[part];
     heap.addThreadQ(*inKStart, (*inVStart) + translation);
   }
 
@@ -215,6 +162,8 @@ inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
                                int64_t *outV, size_t n_samples, int n_parts,
                                bool dir, int k, cudaStream_t stream,
                                int64_t *translations) {
+  std::cout << "n_parts=" << n_parts << std::endl;
+  std::cout << "n_samples=" << n_samples << std::endl;
   if (k == 1) {
     BLOCK_SELECT_PAIR_CALL(false, 1);
   } else if (k <= 32) {
@@ -268,14 +217,14 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   }
 
   int64_t *trans;
-  allocate(trans, id_ranges->size(), s);
+  allocate(trans, id_ranges->size());
   copy(trans, id_ranges->data(), id_ranges->size(), s);
 
   float *all_D;
   int64_t *all_I;
 
-  allocate(all_D, n_params * k * n, s);
-  allocate(all_I, n_params * k * n, s);
+  allocate(all_D, n_params * k * n);
+  allocate(all_I, n_params * k * n);
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
@@ -351,6 +300,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   cudaFree(all_I);
 
   if (translations == nullptr) delete id_ranges;
+  cudaFree(trans);
 };
 
 /**
