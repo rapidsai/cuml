@@ -28,8 +28,6 @@ import warnings
 
 import rmm
 
-import treelite.gallery.sklearn as tl_skl
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -37,6 +35,11 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_dev_array_ptr, input_to_dev_array, zeros
+from cuml.utils.import_utils import has_treelite
+
+if has_treelite():
+    import treelite.gallery.sklearn as tl_skl
+
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -243,35 +246,12 @@ cdef class ForestInference_impl():
         # synchronous w/o a stream
         return preds
 
-    def load_from_treelite_model(self,
-                                 TreeliteModel model,
-                                 bool output_class,
-                                 str algo,
-                                 float threshold,
-                                 str storage_type):
-        cdef treelite_params_t treelite_params
-        treelite_params.output_class = output_class
-        treelite_params.threshold = threshold
-        treelite_params.algo = self.get_algo(algo)
-        treelite_params.storage_type = self.get_storage_type(storage_type)
-
-        self.forest_data = NULL
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>model.handle
-
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
-        return self
-
-    def load_from_treelite_model2(self,
-                                  uintptr_t model_handle,
-                                  bool output_class,
-                                  str algo,
-                                  float threshold,
-                                  str storage_type):
+    def load_from_treelite_model_handle(self,
+                                        uintptr_t model_handle,
+                                        bool output_class,
+                                        str algo,
+                                        float threshold,
+                                        str storage_type):
         cdef treelite_params_t treelite_params
         treelite_params.output_class = output_class
         treelite_params.threshold = threshold
@@ -289,7 +269,16 @@ cdef class ForestInference_impl():
                       &treelite_params)
         return self
 
-    
+    def load_from_treelite_model(self,
+                                 TreeliteModel model,
+                                 bool output_class,
+                                 str algo,
+                                 float threshold,
+                                 str storage_type):
+        return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
+                                                    output_class, algo,
+                                                    threshold, storage_type)
+
     def load_from_randomforest(self,
                                model_handle,
                                bool output_class,
@@ -442,25 +431,27 @@ class ForestInference(Base):
              'SPARSE' or 'sparse' - create a sparse forest;
                                     requires algo='NAIVE'
         """
-        return self._impl.load_from_treelite_model(model, output_class,
-                                                   algo, threshold,
-                                                   storage_type)
+        if isinstance(model, TreeliteModel):
+            # TreeliteModel defined in this file
+            return self._impl.load_from_treelite_model(
+                model, output_class, algo, threshold, storage_type)
+        else:
+            # assume it is treelite.Model
+            return self._impl.load_from_treelite_model_handle(
+                model.handle.value, output_class, algo, threshold, storage_type)
 
     @staticmethod
-    def load_from_skl(skl_model,
-                      output_class=False,
-                      threshold=0.50,
-                      algo='TREE_REORG',
-                      storage_type='DENSE',
-                      model_type="xgboost",
-                      handle=None):
+    def load_from_sklearn(skl_model,
+                          output_class=False,
+                          threshold=0.50,
+                          algo='TREE_REORG',
+                          storage_type='DENSE',
+                          handle=None):
         cuml_fm = ForestInference(handle=handle)
         tl_model = tl_skl.import_model(skl_model)
-        cuml_fm._impl.load_from_treelite_model2(tl_model.handle.value,
-                                                algo=algo,
-                                                output_class=output_class,
-                                                storage_type=storage_type,
-                                                threshold=threshold)
+        cuml_fm.load_from_treelite_model(
+            tl_model, algo=algo, output_class=output_class,
+            storage_type=storage_type, threshold=threshold)
         return cuml_fm
     
     @staticmethod

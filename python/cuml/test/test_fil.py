@@ -164,11 +164,11 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, storage_type):
 
     algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
 
-    fm = ForestInference.load_from_skl(skl_model,
-                                       algo=algo,
-                                       output_class=True,
-                                       threshold=0.50,
-                                       storage_type=storage_type)
+    fm = ForestInference.load_from_sklearn(skl_model,
+                                           algo=algo,
+                                           output_class=True,
+                                           threshold=0.50,
+                                           storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
