@@ -305,25 +305,67 @@ __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
 }
 
 /**
+ * @brief Batched GEMM operation (exhaustive version)
+ *        [C1, C2, ...] = [alpha*A1*B1+beta*C1, alpha*A2*B2+beta*C2, ...]
+ * 
+ * @param[in]      A      Batch of matrices A
+ * @param[in]      B      Batch of matrices B
+ * @param[in,out]  C      Batch of matrices C
+ * @param[in]      alpha  Parameter alpha
+ * @param[in]      beta   Parameter beta
+ * @param[in]      aT     Is `A` transposed?
+ * @param[in]      bT     Is `B` transposed?
+ */
+template <typename T>
+void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha,
+            const BatchedMatrix<T>& A, const BatchedMatrix<T>& B, T beta,
+            const BatchedMatrix<T>& C) {
+  // Check the parameters
+  {
+    ASSERT(A.batches() == B.batches(),
+           "A and B must have the same number of batches");
+    ASSERT(A.batches() == C.batches(),
+           "A and C must have the same number of batches");
+    int Arows = !aT ? A.shape().first : A.shape().second;
+    int Acols = !aT ? A.shape().second : A.shape().first;
+    int Brows = !bT ? B.shape().first : B.shape().second;
+    int Bcols = !bT ? B.shape().second : B.shape().first;
+    ASSERT(m <= Arows, "m should be <= number of rows of A");
+    ASSERT(k <= Acols, "k should be <= number of columns of A");
+    ASSERT(k <= Brows, "k should be <= number of rows of B");
+    ASSERT(n <= Bcols, "n should be <= number of columns of B");
+    ASSERT(m <= C.shape().first, "m should be <= number of rows of C");
+    ASSERT(n <= C.shape().second, "n should be <= number of columns of C");
+  }
+
+  // Set transpose modes
+  cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
+  cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
+
+  // Call cuBLAS
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmStridedBatched(
+    A.cublasHandle(), opA, opB, m, n, k, &alpha, A.raw_data(), A.shape().first,
+    A.shape().first * A.shape().second, B.raw_data(), B.shape().first,
+    B.shape().first * B.shape().second, &beta, C.raw_data(), C.shape().first,
+    C.shape().first * C.shape().second, A.batches(), A.stream()));
+}
+
+/**
  * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
  *        A = [A1,A2,A3], B=[B1,B2,B3] returns [A1*B1, A2*B2, A3*B3]
  * 
  * @param[in]  A   First matrix batch
  * @param[in]  B   Second matrix batch
  * @param[in]  aT  Is `A` transposed?
- * @param[in]  bT  is `B` transposed?
+ * @param[in]  bT  Is `B` transposed?
  * 
  * @return Member-wise A*B
  */
 template <typename T>
 BatchedMatrix<T> b_gemm(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
                         bool aT = false, bool bT = false) {
-  ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
-
-  // Logic for matrix dimensions with optional transpose
   // m = number of rows of matrix op(A) and C.
   int m = !aT ? A.shape().first : A.shape().second;
-
   // n = number of columns of matrix op(B) and C.
   int n = !bT ? B.shape().second : B.shape().first;
 
@@ -333,38 +375,11 @@ BatchedMatrix<T> b_gemm(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
 
   ASSERT(k == kB, "Matrix-Multiplication dimensions don't match!");
 
-  auto num_batches = A.batches();
-  const auto& handle = A.cublasHandle();
-
-  // set transpose
-  cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
-  cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
-
   // Create C(m,n)
-  BatchedMatrix<T> C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+  BatchedMatrix<T> C(m, n, A.batches(), A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  T alpha = 1.0;
-  T beta = 0.0;
-
-  // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmStridedBatched(
-    handle,
-    opA,     // A.T?
-    opB,     // B.T?
-    m,       // rows op(A), C
-    n,       // cols of op(B), C
-    k,       // cols of op(A), rows of op(B)
-    &alpha,  // alpha * A * B
-    A.raw_data(),
-    A.shape().first,  // rows of A
-    A.shape().first * A.shape().second, B.raw_data(),
-    B.shape().first,  // rows of B
-    B.shape().first * B.shape().second,
-    &beta,  // + beta * C
-    C.raw_data(),
-    C.shape().first,  // rows of C
-    C.shape().first * C.shape().second, num_batches, A.stream()));
+  b_gemm(aT, bT, m, n, k, (T)1, A, B, (T)0, C);
   return C;
 }
 
