@@ -18,82 +18,8 @@ from dask.distributed import default_client
 from toolz import first
 from uuid import uuid1
 import dask.dataframe as dd
-from collections import OrderedDict
 
 from dask.distributed import wait
-
-from functools import reduce
-
-
-def workers_to_parts(futures):
-    """
-    Builds an ordered dict mapping each worker to their list
-    of parts
-    :param futures: list of (worker, part) tuples
-    :return:
-    """
-    w_to_p_map = OrderedDict()
-    for w, p in futures:
-        if w not in w_to_p_map:
-            w_to_p_map[w] = []
-        w_to_p_map[w].append(p)
-    return w_to_p_map
-
-
-def _func_get_size(df):
-    return df.shape[0]
-
-
-def parts_to_ranks(client, worker_info, part_futures):
-    """
-    Builds a list of (rank, size) tuples of partitions
-    :param worker_info: dict of {worker, {"r": rank }}. Note: \
-        This usually comes from the underlying communicator
-    :param part_futures: list of (worker, future) tuples
-    :return:
-    """
-    key = uuid1()
-    futures = [(worker_info[wf[0]]["r"],
-                client.submit(_func_get_size,
-                              wf[1],
-                              workers=[wf[0]],
-                              key="%s-%s" % (key, idx)))
-               for idx, wf in enumerate(part_futures)]
-
-    sizes = client.compute(list(map(lambda x: x[1], futures)), sync=True)
-    total = reduce(lambda a, b: a + b, sizes)
-
-    return [(futures[idx][0], size) for idx, size in enumerate(sizes)], total
-
-
-def _default_part_getter(f, idx): return f[idx]
-
-
-def flatten_grouped_results(client, parts_to_ranks,
-                            worker_results_map,
-                            getter_func=_default_part_getter):
-    """
-    Given a grouped map of 
-    :param client:
-    :param parts_to_ranks:
-    :param worker_results_map:
-    :param getter_func:
-    :return:
-    """
-    futures = []
-    completed_part_map = {}
-    for rank, size in parts_to_ranks:
-        if rank not in completed_part_map:
-            completed_part_map[rank] = 0
-
-        f = worker_results_map[rank]
-
-        futures.append(client.submit(
-            getter_func, f, completed_part_map[rank]))
-
-        completed_part_map[rank] += 1
-
-    return futures
 
 
 @gen.coroutine

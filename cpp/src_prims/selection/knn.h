@@ -153,16 +153,12 @@ inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
                                int64_t *outV, size_t n_samples, int n_parts,
                                bool dir, int k, cudaStream_t stream,
                                int64_t *translations) {
-  std::cout << "n_parts=" << n_parts << std::endl;
-  std::cout << "n_samples=" << n_samples << std::endl;
   if (k == 1) {
     BLOCK_SELECT_PAIR_CALL(false, 1);
   } else if (k <= 32) {
     BLOCK_SELECT_PAIR_CALL(false, 32);
   } else if (k <= 64) {
     BLOCK_SELECT_PAIR_CALL(false, 64);
-  } else {
-    std::cout << "Block select pair kernel not found" << std::endl;
   }
 }
 
@@ -177,7 +173,14 @@ inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
    * @param res_I      pointer to device memory for returning k nearest indices
    * @param res_D      pointer to device memory for returning k nearest distances
    * @param k        number of neighbors to query
+   * @param allocator the device memory allocator to use for temporary scratch memory
    * @param s the cuda stream to use
+   * @param internalStreams optional when n_params > 0, the index partitions can be
+   *        queried in parallel using these streams. Note that n_int_streams also
+   *        has to be > 0 for these to be used and their cardinality does not need
+   *        to correspond to n_parts.
+   * @param n_int_streams size of internalStreams. When this is <= 0, only the
+   *        user stream will be used.
    * @param translations translation ids for indices when index rows represent
    *        non-contiguous partitions
    */
@@ -185,11 +188,13 @@ template <typename IntType = int,
           Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
 void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
                      float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k, cudaStream_t s,
-                     bool rowMajorIndex = true, bool rowMajorQuery = true,
+                     float *res_D, IntType k,
+                     std::shared_ptr<deviceAllocator> allocator,
+                     cudaStream_t userStream,
+                     cudaStream_t *internalStreams = nullptr,
+                     int n_int_streams = 0, bool rowMajorIndex = true,
+                     bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr) {
-  // TODO: Also pass internal streams down from handle.
-
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
            DistanceType == Distance::EucUnexpandedL2Sqrt,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
@@ -209,91 +214,81 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     id_ranges = translations;
   }
 
-  int64_t *trans;
-  allocate(trans, id_ranges->size());
-  copy(trans, id_ranges->data(), id_ranges->size(), s);
+  device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
+  copy(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  float *all_D;
-  int64_t *all_I;
-
-  allocate(all_D, n_params * k * n);
-  allocate(all_I, n_params * k * n);
+  device_buffer<float> all_D(allocator, userStream, n_params * k * n);
+  device_buffer<int64_t> all_I(allocator, userStream, n_params * k * n);
 
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
 
-  CUDA_CHECK(cudaStreamSynchronize(s));
+  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
-#pragma omp parallel
-  {
-#pragma omp for
-    for (int i = 0; i < n_params; i++) {
-      const float *ptr = input[i];
-      IntType size = sizes[i];
+  for (int i = 0; i < n_params; i++) {
+    const float *ptr = input[i];
+    IntType size = sizes[i];
 
-      cudaPointerAttributes att;
-      cudaError_t err = cudaPointerGetAttributes(&att, ptr);
+    cudaPointerAttributes att;
+    cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
-      if (err == 0 && att.device > -1) {
-        CUDA_CHECK(cudaSetDevice(att.device));
+    if (err == 0 && att.device > -1) {
+      CUDA_CHECK(cudaSetDevice(att.device));
+      CUDA_CHECK(cudaPeekAtLastError());
+
+      try {
+        faiss::gpu::StandardGpuResources gpu_res;
+
+        cudaStream_t stream =
+          n_int_streams > 0 ? internalStreams[i % n_int_streams] : userStream;
+
+        gpu_res.noTempMemory();
+        gpu_res.setCudaMallocWarning(false);
+        gpu_res.setDefaultStream(att.device, stream);
+
+        faiss::gpu::bruteForceKnn(
+          &gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size, search_items,
+          rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
+          all_I.data() + (i * k * n));
+
         CUDA_CHECK(cudaPeekAtLastError());
 
-        try {
-          faiss::gpu::StandardGpuResources gpu_res;
-
-          cudaStream_t stream;
-          CUDA_CHECK(cudaStreamCreate(&stream));
-
-          gpu_res.noTempMemory();
-          gpu_res.setCudaMallocWarning(false);
-          gpu_res.setDefaultStream(att.device, stream);
-
-          faiss::gpu::bruteForceKnn(
-            &gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex, size, search_items,
-            rowMajorQuery, n, D, k, all_D + (i * k * n), all_I + (i * k * n));
-
-          CUDA_CHECK(cudaPeekAtLastError());
-          CUDA_CHECK(cudaStreamSynchronize(stream));
-
-          CUDA_CHECK(cudaStreamDestroy(stream));
-
-        } catch (const std::exception &e) {
-          std::cout << "Exception occurred: " << e.what() << std::endl;
-        }
-
-      } else {
-        std::stringstream ss;
-        ss << "Input memory for " << ptr
-           << " failed. isDevice?=" << att.devicePointer << ", N=" << sizes[i];
-        std::cout << "Exception: " << ss.str() << std::endl;
+      } catch (const std::exception &e) {
+        std::cout << "Exception occurred: " << e.what() << std::endl;
       }
+
+    } else {
+      std::stringstream ss;
+      ss << "Input memory for " << ptr
+         << " failed. isDevice?=" << att.devicePointer << ", N=" << sizes[i];
+      std::cout << "Exception: " << ss.str() << std::endl;
     }
   }
 
-  //  std::cout << "Merge" << std::endl;
-  //  if (n_params > 1) {
-  //    // TODO: Need to offset based on translations
-  runBlockSelectPair(all_D, all_I, res_D, res_I, n, n_params, false, k, s,
-                     trans);
-  //  } else {
-  //    std::cout << "Copying" << std::endl;
-  //    copy(res_D, all_D, n * k, s);
-  //    copy(res_I, all_I, n * k, s);
-  //  }
+  if (n_int_streams > 0) {
+    for (int i = 0; i < n_int_streams; i++) {
+      //TODO: Use cudaStreamWaitEvent() because it's very likely / possible we could
+      // be waiting on more streams than were used
+      CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
+    }
+  }
 
-  CUDA_CHECK(cudaStreamSynchronize(s));
+  if (n_params > 1) {
+    runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
+                       false, k, userStream, trans.data());
+  } else {
+    copy(res_D, all_D.data(), n * k, userStream);
+    copy(res_I, all_I.data(), n * k, userStream);
+  }
 
   MLCommon::LinAlg::unaryOp<float>(
-    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); }, s);
+    res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
+    userStream);
 
-  CUDA_CHECK(cudaStreamSynchronize(s));
-
-  cudaFree(all_D);
-  cudaFree(all_I);
+  CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   if (translations == nullptr) delete id_ranges;
-  cudaFree(trans);
 };
 
 /**

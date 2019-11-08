@@ -67,7 +67,6 @@ template <typename T, int TPB_X>
 void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               cudaStream_t stream  // size = nnz*2
 ) {
-
   int *row_ind;
   MLCommon::allocate(row_ind, in_coo->n_rows);
 
@@ -245,8 +244,11 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   MLCommon::allocate(y_knn_indices, knn_dims, true);
   MLCommon::allocate(y_knn_dists, knn_dims, true);
 
+  auto d_alloc = handle.getDeviceAllocator();
+
   kNNGraph::run(y, rgraph_coo->n_rows, y, rgraph_coo->n_rows, 1, y_knn_indices,
-                y_knn_dists, params->target_n_neighbors, params, stream);
+                y_knn_dists, params->target_n_neighbors, params, d_alloc,
+                stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {

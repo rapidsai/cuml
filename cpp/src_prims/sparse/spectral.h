@@ -126,7 +126,7 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, n, X, m,
                                        knn_indices.data(), knn_dists.data(),
-                                       n_neighbors, stream);
+                                       n_neighbors, allocator, stream);
 
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
                eigen_tol, out, allocator, stream);
@@ -236,7 +236,7 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, n, X, m,
                                        knn_indices.data(), knn_dists.data(),
-                                       n_neighbors, stream);
+                                       n_neighbors, allocator, stream);
 
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, allocator, stream);

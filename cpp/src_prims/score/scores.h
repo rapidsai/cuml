@@ -92,7 +92,7 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
   sizes[0] = n;
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, d, input, n, d_pred_I,
-                                       d_pred_D, n_neighbors, stream);
+                                       d_pred_D, n_neighbors, d_alloc, stream);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
