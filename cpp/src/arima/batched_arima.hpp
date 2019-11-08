@@ -44,8 +44,8 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      bool trans = true);
 
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
-                     int p, int d, int q, double* d_mu, double* d_ar, double* d_ma,
-                     std::vector<double>& loglike, double* d_vs,
+                     int p, int d, int q, double* d_mu, double* d_ar,
+                     double* d_ma, std::vector<double>& loglike, double* d_vs,
                      bool trans = true);
 // TODO: only one interface for batched_loglike
 
@@ -119,6 +119,6 @@ void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
-                 int q, int start_ar_lags = -1);
+                 int q);
 
 }  // namespace ML

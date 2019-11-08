@@ -103,8 +103,7 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         int nobs,
         int p,
         int d,
-        int q,
-        int start_ar_lags)
+        int q)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
@@ -410,7 +409,7 @@ class ARIMAModel(Base):
 
 
 
-def estimate_x0(order, y, handle=None, start_ar_lags=None):
+def estimate_x0(order, y, handle=None):
     nvtx_range_push("estimate x0")
 
     p, d, q = order
@@ -437,15 +436,12 @@ def estimate_x0(order, y, handle=None, start_ar_lags=None):
         d_mu = zeros(num_batches, dtype=dtype)
         d_mu_ptr = get_dev_array_ptr(d_mu)
 
-    if start_ar_lags is None:
-        start_ar_lags = -1
-
     # Call C++ function
     cpp_estimate_x0(handle_[0],
                     <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
                     <double*> d_y_ptr,
                     <int> num_batches, <int> num_samples,
-                    <int> p, <int> d, <int> q, <int> start_ar_lags)
+                    <int> p, <int> d, <int> q)
 
     nvtx_range_pop()
 
