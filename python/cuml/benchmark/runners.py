@@ -48,13 +48,25 @@ class SpeedupComparisonRunner:
             self.dataset_name, self.input_type, n_samples, n_features
         )
 
+        setup_overrides = algo_pair.setup_cuml(
+            data, **param_overrides, **cuml_param_overrides
+        )
+
         cu_start = time.time()
-        algo_pair.run_cuml(data, **param_overrides, **cuml_param_overrides)
+        algo_pair.run_cuml(
+            data, **param_overrides, **cuml_param_overrides, **setup_overrides
+        )
         cu_elapsed = time.time() - cu_start
 
         if run_cpu and algo_pair.cpu_class is not None:
+            setup_overrides = algo_pair.set_up_cpu(
+                data, **param_overrides
+            )
+
             cpu_start = time.time()
-            algo_pair.run_cpu(data, **param_overrides)
+            algo_pair.run_cpu(
+                data, **param_overrides, **setup_overrides
+            )
             cpu_elapsed = time.time() - cpu_start
         else:
             cpu_elapsed = 0.0
@@ -146,14 +158,24 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             n_features,
             test_fraction=self.test_fraction,
         )
-        X_test, y_test = data[2:]
+
+        setup_override = algo_pair.setup_cuml(
+            data, **{**param_overrides, **cuml_param_overrides}
+        )
 
         cu_start = time.time()
         cuml_model = algo_pair.run_cuml(
-            data, **{**param_overrides, **cuml_param_overrides}
+            data,
+            **{**param_overrides, **cuml_param_overrides, **setup_override}
         )
         cu_elapsed = time.time() - cu_start
+
         if algo_pair.accuracy_function:
+            if algo_pair.cuml_data_prep_hook is not None:
+                X_test, y_test = algo_pair.cuml_data_prep_hook(data[2:])
+            else:
+                X_test, y_test = data[2:]
+
             if hasattr(cuml_model, 'predict'):
                 y_pred_cuml = cuml_model.predict(X_test)
             else:
@@ -166,11 +188,19 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
 
         cpu_accuracy = 0.0
         if run_cpu and algo_pair.cpu_class is not None:
+            setup_override = algo_pair.setup_cpu(data, **param_overrides)
+
             cpu_start = time.time()
-            cpu_model = algo_pair.run_cpu(data, **param_overrides)
+            cpu_model = algo_pair.run_cpu(
+                data, **param_overrides, **setup_override
+            )
             cpu_elapsed = time.time() - cpu_start
 
             if algo_pair.accuracy_function:
+                if algo_pair.cpu_data_prep_hook is not None:
+                    X_test, y_test = algo_pair.cpu_data_prep_hook(data[2:])
+                else:
+                    X_test, y_test = data[2:]
                 if hasattr(cpu_model, 'predict'):
                     y_pred_cpu = cpu_model.predict(X_test)
                 else:
