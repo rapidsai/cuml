@@ -219,8 +219,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   CUDA_CHECK(cudaStreamSynchronize(userStream));
 
-  if (translations == nullptr) delete id_ranges;
-
   ASSERT_DEVICE_MEM(search_items, "search items");
   ASSERT_DEVICE_MEM(res_I, "output index array");
   ASSERT_DEVICE_MEM(res_D, "output distance array");
@@ -276,18 +274,22 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  if (n_params > 1) {
+/*  if (n_params > 1) {*/
     runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
                        false, k, userStream, trans.data());
-  } else {
-    copy(res_D, all_D.data(), n * k, userStream);
-    copy(res_I, all_I.data(), n * k, userStream);
-  }
+//  } else {
+//    copy(res_D, all_D.data(), n * k, userStream);
+//    copy(res_I, all_I.data(), n * k, userStream);
+//  }
 
   MLCommon::LinAlg::unaryOp<float>(
     res_D, res_D, n * k,
     [] __device__(float input) { return sqrt(input); },
     userStream);
+
+
+  if (translations == nullptr) delete id_ranges;
+
 };
 
 /**
