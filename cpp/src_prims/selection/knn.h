@@ -123,6 +123,8 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
                      : faiss::gpu::Limits<float>::getMax();                  \
     auto vInit = -1;                                                         \
                                                                              \
+    std::cout << "Running block select pair" << std::endl;                   \
+                                                                             \
     blockSelectPairKernel<DIR, WARP_Q, THREAD_Q, kBlockSelectNumThreads>     \
       <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts, \
                                    kInit, vInit, k, translations);           \
@@ -170,6 +172,8 @@ inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
     BLOCK_SELECT_PAIR_CALL(false, 32);
   } else if (k <= 64) {
     BLOCK_SELECT_PAIR_CALL(false, 64);
+  } else {
+    std::cout << "Block select pair kernel not found" << std::endl;
   }
 }
 
