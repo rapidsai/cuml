@@ -84,6 +84,7 @@ void _fit(const cumlHandle &handle,
           int d,  // cols
           UMAPParams *params, T *embeddings) {
   cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
 
   int k = params->n_neighbors;
 
@@ -100,7 +101,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k);
   MLCommon::allocate(knn_dists, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, d_alloc,
+                stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo;
@@ -148,6 +150,7 @@ void _fit(const cumlHandle &handle,
           T *y,  // labels
           int n, int d, UMAPParams *params, T *embeddings) {
   cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
 
   int k = params->n_neighbors;
 
@@ -165,7 +168,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(knn_indices, n * k, true);
   MLCommon::allocate(knn_dists, n * k, true);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, d_alloc,
+                stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -243,6 +247,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
                 int orig_n, T *embedding, int embedding_n, UMAPParams *params,
                 T *transformed) {
   cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
 
   /**
    * Perform kNN of X
@@ -253,7 +258,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::allocate(knn_dists, n * params->n_neighbors);
 
   kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices, knn_dists,
-                params->n_neighbors, params, stream);
+                params->n_neighbors, params, d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 

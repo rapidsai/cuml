@@ -44,7 +44,8 @@ using namespace ML;
  */
 template <typename T = float>
 void run(T *X, int n, T *query, int q_n, int d, long *knn_indices, T *knn_dists,
-         int n_neighbors, UMAPParams *params, cudaStream_t stream,
+         int n_neighbors, UMAPParams *params,
+         std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
          int algo = 0) {
   switch (algo) {
     /**
@@ -52,7 +53,7 @@ void run(T *X, int n, T *query, int q_n, int d, long *knn_indices, T *knn_dists,
       */
     case 0:
       Algo::launcher(X, n, query, q_n, d, knn_indices, knn_dists, n_neighbors,
-                     params, stream);
+                     params, d_alloc, stream);
       break;
   }
 }

@@ -104,7 +104,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
     (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
+  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, d_alloc,
+                      stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 

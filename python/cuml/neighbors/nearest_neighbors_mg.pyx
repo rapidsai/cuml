@@ -254,7 +254,9 @@ class NearestNeighborsMG(NearestNeighbors):
         :param query_partsToRanks: mappings of query partitions to ranks
         :param rank: int rank of current worker
         :param n_neighbors: int number of nearest neighbors to query
-        :return:
+        :param convert_dtype: since only float32 inputs are supported, should
+               the input be automatically converted?
+        :return: output indices, output distances
         """
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors

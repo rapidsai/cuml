@@ -43,7 +43,8 @@ using namespace ML;
 template <typename T>
 void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
               long *knn_indices, T *knn_dists, int n_neighbors,
-              UMAPParams *params, cudaStream_t stream) {
+              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+              cudaStream_t stream) {
   float **p = new float *[1];
   int *sizes = new int[1];
   p[0] = X;
@@ -51,7 +52,7 @@ void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
 
   MLCommon::Selection::brute_force_knn(p, sizes, 1, d, X_query, x_q_n,
                                        knn_indices, knn_dists, n_neighbors,
-                                       stream);
+                                       d_alloc, stream);
 
   MLCommon::LinAlg::unaryOp<T>(
     knn_dists, knn_dists, x_n * n_neighbors,

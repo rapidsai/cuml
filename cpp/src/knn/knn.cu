@@ -35,9 +35,16 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
                      int n_params, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
                      bool rowMajorQuery) {
+  cudaStream_t int_streams[handle.getImpl().getNumInternalStreams()];
+  for (int i = 0; i < handle.getImpl().getNumInternalStreams(); i++) {
+    int_streams[i] = handle.getImpl().getInternalStream(i);
+  }
+
   MLCommon::Selection::brute_force_knn(
     input, sizes, n_params, D, search_items, n, res_I, res_D, k,
-    handle.getImpl().getStream(), rowMajorIndex, rowMajorQuery);
+    handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
+    &*int_streams, handle.getImpl().getNumInternalStreams(), rowMajorIndex,
+    rowMajorQuery);
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
@@ -145,9 +152,16 @@ void kNN::search(float *search_items, int n, int64_t *res_I, float *res_D,
                  int k, bool rowMajor) {
   ASSERT(this->indices > 0, "Cannot search before model has been trained.");
 
+  cudaStream_t int_streams[handle->getImpl().getNumInternalStreams()];
+  for (int i = 0; i < handle->getImpl().getNumInternalStreams(); i++) {
+    int_streams[i] = handle->getImpl().getInternalStream(i);
+  }
+
   MLCommon::Selection::brute_force_knn(
     ptrs, sizes, indices, D, search_items, n, res_I, res_D, k,
-    handle->getImpl().getStream(), this->rowMajorIndex, rowMajor);
+    handle->getImpl().getDeviceAllocator(), handle->getImpl().getStream(),
+    &*int_streams, handle->getImpl().getNumInternalStreams(),
+    this->rowMajorIndex, rowMajor);
 }
 };  // namespace ML
 
@@ -178,11 +192,20 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
 
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+
+  cudaStream_t int_streams[handle_ptr->getImpl().getNumInternalStreams()];
+  for (int i = 0; i < handle_ptr->getImpl().getNumInternalStreams(); i++) {
+    int_streams[i] = handle_ptr->getImpl().getInternalStream(i);
+  }
+
   if (status == CUML_SUCCESS) {
     try {
       MLCommon::Selection::brute_force_knn(
         input, sizes, n_params, D, search_items, n, res_I, res_D, k,
-        handle_ptr->getImpl().getStream(), rowMajorIndex, rowMajorQuery);
+        handle_ptr->getImpl().getDeviceAllocator(),
+        handle_ptr->getImpl().getStream(), &*int_streams,
+        handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
+        rowMajorQuery);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
