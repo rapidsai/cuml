@@ -1,13 +1,15 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
+- PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
 - PR #1322: RF pickling using treelite, protobuf and FIL
-
+- PR #1289: Add Python benchmarking support for FIL
+ 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
 - PR #1239: Updated the treelite version
@@ -20,6 +22,7 @@
 - PR #1271: Updated the Ridge regression documentation
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 - PR #1300: Lowercase parameter versions for FIL algorithms
+- PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 
 ## Bug Fixes
@@ -28,6 +31,9 @@
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
 - PR #1302: Updates for numba 0.46
+- PR #1319: Using machineName arg passed in instead of default for ASV reporting
+- PR #1326: Fix illegal memory access in make_regression (bounds issue)
+- PR #1330: Fix C++ unit test utils for better handling of differences near zero
 
 # cuML 0.10.0 (16 Oct 2019)
 
