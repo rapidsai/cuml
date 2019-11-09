@@ -29,7 +29,7 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(500),
+@pytest.mark.parametrize('nrows', [unit_param(1000),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
@@ -75,7 +75,9 @@ def test_kmeans_sklearn_comparison(name, nrows):
             else:
                 # We allow up to 5 points to be different for the other
                 # datasets to be robust to small behavior changes
-                # between library versions/ small changes
+                # between library versions/ small changes. Visually it is
+                # very clear that the algorithm work. Will add option
+                # to plot if desired in a future version.
                 tol = 1e-2
             assert (clusters_equal(sk_y_pred, cu_y_pred,
                     params['n_clusters'], tol=tol)) and score_test
