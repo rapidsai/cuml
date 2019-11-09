@@ -73,7 +73,10 @@ def test_kmeans_sklearn_comparison(name, nrows):
                 # between clusters when compared to sklearn
                 tol = 2e-2
             else:
-                tol = 1e-4
+                # We allow up to 5 points to be different for the other
+                # datasets to be robust to small behavior changes
+                # between library versions/ small changes
+                tol = 1e-2
             assert (clusters_equal(sk_y_pred, cu_y_pred,
                     params['n_clusters'], tol=tol)) and score_test
 
