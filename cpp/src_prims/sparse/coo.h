@@ -938,7 +938,7 @@ symmetric_sum(int *restrict edges,
   COL[transpose] = row;
 }
 
-#include "linalg/eltwise.h"
+#include "linalg/unary_op.h"
 
 /**
  * @brief Perform data + data.T on raw KNN data.
@@ -1006,7 +1006,7 @@ from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Rolling cumulative sum
   thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
                          __row_sizes + n, __edges);
-  MLCommon::LinAlg::scalarAdd(edges, edges, n*k, n, stream);
+  // MLCommon::LinAlg::scalarAdd(edges, edges, n*k, n, stream);
 
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
