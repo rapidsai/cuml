@@ -1006,7 +1006,9 @@ from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Rolling cumulative sum
   thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
                          __row_sizes + n, __edges);
-  // MLCommon::LinAlg::scalarAdd(edges, edges, n*k, n, stream);
+  const float add = n*k;
+  MLCommon::LinAlg::unaryOp(
+      edges, edges, n, [add] __device__(float x) { return x + add; }, stream);
 
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
