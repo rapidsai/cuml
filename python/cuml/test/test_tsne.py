@@ -24,9 +24,13 @@ from sklearn import datasets
 
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
+methods = ['barnes_hut', 'exact']
+inits = ['pca','random']
 
 
 @pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('method', methods)
+@pytest.mark.parametrize('init', inits)
 def test_tsne(name):
     """
     This tests how TSNE handles a lot of input data across time.
@@ -43,7 +47,8 @@ def test_tsne(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i,
+                    method=method, init=init)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -55,7 +60,8 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2,
+                    method=method, init=init)
 
         # Reuse
         Y = tsne.fit_transform(X)
