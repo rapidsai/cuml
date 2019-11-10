@@ -46,7 +46,8 @@ def test_tsne(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i,
+                    method="barnes_hut")
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -58,7 +59,8 @@ def test_tsne(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2,
+                    method="exact")
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -108,7 +110,8 @@ def test_tsne_pca(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i,
+                    method="barnes_hut", init="pca")
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -120,7 +123,8 @@ def test_tsne_pca(name):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2,
+                    method="exact", init="pca")
 
         # Reuse
         Y = tsne.fit_transform(X)
