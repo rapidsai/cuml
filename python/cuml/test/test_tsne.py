@@ -25,6 +25,9 @@ from sklearn import datasets
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
 
+dataset_names_pca = ['digits', 'boston', 'iris', 'breast_cancer',
+                     'diabetes', 'wine']
+
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_tsne(name):
@@ -77,6 +80,49 @@ def test_tsne_default(name):
         print("iteration = ", i)
 
         tsne = TSNE()
+        Y = tsne.fit_transform(X)
+        nans = np.sum(np.isnan(Y))
+        trust = trustworthiness(X, Y)
+        print("Trust = ", trust)
+        assert trust > 0.76
+        assert nans == 0
+        del Y
+
+
+@pytest.mark.parametrize('name', dataset_names_pca)
+def test_tsne_pca(name):
+    """
+    This tests how TSNE handles a lot of input data across time.
+    This uses PCA Intialization. The Wine dataset can be tested
+    as well.
+    (1) Numpy arrays are passed in
+    (2) Params are changed in the TSNE class
+    (3) The class gets re-used across time
+    (4) Trustworthiness is checked
+    (5) Tests NAN in TSNE output for learning rate explosions
+    (6) Tests verbosity
+    """
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    for i in range(3):
+        print("iteration = ", i)
+
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i)
+
+        # Reuse
+        Y = tsne.fit_transform(X)
+        nans = np.sum(np.isnan(Y))
+        trust = trustworthiness(X, Y)
+        print("Trust = ", trust)
+        assert trust > 0.76
+        assert nans == 0
+        del Y
+
+        # Again
+        tsne = TSNE(2, random_state=i+2, verbose=1, learning_rate=2+i+2)
+
+        # Reuse
         Y = tsne.fit_transform(X)
         nans = np.sum(np.isnan(Y))
         trust = trustworthiness(X, Y)
