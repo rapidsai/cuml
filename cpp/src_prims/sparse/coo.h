@@ -938,7 +938,7 @@ symmetric_sum(int *restrict edges,
   COL[transpose] = row;
 }
 
-#include "eltwise.h"
+#include "linalg/eltwise.h"
 
 /**
  * @brief Perform data + data.T on raw KNN data.
