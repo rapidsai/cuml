@@ -83,6 +83,7 @@ class DecisionTreeBase {
   bool bootstrap_features;
   CRITERION split_criterion;
   MLCommon::TimerCPU prepare_fit_timer;
+  float min_impurity_decrease = 0.0;
 
   void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
              const int ncols, const int nrows, const L *labels,
