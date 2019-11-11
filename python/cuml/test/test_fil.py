@@ -180,7 +180,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     print("SKL accuracy = ", skl_acc, " ForestInference accuracy: ", fil_acc)
-    assert fil_acc == pytest.approx(skl_acc, 0.01)
+    assert fil_acc == skl_acc
     assert array_equal(fil_preds, skl_preds_int)
 
 
