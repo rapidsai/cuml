@@ -52,7 +52,7 @@ def report_asv(results_df, output_dir,
     (commitHash, commitTime) = asvdb.utils.getCommitInfo()
 
     b_info = asvdb.BenchmarkInfo(
-        machineName=uname.machine,
+        machineName=machineName or uname.machine,
         cudaVer=cudaVer or "unknown",
         osType=osType or "%s %s" % (uname.system,
                                     uname.release),

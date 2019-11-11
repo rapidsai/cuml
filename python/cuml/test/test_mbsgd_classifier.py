@@ -29,9 +29,9 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [unit_param(40), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
@@ -70,9 +70,9 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([7, 4]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_mbsgd_classifier_default(datatype, nrows, column_info):
