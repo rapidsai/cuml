@@ -19,6 +19,8 @@
 #include <common/device_buffer.hpp>
 #include "utils.h"
 
+using namespace ML;
+
 namespace ML {
 namespace TSNE {
 

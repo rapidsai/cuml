@@ -20,7 +20,7 @@
 #include <linalg/eltwise.h>
 #include <math.h>
 #include "utils.h"
-#define restrict __restrict__
+#define restrict __restrict
 
 namespace ML {
 namespace TSNE {
@@ -429,3 +429,5 @@ float apply_forces(float *restrict Y, float *restrict velocity,
 
 }  // namespace TSNE
 }  // namespace ML
+
+#undef restrict
