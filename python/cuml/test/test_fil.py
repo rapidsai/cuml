@@ -79,7 +79,7 @@ def _build_and_save_xgboost(model_path,
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
                                     quality_param(10000),
                                     stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(11),
+@pytest.mark.parametrize('n_columns', [unit_param(20),
                                        quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(1),
@@ -186,7 +186,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_columns', [unit_param(11), quality_param(100),
+@pytest.mark.parametrize('n_columns', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('num_rounds', [unit_param(5), quality_param(10),
                          stress_param(90)])
@@ -236,7 +236,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
 @pytest.fixture(scope="session")
 def small_classifier_and_preds(tmpdir_factory):
-    X, y = simulate_data(100, 10,
+    X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
 
@@ -311,7 +311,7 @@ def test_output_args(small_classifier_and_preds):
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path):
     import lightgbm as lgb
-    X, y = simulate_data(100, 10,
+    X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
