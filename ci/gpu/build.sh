@@ -52,6 +52,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
+      "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
       "dask=2.5.0" \
       "distributed=2.5.1" \
