@@ -20,9 +20,10 @@ import os
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.utils.import_utils import has_xgboost, has_lightgbm
+from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -127,6 +128,60 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     print("XGB accuracy = ", xgb_acc, " ForestInference accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
+
+
+@pytest.mark.parametrize('n_rows', [10000])
+@pytest.mark.parametrize('n_columns', [20])
+@pytest.mark.parametrize('n_estimators', [1, 10])
+@pytest.mark.parametrize('max_depth', [2, 10, 20])
+@pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
+def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
+                                storage_type):
+
+    # skip depth 20 for dense tests
+    if max_depth == 20 and storage_type == 'DENSE':
+        return
+
+    # settings
+    classification = True  # change this to false to use regression
+    n_categories = 2
+    random_state = np.random.RandomState(43210)
+
+    X, y = simulate_data(n_rows, n_columns, n_categories,
+                         random_state=random_state,
+                         classification=classification)
+    # identify shape and indices
+    train_size = 0.80
+
+    X_train, X_validation, y_train, y_validation = train_test_split(
+        X, y, train_size=train_size, random_state=0)
+
+    skl_model = RandomForestClassifier(n_estimators=n_estimators,
+                                       max_depth=max_depth, max_features=0.3,
+                                       n_jobs=-1)
+    skl_model.fit(X_train, y_train)
+
+    skl_preds = skl_model.predict(X_validation)
+    skl_preds_int = np.around(skl_preds)
+
+    skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
+
+    print("Converting the SKL model to FIL")
+
+    algo = 'NAIVE' if storage_type == 'SPARSE' else 'BATCH_TREE_REORG'
+
+    fm = ForestInference.load_from_sklearn(skl_model,
+                                           algo=algo,
+                                           output_class=True,
+                                           threshold=0.50,
+                                           storage_type=storage_type)
+    fil_preds = np.asarray(fm.predict(X_validation))
+    fil_acc = accuracy_score(y_validation, fil_preds)
+
+    print("SKL accuracy = ", skl_acc, " ForestInference accuracy: ", fil_acc)
+    assert fil_acc == skl_acc
+    assert array_equal(fil_preds, skl_preds_int)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
