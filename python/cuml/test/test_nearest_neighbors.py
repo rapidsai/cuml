@@ -26,11 +26,11 @@ from sklearn.datasets.samples_generator import make_blobs
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('feature_info', [unit_param([3, 3]),
-                         quality_param([100, 30]),
-                         stress_param([1000, 50])])
+@pytest.mark.parametrize('feature_info', [unit_param([20, 10]),
+                         quality_param([100, 50]),
+                         stress_param([1000, 500])])
 def test_knn(input_type, nrows, feature_info):
     n_feats, k = feature_info
     n_samples = nrows
@@ -81,9 +81,9 @@ def test_knn_fit_twice():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
     X, y = make_blobs(n_samples=nrows,
