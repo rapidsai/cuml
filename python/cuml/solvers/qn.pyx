@@ -234,8 +234,6 @@ class QN(Base):
 
         self.loss = loss
 
-
-
     def _get_loss_int(self, loss):
         return {
             'sigmoid': 0,
@@ -276,7 +274,6 @@ class QN(Base):
                                check_rows=n_rows, check_cols=1)
 
         self.num_classes = len(checked_cupy_unique(y_m)) - 1
-
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
