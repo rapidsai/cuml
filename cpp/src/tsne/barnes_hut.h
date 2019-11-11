@@ -223,18 +223,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   {
     if (verbose and iter % 50 == 0) printf("[Iter %d] ", iter);
 
-    if (verbose and iter % 50 == 0) printf("Reset >");
-
-    // Reset everything
-    CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
-    CUDA_CHECK(cudaMemsetAsync(rep_forces, 0, sizeof(float) * (NNODES + 1) * 2, stream));
-    CUDA_CHECK(cudaMemsetAsync(Z_norm, 0, sizeof(float), stream));
-    CUDA_CHECK(cudaMemsetAsync(startl + NNODES, 0, sizeof(int), stream));
-    CUDA_CHECK(cudaMemsetAsync(sums, 0, sizeof(float) * 2, stream));
-
-    thrust::fill(thrust::cuda::par.on(stream), bottomd, bottomd + 1, NNODES);
-    thrust::fill(thrust::cuda::par.on(stream), massl + NNODES,
-                 massl + NNODES + 1, -1.0f);
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
@@ -243,8 +231,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                        stream);
     }
 
+
     if (verbose and iter % 50 == 0) printf("Bounding Box >");
     START_TIMER;
+    CUDA_CHECK(cudaMemsetAsync(startl + NNODES, 0, sizeof(int), stream));
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       /*startl,*/ childl, /* massl, */
       YY, YY + NNODES + 1, YY + NNODES, YY + 2 * NNODES + 1, maxxl, maxyl,
@@ -263,6 +253,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (verbose and iter % 50 == 0) printf("Tree Building >");
     START_TIMER;
+    thrust::fill(thrust::cuda::par.on(stream), bottomd, bottomd + 1, NNODES);
+
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
       /*errl,*/ childl, YY, YY + NNODES + 1, NNODES, n, maxdepthd, bottomd, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -271,6 +263,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (verbose and iter % 50 == 0) printf("Clear >");
     START_TIMER;
+    thrust::fill(thrust::cuda::par.on(stream), massl + NNODES,
+                 massl + NNODES + 1, -1.0f);
+    
     TSNE::ClearKernel2<<<blocks, 1024, 0, stream>>>(startl, massl, NNODES, bottomd);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(ClearKernel2_time);
@@ -299,6 +294,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     LinAlg::unaryOp(radiusd_squared, radiusd, 1, 
       [] __device__(float x) { return x * x; }, stream);
 
+    CUDA_CHECK(cudaMemsetAsync(rep_forces, 0, sizeof(float) * (NNODES + 1) * 2, stream));
+    CUDA_CHECK(cudaMemsetAsync(Z_norm, 0, sizeof(float), stream));
+
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
       /*errl,*/ theta, epssq, sortl, childl, massl, YY, YY + NNODES + 1,
       rep_forces, rep_forces + NNODES + 1, Z_norm, theta_squared, NNODES,
@@ -322,8 +320,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
     if (verbose and iter % 50 == 0) printf("Attraction >");
-    TSNE::
-      attractive_kernel_bh<<<ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
+    
+    TSNE::attractive_kernel_bh<<<ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY, YY + NNODES + 1, norm, norm_add1, attr_forces,
         attr_forces + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -332,6 +331,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (verbose and iter % 50 == 0) printf("Integration >");
     START_TIMER;
+    CUDA_CHECK(cudaMemsetAsync(sums, 0, sizeof(float) * 2, stream));
+
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
       learning_rate, momentum, early_exaggeration, YY, YY + NNODES + 1,
       attr_forces, attr_forces + n, rep_forces, rep_forces + NNODES + 1,
