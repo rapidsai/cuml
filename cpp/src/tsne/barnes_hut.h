@@ -80,8 +80,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float N_float = n;
   const float div_N = 1.0f / N_float;
 
+
   // Allocate more space
   //---------------------------------------------------
+  int SAVED_SPACE = 0;
   device_buffer<unsigned> limiter_(d_alloc, stream, 1);
   unsigned *limiter = limiter_.data();
   CUDA_CHECK(cudaMemsetAsync(limiter, 0, sizeof(unsigned), stream));
@@ -95,55 +97,87 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   device_buffer<float> radiusd_(d_alloc, stream, 1);
   float *radiusd = radiusd_.data();
   CUDA_CHECK(cudaMemsetAsync(radiusd, 0, sizeof(float), stream));
+  float *radiusd_squared = radiusd;
 
-  // Actual mallocs
-  device_buffer<int> startl_(d_alloc, stream, NNODES + 1);
-  int *startl = startl_.data();
+  // Forces
+  device_buffer<float> rep_forces_(d_alloc, stream, (NNODES + 1) * 2);
+  float *rep_forces = rep_forces_.data();
+  float *attr_forces = Y;
+  SAVED_SPACE += (n * dim) * sizeof(float);
+
+  // Tree Construction Intermmediate Arrays
+  int *startl, *countl;
+  if (sizeof(float) >= sizeof(int))
+  {
+    startl = (int *) rep_forces;
+    countl = startl + NNODES + 1;
+    SAVED_SPACE += (NNODES + 1) * 2 * sizeof(int);
+  }
+  else
+  {
+    device_buffer<int> startl_(d_alloc, stream, NNODES + 1);
+    startl = startl_.data();
+    device_buffer<int> countl_(d_alloc, stream, NNODES + 1);
+    countl = countl_.data();
+  }
+
   device_buffer<int> childl_(d_alloc, stream, (NNODES + 1) * 4);
   int *childl = childl_.data();
   device_buffer<float> massl_(d_alloc, stream, NNODES + 1);
   float *massl = massl_.data();
   thrust::fill(thrust::cuda::par.on(stream), massl, massl + (NNODES + 1), 1.0f);
-
-  device_buffer<float> maxxl_(d_alloc, stream, blocks * FACTOR1);
-  float *maxxl = maxxl_.data();
-  device_buffer<float> maxyl_(d_alloc, stream, blocks * FACTOR1);
-  float *maxyl = maxyl_.data();
-  device_buffer<float> minxl_(d_alloc, stream, blocks * FACTOR1);
-  float *minxl = minxl_.data();
-  device_buffer<float> minyl_(d_alloc, stream, blocks * FACTOR1);
-  float *minyl = minyl_.data();
-
-  // SummarizationKernel
-  device_buffer<int> countl_(d_alloc, stream, NNODES + 1);
-  int *countl = countl_.data();
-
-  // SortKernel
+  
   device_buffer<int> sortl_(d_alloc, stream, NNODES + 1);
   int *sortl = sortl_.data();
 
-  // RepulsionKernel
-  device_buffer<float> rep_forces_(d_alloc, stream, (NNODES + 1) * 2);
-  float *rep_forces = rep_forces_.data();
-  float *attr_forces = Y;  // Reuse embeddings to save n*2 memory
+  // Shared reductions
+  float *maxxl, *maxyl, *minxl, *minyl;
+  if (4*blocks*FACTOR1*sizeof(float) <= sizeof(int)*(NNODES + 1))
+  {
+    maxxl = (float *) sortl + 0*blocks*FACTOR1;
+    maxyl = (float *) sortl + 1*blocks*FACTOR1;
+    minxl = (float *) sortl + 2*blocks*FACTOR1;
+    minyl = (float *) sortl + 3*blocks*FACTOR1;
+    SAVED_SPACE += 4*blocks*FACTOR1*sizeof(float);
+  }
+  else
+  {
+    device_buffer<float> maxxl_(d_alloc, stream, blocks * FACTOR1);
+    maxxl = maxxl_.data();
+    device_buffer<float> maxyl_(d_alloc, stream, blocks * FACTOR1);
+    maxyl = maxyl_.data();
+    device_buffer<float> minxl_(d_alloc, stream, blocks * FACTOR1);
+    minxl = minxl_.data();
+    device_buffer<float> minyl_(d_alloc, stream, blocks * FACTOR1);
+    minyl = minyl_.data();
+  }
 
   // Normalizations
-  device_buffer<float> norm_add1_(d_alloc, stream, n);
-  float *norm_add1 = norm_add1_.data();
-  device_buffer<float> norm_(d_alloc, stream, n);
-  float *norm = norm_.data();
   device_buffer<float> Z_norm_(d_alloc, stream, 1);
   float *Z_norm = Z_norm_.data();
-  device_buffer<float> sums_(d_alloc, stream, 2);
-  float *sums = sums_.data();
 
-  device_buffer<float> radiusd_squared_(d_alloc, stream, 1);
-  float *radiusd_squared = radiusd_squared_.data();
+  float *norm, *norm_add1, *sums;
+  if ((NNODES + 1)*4*sizeof(int) >= (n + n + 2)*sizeof(float))
+  {
+    norm = (float *) childl;
+    norm_add1 = (float *) childl + n;
+    sums = (float *) childl + 2 * n;
+    SAVED_SPACE += (n + n + 2)*sizeof(float);
+  }
+  else
+  {
+    device_buffer<float> norm_add1_(d_alloc, stream, n);
+    norm_add1 = norm_add1_.data();
+    device_buffer<float> norm_(d_alloc, stream, n);
+    norm = norm_.data();
+    device_buffer<float> sums_(d_alloc, stream, 2);
+    sums = sums_.data();
+  }
 
-  // Apply
+  // Gradient Updates
   device_buffer<float> gains_bh_(d_alloc, stream, n * 2);
   float *gains_bh = gains_bh_.data();
-  thrust::fill(thrust::cuda::par.on(stream), gains_bh, gains_bh + (n * 2), 1.0f);
+  thrust::fill(thrust::cuda::par.on(stream), gains_bh, gains_bh + (n*2), 1.0f);
 
   device_buffer<float> old_forces_(d_alloc, stream, n * 2);
   float *old_forces = old_forces_.data();
@@ -151,7 +185,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   device_buffer<float> YY_(d_alloc, stream, (NNODES + 1) * 2);
   float *YY = YY_.data();
-  ASSERT(YY != NULL && rep_forces != NULL, "[ERROR] Possibly no more memory");
+
+  printf("[Info] Saved GPU memory = %d megabytes\n", SAVED_SPACE >> 20);
+
 
   // Intialize embeddings
   if (pca_intialization == true) {

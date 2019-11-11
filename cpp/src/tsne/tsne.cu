@@ -139,12 +139,15 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
 
     float total_maximum = (max > min) ? max : min;
     if (verbose)
+    {
       printf("[Info] PCA largest value in intialization = %.3f\n",
              total_maximum);
+    }
     if (total_maximum == 0) {
       // Intialize with random numbers since total_maximum == 0
       random_vector(embedding, -0.001f, 0.001f, n * dim, stream, random_state);
-    } else {
+    }
+    else {
       MLCommon::LinAlg::scalarMultiply(embedding, embedding,
                                        1.0f / total_maximum, n * dim, stream);
     }
@@ -155,6 +158,13 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                                 handle.getImpl().getCublasHandle(), stream);
 
     A = X_C_contiguous.data();
+
+    components.resize(0, stream);
+    explained_var.resize(0, stream);
+    explained_var_ratio.resize(0, stream);
+    singular_vals.resize(0, stream);
+    mu.resize(0, stream);
+    noise_vars.resize(0, stream);
   }
   else {
     A = X;
