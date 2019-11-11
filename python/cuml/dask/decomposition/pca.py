@@ -15,7 +15,7 @@
 
 from cuml.dask.common import extract_ddf_partitions
 from cuml.dask.common import to_dask_cudf
-from cuml.dask.common import  raise_exception_from_futures
+from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
 from collections import OrderedDict
@@ -27,6 +27,7 @@ from functools import reduce
 
 from uuid import uuid1
 
+
 class PCA(object):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -35,8 +36,8 @@ class PCA(object):
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask cuDF input, and provides
-    a Full algorithm. Full uses a full eigendecomposition
+    cuML's multi-node multi-gpu (MNMG) PCA expects a dask cuDF input, and 
+    provides a Full algorithm. Full uses a full eigendecomposition
     then selects the top K eigenvectors. The Jacobi algorithm is much faster
     as it iteratively tries to correct the top K eigenvectors, but might be
     less accurate.
@@ -211,7 +212,7 @@ class PCA(object):
         return f[idx]
 
     @staticmethod
-    def _func_xform(model, df): 
+    def _func_xform(model, df):
         return model.transform(df)
 
     @staticmethod
