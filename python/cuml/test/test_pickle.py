@@ -150,7 +150,7 @@ def test_rf_classification_pickle(tmpdir, datatype, model,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', regression_models.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 def test_regressor_pickle(tmpdir, datatype, model, data_size):
     nrows, ncols, n_info = data_size
@@ -168,7 +168,7 @@ def test_regressor_pickle(tmpdir, datatype, model, data_size):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', solver_models.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 def test_solver_pickle(tmpdir, datatype, model, data_size):
     nrows, ncols, n_info = data_size
@@ -186,7 +186,7 @@ def test_solver_pickle(tmpdir, datatype, model, data_size):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', cluster_models.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 def test_cluster_pickle(tmpdir, datatype, model, data_size):
     nrows, ncols, n_info = data_size
@@ -204,7 +204,7 @@ def test_cluster_pickle(tmpdir, datatype, model, data_size):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', decomposition_models_xfail.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle(tmpdir, datatype, model, data_size):
@@ -250,7 +250,7 @@ def test_umap_pickle(tmpdir, datatype, model):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', decomposition_models.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle_xfail(tmpdir, datatype, model, data_size):
@@ -268,7 +268,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, data_size):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', neighbor_models.values())
-@pytest.mark.parametrize('data_info', [unit_param([20, 3, 2, 3]),
+@pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
                          stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, model, data_info):
     nrows, ncols, n_info, k = data_info
@@ -286,7 +286,7 @@ def test_neighbors_pickle(tmpdir, datatype, model, data_info):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('data_info', [unit_param([20, 3, 2, 3]),
+@pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
                          stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
@@ -336,7 +336,7 @@ def test_neighbors_mg_fails(tmpdir, datatype):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('model', dbscan_model.values())
-@pytest.mark.parametrize('data_size', [unit_param([20, 3, 2]),
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, model, data_size):
     nrows, ncols, n_info = data_size

@@ -22,7 +22,6 @@ build:
     - CC
     - CXX
     - CUDAHOSTCXX
-    - BUILD_ABI
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
 

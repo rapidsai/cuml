@@ -479,8 +479,8 @@ class PCA(Base):
         X_m, trans_input_ptr, n_rows, _, dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                                 else None)
+                               )
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
