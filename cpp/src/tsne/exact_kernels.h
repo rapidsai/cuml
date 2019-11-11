@@ -31,7 +31,7 @@ namespace TSNE {
 __global__ void sigmas_kernel(const float *restrict D,
                               float *restrict P, const float perplexity,
                               const float desired_entropy,
-                              /*float *restrict P_sum*/, const int epochs,
+                              /*float *restrict P_sum,*/ const int epochs,
                               const float tol, const int n, const int k) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -92,7 +92,7 @@ __global__ void sigmas_kernel(const float *restrict D,
 __global__ void sigmas_kernel_2d(const float *restrict D,
                                  float *restrict P, const float perplexity,
                                  const float desired_entropy,
-                                 /*float *restrict P_sum*/, const int epochs,
+                                 /*float *restrict P_sum,*/ const int epochs,
                                  const float tol, const int n) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -153,10 +153,10 @@ void perplexity_search(const float *restrict distances, float *restrict P,
 
   if (dim == 2)
     sigmas_kernel_2d<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, /*P_sum*/, epochs, tol, n);
+      distances, P, perplexity, desired_entropy, /*P_sum,*/ epochs, tol, n);
   else
     sigmas_kernel<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, /*P_sum*/, epochs, tol, n, dim);
+      distances, P, perplexity, desired_entropy, /*P_sum,*/ epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // cudaStreamSynchronize(stream);
