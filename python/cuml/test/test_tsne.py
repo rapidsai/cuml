@@ -31,7 +31,7 @@ inits = ['pca','random']
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('method', methods)
 @pytest.mark.parametrize('init', inits)
-def test_tsne(name):
+def test_tsne(name, method, init):
     """
     This tests how TSNE handles a lot of input data across time.
     (1) Numpy arrays are passed in
