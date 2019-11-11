@@ -81,13 +81,28 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-logger "Build libcuml..."
+logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
+
+logger "Build treelite for GPU testing..."
+# Buildint treelite Python for testing is temporary while there is a pip/conda
+# treelite package
+
+cd $WORKSPACE/cpp/build/treelite/src/treelite
+mkdir build
+cd build
+cmake ..
+make -j${PARALLEL_LEVEL}
+cd ../python
+python setup.py install
+
+cd $WORKSPACE
+
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
