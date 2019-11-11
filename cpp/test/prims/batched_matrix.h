@@ -95,5 +95,20 @@ void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
   }
 }
 
+/**
+ * TODO: docs
+ */
+template <typename DataT>
+void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
+  int lagged_len = len - lags;
+  for (int lag = 1; lag <= lags; lag++) {
+    DataT *out_ = out + (lag - 1) * lagged_len;
+    const DataT *in_ = in + lags - lag;
+    for (int i = 0; i < lagged_len; i++) {
+      out_[i] = in_[i];
+    }
+  }
+}
+
 }  // namespace Matrix
 }  // namespace MLCommon

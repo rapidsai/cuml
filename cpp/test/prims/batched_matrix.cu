@@ -36,7 +36,8 @@ enum BatchedMatrixOperation {
   ApB_op,
   AmB_op,
   AkB_op,
-  AsolveZ_op
+  AsolveZ_op,
+  LaggedZ_op
 };
 
 template <typename T>
@@ -48,6 +49,7 @@ struct BatchedMatrixInputs {
   int p;
   int q;
   T tolerance;
+  int intparam0;
 };
 
 template <typename T>
@@ -58,13 +60,16 @@ class BatchedMatrixTest
     using std::vector;
     params = ::testing::TestWithParam<BatchedMatrixInputs<T>>::GetParam();
 
-    // Find out whether B and Z will be used (depending on the operation)
+    // Find out whether A, B and Z will be used (depending on the operation)
+    bool use_A = (params.operation != LaggedZ_op);
     bool use_B = (params.operation == AB_op) || (params.operation == ApB_op) ||
                  (params.operation == AmB_op) || (params.operation == AkB_op);
     bool use_Z = (params.operation == AZT_op) || (params.operation == ZA_op) ||
-                 (params.operation == AsolveZ_op);
+                 (params.operation == AsolveZ_op) ||
+                 (params.operation == LaggedZ_op);
     bool Z_col = (params.operation == AsolveZ_op);
     int r = params.operation == AZT_op ? params.n : params.m;
+    int lags = params.intparam0;
 
     // Check if the dimensions are valid and compute the output dimensions
     int m_r, n_r;
@@ -98,12 +103,17 @@ class BatchedMatrixTest
         m_r = params.m;
         n_r = 1;
         break;
+      case LaggedZ_op:
+        m_r = params.m - lags;
+        n_r = lags;
+        break;
     }
 
     // Create test matrices and vector
-    std::vector<T> A = std::vector<T>(params.n_batches * params.m * params.n);
+    std::vector<T> A;
     std::vector<T> B;
     std::vector<T> Z;
+    if (use_A) A.resize(params.n_batches * params.m * params.n);
     if (use_B) B.resize(params.n_batches * params.p * params.q);
     if (use_Z) Z.resize(params.n_batches * r);
 
@@ -129,7 +139,7 @@ class BatchedMatrixTest
                          allocator, stream);
 
     // Copy the data to the device
-    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
+    if (use_A) updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
     if (use_B) updateDevice(BbM.raw_data(), B.data(), B.size(), stream);
     if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
@@ -159,6 +169,9 @@ class BatchedMatrixTest
       case AsolveZ_op:
         // A * A\Z -> should be Z
         *res_bM = AbM * b_solve(AbM, ZbM);
+        break;
+      case LaggedZ_op:
+        *res_bM = b_lagged_mat(ZbM, lags);
         break;
     }
 
@@ -205,6 +218,12 @@ class BatchedMatrixTest
         // Simply copy Z in the result
         memcpy(res_h.data(), Z.data(), r * params.n_batches * sizeof(T));
         break;
+      case LaggedZ_op:
+        for (int bid = 0; bid < params.n_batches; bid++) {
+          naiveLaggedMat(res_h.data() + bid * m_r * n_r,
+                         Z.data() + bid * params.m, params.m, lags);
+        }
+        break;
     }
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -226,19 +245,21 @@ class BatchedMatrixTest
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
 const std::vector<BatchedMatrixInputs<double>> inputsd = {
-  {AB_op, 7, 15, 37, 37, 11, 1e-6},   {AZT_op, 5, 33, 65, 1, 1, 1e-6},
-  {ZA_op, 8, 12, 41, 1, 1, 1e-6},     {ApB_op, 4, 16, 48, 16, 48, 1e-6},
-  {AmB_op, 17, 9, 3, 9, 3, 1e-6},     {AkB_op, 5, 3, 13, 31, 8, 1e-6},
-  {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
-  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-6}};
+  {AB_op, 7, 15, 37, 37, 11, 1e-6, 0},    {AZT_op, 5, 33, 65, 1, 1, 1e-6, 0},
+  {ZA_op, 8, 12, 41, 1, 1, 1e-6, 0},      {ApB_op, 4, 16, 48, 16, 48, 1e-6, 0},
+  {AmB_op, 17, 9, 3, 9, 3, 1e-6, 0},      {AkB_op, 5, 3, 13, 31, 8, 1e-6, 0},
+  {AkB_op, 3, 7, 12, 31, 15, 1e-6, 0},    {AkB_op, 2, 11, 2, 8, 46, 1e-6, 0},
+  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-6, 0}, {LaggedZ_op, 5, 31, 1, 1, 1, 1e-6, 9},
+  {LaggedZ_op, 7, 129, 1, 1, 1, 1e-6, 3}};
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
 const std::vector<BatchedMatrixInputs<float>> inputsf = {
-  {AB_op, 7, 15, 37, 37, 11, 1e-6},   {AZT_op, 5, 33, 65, 1, 1, 1e-6},
-  {ZA_op, 8, 12, 41, 1, 1, 1e-6},     {ApB_op, 4, 16, 48, 16, 48, 1e-6},
-  {AmB_op, 17, 9, 3, 9, 3, 1e-6},     {AkB_op, 5, 3, 13, 31, 8, 1e-6},
-  {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
-  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-3}};
+  {AB_op, 7, 15, 37, 37, 11, 1e-6, 0},    {AZT_op, 5, 33, 65, 1, 1, 1e-6, 0},
+  {ZA_op, 8, 12, 41, 1, 1, 1e-6, 0},      {ApB_op, 4, 16, 48, 16, 48, 1e-6, 0},
+  {AmB_op, 17, 9, 3, 9, 3, 1e-6, 0},      {AkB_op, 5, 3, 13, 31, 8, 1e-6, 0},
+  {AkB_op, 3, 7, 12, 31, 15, 1e-6, 0},    {AkB_op, 2, 11, 2, 8, 46, 1e-6, 0},
+  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-3, 0}, {LaggedZ_op, 5, 31, 1, 1, 1, 1e-6, 9},
+  {LaggedZ_op, 7, 129, 1, 1, 1, 1e-6, 3}};
 
 using BatchedMatrixTestD = BatchedMatrixTest<double>;
 using BatchedMatrixTestF = BatchedMatrixTest<float>;
