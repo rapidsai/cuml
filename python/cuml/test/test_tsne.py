@@ -25,7 +25,7 @@ from sklearn import datasets
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes', 'wine']
 methods = ['barnes_hut', 'exact']
-inits = ['pca','random']
+inits = ['pca', 'random']
 
 
 @pytest.mark.parametrize('name', dataset_names)
