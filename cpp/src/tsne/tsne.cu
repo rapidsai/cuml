@@ -214,13 +214,19 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix;
+  // MLCommon::Sparse::COO<float> COO_Matrix;
+  const int NNZ = (2 * n * n_neighbors);
+  float *VAL = (float *)d_alloc->allocate(sizeof(float) * NNZ, stream);
+  int *COL = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
+  int *ROW = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
+
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
-                              early_exaggeration, &COO_Matrix, stream, handle);
-  const int NNZ = COO_Matrix.nnz;
-  float *VAL = COO_Matrix.vals;
-  const int *COL = COO_Matrix.cols;
-  const int *ROW = COO_Matrix.rows;
+                              early_exaggeration, /*&COO_Matrix,*/
+                              VAL, COL, ROW, stream, handle);
+
+  d_alloc->deallocate(P, sizeof(float) * n * n_neighbors, stream);
+  d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
@@ -239,7 +245,10 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                      verbose, pca_intialization);
   }
 
-  COO_Matrix.destroy();
+  // COO_Matrix.destroy();
+  d_alloc->deallocate(VAL, sizeof(float) * NNZ, stream);
+  d_alloc->deallocate(COL, sizeof(int) * NNZ, stream);
+  d_alloc->deallocate(ROW, sizeof(int) * NNZ, stream);
 
   if (verbose) printf("[Info] TSNE has completed!\n");
 }

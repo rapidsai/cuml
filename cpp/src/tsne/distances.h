@@ -87,7 +87,8 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
 template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
                            const float exaggeration,
-                           MLCommon::Sparse::COO<float> *COO_Matrix,
+                           /* MLCommon::Sparse::COO<float> *COO_Matrix, */
+                           float *VAL, int *COL, int *ROW,
                            cudaStream_t stream, const cumlHandle &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * n);
@@ -95,11 +96,7 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
-
-  handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
-  handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
-                                          stream);
+    indices, P, n, k, /*COO_Matrix,*/ VAL, COL, ROW, stream, handle.getDeviceAllocator());
 }
 
 }  // namespace TSNE

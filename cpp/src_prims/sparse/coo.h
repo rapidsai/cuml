@@ -934,9 +934,14 @@ __global__ static void symmetric_sum(int *restrict edges,
 template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists, const int n,
-                                const int k, COO<math_t> *out,
+                                const int k,
+                                /* math_t *restrict out, */
+                                math_t *restrict VAL,
+                                int *restrict COL,
+                                int *restrict ROW,
                                 cudaStream_t stream,
-                                std::shared_ptr<deviceAllocator> d_alloc) {
+                                std::shared_ptr<deviceAllocator> d_alloc)
+{
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -960,10 +965,10 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
   // Notice we don't do any merging and leave the result as 2*NNZ
-  const int NNZ = 2 * n * k;
+  // const int NNZ = 2 * n * k;
 
-  // (3) Allocate new space
-  out->allocate(NNZ, n, n);
+  // // (3) Allocate new space
+  // out->allocate(NNZ, n, n);
 
   // (4) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
@@ -981,7 +986,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, knn_indices, out->vals, out->cols, out->rows, n, k);
+    edges, knn_dists, knn_indices, VAL, COL, ROW, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 
   d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);
