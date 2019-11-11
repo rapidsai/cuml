@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
@@ -29,9 +30,7 @@
 #include "cuda_utils.h"
 
 #include <iostream>
-#define restrict __restrict__
-
-#pragma once
+#define restrict __restrict
 
 namespace MLCommon {
 namespace Sparse {
@@ -991,3 +990,5 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
 };  // namespace Sparse
 };  // namespace MLCommon
+
+#undef restrict

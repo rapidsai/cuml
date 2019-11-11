@@ -19,7 +19,7 @@
 #include <common/device_buffer.hpp>
 #include "utils.h"
 
-using namespace ML;
+using namespace MLCommon;
 
 namespace ML {
 namespace TSNE {
