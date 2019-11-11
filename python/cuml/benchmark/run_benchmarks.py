@@ -83,9 +83,6 @@ if __name__ == '__main__':
           python run_benchmarks.py --dataset higgs --default-size \
                 RandomForestClassifier LogisticRegression
 
-          # Print available algorithms and exit
-          python run_benchmarks.py --algos
-
         ''',
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -147,14 +144,12 @@ if __name__ == '__main__':
         help='Throw exception on a failed benchmark',
     )
     parser.add_argument(
-        '--algorithms',
-        dest='print_algorithms',
+        '--print-algorithms',
         action='store_true',
         help='Print the list of all available algorithms and exit',
     )
     parser.add_argument(
-        '--datasets',
-        dest='print_datasets',
+        '--print-datasets',
         action='store_true',
         help='Print the list of all available datasets and exit',
     )
