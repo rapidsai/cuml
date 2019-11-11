@@ -100,7 +100,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   bool check_convergence = false;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    check_convergence = ((iter % 10) == 0) and (iter > exaggeration_iter);
+    check_convergence = ((iter % 50) == 0) and (iter > exaggeration_iter);
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
