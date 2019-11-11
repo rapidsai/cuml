@@ -196,10 +196,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
-  const float P_sum = n;
 
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
-  if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -207,7 +205,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix;
-  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals;
