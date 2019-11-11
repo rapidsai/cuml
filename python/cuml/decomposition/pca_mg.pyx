@@ -39,7 +39,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cuml.decomposition import PCA
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
-            namespace "MLCommon::Matrix":
+namespace "MLCommon::Matrix":
 
     cdef cppclass floatData_t:
         floatData_t(float *ptr, size_t totalSize)
@@ -52,7 +52,7 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
         size_t totalSize
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-            namespace "MLCommon::Matrix":
+    namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -282,44 +282,46 @@ class PCAMG(PCA):
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, \
-                                                         self.n_components, \
+            arr_interfaces_trans = self._build_transData(partsToRanks,
+                                                         rnk,
+                                                         self.n_components,
                                                          np.float32)
             trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <floatData_t**> data,
-                <floatData_t**> trans_data,
-                <float*> comp_ptr,
-                <float*> explained_var_ptr,
-                <float*> explained_var_ratio_ptr,
-                <float*> singular_vals_ptr,
-                <float*> mean_ptr,
-                <float*> noise_vars_ptr,
-                params,
-                True)
+                          <RankSizePair**>rankSizePair,
+                          <size_t> n_total_parts,
+                          <floatData_t**> data,
+                          <floatData_t**> trans_data,
+                          <float*> comp_ptr,
+                          <float*> explained_var_ptr,
+                          <float*> explained_var_ratio_ptr,
+                          <float*> singular_vals_ptr,
+                          <float*> mean_ptr,
+                          <float*> noise_vars_ptr,
+                          params,
+                          True)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, rnk, \
-                                                         self.n_components, \
+            arr_interfaces_trans = self._build_transData(partsToRanks, 
+                                                         rnk,
+                                                         self.n_components,
                                                          np.float64)
             trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <doubleData_t**> data,
-                <doubleData_t**> trans_data,
-                <double*> comp_ptr,
-                <double*> explained_var_ptr,
-                <double*> explained_var_ratio_ptr,
-                <double*> singular_vals_ptr,
-                <double*> mean_ptr,
-                <double*> noise_vars_ptr,
-                params,
-                True)
+                          <RankSizePair**>rankSizePair,
+                          <size_t> n_total_parts,
+                          <doubleData_t**> data,
+                          <doubleData_t**> trans_data,
+                          <double*> comp_ptr,
+                          <double*> explained_var_ptr,
+                          <double*> explained_var_ratio_ptr,
+                          <double*> singular_vals_ptr,
+                          <double*> mean_ptr,
+                          <double*> noise_vars_ptr,
+                          params,
+                          True)
 
         self.handle.sync()
 
@@ -416,40 +418,40 @@ class PCAMG(PCA):
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, \
-                                                         rnk, \
-                                                         self.n_components, \
+            arr_interfaces_trans = self._build_transData(partsToRanks,
+                                                         rnk,
+                                                         self.n_components,
                                                          np.float32)
             trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <floatData_t**> data,
-                <float*> comp_ptr,
-                <floatData_t**> trans_data,
-                <float*> singular_vals_ptr,
-                <float*> mean_ptr,
-                params,
-                True)
+                      <RankSizePair**>rankSizePair,
+                      <size_t> n_total_parts,
+                      <floatData_t**> data,
+                      <float*> comp_ptr,
+                      <floatData_t**> trans_data,
+                      <float*> singular_vals_ptr,
+                      <float*> mean_ptr,
+                      params,
+                      True)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, \
-                                                         rnk, \
-                                                         self.n_components, \
+            arr_interfaces_trans = self._build_transData(partsToRanks,
+                                                         rnk,
+                                                         self.n_components,
                                                          np.float64)
             trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <doubleData_t**> data,            
-                <double*> comp_ptr,
-                <doubleData_t**> trans_data,
-                <double*> singular_vals_ptr,
-                <double*> mean_ptr,
-                params,
-                True)
+                      <RankSizePair**>rankSizePair,
+                      <size_t> n_total_parts,
+                      <doubleData_t**> data,            
+                      <double*> comp_ptr,
+                      <doubleData_t**> trans_data,
+                      <double*> singular_vals_ptr,
+                      <double*> mean_ptr,
+                      params,
+                      True)
 
         self.handle.sync()
 
@@ -541,40 +543,40 @@ class PCAMG(PCA):
 
         if self.dtype == np.float32:
             trans_data = self._build_dataFloat(arr_inter_tran)
-            arr_interfaces = self._build_transData(partsToRanks, \
-                                                   rnk, \
-                                                   self.n_cols, \
+            arr_interfaces = self._build_transData(partsToRanks,
+                                                   rnk,
+                                                   self.n_cols,
                                                    np.float32)
             data = self._build_dataFloat(arr_interfaces)
 
             inverse_transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <floatData_t**> trans_data,
-                <float*> comp_ptr,
-                <floatData_t**> data,
-                <float*> singular_vals_ptr,
-                <float*> mean_ptr,
-                params,
-                True)
+                              <RankSizePair**>rankSizePair,
+                              <size_t> n_total_parts,
+                              <floatData_t**> trans_data,
+                              <float*> comp_ptr,
+                              <floatData_t**> data,
+                              <float*> singular_vals_ptr,
+                              <float*> mean_ptr,
+                              params,
+                              True)
         else:
             trans_data = self._build_dataDouble(arr_inter_tran)
-            arr_interfaces = self._build_transData(partsToRanks, \
-                                                   rnk, \
-                                                   self.n_cols, \
+            arr_interfaces = self._build_transData(partsToRanks,
+                                                   rnk,
+                                                   self.n_cols,
                                                    np.float64)
             data = self._build_dataDouble(arr_interfaces)
 
             inverse_transform(handle_[0],
-                <RankSizePair**>rankSizePair,
-                <size_t> n_total_parts,
-                <doubleData_t**> trans_data,
-                <double*> comp_ptr,
-                <doubleData_t**> data,
-                <double*> singular_vals_ptr,
-                <double*> mean_ptr,
-                params,
-                True)
+                              <RankSizePair**>rankSizePair,
+                              <size_t> n_total_parts,
+                              <doubleData_t**> trans_data,
+                              <double*> comp_ptr,
+                              <doubleData_t**> data,
+                              <double*> singular_vals_ptr,
+                              <double*> mean_ptr,
+                              params,
+                              True)
 
         self.handle.sync()
 
@@ -591,7 +593,7 @@ class PCAMG(PCA):
             trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
 
         if self.dtype == np.float32:
-            self._freeFloatD(trans_data, arr_interfaces) 
+            self._freeFloatD(trans_data, arr_interfaces)
             self._freeFloatD(data, arr_inter_tran)
         else:
             self._freeDoubleD(trans_data, arr_interfaces)
