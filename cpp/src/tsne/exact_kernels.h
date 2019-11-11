@@ -28,7 +28,7 @@ namespace TSNE {
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel(const float *restrict distances,
+__global__ void sigmas_kernel(const float *restrict D,
                               float *restrict P, const float perplexity,
                               const float desired_entropy,
                               float *restrict P_sum, const int epochs,
@@ -40,14 +40,15 @@ __global__ void sigmas_kernel(const float *restrict distances,
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
   float sum_P_row = 0;
-  register const int ik = i * k;
+  const int ik = i * k;
 
-  for (int step = 0; step < epochs; step++) {
+  for (int step = 0; step < epochs; step++)
+  {
     float sum_Pi = FLT_EPSILON;
 
     // Exponentiate to get guassian
     for (int j = 0; j < k; j++) {
-      P[ik + j] = __expf(-distances[ik + j] * beta);
+      P[ik + j] = __expf(-D[ik + j] * beta);
       sum_Pi += P[ik + j];
     }
 
@@ -55,9 +56,10 @@ __global__ void sigmas_kernel(const float *restrict distances,
     float sum_disti_Pi = 0;
     sum_P_row = 0;
     const float div = __fdividef(1.0f, sum_Pi);
-    for (int j = 0; j < k; j++) {
+    for (int j = 0; j < k; j++)
+    {
       P[ik + j] *= div;
-      sum_disti_Pi += distances[ik + j] * P[ik + j];
+      sum_disti_Pi += D[ik + j] * P[ik + j];
       sum_P_row += P[ik + j];
     }
 
@@ -72,7 +74,8 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta *= 2.0f;
       else
         beta = (beta + beta_max) * 0.5f;
-    } else {
+    }
+    else {
       beta_max = beta;
       if (isinf(beta_min))
         beta *= 0.5f;
@@ -86,7 +89,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel_2d(const float *restrict distances,
+__global__ void sigmas_kernel_2d(const float *restrict D,
                                  float *restrict P, const float perplexity,
                                  const float desired_entropy,
                                  float *restrict P_sum, const int epochs,
@@ -98,20 +101,19 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
   float sum_P_row = 0;
-  register const int ik = i * 2;
+  const int ik = i * 2;
 
   for (int step = 0; step < epochs; step++) {
     // Exponentiate to get guassian
-    P[ik] = __expf(-distances[ik] * beta);
-    P[ik + 1] = __expf(-distances[ik + 1] * beta);
+    P[ik] = __expf(-D[ik] * beta);
+    P[ik + 1] = __expf(-D[ik + 1] * beta);
     const float sum_Pi = FLT_EPSILON + P[ik] + P[ik + 1];
 
     // Normalize
     const float div = __fdividef(1.0f, sum_Pi);
     P[ik] *= div;
     P[ik + 1] *= div;
-    const float sum_disti_Pi =
-      distances[ik] * P[ik] + distances[ik + 1] * P[ik + 1];
+    const float sum_disti_Pi = D[ik] * P[ik] + D[ik + 1] * P[ik + 1];
     sum_P_row = P[ik] + P[ik + 1];
 
     const float entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
@@ -125,7 +127,8 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta *= 2.0f;
       else
         beta = (beta + beta_max) * 0.5f;
-    } else {
+    }
+    else {
       beta_max = beta;
       if (isinf(beta_min))
         beta *= 0.5f;

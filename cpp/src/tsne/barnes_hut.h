@@ -158,7 +158,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     // Copy Y into YY
     copyAsync(YY, Y, n, stream);
     copyAsync(YY + NNODES + 1, Y + n, n, stream);
-  } else {
+  }
+  else {
     random_vector(YY, -0.001f, 0.001f, (NNODES + 1) * 2, stream, random_state);
   }
 

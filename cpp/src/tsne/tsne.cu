@@ -193,11 +193,11 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   if (verbose) {
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
-  float *P =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  const float P_sum =
-    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                            perplexity_tol, n, n_neighbors, handle);
+  float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
+                          perplexity_tol, n, n_neighbors, handle);
+  const float P_sum = n;
+
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
   if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
