@@ -311,25 +311,10 @@ void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
   ML::POP_RANGE();
 }
 
-/*
- * TODO: move to batched matrix prims + write doc
- * Note: the block id is the batch id and the thread id is the starting index
- */
-static __global__ void batched_offset_copy_kernel(double* out, double* in,
-                                                  int offset, int ld, int len) {
-  const double* batch_in = in + blockIdx.x * ld + offset;
-  double* batch_out = out + blockIdx.x * len;
-
-  for (int i = threadIdx.x; i < len; i += blockDim.x) {
-    batch_out[i] = batch_in[i];
-  }
-}
-
 /**
- * TODO: quick doc (internal auxiliary function)
+ * TODO: doc
  *
- * @note: d_yd is mutated!
- * TODO: take y as batched matrix
+ * @note: bm_y is mutated!
  *        
  * Determine reasonable starting mu, AR, and MA parameters
  */
@@ -337,14 +322,10 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma,
                           MLCommon::Matrix::BatchedMatrix<double>& bm_y,
                           int num_batches, int nobs, int p, int d, int q) {
-  const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics for block size
-
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
-
-  double* d_y = bm_y.raw_data();  // TODO: remove that
 
   // Initialize params
   cudaMemsetAsync(d_ar, 0, sizeof(double) * p * num_batches, stream);
@@ -352,11 +333,12 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
 
   if (d > 0) {
     // Compute means and write them in mu
-    MLCommon::Stats::mean(d_mu, d_y, num_batches, nobs, false, false, stream);
+    MLCommon::Stats::mean(d_mu, bm_y.raw_data(), num_batches, nobs, false,
+                          false, stream);
 
     // Center the series around their means in-place
     MLCommon::LinAlg::matrixVectorOp(
-      d_y, d_y, d_mu, num_batches, nobs, false, true,
+      bm_y.raw_data(), bm_y.raw_data(), d_mu, num_batches, nobs, false, true,
       [] __device__(double a, double b) { return a - b; }, stream);
   }
 
@@ -372,10 +354,8 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
       MLCommon::Matrix::b_lagged_mat(bm_y, p_lags);
 
     // Initial AR fit (note: larger dimensions because gels works in-place)
-    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
-      ls_height, 1, num_batches, cublas_handle, allocator, stream, false);
-    batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-      bm_ar_fit.raw_data(), d_y, p_lags, nobs, ls_height);
+    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit =
+      MLCommon::Matrix::b_2dcopy(bm_y, p_lags, 0, ls_height, 1);
 
     // Residual if q != 0, initialized as offset y to avoid one kernel call
     MLCommon::Matrix::BatchedMatrix<double> bm_residual(
@@ -386,22 +366,12 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                      ls_height * num_batches, stream);
     }
 
-    // Make a copy of the lagged set because gels modifies it in-place
-    MLCommon::Matrix::BatchedMatrix<double> bm_ls_copy(
-      ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
-    MLCommon::copy(bm_ls_copy.raw_data(), bm_ls.raw_data(),
-                   ls_height * p_lags * num_batches, stream);
-
-    int ar_fit_info;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
-      cublas_handle, CUBLAS_OP_N, ls_height, p_lags, 1, bm_ls_copy.data(),
-      ls_height, bm_ar_fit.data(), ls_height, &ar_fit_info, nullptr,
-      num_batches));
+    MLCommon::Matrix::b_gels(bm_ls, bm_ar_fit);
 
     if (q == 0) {
       // Note: if q == 0, we must always choose p_lags == p!
-      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ar, bm_ar_fit.raw_data(), 0, ls_height, p);
+      MLCommon::Matrix::batched_2dcopy_kernel<<<num_batches, p, 0, stream>>>(
+        bm_ar_fit.raw_data(), d_ar, 0, 0, ls_height, 1, p, 1);
       CUDA_CHECK(cudaPeekAtLastError());
     } else {
       // Compute residual (technically a gemv)
@@ -424,23 +394,19 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                                      ls_ar_res_height * p);
 
       // ARMA fit (note: larger dimensions because gels works in-place)
-      MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit(
-        ls_ar_res_height, 1, num_batches, cublas_handle, allocator, stream,
-        false);
-      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        bm_arma_fit.raw_data(), d_y, arma_fit_offset, nobs, ls_ar_res_height);
+      MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit =
+        MLCommon::Matrix::b_2dcopy(bm_y, arma_fit_offset, 0, ls_ar_res_height,
+                                   1);
+      MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
 
-      // Note: this overwrites bm_ls_ar_res
-      int arma_fit_info;
-      CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
-        cublas_handle, CUBLAS_OP_N, ls_ar_res_height, p + q, 1,
-        bm_ls_ar_res.data(), ls_ar_res_height, bm_arma_fit.data(),
-        ls_ar_res_height, &arma_fit_info, nullptr, num_batches));
-
-      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ar, bm_arma_fit.raw_data(), 0, ls_ar_res_height, p);
-      batched_offset_copy_kernel<<<num_batches, TPB, 0, stream>>>(
-        d_ma, bm_arma_fit.raw_data(), p, ls_ar_res_height, q);
+      // Note: calling directly the kernel as there is not yet a way to wrap
+      // existing device pointers in a batched matrix
+      MLCommon::Matrix::batched_2dcopy_kernel<<<num_batches, p, 0, stream>>>(
+        bm_arma_fit.raw_data(), d_ar, 0, 0, ls_ar_res_height, 1, p, 1);
+      CUDA_CHECK(cudaPeekAtLastError());
+      MLCommon::Matrix::batched_2dcopy_kernel<<<num_batches, q, 0, stream>>>(
+        bm_arma_fit.raw_data(), d_ma, p, 0, ls_ar_res_height, 1, q, 1);
+      CUDA_CHECK(cudaPeekAtLastError());
     }
   } else {  // p == 0 && q > 0
     ///@todo See how `statsmodels` handles this case
@@ -449,23 +415,6 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
     thrust::device_ptr<double> __ma = thrust::device_pointer_cast(d_ma);
     thrust::fill(thrust::cuda::par.on(stream), __ma, __ma + q * num_batches,
                  -1.0);
-  }
-}
-
-/**
- * TODO: quick doc (internal auxiliary function)
- * TODO: move to batched matrix
- *
- * @note: The thread id is the starting position and the block id is the
- *        batch id.
- */
-static __global__ void _batched_diff_kernel(const double* in, double* out,
-                                            int n_elem) {
-  const double* batch_in = in + n_elem * blockIdx.x;
-  double* batch_out = out + (n_elem - 1) * blockIdx.x;
-
-  for (int i = threadIdx.x; i < n_elem - 1; i += blockDim.x) {
-    batch_out[i] = batch_in[i + 1] - batch_in[i];
   }
 }
 
@@ -492,10 +441,12 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
     MLCommon::copy(bm_yd.raw_data(), d_y, nobs * num_batches, stream);
   } else if (d == 1) {
     const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics
-    _batched_diff_kernel<<<num_batches, TPB, 0, stream>>>(d_y, bm_yd.raw_data(),
-                                                          nobs);
+    MLCommon::Matrix::batched_diff_kernel<<<num_batches, TPB, 0, stream>>>(
+      d_y, bm_yd.raw_data(), nobs);
+    CUDA_CHECK(cudaPeekAtLastError());
   } else {
-    throw std::runtime_error("Not supported difference parameter: d=0, 1");
+    throw std::runtime_error(
+      "Not supported difference parameter. Required: d=0 or 1");
   }
 
   // Do the computation of the initial parameters

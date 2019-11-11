@@ -95,6 +95,22 @@ __global__ void identity_matrix_kernel(T* I, int m) {
 }
 
 /**
+ * TODO: doc
+ *
+ * @note: The thread id is the starting position and the block id is the
+ *        batch id.
+ */
+template <typename T>
+static __global__ void batched_diff_kernel(const T* in, T* out, int n_elem) {
+  const T* batch_in = in + n_elem * blockIdx.x;
+  T* batch_out = out + (n_elem - 1) * blockIdx.x;
+
+  for (int i = threadIdx.x; i < n_elem - 1; i += blockDim.x) {
+    batch_out[i] = batch_in[i + 1] - batch_in[i];
+  }
+}
+
+/**
  * @brief The BatchedMatrix class provides storage and a number of linear
  *        operations on collections (batches) of matrices of identical shape.
  */
@@ -141,7 +157,8 @@ class BatchedMatrix {
       allocator->deallocate(A, sizeof(T*) * num_batches, stream);
     };
 
-    // When this shared pointer count goes to 0, `f` is called to deallocate the memory
+    // When this shared pointer count goes to 0, `f` is called to deallocate
+    // the memory
     m_A_dense = std::shared_ptr<T>(memory.first, f1);
     m_A_batches = std::shared_ptr<T*>(memory.second, f2);
   }
@@ -177,15 +194,27 @@ class BatchedMatrix {
     return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
   }
 
+  /**
+   * @brief   Deep copy of the batched matrix
+   * @note    Avoiding a copy constructor at the moment (rule of 3/5/0)
+   * @return  A batched matrix containing the same data
+   */
+  BatchedMatrix<T> deepcopy() const {
+    BatchedMatrix<T> out(m_shape.first, m_shape.second, m_num_batches,
+                         m_cublasHandle, m_allocator, m_stream);
+    copy(out[0], m_A_dense.get(),
+         m_num_batches * m_shape.first * m_shape.second, m_stream);
+    return out;
+  }
+
   //! Stack the matrix by columns creating a long vector
-  BatchedMatrix vec() const {
+  BatchedMatrix<T> vec() const {
     int m = m_shape.first;
     int n = m_shape.second;
     int r = m * n;
-    BatchedMatrix toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
-                        m_stream);
-    cudaMemcpyAsync(toVec[0], m_A_dense.get(), m_num_batches * r * sizeof(T),
-                    cudaMemcpyDeviceToDevice, m_stream);
+    BatchedMatrix<T> toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
+                           m_stream);
+    copy(toVec[0], m_A_dense.get(), m_num_batches * r, m_stream);
     return toVec;
   }
 
@@ -196,16 +225,15 @@ class BatchedMatrix {
    * @param[in]  n  Number of desired columns
    * @return        A batched matrix
    */
-  BatchedMatrix mat(int m, int n) const {
+  BatchedMatrix<T> mat(int m, int n) const {
     const int r = m_shape.first * m_shape.second;
     ASSERT(
       r == m * n,
       "ERROR BatchedMatrix::mat(m,n): Size mismatch - Cannot reshape array "
       "into desired size");
-    BatchedMatrix toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
-                        m_stream);
-    cudaMemcpyAsync(toMat[0], m_A_dense.get(), m_num_batches * r * sizeof(T),
-                    cudaMemcpyDeviceToDevice, m_stream);
+    BatchedMatrix<T> toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
+                           m_stream);
+    copy(toMat[0], m_A_dense.get(), m_num_batches * r, m_stream);
 
     return toMat;
   }
@@ -223,6 +251,32 @@ class BatchedMatrix {
       }
       std::cout << "\n";
     }
+  }
+
+  /**
+   * @brief Compute the first difference of the batched vector
+   *
+   * @return A batched vector corresponding to the first difference. Matches
+   *         the layout of the input vector (row or column vector)
+   */
+  BatchedMatrix<T> difference() const {
+    ASSERT(m_shape.first == 1 || m_shape.second == 1,
+           "Invalid operation: must be a vector");
+    int len = m_shape.second * m_shape.first;
+    ASSERT(len > 1, "Length of the vector must be > 1");
+
+    // Create output batched vector
+    bool row_vector = (m_shape.first == 1);
+    BatchedMatrix<T> out(row_vector ? 1 : len, row_vector ? len : 1,
+                         m_num_batches, m_cublasHandle, m_allocator, m_stream);
+
+    // Execute kernel
+    const int TPB = len > 512 ? 256 : 128;  // quick heuristics
+    batched_diff_kernel<<<m_num_batches, TPB, 0, m_stream>>>(
+      raw_data(), out.raw_data(), len);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    return out;
   }
 
   /**
@@ -343,7 +397,7 @@ void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Call cuBLAS
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemmStridedBatched(
+  CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched(
     A.cublasHandle(), opA, opB, m, n, k, &alpha, A.raw_data(), A.shape().first,
     A.shape().first * A.shape().second, B.raw_data(), B.shape().first,
     B.shape().first * B.shape().second, &beta, C.raw_data(), C.shape().first,
@@ -381,6 +435,29 @@ BatchedMatrix<T> b_gemm(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
 
   b_gemm(aT, bT, m, n, k, (T)1, A, B, (T)0, C);
   return C;
+}
+
+/**
+ * TODO: docs
+ * @note: this simple wrapper only supports non-transpose mode.
+ *        Also there isn't any strided version in cuBLAS yet.
+ */
+template <typename T>
+void b_gels(const BatchedMatrix<T>& A, BatchedMatrix<T>& C) {
+  ASSERT(A.batches() == C.batches(),
+         "A and C must have the same number of batches");
+  int m = A.shape().first;
+  ASSERT(C.shape().first == m, "Dimension mismatch: A rows, C rows");
+  int n = A.shape().second;
+  ASSERT(m > n, "Only overdetermined systems (m > n) are supported");
+  int nrhs = C.shape().second;
+
+  BatchedMatrix<T> Acopy = A.deepcopy();
+
+  int info;
+  CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
+    A.cublasHandle(), CUBLAS_OP_N, m, n, nrhs, Acopy.data(), m, C.data(), m,
+    &info, nullptr, A.batches()));
 }
 
 /**
@@ -472,18 +549,16 @@ BatchedMatrix<T> b_solve(const BatchedMatrix<T>& A, const BatchedMatrix<T>& b) {
   int* info = (int*)allocator->allocate(sizeof(int) * num_batches, A.stream());
 
   // A copy of A is necessary as the cublas operations write in A
-  BatchedMatrix<T> Acopy(n, n, num_batches, A.cublasHandle(), A.allocator(),
-                         A.stream());
-  copy(Acopy.raw_data(), A.raw_data(), n * n * num_batches, A.stream());
+  BatchedMatrix<T> Acopy = A.deepcopy();
 
   BatchedMatrix<T> Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
                         A.stream());
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetrfBatched(
-    handle, n, Acopy.data(), n, P, info, num_batches, A.stream()));
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgetriBatched(handle, n, Acopy.data(), n,
-                                                    P, Ainv.data(), n, info,
-                                                    num_batches, A.stream()));
+  CUBLAS_CHECK(LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n, P, info,
+                                          num_batches, A.stream()));
+  CUBLAS_CHECK(LinAlg::cublasgetriBatched(handle, n, Acopy.data(), n, P,
+                                          Ainv.data(), n, info, num_batches,
+                                          A.stream()));
 
   BatchedMatrix<T> x = Ainv * b;
 
@@ -542,8 +617,6 @@ __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
   }
 }
 
-///TODO: unit test of the lagged mat
-
 /**
  * TODO: docs
  */
@@ -577,7 +650,7 @@ template <typename T>
 BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
   ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
          "The first argument must be a vector (either row or column)");
-  int len = vec.shape().first == 1 ? vec.shape().second : vec.shape().first;
+  int len = vec.shape().first * vec.shape().second;
   ASSERT(lags < len, "The number of lags can't exceed the vector length");
   int lagged_height = len - lags;
 
@@ -589,6 +662,60 @@ BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
   b_lagged_mat(vec, lagged_mat, lags, lagged_height, 0, 0);
 
   return lagged_mat;
+}
+
+/**
+ * TODO: docs
+ * Note: the blocks are the batches and the threads are the matrix elements,
+ * column-wise
+ */
+template <typename T>
+static __global__ void batched_2dcopy_kernel(const T* in, T* out,
+                                             int starting_row, int starting_col,
+                                             int in_rows, int in_cols,
+                                             int out_rows, int out_cols) {
+  const T* in_ =
+    in + blockIdx.x * in_rows * in_cols + starting_col * in_rows + starting_row;
+  T* out_ = out + blockIdx.x * out_rows * out_cols;
+
+  for (int i = threadIdx.x; i < out_rows * out_cols; i += blockDim.x) {
+    int i_col = i / out_rows;
+    int i_row = i % out_rows;
+    out_[i] = in_[i_row + in_rows * i_col];
+  }
+}
+
+/**
+ * TODO: docs
+ */
+template <typename T>
+void b_2dcopy(BatchedMatrix<T>& in, BatchedMatrix<T>& out, int starting_row,
+              int starting_col, int rows, int cols) {
+  ASSERT(out.shape().first == rows, "Dimension mismatch: rows");
+  ASSERT(out.shape().second == cols, "Dimension mismatch: columns");
+
+  // Execute the kernel
+  const int TPB = rows * cols > 512 ? 256 : 128;  // quick heuristics
+  batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(
+    in.raw_data(), out.raw_data(), starting_row, starting_col, in.shape().first,
+    in.shape().second, rows, cols);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * TODO: docs
+ */
+template <typename T>
+BatchedMatrix<T> b_2dcopy(BatchedMatrix<T>& in, int starting_row,
+                          int starting_col, int rows, int cols) {
+  // Create output matrix
+  BatchedMatrix<T> out(rows, cols, in.batches(), in.cublasHandle(),
+                       in.allocator(), in.stream(), false);
+
+  // Call the other overload of the function
+  b_2dcopy(in, out, starting_row, starting_col, rows, cols);
+
+  return out;
 }
 
 }  // namespace Matrix
