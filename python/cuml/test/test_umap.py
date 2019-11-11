@@ -34,9 +34,9 @@ from sklearn.metrics import adjusted_rand_score
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
@@ -49,9 +49,9 @@ def test_blobs_cluster(nrows, n_feats):
         assert score == 1.0
 
 
-@pytest.mark.parametrize('nrows', [unit_param(10), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
                          stress_param(1000)])
 def test_umap_fit_transform_score(nrows, n_feats):
 
@@ -194,9 +194,9 @@ def test_umap_data_formats(input_type, should_downcast,
     assert type(embeds) == np.ndarray
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_downcast_fails(input_type, nrows, n_feats):
@@ -220,8 +220,8 @@ def test_umap_downcast_fails(input_type, nrows, n_feats):
 
 def test_umap_fit_transform_score_default():
 
-    n_samples = 60
-    n_features = 10
+    n_samples = 500
+    n_features = 20
 
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
