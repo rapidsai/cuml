@@ -37,8 +37,9 @@ void grow_deep_tree_regression(
   const float colper, const int n_sampled_rows, const int nrows,
   const int nbins, int maxdepth, const int maxleaves,
   const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
-  int& depth_cnt, int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
-  const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const float min_impurity_decrease, int& depth_cnt, int& leaf_cnt,
+  std::vector<SparseTreeNode<T, T>>& sparsetree, const int treeid,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -144,9 +145,10 @@ void grow_deep_tree_regression(
       h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
-                         sparsetree, sparsesize, sparse_meanstate,
-                         n_nodes_nextitr, sparse_nodelist, leaf_cnt);
+    leaf_eval_regression(infogain, depth, min_impurity_decrease, maxdepth,
+                         maxleaves, h_new_node_flags, sparsetree, sparsesize,
+                         sparse_meanstate, n_nodes_nextitr, sparse_nodelist,
+                         leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
