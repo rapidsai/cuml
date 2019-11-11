@@ -22,7 +22,10 @@
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
-- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
+- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
+  to select algos
+- PR #1335: Options to print available algorithms and datasets 
+  in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
