@@ -51,7 +51,8 @@ cdef class PyCallback:
             'strides': (shape[1]*sizeofType, sizeofType),
             'typestr': typestr,
             'data': [embeddings],
-            'order': 'C'
+            'order': 'C',
+            'version': 1
         }
 
         return from_cuda_array_interface(desc)

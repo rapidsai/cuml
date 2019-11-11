@@ -124,6 +124,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf REQUIRED)
+
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
@@ -149,7 +152,6 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 
 set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
-
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -269,6 +271,12 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   ""
 )
 
+# dependencies will be added in sequence, so if a new project `project_b` is added
+# after `project_a`, please add the dependency add_dependencies(project_b project_a)
+# This allows the cloning to happen sequentially, enhancing the printing at
+# compile time, helping significantly to troubleshoot build issues.
+add_dependencies(cutlass cub)
+
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
 
@@ -291,6 +299,8 @@ ExternalProject_Add(faiss
   BUILD_IN_SOURCE   1
 )
 
+add_dependencies(faiss cutlass)
+
 ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
@@ -304,12 +314,17 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           600afd55d1fa9bb94fc88fd3a3043cb2d5b20651
+    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                      -DENABLE_PROTOBUF=ON
+                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
+    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
+
+add_dependencies(treelite faiss)
 
 add_library(dmlclib STATIC IMPORTED)
 add_library(treelitelib STATIC IMPORTED)
@@ -336,7 +351,7 @@ include_directories(
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/runtime/native/include
+  ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
 
 set(PRIMS_TEST_UTILS
@@ -357,6 +372,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/comms/cuML_comms_test.cpp
     src/common/nvtx.cu
     src/datasets/make_blobs.cu
+    src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/fil/fil.cu
@@ -380,9 +396,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu
     )
 
-  add_dependencies(${CUML_CPP_TARGET} cub)
-  add_dependencies(${CUML_CPP_TARGET} cutlass)
-
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
     ${CUDA_curand_LIBRARY}
@@ -391,6 +404,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    ${Protobuf_LIBRARIES}
     treelitelib
     dmlclib
     faisslib
