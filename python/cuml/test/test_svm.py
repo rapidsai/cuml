@@ -27,6 +27,7 @@ from sklearn.datasets.samples_generator import make_classification, \
     make_gaussian_quantiles
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import cudf
 
 
 def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
@@ -258,6 +259,42 @@ def test_svm_predict(params, n_pred):
     n_correct = np.sum(y_test == y_pred)
     accuracy = n_correct * 100 / n_pred
     assert accuracy > 99
+
+
+@pytest.mark.parametrize('params', [
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1},
+                 marks=pytest.mark.xfail(reason="fp overflow in kernel "
+                                         "function due to non scaled input "
+                                         "features")),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'auto'},
+                 marks=pytest.mark.xfail(reason="fp overflow in kernel "
+                                         "function due to non scaled input "
+                                         "features")),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale'})
+])
+@pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
+# Note we test different array types to make sure that the X.var() is
+# calculated correctly for gamma == 'scale' option.
+def test_svm_gamma(params, x_arraytype):
+    n_rows = 500
+    n_cols = 380
+    centers = [10*np.ones(380), -10*np.ones(380)]
+    X, y = make_blobs(n_samples=n_rows, n_features=n_cols, random_state=137,
+                      centers=centers)
+    X = X.astype(np.float32)
+    if x_arraytype == 'dataframe':
+        X_df = cudf.DataFrame()
+        X = X_df.from_gpu_matrix(cuda.to_device(X))
+    elif x_arraytype == 'numba':
+        X = cuda.to_device(X)
+    # Using degree 40 polynomials and fp32 training would fail with
+    # gamma = 1/(n_cols*X.std()), but it works with gamma = 1/(n_cols*X.var())
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X, y)
+    y_pred = cuSVC.predict(X).to_array()
+    n_correct = np.sum(y == y_pred)
+    accuracy = n_correct * 100 / n_rows
+    assert accuracy > 70
 
 
 @pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
