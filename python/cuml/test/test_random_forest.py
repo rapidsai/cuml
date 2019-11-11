@@ -30,12 +30,12 @@ from sklearn.datasets import fetch_california_housing, \
 from sklearn.model_selection import train_test_split
 
 
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.9), quality_param(0.90),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -64,7 +64,7 @@ def test_rf_classification(datatype, split_algo, rows_sample,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=0,
+                       n_bins=8, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16,
@@ -93,10 +93,10 @@ def test_rf_classification(datatype, split_algo, rows_sample,
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 50]),
                          stress_param([400, 100])])
-@pytest.mark.parametrize('rows_sample', [unit_param(0.9), quality_param(0.90),
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
@@ -113,7 +113,7 @@ def test_rf_regression(datatype, split_algo, mode,
                      " please convert the data to dtype np.float32")
 
     if mode == 'unit':
-        X, y = make_regression(n_samples=200, n_features=ncols,
+        X, y = make_regression(n_samples=500, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
 
@@ -161,10 +161,10 @@ def test_rf_regression(datatype, split_algo, mode,
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_rf_classification_default(datatype, column_info, nrows):
 
@@ -197,10 +197,10 @@ def test_rf_classification_default(datatype, column_info, nrows):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([16, 7]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(100), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_rf_regression_default(datatype, column_info, nrows):
 
