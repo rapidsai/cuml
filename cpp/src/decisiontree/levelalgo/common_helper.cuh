@@ -230,4 +230,17 @@ void print_convertor(unsigned int *nodecount, unsigned int *nodestart,
   }
   printf("\n\n");
 }
-
+template <typename T, typename L>
+void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int n_nodes) {
+  printf(
+    "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
+  for (int i = 0; i < n_nodes; i++) {
+    SparseTreeNode<T, L> &node = sparsenodes[i];
+    printf("Node id %d --> (%d ,%f ,%f, ", i, node.colid, node.quesval,
+           node.best_metric_val);
+    std::cout << node.prediction;
+    printf(" ,%d )", node.left_child_id);
+    if (gain != nullptr) printf("  gain --> %f", gain[i]);
+    printf("\n");
+  }
+}

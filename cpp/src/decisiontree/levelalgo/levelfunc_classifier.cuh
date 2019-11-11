@@ -196,9 +196,5 @@ void grow_deep_tree_classification(
   float* h_outgain = tempmem->h_outgain->data();
   MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
-  printf("\ngains--->  ");
-  for (int i = 0; i < n_nodes; i++) {
-    printf("%f  ", h_outgain[i]);
-  }
-  printf("\n");
+  print_nodes(d_sparsenodes, h_outgain, n_nodes);
 }
