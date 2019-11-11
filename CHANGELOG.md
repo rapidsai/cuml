@@ -7,6 +7,7 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
 
