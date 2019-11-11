@@ -36,6 +36,8 @@
 - PR #1319: Using machineName arg passed in instead of default for ASV reporting
 - PR #1326: Fix illegal memory access in make_regression (bounds issue)
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
+- PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet 
+- PR #1337: Fix k-means init from preset cluster centers
 
 # cuML 0.10.0 (16 Oct 2019)
 
