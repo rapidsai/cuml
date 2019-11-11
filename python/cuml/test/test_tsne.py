@@ -23,7 +23,7 @@ from sklearn import datasets
 
 
 dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
-                 'diabetes']
+                 'diabetes', 'wine']
 methods = ['barnes_hut', 'exact']
 inits = ['pca','random']
 
@@ -41,6 +41,10 @@ def test_tsne(name, method, init):
     (5) Tests NAN in TSNE output for learning rate explosions
     (6) Tests verbosity
     """
+    if name == "wine" and init == "random":
+        # Wine dataset only has high trust when PCA is used.
+        return
+
     datasets
     X = eval("datasets.load_{}".format(name))().data
 
