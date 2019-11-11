@@ -8,7 +8,8 @@
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
 - PR #1289: Add Python benchmarking support for FIL
- 
+- PR #1356: TSNE PCA Initialization & Memory Reductions
+
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
 - PR #1239: Updated the treelite version
