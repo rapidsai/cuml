@@ -26,7 +26,6 @@
   to select algos
 - PR #1335: Options to print available algorithms and datasets 
   in the Python benchmark
-- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
 
