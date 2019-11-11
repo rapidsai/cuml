@@ -227,8 +227,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
       // Divide perplexities
-      LinAlg::scalarMultiply(VAL, VAL, 1.0f / early_exaggeration, NNZ,
-                                       stream);
+      LinAlg::scalarMultiply(VAL, VAL, 1.0f / early_exaggeration, NNZ, stream);
     }
 
 
@@ -265,7 +264,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     thrust::fill(thrust::cuda::par.on(stream), massl + NNODES,
                  massl + NNODES + 1, -1.0f);
-    
+
     TSNE::ClearKernel2<<<blocks, 1024, 0, stream>>>(startl, massl, NNODES, bottomd);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(ClearKernel2_time);
