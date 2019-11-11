@@ -325,26 +325,6 @@ static __global__ void batched_offset_copy_kernel(double* out, double* in,
   }
 }
 
-/*
- * TODO: move to batched matrix prims + write doc
- * Note: the block id is the batch id and the thread id is the starting index
- */
-static __global__ void _batched_ls_set_kernel(double* lagged_series,
-                                              const double* data, int ls_width,
-                                              int ls_height, int offset, int ld,
-                                              int ls_batch_offset,
-                                              int ls_batch_stride) {
-  const double* batch_in = data + blockIdx.x * ld + offset - 1;
-  double* batch_out =
-    lagged_series + blockIdx.x * ls_batch_stride + ls_batch_offset;
-
-  for (int lag = 0; lag < ls_width; lag++) {
-    for (int i = threadIdx.x; i < ls_height; i += blockDim.x) {
-      batch_out[lag * ls_height + i] = batch_in[i + ls_width - lag];
-    }
-  }
-}
-
 /**
  * TODO: quick doc (internal auxiliary function)
  *
@@ -388,11 +368,8 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
 
     // Create lagged y
     int ls_height = nobs - p_lags;
-    MLCommon::Matrix::BatchedMatrix<double> bm_ls(
-      ls_height, p_lags, num_batches, cublas_handle, allocator, stream, false);
-    _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
-      bm_ls.raw_data(), d_y, p_lags, ls_height, 0, nobs, 0, p_lags * ls_height);
-    CUDA_CHECK(cudaPeekAtLastError());
+    MLCommon::Matrix::BatchedMatrix<double> bm_ls =
+      MLCommon::Matrix::b_lagged_mat(bm_y, p_lags);
 
     // Initial AR fit (note: larger dimensions because gels works in-place)
     MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit(
@@ -427,33 +404,24 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
         d_ar, bm_ar_fit.raw_data(), 0, ls_height, p);
       CUDA_CHECK(cudaPeekAtLastError());
     } else {
-      // Compute residual (technically a gemv but we're missing a col-major
-      // batched gemv if I'm correct)
-      // TODO: we don't always need all the terms of the residual, see if
-      // easy to compute only what's needed
+      // Compute residual (technically a gemv)
       MLCommon::Matrix::b_gemm(false, false, ls_height, 1, p_lags, -1.0, bm_ls,
                                bm_ar_fit, 1.0, bm_residual);
 
-      // Create matrices made of the concatenation of lagged sets for ar terms
-      // and the residual respectively, side by side
+      // Create matrices made of the concatenation of lagged sets of y and the
+      // residual respectively, side by side
       int arma_fit_offset = std::max(p_lags + q, p);
       int ls_ar_res_height = nobs - arma_fit_offset;
-      int ls_res_size = ls_ar_res_height * q;
-      int ls_ar_size = ls_ar_res_height * p;
-      int ls_ar_res_size = ls_res_size + ls_ar_size;
       int ar_offset = (p < p_lags + q) ? (p_lags + q - p) : 0;
       int res_offset = (p < p_lags + q) ? 0 : p - p_lags - q;
       MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
         ls_ar_res_height, p + q, num_batches, cublas_handle, allocator, stream,
         false);
-      _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
-        bm_ls_ar_res.raw_data(), d_y, p, ls_ar_res_height, ar_offset, nobs, 0,
-        ls_ar_res_size);
-      CUDA_CHECK(cudaPeekAtLastError());
-      _batched_ls_set_kernel<<<num_batches, TPB, 0, stream>>>(
-        bm_ls_ar_res.raw_data(), bm_residual.raw_data(), q, ls_ar_res_height,
-        res_offset, ls_height, ls_ar_size, ls_ar_res_size);
-      CUDA_CHECK(cudaPeekAtLastError());
+      MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, ls_ar_res_height,
+                                     ar_offset, 0);
+      MLCommon::Matrix::b_lagged_mat(bm_residual, bm_ls_ar_res, q,
+                                     ls_ar_res_height, res_offset,
+                                     ls_ar_res_height * p);
 
       // ARMA fit (note: larger dimensions because gels works in-place)
       MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit(

@@ -524,5 +524,72 @@ BatchedMatrix<T> b_kron(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B) {
   return AkB;
 }
 
+/*
+ * TODO: docs
+ * Note: the block id is the batch id and the thread id is the starting index
+ */
+template <typename T>
+__global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
+                                  int lagged_height, int vec_offset, int ld,
+                                  int mat_offset, int ls_batch_stride) {
+  const T* batch_in = vec + blockIdx.x * ld + vec_offset - 1;
+  T* batch_out = mat + blockIdx.x * ls_batch_stride + mat_offset;
+
+  for (int lag = 0; lag < lags; lag++) {
+    for (int i = threadIdx.x; i < lagged_height; i += blockDim.x) {
+      batch_out[lag * lagged_height + i] = batch_in[i + lags - lag];
+    }
+  }
+}
+
+///TODO: unit test of the lagged mat
+
+/**
+ * TODO: docs
+ */
+template <typename T>
+void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
+                  int lagged_height, int vec_offset, int mat_offset) {
+  // Verify all the dimensions ; it's better to fail loudly than hide errors
+  ASSERT(vec.batches() == lagged_mat.batches(),
+         "The numbers of batches of the matrix and the vector must match");
+  ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
+         "The first argument must be a vector (either row or column)");
+  int len = vec.shape().first == 1 ? vec.shape().second : vec.shape().first;
+  int mat_batch_stride = lagged_mat.shape().first * lagged_mat.shape().second;
+  ASSERT(lagged_height <= len - lags - vec_offset,
+         "Lagged height can't exceed vector length - lags - vector offset");
+  ASSERT(mat_offset <= mat_batch_stride - lagged_height * lags,
+         "Matrix offset can't exceed real matrix size - lagged matrix size");
+
+  // Execute the kernel
+  const int TPB = lagged_height > 512 ? 256 : 128;  // quick heuristics
+  lagged_mat_kernel<<<vec.batches(), TPB, 0, vec.stream()>>>(
+    vec.raw_data(), lagged_mat.raw_data(), lags, lagged_height, vec_offset, len,
+    mat_offset, mat_batch_stride);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * TODO: docs
+ */
+template <typename T>
+BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
+  ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
+         "The first argument must be a vector (either row or column)");
+  int len = vec.shape().first == 1 ? vec.shape().second : vec.shape().first;
+  ASSERT(lags < len, "The number of lags can't exceed the vector length");
+  int lagged_height = len - lags;
+
+  // Create output matrix
+  BatchedMatrix<T> lagged_mat(lagged_height, lags, vec.batches(),
+                              vec.cublasHandle(), vec.allocator(), vec.stream(),
+                              false);
+  // Call exhaustive version of the function
+  b_lagged_mat(vec, lagged_mat, lags, lagged_height, 0, 0);
+
+  return lagged_mat;
+}
+
 }  // namespace Matrix
 }  // namespace MLCommon

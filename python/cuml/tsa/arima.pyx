@@ -868,7 +868,7 @@ def _batched_loglike(num_batches, nobs, order, y, x,
     return vec_loglike
 
 
-### deprecated ###
+### deprecated, TODO: remove ###
 
 def _start_params(order, y_diff, p_best=1):
     """A quick approach to determine reasonable starting mu (trend),
@@ -926,8 +926,6 @@ def _start_params(order, y_diff, p_best=1):
 
             (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
                                                   rcond=None)
-
-            print(arma_fit)
 
             params_init[d:] = arma_fit
 
