@@ -13,17 +13,19 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, raise_exception_from_futures
-from dask.distributed import default_client
+from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import to_dask_cudf
+from cuml.dask.common import  raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
-from dask.distributed import wait
-
-from uuid import uuid1
-
-from functools import reduce
 
 from collections import OrderedDict
 
+from dask.distributed import default_client
+from dask.distributed import wait
+
+from functools import reduce
+
+from uuid import uuid1
 
 class PCA(object):
     """
@@ -68,7 +70,7 @@ class PCA(object):
 
         cumlModel = PCA(n_components = 1, whiten=False)
         XT = cumlModel.fit_transform(X_cudf)
-        
+
         print("Transformed Input Matrix")
         print(XT.compute())
 
@@ -173,7 +175,6 @@ class PCA(object):
         self.singular_values_ = None
         self.noise_variance = None
 
-
     @staticmethod
     def _func_create_model(sessionId, dfs, **kwargs):
         try:
@@ -197,7 +198,7 @@ class PCA(object):
         return m.transform(df, M, N, partsToRanks, rank)
 
     @staticmethod
-    def _func_inverse_transform(f, df, M, N, partsToRanks, rank):        
+    def _func_inverse_transform(f, df, M, N, partsToRanks, rank):
         m, dfs = f
         return m.inverse_transform(df, M, N, partsToRanks, rank)
 
@@ -210,7 +211,7 @@ class PCA(object):
         return f[idx]
 
     @staticmethod
-    def _func_xform(model, df):       
+    def _func_xform(model, df): 
         return model.transform(df)
 
     @staticmethod
@@ -255,7 +256,7 @@ class PCA(object):
             for idx, wf in enumerate(gpu_futures)]
 
         N = X.shape[1]
-        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
         self.pca_models = [(wf[0], self.client.submit(
@@ -289,7 +290,8 @@ class PCA(object):
 
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
-        self.explained_variance_ratio_ = self.local_model.explained_variance_ratio_
+        self.explained_variance_ratio_ = \
+            self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
         self.noise_variance = self.local_model.noise_variance_
 
@@ -299,7 +301,7 @@ class PCA(object):
             for rank, size in partsToRanks:
                 if rank not in completed_part_map:
                     completed_part_map[rank] = 0
-           
+
                 f = pca_fit[rank]
                 out_futures.append(self.client.submit(
                     PCA._func_get_idx, f, completed_part_map[rank]))
@@ -317,8 +319,6 @@ class PCA(object):
                 worker_to_parts[w] = []
             worker_to_parts[w].append(p)
 
-        workers = list(map(lambda x: x[0], gpu_futures))
-
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(
             PCA._func_get_size,
@@ -328,7 +328,7 @@ class PCA(object):
             for idx, wf in enumerate(gpu_futures)]
 
         N = X.shape[1]
-        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
         pca_transform = dict([(self.rnks[wf[0]], self.client.submit(
@@ -345,12 +345,12 @@ class PCA(object):
         wait(list(pca_transform.values()))
         raise_exception_from_futures(list(pca_transform.values()))
 
-        out_futures = []       
+        out_futures = []
         completed_part_map = {}
         for rank, size in partsToRanks:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
-           
+
             f = pca_transform[rank]
             out_futures.append(self.client.submit(
                 PCA._func_get_idx, f, completed_part_map[rank]))
@@ -359,7 +359,7 @@ class PCA(object):
 
         return to_dask_cudf(out_futures)
 
-    def _inverse_transform(self, X):       
+    def _inverse_transform(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
 
         worker_to_parts = OrderedDict()
@@ -367,8 +367,6 @@ class PCA(object):
             if w not in worker_to_parts:
                 worker_to_parts[w] = []
             worker_to_parts[w].append(p)
-
-        workers = list(map(lambda x: x[0], gpu_futures))
 
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(
@@ -379,7 +377,7 @@ class PCA(object):
             for idx, wf in enumerate(gpu_futures)]
 
         N = X.shape[1]
-        M = reduce(lambda a,b: a+b, map(lambda x: x[1], partsToRanks))
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
         pca_inverse_transform = dict([(self.rnks[wf[0]], self.client.submit(
@@ -396,12 +394,12 @@ class PCA(object):
         wait(list(pca_inverse_transform.values()))
         raise_exception_from_futures(list(pca_inverse_transform.values()))
 
-        out_futures = []       
+        out_futures = []
         completed_part_map = {}
         for rank, size in partsToRanks:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
-           
+
             f = pca_inverse_transform[rank]
             out_futures.append(self.client.submit(
                 PCA._func_get_idx, f, completed_part_map[rank]))
@@ -410,7 +408,7 @@ class PCA(object):
 
         return to_dask_cudf(out_futures)
 
-    def fit_transform(self, X):     
+    def fit_transform(self, X):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 

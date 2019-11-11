@@ -50,10 +50,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
                                random_state=10)
 
         cumlModel.fit(X_cudf)
-
         cumlLabels = cumlModel.predict(X_cudf)
-
-
         n_workers = len(list(client.has_what().keys()))
 
         # Verifying we are grouping partitions. This should be changed soon.
