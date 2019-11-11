@@ -154,6 +154,15 @@ class Lasso:
 
         self.intercept_value = 0.0
 
+        shuffle = False
+        if self.selection == 'random':
+            shuffle = True
+
+        self.culasso = CD(fit_intercept=self.fit_intercept,
+                          normalize=self.normalize, alpha=self.alpha,
+                          l1_ratio=1.0, shuffle=shuffle,
+                          max_iter=self.max_iter)
+
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
@@ -182,14 +191,6 @@ class Lasso:
 
         """
 
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter)
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.culasso.coef_
