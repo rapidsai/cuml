@@ -28,7 +28,7 @@ class ElasticNet:
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
     on the coefficients when predicting response y with a linear combination of
     the predictors in X. It can reduce the variance of the predictors, force
-    some coefficients to be smaell, and improves the conditioning of the
+    some coefficients to be small, and improves the conditioning of the
     problem.
 
     cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate

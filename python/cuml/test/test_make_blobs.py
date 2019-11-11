@@ -18,7 +18,7 @@ import pytest
 import numpy as np
 
 
-# Testing parameters for scalar paramter tests
+# Testing parameters for scalar parameter tests
 
 dtype = [
     'single',
@@ -93,7 +93,7 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
             "unexpected number of clusters"
 
 
-# parameters for array tests
+# Parameters for array tests
 n_features_ary = [
     2,
     1000
