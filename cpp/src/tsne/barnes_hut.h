@@ -103,7 +103,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   device_buffer<float> rep_forces_(d_alloc, stream, (NNODES + 1) * 2);
   float *rep_forces = rep_forces_.data();
   float *attr_forces = Y;
-  SAVED_SPACE += (n * dim) * sizeof(float);
+  SAVED_SPACE += (n * 2) * sizeof(float);
 
   // Tree Construction Intermmediate Arrays
   int *startl, *countl;
