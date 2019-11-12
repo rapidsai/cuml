@@ -207,9 +207,12 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
 
+  int SAVED_SPACE = 0;
   const int NNZ = (2 * n * n_neighbors);
 
   device_buffer<float> P_(d_alloc, stream, NNZ);
+  SAVED_SPACE += n*n_neighbors*sizeof(float);
+
   float *P = P_.data();
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
@@ -235,9 +238,16 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     ROW_.resize(NNZ, stream);
     ROW = ROW_.data();
   }
+  else {
+    SAVED_SPACE += NNZ * sizeof(int);
+  }
 
-  int *row_sizes = ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (pca_intialization == false)) \
-                    ? (int*)embedding : NULL;
+  int *row_sizes = NULL;
+  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (pca_intialization == false))
+  {
+    row_sizes = (int*) embedding;
+    SAVED_SPACE += 2*n*sizeof(int);
+  }
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, /*&COO_Matrix,*/
@@ -256,14 +266,14 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, pca_intialization);
+                     verbose, pca_intialization, SAVED_SPACE);
   }
   else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, pca_intialization);
+                     verbose, pca_intialization, SAVED_SPACE);
   }
 
   // COO_Matrix.destroy();

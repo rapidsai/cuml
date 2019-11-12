@@ -44,6 +44,7 @@ namespace TSNE {
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
  * @input param pca_intialization: Whether to intialize with PCA.
+* @input param SAVED_SPACE: How much memory was saved.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
@@ -54,7 +55,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1, const bool verbose = true,
-                const bool pca_intialization = false)
+                const bool pca_intialization = false, int SAVED_SPACE = 0;)
 {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -92,6 +93,9 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float df_power = -(degrees_of_freedom + 1.0f) / 2.0f;
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
+
+  if (verbose)
+    printf("[Info] Saved GPU memory = %d megabytes\n", SAVED_SPACE >> 20);
 
   //
   if (verbose) printf("[Info] Start gradient updates!\n");
