@@ -79,7 +79,7 @@ that keeps training samples around for prediction, rather than trying
 to learn a generalizable set of model parameters.
 
 The K-Nearest Neighbors Regressor will compute the average of the
-labels for the k closest neighbors and use it as the label.  
+labels for the k closest neighbors and use it as the label.
 
 Examples
 ---------
@@ -124,6 +124,8 @@ Notes
 For additional docs, see `scikitlearn's KNeighborsClassifier
 <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
 """
+
+
 class KNeighborsRegressor(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):

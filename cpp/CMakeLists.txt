@@ -346,7 +346,7 @@ include_directories(
   src
   src_prims
   test/prims
-  ../thirdparty
+  ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/  
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
