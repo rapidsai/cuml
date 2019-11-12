@@ -271,12 +271,6 @@ class ARIMAModel(Base):
         return [-2 * lli + 2 * (_model_complexity(self.order))
                 for (i, lli) in enumerate(llb)]
 
-    # def _assert_same_d(self, b_order):
-    #     """Checks that all values of d in batched order are same"""
-    #     b_d = [d for _, d, _ in b_order]
-    #     assert (np.array(b_d) == b_d[0]).all()
-    # TODO: unused? remove?
-
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
 
@@ -783,6 +777,7 @@ def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     nvtx_range_pop()
     return (Tx)
 
+
 def _model_complexity(order):
     (p, d, q) = order
     # complexity is number of parameters: mu + ar + ma
@@ -866,101 +861,3 @@ def _batched_loglike(num_batches, nobs, order, y, x,
 
     nvtx_range_pop()
     return vec_loglike
-
-
-### deprecated, TODO: remove ###
-
-def _start_params(order, y_diff, p_best=1):
-    """A quick approach to determine reasonable starting mu (trend),
-    AR, and MA parameters"""
-
-    # y is mutated so we need a copy
-    y = np.copy(y_diff)
-    nobs = len(y)
-
-    p, q, d = order
-    params_init = np.zeros(p+q+d)
-    if d > 0:
-        # center y (in `statsmodels`, this is result when exog = [1, 1, 1...])
-        mean_y = np.mean(y)
-        params_init[0] = mean_y
-        y -= mean_y
-
-    if p == 0 and q == 0:
-        return params_init
-
-    if p != 0:
-        x = np.zeros((len(y) - p_best, p_best))
-        # create lagged series set
-        for lag in range(1, p_best+1):
-            # create lag and trim appropriately from front
-            # so they are all the same size
-            x[:, lag-1] = y[p_best-lag:-lag].T
-
-        # LS fit a*X - Y
-        y_ar = y[p_best:]
-
-        (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
-
-        if q == 0:
-            params_init[d:] = ar_fit
-        else:
-            residual = y[p_best:] - np.dot(x, ar_fit)
-
-            assert p >= p_best
-            p_diff = p - p_best
-
-            x_resid = np.zeros((len(residual) - q - p_diff, q))
-            x_ar2 = np.zeros((len(residual) - q - p_diff, p))
-
-            # create lagged residual and ar term
-            for lag in range(1, q+1):
-                x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
-            for lag in range(1, p+1):
-                x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
-
-            X = np.column_stack((x_ar2, x_resid))
-
-            # print(X)
-            # print(y_ar[(q+p_diff):])
-
-            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
-                                                  rcond=None)
-
-            params_init[d:] = arma_fit
-
-    else:
-        # case when p == 0 and q>0
-
-        # when p==0, MA params are often -1
-        params_init[d:] = -1*np.ones(q)
-
-    return params_init
-
-def _estimate_x0(order: Tuple[int, int, int],
-                nb: int,
-                yb, p_best=1) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
-    """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
-    the batched input `yb`"""
-    nvtx_range_push("estimate x0")
-    (p, d, q) = order
-    N = p + d + q
-    x0 = np.zeros(N * nb)
-
-    for ib in range(nb):
-        y = yb[:, ib]
-
-        if d == 1:
-            yd = np.diff(y)
-        else:
-            yd = np.copy(y)
-
-        x0ib = _start_params((p, q, d), yd, p_best)
-
-        x0[ib*N:(ib+1)*N] = x0ib
-
-    mu, ar, ma = unpack(p, d, q, nb, x0)
-
-    nvtx_range_pop()
-
-    return mu, ar, ma

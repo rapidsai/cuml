@@ -119,27 +119,6 @@ def get_data():
     d[:, 1] = data1
     return (t, d)
 
-# TODO: replace that
-
-# def test_arima_start_params():
-#     """
-#     Tests start_params function for multiple (p,d,q) options
-#     """
-#     _, ys = get_data()
-#     arma = arima._start_params((1, 1, 1), ys[:, 0])
-#     # print("arma=", arma)
-#     arma_ref = np.array([1.306700000000000e+04,
-#                          8.578545193799022e-01,
-#                          -6.241669663164802e-01])
-#     np.testing.assert_array_almost_equal(arma, arma_ref)
-#     arma = arima._start_params((2, 1, 1), ys[:, 0])
-#     # print("arma=", arma)
-#     arma_ref = [1.3067000000000000e+04,
-#                 1.4359734767607857e-01,
-#                 1.9335180865645191e-01,
-#                 9.0764356294912391e-02]
-#     np.testing.assert_array_almost_equal(arma, arma_ref)
-
 
 def test_transform():
     """Test the parameter transformation code."""
