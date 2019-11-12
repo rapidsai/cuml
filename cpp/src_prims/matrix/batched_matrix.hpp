@@ -101,7 +101,7 @@ __global__ void identity_matrix_kernel(T* I, int m) {
  *        batch id.
  */
 template <typename T>
-static __global__ void batched_diff_kernel(const T* in, T* out, int n_elem) {
+__global__ void batched_diff_kernel(const T* in, T* out, int n_elem) {
   const T* batch_in = in + n_elem * blockIdx.x;
   T* batch_out = out + (n_elem - 1) * blockIdx.x;
 
@@ -271,7 +271,7 @@ class BatchedMatrix {
                          m_num_batches, m_cublasHandle, m_allocator, m_stream);
 
     // Execute kernel
-    const int TPB = len > 512 ? 256 : 128;  // quick heuristics
+    const int TPB = (len - 1) > 512 ? 256 : 128;  // quick heuristics
     batched_diff_kernel<<<m_num_batches, TPB, 0, m_stream>>>(
       raw_data(), out.raw_data(), len);
     CUDA_CHECK(cudaPeekAtLastError());

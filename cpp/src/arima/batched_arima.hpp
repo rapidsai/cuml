@@ -109,13 +109,19 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
  * TODO: doc
  */
 void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma,
-         std::vector<double>& ic);
-// TODO: also aic
+         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic);
+
+/**
+ * TODO: doc
+ */
+void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic);
 
 /**
  * TODO: doc
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
+ * @note: if p == 0, we should expect d_ar to be nullptr, and if q == 0 d_ma
+ *        to be nullptr (though we don't need to verify it)
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,

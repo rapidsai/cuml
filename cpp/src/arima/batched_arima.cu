@@ -223,8 +223,6 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
     double* y_diff = (double*)allocator->allocate(
       num_batches * (nobs - 1) * sizeof(double), stream);
 
-    // TODO: check performance of this thrust code against the custom kernel
-    // _batched_diff_kernel
     {
       auto counting = thrust::make_counting_iterator(0);
       // TODO: This for_each should probably go over samples, so batches
@@ -283,13 +281,11 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
 }
 
 /**
- * TODO: doc
+ * TODO: docs
  */
-void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma,
-         std::vector<double>& ic) {
-  ML::PUSH_RANGE(__FUNCTION__);
-
+static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
+                      int nobs, int p, int d, int q, double* d_mu, double* d_ar,
+                      double* d_ma, double* ic, double ic_base) {
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
@@ -298,12 +294,9 @@ void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 
   /* Compute log-likelihood */
   batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma,
-                  loglike, d_vs, false);
+                  loglike, d_vs, true);
 
-  /* Compute Bayes information criterion (BIC) */
   /// TODO: worth doing that on gpu? (need to copy loglike and copy back BIC)
-  double ic_base =
-    log(static_cast<double>(nobs)) * static_cast<double>(p + d + q);
 #pragma omp parallel for
   for (int i = 0; i < num_batches; i++) {
     ic[i] = ic_base - 2.0 * loglike[i];
@@ -311,6 +304,21 @@ void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 
   allocator->deallocate(d_vs, sizeof(double) * (nobs - d) * num_batches,
                         stream);
+}
+
+void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
+  ML::PUSH_RANGE(__FUNCTION__);
+  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
+            log(static_cast<double>(nobs)) * static_cast<double>(p + d + q));
+  ML::POP_RANGE();
+}
+
+void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
+  ML::PUSH_RANGE(__FUNCTION__);
+  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
+            2.0 * static_cast<double>(p + d + q));
   ML::POP_RANGE();
 }
 
@@ -421,12 +429,6 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
   }
 }
 
-/**
- * @todo: docs
- *
- * @note: if p == 0, we should expect d_ar to be nullptr, and if q == 0 d_ma
- *        to be nullptr (though we don't need to verify it)
- */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
                  int q) {
@@ -443,7 +445,7 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
   if (d == 0) {
     MLCommon::copy(bm_yd.raw_data(), d_y, nobs * num_batches, stream);
   } else if (d == 1) {
-    const int TPB = nobs > 512 ? 256 : 128;  // Quick heuristics
+    const int TPB = (nobs - 1) > 512 ? 256 : 128;  // Quick heuristics
     MLCommon::Matrix::batched_diff_kernel<<<num_batches, TPB, 0, stream>>>(
       d_y, bm_yd.raw_data(), nobs);
     CUDA_CHECK(cudaPeekAtLastError());
