@@ -64,6 +64,31 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
     stream, isRowMajor);
 }
 
+
+template <typename Lambda>
+void pass_function1(float a, Lambda op, cudaStream_t stream)
+{
+  a += (float)rand() / 2;
+  fprintf(stderr, "%d+%f->%d[%s]\n", stream, a, __LINE__, __FILE__);
+  op(a);
+}
+
+template <typename Lambda>
+void pass_function2(float a, Lambda op, cudaStream_t stream)
+{
+  a += (float)rand() + 3;
+  fprintf(stderr, "%d+%f->%d[%s]\n", stream, a, __LINE__, __FILE__);
+  pass_function1(a, op, stream);
+}
+
+template <typename Lambda>
+void pass_function3(float a, Lambda op, cudaStream_t stream)
+{
+  a += (float)rand() + 10;
+  fprintf(stderr, "%d+%f->%d[%s]\n", stream, a, __LINE__, __FILE__);
+  pass_function2(a, op, stream);
+}
+
 /**
  * @brief the unexpanded euclidean distance matrix calculation
  *  It computes the following equation: cij = op((ai-bj)^2)
@@ -145,15 +170,23 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_m = m;
     gemm_n = n;
   }
-  LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
-               MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-               GemmEpilogueTraits_, GemmEpilogue_>(
-    transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-    (EffOutType)0, nullptr, ldd, pDCast,
-    [enable_sqrt] (EpiParams & p) {
-      return p.initializeExtra(nullptr, nullptr, enable_sqrt);
-    },
-    fin_op, stream);
+
+  float k = rand() / 2;
+  const float add = rand();
+
+  pass_function3(k, [add] __host__ __device__ (float x) {return x + add;}, stream);
+
+  // LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
+  //              MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+  //              GemmEpilogueTraits_, GemmEpilogue_>(
+  //   transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
+  //   (EffOutType)0, nullptr, ldd, pDCast,
+  //   [enable_sqrt] (EpiParams & p) {
+  //     return p.initializeExtra(nullptr, nullptr, enable_sqrt);
+  //   },
+  //   fin_op, stream);
+
+
 }
 
 };  // end namespace Distance
