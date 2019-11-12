@@ -227,8 +227,14 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   float *VAL = P;
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
-  device_buffer<int> ROW_(d_alloc, stream, NNZ);
-  int *ROW = ROW_.data();
+
+  int *ROW = (int*)indices;
+  device_buffer<int> ROW_(d_alloc, stream);
+  if (sizeof(long) < 2*sizeof(int))
+  {
+    ROW_.resize(NNZ, stream);
+    ROW = ROW_.data();
+  }
 
   int *row_sizes = ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (pca_intialization == false)) \
                     ? (int*)embedding : NULL;
@@ -238,7 +244,9 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                               VAL, COL, ROW, row_sizes, stream, handle);
 
   // P_.resize(0, stream);
-  indices_.resize(0, stream);
+  // indices_.resize(0, stream);
+  if (sizeof(long) < 2*sizeof(int))
+    ROW_.resize(0, stream);
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);

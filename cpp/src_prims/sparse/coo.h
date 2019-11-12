@@ -846,12 +846,17 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
                                            const long *restrict indices,
                                            const int n, const int k,
                                            int *restrict row_sizes,
-                                           int *restrict row_sizes2) {
+                                           int *restrict row_sizes2,
+                                           int *restrict COL)
+{
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
+  const int index = row * k + j
+  const int col = indices[index];
+  COL[index] = col;
+
   if (j % 2)
     atomicAdd(&row_sizes[col], 1);
   else
@@ -893,10 +898,11 @@ __global__ static void reduce_find_size(const int n, const int k,
 template <typename math_t>
 __global__ static void symmetric_sum(int *restrict edges,
                                      const math_t *restrict data,
-                                     const long *restrict indices,
+                                     // const long *restrict indices,
                                      math_t *restrict VAL,
                                      int *restrict COL,
-                                     int *restrict ROW, const int n,
+                                     int *restrict ROW,
+                                     const int n,
                                      const int k)
 {
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
@@ -904,14 +910,15 @@ __global__ static void symmetric_sum(int *restrict edges,
   if (row >= n || j >= k) return;
 
   const int index = row * k + j;
-  const int col = indices[index];
+  // const int col = indices[index];
+  const int col = COL[index];
   // const int original = atomicAdd(&edges[row], 1);
 
   // Notice swapped ROW, COL since transpose
   // ROW[original] = row;
   // COL[original] = col;
   ROW[index] = row;
-  COL[index] = col;
+  // COL[index] = col;
 
   const int transpose = atomicAdd(&edges[col], 1);
   VAL[transpose] /*= VAL[original]*/ = data[index];
@@ -970,7 +977,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   CUDA_CHECK(cudaMemsetAsync(row_sizes1, 0, sizeof(int)*n*2, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2);
+    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2, COL);
   CUDA_CHECK(cudaPeekAtLastError());
 
   reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
@@ -1004,7 +1011,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, knn_indices, VAL, COL, ROW, n, k);
+    edges, knn_dists, /*knn_indices,*/ VAL, COL, ROW, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (row_sizes == NULL)
