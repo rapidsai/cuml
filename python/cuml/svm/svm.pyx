@@ -20,6 +20,7 @@
 
 import ctypes
 import cudf
+import cupy
 import numpy as np
 
 from numba import cuda
@@ -263,7 +264,7 @@ class SVC(Base):
             if self.gamma == 'auto':
                 return 1 / self.n_cols
             elif self.gamma == 'scale':
-                x_var = X.var()
+                x_var = cupy.asarray(X).var()
                 return 1 / (self.n_cols * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
@@ -419,7 +420,7 @@ class SVC(Base):
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
 
-        cdef KernelParams _kernel_params = self._get_kernel_params(X)
+        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
