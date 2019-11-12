@@ -23,7 +23,7 @@ import cudf
 import numpy as np
 import warnings
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -33,9 +33,11 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
+from cuml.utils.import_utils import has_cupy
 
 
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     void qnFit(cumlHandle& cuml_handle,
                float *X,
@@ -55,7 +57,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnFit(cumlHandle& cuml_handle,
                double *X,
@@ -75,7 +77,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
@@ -86,7 +88,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    float *params,
                    bool X_col_major,
                    int loss_type,
-                   float *preds)
+                   float *preds) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    double *X,
@@ -97,7 +99,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    double *params,
                    bool X_col_major,
                    int loss_type,
-                   double *preds)
+                   double *preds) except +
 
 
 class QN(Base):
@@ -230,7 +232,7 @@ class QN(Base):
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
 
-        self.loss_type = self._get_loss_int(loss)
+        self.loss = loss
 
     def _get_loss_int(self, loss):
         return {
@@ -271,14 +273,9 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        try:
-            import cupy
-            self.num_classes = len(cupy.unique(y_m)) - 1
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            self.num_classes = len(np.unique(y_m)) - 1
+        self.num_classes = len(checked_cupy_unique(y_m)) - 1
 
+        self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")

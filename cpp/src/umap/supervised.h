@@ -16,8 +16,9 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
 #include "optimize.h"
-#include "umapparams.h"
 
 #include "fuzzy_simpl_set/runner.h"
 #include "init_embed/runner.h"
@@ -33,8 +34,6 @@
 
 #include "sparse/coo.h"
 #include "sparse/csr.h"
-
-#include "knn/knn.hpp"
 
 #include "cuda_utils.h"
 
@@ -68,8 +67,6 @@ template <typename T, int TPB_X>
 void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               cudaStream_t stream  // size = nnz*2
 ) {
-  dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
-  dim3 blk_n(TPB_X, 1, 1);
 
   int *row_ind;
   MLCommon::allocate(row_ind, in_coo->n_rows);

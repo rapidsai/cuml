@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
 
 #include "cusparse_wrappers.h"
@@ -716,9 +716,6 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        cudaStream_t stream = 0) {
   T *row_counts;
   MLCommon::allocate(row_counts, m, true);
-
-  dim3 grid(ceildiv(m, 32), 1, 1);
-  dim3 blk(32, 1, 1);
 
   coo_row_count<32>(rows, nnz, row_counts, stream);
 

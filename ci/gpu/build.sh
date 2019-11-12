@@ -43,20 +43,25 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
-      cudf=${MINOR_VERSION} \
-      rmm=${MINOR_VERSION} \
-      nvstrings=${MINOR_VERSION} \
-      libcumlprims=0.9 \
-      lapack \
-      cmake==3.14.3 \
-      umap-learn \
-      nccl>=2.4 \
-      dask=2.3.0 \
-      dask-ml \
-      dask-cudf=${MINOR_VERSION} \
-      dask-cuda=0.9 \
-      statsmodels \
-      xgboost=0.90.rapidsdev1
+      "cupy>=6.5,<7.0" \
+      "cudatoolkit=${CUDA_REL}" \
+      "cudf=${MINOR_VERSION}" \
+      "rmm=${MINOR_VERSION}" \
+      "nvstrings=${MINOR_VERSION}" \
+      "libcumlprims=${MINOR_VERSION}" \
+      "lapack" \
+      "cmake==3.14.3" \
+      "umap-learn" \
+      "protobuf >=3.4.1,<4.0.0" \
+      "nccl>=2.4" \
+      "dask=2.5.0" \
+      "distributed=2.5.1" \
+      "dask-ml" \
+      "dask-cudf=${MINOR_VERSION}" \
+      "dask-cuda=${MINOR_VERSION}" \
+      "statsmodels" \
+      "xgboost=0.90.rapidsdev1"
+
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
@@ -72,8 +77,33 @@ conda list
 # BUILD - Build libcuml, cuML, and prims from source
 ################################################################################
 
-logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml prims --multigpu -v
+logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
+
+export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+
+logger "Build libcuml, cuml, prims and bench targets..."
+$WORKSPACE/build.sh clean libcuml cuml prims bench -v
+
+logger "Resetting LD_LIBRARY_PATH..."
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+export LD_LIBRARY_PATH_CACHED=""
+
+logger "Build treelite for GPU testing..."
+# Buildint treelite Python for testing is temporary while there is a pip/conda
+# treelite package
+
+cd $WORKSPACE/cpp/build/treelite/src/treelite
+mkdir build
+cd build
+cmake ..
+make -j${PARALLEL_LEVEL}
+cd ../python
+python setup.py install
+
+cd $WORKSPACE
+
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -93,7 +123,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims

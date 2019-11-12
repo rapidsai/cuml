@@ -23,7 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from librmm_cffi import librmm as rmm
+import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -33,19 +33,19 @@ from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "tsvd/tsvd.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,
                       float *input,
                       float *components,
                       float *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFit(cumlHandle& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
-                      paramsTSVD prms)
+                      paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                float *input,
@@ -54,7 +54,7 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                double *input,
@@ -63,31 +63,31 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               paramsTSVD prms)
+                               paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
-                                   paramsTSVD prms)
+                                   paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             float *input,
                             float *components,
                             float *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             double *input,
                             double *components,
                             double *trans_input,
-                            paramsTSVD prms)
+                            paramsTSVD prms) except +
 
 
 class TruncatedSVD(Base):
@@ -204,7 +204,7 @@ class TruncatedSVD(Base):
     TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number
     of components you want is much smaller than the number of features. The
     approximation to the largest singular values and vectors is very robust,
-    however, this method loses a lot of accuracy when you want many many
+    however, this method loses a lot of accuracy when you want many, many
     components.
 
     **Applications of TruncatedSVD**

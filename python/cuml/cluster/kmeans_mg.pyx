@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 import warnings
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -38,13 +38,13 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cuml.cluster import KMeans
 
 
-cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace \
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams" nogil:
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
-
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
+        "ML::kmeans" nogil:
     cdef struct KMeansParams:
         int n_clusters,
         InitMethod init
@@ -53,27 +53,29 @@ cdef extern from "cumlprims/mg/kmeans_mg.hpp" namespace "ML::kmeans" nogil:
         int verbose,
         int seed,
         int metric,
-        int oversampling_factor,
+        double oversampling_factor,
         int batch_size,
         bool inertia_check
 
-    cdef void fit_mnmg(cumlHandle& handle,
-                       KMeansParams& params,
-                       const float *X,
-                       int n_samples,
-                       int n_features,
-                       float *centroids,
-                       float &inertia,
-                       int &n_iter)
+cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
 
-    cdef void fit_mnmg(cumlHandle& handle,
-                       KMeansParams& params,
-                       const double *X,
-                       int n_samples,
-                       int n_features,
-                       double *centroids,
-                       double &inertia,
-                       int &n_iter)
+    cdef void fit(cumlHandle& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int n_samples,
+                  int n_features,
+                  float *centroids,
+                  float &inertia,
+                  int &n_iter) except +
+
+    cdef void fit(cumlHandle& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int n_samples,
+                  int n_features,
+                  double *centroids,
+                  double &inertia,
+                  int &n_iter) except +
 
 
 class KMeansMG(KMeans):
@@ -87,13 +89,8 @@ class KMeansMG(KMeans):
     `cuml.dask.cluster.kmeans`.
     """
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, precompute_distances='auto',
-                 init='scalable-k-means++', n_init=1, algorithm='auto'):
-        super(KMeansMG, self).__init__(handle, n_clusters, max_iter, tol,
-                                       verbose, random_state,
-                                       precompute_distances,
-                                       init, n_init, algorithm)
+    def __init__(self, **kwargs):
+        super(KMeansMG, self).__init__(**kwargs)
 
     def fit(self, X):
         """
@@ -120,6 +117,8 @@ class KMeansMG(KMeans):
                                dtype=self.dtype)
             self.cluster_centers_ = rmm.to_device(clust_cent)
 
+        print(str(self._params))
+
         cdef uintptr_t cluster_centers_ptr = \
             get_dev_array_ptr(self.cluster_centers_)
 
@@ -134,7 +133,7 @@ class KMeansMG(KMeans):
 
         if self.dtype == np.float32:
             with nogil:
-                fit_mnmg(
+                fit(
                     handle_[0],
                     <KMeansParams> params,
                     <const float*> input_ptr,
@@ -148,7 +147,7 @@ class KMeansMG(KMeans):
             self.n_iter_ = n_iter
         elif self.dtype == np.float64:
             with nogil:
-                fit_mnmg(
+                fit(
                     handle_[0],
                     <KMeansParams> params,
                     <const double*> input_ptr,

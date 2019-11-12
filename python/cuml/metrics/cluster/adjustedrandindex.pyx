@@ -29,7 +29,7 @@ from cuml.utils import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     double adjustedRandIndex(cumlHandle &handle,
                              int *y,
@@ -39,30 +39,29 @@ cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
                              int upper_class_range)
 
 
-def adjusted_rand_score(labels_true,
-                        labels_pred,
-                        handle=None):
+def adjusted_rand_score(labels_true, labels_pred, handle=None):
     """
-    Adjusted_rand_score function is a modified rand index
-    function modified to handle chance.
+    Adjusted_rand_score is a clustering similarity metric based on the Rand
+    index and is corrected for chance.
 
-        Parameters
-        ----------
-            labels_true : Array of response variables of
-                              the first clustering classifications
-            labels_pred : Array of response variables of
-                              the first clustering classifications
-            handle : cuml.Handle
-        Returns
-        -------
-            The adjusted rand index value
+    Parameters
+    ----------
+        labels_true : Ground truth labels to be used as a reference
+
+        labels_pred : Array of predicted labels used to evaluate the model
+
+        handle : cuml.Handle
+
+    Returns
+    -------
+        float
+            The adjusted rand index value between -1.0 and 1.0
     """
-
     handle = cuml.common.handle.Handle() \
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
-    if labels_true.astype != np.int32:
+    if labels_true.astype != np.int64:
         warnings.warn(" The dtype of ground truth is not int32"
                       " converting the ground truth to int32")
         labels_true = labels_true.astype(np.int32)

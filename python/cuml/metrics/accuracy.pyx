@@ -28,12 +28,12 @@ from cuml.utils import input_to_dev_array
 import cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "metrics/metrics.hpp" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     float accuracy_score_py(cumlHandle &handle,
                             int *predictions,
                             int *ref_predictions,
-                            int n)
+                            int n) except +
 
 
 def accuracy_score(ground_truth, predictions, handle=None):
@@ -42,13 +42,16 @@ def accuracy_score(ground_truth, predictions, handle=None):
 
         Parameters
         ----------
-            handle : cuml.Handle
-            prediction : The lables predicted by the model
-                         for the test dataset
-            ground_truth : The ground truth labels of the test dataset
+        handle : cuml.Handle
+        prediction : NumPy ndarray or Numba device
+           The labels predicted by the model for the test dataset
+        ground_truth : NumPy ndarray, Numba device
+           The ground truth labels of the test dataset
+
         Returns
         -------
-            The accuracy of the model used for prediction
+        float
+          The accuracy of the model used for prediction
     """
     handle = cuml.common.handle.Handle() \
         if handle is None else handle

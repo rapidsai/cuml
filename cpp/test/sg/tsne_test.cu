@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#ifndef IF_DEBUG
-#define IF_DEBUG 1
-#endif
-
 #include <gtest/gtest.h>
 #include <score/scores.h>
 #include <stdio.h>
@@ -29,32 +25,43 @@
 
 #include "cuda_utils.h"
 
+#include <cuml/common/cuml_allocator.hpp>
+#include "common/device_buffer.hpp"
+
 using namespace MLCommon;
 using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
-
 using namespace ML;
 
 class TSNETest : public ::testing::Test {
  protected:
   void basicTest() {
     cumlHandle handle;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
 
-    float *X_d, *Y_d;
-    MLCommon::allocate(X_d, n * p);
-    MLCommon::allocate(Y_d, n * 2);
-    MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
+    // Allocate memory
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n * p);
+    MLCommon::updateDevice(X_d.data(), digits.data(), n * p,
+                           handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n * 2);
 
     // Test Barnes Hut
-    TSNE_fit(handle, X_d, Y_d, n, p, 2, 90);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
 
+    // Move embeddings to host.
+    // This can be used for printing if needed.
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
-               cudaMemcpyDeviceToHost);
+    assert(embeddings_h != NULL);
 
+    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
+                         handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    // Transpose the data
     int k = 0;
     float C_contiguous_embedding[n * 2];
     for (int i = 0; i < n; i++) {
@@ -62,45 +69,45 @@ class TSNETest : public ::testing::Test {
         C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
 
-    float *YY;
-    MLCommon::allocate(YY, n * 2);
-    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-
-    CUDA_CHECK(cudaPeekAtLastError());
+    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
+                           handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    // euclidean test
-    score_bh = trustworthiness_score<float, EucUnexpandedL2>(
-      X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
+    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+      handle.getStream());
 
     // Test Exact TSNE
-    TSNE_fit(handle, X_d, Y_d, n, p, 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250,
-             0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true, true, false);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true,
+             false, false);
 
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float) * n * 2,
-               cudaMemcpyDeviceToHost);
+    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
+                         handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
+    // Move embeddings to host.
+    // This can be used for printing if needed.
     k = 0;
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < 2; j++)
         C_contiguous_embedding[k++] = embeddings_h[j * n + i];
     }
 
-    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
+    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
+                           handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     // Test trustworthiness
-    // euclidean test
-    score_exact = trustworthiness_score<float, EucUnexpandedL2>(
-      X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
+    score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
+      handle.getStream());
 
     // Free space
     free(embeddings_h);
-    CUDA_CHECK(cudaFree(Y_d));
-    CUDA_CHECK(cudaFree(YY));
-    CUDA_CHECK(cudaFree(X_d));
-
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
@@ -116,5 +123,8 @@ class TSNETest : public ::testing::Test {
 
 typedef TSNETest TSNETestF;
 TEST_F(TSNETestF, Result) {
+  if (score_bh < 0.98) printf("BH score = %f\n", score_bh);
+  if (score_exact < 0.98) printf("Exact score = %f\n", score_exact);
+
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 }

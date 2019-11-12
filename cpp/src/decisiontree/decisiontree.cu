@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "decisiontree.hpp"
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include "decisiontree_impl.cuh"
-#include "flatnode.h"
 
 namespace ML {
 namespace DecisionTree {
@@ -38,8 +38,9 @@ namespace DecisionTree {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
+                     float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree) {
+                     bool cfg_quantile_per_tree, bool cfg_shuffle_features) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -49,6 +50,8 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
+  params.shuffle_features = cfg_shuffle_features;
+  params.min_impurity_decrease = cfg_min_impurity_decrease;
 }
 
 /**
@@ -91,6 +94,7 @@ void print(const DecisionTreeParams params) {
   std::cout << "bootstrap_features: " << params.bootstrap_features << std::endl;
   std::cout << "split_criterion: " << params.split_criterion << std::endl;
   std::cout << "quantile_per_tree: " << params.quantile_per_tree << std::endl;
+  std::cout << "shuffle_features: " << params.shuffle_features << std::endl;
 }
 
 /**

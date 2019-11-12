@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/cuml_allocator.hpp>
 #include "../matrix/matrix.h"
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cusolver_wrappers.h"
@@ -69,7 +69,7 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup QR decomposition, return the Q matrix
+ * @defgroup QR decomposition, return the Q and R matrices
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param R: R matrix to be returned (on GPU)
