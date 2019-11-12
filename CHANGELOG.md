@@ -7,6 +7,8 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1307: Add RF regression benchmark
+- PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
 
 ## Improvements
@@ -22,9 +24,15 @@
 - PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
+- PR #1336: Import SciKit-Learn models into FIL
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
+- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
+  to select algos
+- PR #1335: Options to print available algorithms and datasets 
+  in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -39,6 +47,7 @@
 - PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet
 - PR #1337: Fix k-means init from preset cluster centers
 - PR #1354  Fix SVM gamma=scale implementation
+- PR #1344: Change other solver based methods to create solver object in init
 
 # cuML 0.10.0 (16 Oct 2019)
 
