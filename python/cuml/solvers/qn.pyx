@@ -232,7 +232,7 @@ class QN(Base):
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
 
-        self.loss_type = self._get_loss_int(loss)
+        self.loss = loss
 
     def _get_loss_int(self, loss):
         return {
@@ -275,6 +275,7 @@ class QN(Base):
 
         self.num_classes = len(checked_cupy_unique(y_m)) - 1
 
+        self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
