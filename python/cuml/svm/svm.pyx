@@ -232,6 +232,10 @@ class SVC(Base):
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
+            try:
+                del self.fit_status_
+            except AttributeError:
+                pass
 
         self._model = None
 
@@ -360,6 +364,9 @@ class SVC(Base):
 
         if self.dtype == np.float32:
             model_f = <svmModel[float]*><uintptr_t> self._model
+            if model_f.n_support == 0:
+                self.fit_status_ = 1  # incorrect fit
+                return
             self.intercept_ = model_f.b
             self.n_support_ = model_f.n_support
             self.dual_coef_ = device_array_from_ptr(
@@ -376,6 +383,9 @@ class SVC(Base):
                 self.dtype)
         else:
             model_d = <svmModel[double]*><uintptr_t> self._model
+            if model_d.n_support == 0:
+                self.fit_status_ = 1  # incorrect fit
+                return
             self.intercept_ = model_d.b
             self.n_support_ = model_d.n_support
             self.dual_coef_ = device_array_from_ptr(
@@ -442,7 +452,7 @@ class SVC(Base):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self.fit_states_ = 0
+        self.fit_status_ = 0
         self.handle.sync()
 
         del X_m
