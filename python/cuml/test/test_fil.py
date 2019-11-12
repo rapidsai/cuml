@@ -23,7 +23,7 @@ from cuml.test.utils import array_equal, unit_param, \
 from cuml.utils.import_utils import has_treelite, has_xgboost, has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -135,9 +135,11 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', ['DENSE', 'SPARSE'])
+@pytest.mark.parametrize('model_class',
+                         [GradientBoostingClassifier, RandomForestClassifier])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
-                                storage_type):
+                                storage_type, model_class):
 
     # skip depth 20 for dense tests
     if max_depth == 20 and storage_type == 'DENSE':
@@ -157,9 +159,18 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     X_train, X_validation, y_train, y_validation = train_test_split(
         X, y, train_size=train_size, random_state=0)
 
-    skl_model = RandomForestClassifier(n_estimators=n_estimators,
-                                       max_depth=max_depth, max_features=0.3,
-                                       n_jobs=-1)
+    init_kwargs = {
+        'n_estimators': n_estimators,
+        'max_depth': max_depth,
+    }
+    if model_class == RandomForestClassifier:
+        init_kwargs['max_features'] = 0.3
+        init_kwargs['n_jobs'] = -1
+    else:
+        # model_class == GradientBoostingClassifier
+        init_kwargs['init'] = 'zero'
+        
+    skl_model = model_class(**init_kwargs)
     skl_model.fit(X_train, y_train)
 
     skl_preds = skl_model.predict(X_validation)
