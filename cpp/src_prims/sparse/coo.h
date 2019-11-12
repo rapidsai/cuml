@@ -16,7 +16,6 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include "csr.h"
 
 #include "cusparse_wrappers.h"
@@ -914,7 +913,6 @@ __global__ static void symmetric_sum(int *restrict edges,
 }
 
 
-using namespace MLCommon;
 
 /**
  * @brief Perform data + data.T on raw KNN data.
@@ -955,15 +953,14 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   int row_sizes1, row_sizes2;
   if (row_sizes == NULL) {
-    device_buffer<int> row_sizes_(d_alloc, stream, n*2);
-    row_sizes1 = row_sizes_.data();
+    row_sizes1 = (int*)d_alloc->allocate(sizeof(int)*n*2, stream);
     row_sizes2 = row_sizes1 + n;
   }
   else {
     row_sizes1 = row_sizes;
     row_sizes2 = row_sizes1 + n;
   }
-  CUDA_CHECK(cudaMemsetAsync(row_sizes1, 0, sizeof(int) * n * 2, stream));
+  CUDA_CHECK(cudaMemsetAsync(row_sizes1, 0, sizeof(int)*n*2, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
     knn_dists, knn_indices, n, k, row_sizes1, row_sizes2);
@@ -998,6 +995,9 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
     edges, knn_dists, knn_indices, VAL, COL, ROW, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
+
+  if (row_sizes == NULL)
+    d_alloc.deallocate(row_sizes1, sizeof(int)*n*2, stream);
 }
 
 };  // namespace Sparse
