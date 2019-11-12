@@ -147,6 +147,10 @@ if __name__ == '__main__':
         nargs='*',
         help='List of algorithms to run, or omit to run all',
     )
+    parser.add_argument(
+        '--n-reps',
+        type=int,
+        default=1)
     args = parser.parse_args()
 
     bench_rows = np.logspace(
@@ -186,7 +190,8 @@ if __name__ == '__main__':
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
-        raise_on_error=args.raise_on_error
+        raise_on_error=args.raise_on_error,
+        n_reps=args.n_reps
     )
 
     if args.csv:
