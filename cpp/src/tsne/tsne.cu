@@ -177,9 +177,9 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
 
-  device_buffer<float> distances_(d_alloc, n*n_neighbors, stream);
+  device_buffer<float> distances_(d_alloc, stream, n*n_neighbors);
   float *distances = distances_.data();
-  device_buffer<long> indices_(d_alloc, n*n_neighbors, stream);
+  device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
   float *indices = indices_.data();
   TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
 
@@ -207,7 +207,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
 
-  device_buffer<float> P_(d_alloc, n*n_neighbors, stream);
+  device_buffer<float> P_(d_alloc, stream, n*n_neighbors);
   float *P = P_.data();
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
@@ -223,11 +223,11 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   // MLCommon::Sparse::COO<float> COO_Matrix;
   const int NNZ = (2 * n * n_neighbors);
 
-  device_buffer<float> VAL_(d_alloc, NNZ, stream);
+  device_buffer<float> VAL_(d_alloc, stream, NNZ);
   float *VAL = VAL_.data();
-  device_buffer<int> COL_(d_alloc, NNZ, stream);
+  device_buffer<int> COL_(d_alloc, stream, NNZ);
   float *COL = COL_.data();
-  device_buffer<int> ROW_(d_alloc, NNZ, stream);
+  device_buffer<int> ROW_(d_alloc, stream, NNZ);
   float *ROW = ROW_.data();
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
