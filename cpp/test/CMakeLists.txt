@@ -210,6 +210,7 @@ if(BUILD_PRIMS_TESTS)
       prims/host_buffer.cu
       prims/jones_transform.cu
       prims/klDivergence.cu
+      prims/knn_classify.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
