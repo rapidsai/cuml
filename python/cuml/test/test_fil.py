@@ -220,7 +220,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     else:
         # model_class == GradientBoostingClassifier
         init_kwargs['init'] = 'zero'
-        
+
     skl_model = model_class(**init_kwargs)
     skl_model.fit(X_train, y_train)
 
@@ -253,7 +253,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                          [GradientBoostingRegressor, RandomForestRegressor])
 @pytest.mark.skipif(has_treelite() is False, reason="need to install treelite")
 def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
-                                storage_type, model_class):
+                            storage_type, model_class):
 
     # skip depth 20 for dense tests
     if max_depth == 20 and storage_type == 'DENSE':
@@ -281,8 +281,8 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
         init_kwargs['n_jobs'] = -1
     else:
         # model_class == GradientBoostingRegressor
-        init_kwargs['init'] = 'zero'        
-        
+        init_kwargs['init'] = 'zero'
+
     skl_model = model_class(**init_kwargs)
     skl_model.fit(X_train, y_train)
 
