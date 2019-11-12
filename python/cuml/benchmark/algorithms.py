@@ -23,8 +23,10 @@ import sklearn.random_projection
 from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
-import umap
+from cuml.utils.import_utils import has_umap
 import numpy as np
+if has_umap():
+    import umap
 
 from cuml.benchmark.bench_helper_funcs \
     import fit, fit_kneighbors, fit_transform, predict, \
@@ -266,7 +268,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
-            shared_args={},
+            shared_args=dict(solver="lbfgs"),
             name="LogisticRegression",
             accepts_labels=True,
             accuracy_function=metrics.accuracy_score,
@@ -297,14 +299,6 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            umap.UMAP,
-            cuml.manifold.UMAP,
-            shared_args=dict(n_neighbors=5, n_epochs=500),
-            name="UMAP",
-            accepts_labels=False,
-            accuracy_function=cuml.metrics.trustworthiness,
-        ),
-        AlgorithmPair(
             None,
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
@@ -329,6 +323,21 @@ def all_algorithms():
             bench_func=predict,
         ),
     ]
+
+    if has_umap():
+        algorithms.append(
+            AlgorithmPair(
+                umap.UMAP,
+                cuml.manifold.UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP",
+                accepts_labels=False,
+                accuracy_function=cuml.metrics.trustworthiness,
+            )
+        )
+
+    return algorithms
+
 
 
 def algorithm_by_name(name):

@@ -45,6 +45,13 @@ def has_ucp():
     except ImportError:
         return False
 
+def has_umap():
+    try:
+        import umap  # NOQA
+        return True
+    except ImportError:
+        return False
+
 
 def has_treelite():
     try:
