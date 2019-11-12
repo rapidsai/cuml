@@ -846,8 +846,7 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
                                            const int n, const int k,
                                            int *restrict row_sizes,
                                            int *restrict row_sizes2) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
@@ -896,8 +895,7 @@ __global__ static void symmetric_sum(int *restrict edges,
                                      math_t *restrict VAL, int *restrict COL,
                                      int *restrict ROW, const int n,
                                      const int k) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 

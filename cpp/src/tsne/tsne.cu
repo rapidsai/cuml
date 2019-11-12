@@ -65,7 +65,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
               const bool verbose, const bool pca_intialization,
-              bool barnes_hut) {
+              bool barnes_hut)
+{
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
            embedding != NULL,
          "Wrong input args");
@@ -159,6 +160,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
 
     A = X_C_contiguous.data();
 
+    // Immediately free the buffers
     components.resize(0, stream);
     explained_var.resize(0, stream);
     explained_var_ratio.resize(0, stream);
@@ -174,10 +176,11 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
-  float *distances =
-    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  long *indices =
-    (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
+
+  device_buffer<float> distances_(d_alloc, n*n_neighbors, stream);
+  float *distances = distances_.data();
+  device_buffer<long> indices_(d_alloc, n*n_neighbors, stream);
+  float *indices = indices_.data();
   TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
 
   if (pca_intialization == true) {
@@ -203,29 +206,36 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   if (verbose) {
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
-  float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+
+  device_buffer<float> P_(d_alloc, n*n_neighbors, stream);
+  float *P = P_.data();
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
 
-  d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
+  distances_.resize(0, stream);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
+
 
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
   // MLCommon::Sparse::COO<float> COO_Matrix;
   const int NNZ = (2 * n * n_neighbors);
-  float *VAL = (float *)d_alloc->allocate(sizeof(float) * NNZ, stream);
-  int *COL = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
-  int *ROW = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
+
+  device_buffer<float> VAL_(d_alloc, NNZ, stream);
+  float *VAL = VAL_.data();
+  device_buffer<int> COL_(d_alloc, NNZ, stream);
+  float *COL = COL_.data();
+  device_buffer<int> ROW_(d_alloc, NNZ, stream);
+  float *ROW = ROW_.data();
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, /*&COO_Matrix,*/
                               VAL, COL, ROW, stream, handle);
 
-  d_alloc->deallocate(P, sizeof(float) * n * n_neighbors, stream);
-  d_alloc->deallocate(indices, sizeof(long) * n * n_neighbors, stream);
+  P_.resize(0, stream);
+  indices_.resize(0, stream);
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
@@ -246,9 +256,6 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   }
 
   // COO_Matrix.destroy();
-  d_alloc->deallocate(VAL, sizeof(float) * NNZ, stream);
-  d_alloc->deallocate(COL, sizeof(int) * NNZ, stream);
-  d_alloc->deallocate(ROW, sizeof(int) * NNZ, stream);
 
   if (verbose) printf("[Info] TSNE has completed!\n");
 }
