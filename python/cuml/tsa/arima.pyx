@@ -92,6 +92,32 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                   double* d_vs,
                   double* d_params,
                   double* d_y_fc)
+    
+    void cpp_bic "bic" (
+        cumlHandle& handle,
+        double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        double* ic)
+
+    void cpp_aic "aic" (
+        cumlHandle& handle,
+        double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        double* ic)
 
     void cpp_estimate_x0 "estimate_x0" (
         cumlHandle& handle,
@@ -251,25 +277,53 @@ class ARIMAModel(Base):
             self.order, self.mu,
             self.ar_params, self.ma_params)
 
-    # TODO: wrap C++ version
+    def _ic(self, ic_type):
+        """Wrapper around C++ aic and bic functions used by the Python
+        properties aic and bic.
+        """
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        (p, d, q) = self.order
+        # Convert host parameters to device parameters (will be removed later)
+        cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        if d:
+            d_mu, d_mu_ptr, _, _, _ = \
+                input_to_dev_array(self.mu, check_dtype=np.float64)
+        if p:
+            d_ar, d_ar_ptr, _, _, _ = \
+                input_to_dev_array(self.ar_params, check_dtype=np.float64)
+        if q:
+            d_ma, d_ma_ptr, _, _, _ = \
+                input_to_dev_array(self.ma_params, check_dtype=np.float64)
+
+        cdef vector[double] ic
+        ic.resize(self.num_batches)
+        cdef uintptr_t d_y_ptr
+        d_y_ptr = get_dev_array_ptr(self.d_y)
+
+        if ic_type == "bic":
+            cpp_bic(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
+                    <int> self.num_samples, <int> p, <int> d, <int> q,
+                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                    <double*> ic.data())
+        elif ic_type == "aic":
+            cpp_aic(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
+                    <int> self.num_samples, <int> p, <int> d, <int> q,
+                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                    <double*> ic.data())
+        else:
+            raise NotImplementedError("IC type '{}' unknown". format(ic_type))
+
+        return ic
+
     @property
     def bic(self):
-        (p, d, q) = self.order
-        x = pack(p, d, q, self.num_batches,
-                 self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
-        return [-2 * lli + np.log(len(self.d_y))
-                * (_model_complexity(self.order))
-                for (i, lli) in enumerate(llb)]
+        return self._ic("bic")
 
     @property
     def aic(self):
-        (p, d, q) = self.order
-        x = pack(p, d, q, self.num_batches, self.mu,
-                 self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
-        return [-2 * lli + 2 * (_model_complexity(self.order))
-                for (i, lli) in enumerate(llb)]
+        return self._ic("aic")
 
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
