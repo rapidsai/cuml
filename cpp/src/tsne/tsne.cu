@@ -230,7 +230,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<int> ROW_(d_alloc, stream, NNZ);
   int *ROW = ROW_.data();
 
-  int *row_sizes = (sizeof(float)*n*dim >= sizeof(int)*n*2) ? (int*)embedding : NULL;
+  int *row_sizes = ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (pca_intialization == false)) \
+                    ? (int*)embedding : NULL;
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, /*&COO_Matrix,*/

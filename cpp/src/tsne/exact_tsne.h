@@ -99,7 +99,8 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float learning_rate = pre_learning_rate;
   bool check_convergence = false;
 
-  for (int iter = 0; iter < max_iter; iter++) {
+  for (int iter = 0; iter < max_iter; iter++)
+  {
     check_convergence = ((iter % 50) == 0) and (iter > exaggeration_iter);
 
     if (iter == exaggeration_iter) {
@@ -111,8 +112,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     }
 
     // Get row norm of Y
-    MLCommon::LinAlg::rowNorm(norm, Y, dim, n, MLCommon::LinAlg::L2Norm, false,
-                              stream);
+    MLCommon::LinAlg::rowNorm(norm, Y, dim, n, MLCommon::LinAlg::L2Norm, false, stream);
 
     // Compute attractive forces
     TSNE::attractive_forces(VAL, COL, ROW, Y, norm, attract, NNZ, n, dim,
