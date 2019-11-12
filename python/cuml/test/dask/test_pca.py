@@ -69,6 +69,7 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
+
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [4e3, 7e5])
 @pytest.mark.parametrize("ncols", [100, 1000])
@@ -82,8 +83,6 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
         client = Client(cluster)
 
     from cuml.dask.decomposition import PCA as daskPCA
-    from sklearn.decomposition import PCA
-
     from cuml.dask.datasets import make_blobs
 
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
@@ -92,14 +91,13 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
 
     wait(X_cudf)
 
-    X = X_cudf.compute().to_pandas().values
-
     cupca = daskPCA(n_components=20, whiten=True)
     cupca.fit_transform(X_cudf)
 
     if owns_cluster:
         client.close()
         cluster.close()
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [7e5])
@@ -114,8 +112,6 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
         client = Client(cluster)
 
     from cuml.dask.decomposition import PCA as daskPCA
-    from sklearn.decomposition import PCA
-
     from cuml.dask.datasets import make_blobs
 
     X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
@@ -123,8 +119,6 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
                            random_state=10, dtype=np.float64)
 
     wait(X_cudf)
-
-    X = X_cudf.compute().to_pandas().values
 
     cupca = daskPCA(n_components=30, whiten=False)
     cupca.fit_transform(X_cudf)
