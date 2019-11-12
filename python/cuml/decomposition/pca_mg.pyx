@@ -156,8 +156,9 @@ class PCAMG(PCA):
 
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t ** dataF = < floatData_t ** > \
-                                    malloc(sizeof(floatData_t *)
-                                           * len(arr_interfaces))
+            malloc(sizeof(floatData_t *)
+                   * len(arr_interfaces))
+
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
@@ -257,7 +258,7 @@ class PCAMG(PCA):
             rank, size = rankSize
             if rnk == rank:
                 rankSizePair[indx] = <RankSizePair*> \
-                                     malloc(sizeof(RankSizePair))
+                    malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
@@ -401,7 +402,7 @@ class PCAMG(PCA):
             rank, size = rankSize
             if rnk == rank:
                 rankSizePair[indx] = <RankSizePair*> \
-                                     malloc(sizeof(RankSizePair))
+                    malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
@@ -524,7 +525,7 @@ class PCAMG(PCA):
             rank, size = rankSize
             if rnk == rank:
                 rankSizePair[indx] = <RankSizePair*> \
-                                     malloc(sizeof(RankSizePair))
+                    malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
