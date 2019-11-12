@@ -207,7 +207,9 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
 
-  device_buffer<float> P_(d_alloc, stream, n*n_neighbors);
+  const int NNZ = (2 * n * n_neighbors);
+
+  device_buffer<float> P_(d_alloc, stream, NNZ);
   float *P = P_.data();
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
@@ -221,10 +223,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   //---------------------------------------------------
   // Convert data to COO layout
   // MLCommon::Sparse::COO<float> COO_Matrix;
-  const int NNZ = (2 * n * n_neighbors);
-
-  device_buffer<float> VAL_(d_alloc, stream, NNZ);
-  float *VAL = VAL_.data();
+  
+  float *VAL = P;
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
   device_buffer<int> ROW_(d_alloc, stream, NNZ);
@@ -237,7 +237,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                               early_exaggeration, /*&COO_Matrix,*/
                               VAL, COL, ROW, row_sizes, stream, handle);
 
-  P_.resize(0, stream);
+  // P_.resize(0, stream);
   indices_.resize(0, stream);
 
   //---------------------------------------------------

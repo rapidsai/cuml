@@ -186,7 +186,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   device_buffer<float> YY_(d_alloc, stream, (NNODES + 1) * 2);
   float *YY = YY_.data();
 
-  printf("[Info] Saved GPU memory = %d megabytes\n", SAVED_SPACE >> 20);
+  if (verbose)
+    printf("[Info] Saved GPU memory = %d megabytes\n", SAVED_SPACE >> 20);
 
 
   // Intialize embeddings

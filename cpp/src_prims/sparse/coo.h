@@ -17,6 +17,7 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
+#include "linalg/unary_op.h"
 
 #include "cusparse_wrappers.h"
 
@@ -868,10 +869,11 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
  */
 __global__ static void reduce_find_size(const int n, const int k,
                                         int *restrict row_sizes,
-                                        const int *restrict row_sizes2) {
+                                        const int *restrict row_sizes2)
+{
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
-  row_sizes[i] += (row_sizes2[i] + k);
+  row_sizes[i] += (row_sizes2[i]);
 }
 
 /**
@@ -892,22 +894,27 @@ template <typename math_t>
 __global__ static void symmetric_sum(int *restrict edges,
                                      const math_t *restrict data,
                                      const long *restrict indices,
-                                     math_t *restrict VAL, int *restrict COL,
+                                     math_t *restrict VAL,
+                                     int *restrict COL,
                                      int *restrict ROW, const int n,
-                                     const int k) {
+                                     const int k)
+{
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
-  const int original = atomicAdd(&edges[row], 1);
-  const int transpose = atomicAdd(&edges[col], 1);
+  const int index = row * k + j;
+  const int col = indices[index];
+  // const int original = atomicAdd(&edges[row], 1);
 
-  VAL[transpose] = VAL[original] = data[row * k + j];
   // Notice swapped ROW, COL since transpose
-  ROW[original] = row;
-  COL[original] = col;
+  // ROW[original] = row;
+  // COL[original] = col;
+  ROW[index] = row;
+  COL[index] = col;
 
+  const int transpose = atomicAdd(&edges[col], 1);
+  VAL[transpose] /*= VAL[original]*/ = data[index];
   ROW[transpose] = col;
   COL[transpose] = row;
 }
@@ -988,6 +995,10 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Rolling cumulative sum
   thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
                          __row_sizes + n, __edges);
+
+  const int nk = n*k;
+  LinAlg::unaryOp(edges, edges, n, [nk] __device__(int x) { return x + nk; }, stream);
+
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
 
