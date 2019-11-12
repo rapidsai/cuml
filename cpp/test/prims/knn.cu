@@ -53,8 +53,7 @@ class KNNTest : public ::testing::Test {
     h_train_inputs.resize(n);
     updateDevice(d_train_inputs, h_train_inputs.data(), n * d, 0);
 
-    std::vector<T> h_res_D = {0.0,    2401.0, 2500.0, 0.0,   1.0,
-                              2401.0, 0.0,    1.0,    2500.0};
+    std::vector<T> h_res_D = {0.0, 49.0, 50.0, 0.0, 1.0, 49.0, 0.0, 1.0, 50.0};
     h_res_D.resize(n * n);
     updateDevice(d_ref_D, h_res_D.data(), n * n, 0);
 

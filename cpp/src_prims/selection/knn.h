@@ -457,7 +457,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param out output array of size (n_samples * y.size())
  * @param knn_indices index array from knn search
  * @param y vector of label arrays. for multilabel classification, each
- *          output in the vector is a different array of labels corresponding
+ *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
  * @param n_rows number of rows in knn_indices
  * @param k number of neighbors in knn_indices
