@@ -97,8 +97,6 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
         knn_cu.fit(X)
         D_cuml, I_cuml = knn_cu.kneighbors(X, k)
 
-        print(str(D_cuml))
-        print(str(I_cuml))
         assert type(D_cuml) == np.ndarray
         assert type(I_cuml) == np.ndarray
 
