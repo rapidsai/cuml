@@ -171,10 +171,10 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
     gemm_n = n;
   }
 
-  float k = rand() / 2;
+  float adder = rand() / 2;
   const float add = rand();
 
-  pass_function3(k, [add] __host__ __device__ (float x) {return x + add;}, stream);
+  pass_function3(adder, [add] __host__ __device__ (float x) {return x + add;}, stream);
 
   // LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
   //              MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
