@@ -89,6 +89,7 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
                            const float exaggeration,
                            /* MLCommon::Sparse::COO<float> *COO_Matrix, */
                            float *VAL, int *COL, int *ROW,
+                           int *row_sizes,
                            cudaStream_t stream, const cumlHandle &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * n);
@@ -96,7 +97,8 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, /*COO_Matrix,*/ VAL, COL, ROW, stream, handle.getDeviceAllocator());
+    indices, P, n, k, /*COO_Matrix,*/ VAL, COL, ROW, row_sizes,
+    stream, handle.getDeviceAllocator());
 }
 
 }  // namespace TSNE
