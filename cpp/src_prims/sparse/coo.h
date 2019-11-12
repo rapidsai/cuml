@@ -951,7 +951,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                        MLCommon::ceildiv(n, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  int row_sizes1, row_sizes2;
+  int *row_sizes1, *row_sizes2;
   if (row_sizes == NULL) {
     row_sizes1 = (int*)d_alloc->allocate(sizeof(int)*n*2, stream);
     row_sizes2 = row_sizes1 + n;
