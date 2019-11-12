@@ -21,8 +21,8 @@
 #include "selection/knn.h"
 #include "sparse/coo.h"
 
-#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
+#include "cuml/common/cuml_allocator.hpp"
 
 #include "cuda_utils.h"
 
