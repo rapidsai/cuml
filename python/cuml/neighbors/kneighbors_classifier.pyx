@@ -84,7 +84,7 @@ Examples
 
   from sklearn.datasets import make_blobs
   from sklearn.model_selection import train_test_split
-  
+
   X, y = make_blobs(n_samples=100, centers=5,
                     n_features=10)
 
@@ -96,8 +96,8 @@ Examples
   knn.fit(X_train, y_train)
 
   knn.predict(X_test)
-  
-  
+
+
 Output:
 
 
@@ -105,7 +105,7 @@ Output:
 
   array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
          0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
-    
+
 
 Notes
 ------
@@ -113,6 +113,8 @@ Notes
 For additional docs, see `scikitlearn's KNeighborsClassifier
 <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
 """
+
+
 class KNeighborsClassifier(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
@@ -120,7 +122,6 @@ class KNeighborsClassifier(NearestNeighbors):
         :param weights : string sample weights to use. (default="uniform").
                Currently, only the uniform strategy is supported.
         """
-        
         super(KNeighborsClassifier, self).__init__(**kwargs)
         self.y = None
         self.weights = weights
