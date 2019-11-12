@@ -71,14 +71,56 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k
     ) except +
 
+"""
+K-Nearest Neighbors Classifier is an instance-based learning technique,
+that keeps training samples around for prediction, rather than trying
+to learn a generalizable set of model parameters.
 
+Examples
+---------
+.. code-block:: python
+
+  from cuml.neighbors import KNeighborsClassifier
+
+  from sklearn.datasets import make_blobs
+  from sklearn.model_selection import train_test_split
+  
+  X, y = make_blobs(n_samples=100, centers=5,
+                    n_features=10)
+
+  knn = KNeighborsClassifier(n_neighbors=10)
+
+  X_train, X_test, y_train, y_test =
+    train_test_split(X, y, train_size=0.80)
+
+  knn.fit(X_train, y_train)
+
+  knn.predict(X_test)
+  
+  
+Output:
+
+
+.. code-block:: python
+
+  array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
+         0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
+    
+
+Notes
+------
+
+For additional docs, see `scikitlearn's KNeighborsClassifier
+<https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
+"""
 class KNeighborsClassifier(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
         """
-
-        :param kwargs:
+        :param weights : string sample weights to use. (default="uniform").
+               Currently, only the uniform strategy is supported.
         """
+        
         super(KNeighborsClassifier, self).__init__(**kwargs)
         self.y = None
         self.weights = weights
@@ -89,11 +131,21 @@ class KNeighborsClassifier(NearestNeighbors):
 
     def fit(self, X, y, convert_dtype=True):
         """
-        Fit a k-nearest neighbors classifier model.
-        :param X:
-        :param y:
-        :param convert_dtype:
-        :return:
+        Fit a GPU index for k-nearest neighbors classifier model.
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param y : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+        :return :
         """
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
 
@@ -109,8 +161,13 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
-        :param X:
-        :param convert_dtype:
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         :return:
         """
         knn_indices = self.kneighbors(X, return_distance=False,
@@ -136,7 +193,6 @@ class KNeighborsClassifier(NearestNeighbors):
         # If necessary, separate columns of y to support multilabel
         # classification
         cdef uintptr_t y_ptr
-
         for i in range(out_cols):
             col = self.y[:, i] if out_cols > 1 else self.y
             y_ptr = get_dev_array_ptr(col)
@@ -157,7 +213,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         self.handle.sync()
         if isinstance(X, np.ndarray):
-            return np.array(classes)
+            return np.array(classes, dtype=np.int32)
         elif isinstance(X, cudf.DataFrame):
             return cudf.DataFrame.from_gpu_matrix(X)
         else:
@@ -167,8 +223,13 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X
-        :param X:
-        :param convert_dtype:
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         :return:
         """
         knn_indices = self.kneighbors(X, return_distance=False,
@@ -220,7 +281,7 @@ class KNeighborsClassifier(NearestNeighbors):
         final_classes = []
         for out_class in out_classes:
             if isinstance(X, np.ndarray):
-                final_class = np.array(out_class)
+                final_class = np.array(out_class, dtype=np.int32)
             elif isinstance(X, cudf.DataFrame):
                 final_class = cudf.DataFrame.from_gpu_matrix(out_class)
             else:
@@ -230,14 +291,25 @@ class KNeighborsClassifier(NearestNeighbors):
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
 
-    def score(self, X, y, sample_weight=None, convert_dtype=True):
+    def score(self, X, y, convert_dtype=True):
         """
         Compute the accuracy score using the given labels and
         the trained k-nearest neighbors classifier to predict
         the classes for X.
-        :param X:
-        :param y:
-        :param sample_weight:
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param y : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+        :param sample_weight : This parameter is curren
         :return:
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)

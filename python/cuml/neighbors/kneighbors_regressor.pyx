@@ -72,13 +72,64 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k,
     ) except +
 
+"""
 
+K-Nearest Neighbors Regressor is an instance-based learning technique,
+that keeps training samples around for prediction, rather than trying
+to learn a generalizable set of model parameters.
+
+The K-Nearest Neighbors Regressor will compute the average of the
+labels for the k closest neighbors and use it as the label.  
+
+Examples
+---------
+.. code-block:: python
+
+  from cuml.neighbors import KNeighborsRegressor
+
+  from sklearn.datasets import make_blobs
+  from sklearn.model_selection import train_test_split
+
+  X, y = make_blobs(n_samples=100, centers=5,
+                    n_features=10)
+
+  knn = KNeighborsRegressor(n_neighbors=10)
+
+  X_train, X_test, y_train, y_test =
+    train_test_split(X, y, train_size=0.80)
+
+  knn.fit(X_train, y_train)
+
+  knn.predict(X_test)
+
+
+Output:
+
+
+.. code-block:: python
+
+  array([3.        , 1.        , 1.        , 3.79999995, 2.        ,
+         0.        , 3.79999995, 3.79999995, 3.79999995, 0.        ,
+         3.79999995, 0.        , 1.        , 2.        , 3.        ,
+         1.        , 0.        , 0.        , 0.        , 2.        ,
+         3.        , 3.        , 0.        , 3.        , 3.79999995,
+         3.79999995, 3.79999995, 3.79999995, 3.        , 2.        ,
+         3.79999995, 3.79999995, 0.        ])
+
+
+
+Notes
+------
+
+For additional docs, see `scikitlearn's KNeighborsClassifier
+<https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
+"""
 class KNeighborsRegressor(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
         """
-
-        :param kwargs:
+        :param weights : string sample weights to use. (default="uniform").
+               Currently, only the uniform strategy is supported.
         """
         super(KNeighborsRegressor, self).__init__(**kwargs)
         self.y = None
@@ -89,11 +140,21 @@ class KNeighborsRegressor(NearestNeighbors):
 
     def fit(self, X, y, convert_dtype=True):
         """
-        Fit a k-nearest neighbors regressor model.
-        :param X:
-        :param y:
-        :param convert_dtype:
-        :return:
+        Fit a GPU index for k-nearest neighbors regression model.
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param y : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+        :return :
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _, _ = \
@@ -106,10 +167,16 @@ class KNeighborsRegressor(NearestNeighbors):
 
     def predict(self, X, convert_dtype=True):
         """
-        Use the trained k-nearest neighbors regressor to
+        Use the trained k-nearest neighbors regression model to
         predict the labels for X
-        :param X:
-        :param convert_type:
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         :return:
         """
         knn_indices = self.kneighbors(X, return_distance=False,
@@ -156,15 +223,23 @@ class KNeighborsRegressor(NearestNeighbors):
         else:
             return results
 
-    def score(self, X, y, sample_weight=None, convert_dtype=True):
+    def score(self, X, y, convert_dtype=True):
         """
-        Compute the R^2 score using the given labels and
-        the trained k-nearest neighbors classifier to predict
-        the classes for X.
-        :param X:
-        :param y:
-        :param sample_weight:
-        :return:
+        Fit a GPU index for k-nearest neighbors regression model.
+        :param X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param y : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        :param convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+        :return :
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         return r2_score(y, y_hat, convert_dtype=convert_dtype)
