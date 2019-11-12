@@ -180,7 +180,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<float> distances_(d_alloc, stream, n*n_neighbors);
   float *distances = distances_.data();
   device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
-  float *indices = indices_.data();
+  long *indices = indices_.data();
   TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
 
   if (pca_intialization == true) {
@@ -226,9 +226,9 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<float> VAL_(d_alloc, stream, NNZ);
   float *VAL = VAL_.data();
   device_buffer<int> COL_(d_alloc, stream, NNZ);
-  float *COL = COL_.data();
+  int *COL = COL_.data();
   device_buffer<int> ROW_(d_alloc, stream, NNZ);
-  float *ROW = ROW_.data();
+  int *ROW = ROW_.data();
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, /*&COO_Matrix,*/
