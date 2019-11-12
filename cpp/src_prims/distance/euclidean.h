@@ -70,7 +70,7 @@ void pass_function1(float a, Lambda op, cudaStream_t stream)
 {
   a += (float)rand() / 2;
   fprintf(stderr, "%d+%f->(((%d)))[%s]\n", stream, a, __LINE__, __FILE__);
-  // op(a);
+  op(a);
 }
 
 template <typename Lambda>
@@ -86,7 +86,8 @@ void pass_function3(float a, Lambda op, cudaStream_t stream)
 {
   a += (float)rand() + 10;
   fprintf(stderr, "%d+%f->(((%d)))[%s]\n", stream, a, __LINE__, __FILE__);
-  pass_function2(a, op, stream);
+  // pass_function2(a, op, stream);
+  op(a);
 }
 
 /**
