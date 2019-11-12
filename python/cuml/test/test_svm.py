@@ -262,20 +262,21 @@ def test_svm_predict(params, n_pred):
 
 
 @pytest.mark.parametrize('params', [
-    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1},
-                 marks=pytest.mark.xfail(reason="fp overflow in kernel "
-                                         "function due to non scaled input "
-                                         "features")),
     pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'auto'},
                  marks=pytest.mark.xfail(reason="fp overflow in kernel "
                                          "function due to non scaled input "
                                          "features")),
-    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale'})
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'numpy'}),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'dataframe'}),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'numba'}),
 ])
-@pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
-# Note we test different array types to make sure that the X.var() is
-# calculated correctly for gamma == 'scale' option.
-def test_svm_gamma(params, x_arraytype):
+def test_svm_gamma(params):
+    # Note: we test different array types to make sure that the X.var() is
+    # calculated correctly for gamma == 'scale' option.
+    x_arraytype = params.pop('x_arraytype', 'numpy')
     n_rows = 500
     n_cols = 380
     centers = [10*np.ones(380), -10*np.ones(380)]
@@ -288,7 +289,8 @@ def test_svm_gamma(params, x_arraytype):
     elif x_arraytype == 'numba':
         X = cuda.to_device(X)
     # Using degree 40 polynomials and fp32 training would fail with
-    # gamma = 1/(n_cols*X.std()), but it works with gamma = 1/(n_cols*X.var())
+    # gamma = 1/(n_cols*X.std()), but it works with the correct implementation:
+    # gamma = 1/(n_cols*X.var())
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
     y_pred = cuSVC.predict(X).to_array()
