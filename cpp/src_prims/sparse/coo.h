@@ -853,7 +853,7 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
   const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (row >= n || j >= k) return;
 
-  const int index = row * k + j
+  const int index = row * k + j;
   const int col = indices[index];
   COL[index] = col;
 
