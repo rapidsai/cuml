@@ -39,7 +39,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 from cuml.decomposition import PCA
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
-namespace "MLCommon::Matrix":
+                 namespace "MLCommon::Matrix":
 
     cdef cppclass floatData_t:
         floatData_t(float *ptr, size_t totalSize)
@@ -52,7 +52,7 @@ namespace "MLCommon::Matrix":
         size_t totalSize
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-    namespace "MLCommon::Matrix":
+     namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -156,8 +156,8 @@ class PCAMG(PCA):
 
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t ** dataF = < floatData_t ** > \
-                                      malloc(sizeof(floatData_t *) \
-                                             * len(arr_interfaces))
+                                    malloc(sizeof(floatData_t *) \
+                                           * len(arr_interfaces))
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
@@ -169,8 +169,8 @@ class PCAMG(PCA):
 
     def _build_dataDouble(self, arr_interfaces):
         cdef doubleData_t ** dataD = < doubleData_t ** > \
-                                       malloc(sizeof(doubleData_t *) \
-                                              * len(arr_interfaces))
+                                     malloc(sizeof(doubleData_t *) \
+                                            * len(arr_interfaces))
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
@@ -200,13 +200,13 @@ class PCAMG(PCA):
             rank, size = rankSize
             if rnk == rank:
                 trans_ary = rmm.to_device(zeros((size, n_cols),
-                                    order="F",
-                                    dtype=dtype))
+                                                 order="F",
+                                                 dtype=dtype))
 
                 trans_ptr = get_dev_array_ptr(trans_ary)
                 arr_interfaces_trans.append({"obj": trans_ary,
-                               "data": trans_ptr,
-                               "shape": (size, n_cols)})
+                                             "data": trans_ptr,
+                                             "shape": (size, n_cols)})
 
         return arr_interfaces_trans
 
@@ -391,7 +391,7 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                            malloc(sizeof(RankSizePair**) \
+                                            malloc(sizeof(RankSizePair**)
                                                    * n_total_parts)
 
         indx = 0
@@ -400,7 +400,8 @@ class PCAMG(PCA):
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:
-                rankSizePair[indx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+                rankSizePair[indx] = <RankSizePair*> \
+                                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
@@ -445,7 +446,7 @@ class PCAMG(PCA):
             transform(handle_[0],
                       <RankSizePair**>rankSizePair,
                       <size_t> n_total_parts,
-                      <doubleData_t**> data,            
+                      <doubleData_t**> data,
                       <double*> comp_ptr,
                       <doubleData_t**> trans_data,
                       <double*> singular_vals_ptr,
@@ -475,7 +476,6 @@ class PCAMG(PCA):
             self._freeDoubleD(data, arr_interfaces)
 
         return trans_cudf
-
 
     def inverse_transform(self, X, M, N, partsToRanks, rnk):
         """
@@ -525,7 +525,8 @@ class PCAMG(PCA):
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:
-                rankSizePair[indx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+                rankSizePair[indx] = <RankSizePair*> \
+                                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
