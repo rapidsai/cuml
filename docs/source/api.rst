@@ -4,8 +4,8 @@ cuML API Reference
 
 
 
-Preprocessing
-==============
+Preprocessing, Metrics, and Utilities
+=====================================
 
 Model Selection and Data Splitting
 ----------------------------------
@@ -23,6 +23,44 @@ Dataset Generation
 ------------------
 
   .. automethod:: cuml.datasets.make_blobs
+
+Metrics
+---------
+
+  .. automodule:: cuml.metrics.regression
+    :members:
+
+  .. automodule:: cuml.metrics.accuracy
+    :members:
+
+  .. automodule:: cuml.metrics.trustworthiness
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.adjustedrandindex
+    :members:
+
+Benchmarking
+-------------
+
+  .. automodule:: cuml.benchmark.algorithms
+    :members:
+
+  .. automodule:: cuml.benchmark.runners
+    :members:
+
+  .. automodule:: cuml.benchmark.datagen
+    :members:
+    
+       
+
+Utilities for I/O and Numba
+---------------------------
+
+  .. automodule:: cuml.utils.input_utils
+    :members:
+
+  .. automodule:: cuml.utils.numba_utils
+    :members:
 
 Regression and Classification
 =============================
@@ -57,6 +95,18 @@ ElasticNet Regression
 .. autoclass:: cuml.ElasticNet
     :members:
 
+Mini Batch SGD Classifier 
+---------------------
+
+.. autoclass:: cuml.MBSGDClassifier
+    :members:
+
+Mini Batch SGD Regressor
+---------------------
+
+.. autoclass:: cuml.MBSGDRegressor
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 
@@ -82,6 +132,12 @@ Quasi-Newton
 ------------
 
 .. autoclass:: cuml.QN
+    :members:
+
+Support Vector Machines
+------------------------
+
+.. autoclass:: cuml.svm.SVC
     :members:
 
 Clustering

@@ -23,7 +23,7 @@ import ctypes
 import cudf
 import numpy as np
 
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -35,7 +35,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
 
-cdef extern from "pca/pca.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
     cdef void pcaFit(cumlHandle& handle,
                      float *input,
@@ -45,7 +45,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     paramsPCA prms)
+                     paramsPCA prms) except +
 
     cdef void pcaFit(cumlHandle& handle,
                      double *input,
@@ -55,7 +55,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     paramsPCA prms)
+                     paramsPCA prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               float *input,
@@ -66,7 +66,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                               float *singular_vals,
                               float *mu,
                               float *noise_vars,
-                              paramsPCA prms)
+                              paramsPCA prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               double *input,
@@ -77,7 +77,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                               double *singular_vals,
                               double *mu,
                               double *noise_vars,
-                              paramsPCA prms)
+                              paramsPCA prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   float *trans_input,
@@ -85,7 +85,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
-                                  paramsPCA prms)
+                                  paramsPCA prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   double *trans_input,
@@ -93,7 +93,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                                   double *singular_vals,
                                   double *mu,
                                   double *input,
-                                  paramsPCA prms)
+                                  paramsPCA prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            float *input,
@@ -101,7 +101,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
-                           paramsPCA prms)
+                           paramsPCA prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            double *input,
@@ -109,7 +109,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                            double *trans_input,
                            double *singular_vals,
                            double *mu,
-                           paramsPCA prms)
+                           paramsPCA prms) except +
 
 
 class PCA(Base):
@@ -259,7 +259,7 @@ class PCA(Base):
     Notes
     ------
     PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
+    maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
     T-SNE for a locally important embedding.
 
@@ -479,8 +479,8 @@ class PCA(Base):
         X_m, trans_input_ptr, n_rows, _, dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                                 else None)
+                               )
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params

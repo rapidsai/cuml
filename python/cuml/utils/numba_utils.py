@@ -16,9 +16,11 @@
 import numba
 import math
 
+import numpy as np
+import rmm
+
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
-from librmm_cffi import librmm as rmm
 
 
 def row_matrix(df):
@@ -139,3 +141,68 @@ def zeros(size, dtype, order='F'):
         gpu_zeros_1d.forall(size)(out)
 
     return out
+
+
+def device_array_from_ptr(ptr, shape, dtype, order='F', stride=None):
+    """Create a DeviceNDArray from a device pointer
+
+    Similar to numba.cuda.from_cuda_array_interface, difference is that we
+    allow Fortran array order here.
+
+    Parameters
+    ----------
+    ptr : int
+        device pointer
+    shape : tuple of ints
+    dtype : type of the data
+    order : 'C' or 'F'
+    stride : tuple of ints
+        Stride in bytes along each dimension the array. If it is left empty,
+        then will be filled automatically using the order parameter
+    """
+    dtype = np.dtype(dtype)
+    itemsize = dtype.itemsize
+    if stride is None:
+        stride = stride_from_order(shape, order, itemsize)
+    size = cuda.driver.memory_size_from_info(shape, stride, itemsize)
+    devptr = cuda.driver.get_devptr_for_active_ctx(ptr)
+    data = cuda.driver.MemoryPointer(cuda.current_context(),
+                                     devptr, size=size, owner=None)
+    device_array = cuda.devicearray.DeviceNDArray(
+        shape=shape, strides=stride, dtype=dtype, gpu_data=data)
+    return device_array
+
+
+def stride_from_order(shape, order, itemsize):
+    if order != 'C' and order != 'F':
+        raise ValueError('Order shall be either C or F')
+    n = len(shape)
+    stride = [None] * n
+    stride[0] = itemsize
+    for i in range(n - 1):
+        stride[i+1] = stride[i] * shape[i]
+    if order == 'C':
+        stride.reverse()
+    return tuple(stride)
+
+
+# CuPy < 7.0 and numba >= 0.46 mitigation
+# Remove after making CuPy >= 7 required!
+
+
+class PatchedNumbaDeviceArray(object):
+    def __init__(self, numba_array):
+        self.parent = numba_array
+
+    def __getattr__(self, name):
+        if name == "parent":
+            raise AttributeError()
+
+        if name != '__cuda_array_interface__':
+            return getattr(self.parent, name)
+
+        else:
+            rtn = self.parent.__cuda_array_interface__
+            if rtn.get("strides") is None:
+                rtn.pop("strides")
+            return rtn

@@ -24,16 +24,16 @@
 #include <cuda_runtime.h>
 
 #ifdef HAVE_CUB
-#include <cub/util_allocator.cuh>
-#endif  // HAVE_CUB
+#include <cuml/common/cubAllocatorAdapter.hpp>
+#endif  //HAVE_CUB
 
 #ifdef HAVE_RMM
 #include <rmm/rmm.h>
-#include <common/rmmAllocatorAdapter.hpp>
+#include <cuml/common/rmmAllocatorAdapter.hpp>
 #endif  // HAVE_RMM
 
-#include <cuML.hpp>
-#include <kmeans/kmeans.hpp>
+#include <cuml/cluster/kmeans.hpp>
+#include <cuml/cuml.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -67,41 +67,6 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
   }
   return false;
 }
-
-class cachingDeviceAllocator : public ML::deviceAllocator {
- public:
-  cachingDeviceAllocator()
-#ifdef HAVE_CUB
-    ,
-    _allocator(8, 3, cub::CachingDeviceAllocator::INVALID_BIN,
-               cub::CachingDeviceAllocator::INVALID_SIZE)
-#endif  // HAVE_CUB
-  {
-  }
-
-  virtual void *allocate(std::size_t n, cudaStream_t stream) {
-    void *ptr = 0;
-#ifdef HAVE_CUB
-    _allocator.DeviceAllocate(&ptr, n, stream);
-#else   //! HAVE_CUB
-    CUDA_RT_CALL(cudaMalloc(&ptr, n));
-#endif  // HAVE_CUB
-    return ptr;
-  }
-
-  virtual void deallocate(void *p, std::size_t, cudaStream_t) {
-#ifdef HAVE_CUB
-    _allocator.DeviceFree(p);
-#else   //! HAVE_CUB
-    CUDA_RT_CALL(cudaFree(p));
-#endif  // HAVE_CUB
-  }
-
-#ifdef HAVE_CUB
- private:
-  cub::CachingDeviceAllocator _allocator;
-#endif  // HAVE_CUB
-};
 
 int main(int argc, char *argv[]) {
   const int dev_id = get_argval<int>(argv, argv + argc, "-dev_id", 0);
@@ -181,11 +146,14 @@ int main(int argc, char *argv[]) {
 
     ML::cumlHandle cumlHandle;
 #ifdef HAVE_RMM
-    std::shared_ptr<ML::rmmAllocatorAdapter> allocator(
+    std::shared_ptr<ML::deviceAllocator> allocator(
       new ML::rmmAllocatorAdapter());
-#else   //! HAVE_RMM
-    std::shared_ptr<cachingDeviceAllocator> allocator(
-      new cachingDeviceAllocator());
+#elif defined(HAVE_CUB)
+    std::shared_ptr<ML::deviceAllocator> allocator(
+      new ML::cachingDeviceAllocator());
+#else
+    std::shared_ptr<ML::deviceAllocator> allocator(
+      new ML::defaultDeviceAllocator());
 #endif  // HAVE_RMM
     cumlHandle.setDeviceAllocator(allocator);
 

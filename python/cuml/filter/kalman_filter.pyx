@@ -24,7 +24,7 @@ import numpy as np
 
 from numba import cuda
 from cuml.utils import numba_utils
-from librmm_cffi import librmm as rmm
+import rmm
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -56,7 +56,7 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                                        float*,
                                        float*,
                                        float*,
-                                       float*)
+                                       float*) except +
 
     cdef void init_f32(Variables[float]&,
                        int,
@@ -71,12 +71,12 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                        float*,
                        float*,
                        void*,
-                       size_t&)
+                       size_t&) except +
 
-    cdef void predict_f32(Variables[float]&)
+    cdef void predict_f32(Variables[float]&) except +
 
     cdef void update_f32(Variables[float]&,
-                         float*)
+                         float*) except +
 
     cdef size_t get_workspace_size_f64(Variables[double]&,
                                        int,
@@ -89,7 +89,7 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                                        double*,
                                        double*,
                                        double*,
-                                       double*)
+                                       double*) except +
 
     cdef void init_f64(Variables[double]&,
                        int,
@@ -104,12 +104,12 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                        double*,
                        double*,
                        void*,
-                       size_t&)
+                       size_t&) except +
 
-    cdef void predict_f64(Variables[double]&)
+    cdef void predict_f64(Variables[double]&) except +
 
     cdef void update_f64(Variables[double]&,
-                         double*)
+                         double*) except +
 
 
 class KalmanFilter(Base):
@@ -149,7 +149,7 @@ class KalmanFilter(Base):
         Number of state variables for the Kalman filter.
         This is used to set the default size of P, Q, and u
     dim_z : int
-        Number of of measurement inputs.
+        Number of measurement inputs.
 
     Attributes
     ----------
@@ -161,7 +161,7 @@ class KalmanFilter(Base):
         updates this variable.
     x_prior : numba device array, numpy array or cuDF series(dim_x, 1)
         Prior (predicted) state estimate. The *_prior and *_post attributes
-        are for convienence; they store the  prior and posterior of the
+        are for convenience; they store the  prior and posterior of the
         current epoch. Read Only.
     P_prior : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Prior (predicted) state covariance matrix. Read Only.

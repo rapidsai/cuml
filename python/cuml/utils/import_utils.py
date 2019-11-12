@@ -15,6 +15,11 @@
 #
 
 
+import numba
+
+from distutils.version import LooseVersion
+
+
 def has_dask():
     try:
         import dask   # NOQA
@@ -62,4 +67,24 @@ def has_xgboost():
         import xgboost  # NOQA
         return True
     except ImportError:
+        return False
+
+
+def has_pytest_benchmark():
+    try:
+        import pytest_benchmark  # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def check_min_numba_version(version):
+    return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+
+
+def check_min_cupy_version(version):
+    if has_cupy():
+        import cupy
+        return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
+    else:
         return False

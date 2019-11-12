@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -30,11 +31,15 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+
+from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
+
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
@@ -42,7 +47,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -50,7 +55,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
         int max_leaves
@@ -58,11 +63,12 @@ cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
         int n_bins
         int split_algo
         int min_rows_per_node
+        float min_impurity_decrease
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
         CLASSIFICATION,
@@ -79,6 +85,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         int n_trees
         bool bootstrap
         float rows_sample
+        int seed
         pass
 
     cdef cppclass RandomForestMetaData[T, L]:
@@ -147,18 +154,14 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
-                          float*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, int]*,
-                          double*,
                           int*,
-                          int,
                           int,
                           int*,
                           bool) except +
@@ -175,10 +178,12 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int,
                                     int,
                                     int,
+                                    float,
                                     bool,
                                     bool,
                                     int,
                                     float,
+                                    int,
                                     CRITERION,
                                     bool,
                                     int) except +
@@ -261,9 +266,15 @@ class RandomForestClassifier(Base):
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : int or float or string or None (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
+                   If int then max_features/n_features.
+                   If float then max_features is a fraction.
+                   If 'auto' then max_features=1/sqrt(n_features).
+                   If 'sqrt' then max_features=1/sqrt(n_features).
+                   If 'log2' then max_features=log2(n_features)/n_features.
+                   If None, then max_features=1/sqrt(n_features).
     n_bins :  int (default = 8)
               Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
@@ -271,36 +282,40 @@ class RandomForestClassifier(Base):
                         to split a node.
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
+    min_impurity_decrease : float (default = 0.0)
+                            Minimum decrease in impurity requried for
+                            node to be spilt.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
+                        Whether quantile is computed for individual trees in
+                        RF. Only relevant for GLOBAL_QUANTILE split_algo.
 
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
+                 'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=10, max_depth=16, handle=None,
-                 max_features=1.0, n_bins=8, n_streams=8,
+                 max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  gdf_datatype=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
-                 max_leaf_nodes=None, min_impurity_decrease=None,
+                 max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
-                 random_state=None, warm_start=None, class_weight=None):
+                 random_state=None, warm_start=None, class_weight=None,
+                 seed=-1):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_decrease": min_impurity_decrease,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
                           "random_state": random_state,
@@ -317,6 +332,9 @@ class RandomForestClassifier(Base):
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0")
 
+        if handle is None:
+            handle = Handle(n_streams)
+
         super(RandomForestClassifier, self).__init__(handle, verbose)
 
         self.split_algo = split_algo
@@ -331,6 +349,7 @@ class RandomForestClassifier(Base):
             self.split_criterion = criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
+        self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
         self.max_leaves = max_leaves
@@ -342,7 +361,8 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
-        self.n_streams = n_streams
+        self.n_streams = handle.getNumInternalStreams()
+        self.seed = seed
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -403,7 +423,6 @@ class RandomForestClassifier(Base):
         else:
             rf_forest64.rf_params = state["rf_params64"]
             state["rf_forest64"] = <size_t>rf_forest64
-
         self.__dict__.update(state)
 
     def _get_max_feat_val(self):
@@ -411,12 +430,13 @@ class RandomForestClassifier(Base):
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
             return self.max_features
-        elif self.max_features == 'sqrt':
+        elif self.max_features == 'sqrt' or self.max_features == 'auto':
             return 1/np.sqrt(self.n_cols)
         elif self.max_features == 'log2':
             return math.log2(self.n_cols)/self.n_cols
         else:
-            return 1.0
+            raise ValueError("Wrong value passed in for max_features"
+                             " please read the documentation")
 
     def fit(self, X, y):
         """
@@ -450,18 +470,9 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        try:
-            import cupy as cp
-            unique_labels = cp.unique(y_m)
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            if isinstance(y, np.ndarray):
-                unique_labels = np.unique(y)
-            else:
-                unique_labels = np.unique(y_m.copy_to_host())
-
+        unique_labels = checked_cupy_unique(y_m)
         num_unique_labels = len(unique_labels)
+
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
@@ -483,10 +494,12 @@ class RandomForestClassifier(Base):
                                      <int> self.n_bins,
                                      <int> self.split_algo,
                                      <int> self.min_rows_per_node,
+                                     <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
+                                     <int> self.seed,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
@@ -525,18 +538,15 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, num_classes):
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+        _, _, n_rows, n_cols, X_dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         treelite_model = self._get_treelite(num_features=n_cols,
                                             task_category=num_classes)
-
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
@@ -546,10 +556,8 @@ class RandomForestClassifier(Base):
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         preds = np.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr
@@ -598,6 +606,7 @@ class RandomForestClassifier(Base):
                 num_classes=2):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -629,9 +638,10 @@ class RandomForestClassifier(Base):
                     It is applied if output_class == True, else it is ignored
         num_classes : integer
                       number of different classes present in the dataset
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         if self.dtype == np.float64:
@@ -652,15 +662,17 @@ class RandomForestClassifier(Base):
     def _predict_get_all(self, X):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         cdef uintptr_t X_ptr
@@ -711,37 +723,49 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, threshold=0.5,
+              algo='BATCH_TREE_REORG', num_classes=2):
         """
         Calculates the accuracy metric score of the model for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
+        threshold : float
+                    threshold is used to for classification
+                    This is optional and required only while performing the
+                    predict operation on the GPU.
+        num_classes : integer
+                      number of different classes present in the dataset
         Returns
-        ----------
-        accuracy of the model
+        -------
+        float
+           Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, y_dtype = \
+            input_to_dev_array(y, check_dtype=np.int32)
 
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if y.dtype != np.int32:
-            raise TypeError("The labels `y` need to be of dtype `np.int32`")
+        preds = self.predict(X, output_class=True,
+                             threshold=threshold, algo=algo,
+                             num_classes=num_classes)
 
-        preds = np.zeros(n_rows,
-                         dtype=np.int32)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+            input_to_dev_array(preds, convert_to_dtype=np.int32)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -755,19 +779,15 @@ class RandomForestClassifier(Base):
         if self.dtype == np.float32:
             self.stats = score(handle_[0],
                                rf_forest,
-                               <float*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
-                               <double*> X_ptr,
                                <int*> y_ptr,
                                <int> n_rows,
-                               <int> n_cols,
                                <int*> preds_ptr,
                                <bool> self.verbose)
         else:
@@ -776,7 +796,6 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return self.stats['accuracy']
@@ -785,6 +804,7 @@ class RandomForestClassifier(Base):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -801,6 +821,7 @@ class RandomForestClassifier(Base):
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params
@@ -855,8 +876,6 @@ class RandomForestClassifier(Base):
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
-        cdef ModelBuilderHandle tl_model_ptr
         if self.dtype == np.float32:
             build_treelite_forest(& cuml_model_ptr,
                                   rf_forest,
@@ -868,6 +887,7 @@ class RandomForestClassifier(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
 
-        return ctypes.c_void_p(self.mod_ptr)
+        mod_ptr = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_ptr).value

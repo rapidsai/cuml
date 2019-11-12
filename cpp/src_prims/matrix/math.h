@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"

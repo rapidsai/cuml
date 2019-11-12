@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cuML.hpp"
+#include <cuml/cuml.hpp>
 #include "sparse/coo.h"
 #include "sparse/nvgraph_wrappers.h"
 
@@ -39,8 +39,9 @@ namespace Spectral {
 
 void fit_clusters(const cumlHandle &handle, int *rows, int *cols, float *vals,
                   int nnz, int n, int n_clusters, float eigen_tol, int *out) {
-  MLCommon::Spectral::fit_clusters(rows, cols, vals, nnz, n, n_clusters, eigen_tol, out,
-      handle.getDeviceAllocator(), handle.getStream());
+  MLCommon::Spectral::fit_clusters(rows, cols, vals, nnz, n, n_clusters,
+                                   eigen_tol, out, handle.getDeviceAllocator(),
+                                   handle.getStream());
 }
 
 /***
@@ -57,12 +58,10 @@ void fit_clusters(const cumlHandle &handle, int *rows, int *cols, float *vals,
 void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
                   int m, int n_neighbors, int n_clusters, float eigen_tol,
                   int *out) {
-
-  MLCommon::Spectral::fit_clusters(knn_indices, knn_dists, m, n_neighbors, n_clusters, eigen_tol,
-      out, handle.getDeviceAllocator(), handle.getStream());
-
+  MLCommon::Spectral::fit_clusters(
+    knn_indices, knn_dists, m, n_neighbors, n_clusters, eigen_tol, out,
+    handle.getDeviceAllocator(), handle.getStream());
 }
-
 
 /***
    * Given a feature matrix, this function computes the spectral
@@ -75,11 +74,11 @@ void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
    * @param eigen_tol the tolerance threshold for the eigensolver
    * @param out output array for labels (size m)
    */
-void fit_clusters(const cumlHandle &handle, float *X, int m, int n, int n_neighbors,
-                  int n_clusters, float eigen_tol, int *out) {
-
-  MLCommon::Spectral::fit_clusters(X, m, n, n_neighbors, n_clusters, eigen_tol, out,
-      handle.getDeviceAllocator(), handle.getStream());
+void fit_clusters(const cumlHandle &handle, float *X, int m, int n,
+                  int n_neighbors, int n_clusters, float eigen_tol, int *out) {
+  MLCommon::Spectral::fit_clusters(X, m, n, n_neighbors, n_clusters, eigen_tol,
+                                   out, handle.getDeviceAllocator(),
+                                   handle.getStream());
 }
 
 /**
@@ -97,9 +96,9 @@ void fit_clusters(const cumlHandle &handle, float *X, int m, int n, int n_neighb
    */
 void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
                    int nnz, int n, int n_components, float *out) {
-
   MLCommon::Spectral::fit_embedding(rows, cols, vals, nnz, n, n_components, out,
-      handle.getDeviceAllocator(), handle.getStream());
+                                    handle.getDeviceAllocator(),
+                                    handle.getStream());
 }
 
 /***
@@ -116,8 +115,9 @@ void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
 void fit_embedding(const cumlHandle &handle, long *knn_indices,
                    float *knn_dists, int m, int n_neighbors, int n_components,
                    float *out) {
-  MLCommon::Spectral::fit_embedding(knn_indices, knn_dists, m, n_neighbors, n_components, out,
-      handle.getDeviceAllocator(), handle.getStream());
+  MLCommon::Spectral::fit_embedding(
+    knn_indices, knn_dists, m, n_neighbors, n_components, out,
+    handle.getDeviceAllocator(), handle.getStream());
 }
 
 /***
@@ -134,7 +134,8 @@ void fit_embedding(const cumlHandle &handle, long *knn_indices,
 void fit_embedding(const cumlHandle &handle, float *X, int m, int n,
                    int n_neighbors, int n_components, float *out) {
   MLCommon::Spectral::fit_embedding(X, m, n, n_neighbors, n_components, out,
-      handle.getDeviceAllocator(), handle.getStream());
+                                    handle.getDeviceAllocator(),
+                                    handle.getStream());
 }
 
 }  // namespace Spectral
