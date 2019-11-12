@@ -206,14 +206,14 @@ def test_umap_downcast_fails(input_type, nrows, n_feats):
                                n_features=n_feats, random_state=0)
 
     # Test fit() fails with double precision when should_downcast set to False
-    umap = cuUMAP(should_downcast=False, verbose=False)
+    umap = cuUMAP(verbose=False)
     with pytest.raises(Exception):
         umap.fit(X, convert_dtype=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
 
-    umap = cuUMAP(should_downcast=True)
+    umap = cuUMAP()
     with pytest.raises(Exception):
         umap.fit(X, convert_dtype=True)
 
