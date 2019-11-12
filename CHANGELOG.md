@@ -28,7 +28,7 @@
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
   to select algos
-- PR #1335: Options to print available algorithms and datasets 
+- PR #1335: Options to print available algorithms and datasets
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
@@ -46,8 +46,9 @@
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
 - PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet
 - PR #1337: Fix k-means init from preset cluster centers
-- PR #1354  Fix SVM gamma=scale implementation
+- PR #1354: Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
+- PR #1361: Improve SMO error handling
 
 # cuML 0.10.0 (16 Oct 2019)
 
