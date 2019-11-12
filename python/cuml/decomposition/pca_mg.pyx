@@ -52,7 +52,7 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
         size_t totalSize
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-     namespace "MLCommon::Matrix":
+                 namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
         int rank
@@ -156,7 +156,7 @@ class PCAMG(PCA):
 
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t ** dataF = < floatData_t ** > \
-                                    malloc(sizeof(floatData_t *) \
+                                    malloc(sizeof(floatData_t *)
                                            * len(arr_interfaces))
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
@@ -169,7 +169,7 @@ class PCAMG(PCA):
 
     def _build_dataDouble(self, arr_interfaces):
         cdef doubleData_t ** dataD = < doubleData_t ** > \
-                                     malloc(sizeof(doubleData_t *) \
+                                     malloc(sizeof(doubleData_t *)
                                             * len(arr_interfaces))
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
@@ -200,8 +200,8 @@ class PCAMG(PCA):
             rank, size = rankSize
             if rnk == rank:
                 trans_ary = rmm.to_device(zeros((size, n_cols),
-                                                 order="F",
-                                                 dtype=dtype))
+                                                order="F",
+                                                dtype=dtype))
 
                 trans_ptr = get_dev_array_ptr(trans_ary)
                 arr_interfaces_trans.append({"obj": trans_ary,
@@ -246,8 +246,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                            malloc(sizeof(RankSizePair**) \
-                                                   * n_total_parts)
+                                           malloc(sizeof(RankSizePair**)
+                                                  * n_total_parts)
 
         indx = 0
         n_part_row = 0
@@ -255,7 +255,8 @@ class PCAMG(PCA):
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:
-                rankSizePair[indx] = <RankSizePair*> malloc(sizeof(RankSizePair))
+                rankSizePair[indx] = <RankSizePair*> \
+                                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
                 n_part_row = n_part_row + rankSizePair[indx].size
@@ -328,7 +329,7 @@ class PCAMG(PCA):
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
-        
+
         self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
             n_c = params.n_components
@@ -391,8 +392,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                            malloc(sizeof(RankSizePair**)
-                                                   * n_total_parts)
+                                           malloc(sizeof(RankSizePair**)
+                                                  * n_total_parts)
 
         indx = 0
         n_part_row = 0
@@ -516,8 +517,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                            malloc(sizeof(RankSizePair**) \
-                                                   * n_total_parts)
+                                           malloc(sizeof(RankSizePair**)
+                                                  * n_total_parts)
 
         indx = 0
         n_part_row = 0
