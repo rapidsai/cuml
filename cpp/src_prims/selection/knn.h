@@ -396,6 +396,12 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
 }
 
+inline cudaStream_t select_stream(cudaStream_t user_stream,
+                                  cudaStream_t *int_streams, int n_int_streams,
+                                  int idx) {
+  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
+}
+
 /**
  * A naive knn classifier to predict probabilities
  * @tparam TPB_X number of threads per block to use. each thread
@@ -412,16 +418,22 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
  * @param allocator device allocator to use for temporary workspace
- * @param stream stream to use for queuing isolated CUDA events
+ * @param user_stream main stream to use for queuing isolated CUDA events
+ * @param int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ *        the user_stream is used.
  */
 template <int TPB_X = 32>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
-                 cudaStream_t stream) {
-  // todo: Use separate streams
+                 cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
+                 int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
+    cudaStream_t stream =
+      select_stream(user_stream, int_streams, n_int_streams, i);
+
     int n_labels = n_unique[i];
     int cur_size = n_rows * n_labels;
 
@@ -464,19 +476,28 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
  * @param allocator device allocator to use for temporary workspace
- * @param stream stream to use for queuing isolated CUDA events
+ * @param user_stream main stream to use for queuing isolated CUDA events
+ * @param int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ *        the user_stream is used.
  */
 template <int TPB_X = 32>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_rows, int k, std::vector<int *> &uniq_labels,
                   std::vector<int> &n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
-                  cudaStream_t stream) {
+                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
+                  int n_int_streams = 0) {
   std::vector<float *> probs;
   std::vector<device_buffer<float> *> tmp_probs;
 
   // allocate temporary memory
-  for (int size : n_unique) {
+  for (int i = 0; i < n_unique.size(); i++) {
+    int size = n_unique[i];
+
+    cudaStream_t stream =
+      select_stream(user_stream, int_streams, n_int_streams, i);
+
     device_buffer<float> *probs_buff =
       new device_buffer<float>(allocator, stream, n_rows * size);
 
@@ -486,15 +507,20 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
 
   /**
    * Compute class probabilities
+   *
+   * Note: Since class_probs will use the same round robin strategy for distributing
+   * work to the streams, we don't need to explicitly synchronize the streams here.
    */
   class_probs(probs, knn_indices, y, n_rows, k, uniq_labels, n_unique,
-              allocator, stream);
+              allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  // todo: Use separate streams
   for (int i = 0; i < y.size(); i++) {
+    cudaStream_t stream =
+      select_stream(user_stream, int_streams, n_int_streams, i);
+
     int n_labels = n_unique[i];
 
     /**
@@ -508,19 +534,38 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
   }
 }
 
+/**
+ * KNN regression using voting based on the mean of the labels for the
+ * nearest neighbors.
+ * @tparam ValType data type of the labels
+ * @tparam TPB_X the number of threads per block to use
+ * @param out output array of size (n_samples * y.size())
+ * @param knn_indices index array from knn search
+ * @param y vector of label arrays. for multilabel classification, each
+ *          element in the vector is a different "output" array of labels corresponding
+ *          to the i'th output.
+ * @param n_rows number of rows in knn_indices
+ * @param k number of neighbors in knn_indices
+ * @param user_stream main stream to use for queuing isolated CUDA events
+ * @param int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ *        the user_stream is used.
+ */
+
 template <typename ValType, int TPB_X = 32>
 void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_rows, int k,
-                 cudaStream_t stream) {
+                 cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
+                 int n_int_streams = 0) {
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   /**
    * Vote average regression value
    */
-
-  // TODO: Use separate streams
   for (int i = 0; i < y.size(); i++) {
+    cudaStream_t stream =
+      select_stream(user_stream, int_streams, n_int_streams, i);
     regress_avg_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y[i], n_rows,
                                                  k, y.size(), i);
   }

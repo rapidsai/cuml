@@ -134,7 +134,5 @@ def test_predict_proba_multioutput():
 
     assert isinstance(p, tuple)
 
-    print(str(p))
-
     assert array_equal(p[0].astype(np.float32), expected[0])
     assert array_equal(p[1].astype(np.float32), expected[1])
