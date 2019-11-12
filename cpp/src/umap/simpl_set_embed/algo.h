@@ -242,8 +242,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   // have we been given y-values?
   bool move_other = head_embedding == tail_embedding;
 
-  std::cout << "Move other " << move_other << std::endl;
-
   T alpha = params->initial_alpha;
 
   T *epochs_per_negative_sample;
