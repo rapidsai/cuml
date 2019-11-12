@@ -169,8 +169,9 @@ class PCAMG(PCA):
 
     def _build_dataDouble(self, arr_interfaces):
         cdef doubleData_t ** dataD = < doubleData_t ** > \
-                                     malloc(sizeof(doubleData_t *)
-                                            * len(arr_interfaces))
+            malloc(sizeof(doubleData_t *)
+                   * len(arr_interfaces))
+
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
@@ -246,8 +247,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                           malloc(sizeof(RankSizePair**)
-                                                  * n_total_parts)
+            malloc(sizeof(RankSizePair**)
+                   * n_total_parts)
 
         indx = 0
         n_part_row = 0
@@ -301,10 +302,10 @@ class PCAMG(PCA):
                           <float*> mean_ptr,
                           <float*> noise_vars_ptr,
                           params,
-                          True)
+                          False)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks, 
+            arr_interfaces_trans = self._build_transData(partsToRanks,
                                                          rnk,
                                                          self.n_components,
                                                          np.float64)
@@ -322,7 +323,7 @@ class PCAMG(PCA):
                           <double*> mean_ptr,
                           <double*> noise_vars_ptr,
                           params,
-                          True)
+                          False)
 
         self.handle.sync()
 
@@ -335,11 +336,9 @@ class PCAMG(PCA):
             n_c = params.n_components
             self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
+        del(X_m)
 
         trans_cudf = []
-
         if _transform:
             for x_i in arr_interfaces_trans:
                 trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
@@ -392,8 +391,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                           malloc(sizeof(RankSizePair**)
-                                                  * n_total_parts)
+            malloc(sizeof(RankSizePair**)
+                   * n_total_parts)
 
         indx = 0
         n_part_row = 0
@@ -435,7 +434,7 @@ class PCAMG(PCA):
                       <float*> singular_vals_ptr,
                       <float*> mean_ptr,
                       params,
-                      True)
+                      False)
         else:
             data = self._build_dataDouble(arr_interfaces)
             arr_interfaces_trans = self._build_transData(partsToRanks,
@@ -453,7 +452,7 @@ class PCAMG(PCA):
                       <double*> singular_vals_ptr,
                       <double*> mean_ptr,
                       params,
-                      True)
+                      False)
 
         self.handle.sync()
 
@@ -461,11 +460,9 @@ class PCAMG(PCA):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
+        del(X_m)
 
         trans_cudf = []
-
         for x_i in arr_interfaces_trans:
             trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
 
@@ -517,8 +514,8 @@ class PCAMG(PCA):
                 n_total_parts = n_total_parts + 1
 
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
-                                           malloc(sizeof(RankSizePair**)
-                                                  * n_total_parts)
+            malloc(sizeof(RankSizePair**)
+                   * n_total_parts)
 
         indx = 0
         n_part_row = 0
@@ -560,7 +557,7 @@ class PCAMG(PCA):
                               <float*> singular_vals_ptr,
                               <float*> mean_ptr,
                               params,
-                              True)
+                              False)
         else:
             trans_data = self._build_dataDouble(arr_inter_tran)
             arr_interfaces = self._build_transData(partsToRanks,
@@ -578,7 +575,7 @@ class PCAMG(PCA):
                               <double*> singular_vals_ptr,
                               <double*> mean_ptr,
                               params,
-                              True)
+                              False)
 
         self.handle.sync()
 
@@ -586,11 +583,9 @@ class PCAMG(PCA):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
 
-        if (isinstance(X, cudf.DataFrame)):
-            del(X_m)
+        del(X_m)
 
         trans_cudf = []
-
         for x_i in arr_interfaces:
             trans_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
 

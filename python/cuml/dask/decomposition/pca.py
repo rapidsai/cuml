@@ -37,10 +37,8 @@ class PCA(object):
     data visualization, data compression and exploratory analysis.
 
     cuML's multi-node multi-gpu (MNMG) PCA expects a dask cuDF input, and
-    provides a Full algorithm. Full uses a full eigendecomposition
-    then selects the top K eigenvectors. The Jacobi algorithm is much faster
-    as it iteratively tries to correct the top K eigenvectors, but might be
-    less accurate.
+    provides a "Full" algorithm. It uses a full eigendecomposition
+    then selects the top K eigenvectors.
 
     Examples
     ---------
@@ -102,16 +100,14 @@ class PCA(object):
 
     Parameters
     ----------
-    copy : boolean (default = True)
-        If True, then copies data then removes mean from data. False might
-        cause data to be overwritten with its mean centered version.
     handle : cuml.Handle
         If it is None, a new one is created just for this class
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
     svd_solver : 'full'
-        Only Full algorithm is supported.
+        Only Full algorithm is supported since it's significantly faster on GPU
+        then the other solvers including randomized SVD.
     verbose : bool
         Whether to print debug spews
     whiten : boolean (default = False)
