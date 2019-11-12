@@ -46,6 +46,7 @@
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
 - PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet
 - PR #1337: Fix k-means init from preset cluster centers
+- PR #1354  Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
 
 # cuML 0.10.0 (16 Oct 2019)
