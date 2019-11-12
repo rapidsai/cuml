@@ -95,10 +95,14 @@ __global__ void identity_matrix_kernel(T* I, int m) {
 }
 
 /**
- * TODO: doc
+ * @brief Kernel to compute the first difference of batched vectors
  *
- * @note: The thread id is the starting position and the block id is the
- *        batch id.
+ * @note: The thread id is the starting position in each vector and the block
+ *        id is the batch id.
+ * 
+ * @param[in]  in      Input vector
+ * @param[out] out     Output vector
+ * @param[in]  n_elem  Number of elements in the input vector
  */
 template <typename T>
 __global__ void batched_diff_kernel(const T* in, T* out, int n_elem) {
@@ -438,9 +442,15 @@ BatchedMatrix<T> b_gemm(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
 }
 
 /**
- * TODO: docs
- * @note: this simple wrapper only supports non-transpose mode.
- *        Also there isn't any strided version in cuBLAS yet.
+ * @brief Wrapper around cuBLAS batched gels (least-square solver of Ax=C)
+ * 
+ * @details: - This simple wrapper only supports non-transpose mode.
+ *           - There isn't any strided version in cuBLAS yet.
+ *           - cuBLAS only supports overdetermined systems.
+ *           - This function copies A to avoid modifying the original one.
+ * 
+ * @param[in]      A  Batched matrix A (must have more rows than columns)
+ * @param[in|out]  C  Batched matrix C (the number of rows must match A)
  */
 template <typename T>
 void b_gels(const BatchedMatrix<T>& A, BatchedMatrix<T>& C) {
@@ -599,9 +609,19 @@ BatchedMatrix<T> b_kron(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B) {
   return AkB;
 }
 
-/*
- * TODO: docs
- * Note: the block id is the batch id and the thread id is the starting index
+/**
+ * @brief Kernel to create a batched lagged matrix from a given batched vector
+ * 
+ * @note The block id is the batch id and the thread id is the starting index
+ * 
+ * @param[in]  vec              Input vector
+ * @param[out] mat              Output lagged matrix
+ * @param[in]  lags             Number of lags
+ * @param[in]  lagged_height    Height of the lagged matrix
+ * @param[in]  vec_offset       Offset in the input vector
+ * @param[in]  ld               Length of the underlying vector
+ * @param[in]  mat_offset       Offset in the lagged matrix
+ * @param[in]  ls_batch_stride  Stride between batches in the output matrix
  */
 template <typename T>
 __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
@@ -618,7 +638,16 @@ __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
 }
 
 /**
- * TODO: docs
+ * @brief Create a batched lagged matrix from a given batched vector
+ * 
+ * @note This overload takes both batched matrices as inputs
+ * 
+ * @param[in]  vec            Input vector
+ * @param[out] lagged_mat     Output matrix
+ * @param[in]  lags           Number of lags
+ * @param[in]  lagged_height  Height of the lagged matrix
+ * @param[in]  vec_offset     Offset in the input vector
+ * @param[in]  mat_offset     Offset in the lagged matrix
  */
 template <typename T>
 void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
@@ -644,7 +673,15 @@ void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
 }
 
 /**
- * TODO: docs
+ * @brief Create a batched lagged matrix from a given batched vector
+ * 
+ * @note This overload takes the input vector and returns the output matrix.
+ *       For more control, use the other overload.
+ * 
+ * @param[in]  vec            Input vector
+ * @param[in]  lags           Number of lags
+ * 
+ * @return A batched matrix corresponding to the output lagged matrix
  */
 template <typename T>
 BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
@@ -665,9 +702,19 @@ BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
 }
 
 /**
- * TODO: docs
- * Note: the blocks are the batches and the threads are the matrix elements,
- * column-wise
+ * @brief Kernel to compute a 2D copy of a window in a batched matrix.
+ * 
+ * @note The blocks are the batches and the threads are the matrix elements,
+ *       column-wise.
+ * 
+ * @param[in]  in            Input matrix
+ * @param[out] out           Output matrix
+ * @param[in]  starting_row  First row to copy
+ * @param[in]  starting_col  First column to copy
+ * @param[in]  in_rows       Number of rows in the input matrix
+ * @param[in]  in_cols       Number of columns in the input matrix
+ * @param[in]  out_rows      Number of rows to copy
+ * @param[in]  out_cols      Number of columns to copy
  */
 template <typename T>
 static __global__ void batched_2dcopy_kernel(const T* in, T* out,
@@ -686,7 +733,16 @@ static __global__ void batched_2dcopy_kernel(const T* in, T* out,
 }
 
 /**
- * TODO: docs
+ * @brief Compute a 2D copy of a window in a batched matrix.
+ * 
+ * @note This overload takes two matrices as inputs
+ * 
+ * @param[in]  in            Batched input matrix
+ * @param[out] out           Batched output matrix
+ * @param[in]  starting_row  First row to copy
+ * @param[in]  starting_col  First column to copy
+ * @param[in]  out_rows      Number of rows to copy
+ * @param[in]  out_cols      Number of columns to copy
  */
 template <typename T>
 void b_2dcopy(BatchedMatrix<T>& in, BatchedMatrix<T>& out, int starting_row,
@@ -703,7 +759,18 @@ void b_2dcopy(BatchedMatrix<T>& in, BatchedMatrix<T>& out, int starting_row,
 }
 
 /**
- * TODO: docs
+ * @brief Compute a 2D copy of a window in a batched matrix.
+ * 
+ * @note This overload only takes the input matrix as input and creates and
+ *       returns the output matrix
+ * 
+ * @param[in]  in            Batched input matrix
+ * @param[in]  starting_row  First row to copy
+ * @param[in]  starting_col  First column to copy
+ * @param[in]  out_rows      Number of rows to copy
+ * @param[in]  out_cols      Number of columns to copy
+ * 
+ * @return The batched output matrix
  */
 template <typename T>
 BatchedMatrix<T> b_2dcopy(BatchedMatrix<T>& in, int starting_row,

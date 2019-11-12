@@ -281,7 +281,9 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
 }
 
 /**
- * TODO: docs
+ * Auxiliary function to avoid code redundancy: computes an Akaike or Bayesian
+ * information criterion given the common term ic_base (and the same list of
+ * arguments as aic and bic)
  */
 static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
                       int nobs, int p, int d, int q, double* d_mu, double* d_ar,
@@ -296,7 +298,7 @@ static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
   batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma,
                   loglike, d_vs, true);
 
-  /// TODO: worth doing that on gpu? (need to copy loglike and copy back BIC)
+  // TODO: worth doing that on gpu? (need to copy loglike and copy back BIC)
 #pragma omp parallel for
   for (int i = 0; i < num_batches; i++) {
     ic[i] = ic_base - 2.0 * loglike[i];
@@ -323,11 +325,10 @@ void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 }
 
 /**
- * TODO: doc
+ * Auxiliary function of estimate_x0: compute the starting parameters for
+ * the series pre-processed by estimate_x0
  *
- * @note: bm_y is mutated!
- *        
- * Determine reasonable starting mu, AR, and MA parameters
+ * @note: bm_y is mutated! estimate_x0 has already created a copy.
  */
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma,
@@ -364,7 +365,9 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
     MLCommon::Matrix::BatchedMatrix<double> bm_ls =
       MLCommon::Matrix::b_lagged_mat(bm_y, p_lags);
 
-    // Initial AR fit (note: larger dimensions because gels works in-place)
+    /* Matrix for the initial AR fit, initialized by copy of y
+     * (note: this is because gels works in-place ; the matrix has larger
+     *  dimensions than the actual AR fit) */
     MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit =
       MLCommon::Matrix::b_2dcopy(bm_y, p_lags, 0, ls_height, 1);
 
@@ -377,10 +380,12 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                      ls_height * num_batches, stream);
     }
 
+    // Initial AR fit
     MLCommon::Matrix::b_gels(bm_ls, bm_ar_fit);
 
+    /* If q == 0, stop here and use these parameters
+     * Note: if q == 0, we must always choose p_lags == p! */
     if (q == 0) {
-      // Note: if q == 0, we must always choose p_lags == p!
       MLCommon::Matrix::batched_2dcopy_kernel<<<num_batches, p, 0, stream>>>(
         bm_ar_fit.raw_data(), d_ar, 0, 0, ls_height, 1, p, 1);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -389,8 +394,9 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
       MLCommon::Matrix::b_gemm(false, false, ls_height, 1, p_lags, -1.0, bm_ls,
                                bm_ar_fit, 1.0, bm_residual);
 
-      // Create matrices made of the concatenation of lagged sets of y and the
-      // residual respectively, side by side
+      /* Create matrices made of the concatenation of lagged sets of y and the
+       * residual respectively, side by side.
+       * Basically the left side is for AR, the right side is for MA */
       int arma_fit_offset = std::max(p_lags + q, p);
       int ls_ar_res_height = nobs - arma_fit_offset;
       int ar_offset = (p < p_lags + q) ? (p_lags + q - p) : 0;
@@ -404,14 +410,18 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                                      ls_ar_res_height, res_offset,
                                      ls_ar_res_height * p);
 
-      // ARMA fit (note: larger dimensions because gels works in-place)
+      /* Initializing the vector for the ARMA fit
+       * (note: also in-place as described for AR fit) */
       MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit =
         MLCommon::Matrix::b_2dcopy(bm_y, arma_fit_offset, 0, ls_ar_res_height,
                                    1);
+
+      // ARMA fit
       MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
 
-      // Note: calling directly the kernel as there is not yet a way to wrap
-      // existing device pointers in a batched matrix
+      /* Copy the results in the AR and MA parameters batched vectors
+       * Note: calling directly the kernel as there is not yet a way to wrap
+       *       existing device pointers in a batched matrix */
       MLCommon::Matrix::batched_2dcopy_kernel<<<num_batches, p, 0, stream>>>(
         bm_arma_fit.raw_data(), d_ar, 0, 0, ls_ar_res_height, 1, p, 1);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -420,7 +430,7 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
       CUDA_CHECK(cudaPeekAtLastError());
     }
   } else {  // p == 0 && q > 0
-    ///@todo See how `statsmodels` handles this case
+    ///TODO: `statsmodels` has a more clever estimate for this case
 
     // Set MA params to -1
     thrust::device_ptr<double> __ma = thrust::device_pointer_cast(d_ma);
