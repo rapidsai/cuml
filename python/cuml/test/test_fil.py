@@ -130,7 +130,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     assert array_equal(fil_preds, xgb_preds_int)
 
 
-@pytest.mark.parametrize('n_rows', [10000])
+@pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
