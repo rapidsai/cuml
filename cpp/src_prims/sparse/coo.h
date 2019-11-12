@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
+#include "cuml/common/cuml_allocator.hpp"
 
 #include "cusparse_wrappers.h"
 
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 
 #include <cusparse_v2.h>
@@ -59,37 +58,34 @@ namespace Sparse {
 template <typename T, typename Index_Type = int>
 class COO {
  protected:
-  bool owner;
   device_buffer<Index_Type> rows;
   device_buffer<Index_Type> cols;
   device_buffer<T> vals;
 
+ public:
   Index_Type nnz;
   Index_Type n_rows;
   Index_Type n_cols;
 
- public:
   /**
     * @param device: are the underlying arrays going to be on device?
     */
-  COO()
-    : rows(nullptr),
-      cols(nullptr),
-      vals(nullptr),
-      nnz(-1),
-      n_rows(-1),
-      n_cols(-1),
-      owner(true) {}
+  COO(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream)
+    : rows(alloc, stream, 0),
+      cols(alloc, stream, 0),
+      vals(alloc, stream, 0),
+      nnz(0),
+      n_rows(0),
+      n_cols(0) {}
 
   /**
-        * @param rows: coo rows array
-        * @param cols: coo cols array
-        * @param vals: coo vals array
-        * @param nnz: size of the rows/cols/vals arrays
-        * @param n_rows: number of rows in the dense matrix
-        * @param n_cols: number of cols in the dense matrix
-        * @param device: are the underlying arrays on device?
-        */
+    * @param rows: coo rows array
+    * @param cols: coo cols array
+    * @param vals: coo vals array
+    * @param nnz: size of the rows/cols/vals arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of cols in the dense matrix
+    */
   COO(device_buffer<Index_Type> &rows, device_buffer<Index_Type> &cols,
       device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = -1,
       Index_Type n_cols = -1)
@@ -98,25 +94,33 @@ class COO {
       vals(vals),
       nnz(nnz),
       n_rows(n_rows),
-      n_cols(n_cols),
-      device(device),
-      owner(false) {}
+      n_cols(n_cols) {}
 
   /**
-        * @param nnz: size of the rows/cols/vals arrays
-        * @param n_rows: number of rows in the dense matrix
-        * @param n_cols: number of cols in the dense matrix
-        * @param device: are the underlying arrays on device?
-        */
-  COO(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-      Index_Type nnz, Index_Type n_rows = -1, Index_Type n_cols = -1,
+    * @param nnz: size of the rows/cols/vals arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of cols in the dense matrix
+    * @param init: initialize arrays with zeros
+    */
+  COO(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
+      Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
       bool init = true)
-    : nnz(nnz), n_rows(n_rows), n_cols(n_cols), owner(true) {
-    this->allocate(std::shared_ptr<deviceAllocator> allocator,
-                   cudaStream_t stream, nnz, n_rows, n_cols, device, init);
+    : rows(alloc, stream, nnz),
+      cols(alloc, stream, nnz),
+      vals(alloc, stream, nnz),
+      nnz(nnz),
+      n_rows(n_rows),
+      n_cols(n_cols) {
+    if (init) {
+      cudaMemsetAsync(this->rows.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->cols.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
+    }
   }
 
-  ~COO() { this->destroy(); }
+  ~COO() {}
 
   /**
         * @brief Size should be > 0, with the number of rows
@@ -132,25 +136,19 @@ class COO {
         * return false. Otherwise true.
         */
   bool validate_mem() const {
-    if (this->rows == nullptr || this->cols == nullptr ||
-        this->vals == nullptr) {
+    if (this->rows.size() == 0 || this->cols.size() == 0 ||
+        this->vals.size() == 0) {
       return false;
     }
 
     return true;
   }
 
-  Index_Type *get_rows() const {
-    return this->rows.data();
-  }
+  Index_Type *get_rows() { return this->rows.data(); }
 
-  Index_Type *get_cols() const {
-    return this->cols.get();
-  }
+  Index_Type *get_cols() { return this->cols.data(); }
 
-  T *get_vals() const {
-    return this->vals.get();
-  }
+  T *get_vals() { return this->vals.data(); }
 
   /**
     * @brief Send human-readable state information to output stream
@@ -160,13 +158,12 @@ class COO {
       cudaStream_t stream;
       cudaStreamCreate(&stream);
 
-      out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
-      out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
-      out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
+      out << arr2Str(c.rows.data(), c.nnz, "rows", stream) << std::endl;
+      out << arr2Str(c.cols.data(), c.nnz, "cols", stream) << std::endl;
+      out << arr2Str(c.vals.data(), c.nnz, "vals", stream) << std::endl;
       out << "nnz=" << c.nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
-      out << "owner=" << c.owner << std::endl;
 
       cudaStreamDestroy(stream);
     } else {
@@ -201,83 +198,44 @@ class COO {
         * @param device: allocate on device or host?
         * @param init: should values be initialized to 0?
         */
-  void allocate(int nnz, bool device = true, bool init = true) {
-    this->allocate(nnz, -1, device, init);
+  void allocate(int nnz, bool init, cudaStream_t stream) {
+    this->allocate(nnz, -1, init, stream);
   }
 
   /**
-        * @brief Allocate the underlying arrays
-        * @param nnz: size of the underlying row/col/val arrays
-        * @param size: the number of rows/cols in a square dense matrix
-        * @param device: allocate on device or host?
-        * @param init: should values be initialized to 0?
-        */
-  void allocate(int nnz, int size, bool device = true, bool init = true) {
-    this->allocate(nnz, size, size, device, init);
+    * @brief Allocate the underlying arrays
+    * @param nnz: size of the underlying row/col/val arrays
+    * @param size: the number of rows/cols in a square dense matrix
+    * @param init: should values be initialized to 0?
+    */
+  void allocate(int nnz, int size, bool init, cudaStream_t stream) {
+    this->allocate(nnz, size, size, init, stream);
   }
 
   /**
-        * @brief Allocate the underlying arrays
-        * @param nnz: size of the underlying row/col/val arrays
-        * @param n_rows: number of rows in the dense matrix
-        * @param n_cols: number of columns in the dense matrix
-        * @param device: allocate on device or host?
-        * @param init: should values be initialized to 0?
-        */
-  void allocate(int nnz, int n_rows, int n_cols, bool device = true,
-                bool init = true) {
+    * @brief Allocate the underlying arrays
+    * @param nnz: size of the underlying row/col/val arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of columns in the dense matrix
+    * @param init: should values be initialized to 0?
+    * @param stream: stream to use for init
+    */
+  void allocate(int nnz, int n_rows, int n_cols, bool init,
+                cudaStream_t stream) {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
     this->nnz = nnz;
-    this->owner = true;
 
-    if (device) {
-      MLCommon::allocate(this->rows, this->nnz, init);
-      MLCommon::allocate(this->cols, this->nnz, init);
-      MLCommon::allocate(this->vals, this->nnz, init);
-    } else {
-      this->rows = (int *)malloc(this->nnz * sizeof(int));
-      this->cols = (int *)malloc(this->nnz * sizeof(int));
-      this->vals = (T *)malloc(this->nnz * sizeof(T));
-    }
-  }
+    this->rows.resize(this->nnz, stream);
+    this->cols.resize(this->nnz, stream);
+    this->vals.resize(this->nnz, stream);
 
-  /**
-        * @brief Deallocate the underlying arrays if this object
-        * owns the underlying memory
-        */
-  void destroy() {
-    if (this->owner) {
-      try {
-        if (rows != nullptr) {
-          if (this->device)
-            CUDA_CHECK(cudaFree(rows));
-          else
-            free(rows);
-        }
-
-        if (cols != nullptr) {
-          if (this->device)
-            CUDA_CHECK(cudaFree(cols));
-          else
-            free(cols);
-        }
-
-        if (vals != nullptr) {
-          if (this->device)
-            CUDA_CHECK(cudaFree(vals));
-          else
-            free(vals);
-        }
-
-        rows = nullptr;
-        cols = nullptr;
-        vals = nullptr;
-
-      } catch (Exception &e) {
-        std::cout << "An exception occurred freeing COO memory: " << e.what()
-                  << std::endl;
-      }
+    if (init) {
+      cudaMemsetAsync(this->rows.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->cols.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
     }
   }
 };
@@ -309,7 +267,7 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, double *vals,
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
   cusparseHandle_t handle = NULL;
 
   size_t pBufferSizeInBytes = 0;
@@ -317,9 +275,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   int *d_P = NULL;
 
   CUSPARSE_CHECK(cusparseCreate(&handle));
-
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
   CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, rows, cols,
                                                 &pBufferSizeInBytes));
 
@@ -353,9 +309,9 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T> *const in, cudaStream_t stream = 0) {
-  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows, in->cols, in->vals,
-              stream);
+void coo_sort(COO<T> *const in, cudaStream_t stream) {
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->get_rows(), in->get_cols(),
+              in->get_vals(), stream);
 }
 
 template <int TPB_X, typename T>
@@ -448,12 +404,12 @@ void coo_row_count(const int *rows, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count(const COO<T> *in, int *results, cudaStream_t stream = 0) {
+void coo_row_count(COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_kernel<TPB_X>
-    <<<grid_rc, blk_rc, 0, stream>>>(in->rows, in->nnz, results);
+    <<<grid_rc, blk_rc, 0, stream>>>(in->get_rows(), in->nnz, results);
 }
 
 template <int TPB_X, typename T>
@@ -484,13 +440,13 @@ __global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_scalar(const COO<T> *in, T scalar, int *results,
+void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
                           cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc, blk_rc, 0, stream>>>(
-    in->rows, in->vals, in->nnz, scalar, results);
+    in->get_rows(), in->get_vals(), in->nnz, scalar, results);
 }
 
 /**
@@ -545,12 +501,12 @@ void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_row_count_nz(const COO<T> *in, int *results, cudaStream_t stream = 0) {
+void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream = 0) {
   dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
-  coo_row_count_nz_kernel<TPB_X, T>
-    <<<grid_rc, blk_rc, 0, stream>>>(in->rows, in->vals, in->nnz, results);
+  coo_row_count_nz_kernel<TPB_X, T><<<grid_rc, blk_rc, 0, stream>>>(
+    in->get_rows(), in->get_vals(), in->nnz, results);
 }
 
 /**
@@ -611,18 +567,18 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_scalar(const COO<T> *in, COO<T> *out, T scalar,
-                       cudaStream_t stream) {
+void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar, cudaStream_t stream) {
   int *row_count_nz, *row_count;
 
   MLCommon::allocate(row_count, in->n_rows, true);
   MLCommon::allocate(row_count_nz, in->n_rows, true);
 
-  MLCommon::Sparse::coo_row_count<TPB_X>(in->rows, in->nnz, row_count, stream);
+  MLCommon::Sparse::coo_row_count<TPB_X>(in->get_rows(), in->nnz, row_count,
+                                         stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_row_count_scalar<TPB_X>(in->rows, in->vals, in->nnz,
-                                                scalar, row_count_nz, stream);
+  MLCommon::Sparse::coo_row_count_scalar<TPB_X>(
+    in->get_rows(), in->get_vals(), in->nnz, scalar, row_count_nz, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -632,11 +588,12 @@ void coo_remove_scalar(const COO<T> *in, COO<T> *out, T scalar,
   int out_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz,
                                d_row_count_nz + in->n_rows);
 
-  out->allocate(out_nnz, in->n_rows, in->n_cols);
+  out->allocate(out_nnz, in->n_rows, in->n_cols, stream);
 
-  coo_remove_scalar<TPB_X, T>(in->rows, in->cols, in->vals, in->nnz, out->rows,
-                              out->cols, out->vals, row_count_nz, row_count,
-                              scalar, in->n_rows, stream);
+  coo_remove_scalar<TPB_X, T>(in->get_rows(), in->get_cols(), in->get_vals(),
+                              in->nnz, out->get_rows(), out->get_cols(),
+                              out->get_vals(), row_count_nz, row_count, scalar,
+                              in->n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   CUDA_CHECK(cudaFree(row_count));
@@ -651,7 +608,7 @@ void coo_remove_scalar(const COO<T> *in, COO<T> *out, T scalar,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_zeros(const COO<T> *in, COO<T> *out, cudaStream_t stream) {
+void coo_remove_zeros(COO<T> *in, COO<T> *out, cudaStream_t stream) {
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
@@ -696,10 +653,11 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
  */
 template <typename T>
 void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
-              COO<T> *out) {
-  out->allocate(m * k, m, m);
+              COO<T> *out, cudaStream_t stream) {
+  out->allocate(m * k, m, m, stream);
 
-  from_knn(knn_indices, knn_dists, m, k, out->rows, out->cols, out->vals);
+  from_knn(knn_indices, knn_dists, m, k, out->get_rows(), out->get_cols(),
+           out->get_vals());
 }
 
 /**
@@ -736,9 +694,8 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(const COO<T> *coo, int *row_ind,
-                       cudaStream_t stream = 0) {
-  sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
+void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream = 0) {
+  sorted_coo_to_csr(coo->get_rows(), coo->nnz, row_ind, coo->n_rows, stream);
 }
 
 template <int TPB_X, typename T, typename Lambda>
@@ -818,7 +775,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename Lambda>
-void coo_symmetrize(const COO<T> *in, COO<T> *out,
+void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream) {
   dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
@@ -831,11 +788,11 @@ void coo_symmetrize(const COO<T> *in, COO<T> *out,
 
   sorted_coo_to_csr(in, in_row_ind, stream);
 
-  out->allocate(in->nnz * 2, in->n_rows, in->n_cols);
+  out->allocate(in->nnz * 2, in->n_rows, in->n_cols, stream);
 
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
-    in_row_ind, in->rows, in->cols, in->vals, out->rows, out->cols, out->vals,
-    in->n_rows, in->nnz, reduction_op);
+    in_row_ind, in->get_rows(), in->get_cols(), in->get_vals(), out->get_rows(),
+    out->get_cols(), out->get_vals(), in->n_rows, in->nnz, reduction_op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -973,7 +930,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   const int NNZ = 2 * n * k;
 
   // (3) Allocate new space
-  out->allocate(NNZ, n, n);
+  out->allocate(NNZ, n, n, stream);
 
   // (4) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
@@ -991,7 +948,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, knn_indices, out->vals, out->cols, out->rows, n, k);
+    edges, knn_dists, knn_indices, out->get_vals(), out->get_cols(),
+    out->get_rows(), n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 
   d_alloc->deallocate(row_sizes, sizeof(int) * n, stream);

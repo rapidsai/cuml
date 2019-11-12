@@ -290,7 +290,8 @@ void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
 template <int TPB_X, typename T>
 void launcher(int n, const long *knn_indices, const float *knn_dists,
               int n_neighbors, MLCommon::Sparse::COO<T> *out,
-              UMAPParams *params, cudaStream_t stream) {
+              UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+              cudaStream_t stream) {
   /**
    * All of the kernels in this algorithm are row-based and
    * upper-bounded by k. Prefer 1-row per thread, scheduled
@@ -310,7 +311,7 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists, rhos, sigmas, params,
                             n_neighbors, params->local_connectivity, stream);
 
-  MLCommon::Sparse::COO<T> in(n * n_neighbors, n, n);
+  MLCommon::Sparse::COO<T> in(alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
     std::cout << "Smooth kNN Distances" << std::endl;
@@ -323,9 +324,9 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   /**
                  * Compute graph of membership strengths
                  */
-  compute_membership_strength_kernel<TPB_X>
-    <<<grid, blk, 0, stream>>>(knn_indices, knn_dists, sigmas, rhos, in.vals,
-                               in.rows, in.cols, in.n_rows, n_neighbors);
+  compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+    knn_indices, knn_dists, sigmas, rhos, in.get_vals(), in.get_rows(),
+    in.get_cols(), in.n_rows, n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {

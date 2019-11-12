@@ -289,14 +289,15 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
  */
 template <int TPB_X, typename T>
 void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
-              T *embedding, cudaStream_t stream) {
-
+              T *embedding, std::shared_ptr<deviceAllocator> alloc,
+              cudaStream_t stream) {
   int nnz = in->nnz;
 
   /**
    * Find vals.max()
    */
-  thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals);
+  thrust::device_ptr<const T> d_ptr =
+    thrust::device_pointer_cast(in->get_vals());
   T max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
@@ -313,7 +314,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
    * vals.max() / params->n_epochs to 0.0
    */
   MLCommon::LinAlg::unaryOp<T>(
-    in->vals, in->vals, nnz,
+    in->get_vals(), in->get_vals(), nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))
         return 0.0f;
@@ -322,23 +323,24 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
     },
     stream);
 
-  MLCommon::Sparse::COO<T> out;
+  MLCommon::Sparse::COO<T> out(alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, stream);
 
   T *epochs_per_sample;
   MLCommon::allocate(epochs_per_sample, out.nnz, true);
 
-  make_epochs_per_sample(out.vals, out.nnz, params->n_epochs, epochs_per_sample,
-                         stream);
+  make_epochs_per_sample(out.get_vals(), out.nnz, params->n_epochs,
+                         epochs_per_sample, stream);
 
   if (params->verbose)
     std::cout << MLCommon::arr2Str(epochs_per_sample, out.nnz,
                                    "epochs_per_sample", stream)
               << std::endl;
 
-  optimize_layout<TPB_X, T>(
-    embedding, m, embedding, m, out.rows, out.cols, out.nnz, epochs_per_sample,
-    m, params->repulsion_strength, params, params->n_epochs, stream);
+  optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.get_rows(),
+                            out.get_cols(), out.nnz, epochs_per_sample, m,
+                            params->repulsion_strength, params,
+                            params->n_epochs, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaFree(epochs_per_sample));

@@ -76,6 +76,8 @@ TEST_P(COOSymmetrize, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+
   int nnz = 8;
 
   int *in_rows_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
@@ -86,17 +88,15 @@ TEST_P(COOSymmetrize, Result) {
     new int[nnz * 2]{1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0};
   int *exp_cols_h =
     new int[nnz * 2]{0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0};
-  float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5,   0,
-                                         0.5, 0.5,   0.5, 0, 1.5, 0.5, 0.5, 0.0};
+  float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0,
+                                         0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
-  COO<float> expected(exp_rows_h, exp_cols_h, exp_vals_h, nnz * 2, 4, 4, false);
+  COO<float> in(alloc, stream, nnz, 4, 4);
+  updateDevice(in.get_rows(), *&in_rows_h, nnz, stream);
+  updateDevice(in.get_cols(), *&in_cols_h, nnz, stream);
+  updateDevice(in.get_vals(), *&in_vals_h, nnz, stream);
 
-  COO<float> in(nnz, 4, 4);
-  updateDevice(in.rows, *&in_rows_h, nnz, stream);
-  updateDevice(in.cols, *&in_cols_h, nnz, stream);
-  updateDevice(in.vals, *&in_vals_h, nnz, stream);
-
-  COO<float> out;
+  COO<float> out(alloc, stream);
 
   coo_symmetrize<32, float>(
     &in, &out,
@@ -108,13 +108,13 @@ TEST_P(COOSymmetrize, Result) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
-  ASSERT_TRUE(out.nnz == expected.nnz);
+  ASSERT_TRUE(out.nnz == nnz * 2);
   ASSERT_TRUE(
-    devArrMatch<int>(out.rows, expected.rows, out.nnz, Compare<int>()));
+    devArrMatch<int>(out.get_rows(), exp_rows_h, out.nnz, Compare<int>()));
   ASSERT_TRUE(
-    devArrMatch<int>(out.cols, expected.cols, out.nnz, Compare<int>()));
+    devArrMatch<int>(out.get_cols(), exp_cols_h, out.nnz, Compare<int>()));
   ASSERT_TRUE(
-    devArrMatch<float>(out.vals, expected.vals, out.nnz, Compare<float>()));
+    devArrMatch<float>(out.get_vals(), exp_vals_h, out.nnz, Compare<float>()));
 
   cudaStreamDestroy(stream);
 
@@ -158,7 +158,7 @@ TEST_P(COOSort, Result) {
   updateDevice(in_cols, in_cols_h, params.nnz, stream);
   updateDevice(verify, verify_h, params.nnz, stream);
 
-  coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals);
+  coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
 
@@ -177,54 +177,66 @@ typedef COOTest<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
 
-  COO<float> in_h(params.nnz, 5, 5, false);
-  COO<float> in(params.nnz, 5, 5);
+  float *in_h_vals = new float[params.nnz];
+
+  COO<float> in(alloc, stream, params.nnz, 5, 5);
 
   params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   Random::Rng r(params.seed);
-  r.uniform(in.vals, params.nnz, float(-1.0), float(1.0), stream);
+  r.uniform(in.get_vals(), params.nnz, float(-1.0), float(1.0), stream);
 
-  updateHost(in_h.vals, in.vals, params.nnz, stream);
+  updateHost(in_h_vals, in.get_vals(), params.nnz, stream);
 
-  in_h.vals[0] = 0;
-  in_h.vals[2] = 0;
-  in_h.vals[3] = 0;
+  in_h_vals[0] = 0;
+  in_h_vals[2] = 0;
+  in_h_vals[3] = 0;
+
+  int *in_h_rows = new int[params.nnz];
+  int *in_h_cols = new int[params.nnz];
 
   for (int i = 0; i < params.nnz; i++) {
-    in_h.rows[i] = params.nnz - i - 1;
-    in_h.cols[i] = i;
+    in_h_rows[i] = params.nnz - i - 1;
+    in_h_cols[i] = i;
   }
 
-  updateDevice(in.rows, in_h.rows, params.nnz, stream);
-  updateDevice(in.cols, in_h.cols, params.nnz, stream);
-  updateDevice(in.vals, in_h.vals, params.nnz, stream);
+  updateDevice(in.get_rows(), in_h_rows, params.nnz, stream);
+  updateDevice(in.get_cols(), in_h_cols, params.nnz, stream);
+  updateDevice(in.get_vals(), in_h_vals, params.nnz, stream);
 
-  coo_sort<float>(&in);
+  coo_sort<float>(&in, stream);
 
   int out_rows_ref_h[2] = {0, 3};
   int out_cols_ref_h[2] = {4, 1};
 
   float *out_vals_ref_h = (float *)malloc(2 * sizeof(float));
-  out_vals_ref_h[0] = in_h.vals[4];
-  out_vals_ref_h[1] = in_h.vals[1];
+  out_vals_ref_h[0] = in_h_vals[4];
+  out_vals_ref_h[1] = in_h_vals[1];
 
-  COO<float> out_ref(2, 5, 5);
-  COO<float> out;
+  COO<float> out_ref(alloc, stream, 2, 5, 5);
+  COO<float> out(alloc, stream);
 
-  updateDevice(out_ref.rows, *&out_rows_ref_h, 2, stream);
-  updateDevice(out_ref.cols, *&out_cols_ref_h, 2, stream);
-  updateDevice(out_ref.vals, out_vals_ref_h, 2, stream);
+  updateDevice(out_ref.get_rows(), *&out_rows_ref_h, 2, stream);
+  updateDevice(out_ref.get_cols(), *&out_cols_ref_h, 2, stream);
+  updateDevice(out_ref.get_vals(), out_vals_ref_h, 2, stream);
 
   coo_remove_zeros<32, float>(&in, &out, stream);
 
-  ASSERT_TRUE(devArrMatch<int>(out_ref.rows, out.rows, 2, Compare<int>()));
-  ASSERT_TRUE(devArrMatch<int>(out_ref.cols, out.cols, 2, Compare<int>()));
-  ASSERT_TRUE(devArrMatch<float>(out_ref.vals, out.vals, 2, Compare<float>()));
+  ASSERT_TRUE(
+    devArrMatch<int>(out_ref.get_rows(), out.get_rows(), 2, Compare<int>()));
+  ASSERT_TRUE(
+    devArrMatch<int>(out_ref.get_cols(), out.get_cols(), 2, Compare<int>()));
+  ASSERT_TRUE(devArrMatch<float>(out_ref.get_vals(), out.get_vals(), 2,
+                                 Compare<float>()));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   free(out_vals_ref_h);
+
+  free(in_h_rows);
+  free(in_h_cols);
+  free(in_h_vals);
 }
 
 typedef COOTest<float> COORowCount;
