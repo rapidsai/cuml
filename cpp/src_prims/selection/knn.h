@@ -248,8 +248,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   }
 
   for (int i = 0; i < n_int_streams; i++) {
-    //TODO: Use cudaStreamWaitEvent() because it's very likely / possible we could
-    // be waiting on more streams than were used
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 

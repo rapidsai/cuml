@@ -20,8 +20,17 @@
 #include <iostream>
 #include <vector>
 #include "label/classlabels.h"
-#include "random/make_regression.h"
+#include "random/rng.h"
 #include "selection/knn.h"
+
+#include "linalg/reduce.h"
+
+//#include <thrust/count.h>
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+//#include <thrust/reduce.h>
+//#include <thrust/scan.h>
+//#include <thrust/system/cuda/execution_policy.h>
 
 namespace MLCommon {
 namespace Selection {
@@ -33,6 +42,30 @@ struct KNNRegressionInputs {
   float cluster_std;
   int k;
 };
+
+void generate_data(float *out_samples, float *out_labels, int n_rows,
+                   int n_cols, cudaStream_t stream) {
+  Random::Rng r(0ULL, MLCommon::Random::GenTaps);
+
+  r.uniform(out_samples, n_rows * n_cols, 0.0f, 1.0f, stream);
+
+  MLCommon::LinAlg::unaryOp<float>(
+    out_samples, out_samples, n_rows,
+    [=] __device__(float input) { return 2 * input - 1; }, stream);
+
+  MLCommon::LinAlg::reduce(
+    out_labels, out_samples, n_cols, n_rows, 0.0f, true, true, stream, false,
+    [=] __device__(float in, int n) { return in * in; }, Sum<float>(),
+    [=] __device__(float in) { return sqrt(in); });
+
+  thrust::device_ptr<float> d_ptr = thrust::device_pointer_cast(out_labels);
+  float max =
+    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + n_rows));
+
+  MLCommon::LinAlg::unaryOp<float>(
+    out_labels, out_labels, n_rows,
+    [=] __device__(float input) { return input / max; }, stream);
+}
 
 class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
  protected:
@@ -58,9 +91,8 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     allocate(knn_indices, params.rows * params.k);
     allocate(knn_dists, params.rows * params.k);
 
-    MLCommon::Random::make_regression(train_samples, train_labels, params.rows,
-                                      params.cols, params.cols, cublas_handle,
-                                      cusolverDn_handle, alloc, stream);
+    generate_data(train_samples, train_labels, params.rows, params.cols,
+                  stream);
 
     float **ptrs = new float *[1];
     int *sizes = new int[1];
@@ -106,13 +138,13 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit) {
   ASSERT_TRUE(devArrMatch(train_labels, pred_labels, params.rows,
-                          CompareApprox<float>(1)));
+                          CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {
   {100, 10, 2, 0.01f, 2},  {1000, 10, 5, 0.01f, 2},  {10000, 10, 5, 0.01f, 2},
   {100, 10, 2, 0.01f, 10}, {1000, 10, 5, 0.01f, 10}, {10000, 10, 5, 0.01f, 10},
-  {100, 10, 2, 0.01f, 50}, {1000, 10, 5, 0.01f, 50}, {10000, 10, 5, 0.01f, 50}};
+  {100, 10, 2, 0.01f, 15}, {1000, 10, 5, 0.01f, 15}, {10000, 10, 5, 0.01f, 15}};
 
 INSTANTIATE_TEST_CASE_P(KNNRegressionTest, KNNRegressionTestF,
                         ::testing::ValuesIn(inputsf));

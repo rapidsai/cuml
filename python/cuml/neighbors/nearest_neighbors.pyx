@@ -145,16 +145,6 @@ class NearestNeighbors(Base):
       1                 0.0                 1.0                 1.0
       2                 0.0                 1.0                 2.0
 
-    Parameters
-    ----------
-    n_neighbors : int (default = 5)
-        The top K closest datapoints you want the algorithm to return.
-        Currently, this value must be < 1024.
-    verbose : bool print logging
-    handle : cuml.Handle cuML handle to use for underlying resource
-    metric : string distance metric to use. default = "seuclidean". Currently,
-        only "euclidean" and "seuclidean" are supported.
-
     Notes
     ------
 
@@ -169,24 +159,25 @@ class NearestNeighbors(Base):
                  verbose=False,
                  handle=None,
                  algorithm="brute",
-                 metric="seuclidean"):
+                 metric="euclidean"):
         """
         Construct the NearestNeighbors object for training and querying.
 
         Parameters
         ----------
-        should_downcast: bool (default = None)
-            Currently only single precision is supported in the underlying
-            index. Setting this to true will allow single-precision input
-            arrays to be automatically downcasted to single precision.
+        n_neighbors : int default number of neighbors to query (default=5)
+        verbose : boolean print verbose logs
+        handle : cumlHandle the cumlHandle resources to use
+        algorithm : string the query algorithm to use. Currently, only
+                    'brute' is supported.
+        metric : string distance metric to use. (default="euclidean").
         """
 
         super(NearestNeighbors, self).__init__(handle, verbose)
 
-        if metric != "euclidean" and metric != "seuclidean":
-            raise ValueError("Only Euclidean (euclidean) and "
-                             "Squared Euclidean (seuclidean) "
-                             "metrics are supported currently")
+        if metric != "euclidean":
+            raise ValueError("Only Euclidean (euclidean) "
+                             "metric is supported currently")
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
@@ -230,8 +221,6 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-            Note: Convert dtype will be set to False once should_downcast is
-                deprecated in 0.10
         """
 
         if len(X.shape) != 2:
@@ -271,8 +260,6 @@ class NearestNeighbors(Base):
         convert_dtype : bool, optional (default = True)
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
-            Note: Convert dtype will be set to False once should_downcast is
-                deprecated in 0.10
         Returns
         ----------
         distances: cuDF DataFrame or numpy ndarray
