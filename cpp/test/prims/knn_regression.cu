@@ -19,22 +19,24 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "label/classlabels.h"
-#include "random/make_blobs.h"
 #include "selection/knn.h"
+#include "random/make_blobs.h"
+#include "label/classlabels.h"
 
 namespace MLCommon {
 namespace Selection {
 
-struct KNNClassifyInputs {
-  int rows;
-  int cols;
-  int n_labels;
-  float cluster_std;
-  int k;
+
+struct KNNRegressionInputs {
+    int rows;
+    int cols;
+    int n_labels;
+    float cluster_std;
+    int k;
 };
 
-class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
+
+class KNNRegressionTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest() {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
@@ -42,7 +44,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
+    params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
 
     allocate(train_samples, params.rows * params.cols);
     allocate(train_labels, params.rows);
@@ -54,12 +56,11 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     allocate(knn_dists, params.rows * params.k);
 
     MLCommon::Random::make_blobs<float, int>(
-      train_samples, train_labels, params.rows, params.cols, params.n_labels,
-      alloc, stream, nullptr, nullptr, params.cluster_std);
-
-    int n_classes;
-    MLCommon::Label::getUniqueLabels(train_labels, params.rows, &unique_labels,
-                                     &n_classes, stream, alloc);
+                    train_samples, train_labels,
+                    params.rows, params.cols,
+                    params.n_labels,
+                    alloc, stream, nullptr, nullptr,
+                    params.cluster_std);
 
     float **ptrs = new float *[1];
     int *sizes = new int[1];
@@ -67,19 +68,13 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     sizes[0] = params.rows;
 
     brute_force_knn(ptrs, sizes, 1, params.cols, train_samples, params.rows,
-                    knn_indices, knn_dists, params.k, alloc, stream);
+        knn_indices, knn_dists, params.k, alloc, stream);
 
-    std::vector<int *> y;
+    std::vector<float*> y;
     y.push_back(train_labels);
 
-    std::vector<int *> uniq_labels;
-    uniq_labels.push_back(unique_labels);
-
-    std::vector<int> n_unique;
-    n_unique.push_back(n_classes);
-
-    knn_classify(pred_labels, knn_indices, y, params.rows, params.k,
-                 uniq_labels, n_unique, alloc, stream);
+    knn_regress(pred_labels, knn_indices, y,
+                params.rows, params.k, stream);
 
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
@@ -88,6 +83,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
+
     cudaFree(train_samples);
     cudaFree(train_labels);
 
@@ -100,32 +96,36 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
   }
 
  protected:
+
   KNNClassifyInputs params;
 
   float *train_samples;
-  int *train_labels;
+  float *train_labels;
 
-  int *pred_labels;
+  float *pred_labels;
 
   int64_t *knn_indices;
   float *knn_dists;
-
-  int *unique_labels;
 };
 
-typedef KNNClassifyTest KNNClassifyTestF;
-TEST_P(KNNClassifyTestF, Fit) {
-  ASSERT_TRUE(
-    devArrMatch(train_labels, pred_labels, params.rows, Compare<int>()));
+typedef KNNRegressionTest KNNRegressionTestF;
+TEST_P(KNNRegressionTestF, Fit) {
+  ASSERT_TRUE(devArrMatch(train_labels, pred_labels, params.rows, Compare<float>()));
 }
 
-const std::vector<KNNClassifyInputs> inputsf = {
-  {100, 10, 2, 0.01f, 2},  {1000, 10, 5, 0.01f, 2},  {10000, 10, 5, 0.01f, 2},
-  {100, 10, 2, 0.01f, 10}, {1000, 10, 5, 0.01f, 10}, {10000, 10, 5, 0.01f, 10},
-  {100, 10, 2, 0.01f, 50}, {1000, 10, 5, 0.01f, 50}, {10000, 10, 5, 0.01f, 50}};
+const std::vector<KNNRegressionInputs> inputsf = {
+    { 100, 10, 2, 0.01f, 2 },
+    { 1000, 10, 5, 0.01f, 2 },
+    { 10000, 10, 5, 0.01f, 2 },
+    { 100, 10, 2, 0.01f, 10 },
+    { 1000, 10, 5, 0.01f, 10 },
+    { 10000, 10, 5, 0.01f, 10 },
+    { 100, 10, 2, 0.01f, 50 },
+    { 1000, 10, 5, 0.01f, 50 },
+    { 10000, 10, 5, 0.01f, 50 }
+};
 
-INSTANTIATE_TEST_CASE_P(KNNClassifyTest, KNNClassifyTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(KNNRegressionTest, KNNRegressionTestF, ::testing::ValuesIn(inputsf));
 
 };  // end namespace Selection
 };  // namespace MLCommon

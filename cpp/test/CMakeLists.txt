@@ -211,6 +211,7 @@ if(BUILD_PRIMS_TESTS)
       prims/jones_transform.cu
       prims/klDivergence.cu
       prims/knn_classify.cu
+      prims/knn_regression.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
