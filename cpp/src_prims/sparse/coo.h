@@ -997,7 +997,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (row_sizes == NULL)
-    d_alloc.deallocate(row_sizes1, sizeof(int)*n*2, stream);
+    d_alloc->deallocate(row_sizes1, sizeof(int)*n*2, stream);
 }
 
 };  // namespace Sparse
