@@ -497,7 +497,7 @@ def estimate_x0(order, y, handle=None):
     h_ar = d_ar.copy_to_host() if p > 0 else np.zeros(shape=(0, num_batches))
     h_ma = d_ma.copy_to_host() if q > 0 else np.zeros(shape=(0, num_batches))
 
-    # TODO: return device pointers?
+    # TODO: later, will return device pointers
     return h_mu, h_ar, h_ma
 
 
@@ -623,12 +623,12 @@ def fit(y,
             The ARIMA order (p, d, q)
     mu0 : array-like
           Array of trend-parameter estimates. Only used if `d>0`.
-    ar_params0 : List of arrays (TODO: this is outdated; support lists?)
-                 List of AR parameter-arrays, one array per series,
-                 each series has `p` parameters.
-    ma_params0 : List of arrays (TODO: this is outdated; support lists?)
-                 List of MA parameter-arrays, one array per series,
-                 each series has `q` parameters.
+    ar_params0 : np.ndarray
+                 AR parameters, shape (p, num_batches), column-major
+                 (as returned by estimate_x0)
+    ma_params0 : np.ndarray
+                 MA parameters, shape (q, num_batches), column-major
+                 (as returned by estimate_x0)
     opt_disp : int
                Fit diagnostic level (for L-BFGS solver):
                * `-1` for no output,
