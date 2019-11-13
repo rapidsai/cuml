@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
+#include <cuml/cuml.hpp>
+#include <vector>
 #include "algo_helper.h"
 #include "flatnode.h"
 
