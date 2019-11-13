@@ -18,8 +18,6 @@ from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
-from collections import OrderedDict
-
 from dask.distributed import default_client
 from dask.distributed import wait
 
