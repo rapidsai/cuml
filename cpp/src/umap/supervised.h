@@ -65,12 +65,13 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 
 template <typename T, int TPB_X>
 void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
+                              std::shared_ptr<deviceAllocator> alloc,
                               cudaStream_t stream  // size = nnz*2
 ) {
   int *row_ind;
   MLCommon::allocate(row_ind, in_coo->n_rows);
 
-  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind, alloc, stream);
 
   // Perform l_inf normalization
   MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(row_ind, in_coo->get_vals(),
@@ -84,7 +85,7 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
       T prod_matrix = result * transpose;
       return result + transpose - prod_matrix;
     },
-    stream);
+    alloc, stream);
 
   CUDA_CHECK(cudaFree(row_ind));
   CUDA_CHECK(cudaPeekAtLastError());
@@ -228,9 +229,9 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
                                                     far_dist);
 
   COO<T> comp_coo(alloc, stream);
-  coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, stream);
+  coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, alloc, stream);
 
-  reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, stream);
+  reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -275,7 +276,7 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
 
   FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices, y_knn_dists,
                                params->target_n_neighbors, &ygraph_coo, params,
-                               handle.getDeviceAllocator(), stream);
+                               alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   CUDA_CHECK(cudaFree(y_knn_indices));
@@ -294,10 +295,10 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   MLCommon::allocate(yrow_ind, ygraph_coo.n_rows, true);
 
   COO<T> cygraph_coo(alloc, stream);
-  coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, stream);
+  coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, alloc, stream);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind, stream);
-  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind, alloc, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind, alloc, stream);
 
   COO<T> result_coo(alloc, stream);
   general_simplicial_set_intersection<T, TPB_X>(xrow_ind, rgraph_coo, yrow_ind,
@@ -311,9 +312,9 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
    * Remove zeros
    */
   COO<T> out(alloc, stream);
-  coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
+  coo_remove_zeros<TPB_X, T>(&result_coo, &out, alloc, stream);
 
-  reset_local_connectivity<T, TPB_X>(&out, final_coo, stream);
+  reset_local_connectivity<T, TPB_X>(&out, final_coo, alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

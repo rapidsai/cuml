@@ -117,7 +117,7 @@ void _fit(const cumlHandle &handle,
   MLCommon::allocate(row_count, n, true);
 
   COO<T> cgraph_coo(alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo,
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo, alloc,
                                                stream);
 
   /**
@@ -185,7 +185,8 @@ void _fit(const cumlHandle &handle,
                                &tmp_coo, params, alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, alloc,
+                                               stream);
 
   COO<T> final_coo(alloc, stream);
 
@@ -212,10 +213,11 @@ void _fit(const cumlHandle &handle,
   /**
    * Remove zeros
    */
-  MLCommon::Sparse::coo_sort<T>(&final_coo, stream);
+  MLCommon::Sparse::coo_sort<T>(&final_coo, alloc, stream);
 
   COO<T> ocoo(alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, alloc,
+                                               stream);
 
   /**
    * Initialize embeddings
@@ -305,7 +307,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::allocate(row_ind, n);
   MLCommon::allocate(ia, n);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind, alloc, stream);
   MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia, stream);
 
   T *vals_normed;
@@ -366,7 +368,8 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
    * Remove zeros
    */
   MLCommon::Sparse::COO<T> comp_coo(alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, alloc,
+                                               stream);
 
   T *epochs_per_sample;
   MLCommon::allocate(epochs_per_sample, nnz);

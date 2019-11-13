@@ -324,7 +324,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
     stream);
 
   MLCommon::Sparse::COO<T> out(alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, stream);
+  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, alloc, stream);
 
   T *epochs_per_sample;
   MLCommon::allocate(epochs_per_sample, out.nnz, true);
