@@ -167,13 +167,14 @@ template <typename T, int TPB_X>
 void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
                                          int *row2_ind, COO<T> *in2,
                                          COO<T> *result, float weight,
+                                         std::shared_ptr<deviceAllocator> alloc,
                                          cudaStream_t stream) {
   int *result_ind;
   MLCommon::allocate(result_ind, in1->n_rows, true);
 
   int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
     row1_ind, in1->get_cols(), in1->get_vals(), in1->nnz, row2_ind,
-    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind,
+    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind, alloc,
     stream);
 
   result->allocate(result_nnz, in1->n_rows, stream);
@@ -301,9 +302,9 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind, alloc, stream);
 
   COO<T> result_coo(alloc, stream);
-  general_simplicial_set_intersection<T, TPB_X>(xrow_ind, rgraph_coo, yrow_ind,
-                                                &cygraph_coo, &result_coo,
-                                                params->target_weights, stream);
+  general_simplicial_set_intersection<T, TPB_X>(
+    xrow_ind, rgraph_coo, yrow_ind, &cygraph_coo, &result_coo,
+    params->target_weights, alloc, stream);
 
   CUDA_CHECK(cudaFree(xrow_ind));
   CUDA_CHECK(cudaFree(yrow_ind));

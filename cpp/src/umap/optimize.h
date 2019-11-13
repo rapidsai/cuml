@@ -16,6 +16,8 @@
 
 #include <cuml/manifold/umapparams.h>
 
+#include "common/device_buffer.hpp"
+
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/eltwise.h"
@@ -68,65 +70,63 @@ void f(T *input, int n_rows, T *coef, T *preds) {
  */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
-                 UMAPParams *params, cudaStream_t stream) {
+                 UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+                 cudaStream_t stream) {
   dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   /**
    * Calculate residuals
    */
-  T *residuals;
-  MLCommon::allocate(residuals, n_rows);
+  MLCommon::device_buffer<T> residuals(alloc, stream, n_rows);
 
-  f<T, TPB_X>(input, n_rows, coef, residuals);
-  MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows, stream);
+  f<T, TPB_X>(input, n_rows, coef, residuals.data());
+  MLCommon::LinAlg::eltwiseSub(residuals.data(), residuals.data(), labels,
+                               n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to a
    */
-  T *a_deriv;
-  MLCommon::allocate(a_deriv, n_rows);
-  MLCommon::copy(a_deriv, input, n_rows, stream);
+  MLCommon::device_buffer<T> a_deriv(alloc, stream, n_rows);
+  MLCommon::copy(a_deriv.data(), input, n_rows, stream);
   map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
-    a_deriv, a_deriv, n_rows, coef, [] __device__ __host__(T x, T a, T b) {
+    a_deriv.data(), a_deriv.data(), n_rows, coef,
+    [] __device__ __host__(T x, T a, T b) {
       return -(pow(x, 2.0 * b)) / pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
     });
 
-  MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals, n_rows,
-                                    stream);
+  MLCommon::LinAlg::eltwiseMultiply(a_deriv.data(), a_deriv.data(),
+                                    residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to b
    */
-  T *b_deriv;
-  MLCommon::allocate(b_deriv, n_rows);
-  MLCommon::copy(b_deriv, input, n_rows, stream);
-  map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
-    b_deriv, b_deriv, n_rows, coef, [] __device__ __host__(T x, T a, T b) {
-      return -(2.0 * a * pow(x, 2.0 * b) * log(x)) /
-             pow(1 + a * pow(x, 2.0 * b), 2.0);
-    });
+  MLCommon::device_buffer<T> b_deriv(alloc, stream, n_rows);
+  MLCommon::copy(b_deriv.data(), input, n_rows, stream);
+  map_kernel<T, TPB_X>
+    <<<grid, blk, 0, stream>>>(b_deriv.data(), b_deriv.data(), n_rows, coef,
+                               [] __device__ __host__(T x, T a, T b) {
+                                 return -(2.0 * a * pow(x, 2.0 * b) * log(x)) /
+                                        pow(1 + a * pow(x, 2.0 * b), 2.0);
+                               });
 
   /**
    * Multiply partial derivs by residuals
    */
-  MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows,
-                                    stream);
+  MLCommon::LinAlg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
+                                    residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
    * Finally, take the mean
    */
-  MLCommon::Stats::mean(grads, a_deriv, 1, n_rows, false, false, stream);
-  MLCommon::Stats::mean(grads + 1, b_deriv, 1, n_rows, false, false, stream);
+  MLCommon::Stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
+  MLCommon::Stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false,
+                        stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
-
-  CUDA_CHECK(cudaFree(residuals));
-  CUDA_CHECK(cudaFree(a_deriv));
-  CUDA_CHECK(cudaFree(b_deriv));
 }
 
 /**
@@ -134,8 +134,9 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
  */
 template <typename T, int TPB_X>
 void optimize_params(T *input, int n_rows, const T *labels, T *coef,
-                     UMAPParams *params, cudaStream_t stream,
-                     float tolerance = 1e-6, int max_epochs = 25000) {
+                     UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+                     cudaStream_t stream, float tolerance = 1e-6,
+                     int max_epochs = 25000) {
   // Don't really need a learning rate since
   // we aren't using stochastic GD
   float learning_rate = 1.0;
@@ -144,16 +145,18 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
   int tol_grads = 0;
   do {
     tol_grads = 0;
-    T *grads;
-    MLCommon::allocate(grads, 2, true);
+    MLCommon::device_buffer<T> grads(alloc, stream, 2);
+    CUDA_CHECK(cudaMemsetAsync(grads.data(), 0, 2 * sizeof(T), stream));
 
-    abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params, stream);
+    abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads.data(), params,
+                          alloc, stream);
 
-    MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2, stream);
-    MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
+    MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
+                                     2, stream);
+    MLCommon::LinAlg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
-    MLCommon::updateHost(grads_h, grads, 2, stream);
+    MLCommon::updateHost(grads_h, grads.data(), 2, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -163,13 +166,13 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 
     num_iters += 1;
 
-    CUDA_CHECK(cudaFree(grads));
     delete grads_h;
 
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
 
-void find_params_ab(UMAPParams *params, cudaStream_t stream) {
+void find_params_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+                    cudaStream_t stream) {
   float spread = params->spread;
   float min_dist = params->min_dist;
 
@@ -187,34 +190,30 @@ void find_params_ab(UMAPParams *params, cudaStream_t stream) {
       y[i] = 1.0;
   }
 
-  float *X_d;
-  MLCommon::allocate(X_d, 300);
-  MLCommon::updateDevice(X_d, X, 300, stream);
+  MLCommon::device_buffer<float> X_d(alloc, stream, 300);
+  MLCommon::updateDevice(X_d.data(), X, 300, stream);
 
-  float *y_d;
-  MLCommon::allocate(y_d, 300);
-  MLCommon::updateDevice(y_d, y, 300, stream);
+  MLCommon::device_buffer<float> y_d(alloc, stream, 300);
+  MLCommon::updateDevice(y_d.data(), y, 300, stream);
   float *coeffs_h = (float *)malloc(2 * sizeof(float));
   coeffs_h[0] = 1.0;
   coeffs_h[1] = 1.0;
 
-  float *coeffs;
-  MLCommon::allocate(coeffs, 2, true);
-  MLCommon::updateDevice(coeffs, coeffs_h, 2, stream);
+  MLCommon::device_buffer<float> coeffs(alloc, stream, 2);
+  CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
 
-  optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
+  MLCommon::updateDevice(coeffs.data(), coeffs_h, 2, stream);
 
-  MLCommon::updateHost(&(params->a), coeffs, 1, stream);
-  MLCommon::updateHost(&(params->b), coeffs + 1, 1, stream);
+  optimize_params<float, 256>(X_d.data(), 300, y_d.data(), coeffs.data(),
+                              params, alloc, stream);
+
+  MLCommon::updateHost(&(params->a), coeffs.data(), 1, stream);
+  MLCommon::updateHost(&(params->b), coeffs.data() + 1, 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (params->verbose)
     std::cout << "a=" << params->a << ", " << params->b << std::endl;
-
-  CUDA_CHECK(cudaFree(X_d));
-  CUDA_CHECK(cudaFree(y_d));
-  CUDA_CHECK(cudaFree(coeffs));
 
   delete coeffs_h;
 }

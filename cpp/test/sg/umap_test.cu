@@ -62,7 +62,7 @@ class UMAPTest : public ::testing::Test {
     umap_params->min_dist = 0.01;
     umap_params->verbose = false;
 
-    UMAPAlgo::find_ab(umap_params, stream);
+    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
     /**
      * Allocate digits dataset
