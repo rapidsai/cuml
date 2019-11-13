@@ -34,7 +34,7 @@ def workers_to_parts(futures):
     return w_to_p_map
 
 
-def _func_get_size(df):
+def _func_get_rows(df):
     return df.shape[0]
 
 
@@ -48,7 +48,7 @@ def parts_to_ranks(client, worker_info, part_futures):
     """
     key = uuid1()
     futures = [(worker_info[wf[0]]["r"],
-                client.submit(_func_get_size,
+                client.submit(_func_get_rows,
                               wf[1],
                               workers=[wf[0]],
                               key="%s-%s" % (key, idx)))

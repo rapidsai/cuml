@@ -43,7 +43,7 @@ void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
   MLCommon::Selection::brute_force_knn(
     input, sizes, n_params, D, search_items, n, res_I, res_D, k,
     handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
-    &*int_streams, handle.getImpl().getNumInternalStreams(), rowMajorIndex,
+    int_streams, handle.getImpl().getNumInternalStreams(), rowMajorIndex,
     rowMajorQuery);
 }
 
