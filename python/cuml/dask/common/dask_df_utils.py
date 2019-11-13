@@ -23,7 +23,7 @@ from dask.distributed import wait
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None):
+def extract_ddf_partitions(ddf, client=None, agg=True):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
