@@ -25,6 +25,8 @@ from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
 
+import joblib
+
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets.samples_generator import make_blobs
@@ -215,3 +217,23 @@ def test_umap_fit_transform_score_default():
                                 KMeans(10).fit_predict(embedding))
 
     assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+
+
+def test_umap_fit_transform_against_fit_and_transform():
+
+    n_samples = 500
+    n_features = 20
+
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
+
+    cuml_model = cuUMAP()
+
+    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+
+    assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
+
+    fit_embedding_diff_input = cuml_model.transform(data[1:], convert_dtype=True)
+    assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
+

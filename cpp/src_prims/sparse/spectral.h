@@ -105,8 +105,6 @@ void fit_clusters(long *knn_indices, T *knn_dists, int m, int n_neighbors,
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
-  // todo: might need to symmetrize the knn to create the knn graph
-
   fit_clusters(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
                n_clusters, eigen_tol, out, allocator, stream);
 }
@@ -214,9 +212,6 @@ void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
 
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
-
-  // todo: might need to symmetrize the knn graph here. UMAP works here because
-  // it has already done this.
 
   fit_embedding(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
                 n_components, out, allocator, stream);
