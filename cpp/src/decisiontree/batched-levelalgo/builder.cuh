@@ -304,7 +304,6 @@ struct Builder {
         out = entropyMetric<DataT, IdxT>(h_hist, input.nclasses,
                                          input.nSampledRows);
       }
-      ///@todo: support other metrics
     }
     return out;
   }
