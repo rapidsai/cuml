@@ -182,7 +182,12 @@ struct Builder {
   void train(NodeT* h_nodes, cudaStream_t s) {
     init(h_nodes, s);
     do {
-      auto new_nodes = doSplit(h_nodes, s);
+      IdxT new_nodes;
+      if (params.split_criterion == CRITERION::GINI) {
+        new_nodes = doSplit<CRITERION::GINI>(h_nodes, s);
+      } else {
+        new_nodes = doSplit<CRITERION::ENTROPY>(h_nodes, s);
+      }
       h_total_nodes += new_nodes;
       updateNodeRange();
     } while (!isOver());
@@ -236,6 +241,7 @@ struct Builder {
    * @param s cuda stream
    * @return the number of newly created nodes
    */
+  template <CRITERION SplitType>
   IdxT doSplit(NodeT* h_nodes, cudaStream_t s) {
     auto nbins = params.n_bins;
     auto nclasses = input.nclasses;
@@ -255,7 +261,7 @@ struct Builder {
     dim3 grid(params.n_blks_for_rows, n_col_blks, batchSize);
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
-      computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+      computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, SplitType>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
           hist, params.n_bins, params.max_depth, params.min_rows_per_node,
           params.max_leaves, input, curr_nodes, c, done_count, mutex, n_leaves,
@@ -309,7 +315,6 @@ struct Builder {
   }
 };  // end Builder
 
-///@todo: support different metrics
 ///@todo: support regression
 ///@todo: support building from an arbitrary depth
 ///@todo: support col subsampling per node

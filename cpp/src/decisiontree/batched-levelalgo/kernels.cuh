@@ -206,9 +206,9 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
 }
 
 ///@todo: support regression
-///@todo: support other metrics
 ///@todo: special-case this for gridDim.x == 1
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB,
+          CRITERION SplitType>
 __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
                                    IdxT min_rows_per_node, IdxT max_leaves,
                                    Input<DataT, LabelT, IdxT> input,
@@ -270,8 +270,13 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  giniInfoGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
-                            nclasses);
+  if (SplitType == CRITERION::GINI) {
+    giniInfoGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
+                              nbins, nclasses);
+  } else {
+    entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
+                             nbins, nclasses);
+  }
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
