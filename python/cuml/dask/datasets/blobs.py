@@ -68,7 +68,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                dtype=np.float32, output='dataframe'):
 
     """
-    Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
 
     This function calls `make_blobs` from Scikitlearn on each Dask worker
