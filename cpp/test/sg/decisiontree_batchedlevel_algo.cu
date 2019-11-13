@@ -24,6 +24,7 @@
 #include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
+#include <memory>
 
 namespace ML {
 namespace DecisionTree {
@@ -43,8 +44,9 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
  protected:
   void SetUp() {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
+    handle.reset(new cumlHandle);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle->setStream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
                     inparams.min_gain, false, CRITERION::GINI, false, false, 32,
@@ -53,8 +55,9 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   }
 
   void TearDown() {
+    printf("teardown started\n");
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle.getImpl().getDeviceAllocator();
+    auto allocator = handle->getImpl().getDeviceAllocator();
     allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
     allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
     allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
@@ -62,11 +65,13 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     allocator->deallocate(quantiles, sizeof(T) * inparams.nbins * inparams.N,
                           stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.reset();
     CUDA_CHECK(cudaStreamDestroy(stream));
+    printf("teardown ended\n");
   }
 
   cudaStream_t stream;
-  cumlHandle handle;
+  std::shared_ptr<cumlHandle> handle;
   T *data, *quantiles;
   L* labels;
   I *rowids, *colids;
@@ -77,8 +82,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
  private:
   ///@todo: support regression
   void prepareDataset() {
-    auto allocator = handle.getImpl().getDeviceAllocator();
-    auto cublas = handle.getImpl().getCublasHandle();
+    auto allocator = handle->getImpl().getDeviceAllocator();
+    auto cublas = handle->getImpl().getCublasHandle();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
     auto* tmp =
@@ -108,17 +113,16 @@ const std::vector<DtTestParams> all = {
   {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
 };
-typedef DtBaseTest<float> DISABLED_DtTestF;
+typedef DtBaseTest<float> DtTestF;
 ///@todo: add checks
-TEST_P(DISABLED_DtTestF, Test) {
-  auto impl = handle.getImpl();
+TEST_P(DtTestF, Test) {
+  auto& impl = handle->getImpl();
   grow_tree<float, int, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree);
 }
-INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DISABLED_DtTestF,
-                        ::testing::ValuesIn(all));
+INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtTestF, ::testing::ValuesIn(all));
 
 }  // end namespace DecisionTree
 }  // end namespace ML
