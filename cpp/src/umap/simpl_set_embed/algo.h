@@ -171,7 +171,10 @@ __global__ void optimize_batch_kernel(
         atomicAdd(current + d, grad_d * alpha);
 
         // happens only during unsupervised training
-        if (move_other) atomicAdd(other + d, -grad_d * alpha);
+
+        if (move_other) {
+          atomicAdd(other + d, -grad_d * alpha);
+        }
       }
 
       epoch_of_next_sample[row] += epochs_per_sample[row];
@@ -239,7 +242,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      std::shared_ptr<deviceAllocator> alloc,
                      cudaStream_t stream) {
   // have we been given y-values?
-  bool move_other = head_n == tail_n;
+  bool move_other = head_embedding == tail_embedding;
 
   T alpha = params->initial_alpha;
 
