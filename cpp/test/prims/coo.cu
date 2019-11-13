@@ -268,6 +268,9 @@ TEST_P(COORowCount, Result) {
 
 typedef COOTest<float> COORowCountNonzero;
 TEST_P(COORowCountNonzero, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
   int *in_rows, *verify, *results;
   float *in_vals;
 
@@ -284,13 +287,15 @@ TEST_P(COORowCountNonzero, Result) {
   updateDevice(verify, *&verify_h, 5, 0);
   updateDevice(in_vals, *&in_vals_h, 5, 0);
 
-  coo_row_count_nz<32, float>(in_rows, in_vals, 5, results);
+  coo_row_count_nz<32, float>(in_rows, in_vals, 5, results, stream);
   cudaDeviceSynchronize();
 
   ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
 
   CUDA_CHECK(cudaFree(in_rows));
   CUDA_CHECK(cudaFree(verify));
+
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(COOTests, SortedCOOToCSR, ::testing::ValuesIn(inputsf));
