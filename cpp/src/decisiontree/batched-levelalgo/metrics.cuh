@@ -124,8 +124,10 @@ DataT entropyMetric(const int* h_hist, IdxT nclasses, IdxT nSampledRows) {
   auto out = one;
   auto invlen = one / DataT(nSampledRows);
   for (IdxT i = 0; i < nclasses; ++i) {
-    auto val = h_hist[i] * invlen;
-    out -= MLCommon::myLog(val) * val;
+    if (h_hist[i] != 0) {
+      auto val = h_hist[i] * invlen;
+      out -= MLCommon::myLog(val) * val;
+    }
   }
   return out;
 }
