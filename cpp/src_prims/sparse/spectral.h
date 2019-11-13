@@ -105,8 +105,6 @@ void fit_clusters(long *knn_indices, T *knn_dists, int m, int n_neighbors,
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
-  // todo: might need to symmetrize the knn to create the knn graph
-
   fit_clusters(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
                n_clusters, eigen_tol, out, allocator, stream);
 }
@@ -119,20 +117,17 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
-  float **ptrs = new float *[1];
-  int *sizes = new int[1];
+  std::vector<float *> ptrs(1);
+  std::vector<int> sizes(1);
   ptrs[0] = X;
   sizes[0] = m;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, n, X, m,
-                                       knn_indices.data(), knn_dists.data(),
-                                       n_neighbors, allocator, stream);
+  MLCommon::Selection::brute_force_knn(ptrs, sizes, n, X, m, knn_indices.data(),
+                                       knn_dists.data(), n_neighbors, allocator,
+                                       stream);
 
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
                eigen_tol, out, allocator, stream);
-
-  delete ptrs;
-  delete sizes;
 }
 
 template <typename T>
@@ -215,9 +210,6 @@ void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
-  // todo: might need to symmetrize the knn graph here. UMAP works here because
-  // it has already done this.
-
   fit_embedding(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
                 n_components, out, allocator, stream);
 }
@@ -229,20 +221,17 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
   device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
   device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
 
-  float **ptrs = new float *[1];
-  int *sizes = new int[1];
+  std::vector<float *> ptrs(1);
+  std::vector<int> sizes(1);
   ptrs[0] = X;
   sizes[0] = m;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, n, X, m,
-                                       knn_indices.data(), knn_dists.data(),
-                                       n_neighbors, allocator, stream);
+  MLCommon::Selection::brute_force_knn(ptrs, sizes, n, X, m, knn_indices.data(),
+                                       knn_dists.data(), n_neighbors, allocator,
+                                       stream);
 
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, allocator, stream);
-
-  delete ptrs;
-  delete sizes;
 }
 }  // namespace Spectral
 }  // namespace MLCommon

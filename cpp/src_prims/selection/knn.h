@@ -182,8 +182,8 @@ inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
    */
 template <typename IntType = int,
           Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
-void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, int64_t *res_I,
+void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
+                     IntType D, float *search_items, IntType n, int64_t *res_I,
                      float *res_D, IntType k,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
@@ -196,17 +196,26 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
          "Only EucUnexpandedL2Sqrt and EucUnexpandedL2 metrics are supported "
          "currently.");
 
+  ASSERT(input.size() == sizes.size(),
+         "input and sizes vectors should be the same size");
+
+  int n_params = input.size();
+
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
+    // If we don't have explicit translations
+    // for offsets of the indices, build them
+    // from the local partitions
     id_ranges = new std::vector<int64_t>();
     int64_t total_n = 0;
     for (int i = 0; i < n_params; i++) {
-      if (i < n_params) {
+      if (i < input.size()) {
         id_ranges->push_back(total_n);
       }
       total_n += sizes[i];
     }
   } else {
+    // otherwise, use the given translations
     id_ranges = translations;
   }
 
@@ -216,12 +225,12 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
   updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  device_buffer<float> all_D(allocator, userStream, n_params * k * n);
-  device_buffer<int64_t> all_I(allocator, userStream, n_params * k * n);
+  device_buffer<float> all_D(allocator, userStream, input.size() * k * n);
+  device_buffer<int64_t> all_I(allocator, userStream, input.size() * k * n);
 
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
-  for (int i = 0; i < n_params; i++) {
+  for (int i = 0; i < input.size(); i++) {
     const float *ptr = input[i];
     IntType size = sizes[i];
 
@@ -251,7 +260,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, n_params,
+  runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, input.size(),
                      false, k, userStream, trans.data());
 
   MLCommon::LinAlg::unaryOp<float>(
@@ -260,6 +269,31 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   if (translations == nullptr) delete id_ranges;
 };
+
+template <typename IntType = int,
+          Distance::DistanceType DistanceType = Distance::EucUnexpandedL2>
+void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
+                     float *search_items, IntType n, int64_t *res_I,
+                     float *res_D, IntType k,
+                     std::shared_ptr<deviceAllocator> allocator,
+                     cudaStream_t userStream,
+                     cudaStream_t *internalStreams = nullptr,
+                     int n_int_streams = 0, bool rowMajorIndex = true,
+                     bool rowMajorQuery = true,
+                     std::vector<int64_t> *translations = nullptr) {
+  std::vector<float *> input_vec(n_params);
+  std::vector<int> sizes_vec(n_params);
+
+  for (int i = 0; i < n_params; i++) {
+    input_vec.push_back(input[i]);
+    sizes_vec.push_back(sizes[i]);
+  }
+
+  brute_force_knn<IntType, DistanceType>(
+    input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
+    userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
+    translations);
+}
 
 /**
  * Binary tree recursion for finding a label in the unique_labels array.

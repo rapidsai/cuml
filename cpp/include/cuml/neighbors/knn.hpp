@@ -44,8 +44,8 @@ namespace ML {
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
    */
-void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
-                     int n_params, int D, float *search_items, int n,
+void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
+                     std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false);
 
@@ -132,6 +132,7 @@ class kNN {
      * @param N      number of items in input array.
      * @param rowMajor is the index array in rowMajor layout?
      */
-  void fit(float **input, int *sizes, int N, bool rowMajor = false);
+  void fit(std::vector<float *> &input, std::vector<int> &sizes,
+           bool rowMajor = false);
 };
 };  // namespace ML

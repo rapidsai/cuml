@@ -44,6 +44,9 @@ from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
+from libcpp.vector cimport vector
+
+
 from numba import cuda
 import rmm
 
@@ -64,9 +67,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void brute_force_knn(
         cumlHandle &handle,
-        float **input,
-        int *sizes,
-        int n_params,
+        vector[float*] &inputs,
+        vector[int] &sizes,
         int D,
         float *search_items,
         int n,
@@ -304,12 +306,12 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef float** inputs = <float**> malloc(sizeof(float *))
-        cdef int* sizes = <int*> malloc(sizeof(int))
+        cdef vector[float*] *inputs = new vector[float*]()
+        cdef vector[int] *sizes = new vector[int]()
 
         cdef uintptr_t idx_ptr = get_dev_array_ptr(self.X_m)
-        inputs[0] = <float*>idx_ptr
-        sizes[0] = <int>self.X_m.shape[0]
+        inputs.push_back(<float*>idx_ptr)
+        sizes.push_back(<int>self.X_m.shape[0])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -317,9 +319,8 @@ class NearestNeighbors(Base):
 
         brute_force_knn(
             handle_[0],
-            <float**>inputs,
-            <int*>sizes,
-            <int>self.n_indices,
+            deref(inputs),
+            deref(sizes),
             <int>self.n_dims,
             <float*>x_ctype_st,
             <int>N,
@@ -352,7 +353,7 @@ class NearestNeighbors(Base):
         del D_ndarr
         del X_m
 
-        free(inputs)
-        free(sizes)
+        del inputs
+        del sizes
 
         return (dists, inds) if return_distance else inds

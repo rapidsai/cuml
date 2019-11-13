@@ -31,17 +31,21 @@
 
 namespace ML {
 
-void brute_force_knn(cumlHandle &handle, float **input, int *sizes,
-                     int n_params, int D, float *search_items, int n,
+void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
+                     std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
                      bool rowMajorQuery) {
+  ASSERT(input.size() == sizes.size(),
+         "input and sizes vectors must be the same size");
+
+  // pull streams from handle
   cudaStream_t int_streams[handle.getImpl().getNumInternalStreams()];
   for (int i = 0; i < handle.getImpl().getNumInternalStreams(); i++) {
     int_streams[i] = handle.getImpl().getInternalStream(i);
   }
 
   MLCommon::Selection::brute_force_knn(
-    input, sizes, n_params, D, search_items, n, res_I, res_D, k,
+    input, sizes, D, search_items, n, res_I, res_D, k,
     handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
     int_streams, handle.getImpl().getNumInternalStreams(), rowMajorIndex,
     rowMajorQuery);
@@ -122,8 +126,11 @@ void kNN::reset() {
 	 * @param N 	 number of items in input array.
 	 * @param rowMajor is the input in rowMajor?
 	 */
-void kNN::fit(float **input, int *sizes, int N, bool rowMajor) {
+void kNN::fit(std::vector<float *> &input, std::vector<int> &sizes,
+              bool rowMajor) {
   this->rowMajorIndex = rowMajor;
+
+  int N = input.size();
 
   if (this->verbose) std::cout << "N=" << N << std::endl;
 
@@ -198,10 +205,17 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
     int_streams[i] = handle_ptr->getImpl().getInternalStream(i);
   }
 
+  std::vector<float *> input_vec(n_params);
+  std::vector<int> sizes_vec(n_params);
+  for (int i = 0; i < n_params; i++) {
+    input_vec.push_back(input[i]);
+    sizes_vec.push_back(sizes[i]);
+  }
+
   if (status == CUML_SUCCESS) {
     try {
       MLCommon::Selection::brute_force_knn(
-        input, sizes, n_params, D, search_items, n, res_I, res_D, k,
+        input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
         handle_ptr->getImpl().getDeviceAllocator(),
         handle_ptr->getImpl().getStream(), &*int_streams,
         handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
