@@ -221,7 +221,7 @@ __global__ void compute_membership_strength_kernel(
 
       rows[idx] = row;
       cols[idx] = cur_knn_ind;
-      vals[idx] = float(val);
+      vals[idx] = val;
     }
   }
 }
@@ -232,21 +232,23 @@ __global__ void compute_membership_strength_kernel(
 template <int TPB_X, typename T>
 void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                      T *rhos, T *sigmas, UMAPParams *params, int n_neighbors,
-                     float local_connectivity, cudaStream_t stream) {
+                     float local_connectivity,
+                     std::shared_ptr<deviceAllocator> alloc,
+                     cudaStream_t stream) {
   int blks = MLCommon::ceildiv(n, TPB_X);
 
   dim3 grid(blks, 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  T *dist_means_dev;
-  MLCommon::allocate(dist_means_dev, n_neighbors);
+  MLCommon::device_buffer<T> dist_means_dev(alloc, stream, n_neighbors);
 
-  MLCommon::Stats::mean(dist_means_dev, knn_dists, n_neighbors, n, false, false,
-                        stream);
+  MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, n_neighbors, n, false,
+                        false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   T *dist_means_host = (T *)malloc(n_neighbors * sizeof(T));
-  MLCommon::updateHost(dist_means_host, dist_means_dev, n_neighbors, stream);
+  MLCommon::updateHost(dist_means_host, dist_means_dev.data(), n_neighbors,
+                       stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -259,7 +261,6 @@ void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                  * Clean up memory for subsequent algorithms
                  */
   free(dist_means_host);
-  CUDA_CHECK(cudaFree(dist_means_dev));
 
   /**
                  * Smooth kNN distances to be continuous
@@ -303,20 +304,23 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   /**
    * Calculate mean distance through a parallel reduction
    */
-  T *sigmas;
-  T *rhos;
-  MLCommon::allocate(sigmas, n, true);
-  MLCommon::allocate(rhos, n, true);
 
-  smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists, rhos, sigmas, params,
-                            n_neighbors, params->local_connectivity, stream);
+  MLCommon::device_buffer<T> sigmas(alloc, stream, n);
+  MLCommon::device_buffer<T> rhos(alloc, stream, n);
+  CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(T), stream));
+  CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(T), stream));
+
+  smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists, rhos.data(),
+                            sigmas.data(), params, n_neighbors,
+                            params->local_connectivity, alloc, stream);
 
   MLCommon::Sparse::COO<T> in(alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
     std::cout << "Smooth kNN Distances" << std::endl;
-    std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
-    std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(sigmas.data(), n, "sigmas", stream)
+              << std::endl;
+    std::cout << MLCommon::arr2Str(rhos.data(), n, "rhos", stream) << std::endl;
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -325,8 +329,8 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
                  * Compute graph of membership strengths
                  */
   compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
-    knn_indices, knn_dists, sigmas, rhos, in.get_vals(), in.get_rows(),
-    in.get_cols(), in.n_rows, n_neighbors);
+    knn_indices, knn_dists, sigmas.data(), rhos.data(), in.get_vals(),
+    in.get_rows(), in.get_cols(), in.n_rows, n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
@@ -350,9 +354,6 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
     alloc, stream);
 
   MLCommon::Sparse::coo_sort<T>(out, alloc, stream);
-
-  CUDA_CHECK(cudaFree(rhos));
-  CUDA_CHECK(cudaFree(sigmas));
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

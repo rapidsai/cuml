@@ -235,28 +235,27 @@ template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
                      T *epochs_per_sample, int n_vertices, float gamma,
-                     UMAPParams *params, int n_epochs, cudaStream_t stream) {
+                     UMAPParams *params, int n_epochs,
+                     std::shared_ptr<deviceAllocator> alloc,
+                     cudaStream_t stream) {
   // have we been given y-values?
   bool move_other = head_n == tail_n;
 
   T alpha = params->initial_alpha;
 
-  T *epochs_per_negative_sample;
-  MLCommon::allocate(epochs_per_negative_sample, nnz);
+  MLCommon::device_buffer<T> epochs_per_negative_sample(alloc, stream, nnz);
 
   int nsr = params->negative_sample_rate;
   MLCommon::LinAlg::unaryOp<T>(
-    epochs_per_negative_sample, epochs_per_sample, nnz,
+    epochs_per_negative_sample.data(), epochs_per_sample, nnz,
     [=] __device__(T input) { return input / T(nsr); }, stream);
 
-  T *epoch_of_next_negative_sample;
-  MLCommon::allocate(epoch_of_next_negative_sample, nnz);
-  MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz,
-                 stream);
+  MLCommon::device_buffer<T> epoch_of_next_negative_sample(alloc, stream, nnz);
+  MLCommon::copy(epoch_of_next_negative_sample.data(),
+                 epochs_per_negative_sample.data(), nnz, stream);
 
-  T *epoch_of_next_sample;
-  MLCommon::allocate(epoch_of_next_sample, nnz);
-  MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz, stream);
+  MLCommon::device_buffer<T> epoch_of_next_sample(alloc, stream, nnz);
+  MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -268,18 +267,14 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-      epochs_per_sample, n_vertices, move_other, epochs_per_negative_sample,
-      epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
-      seed, *params);
+      epochs_per_sample, n_vertices, move_other,
+      epochs_per_negative_sample.data(), epoch_of_next_negative_sample.data(),
+      epoch_of_next_sample.data(), alpha, n, gamma, seed, *params);
 
     if (params->callback) params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
   }
-
-  CUDA_CHECK(cudaFree(epochs_per_negative_sample));
-  CUDA_CHECK(cudaFree(epoch_of_next_negative_sample));
-  CUDA_CHECK(cudaFree(epoch_of_next_sample));
 }
 
 /**
@@ -326,24 +321,24 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   MLCommon::Sparse::COO<T> out(alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, alloc, stream);
 
-  T *epochs_per_sample;
-  MLCommon::allocate(epochs_per_sample, out.nnz, true);
+  MLCommon::device_buffer<T> epochs_per_sample(alloc, stream, out.nnz);
+  CUDA_CHECK(
+    cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
   make_epochs_per_sample(out.get_vals(), out.nnz, params->n_epochs,
-                         epochs_per_sample, stream);
+                         epochs_per_sample.data(), stream);
 
   if (params->verbose)
-    std::cout << MLCommon::arr2Str(epochs_per_sample, out.nnz,
+    std::cout << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
                                    "epochs_per_sample", stream)
               << std::endl;
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.get_rows(),
-                            out.get_cols(), out.nnz, epochs_per_sample, m,
-                            params->repulsion_strength, params,
-                            params->n_epochs, stream);
+                            out.get_cols(), out.nnz, epochs_per_sample.data(),
+                            m, params->repulsion_strength, params,
+                            params->n_epochs, alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaFree(epochs_per_sample));
 }
 }  // namespace Algo
 }  // namespace SimplSetEmbed

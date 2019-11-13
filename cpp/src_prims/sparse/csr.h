@@ -49,168 +49,189 @@ static const float MIN_FLOAT = std::numeric_limits<float>::min();
  * @tparam T: the type of the value array.
  *
  */
-template <typename T>
+
+template <typename T, typename Index_Type = int>
 class CSR {
+ protected:
+  device_buffer<Index_Type> row_ind;
+  device_buffer<Index_Type> row_ind_ptr;
+  device_buffer<T> vals;
+
  public:
-  int *row_ind;
-  int *row_ind_ptr;
-  T *vals;
-  int nnz;
-  int n_rows;
-  int n_cols;
+  Index_Type nnz;
+  Index_Type n_rows;
+  Index_Type n_cols;
 
   /**
-     * @brief default constructor
-     */
-  CSR()
-    : row_ind(nullptr),
-      row_ind_ptr(nullptr),
-      vals(nullptr),
-      nnz(-1),
-      n_rows(-1),
-      n_cols(-1) {}
+    * @param device: are the underlying arrays going to be on device?
+    */
+  CSR(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream)
+    : row_ind(alloc, stream, 0),
+      row_ind_ptr(alloc, stream, 0),
+      vals(alloc, stream, 0),
+      nnz(0),
+      n_rows(0),
+      n_cols(0) {}
 
-  /*
-     * @brief construct a CSR object with arrays
-     *
-     * @param row_ind: the array of row_indices
-     * @param row_ind_ptr: array of row_index_ptr
-     * @param vals: array of data
-     * @param nnz: size of data and row_ind_ptr arrays
-     * @param n_rows: number of rows in the dense matrix
-     * @param n_cols: number of cols in the dense matrix
-     */
-  CSR(int *row_ind, int *row_ind_ptr, T *vals, int nnz, int n_rows = -1,
-      int n_cols = -1) {
-    this->row_ind = row_ind;
-    this->row_ind_ptr = row_ind_ptr;
-    this->vals = vals;
-    this->nnz = nnz;
-    this->n_rows = n_rows;
-    this->n_cols = n_cols;
-  }
-  /*
-     * @brief construct an empty allocated CSR given its size
-     *
-     * @param nnz: size of data and row_ind_ptr arrays
-     * @param n_rows: number of rows in the dense matrix
-     * @param n_cols: number of cols in the dense matrix
-     * @param init: initialize arrays to zeros?
-     */
+  /**
+    * @param rows: coo rows array
+    * @param cols: coo cols array
+    * @param vals: coo vals array
+    * @param nnz: size of the rows/cols/vals arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of cols in the dense matrix
+    */
+  CSR(device_buffer<Index_Type> &row_ind_,
+      device_buffer<Index_Type> &row_ind_ptr_, device_buffer<T> &vals,
+      Index_Type nnz, Index_Type n_rows = -1, Index_Type n_cols = -1)
+    : row_ind(row_ind_),
+      row_ind_ptr(row_ind_ptr_),
+      vals(vals),
+      nnz(nnz),
+      n_rows(n_rows),
+      n_cols(n_cols) {}
 
-  CSR(int nnz, int n_rows = -1, int n_cols = -1, bool init = true)
-    : row_ind(nullptr),
-      row_ind_ptr(nullptr),
-      vals(nullptr),
+  /**
+    * @param nnz: size of the rows/cols/vals arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of cols in the dense matrix
+    * @param init: initialize arrays with zeros
+    */
+  CSR(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
+      Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
+      bool init = true)
+    : row_ind(alloc, stream, nnz),
+      row_ind_ptr(alloc, stream, nnz),
+      vals(alloc, stream, nnz),
       nnz(nnz),
       n_rows(n_rows),
       n_cols(n_cols) {
-    this->allocate(nnz, n_rows, n_cols, init);
+    if (init) {
+      cudaMemsetAsync(this->row_ind.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->row_ind_ptr.data(), 0,
+                      this->nnz * sizeof(Index_Type), stream);
+      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
+    }
   }
 
-  ~CSR() { this->free(); }
+  ~CSR() {}
 
   /**
-     * @brief validate size of CSR object is >0 and that
-     * number of rows/cols of dense matrix are also >0.
-     */
-  bool validate_size() {
+        * @brief Size should be > 0, with the number of rows
+        * and cols in the dense matrix being > 0.
+        */
+  bool validate_size() const {
     if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
     return true;
   }
 
   /**
-     * @brief Return true if underlying arrays have been allocated, false otherwise.
-     */
-  bool validate_mem() {
-    if (this->row_ind == nullptr || this->row_ind_ptr == nullptr ||
-        this->vals == nullptr) {
+        * @brief If the underlying arrays have not been set,
+        * return false. Otherwise true.
+        */
+  bool validate_mem() const {
+    if (this->row_ind.size() == 0 || this->row_ind_ptr.size() == 0 ||
+        this->vals.size() == 0) {
       return false;
     }
 
     return true;
   }
 
+  Index_Type *get_row_ind() { return this->row_ind.data(); }
+
+  Index_Type *get_row_ind_ptr() { return this->row_ind_ptr.data(); }
+
+  T *get_vals() { return this->vals.data(); }
+
   /**
-     * @brief Send human-readable object state to the given output stream
-     */
-  friend std::ostream &operator<<(std::ostream &out, const CSR &c) {
-    out << arr2Str(c->row_ind, c->nnz, "row_ind") << std::endl;
-    out << arr2Str(c->row_ind_ptr, c->nnz, "cols") << std::endl;
-    out << arr2Str(c->vals, c->nnz, "vals") << std::endl;
-    out << c->nnz << std::endl;
+    * @brief Send human-readable state information to output stream
+    */
+  friend std::ostream &operator<<(std::ostream &out, const CSR<T> &c) {
+    if (c.validate_size() && c.validate_mem()) {
+      cudaStream_t stream;
+      cudaStreamCreate(&stream);
+
+      out << arr2Str(c.row_ind.data(), c.nnz, "row_ind", stream) << std::endl;
+      out << arr2Str(c.row_ind_ptr.data(), c.nnz, "row_ind_ptr", stream)
+          << std::endl;
+      out << arr2Str(c.vals.data(), c.nnz, "vals", stream) << std::endl;
+      out << "nnz=" << c.nnz << std::endl;
+      out << "n_rows=" << c.n_rows << std::endl;
+      out << "n_cols=" << c.n_cols << std::endl;
+
+      cudaStreamDestroy(stream);
+    } else {
+      out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
+    }
+
+    return out;
   }
 
   /**
-    * @brief Sets the size of a non-square dense matrix
-    * @param n_rows: number of rows in dense matrix
-    * @param n_cols: number of cols in dense matrix
-    */
+        * @brief Set the number of rows and cols
+        * @param n_rows: number of rows in the dense matrix
+        * @param n_cols: number of columns in the dense matrix
+        */
   void setSize(int n_rows, int n_cols) {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
   }
 
   /**
-     * @brief Sets the size of a square dense matrix
-     * @param n: number of rows & cols in dense matrix
-     */
+        * @brief Set the number of rows and cols for a square dense matrix
+        * @param n: number of rows and cols
+        */
   void setSize(int n) {
     this->n_rows = n;
     this->n_cols = n;
   }
 
   /**
-     * @brief Allocate underlying arrays
-     * @param nnz: sets the size of the underlying arrays
-     * @param init: should arrays be initialized to zeros?
-     */
-  void allocate(int nnz, bool init = true) { this->allocate(nnz, -1, init); }
-
-  /**
-     * @brief Allocate underlying arrays and the size of the square dense matrix
-     * @param nnz: sets the size of the underlying arrays
-     * @param size: number of rows and cols in the square dense matrix
-     * @param init: should arrays be initialized to zeros?
-     */
-  void allocate(int nnz, int size, bool init = true) {
-    this->allocate(nnz, size, size, init);
+        * @brief Allocate the underlying arrays
+        * @param nnz: size of underlying row/col/val arrays
+        * @param device: allocate on device or host?
+        * @param init: should values be initialized to 0?
+        */
+  void allocate(int nnz, bool init, cudaStream_t stream) {
+    this->allocate(nnz, -1, init, stream);
   }
 
   /**
-     * @brief Allocate underlying arrays and the size of the non-square dense matrix
-     * @param nnz: sets the size of the underlying arrays
-     * @param n_rows: number of rows in the dense matrix
-     * @param n_cols: number of cols in the dense matrix
-     * @param init: should arrays be initialized to zeros?
-     */
-  void allocate(int nnz, int n_rows, int n_cols, bool init = true) {
+    * @brief Allocate the underlying arrays
+    * @param nnz: size of the underlying row/col/val arrays
+    * @param size: the number of rows/cols in a square dense matrix
+    * @param init: should values be initialized to 0?
+    */
+  void allocate(int nnz, int size, bool init, cudaStream_t stream) {
+    this->allocate(nnz, size, size, init, stream);
+  }
+
+  /**
+    * @brief Allocate the underlying arrays
+    * @param nnz: size of the underlying row/col/val arrays
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of columns in the dense matrix
+    * @param init: should values be initialized to 0?
+    * @param stream: stream to use for init
+    */
+  void allocate(int nnz, int n_rows, int n_cols, bool init,
+                cudaStream_t stream) {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
     this->nnz = nnz;
-    MLCommon::allocate(this->row_ind, this->nnz, init);
-    MLCommon::allocate(this->row_ind_ptr, this->nnz, init);
-    MLCommon::allocate(this->vals, this->nnz, init);
-  }
 
-  /**
-     * @brief Frees the memory from the underlying arrays
-     */
-  void free() {
-    try {
-      if (row_ind != nullptr) CUDA_CHECK(cudaFree(row_ind));
+    this->rows.resize(this->nnz, stream);
+    this->cols.resize(this->nnz, stream);
+    this->vals.resize(this->nnz, stream);
 
-      if (row_ind_ptr != nullptr) CUDA_CHECK(cudaFree(row_ind_ptr));
-
-      if (vals != nullptr) CUDA_CHECK(cudaFree(vals));
-
-      row_ind = nullptr;
-      row_ind_ptr = nullptr;
-      vals = nullptr;
-
-    } catch (Exception &e) {
-      std::cout << "An exception occurred freeing COO memory: " << e.what()
-                << std::endl;
+    if (init) {
+      cudaMemsetAsync(this->row_ind.data(), 0, this->nnz * sizeof(Index_Type),
+                      stream);
+      cudaMemsetAsync(this->row_ind_ptr.data(), 0,
+                      this->nnz * sizeof(Index_Type), stream);
+      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
     }
   }
 };
@@ -496,29 +517,31 @@ template <typename T, int TPB_X = 32>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          int nnz1, const int *b_ind, const int *b_indptr,
                          const T *b_val, int nnz2, int m, int *out_ind,
+                         std::shared_ptr<deviceAllocator> alloc,
                          cudaStream_t stream) {
   dim3 grid(ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  int *row_counts;
-  MLCommon::allocate(row_counts, m + 1, true);
+  device_buffer<int> row_counts(alloc, stream, m + 1);
+  CUDA_CHECK(
+    cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
-  csr_add_calc_row_counts_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
-    a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, row_counts);
+  csr_add_calc_row_counts_kernel<T, TPB_X>
+    <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
+                               b_val, nnz2, m, row_counts.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int cnnz = 0;
-  MLCommon::updateHost(&cnnz, row_counts + m, 1, stream);
+  MLCommon::updateHost(&cnnz, row_counts.data() + m, 1, stream);
 
   // create csr compressed row index from row counts
   thrust::device_ptr<int> row_counts_d =
-    thrust::device_pointer_cast(row_counts);
+    thrust::device_pointer_cast(row_counts.data());
   thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
   exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
                  c_ind_d);
-  CUDA_CHECK(cudaFree(row_counts));
 
   return cnnz;
 }
@@ -654,35 +677,13 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                                        adj, row_ind_ptr, stream, fused_op);
 }
 
-template <typename T = long>
-class WeakCCState {
+struct WeakCCState {
  public:
   bool *xa;
   bool *fa;
   bool *m;
-  bool owner;
 
-  WeakCCState(T n) : owner(true) {
-    MLCommon::allocate(xa, n, true);
-    MLCommon::allocate(fa, n, true);
-    MLCommon::allocate(m, 1, true);
-  }
-
-  WeakCCState(bool *xa, bool *fa, bool *m)
-    : owner(false), xa(xa), fa(fa), m(m) {}
-
-  ~WeakCCState() {
-    if (owner) {
-      try {
-        CUDA_CHECK(cudaFree(xa));
-        CUDA_CHECK(cudaFree(fa));
-        CUDA_CHECK(cudaFree(m));
-      } catch (Exception &e) {
-        std::cout << "Exception freeing memory for WeakCCState: " << e.what()
-                  << std::endl;
-      }
-    }
-  }
+  WeakCCState(bool *xa, bool *fa, bool *m) : xa(xa), fa(fa), m(m) {}
 };
 
 template <typename Index_, int TPB_X = 32>
@@ -757,7 +758,7 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, bool *fa, bool *xa,
 template <typename Index_, int TPB_X = 32, typename Lambda>
 void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
                            const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                           WeakCCState<Index_> *state, Index_ startVertexId,
+                           WeakCCState *state, Index_ startVertexId,
                            Index_ batchSize, cudaStream_t stream,
                            Lambda filter_op) {
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
@@ -784,7 +785,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
       startVertexId, batchSize);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
 
     //** swapping F1 and F2
     MLCommon::updateHost(host_fa, state->fa, N, stream);
@@ -832,9 +832,8 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_)->bool>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ startVertexId, Index_ batchSize,
-                     WeakCCState<Index_> *state, cudaStream_t stream,
-                     Lambda filter_op) {
+                     Index_ startVertexId, Index_ batchSize, WeakCCState *state,
+                     cudaStream_t stream, Lambda filter_op) {
   dim3 blocks(ceildiv(N, Index_(TPB_X)));
   dim3 threads(TPB_X);
 
@@ -878,8 +877,8 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_, int TPB_X = 32>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ startVertexId, Index_ batchSize,
-                     WeakCCState<Index_> *state, cudaStream_t stream) {
+                     Index_ startVertexId, Index_ batchSize, WeakCCState *state,
+                     cudaStream_t stream) {
   weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, startVertexId,
                   batchSize, state, stream,
                   [] __device__(Index_ tid) { return true; });
@@ -911,8 +910,13 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, cudaStream_t stream, Lambda filter_op) {
-  WeakCCState<Index_> state(N);
+             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> alloc,
+             cudaStream_t stream, Lambda filter_op) {
+  device_buffer<bool> xa(alloc, stream, N);
+  device_buffer<bool> fa(alloc, stream, N);
+  device_buffer<bool> m(alloc, stream, 1);
+
+  WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, filter_op);
 }
@@ -941,8 +945,12 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, cudaStream_t stream) {
-  WeakCCState<Index_> state(N);
+             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> alloc,
+             cudaStream_t stream) {
+  device_buffer<bool> xa(alloc, stream, N);
+  device_buffer<bool> fa(alloc, stream, N);
+  device_buffer<bool> m(alloc, stream, 1);
+  WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, [](Index_) { return true; });
 }

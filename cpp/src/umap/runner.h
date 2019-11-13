@@ -73,8 +73,9 @@ __global__ void init_transform(int *indices, T *weights, int n,
  * a and b, which are based on min_dist and spread
  * parameters.
  */
-void find_ab(UMAPParams *params, cudaStream_t stream) {
-  Optimize::find_params_ab(params, stream);
+void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+             cudaStream_t stream) {
+  Optimize::find_params_ab(params, alloc, stream);
 }
 
 template <typename T, int TPB_X>
@@ -90,7 +91,7 @@ void _fit(const cumlHandle &handle,
 
   if (params->verbose)
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
-  find_ab(params, stream);
+  find_ab(params, alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -157,7 +158,7 @@ void _fit(const cumlHandle &handle,
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
 
-  find_ab(params, stream);
+  find_ab(params, alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -280,7 +281,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
     n, knn_indices, knn_dists, rhos, sigmas, params, params->n_neighbors,
-    adjusted_local_connectivity, stream);
+    adjusted_local_connectivity, alloc, stream);
 
   /**
    * Compute graph of membership strengths
@@ -380,7 +381,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.get_rows(),
     comp_coo.get_cols(), comp_coo.nnz, epochs_per_sample, n,
-    params->repulsion_strength, params, n_epochs, stream);
+    params->repulsion_strength, params, n_epochs, alloc, stream);
 
   CUDA_CHECK(cudaFree(knn_dists));
   CUDA_CHECK(cudaFree(knn_indices));
