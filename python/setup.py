@@ -123,6 +123,7 @@ if "--singlegpu" in sys.argv:
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
     exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
