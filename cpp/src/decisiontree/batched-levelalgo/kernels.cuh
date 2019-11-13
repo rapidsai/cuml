@@ -19,6 +19,7 @@
 #include <common/grid_sync.h>
 #include <cuda_utils.h>
 #include "input.cuh"
+#include "metrics.cuh"
 #include "node.cuh"
 #include "split.cuh"
 
@@ -42,41 +43,6 @@ __global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
   __syncthreads();
   for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x)
     atomicAdd(gclasshist + i, shist[i]);
-}
-
-/**
- * @brief Compute gain based on gini impurity metric
- * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
- *              After that, it also contains left/right sample counts for each
- *              of the bins (2 x nbins)
- * @param sbins quantiles for the current column (len = nbins)
- * @param parentGain parent node's best gain
- * @param sp will contain the per-thread best split so far
- * @param col current column
- * @param len total number of samples for the current node to be split
- * @param nbins number of bins
- * @param nclasses number of classes
- */
-template <typename DataT, typename IdxT>
-DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
-                     Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
-                     IdxT nclasses) {
-  constexpr DataT One = DataT(1.0);
-  DataT invlen = One / len;
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto gain = DataT(0.0);
-    auto nLeft = shist[nbins * 2 * nclasses + i];
-    auto invLeft = One / nLeft;
-    auto invRight = One / shist[nbins * 2 * nclasses + nbins + i];
-    for (IdxT j = 0; j < nclasses; ++j) {
-      auto lval = DataT(shist[i * 2 * nclasses + j]);
-      gain += lval * invLeft * lval * invlen;
-      auto rval = DataT(shist[i * 2 * nclasses + nclasses + j]);
-      gain += rval * invRight * rval * invlen;
-    }
-    gain = parentGain - One + gain;
-    sp.update({sbins[i], col, gain, nLeft});
-  }
 }
 
 /**

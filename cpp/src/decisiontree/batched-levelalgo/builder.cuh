@@ -284,7 +284,7 @@ struct Builder {
     auto nblks =
       MLCommon::ceildiv<int>(input.nSampledRows, TPB_DEFAULT * NITEMS);
     size_t smemSize = sizeof(int) * input.nclasses;
-    auto out = DataT(1.0);
+    auto out = DataT(0.0);
     ///@todo: support for regression
     if (isRegression()) {
     } else {
@@ -297,12 +297,14 @@ struct Builder {
       MLCommon::updateHost(h_hist, hist, input.nclasses, s);
       CUDA_CHECK(cudaStreamSynchronize(s));
       // better to compute the initial metric (after class histograms) on CPU
-      ///@todo: support other metrics
-      auto invlen = out / DataT(input.nSampledRows);
-      for (IdxT i = 0; i < input.nclasses; ++i) {
-        auto val = h_hist[i] * invlen;
-        out -= val * val;
+      if (params.split_criterion == CRITERION::GINI) {
+        out =
+          giniMetric<DataT, IdxT>(h_hist, input.nclasses, input.nSampledRows);
+      } else {
+        out = entropyMetric<DataT, IdxT>(h_hist, input.nclasses,
+                                         input.nSampledRows);
       }
+      ///@todo: support other metrics
     }
     return out;
   }
