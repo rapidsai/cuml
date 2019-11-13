@@ -399,7 +399,8 @@ class UMAP(Base):
 
         self.embedding_ = rmm.to_device(zeros((self.n_rows,
                                               umap_params.n_components),
-                                             order="C", dtype=np.float32))
+                                              order="C", dtype=np.float32))
+
         self.input_hash = joblib.hash(self.X_m.copy_to_host())
 
         embeddings = \
@@ -465,8 +466,6 @@ class UMAP(Base):
         self.fit(X, y, convert_dtype=convert_dtype)
         return UMAP._prep_output(X, self.embedding_)
 
-
-
     def transform(self, X, convert_dtype=False):
         """Transform X into the existing embedded space and return that
         transformed output.
@@ -505,7 +504,6 @@ class UMAP(Base):
         if n_cols != self.n_dims:
             raise ValueError("n_features of X must match n_features of "
                              "training data")
-
 
         if joblib.hash(X_m.copy_to_host()) == self.input_hash:
             ret = UMAP._prep_output(X, self.embedding_)
