@@ -47,7 +47,7 @@ class NearestNeighbors(object):
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  **kwargs):
         self.client = default_client() if client is None else client
-        self.kwargs = kwargs
+        self.model_args = kwargs
         self.X = None
         self.Y = None
         self.n_cols = 0
@@ -108,8 +108,8 @@ class NearestNeighbors(object):
         """
         if n_neighbors is None:
             if "n_neighbors" in self.kwargs \
-                    and self.kwargs["n_neighbors"] is not None:
-                n_neighbors = self.kwargs["n_neighbors"]
+                    and self.model_args["n_neighbors"] is not None:
+                n_neighbors = self.model_args["n_neighbors"]
             else:
                 try:
                     from cuml.neighbors.nearest_neighbors_mg import \
@@ -129,7 +129,7 @@ class NearestNeighbors(object):
         nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
-            **self.kwargs,
+            **self.model_args,
             workers=[worker],
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(comms.worker_addresses)])
