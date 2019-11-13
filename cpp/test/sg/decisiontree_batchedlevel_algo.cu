@@ -55,7 +55,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   }
 
   void TearDown() {
-    printf("teardown started\n");
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto allocator = handle->getImpl().getDeviceAllocator();
     allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
@@ -67,7 +66,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     handle.reset();
     CUDA_CHECK(cudaStreamDestroy(stream));
-    printf("teardown ended\n");
   }
 
   cudaStream_t stream;

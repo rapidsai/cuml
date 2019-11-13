@@ -180,19 +180,12 @@ struct Builder {
    * @param s cuda steam
    */
   void train(NodeT* h_nodes, cudaStream_t s) {
-    printf("train started...\n");
     init(h_nodes, s);
-    printf("init done...\n");
     do {
-      printf("train loop begin...\n");
       auto new_nodes = doSplit(h_nodes, s);
-      printf("new_nodes = %d\n", new_nodes);
       h_total_nodes += new_nodes;
-      printf("total_nodes = %d\n", h_total_nodes);
       updateNodeRange();
-      printf("train loop over...\n");
     } while (!isOver());
-    printf("train ended...\n");
   }
 
  private:
@@ -361,7 +354,6 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   h_buff.release(stream);
   ///@todo: copy from Node to sparsetree
   h_nodes.release(stream);
-  printf("grow_tree ended\n");
 }
 
 }  // namespace DecisionTree
