@@ -9,6 +9,7 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1332: Add option to cuml.dask make_blobs to produce dask array
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
@@ -30,7 +31,7 @@
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
   to select algos
-- PR #1335: Options to print available algorithms and datasets 
+- PR #1335: Options to print available algorithms and datasets
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
