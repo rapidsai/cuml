@@ -47,6 +47,7 @@ static const float MIN_FLOAT = std::numeric_limits<float>::min();
  * while the original caller still maintains ownership of the underlying memory.
  *
  * @tparam T: the type of the value array.
+ * @tparam Index_Type: The type of the index arrays
  *
  */
 
@@ -74,9 +75,9 @@ class CSR {
       n_cols(0) {}
 
   /**
-    * @param rows: coo rows array
-    * @param cols: coo cols array
-    * @param vals: coo vals array
+    * @param row_ind_: csr row index array
+    * @param row_ind_ptr_: csr row index pointer array
+    * @param vals: csr vals array
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
@@ -92,6 +93,8 @@ class CSR {
       n_cols(n_cols) {}
 
   /**
+    * @param alloc: device allocator for temporary buffers
+    * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
@@ -118,18 +121,18 @@ class CSR {
   ~CSR() {}
 
   /**
-        * @brief Size should be > 0, with the number of rows
-        * and cols in the dense matrix being > 0.
-        */
+    * @brief Size should be > 0, with the number of rows
+    * and cols in the dense matrix being > 0.
+    */
   bool validate_size() const {
     if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
     return true;
   }
 
   /**
-        * @brief If the underlying arrays have not been set,
-        * return false. Otherwise true.
-        */
+    * @brief If the underlying arrays have not been set,
+    * return false. Otherwise true.
+    */
   bool validate_mem() const {
     if (this->row_ind.size() == 0 || this->row_ind_ptr.size() == 0 ||
         this->vals.size() == 0) {
@@ -139,10 +142,19 @@ class CSR {
     return true;
   }
 
+  /**
+   * @brief Returns the row index array
+   */
   Index_Type *get_row_ind() { return this->row_ind.data(); }
 
+  /**
+   * @brief Returns the row index pointer array
+   */
   Index_Type *get_row_ind_ptr() { return this->row_ind_ptr.data(); }
 
+  /**
+   * Returns the vals array
+   */
   T *get_vals() { return this->vals.data(); }
 
   /**
@@ -170,30 +182,30 @@ class CSR {
   }
 
   /**
-        * @brief Set the number of rows and cols
-        * @param n_rows: number of rows in the dense matrix
-        * @param n_cols: number of columns in the dense matrix
-        */
+    * @brief Set the number of rows and cols
+    * @param n_rows: number of rows in the dense matrix
+    * @param n_cols: number of columns in the dense matrix
+    */
   void setSize(int n_rows, int n_cols) {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
   }
 
   /**
-        * @brief Set the number of rows and cols for a square dense matrix
-        * @param n: number of rows and cols
-        */
+    * @brief Set the number of rows and cols for a square dense matrix
+    * @param n: number of rows and cols
+    */
   void setSize(int n) {
     this->n_rows = n;
     this->n_cols = n;
   }
 
   /**
-        * @brief Allocate the underlying arrays
-        * @param nnz: size of underlying row/col/val arrays
-        * @param device: allocate on device or host?
-        * @param init: should values be initialized to 0?
-        */
+    * @brief Allocate the underlying arrays
+    * @param nnz: size of underlying row/col/val arrays
+    * @param init: should values be initialized to 0?
+    * @param stream: CUDA stream to use
+    */
   void allocate(int nnz, bool init, cudaStream_t stream) {
     this->allocate(nnz, -1, init, stream);
   }
@@ -203,6 +215,7 @@ class CSR {
     * @param nnz: size of the underlying row/col/val arrays
     * @param size: the number of rows/cols in a square dense matrix
     * @param init: should values be initialized to 0?
+    * @param stream: CUDA stream to use
     */
   void allocate(int nnz, int size, bool init, cudaStream_t stream) {
     this->allocate(nnz, size, size, init, stream);
@@ -511,6 +524,7 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
  * @param out_ind: output row_ind array
+ * @param alloc: deviceAllocator to use for temp memory
  * @param stream: cuda stream to use
  */
 template <typename T, int TPB_X = 32>
@@ -623,6 +637,7 @@ void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
  * @param adj an adjacency array (size batchSize x total_rows)
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
+ * @param fused_op: the fused operation
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -667,6 +682,7 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param adj an adjacency array
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
+ * @param fused_op the fused operation
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -903,6 +919,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
+ * @param alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling.
@@ -940,8 +957,8 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
+ * @param alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
- * should get considered for labeling.
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,

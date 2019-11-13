@@ -26,6 +26,12 @@ import numpy as np
 import pandas as pd
 import warnings
 
+import joblib
+
+import cupy
+
+import numba.cuda as cuda
+
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -238,31 +244,31 @@ class UMAP(Base):
         self.n_neighbors = n_neighbors
         umap_params.n_neighbors = n_neighbors
 
-        umap_params.n_components = <int > n_components
-        umap_params.n_epochs = <int > n_epochs
-        umap_params.verbose = <bool > verbose
+        umap_params.n_components = <int> n_components
+        umap_params.n_epochs = <int> n_epochs
+        umap_params.verbose = <bool> verbose
 
         if(init == "spectral"):
-            umap_params.init = <int > 1
+            umap_params.init = <int> 1
         elif(init == "random"):
-            umap_params.init = <int > 0
+            umap_params.init = <int> 0
         else:
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is not None:
-            umap_params.a = <float > a
+            umap_params.a = <float> a
 
         if b is not None:
-            umap_params.b = <float > b
+            umap_params.b = <float> b
 
-        umap_params.learning_rate = <float > learning_rate
-        umap_params.min_dist = <float > min_dist
-        umap_params.spread = <float > spread
-        umap_params.set_op_mix_ratio = <float > set_op_mix_ratio
-        umap_params.local_connectivity = <float > local_connectivity
-        umap_params.repulsion_strength = <float > repulsion_strength
-        umap_params.negative_sample_rate = <int > negative_sample_rate
-        umap_params.transform_queue_size = <int > transform_queue_size
+        umap_params.learning_rate = <float> learning_rate
+        umap_params.min_dist = <float> min_dist
+        umap_params.spread = <float> spread
+        umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
+        umap_params.local_connectivity = <float> local_connectivity
+        umap_params.repulsion_strength = <float> repulsion_strength
+        umap_params.negative_sample_rate = <int> negative_sample_rate
+        umap_params.transform_queue_size = <int> transform_queue_size
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
@@ -292,7 +298,7 @@ class UMAP(Base):
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
         state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-        state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+        state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
 
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
@@ -324,7 +330,7 @@ class UMAP(Base):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
         state['X_m'] = row_matrix(state['X_m'])
-        state["arr_embed"] = row_matrix(state["arr_embed"])
+        state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
@@ -350,6 +356,17 @@ class UMAP(Base):
 
         self.__dict__.update(state)
 
+    @staticmethod
+    def _prep_output(X, embedding):
+        if isinstance(X, cudf.DataFrame):
+            return cudf.DataFrame.from_gpu_matrix(embedding)
+        elif isinstance(X, np.ndarray):
+            return np.asarray(embedding)
+        elif isinstance(X, cuda.DeviceNDArray):
+            return embedding
+        elif isinstance(X, cupy.ndarray):
+            return cupy.array(embedding)
+
     def fit(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space.
         Parameters
@@ -367,29 +384,29 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+        self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
                                                  else None))
 
-        if n_rows <= 1:
+        if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
-        umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
-        self.n_dims = n_cols
-        self.raw_data_rows = n_rows
+            <UMAPParams*> <size_t> self.umap_params
+        umap_params.n_neighbors = min(self.n_rows, umap_params.n_neighbors)
 
-        self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
+        self.embedding_ = rmm.to_device(zeros((self.n_rows,
                                               umap_params.n_components),
                                              order="C", dtype=np.float32))
+        self.input_hash = joblib.hash(self.X_m.copy_to_host())
+
         embeddings = \
-            self.arr_embed.device_ctypes_pointer.value
+            self.embedding_.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
-            <cumlHandle*> < size_t > self.handle.getHandle()
+            <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
@@ -403,21 +420,21 @@ class UMAP(Base):
                                                      if convert_dtype
                                                      else None))
             fit(handle_[0],
-                < float*> x_raw,
-                < float*> y_raw,
-                < int > self.X_m.shape[0],
-                < int > self.X_m.shape[1],
-                < UMAPParams*>umap_params,
-                < float*>embed_raw)
+                <float*> x_raw,
+                <float*> y_raw,
+                <int> self.n_rows,
+                <int> self.n_dims,
+                <UMAPParams*>umap_params,
+                <float*>embed_raw)
 
         else:
 
             fit(handle_[0],
-                < float*> x_raw,
-                < int > self.X_m.shape[0],
-                < int > self.X_m.shape[1],
-                < UMAPParams*>umap_params,
-                < float*>embed_raw)
+                <float*> x_raw,
+                <int> self.n_rows,
+                <int> self.n_dims,
+                <UMAPParams*>umap_params,
+                <float*>embed_raw)
 
         self.handle.sync()
 
@@ -426,6 +443,14 @@ class UMAP(Base):
     def fit_transform(self, X, y=None, convert_dtype=False):
         """Fit X into an embedded space and return that transformed
         output.
+
+        There is a subtle difference between calling fit_transform(X)
+        and calling fit().transform(). Calling fit_transform(X) will
+        train the embeddings on X and return the embeddings. Calling
+        fit(X).transform(X) will train the embeddings on X and then
+        run a second optimization
+        return the embedding after it is trained while calling
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -438,14 +463,9 @@ class UMAP(Base):
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y, convert_dtype=convert_dtype)
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.arr_embed)
+        return UMAP._prep_output(X, self.embedding_)
 
-        return ret
+
 
     def transform(self, X, convert_dtype=False):
         """Transform X into the existing embedded space and return that
@@ -486,40 +506,38 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
+
+        if joblib.hash(X_m.copy_to_host()) == self.input_hash:
+            ret = UMAP._prep_output(X, self.embedding_)
+            del X_m
+            return ret
+
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> <size_t> self.umap_params
         embedding = rmm.to_device(zeros((X_m.shape[0],
                                          umap_params.n_components),
                                         order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> < size_t > self.handle.getHandle()
+        cdef cumlHandle *handle_ = \
+            <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
 
-        cdef uintptr_t embed_ptr = self.arr_embed.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = self.embedding_.device_ctypes_pointer.value
 
         transform(handle_[0],
-                  < float*>x_ptr,
-                  < int > X_m.shape[0],
-                  < int > X_m.shape[1],
-                  < float*>orig_x_raw,
-                  < int > self.raw_data_rows,
-                  < float*> embed_ptr,
-                  < int > self.arr_embed.shape[0],
-                  < UMAPParams*> umap_params,
-                  < float*> xformed_ptr)
-
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, embedding.shape[1]):
-                ret[str(i)] = embedding[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(embedding)
-
-        del X_m
-
+                  <float*>x_ptr,
+                  <int> X_m.shape[0],
+                  <int> X_m.shape[1],
+                  <float*>orig_x_raw,
+                  <int> self.n_rows,
+                  <float*> embed_ptr,
+                  <int> self.n_rows,
+                  <UMAPParams*> umap_params,
+                  <float*> xformed_ptr)
         self.handle.sync()
 
+        ret = UMAP._prep_output(X, embedding)
+        del X_m
         return ret
