@@ -241,7 +241,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      UMAPParams *params, int n_epochs,
                      std::shared_ptr<deviceAllocator> alloc,
                      cudaStream_t stream) {
-  // have we been given y-values?
+  // Are we doing a fit or a transform?
   bool move_other = head_embedding == tail_embedding;
 
   T alpha = params->initial_alpha;

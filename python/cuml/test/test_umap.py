@@ -194,30 +194,6 @@ def test_umap_data_formats(input_type, should_downcast,
     assert type(embeds) == np.ndarray
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_downcast_fails(input_type, nrows, n_feats):
-    n_samples = nrows
-    n_feats = n_feats
-    X, y = datasets.make_blobs(n_samples=n_samples,
-                               n_features=n_feats, random_state=0)
-
-    # Test fit() fails with double precision when should_downcast set to False
-    umap = cuUMAP(verbose=False)
-    with pytest.raises(Exception):
-        umap.fit(X, convert_dtype=False)
-
-    # Test fit() fails when downcast corrupted data
-    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-
-    umap = cuUMAP()
-    with pytest.raises(Exception):
-        umap.fit(X, convert_dtype=True)
-
-
 def test_umap_fit_transform_score_default():
 
     n_samples = 500

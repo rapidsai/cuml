@@ -68,15 +68,14 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
                               std::shared_ptr<deviceAllocator> alloc,
                               cudaStream_t stream  // size = nnz*2
 ) {
-  int *row_ind;
-  MLCommon::allocate(row_ind, in_coo->n_rows);
+  MLCommon::device_buffer<int> row_ind(alloc, stream, in_coo->n_rows);
 
-  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind, alloc, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind.data(), alloc, stream);
 
   // Perform l_inf normalization
-  MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(row_ind, in_coo->get_vals(),
-                                                    in_coo->nnz, in_coo->n_rows,
-                                                    in_coo->get_vals(), stream);
+  MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(
+    row_ind.data(), in_coo->get_vals(), in_coo->nnz, in_coo->n_rows,
+    in_coo->get_vals(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
@@ -87,7 +86,6 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
     },
     alloc, stream);
 
-  CUDA_CHECK(cudaFree(row_ind));
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -169,13 +167,14 @@ void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
                                          COO<T> *result, float weight,
                                          std::shared_ptr<deviceAllocator> alloc,
                                          cudaStream_t stream) {
-  int *result_ind;
-  MLCommon::allocate(result_ind, in1->n_rows, true);
+  MLCommon::device_buffer<int> result_ind(alloc, stream, in1->n_rows);
+  CUDA_CHECK(
+    cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
   int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
     row1_ind, in1->get_cols(), in1->get_vals(), in1->nnz, row2_ind,
-    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind, alloc,
-    stream);
+    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind.data(),
+    alloc, stream);
 
   result->allocate(result_nnz, in1->n_rows, stream);
 
@@ -184,11 +183,11 @@ void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
    */
   MLCommon::Sparse::csr_add_finalize<float, 32>(
     row1_ind, in1->get_cols(), in1->get_vals(), in1->nnz, row2_ind,
-    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind,
+    in2->get_cols(), in2->get_vals(), in2->nnz, in1->n_rows, result_ind.data(),
     result->get_cols(), result->get_vals(), stream);
 
   //@todo: Write a wrapper function for this
-  MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind, result->n_rows,
+  MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind.data(), result->n_rows,
                                       result->get_rows(), result->nnz, stream);
 
   thrust::device_ptr<const T> d_ptr1 =
@@ -209,12 +208,11 @@ void general_simplicial_set_intersection(int *row1_ind, COO<T> *in1,
 
   sset_intersection_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     row1_ind, in1->get_cols(), in1->get_vals(), in1->nnz, row2_ind,
-    in2->get_cols(), in2->get_vals(), in2->nnz, result_ind, result->get_cols(),
-    result->get_vals(), result->nnz, left_min, right_min, in1->n_rows, weight);
+    in2->get_cols(), in2->get_vals(), in2->nnz, result_ind.data(),
+    result->get_cols(), result->get_vals(), result->nnz, left_min, right_min,
+    in1->n_rows, weight);
 
   dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
-
-  CUDA_CHECK(cudaFree(result_ind));
 }
 
 template <int TPB_X, typename T>
@@ -241,47 +239,43 @@ template <int TPB_X, typename T>
 void perform_general_intersection(const cumlHandle &handle, T *y,
                                   COO<T> *rgraph_coo, COO<T> *final_coo,
                                   UMAPParams *params, cudaStream_t stream) {
+  auto alloc = handle.getDeviceAllocator();
+
   /**
    * Calculate kNN for Y
    */
-  long *y_knn_indices;
-  T *y_knn_dists;
-
   int knn_dims = rgraph_coo->n_rows * params->target_n_neighbors;
+  MLCommon::device_buffer<long> y_knn_indices(alloc, stream, knn_dims);
+  MLCommon::device_buffer<T> y_knn_dists(alloc, stream, knn_dims);
 
-  MLCommon::allocate(y_knn_indices, knn_dims, true);
-  MLCommon::allocate(y_knn_dists, knn_dims, true);
-
-  kNNGraph::run(y, rgraph_coo->n_rows, y, rgraph_coo->n_rows, 1, y_knn_indices,
-                y_knn_dists, params->target_n_neighbors, params, stream);
+  kNNGraph::run(y, rgraph_coo->n_rows, y, rgraph_coo->n_rows, 1,
+                y_knn_indices.data(), y_knn_dists.data(),
+                params->target_n_neighbors, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
     std::cout << "Target kNN Graph" << std::endl;
     std::cout << MLCommon::arr2Str(
-                   y_knn_indices,
+                   y_knn_indices.data(),
                    rgraph_coo->n_rows * params->target_n_neighbors,
                    "knn_indices", stream)
               << std::endl;
     std::cout << MLCommon::arr2Str(
-                   y_knn_dists, rgraph_coo->n_rows * params->target_n_neighbors,
-                   "knn_dists", stream)
+                   y_knn_dists.data(),
+                   rgraph_coo->n_rows * params->target_n_neighbors, "knn_dists",
+                   stream)
               << std::endl;
   }
 
-  std::shared_ptr<deviceAllocator> alloc = handle.getDeviceAllocator();
   /**
    * Compute fuzzy simplicial set
    */
   COO<T> ygraph_coo(alloc, stream);
 
-  FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices, y_knn_dists,
-                               params->target_n_neighbors, &ygraph_coo, params,
-                               alloc, stream);
+  FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices.data(),
+                               y_knn_dists.data(), params->target_n_neighbors,
+                               &ygraph_coo, params, alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  CUDA_CHECK(cudaFree(y_knn_indices));
-  CUDA_CHECK(cudaFree(y_knn_dists));
 
   if (params->verbose) {
     std::cout << "Target Fuzzy Simplicial Set" << std::endl;
@@ -291,23 +285,26 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   /**
    * Compute general simplicial set intersection.
    */
-  int *xrow_ind, *yrow_ind;
-  MLCommon::allocate(xrow_ind, rgraph_coo->n_rows, true);
-  MLCommon::allocate(yrow_ind, ygraph_coo.n_rows, true);
+  MLCommon::device_buffer<int> xrow_ind(alloc, stream, rgraph_coo->n_rows);
+  MLCommon::device_buffer<int> yrow_ind(alloc, stream, ygraph_coo.n_rows);
+
+  CUDA_CHECK(cudaMemsetAsync(xrow_ind.data(), 0,
+                             rgraph_coo->n_rows * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
+                             ygraph_coo.n_rows * sizeof(int), stream));
 
   COO<T> cygraph_coo(alloc, stream);
   coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, alloc, stream);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind, alloc, stream);
-  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind, alloc, stream);
+  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), alloc,
+                                      stream);
+  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), alloc,
+                                      stream);
 
   COO<T> result_coo(alloc, stream);
   general_simplicial_set_intersection<T, TPB_X>(
-    xrow_ind, rgraph_coo, yrow_ind, &cygraph_coo, &result_coo,
+    xrow_ind.data(), rgraph_coo, yrow_ind.data(), &cygraph_coo, &result_coo,
     params->target_weights, alloc, stream);
-
-  CUDA_CHECK(cudaFree(xrow_ind));
-  CUDA_CHECK(cudaFree(yrow_ind));
 
   /**
    * Remove zeros
