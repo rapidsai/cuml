@@ -234,6 +234,6 @@ def test_umap_fit_transform_against_fit_and_transform():
 
     assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
 
-    fit_embedding_diff_input = cuml_model.transform(data[1:], convert_dtype=True)
+    fit_embedding_diff_input = cuml_model.transform(data[1:],
+                                                    convert_dtype=True)
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
-
