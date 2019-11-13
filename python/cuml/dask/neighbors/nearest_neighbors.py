@@ -107,7 +107,7 @@ class NearestNeighbors(object):
         :return:
         """
         if n_neighbors is None:
-            if "n_neighbors" in self.kwargs \
+            if "n_neighbors" in self.model_args \
                     and self.model_args["n_neighbors"] is not None:
                 n_neighbors = self.model_args["n_neighbors"]
             else:
