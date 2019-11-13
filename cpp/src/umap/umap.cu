@@ -30,7 +30,6 @@ void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   UMAPAlgo::_transform<float, TPB_X>(handle, X, n, d, orig_X, orig_n, embedding,
                                      embedding_n, params, transformed);
 }
-
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels
@@ -45,7 +44,6 @@ void fit(const cumlHandle &handle,
          UMAPParams *params, float *embeddings) {
   UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
 }
-
 UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
   : params(params) {
   this->handle = const_cast<cumlHandle *>(&handle);

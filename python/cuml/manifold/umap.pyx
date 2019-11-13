@@ -228,7 +228,6 @@ class UMAP(Base):
                  target_n_neighbors=-1,
                  target_weights=0.5,
                  target_metric="categorical",
-                 should_downcast=True,
                  handle=None,
                  callback=None):
 
@@ -280,12 +279,6 @@ class UMAP(Base):
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        self._should_downcast = should_downcast
-        if should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-
         self.umap_params = <size_t> umap_params
 
         self.callback = callback  # prevent callback destruction
@@ -300,6 +293,7 @@ class UMAP(Base):
 
         state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
         state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
         state["n_epochs"] = umap_params.n_epochs
@@ -334,7 +328,6 @@ class UMAP(Base):
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
-        self.X_m = None
         umap_params.n_neighbors = state["n_neighbors"]
         umap_params.n_components = state["n_components"]
         umap_params.n_epochs = state["n_epochs"]
@@ -371,12 +364,6 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         """
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -393,13 +380,12 @@ class UMAP(Base):
             <UMAPParams*> < size_t > self.umap_params
         umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
         self.n_dims = n_cols
-        self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
         self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
                                               umap_params.n_components),
                                              order="C", dtype=np.float32))
-        self.embeddings = \
+        embeddings = \
             self.arr_embed.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
@@ -408,7 +394,7 @@ class UMAP(Base):
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
 
-        cdef uintptr_t embed_raw = self.embeddings
+        cdef uintptr_t embed_raw = embeddings
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
@@ -486,12 +472,6 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
-
         cdef uintptr_t x_ptr
         X_m, x_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
@@ -516,9 +496,9 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> < size_t > self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.raw_data
+        cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
 
-        cdef uintptr_t embed_ptr = self.embeddings
+        cdef uintptr_t embed_ptr = self.arr_embed.device_ctypes_pointer.value
 
         transform(handle_[0],
                   < float*>x_ptr,
