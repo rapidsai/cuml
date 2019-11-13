@@ -42,6 +42,7 @@ typedef COOTest<float> SortedCOOToCSR;
 TEST_P(SortedCOOToCSR, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
 
   int nnz = 8;
 
@@ -57,7 +58,7 @@ TEST_P(SortedCOOToCSR, Result) {
   updateDevice(in, in_h, nnz, stream);
   updateDevice(exp, exp_h, 4, stream);
 
-  sorted_coo_to_csr<int>(in, nnz, out, 4, stream);
+  sorted_coo_to_csr<int>(in, nnz, out, 4, alloc, stream);
 
   ASSERT_TRUE(devArrMatch<int>(out, exp, 4, Compare<int>()));
 
@@ -103,7 +104,7 @@ TEST_P(COOSymmetrize, Result) {
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;
     },
-    stream);
+    alloc, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
@@ -136,6 +137,8 @@ TEST_P(COOSort, Result) {
   Random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+
   allocate(in_vals, params.nnz);
   r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
 
@@ -158,7 +161,8 @@ TEST_P(COOSort, Result) {
   updateDevice(in_cols, in_cols_h, params.nnz, stream);
   updateDevice(verify, verify_h, params.nnz, stream);
 
-  coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, stream);
+  coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc,
+           stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
 
@@ -206,7 +210,7 @@ TEST_P(COORemoveZeros, Result) {
   updateDevice(in.get_cols(), in_h_cols, params.nnz, stream);
   updateDevice(in.get_vals(), in_h_vals, params.nnz, stream);
 
-  coo_sort<float>(&in, stream);
+  coo_sort<float>(&in, alloc, stream);
 
   int out_rows_ref_h[2] = {0, 3};
   int out_cols_ref_h[2] = {4, 1};
@@ -222,7 +226,7 @@ TEST_P(COORemoveZeros, Result) {
   updateDevice(out_ref.get_cols(), *&out_cols_ref_h, 2, stream);
   updateDevice(out_ref.get_vals(), out_vals_ref_h, 2, stream);
 
-  coo_remove_zeros<32, float>(&in, &out, stream);
+  coo_remove_zeros<32, float>(&in, &out, alloc, stream);
 
   ASSERT_TRUE(
     devArrMatch<int>(out_ref.get_rows(), out.get_rows(), 2, Compare<int>()));

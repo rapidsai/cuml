@@ -347,9 +347,9 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
               (1.0 - set_op_mix_ratio) * prod_matrix;
       return res;
     },
-    stream);
+    alloc, stream);
 
-  MLCommon::Sparse::coo_sort<T>(out, stream);
+  MLCommon::Sparse::coo_sort<T>(out, alloc, stream);
 
   CUDA_CHECK(cudaFree(rhos));
   CUDA_CHECK(cudaFree(sigmas));
