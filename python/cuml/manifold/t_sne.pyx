@@ -44,7 +44,7 @@ cimport cuml.common.cuda
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
         const cumlHandle &handle,
-        const float *X,
+        float *X,
         float *Y,
         const int n,
         const int p,
@@ -66,7 +66,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float post_momentum,
         const long long random_state,
         const bool verbose,
-        const bool intialize_embeddings,
+        const bool pca_intialization,
         bool barnes_hut) except +
 
 
@@ -83,7 +83,7 @@ class TSNE(Base):
     allows TSNE to produce extremely fast embeddings when n_components = 2.
     cuML defaults to this algorithm. A slower but more accurate Exact
     algorithm is also provided.
-
+    
     Parameters
     -----------
     n_components : int (default 2)
@@ -107,17 +107,21 @@ class TSNE(Base):
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
-    init : str 'random' (default 'random')
-        Currently supports random intialization.
+    init : str 'random' or 'pca' (default 'random')
+        It has been observed that random initialization is very fast and
+        effective, but it can produce vastly different results even when a
+        random seed is set. This means across many runs of TSNE, expect to
+        get different results. Using PCA intialization partially preserves
+        the global structure of the data, and so overcomes this problem to
+        some extent.
     verbose : int (default 0)
         Level of verbosity. If > 0, prints all help messages and warnings.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
-        many runs. Try using PCA intialization (upcoming with change #1098)
-        to possibly counteract this problem.
-        It is known that small perturbations can directly
+        many runs. Try using PCA intialization to possibly counteract this
+        problem. It is also known that small perturbations can directly
         change the result of the embedding for parallel TSNE implementations.
     method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
         Options are either barnes_hut or exact. It is recommended that you use
@@ -171,8 +175,7 @@ class TSNE(Base):
     specifying random_state and fixing it across runs can help, but TSNE does
     not guarantee similar results each time.
 
-    As suggested, PCA (upcoming with change #1098) can also help to alleviate
-    this issue.
+    As suggested, PCA can also help to alleviate this issue.
 
     Reference Implementation
     -------------------------
@@ -237,10 +240,10 @@ class TSNE(Base):
             warnings.warn("TSNE does not support {} but only Euclidean. "
                           "Will do in the near future.".format(metric))
             metric = 'euclidean'
-        if init.lower() != 'random':
+        init = init.lower()
+        if init != 'random' and init != 'pca':
             warnings.warn("TSNE does not support {} but only random "
-                          "intialization. Will do in the near "
-                          "future.".format(init))
+                          "or PCA intialization.".format(init))
             init = 'random'
         if verbose != 0:
             verbose = 1
@@ -328,11 +331,12 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
+        cdef str order = 'F' if self.init == 'pca' else 'C'
         if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            _X, X_ptr, n, p, dtype = to_cuda(X, order=order,
                                              convert_to_dtype=np.float32)
         else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
+            _X, X_ptr, n, p, dtype = to_cuda(X, order=order,
                                              check_dtype=np.float32)
 
         if n <= 1:
@@ -359,7 +363,7 @@ class TSNE(Base):
                 print("Learning rate is adaptive. In TSNE paper, "
                       "it has been shown that as n->inf, "
                       "Barnes Hut works well if n_neighbors->30, "
-                      "learning_rate->20000, early_exaggeration->24.")
+                      "learning_rate->20000, early_exaggeration->12.")
                 print("cuML uses an adpative method."
                       "n_neighbors decreases to 30 as n->inf. "
                       "Likewise for the other params.")
@@ -370,7 +374,7 @@ class TSNE(Base):
                 self.n_neighbors = max(int(102 - 0.0012 * n), 30)
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
-            self.early_exaggeration = 24.0 if n > 10000 else 12.0
+            self.early_exaggeration = 12.0
             if self.verbose:
                 print("New n_neighbors = {}, "
                       "learning_rate = {}, "
@@ -405,7 +409,7 @@ class TSNE(Base):
                  <float> self.post_momentum,
                  <long long> seed,
                  <bool> self.verbose,
-                 <bool> True,
+                 <bool> (self.init == 'pca'),
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
