@@ -85,10 +85,16 @@ DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
     auto invRight = One / shist[nbins * 2 * nclasses + nbins + i];
     auto sum = DataT(0.0);
     for (IdxT j = 0; j < nclasses; ++j) {
-      auto lval = DataT(shist[i * 2 * nclasses + j]);
-      sum += MLCommon::myLog(lval * invLeft) * lval * invlen;
-      auto rval = DataT(shist[i * 2 * nclasses + nclasses + j]);
-      sum += MLCommon::myLog(rval * invRight) * rval * invlen;
+      auto lhistval = shist[i * 2 * nclasses + j];
+      if (lhistval != 0) {
+        auto lval = DataT(lhistval);
+        sum += MLCommon::myLog(lval * invLeft) * lval * invlen;
+      }
+      auto rhistval = shist[i * 2 * nclasses + nclasses + j];
+      if (rhistval != 0) {
+        auto rval = DataT(rhistval);
+        sum += MLCommon::myLog(rval * invRight) * rval * invlen;
+      }
     }
     auto gain = parentGain + sum;
     sp.update({sbins[i], col, gain, nLeft});
