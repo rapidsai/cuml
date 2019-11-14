@@ -41,9 +41,10 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-ctypedef enum IntializationType:
-  Random_Intialization,
-  PCA_Intialization
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+    enum IntializationType:
+      Random_Intialization = 0,
+      PCA_Intialization = 1
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit[IntializationType](const cumlHandle &handle,
@@ -390,9 +391,9 @@ class TSNE(Base):
 
         cdef IntializationType init_type
         if self.init == "pca":
-            init_type = PCA_Intialization
+            init_type = IntializationType.PCA_Intialization
         else:
-            init_type = Random_Intialization
+            init_type = IntializationType.Random_Intialization
 
         TSNE_fit[init_type](handle_[0],
                             <float*> X_ptr,
