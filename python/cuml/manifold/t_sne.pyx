@@ -395,7 +395,7 @@ class TSNE(Base):
         else:
             init_type = IntializationType.Random_Intialization
 
-        TSNE_fit[init_type](handle_[0],
+        TSNE_fit[0](handle_[0],
                             <float*> X_ptr,
                             <float*> embed_ptr,
                             <int> n,
