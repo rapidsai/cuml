@@ -367,7 +367,7 @@ class UMAP(Base):
         elif isinstance(X, cupy.ndarray):
             return cupy.array(embedding)
 
-    def fit(self, X, y=None, convert_dtype=False):
+    def fit(self, X, y=None, convert_dtype=True):
         """Fit X into an embedded space.
         Parameters
         ----------
@@ -441,7 +441,7 @@ class UMAP(Base):
 
         return self
 
-    def fit_transform(self, X, y=None, convert_dtype=False):
+    def fit_transform(self, X, y=None, convert_dtype=True):
         """Fit X into an embedded space and return that transformed
         output.
 
@@ -466,7 +466,7 @@ class UMAP(Base):
         self.fit(X, y, convert_dtype=convert_dtype)
         return UMAP._prep_output(X, self.embedding_)
 
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=True):
         """Transform X into the existing embedded space and return that
         transformed output.
 
