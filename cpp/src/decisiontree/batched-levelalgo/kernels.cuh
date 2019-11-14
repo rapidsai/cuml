@@ -247,10 +247,10 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
     for (IdxT b = 0; b < nbins; ++b) {
-      auto isLeft = d <= sbins[b];  // no divergence
-      auto offset = b * 2 * nclasses + isLeft * nclasses + label;
+      auto isRight = d > sbins[b];  // no divergence
+      auto offset = b * 2 * nclasses + isRight * nclasses + label;
       atomicAdd(shist + offset, 1);  // class hist
-      offset = binSize + isLeft * nbins + b;
+      offset = binSize + isRight * nbins + b;
       atomicAdd(shist + offset, 1);  // sample count
     }
   }
