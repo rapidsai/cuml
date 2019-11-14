@@ -141,15 +141,13 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     RandomForestMetaData[float, float]*,
                                     int,
                                     int,
-                                    char*,
-                                    vector[unsigned char]) except +
+                                    vector[unsigned char] &) except +
 
     cdef void build_treelite_forest(ModelHandle*,
                                     RandomForestMetaData[double, double]*,
                                     int,
                                     int,
-                                    char*,
-                                    vector[unsigned char]) except +
+                                    vector[unsigned char] &) except +
 
     cdef void print_rf_summary(RandomForestMetaData[float, float]*) except +
     cdef void print_rf_summary(RandomForestMetaData[double, double]*) except +
@@ -173,7 +171,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     bool,
                                     int) except +
 
-    cdef vector[unsigned char] save_model(ModelHandle, const char* filename)
+    cdef vector[unsigned char] save_model(ModelHandle)
 
 
 class RandomForestRegressor(Base):
@@ -357,9 +355,6 @@ class RandomForestRegressor(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
-        tmpdir = tempfile.mkdtemp()
-        file_name = os.path.join(tmpdir, "model.buffer")
-        self.file_name = file_name
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -385,7 +380,6 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*>params_t64
 
         state['verbose'] = self.verbose
-        state["file_name"] = self.file_name
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         if state["dtype"] == np.float32:
@@ -405,8 +399,6 @@ class RandomForestRegressor(Base):
 
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
-
-        self.file_name = state["file_name"]
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
@@ -438,22 +430,18 @@ class RandomForestRegressor(Base):
         cdef ModelHandle cuml_model_ptr = NULL
 
         task_category = 1
-        filename_bytes = (self.file_name).encode("UTF-8")
-
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
-                              <char*> filename_bytes,
-                              <vector[unsigned char]> self.model_pbuf_bytes)
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
 
         mod_ptr = <size_t> cuml_model_ptr
         fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr,
-                                          filename_bytes)
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
 
     def fit(self, X, y):
@@ -547,14 +535,12 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        filename_bytes = (self.file_name).encode("UTF-8")
         task_category = 1  # for regression
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
                               <int> task_category,
-                              <char*> filename_bytes,
-                              <vector[unsigned char]> self.model_pbuf_bytes)
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         fil_model = ForestInference()
@@ -650,7 +636,6 @@ class RandomForestRegressor(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
         if self.dtype == np.float64:
-            print("self.dtype : ", self.dtype)
             raise TypeError("GPU predict model only accepts float32 dtype"
                             " as input, convert the data to float32 or "
                             "use the CPU predict with `predict_model='CPU'`.")

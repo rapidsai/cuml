@@ -19,9 +19,11 @@
 #define omp_get_max_threads() 1
 #endif
 #include <treelite/tree.h>
+#include <cstdio>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 #include "randomforest_impl.cuh"
 
@@ -275,13 +277,14 @@ template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category,
-                           const char* filename,
-                           std::vector<unsigned char> data) {
-  bool check_val = data.empty();
+                           std::vector<unsigned char>& data) {
+  bool check_val = (data).empty();
+  char* fn = "/model.buffer";
+  char* path = std::tmpnam(nullptr);
   if (not check_val) {
-    std::ofstream file("filename", std::ios::binary);
+    std::ofstream file("path", std::ios::binary);
     file.write((char*)&data[0], data.size());
-    TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
+    TREELITE_CHECK(TreeliteLoadProtobufModel("path", model));
   }
 
   else {
@@ -321,13 +324,15 @@ void build_treelite_forest(ModelHandle* model,
   }
 }
 
-std::vector<unsigned char> save_model(ModelHandle model, const char* filename) {
-  TreeliteExportProtobufModel(filename, model);
-  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+std::vector<unsigned char> save_model(ModelHandle model) {
+  char* fn = "/model.buffer";
+  char* path = std::tmpnam(nullptr);
+  TreeliteExportProtobufModel("path", model);
+  std::ifstream in("path", std::ifstream::ate | std::ifstream::binary);
   in.seekg(0, std::ios::end);
   int size_of_file = in.tellg();
   vector<unsigned char> bytes_info(size_of_file, 0);
-  ifstream infile(filename, ios::in | ios::binary);
+  ifstream infile("path", ios::in | ios::binary);
   infile.read((char*)&bytes_info[0], bytes_info.size());
   return bytes_info;
 }
@@ -644,18 +649,14 @@ template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
-  int num_features, int task_category, const char* filename,
-  std::vector<unsigned char> data);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
-  int num_features, int task_category, const char* filename,
-  std::vector<unsigned char> data);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
-  int num_features, int task_category, const char* filename,
-  std::vector<unsigned char> data);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
-  int num_features, int task_category, const char* filename,
-  std::vector<unsigned char> data);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 }  // End namespace ML
