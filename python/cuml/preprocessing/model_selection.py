@@ -133,7 +133,7 @@ def train_test_split(
 
     if shuffle:
         idxs = cp.arange(len(X))
-        _shuffle_idx(idxs)
+        _shuffle_idx(idxs, seed=seed)
         X = X.iloc[idxs].reset_index(drop=True)
         y = y.iloc[idxs].reset_index(drop=True)
 
