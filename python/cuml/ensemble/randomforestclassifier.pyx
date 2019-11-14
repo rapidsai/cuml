@@ -399,13 +399,10 @@ class RandomForestClassifier(Base):
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
-        if state["dtype"] == np.float32:
+        if self.dtype == np.float32:
             state["rf_params"] = rf_forest.rf_params
-            del state["rf_forest"]
         else:
             state["rf_params64"] = rf_forest64.rf_params
-            del state["rf_forest64"]
-
         return state
 
     def __setstate__(self, state):
@@ -426,6 +423,12 @@ class RandomForestClassifier(Base):
             state["rf_forest64"] = <size_t>rf_forest64
 
         self.__dict__.update(state)
+
+    def __del__(self):
+        if self.dtype == np.float32:
+            free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
+        else:
+            free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
