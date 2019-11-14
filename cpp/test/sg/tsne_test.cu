@@ -50,7 +50,7 @@ class TSNETest : public ::testing::Test {
                              n * 2);
 
     // Test Barnes Hut
-    TSNE_fit[Random_Intialization](handle, X_d.data(), Y_d.data(), n, p, 2, 90);
+    TSNE_fit<Random_Intialization>(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -80,7 +80,7 @@ class TSNETest : public ::testing::Test {
       handle.getStream());
 
     // Test Exact TSNE
-    TSNE_fit[Random_Intialization](handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5,
+    TSNE_fit<Random_Intialization>(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5,
       0.0025, 50, 100, 1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true,
       false);
 
