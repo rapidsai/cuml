@@ -279,12 +279,11 @@ void build_treelite_forest(ModelHandle* model,
                            int num_features, int task_category,
                            std::vector<unsigned char>& data) {
   bool check_val = (data).empty();
-  char* fn = "/model.buffer";
-  char* path = std::tmpnam(nullptr);
+  const char* fln = std::tmpnam(nullptr);
   if (not check_val) {
-    std::ofstream file("path", std::ios::binary);
+    std::ofstream file(fln, std::ios::binary);
     file.write((char*)&data[0], data.size());
-    TREELITE_CHECK(TreeliteLoadProtobufModel("path", model));
+    TREELITE_CHECK(TreeliteLoadProtobufModel(fln, model));
   }
 
   else {
@@ -325,14 +324,13 @@ void build_treelite_forest(ModelHandle* model,
 }
 
 std::vector<unsigned char> save_model(ModelHandle model) {
-  char* fn = "/model.buffer";
-  char* path = std::tmpnam(nullptr);
-  TreeliteExportProtobufModel("path", model);
-  std::ifstream in("path", std::ifstream::ate | std::ifstream::binary);
+  const char* filename2 = std::tmpnam(nullptr);
+  TreeliteExportProtobufModel(filename2, model);
+  std::ifstream in(filename2, std::ifstream::ate | std::ifstream::binary);
   in.seekg(0, std::ios::end);
   int size_of_file = in.tellg();
   vector<unsigned char> bytes_info(size_of_file, 0);
-  ifstream infile("path", ios::in | ios::binary);
+  ifstream infile(filename2, ios::in | ios::binary);
   infile.read((char*)&bytes_info[0], bytes_info.size());
   return bytes_info;
 }
