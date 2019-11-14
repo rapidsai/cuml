@@ -47,30 +47,30 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
       PCA_Intialization = 1
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit[IntializationType](const cumlHandle &handle,
-                                          float *X,
-                                          float *Y,
-                                          const int n,
-                                          const int p,
-                                          const int dim,
-                                          int n_neighbors,
-                                          const float theta,
-                                          const float epssq,
-                                          float perplexity,
-                                          const int perplexity_max_iter,
-                                          const float perplexity_tol,
-                                          const float early_exaggeration,
-                                          const int exaggeration_iter,
-                                          const float min_gain,
-                                          const float pre_learning_rate,
-                                          const float post_learning_rate,
-                                          const int max_iter,
-                                          const float min_grad_norm,
-                                          const float pre_momentum,
-                                          const float post_momentum,
-                                          const long long random_state,
-                                          const bool verbose,
-                                          bool barnes_hut) except +
+    cdef void TSNE_fit[int](const cumlHandle &handle,
+                            float *X,
+                            float *Y,
+                            const int n,
+                            const int p,
+                            const int dim,
+                            int n_neighbors,
+                            const float theta,
+                            const float epssq,
+                            float perplexity,
+                            const int perplexity_max_iter,
+                            const float perplexity_tol,
+                            const float early_exaggeration,
+                            const int exaggeration_iter,
+                            const float min_gain,
+                            const float pre_learning_rate,
+                            const float post_learning_rate,
+                            const int max_iter,
+                            const float min_grad_norm,
+                            const float pre_momentum,
+                            const float post_momentum,
+                            const long long random_state,
+                            const bool verbose,
+                            bool barnes_hut) except +
 
 
 class TSNE(Base):
@@ -389,13 +389,13 @@ class TSNE(Base):
         if self.random_state is not None:
             seed = self.random_state
 
-        cdef IntializationType init_type
+        cdef int init_type
         if self.init == "pca":
-            init_type = IntializationType.PCA_Intialization
+            init_type = (int)IntializationType.PCA_Intialization
         else:
-            init_type = IntializationType.Random_Intialization
+            init_type = (int)IntializationType.Random_Intialization
 
-        TSNE_fit[0](handle_[0],
+        TSNE_fit[init_type](handle_[0],
                             <float*> X_ptr,
                             <float*> embed_ptr,
                             <int> n,
