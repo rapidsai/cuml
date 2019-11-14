@@ -41,10 +41,9 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
-    ctypedef enum IntializationType:
-      Random_Intialization,
-      PCA_Intialization
+ctypedef enum IntializationType:
+  Random_Intialization,
+  PCA_Intialization
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit[IntializationType](const cumlHandle &handle,
