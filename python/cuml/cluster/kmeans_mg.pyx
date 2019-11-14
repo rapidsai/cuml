@@ -132,6 +132,8 @@ class KMeansMG(KMeans):
         cdef int n_iter = 0
 
         if self.dtype == np.float32:
+
+            print("Running KMEANS 32!")
             with nogil:
                 fit(
                     handle_[0],
@@ -145,7 +147,10 @@ class KMeansMG(KMeans):
             self.handle.sync()
             self.inertia_ = inertiaf
             self.n_iter_ = n_iter
+
         elif self.dtype == np.float64:
+
+            print("Running KMEANS 64!")
             with nogil:
                 fit(
                     handle_[0],

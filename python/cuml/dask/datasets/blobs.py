@@ -15,36 +15,39 @@
 #
 
 
-from dask.dataframe import from_delayed
-
 import cudf
-
-from dask.distributed import default_client, wait
-
-import numba.cuda as cuda
-
+import cupy as cp
+import dask.array as da
+import math
 import numpy as np
 
+from dask.distributed import default_client, wait
+from dask import delayed
+from dask.dataframe import from_delayed
+
+from cuml.datasets import make_blobs as cuml_make_blobs
+
 from uuid import uuid1
-import math
 
 
-def create_df(m, n, centers, cluster_std, random_state, dtype):
+def create_local_data(m, n, centers, cluster_std, random_state,
+                      dtype, type, idx):
 
-    from cuml.datasets import make_blobs
+    X, y = cuml_make_blobs(n_samples=m, n_features=n,
+                           centers=centers, cluster_std=cluster_std,
+                           random_state=random_state+idx, dtype=dtype)
 
-    """
-    Returns Dask Dataframes on device for X and y.
-    """
+    if type == 'array':
+        X = cp.array(X)
+        y = cp.array(y).reshape(m, 1)
 
-    X, y = make_blobs(m, n, centers=centers, cluster_std=cluster_std,
-                      random_state=random_state, dtype=dtype)
+    elif type == 'dataframe':
 
-    # X = cuda.to_device(X.astype(dtype))
-    # y = cuda.to_device(y)
+        X = cudf.DataFrame.from_gpu_matrix(X)
+        y = cudf.DataFrame.from_gpu_matrix(y.reshape(m, 1))
 
-    X = cudf.DataFrame.from_gpu_matrix(X)
-    y = cudf.DataFrame.from_gpu_matrix(y.reshape(y.shape[0], 1))
+    else:
+        raise ValueError('type must be array or dataframe')
 
     return X, y
 
@@ -64,10 +67,10 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, client=None):
+               dtype=np.float32, output='dataframe', client=None):
 
     """
-    Makes unlabeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
 
     This function calls `make_blobs` from Scikitlearn on each Dask worker
@@ -87,11 +90,15 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     :param random_state : sets random seed
     :param verbose : enables / disables verbose printing.
     :param dtype : (default = np.float32) datatype to generate
+    :param output : (default = 'dataframe') whether to generate dask array or
+    dask dataframe output. Default will be array soon.
 
     :return: (dask.Dataframe for X, dask.Series for labels)
     """
 
     client = default_client() if client is None else client
+
+    print(str(client))
 
     workers = list(client.has_what().keys())
 
@@ -100,9 +107,13 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     rows_per_part = math.ceil(nrows/n_parts)
 
     if not isinstance(centers, np.ndarray):
+
+        print("Generating centers: " + str(centers) + ", " + str(ncols))
         centers = np.random.RandomState(random_state)\
             .uniform(center_box[0], center_box[1],
                      size=(centers, ncols)).astype(dtype)
+
+        print("CENTERS: " + str(centers))
 
     if verbose:
         print("Generating %d samples across %d partitions on "
@@ -111,36 +122,59 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     key = str(uuid1())
     # Create dfs on each worker (gpu)
-    dfs = []
+
+    parts = []
+    worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
         if rows_so_far+rows_per_part <= nrows:
             rows_so_far += rows_per_part
-            worker_rows = rows_per_part
+            worker_rows.append(rows_per_part)
         else:
-            worker_rows = (int(nrows) - rows_so_far)
+            worker_rows.append((int(nrows) - rows_so_far))
 
-        dfs.append(client.submit(create_df,
-                                 worker_rows,
-                                 ncols,
-                                 centers,
-                                 cluster_std,
-                                 random_state,
-                                 dtype,
-                                 key="%s-%s" % (key, idx),
-                                 workers=[worker]))
+        parts.append(client.submit(create_local_data,
+                                   worker_rows[idx],
+                                   ncols,
+                                   centers,
+                                   cluster_std,
+                                   random_state,
+                                   dtype,
+                                   output,
+                                   idx,
+                                   key="%s-%s" % (key, idx),
+                                   workers=[worker]))
 
     x_key = str(uuid1())
     y_key = str(uuid1())
+
     X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
-         for idx, f in enumerate(dfs)]
+         for idx, f in enumerate(parts)]
     y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
-         for idx, f in enumerate(dfs)]
+         for idx, f in enumerate(parts)]
 
-    meta_X = client.submit(get_meta, X[0]).result()
-    X_cudf = from_delayed(X, meta=meta_X)
+    if output == 'dataframe':
 
-    meta_y = client.submit(get_meta, y[0]).result()
-    y_cudf = from_delayed(y, meta=meta_y)
+        print("Building dataframe")
 
-    return X_cudf, y_cudf
+        meta_X = client.submit(get_meta, X[0]).result()
+        X = from_delayed(X, meta=meta_X)
+
+        meta_y = client.submit(get_meta, y[0]).result()
+        y = from_delayed(y, meta=meta_y)
+
+    elif output == 'array':
+
+        print("Building array")
+
+        X = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], ncols),
+                             dtype=dtype)
+             for idx, chunk in enumerate(X)]
+        y = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], 1),
+                             dtype=dtype)
+             for idx, chunk in enumerate(y)]
+
+        X = da.concatenate(X, axis=0)
+        y = da.concatenate(y, axis=0)
+
+    return X, y

@@ -22,12 +22,8 @@ namespace ML {
 namespace Datasets {
 
 /**
- * @defgroup MakeBlobs
- * @{
  * @brief GPU-equivalent of sklearn.datasets.make_blobs as documented here:
  * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html
- * @tparam DataT output data type
- * @tparam IdxT indexing arithmetic type
  * @param out the generated data on device (dim = n_rows x n_cols) in row-major
  * layout
  * @param labels labels for the generated data on device (dim = n_rows x 1)

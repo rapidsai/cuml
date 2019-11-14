@@ -75,7 +75,9 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
                 bool rowMajor = true, cublasHandle_t cublas_h = nullptr,
                 GeneratorType type = GenPhilox) {
-  std::cout << out << std::endl;
+  ASSERT(rowMajor || (!rowMajor && cublas_h != nullptr),
+         "a cublasHandle_t must be provided for column-major output");
+
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
@@ -86,7 +88,6 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
               center_box_max, stream);
     _centers = rand_centers.data();
   } else {
-    std::cout << "CENTERS!" << std::endl;
     _centers = centers;
   }
 
@@ -132,7 +133,7 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
        ++i, row_id += rows_per_cluster) {
     IdxT current_rows = std::min(rows_per_cluster, n_rows - row_id);
     if (current_rows > 0) {
-      r.normalTable<DataT, IdxT>(_out + row_id * n_cols, current_rows, n_cols,
+      r.normalTable<DataT, IdxT>(_out + (row_id * n_cols), current_rows, n_cols,
                                  _centers + i * n_cols, nullptr,
                                  h_cluster_std[i], stream);
       r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
@@ -155,7 +156,7 @@ void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
   // Transpose to column major, if asked for
   if (!rowMajor) {
     LinAlg::transpose(final_out, out, n_rows, n_cols, cublas_h, stream);
-    std::cout << "transpose final_out=" << final_out << std::endl;
+    std::cout << "transpose final_out=" << arr2Str(out, 10, "final_out", stream) << std::endl;
     std::cout << "transpose out=" << out << std::endl;
   }
 }

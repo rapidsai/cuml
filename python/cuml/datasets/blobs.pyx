@@ -150,8 +150,8 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     out = zeros((n_samples, n_features), dtype=dtype, order='F')
     cdef uintptr_t out_ptr = get_dev_array_ptr(out)
 
-    print("OUT=" + str(out.__cuda_array_interface__))
-
+    # print("OUT=" + str(np.array(out)))
+    #
     labels = zeros(n_samples, dtype=np.int64, order='F')
     cdef uintptr_t labels_ptr = get_dev_array_ptr(labels)
 
@@ -165,7 +165,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
         else:
             centers, centers_ptr, n_rows_centers, _, _ = \
-                input_to_dev_array(centers,
+                input_to_dev_array(centers, order="F",
                                    convert_to_dtype=dtype,
                                    check_cols=n_features)
 
@@ -183,8 +183,8 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     else:
         cluster_std_ary, cluster_std_ptr, _, _, _ = \
             input_to_dev_array(cluster_std, convert_to_dtype=dtype,
-                               check_cols=n_features,
-                               check_rows=n_rows_centers)
+                               check_cols=1,
+                               check_rows=n_clusters)
         cluster_std = -1.0
 
     center_box_min = center_box[0]
