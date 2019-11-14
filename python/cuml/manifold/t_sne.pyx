@@ -46,6 +46,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     ctypedef IntializationType Random_Intialization "(IntializationType)0"
     ctypedef IntializationType PCA_Intialization "(IntializationType)1"
 
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit[IntializationType](const cumlHandle &handle,
                                           float *X,
                                           float *Y,
