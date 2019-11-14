@@ -533,7 +533,7 @@ class RandomForestRegressor(Base):
 
         cdef ModelHandle cuml_model_ptr
         _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+            input_to_dev_array(X, check_dtype=self.dtype,
                                check_cols=self.n_cols)
 
         cdef RandomForestMetaData[float, float] *rf_forest = \

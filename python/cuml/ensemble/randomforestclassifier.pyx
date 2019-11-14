@@ -415,6 +415,7 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[double, int]()
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
+
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
@@ -565,10 +566,9 @@ class RandomForestClassifier(Base):
 
         cdef ModelHandle cuml_model_ptr = NULL
         _, _, n_rows, n_cols, X_type = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               check_cols=self.n_cols)
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
