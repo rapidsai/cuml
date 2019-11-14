@@ -177,7 +177,8 @@ if __name__ == '__main__':
         sys.exit()
 
     if not 0.0 <= args.split <= 1.0:
-        raise ValueError("split: got %f, want a value between 0.0 and 1.0" % args.split)
+        raise ValueError("split: got %f, want a value between 0.0 and 1.0" %
+                         args.split)
 
     bench_rows = np.logspace(
         np.log10(args.min_rows),
