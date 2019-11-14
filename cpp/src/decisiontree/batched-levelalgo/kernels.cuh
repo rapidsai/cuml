@@ -256,8 +256,9 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   }
   __syncthreads();
   // update the corresponding global location
+  auto histOffset = ((nid * gridDim.y) + blockIdx.y) * len;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    atomicAdd(hist + nid * len + i, shist[i]);
+    atomicAdd(hist + histOffset + i, shist[i]);
   }
   __syncthreads();
   // last threadblock will go ahead and compute the best split
@@ -265,7 +266,7 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
                                    gridDim.x, blockIdx.x == 0, smem);
   if (!last) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    shist[i] = hist[nid * len + i];
+    shist[i] = hist[histOffset + i];
   }
   __syncthreads();
   Split<DataT, IdxT> sp;
