@@ -117,8 +117,6 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
 
-    print("Reading the saved xgb model")
-
     fm = ForestInference.load(model_path,
                               algo='BATCH_TREE_REORG',
                               output_class=True,
@@ -126,7 +124,6 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    print("XGB accuracy = ", xgb_acc, " ForestInference accuracy: ", fil_acc)
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
 
@@ -169,14 +166,12 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     xgb_preds = bst.predict(dvalidation)
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
-    print("Reading the saved xgb model")
     fm = ForestInference.load(model_path,
                               algo='BATCH_TREE_REORG',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    print("XGB accuracy = ", xgb_mse, " Forest accuracy: ", fil_mse)
     assert fil_mse == pytest.approx(xgb_mse, 0.01)
     assert array_equal(fil_preds, xgb_preds)
 
@@ -239,8 +234,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
-    print("SKL accuracy = ", skl_acc, " FIL accuracy: ", fil_acc)
-    assert fil_acc == skl_acc
+    assert fil_acc == pytest.approx(skl_acc, 1e-5)
     assert array_equal(fil_preds, skl_preds_int)
 
 
@@ -299,7 +293,6 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    print("SKL accuracy = ", skl_mse, " FIL accuracy: ", fil_mse)
     assert fil_mse == pytest.approx(skl_mse, 1e-5)
     assert array_equal(fil_preds, skl_preds)
 
