@@ -52,14 +52,13 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
     col_ind = cp.array(y).copy().astype(cp.int32)
     row_ind = cp.arange(0, col_ind.shape[0], 1, dtype=cp.int32)
-    val = cp.ones(row_ind.shape[0], dtype=cp.int32)
 
     smem = 4 * sorted_classes.shape[0]
     map_kernel((col_ind.shape[0] / 32,), (32, ),
                (col_ind, col_ind.shape[0], sorted_classes, sorted_classes.shape[0]),
                shared_mem=smem)
 
-    print(str(col_ind))
+    val = cp.full(row_ind.shape[0], pos_label, dtype=cp.int32)
 
     sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
                               shape=(col_ind.shape[0],
@@ -69,4 +68,61 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     if sparse_output:
         return sp
     else:
-        return sp.toarray().astype(cp.int32)
+
+        arr = sp.toarray().astype(cp.int32)
+        arr[arr==0] = neg_label
+
+        return arr
+
+
+class LabelBinarizer(object):
+
+    def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
+        if neg_label >= pos_label:
+            raise ValueError("neg_label=%s must be less "
+                             "than pos_label=%s." % (neg_label, pos_label))
+
+        if sparse_output and (pos_label == 0 or neg_label != 0):
+            raise ValueError("Sparse binarization is only supported with non-zero"
+                             "pos_label and zero neg_label, got pos_label=%s and neg_label=%s"
+                             % (pos_label, neg_label))
+
+        self.neg_label = neg_label
+        self.pos_label = pos_label
+        self.sparse_output = sparse_output
+
+    def fit(self, y):
+        """Fit label binarizer`
+
+        Parameters
+        ----------
+        y : array of shape [n_samples,] or [n_samples, n_classes]
+            Target values. The 2-d matrix should only contain 0 and 1,
+            represents multilabel classification.
+
+        Returns
+        -------
+        self : returns an instance of self.
+        """
+
+        self.classes_ = cp.unique(y)
+        return self
+
+    def fit_transform(self, y):
+        return self.fit(y).transform(y)
+
+    def transform(self, y):
+        return label_binarize(y, self.classes_,
+                              pos_label=self.pos_label,
+                              neg_label=self.neg_label,
+                              sparse_output=self.sparse_output)
+
+    def inverse_transform(self, Y, threshold=None):
+        """
+        Transform binary labels back to multi-class labels
+        :param Y:
+        :param threshold:
+        :return:
+        """
+
+
