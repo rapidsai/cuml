@@ -263,14 +263,14 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, workspace_size);
+                     verbose, init, workspace_size);
   }
   else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, workspace_size);
+                     verbose, init, workspace_size);
   }
 
   if (verbose) printf("[Info] TSNE has completed!\n");
