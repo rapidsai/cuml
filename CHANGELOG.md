@@ -35,7 +35,9 @@
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
-- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
+  model importing
+- PR #1367: --split benchmark parameter for train-test split
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
