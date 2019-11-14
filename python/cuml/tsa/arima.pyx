@@ -646,9 +646,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     best_ma_params = num_batches*[None]
 
     for p in range(0, max_p):
-        arparams = np.zeros(p)
         for q in range(0, max_q):
-            maparams = np.zeros(q)
 
             # skip 0,0 case
             if p == 0 and q == 0:
