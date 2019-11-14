@@ -12,6 +12,7 @@
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
+- PR #1371: Cython side of MNMG tSVD
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
