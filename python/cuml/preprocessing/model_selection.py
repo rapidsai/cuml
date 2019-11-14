@@ -16,11 +16,11 @@
 import cudf
 from typing import Union, Tuple
 import cupy as cp
+import numpy as np
 
 
 def train_test_split(
-    X: cudf.DataFrame,
-    y: Union[str, cudf.Series],
+    X, y,
     train_size: Union[float, int] = 0.8,
     shuffle: bool = True,
     seed: int = None,
@@ -93,9 +93,13 @@ def train_test_split(
     # TODO Use cupy indexing to support non cudf input types for X, y
     if isinstance(y, str):
         # Use the column with name `str` as y
-        name = y
-        y = X[name]
-        X = X.drop(name)
+        if isinstance(X, cudf.DataFrame):
+            name = y
+            y = X[name]
+            X = X.drop(name)
+        else:
+            raise ValueError("X needs to be a cuDF Dataframe when y is a \
+                             string")
 
     if X.shape[0] != y.shape[0]:
         raise ValueError(
@@ -120,9 +124,17 @@ def train_test_split(
         split_idx = train_size
 
     if shuffle:
-        idxs = cp.arange(len(X))
-        cp.random.seed(seed)
-        cp.random.shuffle(idxs)
+        if isinstance(seed, cp.random.RandomState):
+            idxs = cp.arange(X.shape[0])
+
+        elif isinstance(seed, np.random.RandomState):
+            idxs = np.arange(X.shape[0])
+
+        elif isinstance(seed, int):
+            idxs = cp.arange(X.shape[0])
+            seed = cp.random.RandomState(seed=seed)
+
+        seed.shuffle(idxs)
         X = X.iloc[idxs].reset_index(drop=True)
         y = y.iloc[idxs].reset_index(drop=True)
 
