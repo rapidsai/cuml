@@ -30,23 +30,24 @@ def train_test_split(
     seed: Union[int, cp.random.RandomState, np.random.RandomState] = None
 ):
     """
-    Partitions cuDF data into four collated dataframes, mimicking
+    Partitions device data into four collated objects, mimicking
     Scikit-learn's `train_test_split`
 
     Parameters
     ----------
-    X : cudf.DataFrame
+    X : cudf.DataFrame or cuda_array_interface compliant device array
         Data to split, has shape (n_samples, n_features)
-    y : str or cudf.Series
+    y : str, cudf.Series or cuda_array_interface compliant device array
         Set of labels for the data, either a series of shape (n_samples) or
-        the string label of a column in X containing the labels
+        the string label of a column in X (if it is a cuDF DataFrame)
+        containing the labels
     train_size : float or int, optional
         If float, represents the proportion [0, 1] of the data
         to be assigned to the training set. If an int, represents the number
         of instances to be assigned to the training set. Defaults to 0.8
     shuffle : bool, optional
         Whether or not to shuffle inputs before splitting
-    seed : int, optional
+    seed : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
 
     Examples
@@ -155,19 +156,18 @@ def train_test_split(
         if seed is None or isinstance(seed, int):
             idxs = cp.arange(X.shape[0])
             seed = cp.random.RandomState(seed=seed)
-            cp.random.shuffle(idxs)
 
         elif isinstance(seed, cp.random.RandomState):
             idxs = cp.arange(X.shape[0])
-            cp.random.shuffle(idxs)
 
         elif isinstance(seed, np.random.RandomState):
             idxs = np.arange(X.shape[0])
-            np.random.shuffle(idxs)
 
         else:
             raise TypeError("`seed` must be an int, NumPy RanomState \
                              or CuPy RandomState.")
+
+        seed.shuffle(idxs)
 
         if cuda.is_cuda_array(X):
             X = X[idxs]
@@ -206,12 +206,10 @@ def train_test_split(
         y_train = y.iloc[0:train_size]
 
     if cuda.is_cuda_array(y):
-        X_test = X[test_size:]
-        y_test = y[test_size:]
+        X_test = X[-1 * test_size:]
+        y_test = y[-1 * test_size:]
     elif isinstance(y, cudf.DataFrame):
-        X_test = X.iloc[test_size:]
-        y_test = y.iloc[test_size:]
-
-
+        X_test = X.iloc[-1 * test_size:]
+        y_test = y.iloc[-1 * test_size:]
 
     return X_train, X_test, y_train, y_test
