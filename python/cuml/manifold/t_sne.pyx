@@ -43,7 +43,7 @@ cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     ctypedef enum IntializationType:
-      Random_Intialization
+      Random_Intialization,
       PCA_Intialization
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
@@ -395,7 +395,7 @@ class TSNE(Base):
         else:
             init_type = Random_Intialization
 
-        TSNE_fit[Random_Intialization](handle_[0],
+        TSNE_fit[init_type](handle_[0],
                             <float*> X_ptr,
                             <float*> embed_ptr,
                             <int> n,
