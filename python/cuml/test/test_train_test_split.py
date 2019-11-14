@@ -14,7 +14,7 @@
 #
 
 import cudf
-import cupy as cp
+import numpy as np
 import pytest
 
 from cuml.preprocessing.model_selection import train_test_split
@@ -93,7 +93,7 @@ def test_split_invalid_proportion(train_size):
 
 def test_random_seed():
     for i in range(50):
-        seed = cp.random.randint(0, 1e9)
+        seed = np.random.randint(0, int(1e9))
         X = cudf.DataFrame({"x": range(100)})
         y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
 

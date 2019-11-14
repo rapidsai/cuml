@@ -15,19 +15,7 @@
 
 import cudf
 from typing import Union, Tuple
-from numba import jit
 import cupy as cp
-
-
-@jit
-def _shuffle_idx(idx: cp.ndarray, seed: int):
-    """ Shuffle idx in place which will be used as indices to split a
-    dataframe of size len(np.ndarray)
-    """
-    # TODO this is the bottleneck and should be a gpu operation,
-    # when possible replace with the mlprim mentioned in cuml #659
-    cp.random.seed(seed)
-    cp.random.shuffle(idx)
 
 
 def train_test_split(
@@ -133,7 +121,8 @@ def train_test_split(
 
     if shuffle:
         idxs = cp.arange(len(X))
-        _shuffle_idx(idxs, seed=seed)
+        cp.random.seed(seed)
+        cp.random.shuffle(idxs)
         X = X.iloc[idxs].reset_index(drop=True)
         y = y.iloc[idxs].reset_index(drop=True)
 
