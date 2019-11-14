@@ -228,8 +228,7 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   auto parentGain = node.parentGain;
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
-  auto binSize = nbins * 2 * nclasses;
-  auto len = binSize + 2 * nbins;
+  auto len = nbins * 2 * nclasses;
   auto* shist = reinterpret_cast<int*>(smem);
   auto* sbins = reinterpret_cast<DataT*>(smem + sizeof(int) * len);
   IdxT stride = blockDim.x * gridDim.x;
@@ -250,8 +249,6 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
       auto isRight = d > sbins[b];  // no divergence
       auto offset = b * 2 * nclasses + isRight * nclasses + label;
       atomicAdd(shist + offset, 1);  // class hist
-      offset = binSize + isRight * nbins + b;
-      atomicAdd(shist + offset, 1);  // sample count
     }
   }
   __syncthreads();

@@ -28,8 +28,6 @@ namespace DecisionTree {
 /**
  * @brief Compute gain based on gini impurity metric
  * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
- *              After that, it also contains left/right sample counts for each
- *              of the bins (2 x nbins)
  * @param sbins quantiles for the current column (len = nbins)
  * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
@@ -45,9 +43,12 @@ DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto nLeft = shist[nbins * 2 * nclasses + i];
+    int nLeft = 0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeft += shist[i * 2 * nclasses + j];
+    }
     auto invLeft = One / nLeft;
-    auto invRight = One / shist[nbins * 2 * nclasses + nbins + i];
+    auto invRight = One / (len - nLeft);
     auto sum = DataT(0.0);
     for (IdxT j = 0; j < nclasses; ++j) {
       auto lval = DataT(shist[i * 2 * nclasses + j]);
@@ -63,8 +64,6 @@ DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
 /**
  * @brief Compute gain based on entropy
  * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
- *              After that, it also contains left/right sample counts for each
- *              of the bins (2 x nbins)
  * @param sbins quantiles for the current column (len = nbins)
  * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
@@ -80,9 +79,12 @@ DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto nLeft = shist[nbins * 2 * nclasses + i];
+    int nLeft = 0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeft += shist[i * 2 * nclasses + j];
+    }
     auto invLeft = One / nLeft;
-    auto invRight = One / shist[nbins * 2 * nclasses + nbins + i];
+    auto invRight = One / (len - nLeft);
     auto sum = DataT(0.0);
     for (IdxT j = 0; j < nclasses; ++j) {
       auto lhistval = shist[i * 2 * nclasses + j];
