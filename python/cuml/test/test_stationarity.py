@@ -16,7 +16,6 @@
 import pytest
 import numpy as np
 
-from cuml.test.utils import np_to_cudf
 from cuml.tsa.stationarity import stationarity
 
 
@@ -47,9 +46,8 @@ def test_stationarity(precision, input_type):
     for i in range(len(d_ref)):
         np_df[:, i] = xs[:] * inc_rates[i] + offsets[i] + noise[:]
 
-    if input_type == 'cudf':
-        df = np_to_cudf(np_df)
-    else:
+    # Numpy is the only tested input type at the moment
+    if input_type == 'numpy':
         df = np_df
 
     d_actual = stationarity(df)
