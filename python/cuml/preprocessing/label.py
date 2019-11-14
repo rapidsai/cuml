@@ -41,7 +41,7 @@ void map_label(int *x, int x_n, int *labels, int n_labels) {
 
 validate_kernel = cp.RawKernel(r'''
 extern "C" __global__
-void map_label(int *x, int x_n, int *labels, int n_labels, bool *out) {
+void validate_kernel(int *x, int x_n, int *labels, int n_labels, bool *out) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if(tid > x_n) return;
@@ -64,11 +64,11 @@ void map_label(int *x, int x_n, int *labels, int n_labels, bool *out) {
   
   if(!found) out[0] = false;
 }
-''', 'map_label')
+''', 'validate_kernel')
 
 inverse_map_kernel = cp.RawKernel(r'''
 extern "C" __global__
-void map_label(int *labels, int n_labels, int *x, int x_n) {
+void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if(tid > x_n) return;
@@ -82,7 +82,19 @@ void map_label(int *labels, int n_labels, int *x, int x_n) {
 
   x[tid] = label_cache[x[tid]];
 }
-''', 'map_label')
+''', 'inverse_map_kernel')
+
+
+def _validate_labels(y, classes):
+
+    valid = cp.array([True], dtype=cp.bool_)
+
+    smem = 4 * classes.shape[0]
+    map_kernel((y.shape[0] / 32,), (32, ),
+               (classes, classes.shape[0], y, y.shape[0]),
+               shared_mem=smem)
+
+    return valid[0]
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
@@ -96,6 +108,10 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     sorted_classes = cp.array(classes, dtype=cp.int32)
 
     col_ind = cp.array(y).copy().astype(cp.int32)
+
+    if not _validate_labels(col_ind, classes):
+        raise ValueError("Unseen classes encountered in input")
+
     row_ind = cp.arange(0, col_ind.shape[0], 1, dtype=cp.int32)
 
     smem = 4 * sorted_classes.shape[0]
@@ -170,6 +186,9 @@ class LabelBinarizer(object):
         :return:
         """
         y_mapped = cp.argmax(y.astype(cp.int32), axis=1).astype(cp.int32)
+
+        if not _validate_labels(y_mapped, self.classes_):
+            raise ValueError("Unseen classes encountered in input")
 
         print(str(self.classes_))
 
