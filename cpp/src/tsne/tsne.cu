@@ -242,7 +242,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   MLCommon::Sparse::COO<float> COO_Matrix(ROW, COL, VAL, NNZ, n, n);
 
   int *row_sizes = NULL;
-  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == PCA_Intialization))
+  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization))
   {
     row_sizes = (int*) embedding;
     workspace_size += 2*n*sizeof(int);
