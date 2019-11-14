@@ -42,32 +42,34 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit(
-        const cumlHandle &handle,
-        float *X,
-        float *Y,
-        const int n,
-        const int p,
-        const int dim,
-        int n_neighbors,
-        const float theta,
-        const float epssq,
-        float perplexity,
-        const int perplexity_max_iter,
-        const float perplexity_tol,
-        const float early_exaggeration,
-        const int exaggeration_iter,
-        const float min_gain,
-        const float pre_learning_rate,
-        const float post_learning_rate,
-        const int max_iter,
-        const float min_grad_norm,
-        const float pre_momentum,
-        const float post_momentum,
-        const long long random_state,
-        const bool verbose,
-        const bool pca_intialization,
-        bool barnes_hut) except +
+    ctypedef int IntializationType
+    ctypedef IntializationType Random_Intialization "(IntializationType)0"
+    ctypedef IntializationType PCA_Intialization "(IntializationType)1"
+
+    cdef void TSNE_fit[IntializationType](const cumlHandle &handle,
+                                          float *X,
+                                          float *Y,
+                                          const int n,
+                                          const int p,
+                                          const int dim,
+                                          int n_neighbors,
+                                          const float theta,
+                                          const float epssq,
+                                          float perplexity,
+                                          const int perplexity_max_iter,
+                                          const float perplexity_tol,
+                                          const float early_exaggeration,
+                                          const int exaggeration_iter,
+                                          const float min_gain,
+                                          const float pre_learning_rate,
+                                          const float post_learning_rate,
+                                          const int max_iter,
+                                          const float min_grad_norm,
+                                          const float pre_momentum,
+                                          const float post_momentum,
+                                          const long long random_state,
+                                          const bool verbose,
+                                          bool barnes_hut) except +
 
 
 class TSNE(Base):
@@ -83,7 +85,7 @@ class TSNE(Base):
     allows TSNE to produce extremely fast embeddings when n_components = 2.
     cuML defaults to this algorithm. A slower but more accurate Exact
     algorithm is also provided.
-    
+
     Parameters
     -----------
     n_components : int (default 2)
@@ -386,31 +388,34 @@ class TSNE(Base):
         if self.random_state is not None:
             seed = self.random_state
 
-        TSNE_fit(handle_[0],
-                 <float*> X_ptr,
-                 <float*> embed_ptr,
-                 <int> n,
-                 <int> p,
-                 <int> self.n_components,
-                 <int> self.n_neighbors,
-                 <float> self.angle,
-                 <float> self.epssq,
-                 <float> self.perplexity,
-                 <int> self.perplexity_max_iter,
-                 <float> self.perplexity_tol,
-                 <float> self.early_exaggeration,
-                 <int> self.exaggeration_iter,
-                 <float> self.min_gain,
-                 <float> self.pre_learning_rate,
-                 <float> self.post_learning_rate,
-                 <int> self.n_iter,
-                 <float> self.min_grad_norm,
-                 <float> self.pre_momentum,
-                 <float> self.post_momentum,
-                 <long long> seed,
-                 <bool> self.verbose,
-                 <bool> (self.init == 'pca'),
-                 <bool> (self.method == 'barnes_hut'))
+        cdef IntializationType init_type = Random_Intialization
+        if self.init == "pca":
+            init_type = PCA_Intialization
+
+        TSNE_fit[init_type](handle_[0],
+                            <float*> X_ptr,
+                            <float*> embed_ptr,
+                            <int> n,
+                            <int> p,
+                            <int> self.n_components,
+                            <int> self.n_neighbors,
+                            <float> self.angle,
+                            <float> self.epssq,
+                            <float> self.perplexity,
+                            <int> self.perplexity_max_iter,
+                            <float> self.perplexity_tol,
+                            <float> self.early_exaggeration,
+                            <int> self.exaggeration_iter,
+                            <float> self.min_gain,
+                            <float> self.pre_learning_rate,
+                            <float> self.post_learning_rate,
+                            <int> self.n_iter,
+                            <float> self.min_grad_norm,
+                            <float> self.pre_momentum,
+                            <float> self.post_momentum,
+                            <long long> seed,
+                            <bool> self.verbose,
+                            <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
         del _X

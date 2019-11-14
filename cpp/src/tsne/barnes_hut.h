@@ -46,7 +46,7 @@ namespace TSNE {
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
  * @input param pca_intialization: Whether to intialize with PCA.
- * @input param SAVED_SPACE: How much memory was saved.
+ * @input param workspace_size: How much memory was saved.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n,
@@ -58,7 +58,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1, const bool verbose = true,
-                const bool pca_intialization = false, int SAVED_SPACE = 0)
+                const bool pca_intialization = false, int workspace_size = 0)
 {
   float max_bounds = 100;
   auto d_alloc = handle.getDeviceAllocator();
@@ -103,7 +103,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   device_buffer<float> rep_forces_(d_alloc, stream, (NNODES + 1) * 2);
   float *rep_forces = rep_forces_.data();
   float *attr_forces = Y;
-  SAVED_SPACE += (n * 2) * sizeof(float);
+  workspace_size += (n * 2) * sizeof(float);
 
   // Tree Construction Intermmediate Arrays
   int *startl, *countl;
@@ -111,7 +111,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   {
     startl = (int *) rep_forces;
     countl = startl + NNODES + 1;
-    SAVED_SPACE += (NNODES + 1) * 2 * sizeof(int);
+    workspace_size += (NNODES + 1) * 2 * sizeof(int);
   }
   else
   {
@@ -138,7 +138,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     maxyl = (float *) sortl + 1*blocks*FACTOR1;
     minxl = (float *) sortl + 2*blocks*FACTOR1;
     minyl = (float *) sortl + 3*blocks*FACTOR1;
-    SAVED_SPACE += 4*blocks*FACTOR1*sizeof(float);
+    workspace_size += 4*blocks*FACTOR1*sizeof(float);
   }
   else
   {
@@ -162,7 +162,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     norm = (float *) childl;
     norm_add1 = (float *) childl + n;
     sums = (float *) childl + 2 * n;
-    SAVED_SPACE += (n + n + 2)*sizeof(float);
+    workspace_size += (n + n + 2)*sizeof(float);
   }
   else
   {
@@ -187,7 +187,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   float *YY = YY_.data();
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %d megabytes\n", SAVED_SPACE >> 20);
+    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
 
 
   // Intialize embeddings
@@ -236,8 +236,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     CUDA_CHECK(cudaMemsetAsync(startl + NNODES, 0, sizeof(int), stream));
     TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
-      /*startl,*/ childl, /* massl, */
-      YY, YY + NNODES + 1, YY + NNODES, YY + 2 * NNODES + 1, maxxl, maxyl,
+      childl, YY, YY + NNODES + 1, YY + NNODES, YY + 2 * NNODES + 1, maxxl, maxyl,
       minxl, minyl, FOUR_NNODES, NNODES, n, limiter, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -256,7 +255,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     thrust::fill(thrust::cuda::par.on(stream), bottomd, bottomd + 1, NNODES);
 
     TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
-      /*errl,*/ childl, YY, YY + NNODES + 1, NNODES, n, maxdepthd, bottomd, radiusd);
+      childl, YY, YY + NNODES + 1, NNODES, n, maxdepthd, bottomd, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(TreeBuildingKernel_time);
 
@@ -298,7 +297,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     CUDA_CHECK(cudaMemsetAsync(Z_norm, 0, sizeof(float), stream));
 
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      /*errl,*/ theta, epssq, sortl, childl, massl, YY, YY + NNODES + 1,
+      theta, epssq, sortl, childl, massl, YY, YY + NNODES + 1,
       rep_forces, rep_forces + NNODES + 1, Z_norm, theta_squared, NNODES,
       FOUR_NNODES, n, radiusd_squared, maxdepthd);
     CUDA_CHECK(cudaPeekAtLastError());

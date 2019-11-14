@@ -49,6 +49,7 @@
  * @input param size: The size of the output vector.
  * @input param stream: The GPU stream.
  * @input param seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
+ * @input param normal: If normal == True, then fill vector with random Normal Distribution. Otherwise, uniform.
  */
 template <typename T> void
 random_vector(T *vector,

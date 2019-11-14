@@ -46,9 +46,7 @@ namespace TSNE {
  * Figures the bounding boxes for every point in the embedding.
  */
 __global__ __launch_bounds__(THREADS1, FACTOR1) void
-BoundingBoxKernel(// int *restrict startd,     // NNODES+1
-                  int *restrict childd,     // FOUR_NNODES+4
-                  // float *restrict massd,    // NNODES+1
+BoundingBoxKernel(int *restrict childd,           // FOUR_NNODES+4
                   const float *restrict posxd,    // NNODES+1
                   const float *restrict posyd,    // NNODES+1
                   float *restrict posxd_NNODES,
@@ -125,9 +123,6 @@ BoundingBoxKernel(// int *restrict startd,     // NNODES+1
 
     // compute 'radius'
     atomicExch(radiusd, fmaxf(maxx - minx, maxy - miny) * 0.5f + 1e-5f);
-
-    // massd[NNODES] = -1.0f;
-    // startd[NNODES] = 0;
     posxd_NNODES[0] = (minx + maxx) * 0.5f;
     posxd_NNODES[0] = (miny + maxy) * 0.5f;
 
@@ -161,8 +156,7 @@ ClearKernel1(int *restrict childd,
  * Build the actual KD Tree.
  */
 __global__ __launch_bounds__(THREADS2, FACTOR2) void
-TreeBuildingKernel( /* int *restrict errd, */
-                   int *restrict childd,        // (NNODES+1)*4
+TreeBuildingKernel(int *restrict childd,        // (NNODES+1)*4
                    const float *restrict posxd, // NNODES+1
                    const float *restrict posyd, // NNODES+1
                    const int NNODES,
@@ -566,8 +560,7 @@ SortKernel(int *restrict sortd,             // NNODES+1
  * Calculate the repulsive forces using the KD Tree
  */
 __global__ __launch_bounds__(THREADS5, FACTOR5) void
-RepulsionKernel( /* int *restrict errd, */
-                const float theta,
+RepulsionKernel(const float theta,
                 const float epssqd,  // correction for zero distance
                 const int *restrict sortd,        // NNODES+1
                 const int *restrict childd,       // (NNODES+1)*4
@@ -622,8 +615,6 @@ RepulsionKernel( /* int *restrict errd, */
   // if (diff < 32)
   dq[diff + sbase] = dq[diff];
 
-
-  //__syncthreads();
   __threadfence_block();
 
   // iterate over all bodies assigned to thread

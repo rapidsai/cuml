@@ -910,18 +910,13 @@ __global__ static void symmetric_sum(int *restrict edges,
   if (row >= n || j >= k) return;
 
   const int index = row * k + j;
-  // const int col = indices[index];
   const int col = COL[index];
-  // const int original = atomicAdd(&edges[row], 1);
 
   // Notice swapped ROW, COL since transpose
-  // ROW[original] = row;
-  // COL[original] = col;
   ROW[index] = row;
-  // COL[index] = col;
 
   const int transpose = atomicAdd(&edges[col], 1);
-  VAL[transpose] /*= VAL[original]*/ = data[index];
+  VAL[transpose] = data[index];
   ROW[transpose] = col;
   COL[transpose] = row;
 }
@@ -950,10 +945,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists,
                                 const int n,
                                 const int k,
-                                /* math_t *restrict out, */
-                                math_t *restrict VAL,
-                                int *restrict COL,
-                                int *restrict ROW,
+                                COO<math_t> *out,
                                 int *restrict row_sizes,
                                 cudaStream_t stream,
                                 std::shared_ptr<deviceAllocator> d_alloc)
@@ -977,7 +969,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   CUDA_CHECK(cudaMemsetAsync(row_sizes1, 0, sizeof(int)*n*2, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2, COL);
+    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2, out->cols);
   CUDA_CHECK(cudaPeekAtLastError());
 
   reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
@@ -988,10 +980,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Notice we don't do any merging and leave the result as 2*NNZ
   // const int NNZ = 2 * n * k;
 
-  // (3) Allocate new space
-  // out->allocate(NNZ, n, n);
-
-  // (4) Prepare edges for each new row
+  // (3) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
   // are calculated as the cumulative rolling sum of the previous rows.
   // Notice reusing old row_sizes2 memory
@@ -1009,9 +998,9 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Set last to NNZ only if CSR needed
   // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
 
-  // (5) Perform final data + data.T operation in tandem with memcpying
+  // (4) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, /*knn_indices,*/ VAL, COL, ROW, n, k);
+    edges, knn_dists, out->vals, out->cols, out->rows, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (row_sizes == NULL)
