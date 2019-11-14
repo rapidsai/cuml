@@ -232,6 +232,7 @@ def run_variations(
     param_override_list=[{}],
     cuml_param_override_list=[{}],
     input_type="numpy",
+    test_fraction=0.1,
     run_cpu=True,
     raise_on_error=False,
 ):
@@ -255,12 +256,14 @@ def run_variations(
       Each dict specifies parameters to override in one run of the algorithm.
     cuml_param_override_list : list of dict
       Dicts containing parameters to pass to __init__ of the cuml algo only.
+    test_fraction : float
+      The fraction of data to use for testing.
     run_cpu : boolean
       If True, run the cpu-based algorithm for comparison
     """
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
-        bench_rows, bench_dims, dataset_name, input_type
+        bench_rows, bench_dims, dataset_name, input_type, test_fraction
     )
     all_results = []
     for algo in algos:
