@@ -43,8 +43,8 @@ cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     enum IntializationType:
-      Random_Intialization = 0,
-      PCA_Intialization = 1
+        Random_Intialization = 0,
+        PCA_Intialization = 1
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(const cumlHandle &handle,
@@ -72,6 +72,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
                        const bool verbose,
                        const IntializationType init,
                        bool barnes_hut) except +
+
 
 class TSNE(Base):
     """
@@ -396,30 +397,30 @@ class TSNE(Base):
             init_type = IntializationType.Random_Intialization
 
         TSNE_fit(handle_[0],
-                <float*> X_ptr,
-                <float*> embed_ptr,
-                <int> n,
-                <int> p,
-                <int> self.n_components,
-                <int> self.n_neighbors,
-                <float> self.angle,
-                <float> self.epssq,
-                <float> self.perplexity,
-                <int> self.perplexity_max_iter,
-                <float> self.perplexity_tol,
-                <float> self.early_exaggeration,
-                <int> self.exaggeration_iter,
-                <float> self.min_gain,
-                <float> self.pre_learning_rate,
-                <float> self.post_learning_rate,
-                <int> self.n_iter,
-                <float> self.min_grad_norm,
-                <float> self.pre_momentum,
-                <float> self.post_momentum,
-                <long long> seed,
-                <bool> self.verbose,
-                init_type,
-                <bool> (self.method == 'barnes_hut'))
+                 <float*> X_ptr,
+                 <float*> embed_ptr,
+                 <int> n,
+                 <int> p,
+                 <int> self.n_components,
+                 <int> self.n_neighbors,
+                 <float> self.angle,
+                 <float> self.epssq,
+                 <float> self.perplexity,
+                 <int> self.perplexity_max_iter,
+                 <float> self.perplexity_tol,
+                 <float> self.early_exaggeration,
+                 <int> self.exaggeration_iter,
+                 <float> self.min_gain,
+                 <float> self.pre_learning_rate,
+                 <float> self.post_learning_rate,
+                 <int> self.n_iter,
+                 <float> self.min_grad_norm,
+                 <float> self.pre_momentum,
+                 <float> self.post_momentum,
+                 <long long> seed,
+                 <bool> self.verbose,
+                 init_type,
+                 <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
         del _X

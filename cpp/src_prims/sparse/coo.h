@@ -978,7 +978,6 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (2) Compute final space needed (n*k + sum(row_sizes1)) == 2*n*k
   // Notice we don't do any merging and leave the result as 2*NNZ
-  // const int NNZ = 2 * n * k;
 
   // (3) Prepare edges for each new row
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
