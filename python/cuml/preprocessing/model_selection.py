@@ -14,17 +14,21 @@
 #
 
 import cudf
-from typing import Union, Tuple
 import cupy as cp
 import numpy as np
 
+from numba import cuda
+from typing import Union
+
 
 def train_test_split(
-    X, y,
-    train_size: Union[float, int] = 0.8,
+    X,
+    y,
+    test_size: Union[float, int] = None,
+    train_size: Union[float, int] = None,
     shuffle: bool = True,
-    seed: int = None,
-) -> Tuple[cudf.DataFrame, cudf.DataFrame, cudf.DataFrame, cudf.DataFrame]:
+    seed: Union[int, cp.random.RandomState, np.random.RandomState] = None
+):
     """
     Partitions cuDF data into four collated dataframes, mimicking
     Scikit-learn's `train_test_split`
@@ -98,8 +102,20 @@ def train_test_split(
             y = X[name]
             X = X.drop(name)
         else:
-            raise ValueError("X needs to be a cuDF Dataframe when y is a \
+            raise TypeError("X needs to be a cuDF Dataframe when y is a \
                              string")
+
+    # todo: this check will be replaced with upcoming improvements
+    # to input_utils
+    if not cuda.is_cuda_array(X) and not isinstance(X, cudf.DataFrame) \
+            and isinstance(y, cudf.Series):
+        raise TypeError("X needs to be either a cuDF DataFrame, Series or \
+                        a cuda_array_interface compliant array.")
+
+    if not cuda.is_cuda_array(y) and not isinstance(y, cudf.DataFrame) \
+            and isinstance(y, cudf.Series):
+        raise TypeError("y needs to be either a cuDF DataFrame, Series or \
+                        a cuda_array_interface compliant array.")
 
     if X.shape[0] != y.shape[0]:
         raise ValueError(
@@ -113,7 +129,6 @@ def train_test_split(
                 "proportion train_size should be between"
                 "0 and 1 (found {})".format(train_size)
             )
-        split_idx = int(X.shape[0] * train_size)
 
     if isinstance(train_size, int):
         if not 0 <= train_size <= X.shape[0]:
@@ -121,27 +136,82 @@ def train_test_split(
                 "Number of instances train_size should be between 0 and the"
                 "first dimension of X (found {})".format(train_size)
             )
-        split_idx = train_size
+
+    if isinstance(test_size, float):
+        if not 0 <= train_size <= 1:
+            raise ValueError(
+                "proportion test_size should be between"
+                "0 and 1 (found {})".format(train_size)
+            )
+
+    if isinstance(test_size, int):
+        if not 0 <= train_size <= X.shape[0]:
+            raise ValueError(
+                "Number of instances test_size should be between 0 and the"
+                "first dimension of X (found {})".format(train_size)
+            )
 
     if shuffle:
-        if isinstance(seed, cp.random.RandomState):
+        if seed is None or isinstance(seed, int):
             idxs = cp.arange(X.shape[0])
+            seed = cp.random.RandomState(seed=seed)
+            cp.random.shuffle(idxs)
+
+        elif isinstance(seed, cp.random.RandomState):
+            idxs = cp.arange(X.shape[0])
+            cp.random.shuffle(idxs)
 
         elif isinstance(seed, np.random.RandomState):
             idxs = np.arange(X.shape[0])
+            np.random.shuffle(idxs)
 
-        elif isinstance(seed, int):
-            idxs = cp.arange(X.shape[0])
-            seed = cp.random.RandomState(seed=seed)
+        else:
+            raise TypeError("`seed` must be an int, NumPy RanomState \
+                             or CuPy RandomState.")
 
-        seed.shuffle(idxs)
-        X = X.iloc[idxs].reset_index(drop=True)
-        y = y.iloc[idxs].reset_index(drop=True)
+        if cuda.is_cuda_array(X):
+            X = X[idxs]
+        elif isinstance(X, cudf.DataFrame):
+            X = X.iloc[idxs].reset_index(drop=True)
 
-    split_idx = int(X.shape[0] * train_size)
-    X_train = X.iloc[0:split_idx]
-    y_train = y.iloc[0:split_idx]
-    X_test = X.iloc[split_idx:]
-    y_test = y.iloc[split_idx:]
+        if cuda.is_cuda_array(y):
+            y = y[idxs]
+        elif isinstance(y, cudf.DataFrame):
+            y = y.iloc[idxs].reset_index(drop=True)
+
+    # Determining sizes of splits
+    if isinstance(train_size, float):
+        train_size = int(X.shape[0] * train_size)
+
+    if test_size is None:
+        if train_size is None:
+            train_size = int(X.shape[0] * 0.75)
+
+        test_size = X.shape[0] - train_size
+
+    if isinstance(test_size, float):
+        test_size = int(X.shape[0] * train_size)
+        if train_size is None:
+            train_size = X.shape[0] - test_size
+
+    elif isinstance(test_size, int):
+        if train_size is None:
+            train_size = X.shape[0] - test_size
+
+    if cuda.is_cuda_array(X):
+        X_train = X[0:train_size]
+        y_train = y[0:train_size]
+    elif isinstance(X, cudf.DataFrame):
+        X_train = X.iloc[0:train_size]
+        y_train = y.iloc[0:train_size]
+
+    if cuda.is_cuda_array(y):
+        X_test = X[test_size:]
+        y_test = y[test_size:]
+    elif isinstance(y, cudf.DataFrame):
+        X_test = X.iloc[test_size:]
+        y_test = y.iloc[test_size:]
+
+
 
     return X_train, X_test, y_train, y_test
