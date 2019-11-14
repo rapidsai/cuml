@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 
-import pytest
 import cudf
+import cupy as cp
+import pytest
+
 from cuml.preprocessing.model_selection import train_test_split
 
 
@@ -87,3 +89,19 @@ def test_split_invalid_proportion(train_size):
 
     with pytest.raises(ValueError):
         train_test_split(X, y, train_size=train_size)
+
+
+def test_random_seed():
+    for i in range(50):
+        seed = cp.random.randint(0, 1e9)
+        X = cudf.DataFrame({"x": range(100)})
+        y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, seed=seed)
+        X_train2, X_test2, y_train2, y_test2 = train_test_split(X, y,
+                                                                seed=seed)
+
+        assert X_train.equals(X_train2)
+        assert X_test.equals(X_test2)
+        assert y_train.equals(y_train2)
+        assert y_test.equals(y_test2)
