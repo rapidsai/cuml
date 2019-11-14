@@ -39,6 +39,51 @@ void map_label(int *x, int x_n, int *labels, int n_labels) {
 }
 ''', 'map_label')
 
+validate_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void map_label(int *x, int x_n, int *labels, int n_labels, bool *out) {
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if(tid > x_n) return;
+
+  extern __shared__ int label_cache[];
+  if(tid == 0) {
+    for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
+  }
+
+  __syncthreads();
+
+  int unmapped_label = x[tid];
+  bool found = false;
+  for(int i = 0; i < n_labels; i++) {
+    if(label_cache[i] == unmapped_label) {
+      found = true;
+      break;
+    }
+  }
+  
+  if(!found) out[0] = false;
+}
+''', 'map_label')
+
+inverse_map_kernel = cp.RawKernel(r'''
+extern "C" __global__
+void map_label(int *labels, int n_labels, int *x, int x_n) {
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if(tid > x_n) return;
+
+  extern __shared__ int label_cache[];
+  if(tid == 0) {
+    for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
+  }
+
+  __syncthreads();
+
+  x[tid] = label_cache[x[tid]];
+}
+''', 'map_label')
+
 
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
@@ -105,7 +150,7 @@ class LabelBinarizer(object):
         self : returns an instance of self.
         """
 
-        self.classes_ = cp.unique(y)
+        self.classes_ = cp.unique(y).astype(cp.int32)
         return self
 
     def fit_transform(self, y):
@@ -117,12 +162,25 @@ class LabelBinarizer(object):
                               neg_label=self.neg_label,
                               sparse_output=self.sparse_output)
 
-    def inverse_transform(self, Y, threshold=None):
+    def inverse_transform(self, y, threshold=None):
         """
         Transform binary labels back to multi-class labels
         :param Y:
         :param threshold:
         :return:
         """
+        y_mapped = cp.argmax(y.astype(cp.int32), axis=1).astype(cp.int32)
+
+        print(str(self.classes_))
+
+        smem = 4 * self.classes_.shape[0]
+        inverse_map_kernel((y_mapped.shape[0] / 32,), (32,),
+                           (self.classes_, self.classes_.shape[0],
+                            y_mapped, y_mapped.shape[0]),
+                           shared_mem=smem)
+
+        return y_mapped
+
+
 
 
