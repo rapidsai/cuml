@@ -52,9 +52,9 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
+ * @input param init: Intialization type using IntializationType enum
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-template <IntializationType init>
 void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
               const int p, const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
@@ -64,7 +64,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              const bool verbose, bool barnes_hut)
+              const bool verbose, const IntializationType init, bool barnes_hut)
 {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
            embedding != NULL,
