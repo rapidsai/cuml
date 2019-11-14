@@ -391,9 +391,9 @@ class TSNE(Base):
 
         cdef int init_type
         if self.init == "pca":
-            init_type = (int)IntializationType.PCA_Intialization
+            init_type = <int>(IntializationType.PCA_Intialization)
         else:
-            init_type = (int)IntializationType.Random_Intialization
+            init_type = <int>(IntializationType.Random_Intialization)
 
         TSNE_fit[init_type](handle_[0],
                             <float*> X_ptr,
