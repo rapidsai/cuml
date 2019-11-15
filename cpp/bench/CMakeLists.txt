@@ -39,6 +39,8 @@ ExternalProject_Add(benchmark
   UPDATE_COMMAND    ""
 )
 
+add_dependencies(benchmark ${CUML_CPP_TARGET})
+
 add_library(benchmarklib STATIC IMPORTED)
 add_dependencies(benchmarklib benchmark)
 set_property(TARGET benchmarklib PROPERTY IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
@@ -57,6 +59,7 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/kmeans.cu
   sg/main.cpp
   sg/rf_classifier.cu
+  sg/rf_regressor.cu
   )
 
 add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})

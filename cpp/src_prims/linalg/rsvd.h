@@ -182,8 +182,8 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
     Matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
     if (use_jacobi)
-      eigJacobi(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), tol,
-                max_sweeps, cusolverH, stream, allocator);
+      eigJacobi(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), cusolverH,
+                stream, allocator, tol, max_sweeps);
     else
       eigDC(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), cusolverH,
             stream, allocator);

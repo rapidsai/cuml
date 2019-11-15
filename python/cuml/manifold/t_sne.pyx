@@ -41,7 +41,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "tsne/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
         const cumlHandle &handle,
         const float *X,
@@ -98,7 +98,7 @@ class TSNE(Base):
         The learning rate usually between (10, 1000). If this is too high,
         TSNE could look like a cloud / ball of points.
     n_iter : int (default 1000)
-        The more epochs, the more stable/accruate the final embedding.
+        The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
         When the KL Divergence becomes too small after some iterations,
         terminate TSNE early.
@@ -120,7 +120,7 @@ class TSNE(Base):
         It is known that small perturbations can directly
         change the result of the embedding for parallel TSNE implementations.
     method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
-        Options are either barnes_hut or exact. It is recommend that you use
+        Options are either barnes_hut or exact. It is recommended that you use
         the barnes hut approximation for superior O(nlogn) complexity.
     angle : float (default 0.5)
         Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
@@ -135,7 +135,7 @@ class TSNE(Base):
         local structure, whilst larger values can improve global structure
         preservation. Default is 3 * 30 (perplexity)
     perplexity_max_iter : int (default 100)
-        The number of epochs the best guassian bands are found for.
+        The number of epochs the best gaussian bands are found for.
     exaggeration_iter : int (default 250)
         To promote the growth of clusters, set this higher.
     pre_momentum : float (default 0.5)
@@ -145,7 +145,7 @@ class TSNE(Base):
     should_downcast : bool (default True)
         Whether to reduce to dataset to float32 or not.
     handle : (cuML Handle, default None)
-        You can pass in a past handle that was intialized, or we will create
+        You can pass in a past handle that was initialized, or we will create
         one for you anew!
 
     References
@@ -165,7 +165,7 @@ class TSNE(Base):
     Tips
     -----
     Maaten and Linderman showcased how TSNE can be very sensitive to both the
-    starting conditions (ie random intialization), and how parallel versions
+    starting conditions (ie random initialization), and how parallel versions
     of TSNE can generate vastly different results. It has been suggested that
     you run TSNE a few times to settle on the best configuration. Notice
     specifying random_state and fixing it across runs can help, but TSNE does
@@ -356,7 +356,7 @@ class TSNE(Base):
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
             if self.verbose:
-                print("Learning rate is adpative. In TSNE paper, "
+                print("Learning rate is adaptive. In TSNE paper, "
                       "it has been shown that as n->inf, "
                       "Barnes Hut works well if n_neighbors->30, "
                       "learning_rate->20000, early_exaggeration->24.")

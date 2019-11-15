@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuML.hpp>
-#include <dbscan/dbscan.hpp>
+#include <cuml/cluster/dbscan.hpp>
+#include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
 

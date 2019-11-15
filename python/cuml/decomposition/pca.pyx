@@ -35,7 +35,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
 
-cdef extern from "pca/pca.hpp" namespace "ML":
+cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
     cdef void pcaFit(cumlHandle& handle,
                      float *input,
@@ -259,7 +259,7 @@ class PCA(Base):
     Notes
     ------
     PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
+    maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
     T-SNE for a locally important embedding.
 
@@ -479,8 +479,8 @@ class PCA(Base):
         X_m, trans_input_ptr, n_rows, _, dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                                 else None)
+                               )
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
@@ -619,16 +619,22 @@ class PCA(Base):
 
         del state['handle']
         del state['c_algorithm']
-        state['trans_input_'] = cudf.Series(state['trans_input_'])
-        state['components_ary'] = cudf.Series(self.components_ary)
+        if "trans_input_" in state:
+            state['trans_input_'] = cudf.Series(state['trans_input_'])
+
+        if self.components_ary is not None:
+            state['components_ary'] = cudf.Series(self.components_ary)
 
         return state
 
     def __setstate__(self, state):
         super(PCA, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['trans_input_'] = state['trans_input_'].to_gpu_array()
-        state['components_ary'] = state['components_ary'].to_gpu_array()
+        if "trans_input_" in state:
+            state['trans_input_'] = state['trans_input_'].to_gpu_array()
+
+        if "components_ary" in state:
+            state['components_ary'] = state['components_ary'].to_gpu_array()
 
         self.__dict__.update(state)
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)

@@ -101,7 +101,7 @@ class KMeans(object):
         Extracts centroids
         :param model: Local KMeans instance
         :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
+        :param r: Stops memoization caching
         :return: The fit model
         """
 

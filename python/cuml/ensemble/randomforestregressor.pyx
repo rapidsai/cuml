@@ -43,7 +43,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
         ENTROPY,
@@ -51,7 +51,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
         int max_leaves
@@ -59,11 +59,12 @@ cdef extern from "decisiontree/decisiontree.hpp" namespace "ML::DecisionTree":
         int n_bins
         int split_algo
         int min_rows_per_node
+        float min_impurity_decrease
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
 
-cdef extern from "randomforest/randomforest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
         CLASSIFICATION,
@@ -122,8 +123,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
-                          float*,
-                          int,
                           int,
                           float*,
                           bool) except +
@@ -131,8 +130,6 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
-                          double*,
-                          int,
                           int,
                           double*,
                           bool) except +
@@ -159,6 +156,7 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
                                     int,
                                     int,
                                     int,
+                                    float,
                                     bool,
                                     bool,
                                     int,
@@ -176,7 +174,7 @@ class RandomForestRegressor(Base):
     trees in an ensemble.
     Note that the underlying algorithm for tree node splits differs from that
     used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithms to determine splits, rather than an exact
+    histogram-based algorithm to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
     **Known Limitations**: This is an initial release of the cuML
@@ -220,7 +218,7 @@ class RandomForestRegressor(Base):
     split_algo : int (default = 1)
                  0 for HIST, 1 for GLOBAL_QUANTILE
                  The type of algorithm to be used to create the trees.
-                 HIST curently uses a slower tree-building algorithm
+                 HIST currently uses a slower tree-building algorithm
                  so GLOBAL_QUANTILE is recommended for most cases.
     split_criterion: int (default = 2)
                      The criterion used to split nodes.
@@ -261,17 +259,25 @@ class RandomForestRegressor(Base):
                         to split a node.
                         If int then number of sample rows
                         If float the min_rows_per_sample*n_rows
+    min_impurity_decrease : float (default = 0.0)
+                            The minimum decrease in impurity required
+                            for node to be split
     accuracy_metric : string (default = 'mse')
                       Decides the metric used to evaluate the performance
                       of the model.
                       for median of abs error : 'median_ae'
                       for mean of abs error : 'mean_ae'
                       for mean square error' : 'mse'
-    """
+    quantile_per_tree : boolean (default = False)
+                        Whether quantile is computed for individal trees in RF.
+                        Only relevant for GLOBAL_QUANTILE split_algo.
+
+   """
 
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
+                 'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
@@ -285,7 +291,7 @@ class RandomForestRegressor(Base):
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
-                 max_leaf_nodes=None, min_impurity_decrease=None,
+                 max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None, seed=-1):
@@ -294,7 +300,6 @@ class RandomForestRegressor(Base):
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
-                          "min_impurity_decrease": min_impurity_decrease,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
                           "random_state": random_state,
@@ -328,6 +333,7 @@ class RandomForestRegressor(Base):
             self.split_criterion = criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
+        self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
         self.max_leaves = max_leaves
@@ -420,7 +426,7 @@ class RandomForestRegressor(Base):
 
     def fit(self, X, y):
         """
-        Perform Random Forest Classification on the input data
+        Perform Random Forest Regression on the input data
 
         Parameters
         ----------
@@ -462,6 +468,7 @@ class RandomForestRegressor(Base):
                                      <int> self.n_bins,
                                      <int> self.split_algo,
                                      <int> self.min_rows_per_node,
+                                     <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
@@ -499,11 +506,9 @@ class RandomForestRegressor(Base):
     def _predict_model_on_gpu(self, X,
                               output_class,
                               algo):
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
+        _, _, n_rows, n_cols, X_dtype = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
 
         # task category = 1 for regression
         treelite_model = self._get_treelite(num_features=n_cols,
@@ -511,7 +516,7 @@ class RandomForestRegressor(Base):
 
         fil_model = ForestInference()
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_model.value,
+            fil_model.load_from_randomforest(treelite_model,
                                              output_class=False,
                                              algo='BATCH_TREE_REORG')
         preds = tl_to_fil_model.predict(X)
@@ -520,7 +525,8 @@ class RandomForestRegressor(Base):
     def _predict_model_on_cpu(self, X):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               check_cols=self.n_cols)
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
@@ -587,7 +593,6 @@ class RandomForestRegressor(Base):
                       If true, return a 1 or 0 depending on whether the raw
                       prediction exceeds the threshold. If False, just return
                       the raw prediction.
-
         algo : string name of the algo from (from algo_t enum)
                This is optional and required only while performing the
                predict operation on the GPU.
@@ -614,7 +619,7 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_on_cpu(X)
         return preds
 
-    def score(self, X, y):
+    def score(self, X, y, algo='BATCH_TREE_REORG'):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -625,6 +630,14 @@ class RandomForestRegressor(Base):
             ndarray, cuda array interface compliant array like CuPy
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
+        algo : string name of the algo from (from algo_t enum)
+               This is optional and required only while performing the
+               predict operation on the GPU.
+               'NAIVE' - simple inference using shared memory
+               'TREE_REORG' - similar to naive but trees rearranged to be more
+                              coalescing-friendly
+               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+                                    multiple rows per thread block
         Returns
         ----------
         mean_square_error : float or
@@ -632,15 +645,11 @@ class RandomForestRegressor(Base):
         mean_abs_error : float
         """
         cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        y_m, y_ptr, n_rows, _, _ = \
+            input_to_dev_array(y, check_dtype=self.dtype)
 
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        preds = np.zeros(n_rows,
-                         dtype=self.dtype)
+        preds = self._predict_model_on_gpu(X, output_class=False,
+                                           algo=algo)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
@@ -657,20 +666,16 @@ class RandomForestRegressor(Base):
         if self.dtype == np.float32:
             self.temp_stats = score(handle_[0],
                                     rf_forest,
-                                    <float*> X_ptr,
                                     <float*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <float*> preds_ptr,
                                     <bool> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
                                     rf_forest64,
-                                    <double*> X_ptr,
                                     <double*> y_ptr,
                                     <int> n_rows,
-                                    <int> n_cols,
                                     <double*> preds_ptr,
                                     <bool> self.verbose)
 
@@ -682,7 +687,6 @@ class RandomForestRegressor(Base):
             stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
-        del(X_m)
         del(y_m)
         del(preds_m)
         return stats
@@ -775,5 +779,6 @@ class RandomForestRegressor(Base):
                                   rf_forest64,
                                   <int> num_features,
                                   <int> task_category)
-        self.mod_ptr = <size_t> cuml_model_ptr
-        return ctypes.c_void_p(self.mod_ptr)
+        mod_ptr = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_ptr).value

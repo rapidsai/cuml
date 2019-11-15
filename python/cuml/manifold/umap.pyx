@@ -42,7 +42,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
     enum MetricType:
         EUCLIDEAN = 0,
@@ -52,7 +52,7 @@ cdef extern from "internals/internals.h" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
 
-cdef extern from "umap/umapparams.h" namespace "ML":
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
         int n_neighbors,
@@ -76,7 +76,7 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         GraphBasedDimRedCallback* callback
 
 
-cdef extern from "umap/umap.hpp" namespace "ML":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
     void fit(cumlHandle & handle,
              float * X,
              int n,
@@ -188,8 +188,8 @@ class UMAP(Base):
     However, there are a number of differences and features that are not yet
     implemented in cuml.umap:
       * Specifying the random seed
-      * Using a non-euclidean distance metric (support for a fixed set
-        of non-euclidean metrics is planned for an upcoming release).
+      * Using a non-Euclidean distance metric (support for a fixed set
+        of non-Euclidean metrics is planned for an upcoming release).
       * Using a pre-computed pairwise distance matrix (under consideration
         for future releases)
       * Manual initialization of initial embedding positions

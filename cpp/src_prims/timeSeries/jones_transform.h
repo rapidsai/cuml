@@ -17,11 +17,12 @@
 * @file jones_transform.h
 * @brief Transforms params to induce stationarity/invertability.
 * reference: Jones(1980) 
-
 */
 
+#pragma once
+
 #include <math.h>
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/unary_op.h"

@@ -20,7 +20,9 @@ import cudf
 import numpy as np
 import warnings
 
-from .import_utils import has_cupy
+from cuml.utils.import_utils import has_cupy
+from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
+from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 from collections import namedtuple
 from collections.abc import Collection
@@ -225,8 +227,11 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            cuml.utils.numba_utils.gpu_major_converter(X_m, n_rows, n_cols,
-                                                       dtype, to_order=order)
+            X_m = cuml.utils.numba_utils.gpu_major_converter(X_m,
+                                                             n_rows,
+                                                             n_cols,
+                                                             dtype,
+                                                             to_order=order)
 
     X_ptr = get_dev_array_ptr(X_m)
 
@@ -254,12 +259,16 @@ def convert_dtype(X, to_dtype=np.float32):
                                 "in data loss.")
             return X_m
 
-    elif isinstance(X, cudf.Series):
+    elif isinstance(X, cudf.Series) or isinstance(X, cudf.DataFrame):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
         if has_cupy():
             import cupy as cp
+
+            if test_numba_cupy_version_conflict(X):
+                X = PatchedNumbaDeviceArray(X)
+
             X_m = cp.asarray(X)
             X_m = X_m.astype(to_dtype)
             return cuda.as_cuda_array(X_m)
@@ -273,20 +282,6 @@ def convert_dtype(X, to_dtype=np.float32):
                 X = X_df.from_gpu_matrix(X)
                 X = convert_dtype(X, to_dtype=to_dtype)
                 return X.as_gpu_matrix()
-
-    elif isinstance(X, cudf.DataFrame):
-        dtype = np.dtype(X[X.columns[0]]._column.dtype)
-        if dtype != to_dtype:
-            new_cols = [(col, X._cols[col].astype(to_dtype))
-                        for col in X._cols]
-            overflowed = sum([len(colval[colval >= np.inf])
-                              for colname, colval in new_cols])
-
-            if overflowed > 0:
-                raise TypeError("Data type conversion resulted"
-                                "in data loss.")
-
-            return cudf.DataFrame(new_cols)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
@@ -303,9 +298,9 @@ def check_numba_order(dev_ary, order):
 
 def order_to_str(order):
     if order == 'F':
-        return 'column'
+        return 'column (\'F\')'
     elif order == 'C':
-        return 'row'
+        return 'row (\'C\')'
 
 
 def input_to_host_array(X, order='F', deepcopy=False,

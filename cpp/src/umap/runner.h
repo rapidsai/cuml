@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
 #include "optimize.h"
 #include "supervised.h"
-#include "umapparams.h"
 
 #include "fuzzy_simpl_set/runner.h"
 #include "init_embed/runner.h"

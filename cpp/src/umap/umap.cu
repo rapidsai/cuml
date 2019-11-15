@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/umapparams.h>
+#include <cuml/manifold/umap.hpp>
 #include "runner.h"
-#include "umap.hpp"
-#include "umapparams.h"
 
 #include <iostream>
 

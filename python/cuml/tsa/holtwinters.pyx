@@ -26,12 +26,12 @@ from cuml.utils import input_to_dev_array, get_dev_array_ptr, numba_utils
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-cdef extern from "holtwinters/holtwinters_params.h" namespace "ML":
+cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
         ADDITIVE
         MULTIPLICATIVE
 
-cdef extern from "holtwinters/holtwinters.h" namespace "ML::HoltWinters":
+cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
     cdef void buffer_size(
         int n, int batch_size, int frequency,
         int *start_leveltrend_len, int *start_season_len,

@@ -26,7 +26,7 @@
 
 #include <cuda_runtime.h>
 #include <cuda_utils.h>
-#include "cuML.hpp"
+#include <cuml/cuml.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>

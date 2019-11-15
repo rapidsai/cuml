@@ -22,7 +22,7 @@
 #include <vector>
 #include "distance/distance.h"
 #include "linalg/transpose.h"
-#include "random_projection/rproj_c.h"
+#include "cuml/random_projection/rproj_c.h"
 
 namespace ML {
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
 
 #include "cusparse_wrappers.h"

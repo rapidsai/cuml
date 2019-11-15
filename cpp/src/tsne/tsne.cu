@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cuml/manifold/tsne.h>
 #include "../../src_prims/utils.h"
 #include "distances.h"
 #include "exact_kernels.h"
-#include "tsne/tsne.h"
 #include "utils.h"
 
 #include "barnes_hut.h"

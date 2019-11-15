@@ -34,7 +34,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from collections import defaultdict
 
-cdef extern from "dbscan/dbscan.hpp" namespace "ML":
+cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
                         float *input,
@@ -156,7 +156,7 @@ class DBSCAN(Base):
         DBSCAN's main benefit is that the number of clusters is not a
         hyperparameter, and that it can find non-linearly shaped clusters.
         This also allows DBSCAN to be robust to noise.
-        DBSCAN has been applied to analyzing particle collisons in the
+        DBSCAN has been applied to analyzing particle collisions in the
         Large Hadron Collider, customer segmentation in marketing analyses,
         and much more.
 

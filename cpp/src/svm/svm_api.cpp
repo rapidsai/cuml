@@ -15,9 +15,9 @@
  */
 
 #include "svm_api.h"
+#include <cuml/cuml_api.h>
 #include <tuple>
 #include "common/cumlHandle.hpp"
-#include "cuML_api.h"
 #include "matrix/kernelparams.h"
 #include "svc.hpp"
 #include "svm_model.h"

@@ -36,6 +36,8 @@ ExternalProject_Add(googletest
   UPDATE_COMMAND    ""
 )
 
+add_dependencies(googletest ${CUML_CPP_TARGET})
+
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
 
@@ -51,7 +53,10 @@ set(ML_BENCH_LINK_LIBRARIES
   ${CUML_CPP_TARGET}
 )
 
-include_directories(${GTEST_DIR}/include)
+include_directories(
+  ${GTEST_DIR}/include
+  ${TREELITE_DIR}/runtime/native/include
+)
 
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------
@@ -201,6 +206,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/histogram.cu
       prims/homogeneityScore.cu
       prims/host_buffer.cu
       prims/jones_transform.cu
@@ -212,6 +218,7 @@ if(BUILD_PRIMS_TESTS)
       prims/log.cu
       prims/logisticReg.cu
       prims/make_blobs.cu
+      prims/make_regression.cu
       prims/map_then_reduce.cu
       prims/math.cu
       prims/matrix.cu
@@ -237,6 +244,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sample_without_replacement.cu
       prims/scatter.cu
       prims/score.cu
+      prims/seive.cu
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu

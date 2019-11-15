@@ -88,7 +88,7 @@ class MBSGDClassifier:
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
@@ -109,8 +109,8 @@ class MBSGDClassifier:
 
     def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
-                 batch_size=32, n_iter_no_change=5, handle=None):
+                 shuffle=True, learning_rate='constant', eta0=0.001,
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -125,6 +125,7 @@ class MBSGDClassifier:
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.handle = handle
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -147,7 +148,6 @@ class MBSGDClassifier:
             will increase memory used for the method.
         """
 
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_

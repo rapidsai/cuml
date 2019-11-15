@@ -28,7 +28,7 @@ class ElasticNet:
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
     on the coefficients when predicting response y with a linear combination of
     the predictors in X. It can reduce the variance of the predictors, force
-    some coefficients to be smaell, and improves the conditioning of the
+    some coefficients to be small, and improves the conditioning of the
     problem.
 
     cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
@@ -164,6 +164,15 @@ class ElasticNet:
 
         self.intercept_value = 0.0
 
+        shuffle = False
+        if self.selection == 'random':
+            shuffle = True
+
+        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
+                               normalize=self.normalize, alpha=self.alpha,
+                               l1_ratio=self.l1_ratio, shuffle=shuffle,
+                               max_iter=self.max_iter)
+
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
@@ -197,14 +206,6 @@ class ElasticNet:
 
         """
 
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
-                               normalize=self.normalize, alpha=self.alpha,
-                               l1_ratio=self.l1_ratio, shuffle=shuffle,
-                               max_iter=self.max_iter)
         self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.cuElasticNet.coef_

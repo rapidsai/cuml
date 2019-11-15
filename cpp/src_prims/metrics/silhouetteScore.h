@@ -19,9 +19,9 @@
 #include <math.h>
 #include <algorithm>
 #include <cub/cub.cuh>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <numeric>
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/eltwise.h"
