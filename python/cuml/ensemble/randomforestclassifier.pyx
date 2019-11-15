@@ -23,8 +23,6 @@
 import ctypes
 import math
 import numpy as np
-import os
-import tempfile
 import warnings
 
 from numba import cuda
