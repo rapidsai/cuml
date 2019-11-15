@@ -534,8 +534,8 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
   device_buffer<int> ex_scan(d_alloc, stream, n);
   device_buffer<int> cur_ex_scan(d_alloc, stream, n);
 
-  cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream);
-  cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream);
+  CUDA_CHECK(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
 
   thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(cnnz);
   thrust::device_ptr<int> dev_ex_scan =
@@ -685,7 +685,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        cudaStream_t stream) {
   device_buffer<T> row_counts(d_alloc, stream, m);
 
-  cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream);
+  CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
   coo_row_count<32>(rows, nnz, row_counts.data(), stream);
 

@@ -205,6 +205,7 @@ void general_simplicial_set_intersection(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, result_ind.data(), result->cols(), result->vals(),
     result->nnz, left_min, right_min, in1->n_rows, weight);
+  CUDA_CHECK(cudaGetLastError());
 
   dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
 }
