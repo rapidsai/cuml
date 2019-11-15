@@ -531,7 +531,8 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        if self.hash_input and joblib.hash(X_m.copy_to_host()) == self.input_hash:
+        if self.hash_input and joblib.hash(X_m.copy_to_host()) == \
+                self.input_hash:
             ret = UMAP._prep_output(X, self.embedding_)
             del X_m
             return ret
