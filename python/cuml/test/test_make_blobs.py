@@ -107,8 +107,8 @@ centers_ary = [
 ]
 
 cluster_std_ary = [
-    np.random.uniform(size=(1, 10)),
-    np.random.uniform(size=(1, 10)),
+    np.random.uniform(low=-0.01, high=0.01, size=(1, 10)),
+    np.random.uniform(low=0.1, high=0.1, size=(1, 10)),
 ]
 
 
