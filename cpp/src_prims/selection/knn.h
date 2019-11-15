@@ -39,21 +39,21 @@
 namespace MLCommon {
 namespace Selection {
 
-template <bool Dir, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
-__global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
-                                      int64_t *outV, size_t n_samples,
-                                      int n_parts, float initK, int64_t initV,
-                                      int k, int64_t *translations) {
-  constexpr int kNumWarps = ThreadsPerBlock / faiss::gpu::kWarpSize;
+template <int warp_q, int thread_q, int tpb>
+__global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
+                                       int64_t *outV, size_t n_samples,
+                                       int n_parts, float initK, int64_t initV,
+                                       int k, int64_t *translations) {
+  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
-  __shared__ float smemK[kNumWarps * NumWarpQ];
-  __shared__ int64_t smemV[kNumWarps * NumWarpQ];
+  __shared__ float smemK[kNumWarps * warp_q];
+  __shared__ int64_t smemV[kNumWarps * warp_q];
 
   /**
    * Uses shared memory
    */
-  faiss::gpu::BlockSelect<float, int64_t, Dir, faiss::gpu::Comparator<float>,
-                          NumWarpQ, NumThreadQ, ThreadsPerBlock>
+  faiss::gpu::BlockSelect<float, int64_t, false, faiss::gpu::Comparator<float>,
+                          warp_q, thread_q, tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -74,14 +74,14 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
   int64_t translation = 0;
 
-  for (; i < limit; i += ThreadsPerBlock) {
+  for (; i < limit; i += tpb) {
     translation = translations[part];
     heap.add(*inKStart, (*inVStart) + translation);
 
-    part = (i + ThreadsPerBlock) / k;
+    part = (i + tpb) / k;
     row_idx = (row * k) + (part * n_samples * k);
 
-    col = (i + ThreadsPerBlock) % k;
+    col = (i + tpb) % k;
 
     inKStart = inK + (row_idx + col);
     inVStart = inV + (row_idx + col);
@@ -95,67 +95,54 @@ __global__ void blockSelectPairKernel(float *inK, int64_t *inV, float *outK,
 
   heap.reduce();
 
-  for (int i = threadIdx.x; i < k; i += ThreadsPerBlock) {
+  for (int i = threadIdx.x; i < k; i += tpb) {
     outK[row * k + i] = smemK[i];
     outV[row * k + i] = smemV[i];
   }
 }
 
-#define BLOCK_SELECT_IMPL(DIR, WARP_Q, THREAD_Q)                             \
-  inline void runBlockSelectPair_##DIR##_##WARP_Q##_(                        \
-    float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples,  \
-    int n_parts, bool dir, int k, cudaStream_t stream,                       \
-    int64_t *translations) {                                                 \
-    auto grid = dim3(n_samples);                                             \
-                                                                             \
-    constexpr int kBlockSelectNumThreads = (WARP_Q <= 1024) ? 128 : 64;      \
-    auto block = dim3(kBlockSelectNumThreads);                               \
-                                                                             \
-    auto kInit = dir ? faiss::gpu::Limits<float>::getMin()                   \
-                     : faiss::gpu::Limits<float>::getMax();                  \
-    auto vInit = -1;                                                         \
-    blockSelectPairKernel<DIR, WARP_Q, THREAD_Q, kBlockSelectNumThreads>     \
-      <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts, \
-                                   kInit, vInit, k, translations);           \
-    CUDA_CHECK(cudaPeekAtLastError());                                       \
-  }
+template <int warp_q, int thread_q>
+inline void knn_merge_parts_impl(float *inK, int64_t *inV, float *outK,
+                                 int64_t *outV, size_t n_samples, int n_parts,
+                                 int k, cudaStream_t stream,
+                                 int64_t *translations) {
+  auto grid = dim3(n_samples);
 
-#define BLOCK_SELECT_DECL(DIR, WARP_Q)                                      \
-  extern void runBlockSelectPair_##DIR##_##WARP_Q##_(                       \
-    float *inK, int64_t *inV, float *outK, int64_t *outV, size_t n_samples, \
-    int n_parts, bool dir, int k, cudaStream_t stream, int64_t *translations);
+  constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
+  auto block = dim3(n_threads);
 
-BLOCK_SELECT_DECL(false, 1);
-BLOCK_SELECT_DECL(false, 32);
-BLOCK_SELECT_DECL(false, 64);
-BLOCK_SELECT_DECL(false, 128);
-BLOCK_SELECT_DECL(false, 256);
-BLOCK_SELECT_DECL(false, 512);
-BLOCK_SELECT_DECL(false, 1024);
+  auto kInit = faiss::gpu::Limits<float>::getMax();
+  auto vInit = -1;
+  knn_merge_parts_kernel<warp_q, thread_q, n_threads>
+    <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts,
+                                 kInit, vInit, k, translations);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
 
-BLOCK_SELECT_IMPL(false, 1, 1);
-BLOCK_SELECT_IMPL(false, 32, 2);
-BLOCK_SELECT_IMPL(false, 64, 3);
-BLOCK_SELECT_IMPL(false, 128, 3);
-BLOCK_SELECT_IMPL(false, 256, 4);
-BLOCK_SELECT_IMPL(false, 512, 8);
-BLOCK_SELECT_IMPL(false, 1024, 8);
-
-#define BLOCK_SELECT_PAIR_CALL(DIR, WARP_Q) \
-  runBlockSelectPair_##DIR##_##WARP_Q##_(   \
-    inK, inV, outK, outV, n_samples, n_parts, dir, k, stream, translations)
-
-inline void runBlockSelectPair(float *inK, int64_t *inV, float *outK,
-                               int64_t *outV, size_t n_samples, int n_parts,
-                               bool dir, int k, cudaStream_t stream,
-                               int64_t *translations) {
-  if (k == 1) {
-    BLOCK_SELECT_PAIR_CALL(false, 1);
-  } else if (k <= 32) {
-    BLOCK_SELECT_PAIR_CALL(false, 32);
-  } else if (k <= 64) {
-    BLOCK_SELECT_PAIR_CALL(false, 64);
-  }
+inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
+                            int64_t *outV, size_t n_samples, int n_parts, int k,
+                            cudaStream_t stream, int64_t *translations) {
+  if (k == 1)
+    knn_merge_parts_impl<1, 1>(inK, inV, outK, outV, n_samples, n_parts, k,
+                               stream, translations);
+  else if (k <= 32)
+    knn_merge_parts_impl<32, 2>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                stream, translations);
+  else if (k <= 64)
+    knn_merge_parts_impl<64, 3>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                stream, translations);
+  else if (k <= 128)
+    knn_merge_parts_impl<128, 3>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                 stream, translations);
+  else if (k <= 256)
+    knn_merge_parts_impl<256, 4>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                 stream, translations);
+  else if (k <= 512)
+    knn_merge_parts_impl<512, 8>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                 stream, translations);
+  else if (k <= 1024)
+    knn_merge_parts_impl<1024, 8>(inK, inV, outK, outV, n_samples, n_parts, k,
+                                  stream, translations);
 }
 
 /**
@@ -260,8 +247,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
 
-  runBlockSelectPair(all_D.data(), all_I.data(), res_D, res_I, n, input.size(),
-                     false, k, userStream, trans.data());
+  knn_merge_parts(all_D.data(), all_I.data(), res_D, res_I, n, input.size(), k,
+                  userStream, trans.data());
 
   MLCommon::LinAlg::unaryOp<float>(
     res_D, res_D, n * k, [] __device__(float input) { return sqrt(input); },
