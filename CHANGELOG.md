@@ -1,12 +1,15 @@
 # cuML 0.11.0 (Date TBD)
 
 ## New Features
+
+- PR #1295: Cython side of MNMG PCA
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1332: Add option to cuml.dask make_blobs to produce dask array
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
