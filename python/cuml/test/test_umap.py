@@ -242,7 +242,6 @@ def test_umap_fit_transform_against_fit_and_transform():
     Next, test explicitly enabling feature hashes the input
     """
 
-
     cuml_model = cuUMAP(hash_input=True)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
