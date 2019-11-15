@@ -176,7 +176,7 @@ def test_umap_pickle(tmpdir, datatype, model):
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
-    cu_before_embed = model.arr_embed
+    cu_before_embed = model.embedding_
 
     cu_trust_before = trustworthiness(X_train,
                                       cu_before_pickle_transform, 10)
@@ -185,7 +185,7 @@ def test_umap_pickle(tmpdir, datatype, model):
 
     del model
 
-    cu_after_embed = cu_after_pickle_model.arr_embed
+    cu_after_embed = cu_after_pickle_model.embedding_
 
     print(str(cu_before_embed[0][0]))
     print(str(cu_after_embed[0][0]))
