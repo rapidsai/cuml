@@ -54,7 +54,6 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
   if(threadIdx.x == 0) {
     for(int i = 0; i < n_labels; i++) {
         label_cache[i] = labels[i];
-        printf("label=%d\n", label_cache[i]);
     }
   }
 
