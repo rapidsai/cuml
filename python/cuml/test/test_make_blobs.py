@@ -122,7 +122,8 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
     centers = centers.astype(np.dtype(dtype))
     cluster_std = np.full(shape=(1, 10), fill_value=cluster_std, dtype=dtype)
 
-    if centers.shape[1] != n_features or cluster_std.shape[1] != centers.shape[0]:
+    if centers.shape[1] != n_features or \
+            cluster_std.shape[1] != centers.shape[0]:
         with pytest.raises(ValueError):
             out, labels = \
                 cuml.make_blobs(dtype=dtype, n_samples=n_samples,
