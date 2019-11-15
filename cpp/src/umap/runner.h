@@ -310,8 +310,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     embedding_n, params->n_components, transformed, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::LinAlg::unaryOp<int>(
-    ia.data(), ia.data(), n, [=] __device__(int input) { return 0.0; }, stream);
+  CUDA_CHECK(cudaMemsetAsync(ia.data(), 0.0, ia.size() * sizeof(int), stream));
 
   CUDA_CHECK(cudaPeekAtLastError());
 
