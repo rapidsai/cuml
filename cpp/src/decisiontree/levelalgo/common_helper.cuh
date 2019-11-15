@@ -19,16 +19,6 @@
 #include "random/rng.h"
 #include "stats/minmax.h"
 
-//GPU based RNG in the range [0,Ncols)
-void random_startids(unsigned int *data, int len, int Ncols, const int num_sms,
-                     cudaStream_t stream) {
-  uint64_t offset = 0;
-  MLCommon::Random::randImpl(
-    offset, data, len,
-    [=] __device__(unsigned int val, int idx) { return (val % Ncols); }, 256,
-    4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
-}
-
 /*This functions does feature subsampling.
  *The default is reshuffling of a feature list at ever level followed by random start index in the reshuffled vector for each node.
  *In case full reshuffle is enabled. A reshuffle is performed for every node in the tree
@@ -39,7 +29,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              const int Ncols, const int ncols_sampled,
                              const int n_nodes, RNG rng, DIST dist,
                              std::vector<unsigned int> &feature_selector,
-                             std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+                             std::shared_ptr<TemporaryMemory<T, L>> tempmem,
+                             MLCommon::Random::Rng &d_rng) {
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);
@@ -51,8 +42,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
         MLCommon::updateDevice(d_colstart, h_colstart, n_nodes,
                                tempmem->stream);
       } else {
-        random_startids(d_colstart, n_nodes, Ncols, tempmem->num_sms,
-                        tempmem->stream);
+        d_rng.uniformInt<unsigned>(d_colstart, n_nodes, 0, Ncols,
+                                   tempmem->stream);
         MLCommon::updateHost(h_colstart, d_colstart, n_nodes, tempmem->stream);
       }
     }

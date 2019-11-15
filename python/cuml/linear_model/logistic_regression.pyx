@@ -177,6 +177,30 @@ class LogisticRegression(Base):
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
 
+        if self.penalty == 'none':
+            l1_strength = 0.0
+            l2_strength = 0.0
+
+        elif self.penalty == 'l1':
+            l1_strength = 1.0 / self.C
+            l2_strength = 0.0
+
+        elif self.penalty == 'l2':
+            l1_strength = 0.0
+            l2_strength = 1.0 / self.C
+
+        else:
+            strength = 1.0 / self.C
+            l1_strength = self.l1_ratio * strength
+            l2_strength = (1.0 - self.l1_ratio) * strength
+
+        loss = 'sigmoid'
+
+        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
+                     l1_strength=l1_strength, l2_strength=l2_strength,
+                     max_iter=self.max_iter, tol=self.tol,
+                     verbose=self.verbose, handle=self.handle)
+
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -213,27 +237,7 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if self.penalty == 'none':
-            l1_strength = 0.0
-            l2_strength = 0.0
-
-        elif self.penalty == 'l1':
-            l1_strength = 1.0 / self.C
-            l2_strength = 0.0
-
-        elif self.penalty == 'l2':
-            l1_strength = 0.0
-            l2_strength = 1.0 / self.C
-
-        else:
-            strength = 1.0 / self.C
-            l1_strength = self.l1_ratio * strength
-            l2_strength = (1.0 - self.l1_ratio) * strength
-
-        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
-                     l1_strength=l1_strength, l2_strength=l2_strength,
-                     max_iter=self.max_iter, tol=self.tol,
-                     verbose=self.verbose, handle=self.handle)
+        self.qn.loss = loss
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
