@@ -20,6 +20,7 @@
 
 import ctypes
 import cudf
+import cupy
 import numpy as np
 
 from numba import cuda
@@ -131,8 +132,11 @@ class SVC(Base):
             'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
         degree : int (default=3)
             Degree of polynomial kernel function.
-        gamma : float (default = 'auto')
-            Coefficient for rbf, poly, and sigmoid kernels.
+        gamma : float or string (default = 'auto')
+            Coefficient for rbf, poly, and sigmoid kernels. You can specify the
+            numeric value, or use one of the following options:
+            - 'auto': gamma will be set to 1 / n_features
+            - 'scale': gamma will be se to 1 / (n_features * X.var())
         coef0 : float (default = 0.0)
             Independent term in kernel function, only signifficant for poly and
             sigmoid
@@ -260,8 +264,8 @@ class SVC(Base):
             if self.gamma == 'auto':
                 return 1 / self.n_cols
             elif self.gamma == 'scale':
-                x_std = X.std()
-                return 1 / (self.n_cols * x_std)
+                x_var = cupy.asarray(X).var()
+                return 1 / (self.n_cols * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
         else:
@@ -416,7 +420,7 @@ class SVC(Base):
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
 
-        cdef KernelParams _kernel_params = self._get_kernel_params(X)
+        cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
