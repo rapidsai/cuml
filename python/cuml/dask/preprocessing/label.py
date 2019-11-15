@@ -1,4 +1,3 @@
-
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +13,8 @@
 # limitations under the License.
 #
 
-from cuml.preprocessing.label import label_binarize
 from cuml.preprocessing.label import LabelBinarizer as LB
-from dask.distributed import default_client, wait
+from dask.distributed import default_client
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
 
 import numba.cuda
@@ -28,6 +26,7 @@ import cupy as cp
 def cp_to_df(cp_ndarr):
     numba_arr = numba.cuda.to_device(cp_ndarr)
     return cudf.DataFrame.from_gpu_matrix(numba_arr)
+
 
 def cp_to_series(cp_ndarr):
     numba_arr = numba.cuda.to_device(cp_ndarr)
@@ -41,8 +40,10 @@ class LabelBinarizer(object):
         self.client_ = client if client is not None else default_client()
         self.kwargs = kwargs
 
-        if "sparse_output" in self.kwargs and self.kwargs.sparse_output is True:
-            raise ValueError("Sparse output not yet supported in distributed mode")
+        if "sparse_output" in self.kwargs and \
+                self.kwargs.sparse_output is True:
+            raise ValueError("Sparse output not yet "
+                             "supported in distributed mode")
 
     @staticmethod
     def _func_create_model(**kwargs):
@@ -114,5 +115,3 @@ class LabelBinarizer(object):
              for w, part in parts]
 
         return to_dask_cudf(f)
-
-
