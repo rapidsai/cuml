@@ -17,6 +17,8 @@ import cudf
 import cupy as cp
 import numpy as np
 
+from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
+from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 from numba import cuda
 from typing import Union
 
@@ -139,19 +141,21 @@ def train_test_split(
             )
 
     if isinstance(test_size, float):
-        if not 0 <= train_size <= 1:
+        if not 0 <= test_size <= 1:
             raise ValueError(
                 "proportion test_size should be between"
                 "0 and 1 (found {})".format(train_size)
             )
 
     if isinstance(test_size, int):
-        if not 0 <= train_size <= X.shape[0]:
+        if not 0 <= test_size <= X.shape[0]:
             raise ValueError(
                 "Number of instances test_size should be between 0 and the"
-                "first dimension of X (found {})".format(train_size)
+                "first dimension of X (found {})".format(test_size)
             )
 
+    x_numba = False
+    y_numba = False
     if shuffle:
         if seed is None or isinstance(seed, int):
             idxs = cp.arange(X.shape[0])
@@ -164,20 +168,30 @@ def train_test_split(
             idxs = np.arange(X.shape[0])
 
         else:
-            raise TypeError("`seed` must be an int, NumPy RanomState \
+            raise TypeError("`seed` must be an int, NumPy RandomState \
                              or CuPy RandomState.")
 
         seed.shuffle(idxs)
 
-        if cuda.is_cuda_array(X):
-            X = X[idxs]
-        elif isinstance(X, cudf.DataFrame):
+        if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
             X = X.iloc[idxs].reset_index(drop=True)
 
-        if cuda.is_cuda_array(y):
-            y = y[idxs]
-        elif isinstance(y, cudf.DataFrame):
+        elif cuda.is_cuda_array(X):
+            # numba (and therefore rmm device_array) does not support
+            # fancy indexing
+            if test_numba_cupy_version_conflict(X):
+                X = PatchedNumbaDeviceArray(X)
+                x_numba = True
+            X = cp.asarray(X)[idxs]
+
+        if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
             y = y.iloc[idxs].reset_index(drop=True)
+
+        elif cuda.is_cuda_array(y):
+            if test_numba_cupy_version_conflict(y):
+                y = PatchedNumbaDeviceArray(y)
+                y_numba = True
+            y = cp.asarray(y)[idxs]
 
     # Determining sizes of splits
     if isinstance(train_size, float):
@@ -190,7 +204,7 @@ def train_test_split(
         test_size = X.shape[0] - train_size
 
     if isinstance(test_size, float):
-        test_size = int(X.shape[0] * train_size)
+        test_size = int(X.shape[0] * test_size)
         if train_size is None:
             train_size = X.shape[0] - test_size
 
@@ -211,5 +225,13 @@ def train_test_split(
     elif isinstance(y, cudf.DataFrame):
         X_test = X.iloc[-1 * test_size:]
         y_test = y.iloc[-1 * test_size:]
+
+    if x_numba:
+        X_train = cuda.as_cuda_array(X_train)
+        X_test = cuda.as_cuda_array(X_test)
+
+    if y_numba:
+        y_train = cuda.as_cuda_array(y_train)
+        y_test = cuda.as_cuda_array(y_test)
 
     return X_train, X_test, y_train, y_test
