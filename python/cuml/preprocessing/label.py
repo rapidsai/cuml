@@ -13,7 +13,10 @@
 # limitations under the License.
 #
 
+import cudf
 import cupy as cp
+
+import numba.cuda
 
 map_kernel = cp.RawKernel(r'''
 extern "C" __global__
@@ -131,7 +134,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     else:
 
         arr = sp.toarray().astype(cp.int32)
-        arr[arr==0] = neg_label
+        arr[arr == 0] = neg_label
 
         return arr
 
@@ -190,8 +193,6 @@ class LabelBinarizer(object):
         if not _validate_labels(y_mapped, self.classes_):
             raise ValueError("Unseen classes encountered in input")
 
-        print(str(self.classes_))
-
         smem = 4 * self.classes_.shape[0]
         inverse_map_kernel((y_mapped.shape[0] / 32,), (32,),
                            (self.classes_, self.classes_.shape[0],
@@ -200,6 +201,14 @@ class LabelBinarizer(object):
 
         return y_mapped
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['classes_'] = cudf.Series(numba.cuda.to_device(self.classes_))
+        return state
+
+    def __setstate__(self, state):
+        state['classes_'] = cp.asarray(state["classes_"].to_gpu_array())
+        self.__dict__.update(state)
 
 
 
