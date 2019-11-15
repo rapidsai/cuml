@@ -16,7 +16,7 @@
 import os
 import tempfile
 import cuml
-
+import numpy as np 
 
 def fit_kneighbors(m, x):
     m.fit(x)
@@ -44,8 +44,17 @@ def _build_fil_classifier(m, data, arg={}):
         raise ImportError("No XGBoost package found")
 
     # use maximum 1e5 rows to train the model
-    train_size = min(data[0].shape[0], 100000)
-    dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
+    train_size = min(data[0].shape[0], 1000)
+
+    if isinstance(data[0], np.ndarray):
+        dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
+    else:
+        # if the input is gpuarray
+        print(type(data[0]))
+        train_data = np.ascontiguousarray(data[0][:train_size, :].copy_to_host())
+        test_data = np.ascontiguousarray(data[1][:train_size].copy_to_host())
+        dtrain = xgb.DMatrix(train_data, label=test_data)
+
     params = {
         "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
     }
@@ -57,7 +66,6 @@ def _build_fil_classifier(m, data, arg={}):
     tmpdir = tempfile.mkdtemp()
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
-
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
     return m.load(model_path, algo=arg["fil_algo"],
@@ -104,5 +112,8 @@ def _build_treelite_classifier(m, data, arg={}):
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
-    y_pred_binary = y_pred > 0.5
-    return cuml.metrics.accuracy_score(y_true, y_pred_binary)
+    if isinstance(y_pred, np.ndarray):
+        y_pred_binary = y_pred > 0.5
+        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
+    else:
+        return cuml.metrics.accuracy_score(y_true, y_pred)
