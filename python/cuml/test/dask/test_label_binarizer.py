@@ -26,9 +26,9 @@ import cupy as cp
 
 @pytest.mark.parametrize(
     "labels", [([1, 4, 5, 2, 0, 1, 6, 2, 3, 4],
-        [4, 2, 6, 3, 2, 0, 1]),
-        ([9, 8, 2, 1, 3, 4],
-        [8, 2, 1, 2, 2])]
+                [4, 2, 6, 3, 2, 0, 1]),
+               ([9, 8, 2, 1, 3, 4],
+                [8, 2, 1, 2, 2])]
 )
 def test_basic_functions(labels, cluster):
 
@@ -63,4 +63,3 @@ def test_basic_functions(labels, cluster):
     print("Test: " + str(test))
 
     assert array_equal(cp.asnumpy(test), xform_labels)
-

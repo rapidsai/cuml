@@ -64,7 +64,7 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
       break;
     }
   }
-  
+
   if(!found) out[0] = 0;
 }
 ''', 'validate_kernel')
@@ -94,8 +94,8 @@ def _validate_labels(y, classes):
 
     smem = 4 * classes.shape[0]
     validate_kernel((y.shape[0] / 32,), (32, ),
-               (y, y.shape[0], classes, classes.shape[0], valid),
-               shared_mem=smem)
+                    (y, y.shape[0], classes, classes.shape[0], valid),
+                    shared_mem=smem)
 
     return valid[0] == 1
 
@@ -105,8 +105,6 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     n_classes = len(classes)
 
     classes = cp.asarray(classes, dtype=cp.int32)
-
-    is_binary = True if n_classes == 1 and cp.unique(y) == 2 else False
 
     col_ind = cp.asarray(y, dtype=cp.int32).copy()
 
@@ -145,8 +143,10 @@ class LabelBinarizer(object):
                              "than pos_label=%s." % (neg_label, pos_label))
 
         if sparse_output and (pos_label == 0 or neg_label != 0):
-            raise ValueError("Sparse binarization is only supported with non-zero"
-                             "pos_label and zero neg_label, got pos_label=%s and neg_label=%s"
+            raise ValueError("Sparse binarization is only supported "
+                             "with non-zero"
+                             "pos_label and zero neg_label, got pos_label=%s "
+                             "and neg_label=%s"
                              % (pos_label, neg_label))
 
         self.neg_label = neg_label
@@ -188,7 +188,8 @@ class LabelBinarizer(object):
         :param threshold:
         :return:
         """
-        y_mapped = cp.argmax(cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
+        y_mapped = cp.argmax(
+            cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
 
         smem = 4 * self.classes_.shape[0]
         inverse_map_kernel((y_mapped.shape[0] / 32,), (32,),
