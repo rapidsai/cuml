@@ -39,6 +39,7 @@
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1376: AUTO value for FIL algorithm
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
