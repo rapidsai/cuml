@@ -102,6 +102,34 @@ struct KVP {
   V v;
 };
 
+/**
+ * @brief This is the central enum that should be used to configure the perf
+ *        landscape of the fused kernel.
+ * @tparam DataT the IO and math datatype
+ * @tparam _veclen number of k-elements loaded by each thread for every LDG call
+ *                 it makes. This should be configured based on the input 'k'
+ *                 value and the input data type. For eg: if DataT = float and
+ *                 k is multiples of 4, then setting this to 4 gives the best
+ *                 LDG pattern. Possible values are {1, 2, 4}.
+ * @tparam _kblk number of k-elements operated upon per main-loop iteration.
+ *               Therefore total number of main-loop iterations will be
+ *               ceil(k / _kblk). This must be multiples of `_veclen`. Do note
+ *               that bigger this value, the greater shared mem requirement.
+ * @tparam _rpt Defines the number of rows that a given thread accumulates on.
+ *              This directly results in increased register pressure. This also
+ *              is used to compute the number of m-elements worked upon by each
+ *              thread block.
+ * @tparam _rpt Defines the number of cols that a given thread accumulates on.
+ *              This directly results in increased register pressure. This also
+ *              is used to compute the number of n-elements worked upon by each
+ *              thread block.
+ * @tparam _tr Number of threads working on the same output column. This is used
+ *             to compute the number of m-elements worked upon by each threadblk
+ *             This also determines the number of threads per thread block
+ * @tparam _tc Number of threads working on the same output row. This is used to
+ *             compute the number of m-elements worked upon by each threadblk
+ *             This also determines the number of threads per thread block
+ */
 template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
           int _tc>
 struct KernelPolicy {
