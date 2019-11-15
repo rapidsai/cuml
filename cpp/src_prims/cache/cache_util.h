@@ -18,9 +18,7 @@
 
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
-#include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "cuML.hpp"
 #include "ml_utils.h"
 #include "selection/kselection.h"
 

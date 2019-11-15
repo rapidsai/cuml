@@ -4,7 +4,7 @@
 #include <glm/qn/qn.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
-#include <glm/glm.hpp>
+#include <cuml/linear_model/glm.hpp>
 #include <vector>
 #include "test_utils.h"
 #include "utils.h"

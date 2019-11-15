@@ -19,9 +19,7 @@
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
 #include "cache_util.h"
-#include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
-#include "cuML.hpp"
 #include "ml_utils.h"
 
 namespace MLCommon {

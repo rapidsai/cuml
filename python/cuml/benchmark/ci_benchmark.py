@@ -32,7 +32,8 @@ def expand_params(key, vals):
     return [{key: v} for v in vals]
 
 
-def report_asv(results_df, output_dir):
+def report_asv(results_df, output_dir,
+               cudaVer="", pythonVer="", osType="", machineName=""):
     """Logs the dataframe `results_df` to airspeed velocity format.
     This writes (or appends to) JSON files in `output_dir`
 
@@ -51,13 +52,14 @@ def report_asv(results_df, output_dir):
     (commitHash, commitTime) = asvdb.utils.getCommitInfo()
 
     b_info = asvdb.BenchmarkInfo(
-        machineName=uname.machine,
-        cudaVer="10.0",
-        osType="%s %s" % (uname.system, uname.release),
-        pythonVer=platform.python_version(),
+        machineName=machineName or uname.machine,
+        cudaVer=cudaVer or "unknown",
+        osType=osType or "%s %s" % (uname.system,
+                                    uname.release),
+        pythonVer=pythonVer or platform.python_version(),
         commitHash=commitHash,
         commitTime=commitTime,
-        gpuType="n/a",
+        gpuType="unknown",
         cpuType=uname.processor,
         arch=uname.machine,
         ram="%d" % psutil.virtual_memory().total,
@@ -154,6 +156,10 @@ bench_config = {
 if __name__ == '__main__':
     import argparse
 
+    allAlgoNames = set([v["algo_name"]
+                        for tuples in bench_config.values()
+                        for v in tuples])
+
     parser = argparse.ArgumentParser(
         prog='ci_benchmark',
         description='''
@@ -164,22 +170,48 @@ if __name__ == '__main__':
         "--benchmark", type=str, choices=bench_config.keys(), default="short"
     )
 
-    parser.add_argument('--asvdb', required=False, type=str)
+    parser.add_argument('--algo', type=str, action="append",
+                        help='Algorithm to run, must be one of %s, or "ALL"'
+                        % ", ".join(['"%s"' % k
+                                     for k in allAlgoNames]))
+    parser.add_argument('--update_asv_dir', type=str,
+                        help='Add results to the specified ASV dir in ASV '
+                        'format')
+    parser.add_argument('--report_cuda_ver', type=str, default="",
+                        help='The CUDA version to include in reports')
+    parser.add_argument('--report_python_ver', type=str, default="",
+                        help='The Python version to include in reports')
+    parser.add_argument('--report_os_type', type=str, default="",
+                        help='The OS type to include in reports')
+    parser.add_argument('--report_machine_name', type=str, default="",
+                        help='The machine name to include in reports')
+
     args = parser.parse_args()
+    invalidAlgoNames = (set(args.algo) - allAlgoNames)
+    if invalidAlgoNames:
+        raise ValueError("Invalid algo name(s): %s" % invalidAlgoNames)
+
     bench_to_run = bench_config[args.benchmark]
 
     default_args = dict(run_cpu=False)
     all_results = []
     for cfg_in in bench_to_run:
-        # Pass an actual algo object instead of an algo_name string
-        cfg = cfg_in.copy()
-        algo = algorithms.algorithm_by_name(cfg_in["algo_name"])
-        cfg["algos"] = [algo]
-        del cfg["algo_name"]
-        res = run_variations(**{**default_args, **cfg})
-        all_results.append(res)
+        if (args.algo is None) or ("ALL" in args.algo) or \
+           (cfg_in["algo_name"] in args.algo):
+            # Pass an actual algo object instead of an algo_name string
+            cfg = cfg_in.copy()
+            algo = algorithms.algorithm_by_name(cfg_in["algo_name"])
+            cfg["algos"] = [algo]
+            del cfg["algo_name"]
+            res = run_variations(**{**default_args, **cfg})
+            all_results.append(res)
 
     results_df = pd.concat(all_results)
     print(results_df)
-    if args.asvdb:
-        report_asv(results_df, args.asvdb)
+    if args.update_asv_dir:
+        report_asv(results_df,
+                   args.update_asv_dir,
+                   cudaVer=args.report_cuda_ver,
+                   pythonVer=args.report_python_ver,
+                   osType=args.report_os_type,
+                   machineName=args.report_machine_name)

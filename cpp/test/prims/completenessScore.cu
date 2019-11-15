@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <metrics/completenessScore.h>
 #include <algorithm>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "common/cuml_allocator.hpp"
-#include "metrics/completenessScore.h"
 #include "test_utils.h"
 
 namespace MLCommon {

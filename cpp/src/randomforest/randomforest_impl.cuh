@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *	http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,14 +47,6 @@ int rf<T, L>::get_ntrees() {
   return rf_params.n_trees;
 }
 
-void random_uniformInt(int treeid, unsigned int* data, int len, int n_rows,
-                       const int num_sms, cudaStream_t stream) {
-  uint64_t offset = 0;
-  MLCommon::Random::randImpl(
-    offset, data, len,
-    [=] __device__(unsigned int val, int idx) { return (val % n_rows); }, 256,
-    4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
-}
 /**
  * @brief Sample row IDs for tree fitting and bootstrap if requested.
  * @tparam T: data type for input data (float or double).
@@ -75,10 +67,10 @@ void rf<T, L>::prepare_fit_per_tree(
   int rs = tree_id;
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
-  srand(rs * 1000);
+  MLCommon::Random::Rng rng(rs * 1000 | 0xFF00AA,
+                            MLCommon::Random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
-    random_uniformInt(tree_id, selected_rows, n_sampled_rows, n_rows, num_sms,
-                      stream);
+    rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
 
   } else {  // Sampling w/o replacement
     MLCommon::device_buffer<unsigned int>* inkeys =
@@ -163,8 +155,8 @@ const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
  * @param[in] n_rows: number of training data samples.
  * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
  * @param[in] labels: 1D array of target features (int only), with one label per training sample. Device pointer.
-				  Assumption: labels were preprocessed to map to ascending numbers from 0;
-				  needed for current gini impl in decision tree
+          Assumption: labels were preprocessed to map to ascending numbers from 0;
+          needed for current gini impl in decision tree
  * @param[in] n_unique_labels: #unique label values (known during preprocessing)
  * @param[in] forest: CPU point to RandomForestMetaData struct.
  */
@@ -373,13 +365,9 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
-RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle, const T* input,
-                                  const int* ref_labels, int n_rows, int n_cols,
-                                  int* predictions,
-                                  const RandomForestMetaData<T, int>* forest,
-                                  bool verbose) const {
-  predict(user_handle, input, n_rows, n_cols, predictions, forest, verbose);
-
+RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle,
+                                  const int* ref_labels, int n_rows,
+                                  int* predictions, bool verbose) const {
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
@@ -583,13 +571,9 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
-RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle, const T* input,
-                                 const T* ref_labels, int n_rows, int n_cols,
-                                 T* predictions,
-                                 const RandomForestMetaData<T, T>* forest,
-                                 bool verbose) const {
-  predict(user_handle, input, n_rows, n_cols, predictions, forest, verbose);
-
+RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
+                                 const T* ref_labels, int n_rows,
+                                 T* predictions, bool verbose) const {
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
 

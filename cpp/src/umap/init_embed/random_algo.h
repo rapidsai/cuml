@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/umapparams.h>
 #include "random/rng.h"
 #include "sys/time.h"
-#include "umap/umapparams.h"
 
 #pragma once
 

@@ -126,7 +126,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DNCCL_PATH=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
@@ -135,7 +134,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DBUILD_CUML_STD_COMMS=ON \
           -DWITH_UCX=OFF \
           -DBUILD_CUML_MPI_COMMS=OFF \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} ..
+          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
+          -DNCCL_PATH=${INSTALL_PREFIX} \
+          -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ..
 
 fi
 
@@ -151,6 +152,16 @@ fi
 if hasArg bench; then
     MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
 fi
+
+# If `./build.sh cuml` is called, don't build C/C++ components
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
+# If there are no targets specified when calling build.sh, it will
+# just call `make -j`. This avoids a lot of extra printing
+    cd ${LIBCUML_BUILD_DIR}
+    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+
+fi
+
 
 # Build and (optionally) install the cuml Python package
 if (( ${NUMARGS} == 0 )) || hasArg cuml; then

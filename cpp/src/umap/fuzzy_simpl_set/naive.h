@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "knn/knn.hpp"
-#include "umap/umapparams.h"
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
 
 #include "cuda_utils.h"
 

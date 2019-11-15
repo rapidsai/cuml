@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "holtwinters_params.h"
+#include <cuml/tsa/holtwinters_params.h>
 #include "internal/hw_decompose.h"
 #include "internal/hw_eval.h"
 #include "internal/hw_forecast.h"

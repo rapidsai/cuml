@@ -28,9 +28,9 @@ class Lasso:
     Lasso extends LinearRegression by providing L1 regularization on the
     coefficients when predicting response y with a linear combination of the
     predictors in X. It can zero some of the coefficients for feature
-    selection, and improves the conditioning of the problem.
+    selection and improves the conditioning of the problem.
 
-    cuML's Lasso an array-like object or cuDF DataFrame, and
+    cuML's Lasso an array-like object or cuDF DataFrame and
     uses coordinate descent to fit a linear model.
 
     Examples
@@ -154,6 +154,15 @@ class Lasso:
 
         self.intercept_value = 0.0
 
+        shuffle = False
+        if self.selection == 'random':
+            shuffle = True
+
+        self.culasso = CD(fit_intercept=self.fit_intercept,
+                          normalize=self.normalize, alpha=self.alpha,
+                          l1_ratio=1.0, shuffle=shuffle,
+                          max_iter=self.max_iter)
+
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
@@ -182,14 +191,6 @@ class Lasso:
 
         """
 
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter)
         self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.culasso.coef_

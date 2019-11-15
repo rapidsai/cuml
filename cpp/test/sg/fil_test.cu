@@ -17,6 +17,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
 #include <cmath>
@@ -24,7 +25,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
-#include "fil/fil.h"
+#include "cuml/fil/fil.h"
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
@@ -285,10 +286,68 @@ class PredictDenseFilTest : public BaseFilTest {
   }
 };
 
+class PredictSparseFilTest : public BaseFilTest {
+ protected:
+  void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
+                         int i_sparse_root, int i_sparse) {
+    float output, threshold;
+    int feature;
+    bool def_left, is_leaf;
+    dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
+                      &def_left, &is_leaf);
+    if (is_leaf) {
+      // leaf sparse node
+      sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
+                       def_left, is_leaf, 0);
+      return;
+    }
+    // inner sparse node
+    // reserve space for children
+    int left_index = sparse_nodes.size();
+    sparse_nodes.push_back(fil::sparse_node_t());
+    sparse_nodes.push_back(fil::sparse_node_t());
+    sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
+                     def_left, is_leaf, left_index - i_sparse_root);
+    dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
+    dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root,
+                      left_index + 1);
+  }
+
+  void dense2sparse_tree(const fil::dense_node_t* dense_root) {
+    int i_sparse_root = sparse_nodes.size();
+    sparse_nodes.push_back(fil::sparse_node_t());
+    dense2sparse_node(dense_root, 0, i_sparse_root, i_sparse_root);
+    trees.push_back(i_sparse_root);
+  }
+
+  void dense2sparse() {
+    for (int tree = 0; tree < ps.num_trees; ++tree) {
+      dense2sparse_tree(&nodes[tree * tree_num_nodes()]);
+    }
+  }
+
+  void init_forest(fil::forest_t* pforest) override {
+    // init FIL model
+    fil::forest_params_t fil_params;
+    fil_params.num_trees = ps.num_trees;
+    fil_params.num_cols = ps.num_cols;
+    fil_params.algo = ps.algo;
+    fil_params.output = ps.output;
+    fil_params.threshold = ps.threshold;
+    fil_params.global_bias = ps.global_bias;
+    dense2sparse();
+    fil_params.num_nodes = sparse_nodes.size();
+    fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
+                     &fil_params);
+  }
+  std::vector<fil::sparse_node_t> sparse_nodes;
+  std::vector<int> trees;
+};
+
 class TreeliteFilTest : public BaseFilTest {
  protected:
-  /** adds nodes[node] of tree starting at index root to builder 
-      at index at *pkey, increments *pkey, 
+  /** adds nodes[node] of tree starting at index root to builder
+      at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root,
                        int node) {
@@ -332,7 +391,7 @@ class TreeliteFilTest : public BaseFilTest {
     return key;
   }
 
-  void init_forest(fil::forest_t* pforest) override {
+  void init_forest_impl(fil::forest_t* pforest, bool dense) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     std::unique_ptr<tlf::ModelBuilder> model_builder(
       new tlf::ModelBuilder(ps.num_cols, 1, random_forest_flag));
@@ -369,8 +428,24 @@ class TreeliteFilTest : public BaseFilTest {
     params.algo = ps.algo;
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::THRESHOLD) != 0;
+    params.storage_type =
+      dense ? fil::storage_type_t::DENSE : fil::storage_type_t::SPARSE;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+};
+
+class TreeliteDenseFilTest : public TreeliteFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    init_forest_impl(pforest, true);
+  }
+};
+
+class TreeliteSparseFilTest : public TreeliteFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    init_forest_impl(pforest, false);
   }
 };
 
@@ -429,7 +504,38 @@ TEST_P(PredictDenseFilTest, Predict) { compare(); }
 INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest,
                         testing::ValuesIn(predict_dense_inputs));
 
-std::vector<FilTestParams> import_inputs = {
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance
+std::vector<FilTestParams> predict_sparse_inputs = {
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f},
+};
+
+TEST_P(PredictSparseFilTest, Predict) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, PredictSparseFilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
+
+std::vector<FilTestParams> import_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator::kLT},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
@@ -497,9 +603,38 @@ std::vector<FilTestParams> import_inputs = {
    fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
 };
 
-TEST_P(TreeliteFilTest, Import) { compare(); }
+TEST_P(TreeliteDenseFilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteFilTest,
-                        testing::ValuesIn(import_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteDenseFilTest,
+                        testing::ValuesIn(import_dense_inputs));
+
+std::vector<FilTestParams> import_sparse_inputs = {
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
+   42, 2e-3f, tl::Operator::kGT},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGE},
+};
+
+TEST_P(TreeliteSparseFilTest, Import) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparseFilTest,
+                        testing::ValuesIn(import_sparse_inputs));
 
 }  // namespace ML

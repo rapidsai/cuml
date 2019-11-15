@@ -17,7 +17,7 @@
 #pragma once
 
 #include <mpi.h>
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 

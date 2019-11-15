@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/cuml_allocator.hpp>
 #include "buffer_base.hpp"
-#include "cuml_allocator.hpp"
 
 namespace MLCommon {
 

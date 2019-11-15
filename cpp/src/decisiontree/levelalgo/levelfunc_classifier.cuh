@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
-#include "../decisiontree.hpp"
-#include "../flatnode.h"
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
 
 /*
-This is the driver function for building classification tree 
+This is the driver function for building classification tree
 level by level using a simple for loop.
 At each level; following steps are involved.
 1. Compute histograms for all nodes, all cols and all bins.
@@ -37,9 +37,10 @@ void grow_deep_tree_classification(
   const float colper, int n_sampled_rows, const int nrows,
   const int n_unique_labels, const int nbins, const int maxdepth,
   const int maxleaves, const int min_rows_per_node,
-  const ML::CRITERION split_cr, const int split_algo, int& depth_cnt,
-  int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
-  const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const ML::CRITERION split_cr, const int split_algo,
+  const float min_impurity_decrease, int& depth_cnt, int& leaf_cnt,
+  std::vector<SparseTreeNode<T, int>>& sparsetree, const int treeid,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -77,6 +78,7 @@ void grow_deep_tree_classification(
 
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
+  MLCommon::Random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<unsigned int> dist(0, Ncols - 1);
   //Setup pointers
   unsigned int* d_histogram = tempmem->d_histogram->data();
@@ -114,7 +116,7 @@ void grow_deep_tree_classification(
 
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem);
+                            tempmem, d_rng);
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
                                  Ncols, ncols_sampled, n_unique_labels, nbins,
                                  n_nodes, split_algo, tempmem, d_histogram);
@@ -138,10 +140,10 @@ void grow_deep_tree_classification(
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
-    leaf_eval_classification(infogain, depth, maxdepth, n_unique_labels,
-                             maxleaves, h_new_node_flags, sparsetree,
-                             sparsesize, h_parent_hist, n_nodes_nextitr,
-                             sparse_nodelist, leaf_cnt);
+    leaf_eval_classification(infogain, depth, min_impurity_decrease, maxdepth,
+                             n_unique_labels, maxleaves, h_new_node_flags,
+                             sparsetree, sparsesize, h_parent_hist,
+                             n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);

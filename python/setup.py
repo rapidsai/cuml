@@ -98,6 +98,7 @@ libs = ['cuda',
         'rmm']
 
 include_dirs = ['../cpp/src',
+                '../cpp/include',
                 '../cpp/external',
                 '../cpp/src_prims',
                 cutlass_path,
@@ -121,6 +122,7 @@ if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')

@@ -36,7 +36,7 @@ Metrics
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
-  .. automodule:: cuml.metrics.cluster
+  .. automodule:: cuml.metrics.cluster.adjustedrandindex
     :members:
 
 Benchmarking
@@ -93,6 +93,18 @@ ElasticNet Regression
 ---------------------
 
 .. autoclass:: cuml.ElasticNet
+    :members:
+
+Mini Batch SGD Classifier 
+---------------------
+
+.. autoclass:: cuml.MBSGDClassifier
+    :members:
+
+Mini Batch SGD Regressor
+---------------------
+
+.. autoclass:: cuml.MBSGDRegressor
     :members:
 
 Stochastic Gradient Descent
