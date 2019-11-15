@@ -31,7 +31,7 @@ from sklearn.model_selection import train_test_split
 if has_xgboost():
     import xgboost as xgb
 
-    def simulate_data(m, n, k=2, random_state=None, classification=True):
+    def simulate_data(m, n, k=2, random_state=None, classification=True, bias=0.0):
         if classification:
             features, labels = make_classification(n_samples=m,
                                                    n_features=n,
@@ -43,6 +43,7 @@ if has_xgboost():
                                                n_features=n,
                                                n_informative=int(n/5),
                                                n_targets=1,
+                                               bias=bias,
                                                random_state=random_state)
         return np.c_[features].astype(np.float32), \
             np.c_[labels].astype(np.float32).flatten()
@@ -147,7 +148,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
     X, y = simulate_data(n_rows, n_columns,
                          random_state=random_state,
-                         classification=classification)
+                         classification=classification, bias=10.0)
     # identify shape and indices
     n_rows, n_columns = X.shape
     train_size = 0.80
