@@ -242,8 +242,8 @@ class CSR {
     this->n_cols = n_cols;
     this->nnz = nnz;
 
-    this->rows.resize(this->nnz, stream);
-    this->cols.resize(this->nnz, stream);
+    this->row_ind_arr.resize(this->n_rows+1, stream);
+    this->row_ind_ptr_arr.resize(this->nnz, stream);
     this->vals_arr.resize(this->nnz, stream);
 
     if (init) init_arrays(stream);
