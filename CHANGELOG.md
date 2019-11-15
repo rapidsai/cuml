@@ -37,6 +37,7 @@
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
 

@@ -38,7 +38,6 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
-CUML_COMMS_BUILD_DIR=${REPODIR}/cpp/comms/std/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
@@ -132,6 +131,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
+          -DBUILD_CUML_STD_COMMS=ON \
+          -DWITH_UCX=OFF \
+          -DBUILD_CUML_MPI_COMMS=OFF \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ..
