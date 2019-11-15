@@ -388,6 +388,7 @@ void coo_row_count(const int *rows, int nnz, int *results,
 
   coo_row_count_kernel<TPB_X>
     <<<grid_rc, blk_rc, 0, stream>>>(rows, nnz, results);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 /**
@@ -488,6 +489,7 @@ void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
 
   coo_row_count_nz_kernel<TPB_X, T>
     <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, results);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 /**
@@ -651,6 +653,7 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
   dim3 blk(32, 1, 1);
   from_knn_graph_kernel<32, T>
     <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 /**
