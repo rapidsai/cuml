@@ -28,7 +28,6 @@
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1336: Import SciKit-Learn models into FIL
-- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
   to select algos
 - PR #1335: Options to print available algorithms and datasets
@@ -36,6 +35,7 @@
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1366: Modify train_test_split to use CuPy and accept device arrays
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
