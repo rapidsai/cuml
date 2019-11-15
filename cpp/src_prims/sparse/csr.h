@@ -64,7 +64,9 @@ class CSR {
   Index_Type n_cols;
 
   /**
-    * @param device: are the underlying arrays going to be on device?
+    * @brief default constructor
+    * @param alloc device allocator
+    * @param stream cuda stream
     */
   CSR(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
     : row_ind_arr(d_alloc, stream, 0),
@@ -75,6 +77,7 @@ class CSR {
       n_cols(0) {}
 
   /**
+    * @brief construct a CSR object with pre-allocated device buffers
     * @param row_ind_: csr row index array
     * @param row_ind_ptr_: csr row index pointer array
     * @param vals: csr vals array
@@ -101,6 +104,7 @@ class CSR {
   }
 
   /**
+     * @brief Allocate a CSR given its size
     * @param alloc: device allocator for temporary buffers
     * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
@@ -165,7 +169,7 @@ class CSR {
   friend std::ostream &operator<<(std::ostream &out, const CSR<T> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      cudaStreamCreate(&stream);
+      CUDA_CHECK(cudaStreamCreate(&stream));
 
       out << arr2Str(c.row_ind_arr.data(), c.nnz, "row_ind", stream)
           << std::endl;
@@ -176,7 +180,7 @@ class CSR {
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
 
-      cudaStreamDestroy(stream);
+      CUDA_CHECK(cudaStreamDestroy(stream));
     } else {
       out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
     }
