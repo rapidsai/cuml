@@ -275,6 +275,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       epochs_per_negative_sample.data(), epoch_of_next_negative_sample.data(),
       epoch_of_next_sample.data(), alpha, n, gamma, seed, *params);
 
+    CUDA_CHECK(cudaGetLastError());
+
     if (params->callback) params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));

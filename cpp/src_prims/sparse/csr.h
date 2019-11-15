@@ -96,11 +96,11 @@ class CSR {
       n_cols(n_cols) {}
 
   void init_arrays(cudaStream_t stream) {
-    cudaMemsetAsync(this->row_ind_arr.data(), 0, this->nnz * sizeof(Index_Type),
-                    stream);
-    cudaMemsetAsync(this->row_ind_ptr_arr.data(), 0,
-                    this->nnz * sizeof(Index_Type), stream);
-    cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream);
+    CUDA_CHECK(cudaMemsetAsync(this->row_ind_arr.data(), 0, this->nnz * sizeof(Index_Type),
+                    stream));
+    CUDA_CHECK(cudaMemsetAsync(this->row_ind_ptr_arr.data(), 0,
+                    this->nnz * sizeof(Index_Type), stream));
+    CUDA_CHECK(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
   }
 
   /**
@@ -308,6 +308,7 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
 
   csr_row_normalize_l1_kernel<TPB_X, T>
     <<<grid, blk, 0, stream>>>(ia, vals, nnz, m, result);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <int TPB_X = 32, typename T>
@@ -368,6 +369,7 @@ void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
 
   csr_row_normalize_max_kernel<TPB_X, T>
     <<<grid, blk, 0, stream>>>(ia, vals, nnz, m, result);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename T>
@@ -408,6 +410,7 @@ void csr_to_coo(const int *row_ind, int m, int *coo_rows, int nnz,
   dim3 blk(TPB_X, 1, 1);
 
   csr_to_coo_kernel<TPB_X><<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename T, int TPB_X = 32>
