@@ -119,6 +119,20 @@ inline void knn_merge_parts_impl(float *inK, int64_t *inV, float *outK,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+/**
+ * @brief Merge knn distances and index matrix, which have been partitioned
+ * by row, into a single matrix with only the k-nearest neighbors.
+ *
+ * @param inK partitioned knn distance matrix
+ * @param inV partitioned knn index matrix
+ * @param outK merged knn distance matrix
+ * @param outV merged knn index matrix
+ * @param n_samples number of samples per partition
+ * @param n_parts number of partitions
+ * @param k number of neighbors per partition (also number of merged neighbors)
+ * @param stream CUDA stream to use
+ * @param translations mapping of index offsets for each partition
+ */
 inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
                             int64_t *outV, size_t n_samples, int n_parts, int k,
                             cudaStream_t stream, int64_t *translations) {
@@ -283,12 +297,15 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 }
 
 /**
- * Binary tree recursion for finding a label in the unique_labels array.
+ * @brief Binary tree recursion for finding a label in the unique_labels array.
  * This provides a good middle-ground between having to create a new
  * labels array just to map non-monotonically increasing labels, or
  * the alternative, which is having to search over O(n) space for the labels
  * array in each thread. This is going to cause warp divergence of log(n)
  * per iteration.
+ * @param unique_labels array of unique labels
+ * @param n_labels number of unique labels
+ * @param target_val the label value to search for in unique_labels
  */
 template <typename IdxType = int>
 __device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
@@ -415,6 +432,15 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
 }
 
+
+/**
+ * @brief Simple utility function to determine whether user_stream or one of the
+ * internal streams should be used.
+ * @param user_stream main user stream
+ * @param int_streams array of internal streams
+ * @param n_int_streams number of internal streams
+ * @param idx the index for which to query the stream
+ */
 inline cudaStream_t select_stream(cudaStream_t user_stream,
                                   cudaStream_t *int_streams, int n_int_streams,
                                   int idx) {
