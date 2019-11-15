@@ -139,9 +139,9 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   const int NNZ = COO_Matrix.nnz;
-  float *VAL = COO_Matrix.get_vals();
-  const int *COL = COO_Matrix.get_cols();
-  const int *ROW = COO_Matrix.get_rows();
+  float *VAL = COO_Matrix.vals();
+  const int *COL = COO_Matrix.cols();
+  const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 

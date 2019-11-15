@@ -62,8 +62,8 @@ TEST_P(CSRToCOO, Result) {
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
 
-  delete ex_scan_h;
-  delete verify_h;
+  delete[] ex_scan_h;
+  delete[] verify_h;
 
   CUDA_CHECK(cudaFree(ex_scan));
   CUDA_CHECK(cudaFree(verify));
