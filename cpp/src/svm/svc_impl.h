@@ -104,21 +104,23 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
 }
 
 /**
- * @brief Predict classes for samples in input.
+ * @brief Predict classes or decision function value for samples in input.
+ *
+ * We evaluate the decision function f(x_i). Depending on the parameter
+ * predict_class, we either return f(x_i) or the label corresponding to
+ * sign(f(x_i)).
  *
  * The predictions are calculated according to the following formula:
- * pred(x_i) = sign(f(x_i)) where
  * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
  *
- * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
- * we map it to the original labels, and return those.
+ * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
+ * pred(x_i) = f(x_i),       if predict_class==false
  *
  * We process the input vectors batchwise, and evaluate the full rows of kernel
  * matrix K(x_i, x_j) for a batch (size n_batch * n_support). The maximum size
  * of this buffer (i.e. the maximum batch_size) is controlled by the
  * buffer_size input parameter. For models where n_support is large, increasing
  * buffer_size might improve prediction performance.
- *
  *
  * @tparam math_t floating point type
  * @param handle the cuML handle
@@ -128,15 +130,17 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] n_cols number of colums (features)
  * @param [in] kernel_params parameters for the kernel function
  * @param [in] model SVM model parameters
- * @param [out] preds device pointer to store the predicted class labels.
- *    Size [n_rows]. Should be allocated on entry.
+ * @param [out] preds device pointer to store the output, size [n_rows].
+ *     Should be allocated on entry.
  * @param [in] buffer_size size of temporary buffer in MiB
+ * @param [in] predict_class whether to predict class label (true), or just
+ *     return the decision function value (false)
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds,
-                math_t buffer_size) {
+                math_t buffer_size, bool predict_class) {
   ASSERT(n_cols == model.n_cols,
          "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
@@ -205,16 +209,23 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
       cublas_handle, CUBLAS_OP_N, n_batch, model.n_support, &one, K.data(),
       n_batch, model.dual_coefs, 1, &null, y.data() + i, 1, stream));
   }
-  // Look up the label based on the value of the decision function:
-  // f(x) = sign(y(x) + b)
   math_t *labels = model.unique_labels;
   math_t b = model.b;
-  MLCommon::LinAlg::unaryOp(
-    preds, y.data(), n_rows,
-    [labels, b] __device__(math_t y) {
-      return y + b < 0 ? labels[0] : labels[1];
-    },
-    stream);
+  if (predict_class) {
+    // Look up the label based on the value of the decision function:
+    // f(x) = sign(y(x) + b)
+    MLCommon::LinAlg::unaryOp(
+      preds, y.data(), n_rows,
+      [labels, b] __device__(math_t y) {
+        return y + b < 0 ? labels[0] : labels[1];
+      },
+      stream);
+  } else {
+    // Calculate the value of the decision function: f(x) = y(x) + b
+    MLCommon::LinAlg::unaryOp(
+      preds, y.data(), n_rows,
+      [labels, b] __device__(math_t y) { return y + b; }, stream);
+  }
   delete kernel;
 }
 

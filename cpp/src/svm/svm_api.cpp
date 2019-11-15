@@ -154,7 +154,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds, buffer_size);
+                          model, preds, buffer_size, true);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -196,7 +196,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(*handle_ptr, input, n_rows, n_cols, kernel_param,
-                          model, preds, buffer_size);
+                          model, preds, buffer_size, true);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
