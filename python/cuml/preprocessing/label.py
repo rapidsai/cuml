@@ -102,8 +102,6 @@ def _validate_labels(y, classes):
 
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
-    n_classes = len(classes)
-
     classes = cp.asarray(classes, dtype=cp.int32)
 
     col_ind = cp.asarray(y, dtype=cp.int32).copy()
