@@ -185,8 +185,7 @@ cdef class ForestInference_impl():
         self.handle = handle
 
     def get_algo(self, algo_str):
-        algo_dict={
-                   'AUTO': algo_t.ALGO_AUTO,
+        algo_dict={'AUTO': algo_t.ALGO_AUTO,
                    'auto': algo_t.ALGO_AUTO,
                    'NAIVE': algo_t.NAIVE,
                    'naive': algo_t.NAIVE,
@@ -420,7 +419,7 @@ class ForestInference(Base):
            exceeds the threshold. If False, just return the raw prediction.
         algo : string name of the algo from (from algo_t enum)
              'AUTO' or 'auto' - choose the algorithm automatically;
-                   currently 'BATCH_TREE_REORG' is used for dense storage, 
+                   currently 'BATCH_TREE_REORG' is used for dense storage,
                    and 'NAIVE' for sparse storage
              'NAIVE' or 'naive' - simple inference using shared memory
              'TREE_REORG' or 'tree_reorg' - similar to naive but trees
