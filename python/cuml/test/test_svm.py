@@ -385,3 +385,44 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
     print("Delta GPU mem: {} bytes".format(delta_mem))
     assert delta_mem == 0
+
+
+@pytest.mark.parametrize('params', [
+    {'kernel': 'poly', 'degree': 30, 'C': 1, 'gamma': 1}
+])
+def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
+                                  n_cols=1000, dataset='blobs'):
+    """
+    Test whether there is any mem leak when we exit training with an exception.
+    The poly kernel with degree=30 will overflow, and triggers the
+    'SMO error: NaN found...' exception.
+    """
+    X_train, y_train = make_blobs(n_samples=n_rows, n_features=n_cols,
+                                  random_state=137, centers=2)
+    X_train = X_train.astype(np.float32)
+    stream = cuml.cuda.Stream()
+    handle = cuml.Handle()
+    handle.setStream(stream)
+
+    # Warmup. Some modules that are used in SVC allocate space on the device
+    # and consume memory. Here we make sure that this allocation is done
+    # before the first call to get_memory_info.
+    tmp = cu_svm.SVC(handle=handle, **params)
+    with pytest.raises(RuntimeError):
+        tmp.fit(X_train, y_train)
+        # SMO error: NaN found during fitting.
+
+    free_mem = cuda.current_context().get_memory_info()[0]
+
+    # Main test loop
+    for i in range(n_iter):
+        cuSVC = cu_svm.SVC(handle=handle, **params)
+        with pytest.raises(RuntimeError):
+            cuSVC.fit(X_train, y_train)
+            # SMO error: NaN found during fitting.
+
+    del(cuSVC)
+    handle.sync()
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    print("Delta GPU mem: {} bytes".format(delta_mem))
+    assert delta_mem == 0
