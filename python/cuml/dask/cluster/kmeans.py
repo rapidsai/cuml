@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
+    workers_to_parts
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -172,7 +173,9 @@ class KMeans(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        workers = list(map(lambda x: x[0], gpu_futures.items()))
+        worker_to_parts = workers_to_parts(gpu_futures)
+
+        workers = list(map(lambda x: x[0], worker_to_parts.items()))
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
@@ -185,7 +188,7 @@ class KMeans(object):
             **self.kwargs,
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            for idx, wf in enumerate(worker_to_parts.items())]
 
         wait(kmeans_fit)
         self.raise_exception_from_futures(kmeans_fit)
@@ -206,13 +209,15 @@ class KMeans(object):
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
+
         kmeans_predict = [self.client.submit(
             func,
             self.local_model,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            for idx, wf in enumerate(worker_to_parts.items())]
         self.raise_exception_from_futures(kmeans_predict)
 
         return to_dask_cudf(kmeans_predict)
@@ -248,13 +253,14 @@ class KMeans(object):
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
         scores = [self.client.submit(
             KMeans._func_score,
             self.local_model,
             wf[1],
             workers=[wf[0]],
             key="%-%s" % (key, idx)).result()
-                  for idx, wf in enumerate(gpu_futures.items())]
+                  for idx, wf in enumerate(worker_to_parts.items())]
         self.raise_exception_from_futures(scores)
 
         return np.sum(scores)
