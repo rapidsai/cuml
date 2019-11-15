@@ -944,5 +944,5 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
   EXPECT_EQ(delta, 0);
 }
 
-};  // namespace SVM
-};  // namespace ML
+};  // end namespace SVM
+};  // end namespace ML
