@@ -289,9 +289,7 @@ class RandomForestClassifier(Base):
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = -1)
-           If int, then the seed is used by the models random number
-           generator. It is used to reproduce the same result over multiple
-           runs.
+           Seed for the random number generator. Unseeded by default.
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -368,7 +366,7 @@ class RandomForestClassifier(Base):
         self.seed = seed
 
         if ((seed != -1) and (n_streams != 1)):
-            warnings.warn("Random seed only works with n_streams=1.")
+            warnings.warn("Random seed requires n_streams=1.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
