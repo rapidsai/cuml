@@ -20,6 +20,7 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuputils import get_submodule_dependencies
 
+import numpy
 import os
 import subprocess
 import sys
@@ -108,6 +109,7 @@ include_dirs = ['../cpp/src',
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
+                numpy.get_include(),
                 os.path.dirname(sysconfig.get_path("include"))]
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
