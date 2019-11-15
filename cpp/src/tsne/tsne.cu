@@ -136,13 +136,13 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix;
+  MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   const int NNZ = COO_Matrix.nnz;
-  float *VAL = COO_Matrix.vals;
-  const int *COL = COO_Matrix.cols;
-  const int *ROW = COO_Matrix.rows;
+  float *VAL = COO_Matrix.vals();
+  const int *COL = COO_Matrix.cols();
+  const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
@@ -159,8 +159,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_momentum, random_state, verbose,
                      intialize_embeddings);
   }
-
-  COO_Matrix.destroy();
 }
 
 }  // namespace ML
