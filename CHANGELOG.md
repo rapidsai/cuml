@@ -36,6 +36,7 @@
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
