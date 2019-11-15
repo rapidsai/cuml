@@ -60,7 +60,7 @@ def test_basic_fit_predict():
 
     y_hat = model.predict(X).cpu()
 
-    print(str(accuracy_score(y.cpu(), y_hat)))
+    assert accuracy_score(y.cpu(), y_hat) >= 0.996
 
 
 
