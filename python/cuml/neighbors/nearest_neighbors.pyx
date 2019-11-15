@@ -205,7 +205,7 @@ class NearestNeighbors(Base):
         # Only need to recover state if model had been previously fit
         if state["n_indices"] == 1:
 
-            state['X_m'] = row_matrix(state['X_m'])
+            state['X_m'] = state['X_m'].as_gpu_matrix()
 
         self.__dict__.update(state)
 
@@ -224,8 +224,6 @@ class NearestNeighbors(Base):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
-
-        self.__del__()
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")

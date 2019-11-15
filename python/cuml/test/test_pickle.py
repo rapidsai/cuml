@@ -229,11 +229,11 @@ def test_neighbors_pickle(tmpdir, datatype, model, data_info):
     X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
     model.fit(X_train)
-    D_before, I_before = model.kneighbors(X_test, k=k)
+    D_before, I_before = model.kneighbors(X_test, n_neighbors=k)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
-    D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
+    D_after, I_after = cu_after_pickle_model.kneighbors(X_test, n_neighbors=k)
 
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
@@ -261,8 +261,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     assert state["n_indices"] == 0
     assert "X_m" not in state
-    assert state["sizes"] is None
-    assert state["input"] is None
 
     X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
@@ -274,18 +272,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     assert state["n_indices"] == 1
     assert "X_m" in state
-    assert state["sizes"] is not None
-    assert state["input"] is not None
-
-
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.xfail(strict=True)
-def test_neighbors_mg_fails(tmpdir, datatype):
-
-    model = cuml.neighbors.NearestNeighbors()
-    model.n_indices = 2
-
-    pickle_save_load(tmpdir, model)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
