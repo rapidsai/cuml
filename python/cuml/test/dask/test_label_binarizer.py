@@ -50,9 +50,13 @@ def test_basic_functions(labels, cluster):
 
     xformed = binarizer.transform(df2)
 
+    print("xformed: " + str(xformed.compute()))
+
     assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
 
     original = binarizer.inverse_transform(xformed)
+
+    print("original: " + str(original.compute()))
 
     test = cp.asarray(original.compute().to_gpu_array())
 

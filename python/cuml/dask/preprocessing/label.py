@@ -25,6 +25,15 @@ import cudf
 import cupy as cp
 
 
+def cp_to_df(cp_ndarr):
+    numba_arr = numba.cuda.to_device(cp_ndarr)
+    return cudf.DataFrame.from_gpu_matrix(numba_arr)
+
+def cp_to_series(cp_ndarr):
+    numba_arr = numba.cuda.to_device(cp_ndarr)
+    return cudf.Series(numba_arr)
+
+
 class LabelBinarizer(object):
 
     def __init__(self, client=None, **kwargs):
@@ -45,22 +54,13 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_xform(model, y):
-
-        xform_in = cp.asarray(y.to_gpu_array()).astype(cp.int32)
-        print("xform_in: "+ str(xform_in))
-
-        xformed = model.transform(xform_in)
-        print("xformed: " + str(xformed))
-
-        return cudf.DataFrame.from_gpu_matrix(xformed)
+        xform_in = cp.asarray(y.to_gpu_array(), dtype=cp.int32)
+        return cp_to_df(model.transform(xform_in))
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
-        inv_xform_in = cp.asarray(y.to_gpu_matrix()).astype(cp.int32)
-
-        print("xform_in: "+ str(inv_gxform_in))
-        orig = model.inverse_transform(inv_xform_in, threshold)
-        return cudf.Series(orig)
+        inv_xform_in = cp.asarray(y.to_gpu_matrix(), dtype=cp.int32)
+        return cp_to_series(model.inverse_transform(inv_xform_in, threshold))
 
     def fit(self, y):
         """Fit label binarizer`
@@ -85,9 +85,10 @@ class LabelBinarizer(object):
         classes = self.client_.compute(unique, True)
         classes = cudf.concat(classes).unique().to_gpu_array()
 
-        print("Classes: " + str(classes))
+        self.classes_ = cp.asarray(classes, dtype=cp.int32)
 
-        self.classes_ = cp.asarray(classes).astype(cp.int32)
+        print("Classes: " + str(self.classes_))
+
         self.model = LB(**self.kwargs).fit(self.classes_)
 
         return self
