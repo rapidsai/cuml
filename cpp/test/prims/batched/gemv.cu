@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,11 +96,11 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
-  {0.001f, 128, 128, 32, 1234ULL}, {0.001f, 128, 126, 32, 1234ULL},
-  {0.001f, 128, 125, 32, 1234ULL}, {0.001f, 126, 128, 32, 1234ULL},
-  {0.001f, 126, 126, 32, 1234ULL}, {0.001f, 126, 125, 32, 1234ULL},
-  {0.001f, 125, 128, 32, 1234ULL}, {0.001f, 125, 126, 32, 1234ULL},
-  {0.001f, 125, 125, 32, 1234ULL},
+  {0.005f, 128, 128, 32, 1234ULL}, {0.005f, 128, 126, 32, 1234ULL},
+  {0.005f, 128, 125, 32, 1234ULL}, {0.005f, 126, 128, 32, 1234ULL},
+  {0.005f, 126, 126, 32, 1234ULL}, {0.005f, 126, 125, 32, 1234ULL},
+  {0.005f, 125, 128, 32, 1234ULL}, {0.005f, 125, 126, 32, 1234ULL},
+  {0.005f, 125, 125, 32, 1234ULL},
 };
 typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result) {

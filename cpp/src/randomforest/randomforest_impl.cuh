@@ -47,14 +47,6 @@ int rf<T, L>::get_ntrees() {
   return rf_params.n_trees;
 }
 
-void random_uniformInt(int treeid, unsigned int* data, int len, int n_rows,
-                       const int num_sms, cudaStream_t stream) {
-  uint64_t offset = 0;
-  MLCommon::Random::randImpl(
-    offset, data, len,
-    [=] __device__(unsigned int val, int idx) { return (val % n_rows); }, 256,
-    4 * num_sms, MLCommon::Random::GeneratorType::GenKiss99, stream);
-}
 /**
  * @brief Sample row IDs for tree fitting and bootstrap if requested.
  * @tparam T: data type for input data (float or double).
@@ -75,10 +67,10 @@ void rf<T, L>::prepare_fit_per_tree(
   int rs = tree_id;
   if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
 
-  srand(rs * 1000);
+  MLCommon::Random::Rng rng(rs * 1000 | 0xFF00AA,
+                            MLCommon::Random::GeneratorType::GenKiss99);
   if (rf_params.bootstrap) {
-    random_uniformInt(tree_id, selected_rows, n_sampled_rows, n_rows, num_sms,
-                      stream);
+    rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
 
   } else {  // Sampling w/o replacement
     MLCommon::device_buffer<unsigned int>* inkeys =

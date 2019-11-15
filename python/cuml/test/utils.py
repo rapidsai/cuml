@@ -29,12 +29,24 @@ import cuml
 import pytest
 
 
-def array_equal(a, b, tol=1e-4, with_sign=True):
+def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+    """
+    Utility function to compare 2 numpy arrays. Two individual elements
+    are assumed equal if they are within `unit_tol` of each other, and two
+    arrays are considered equal if less than `total_tol` percentage of
+    elements are different.
+
+    """
+
     a = to_nparray(a)
     b = to_nparray(b)
+
+    if len(a) == 0 and len(b) == 0:
+        return True
+
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = np.max(np.abs(a-b)) < tol
+    res = (np.sum(np.abs(a-b) > unit_tol)) / len(a) < total_tol
     return res
 
 
@@ -104,9 +116,9 @@ def to_nparray(x):
     return np.array(x)
 
 
-def clusters_equal(a0, b0, n_clusters):
+def clusters_equal(a0, b0, n_clusters, tol=1e-4):
     a, b = normalize_clusters(a0, b0, n_clusters)
-    return array_equal(a, b)
+    return array_equal(a, b, total_tol=tol)
 
 
 def get_handle(use_handle, n_streams=0):

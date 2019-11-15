@@ -50,8 +50,8 @@ class StationarityTest
     std::vector<DataT> noise = std::vector<DataT>(params.n_samples);
     std::vector<DataT> offset = std::vector<DataT>(params.n_batches);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    constexpr unsigned seed = 12345678U;
+    std::mt19937 gen(seed);
     // Generate white noise
     std::normal_distribution<> ndis(0.0, 0.1);
     for (int j = 0; j < params.n_samples; ++j) {

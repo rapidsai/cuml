@@ -21,7 +21,6 @@ build:
   script_env:
     - CC
     - CXX
-    - BUILD_ABI
     - VERSION_SUFFIX
 
 requirements:
@@ -30,6 +29,7 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.14
+    - protobuf >=3.4.1,<4.0.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}

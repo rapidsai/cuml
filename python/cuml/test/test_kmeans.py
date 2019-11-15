@@ -25,13 +25,11 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
 
-dataset_names = ['blobs', 'noisy_circles'] + \
-                [pytest.param(ds, marks=pytest.mark.xfail)
-                 for ds in ['noisy_moons', 'varied', 'aniso']]
+dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(500),
+@pytest.mark.parametrize('nrows', [unit_param(1000),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
@@ -70,8 +68,19 @@ def test_kmeans_sklearn_comparison(name, nrows):
             assert (calculation < 2e-3) and score_test
 
         else:
+            if name == 'aniso':
+                # aniso dataset border points tend to differ in the frontier
+                # between clusters when compared to sklearn
+                tol = 2e-2
+            else:
+                # We allow up to 5 points to be different for the other
+                # datasets to be robust to small behavior changes
+                # between library versions/ small changes. Visually it is
+                # very clear that the algorithm work. Will add option
+                # to plot if desired in a future version.
+                tol = 1e-2
             assert (clusters_equal(sk_y_pred, cu_y_pred,
-                    params['n_clusters'])) and score_test
+                    params['n_clusters'], tol=tol)) and score_test
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -92,7 +101,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans()
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
 
     X, y = pat[0]
 
@@ -100,7 +109,38 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
-    kmeans = cluster.KMeans(random_state=12)
+    kmeans = cluster.KMeans(random_state=12, n_clusters=params['n_clusters'])
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
-    assert cu_score > sk_score
+
+    # cuML score should be in a close neighborhood around scikit-learn's
+    assert sk_score - 0.03 <= cu_score <= sk_score + 0.03
+
+
+@pytest.mark.parametrize('n_rows', [unit_param(100),
+                                    stress_param(500000)])
+@pytest.mark.parametrize('n_clusters', [unit_param(10),
+                                        unit_param(100),
+                                        stress_param(1000)])
+@pytest.mark.parametrize('max_iter', [100, 500, 1000])
+@pytest.mark.parametrize('oversampling_factor', [0.5, 1.0, 1.5])
+@pytest.mark.parametrize('max_samples_per_batch', [1 << 15, 1 << 10, 1 << 5])
+@pytest.mark.parametrize('init', ['k-means||',
+                                  'random',
+                                  'preset'])
+def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
+                           oversampling_factor, max_samples_per_batch):
+
+    np.random.seed(0)
+    X = np.random.rand(1000, 10)
+
+    if init == 'preset':
+        init = np.random.rand(n_clusters, 10)
+
+    cuml_kmeans = cuml.KMeans(n_clusters=n_clusters,
+                              max_iter=max_iter,
+                              init=init,
+                              oversampling_factor=oversampling_factor,
+                              max_samples_per_batch=max_samples_per_batch)
+
+    cuml_kmeans.fit_predict(X)

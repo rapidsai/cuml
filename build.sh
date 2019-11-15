@@ -133,7 +133,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
-          -DNCCL_PATH=${INSTALL_PREFIX} ..
+          -DNCCL_PATH=${INSTALL_PREFIX} \
+          -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ..
 
 fi
 
