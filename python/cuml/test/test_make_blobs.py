@@ -106,17 +106,12 @@ centers_ary = [
     np.random.uniform(size=(10, 100))
 ]
 
-cluster_std_ary = [
-    np.random.uniform(low=-0.01, high=0.01, size=(1, 10)),
-    np.random.uniform(low=0.1, high=0.1, size=(1, 10)),
-]
-
 
 @pytest.mark.parametrize('dtype', dtype)
 @pytest.mark.parametrize('n_samples', n_samples)
 @pytest.mark.parametrize('n_features', n_features_ary)
 @pytest.mark.parametrize('centers', centers_ary)
-@pytest.mark.parametrize('cluster_std', cluster_std_ary)
+@pytest.mark.parametrize('cluster_std', cluster_std)
 @pytest.mark.parametrize('center_box', center_box)
 @pytest.mark.parametrize('shuffle', shuffle)
 @pytest.mark.parametrize('random_state', random_state)
@@ -125,7 +120,7 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
                                    shuffle, random_state):
 
     centers = centers.astype(np.dtype(dtype))
-    cluster_std = cluster_std.astype(np.dtype(dtype))
+    cluster_std = np.full(shape=(1, 10), fill_value=cluster_std, dtype=dtype)
 
     if centers.shape[1] != n_features or cluster_std.shape[1] != centers.shape[0]:
         with pytest.raises(ValueError):
