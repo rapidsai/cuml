@@ -147,12 +147,10 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    out = zeros((n_samples, n_features), dtype=dtype, order='F')
+    out = zeros((n_samples, n_features), dtype=dtype, order='C')
     cdef uintptr_t out_ptr = get_dev_array_ptr(out)
 
-    # print("OUT=" + str(np.array(out)))
-    #
-    labels = zeros(n_samples, dtype=np.int64, order='F')
+    labels = zeros(n_samples, dtype=np.int64, order='C')
     cdef uintptr_t labels_ptr = get_dev_array_ptr(labels)
 
     cdef uintptr_t centers_ptr
@@ -168,7 +166,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                    convert_to_dtype=dtype,
                                    check_cols=n_features)
 
-            n_clusters = clusters.shape[0]
+            n_clusters = centers.shape[0]
 
     else:
         n_clusters = 3
@@ -205,7 +203,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <float> center_box_min,
                    <float> center_box_max,
                    <uint64_t> random_state,
-                   <bool> False)
+                   <bool> True)
 
     else:
         make_blobs(handle_[0],
@@ -221,7 +219,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                    <double> center_box_min,
                    <double> center_box_max,
                    <uint64_t> random_state,
-                   <bool> False)
+                   <bool> True)
 
     handle.sync()
 

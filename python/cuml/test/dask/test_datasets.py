@@ -17,6 +17,8 @@ import pytest
 
 import numpy as np
 
+from sklearn.metrics import adjusted_rand_score
+
 from dask.distributed import Client
 
 from cuml.test.utils import unit_param, quality_param, stress_param
@@ -26,8 +28,8 @@ from cuml.test.utils import unit_param, quality_param, stress_param
                                    stress_param(1e6)])
 @pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
                                    stress_param(1000)])
-@pytest.mark.parametrize('centers', [10])
-@pytest.mark.parametrize("cluster_std", [0.1])
+@pytest.mark.parametrize('centers', [10, 20])
+@pytest.mark.parametrize("cluster_std", [0.1, 0.01])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
                                     quality_param(100),
@@ -61,17 +63,31 @@ def test_make_blobs(nrows,
         y = y.compute()
 
         assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows, 1)
 
         if output == 'dataframe':
-            assert len(y[0].unique()) == centers
+            assert len(y.unique()) == centers
             assert X.dtypes.unique() == [dtype]
+            assert y.shape == (int(nrows),)
+
+            X_np = np.array(X.as_gpu_matrix())
+            y_np = np.array(y.to_gpu_array())
 
         elif output == 'array':
             import cupy as cp
             assert len(cp.unique(y)) == centers
             assert X.dtype == dtype
             assert y.dtype == np.int64
+            assert y.shape == (int(nrows), 1)
+
+            X_np = cp.asnumpy(X)
+            y_np = cp.asnumpy(y)
+
+        # Use kmeans to verify k cluster centers
+        from sklearn.cluster import KMeans
+        model = KMeans(n_clusters=centers)
+        model.fit(np.array(X_np))
+
+        assert adjusted_rand_score(model.labels_, y_np.reshape(y_np.shape[0]))
 
     finally:
         c.close()

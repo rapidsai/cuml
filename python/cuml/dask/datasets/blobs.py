@@ -35,7 +35,8 @@ def create_local_data(m, n, centers, cluster_std, random_state,
 
     X, y = cuml_make_blobs(n_samples=m, n_features=n,
                            centers=centers, cluster_std=cluster_std,
-                           random_state=random_state+idx, dtype=dtype)
+                           random_state=random_state, shuffle=True,
+                           dtype=dtype)
 
     if type == 'array':
         X = cp.array(X)
@@ -44,7 +45,8 @@ def create_local_data(m, n, centers, cluster_std, random_state,
     elif type == 'dataframe':
 
         X = cudf.DataFrame.from_gpu_matrix(X)
-        y = cudf.DataFrame.from_gpu_matrix(y.reshape(m, 1))
+        y = cudf.Series(y)
+        print(str(y.unique()))
 
     else:
         raise ValueError('type must be array or dataframe')
@@ -127,7 +129,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
-        if rows_so_far+rows_per_part <= nrows:
+        if rows_so_far+rows_per_part <= nrows:  
             rows_so_far += rows_per_part
             worker_rows.append(rows_per_part)
         else:

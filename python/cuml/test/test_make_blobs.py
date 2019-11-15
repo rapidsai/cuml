@@ -17,7 +17,7 @@ import cuml
 import pytest
 import numpy as np
 
-from cuml.test.utils import array_equal
+from sklearn.metrics import adjusted_rand_score
 
 
 # Testing parameters for scalar parameter tests
@@ -27,22 +27,25 @@ dtype = [
     'double'
 ]
 
-n_samples = [1000] #], 100000]
+n_samples = [100, 1000]
 
 n_features = [
-    2,
     10,
+    50,
+    100
 ]
 
 centers = [
     None,
     2,
-    10
+    10,
+    25,
+    50,
 ]
 
 cluster_std = [
     0.01,
-    0.1,
+    0.1
 ]
 
 center_box = [
@@ -76,7 +79,7 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
 
     out, labels = cuml.make_blobs(dtype=dtype, n_samples=n_samples,
                                   n_features=n_features, centers=centers,
-                                  cluster_std=cluster_std,
+                                  cluster_std=0.001,
                                   center_box=center_box, shuffle=shuffle,
                                   random_state=random_state)
 
@@ -84,13 +87,10 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
     labels_np = labels.copy_to_host()
 
     from sklearn.cluster import KMeans
-    model = KMeans(n_clusters=centers)
+    model = KMeans(n_clusters=np.unique(labels_np).shape[0])
     model.fit(np.array(out))
 
-    print(model.labels_)
-    print(labels_np)
-
-    assert array_equal(model.labels_, labels_np)
+    assert adjusted_rand_score(model.labels_, labels_np)
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
     assert labels.shape == (n_samples,), "labels shape mismatch"
@@ -102,21 +102,16 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
         assert np.unique(labels_np).shape == (centers,), \
             "unexpected number of clusters"
 
-
-
 # Parameters for array tests
 n_features_ary = [
-    2,
-    10
+    10,
+    50,
+    100
 ]
 
 centers_ary = [
     np.random.uniform(size=(10, 2)),
-    np.random.uniform(size=(10, 1000))
-]
-
-cluster_std_ary = [
-    np.random.uniform(size=10),
+    np.random.uniform(size=(10, 100))
 ]
 
 
@@ -124,7 +119,7 @@ cluster_std_ary = [
 @pytest.mark.parametrize('n_samples', n_samples)
 @pytest.mark.parametrize('n_features', n_features_ary)
 @pytest.mark.parametrize('centers', centers_ary)
-@pytest.mark.parametrize('cluster_std', cluster_std_ary)
+@pytest.mark.parametrize('cluster_std', cluster_std)
 @pytest.mark.parametrize('center_box', center_box)
 @pytest.mark.parametrize('shuffle', shuffle)
 @pytest.mark.parametrize('random_state', random_state)
@@ -132,11 +127,11 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
                                    centers, cluster_std, center_box,
                                    shuffle, random_state):
 
-    print(cluster_std.shape)
-
     centers = centers.astype(np.dtype(dtype))
-    cluster_std = cluster_std.astype(np.dtype(dtype))
-    if centers.shape[1] != n_features or cluster_std.shape[0] != centers.shape[0]:
+    cluster_std = np.full(shape=(1, 10), fill_value=cluster_std, dtype=dtype)
+
+    if centers.shape[1] != n_features or \
+            cluster_std.shape[1] != centers.shape[0]:
         with pytest.raises(ValueError):
             out, labels = \
                 cuml.make_blobs(dtype=dtype, n_samples=n_samples,
@@ -147,7 +142,6 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
 
     else:
 
-        print("IM HERE!!")
         out, labels = \
             cuml.make_blobs(dtype=dtype, n_samples=n_samples,
                             n_features=n_features, centers=centers,
@@ -159,15 +153,14 @@ def test_make_blobs_ary_parameters(dtype, n_samples, n_features,
         assert labels.shape == (n_samples,), "labels shape mismatch"
 
         labels_np = labels.copy_to_host()
-        assert np.unique(labels_np).shape == (len(centers),), \
+        out_np = out.copy_to_host()
+
+        assert np.unique(labels_np).shape == (centers.shape[0],), \
             "unexpected number of clusters"
 
-        from sklearn.metrics import pairwise_distances
-        dists = pairwise_distances(np.array(out), np.array(centers))
+        # Use kmeans to verify k cluster centers
+        from sklearn.cluster import KMeans
+        model = KMeans(n_clusters=centers.shape[0])
+        model.fit(np.array(out_np))
 
-        print("argmax: " + str(np.argmax(dists, axis=1)))
-        print(str(np.array(labels)))
-
-        # out_labels = labels[np.argmax(dists, axis=1)]
-
-        # assert array_equal(labels, out_labels)
+        assert adjusted_rand_score(model.labels_, labels_np) == 1.0

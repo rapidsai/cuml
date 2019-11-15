@@ -51,6 +51,7 @@
 - PR #1337: Fix k-means init from preset cluster centers
 - PR #1354  Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
+- PR #1373: Fixing a few small bugs in make_blobs and adding asserts to pytests
 
 # cuML 0.10.0 (16 Oct 2019)
 
