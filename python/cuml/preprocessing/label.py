@@ -207,6 +207,3 @@ class LabelBinarizer(object):
         state['classes_'] = cp.asarray(state["classes_"].to_gpu_array(),
                                        dtype=cp.int32)
         self.__dict__.update(state)
-
-
-
