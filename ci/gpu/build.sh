@@ -51,7 +51,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "libcumlprims=${MINOR_VERSION}" \
       "lapack" \
       "cmake==3.14.3" \
-      "umap-learn" \
+      "umap-learn==0.3.10" \
       "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
       "dask=2.5.0" \

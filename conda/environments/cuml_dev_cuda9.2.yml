@@ -15,7 +15,7 @@ dependencies:
 - cython>=0.29,<0.30
 - pytest>=4.6
 - scikit-learn>=0.21
-- umap-learn>=0.3.9
+- umap-learn=0.3.10
 - scikit-learn>=0.21
 - dask=2.5.0
 - distributed=2.5.1
