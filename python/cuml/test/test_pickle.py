@@ -106,6 +106,8 @@ def test_regressor_pickle(tmpdir, datatype, model, data_size):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
+    del model
+
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
@@ -123,6 +125,8 @@ def test_solver_pickle(tmpdir, datatype, model, data_size):
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    del model
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -142,6 +146,8 @@ def test_cluster_pickle(tmpdir, datatype, model, data_size):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
+    del model
+
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
@@ -159,6 +165,8 @@ def test_decomposition_pickle(tmpdir, datatype, model, data_size):
     cu_before_pickle_transform = model.fit_transform(X_train)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    del model
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
@@ -215,6 +223,8 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, data_size):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
+    del model
+
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
     assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
@@ -232,6 +242,8 @@ def test_neighbors_pickle(tmpdir, datatype, model, data_info):
     D_before, I_before = model.kneighbors(X_test, k=k)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    del model
 
     D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
 
@@ -270,6 +282,8 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     unpickled = pickle_save_load(tmpdir, model)
 
+    del model
+
     state = unpickled.__dict__
 
     assert state["n_indices"] == 1
@@ -300,6 +314,8 @@ def test_dbscan_pickle(tmpdir, datatype, model, data_size):
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
+    del model
+
     cu_after_pickle_predict = cu_after_pickle_model.fit_predict(
                               X_train
                               ).to_array()
@@ -314,9 +330,9 @@ def test_tsne_pickle(tmpdir):
     X = iris.data[iris_selection]
 
     model = cuml.manifold.TSNE(n_components=2, random_state=199)
-
     # Pickle the model
     model_pickle = pickle_save_load(tmpdir, model)
+
     model_params = model_pickle.__dict__
     if "handle" in model_params:
         del model_params["handle"]
@@ -335,8 +351,10 @@ def test_tsne_pickle(tmpdir):
     trust_before = trustworthiness(X, model.Y, 10)
 
     # Save model + embeddings
-    model = pickle_save_load(tmpdir, model)
-    trust_after = trustworthiness(X, model.Y.to_pandas(), 10)
+    after_pickle_model = pickle_save_load(tmpdir, model)
+
+    del model
+    trust_after = trustworthiness(X, after_pickle_model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
 
