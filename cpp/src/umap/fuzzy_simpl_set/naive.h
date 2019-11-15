@@ -55,7 +55,12 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  *                   be a sorted list of distances to a given sample's nearest neighbors.
  *
  * @param n: The number of samples
- * @param k: The number of neighbors
+ * @param mean_dist: The mean distance
+ * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
+ *                as suitably approximated.
+ * @parasm rhos:  An array of size n representing the distance to the 1st nearest neighbor
+ *                for each point.
+ * @param n_neighbors: The number of neighbors
  *
  * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
  *                            neighbors that should be assumed to be connected at a local
@@ -63,10 +68,8 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  *                            becomes locally. In practice, this should not be more than the
  *                            local intrinsic dimension of the manifold.
  *
- * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
- *                as suitably approximated.
- * @parasm rhos:  An array of size n representing the distance to the 1st nearest neighbor
- *                for each point.
+ * @param n_iter The number of smoothing iterations to run
+ * @param bandwidth Scale factor for log of neighbors
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  *
@@ -177,9 +180,12 @@ __global__ void smooth_knn_dist_kernel(
  * @param sigmas: array of size n representing distance to kth nearest neighbor
  * @param rhos: array of size n representing distance to the first nearest neighbor
  *
- * @return rows: long array of size n
+ * @return vals: T array of size n*k
+ *         rows: long array of size n
  *         cols: long array of size k
- *         vals: T array of size n*k
+ *
+ * @param n Number of samples (rows in knn indices/distances)
+ * @param n_neighbors number of columns in knn indices/distances
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
@@ -233,14 +239,14 @@ template <int TPB_X, typename T>
 void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                      T *rhos, T *sigmas, UMAPParams *params, int n_neighbors,
                      float local_connectivity,
-                     std::shared_ptr<deviceAllocator> alloc,
+                     std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
   int blks = MLCommon::ceildiv(n, TPB_X);
 
   dim3 grid(blks, 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  MLCommon::device_buffer<T> dist_means_dev(alloc, stream, n_neighbors);
+  MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
 
   MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, n_neighbors, n, false,
                         false, stream);
@@ -282,16 +288,15 @@ void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
  * @param knn_indices indexes of knn search
  * @param knn_dists distances of knn search
  * @param n_neighbors number of neighbors in knn search arrays
- * @param rrows output COO rows array
- * @param rcols output COO cols array
- * @param rvals output COO vals array
+ * @param out The output COO sparse matrix
  * @param params UMAPParams config object
+ * @param d_alloc the device allocator to use for temp memory
  * @param stream cuda stream to use for device operations
-             */
+ */
 template <int TPB_X, typename T>
 void launcher(int n, const long *knn_indices, const float *knn_dists,
               int n_neighbors, MLCommon::Sparse::COO<T> *out,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   /**
    * All of the kernels in this algorithm are row-based and
@@ -305,16 +310,16 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
    * Calculate mean distance through a parallel reduction
    */
 
-  MLCommon::device_buffer<T> sigmas(alloc, stream, n);
-  MLCommon::device_buffer<T> rhos(alloc, stream, n);
+  MLCommon::device_buffer<T> sigmas(d_alloc, stream, n);
+  MLCommon::device_buffer<T> rhos(d_alloc, stream, n);
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(T), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(T), stream));
 
   smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists, rhos.data(),
                             sigmas.data(), params, n_neighbors,
-                            params->local_connectivity, alloc, stream);
+                            params->local_connectivity, d_alloc, stream);
 
-  MLCommon::Sparse::COO<T> in(alloc, stream, n * n_neighbors, n, n);
+  MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
     std::cout << "Smooth kNN Distances" << std::endl;
@@ -329,8 +334,8 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
                  * Compute graph of membership strengths
                  */
   compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
-    knn_indices, knn_dists, sigmas.data(), rhos.data(), in.get_vals(),
-    in.get_rows(), in.get_cols(), in.n_rows, n_neighbors);
+    knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
+    in.cols(), in.n_rows, n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
@@ -351,9 +356,9 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
               (1.0 - set_op_mix_ratio) * prod_matrix;
       return res;
     },
-    alloc, stream);
+    d_alloc, stream);
 
-  MLCommon::Sparse::coo_sort<T>(out, alloc, stream);
+  MLCommon::Sparse::coo_sort<T>(out, d_alloc, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

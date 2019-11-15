@@ -185,6 +185,28 @@ class UMAP(Base):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    hash_input: UMAP can hash the training input so that exact embeddings
+                are returned when transform is called on the same data upon
+                which the model was trained. This enables consistent
+                behavior between calling model.fit_transform(X) and
+                calling model.fit(X).transform(X). Not that the CPU-based
+                UMAP reference implementation does this by default. This
+                feature is made optional in the GPU version due to the
+                significant overhead in copying memory to the host for
+                computing the hash. (default = False)
+    callback: An instance of GraphBasedDimRedCallback class to intercept
+              the internal state of embeddings while they are being trained.
+              Example of callback usage:
+                  from cuml.internals import GraphBasedDimRedCallback
+                  class CustomCallback(GraphBasedDimRedCallback):
+                    def on_preprocess_end(self, embeddings):
+                        print(embeddings.copy_to_host())
+
+                    def on_epoch_end(self, embeddings):
+                        print(embeddings.copy_to_host())
+
+                    def on_train_end(self, embeddings):
+                        print(embeddings.copy_to_host())
     verbose: bool (optional, default False)
         Controls verbosity of logging.
 
@@ -235,11 +257,14 @@ class UMAP(Base):
                  target_weights=0.5,
                  target_metric="categorical",
                  handle=None,
+                 hash_input=False,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
         cdef UMAPParams * umap_params = new UMAPParams()
+
+        self.hash_input = hash_input
 
         self.n_neighbors = n_neighbors
         umap_params.n_neighbors = n_neighbors
@@ -401,7 +426,8 @@ class UMAP(Base):
                                               umap_params.n_components),
                                               order="C", dtype=np.float32))
 
-        self.input_hash = joblib.hash(self.X_m.copy_to_host())
+        if self.hash_input:
+            self.input_hash = joblib.hash(self.X_m.copy_to_host())
 
         embeddings = \
             self.embedding_.device_ctypes_pointer.value
@@ -505,7 +531,7 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        if joblib.hash(X_m.copy_to_host()) == self.input_hash:
+        if self.hash_input and joblib.hash(X_m.copy_to_host()) == self.input_hash:
             ret = UMAP._prep_output(X, self.embedding_)
             del X_m
             return ret

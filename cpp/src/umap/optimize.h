@@ -70,7 +70,7 @@ void f(T *input, int n_rows, T *coef, T *preds) {
  */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
-                 UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+                 UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
                  cudaStream_t stream) {
   dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -78,7 +78,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   /**
    * Calculate residuals
    */
-  MLCommon::device_buffer<T> residuals(alloc, stream, n_rows);
+  MLCommon::device_buffer<T> residuals(d_alloc, stream, n_rows);
 
   f<T, TPB_X>(input, n_rows, coef, residuals.data());
   MLCommon::LinAlg::eltwiseSub(residuals.data(), residuals.data(), labels,
@@ -88,7 +88,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   /**
    * Gradient w/ respect to a
    */
-  MLCommon::device_buffer<T> a_deriv(alloc, stream, n_rows);
+  MLCommon::device_buffer<T> a_deriv(d_alloc, stream, n_rows);
   MLCommon::copy(a_deriv.data(), input, n_rows, stream);
   map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     a_deriv.data(), a_deriv.data(), n_rows, coef,
@@ -103,7 +103,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   /**
    * Gradient w/ respect to b
    */
-  MLCommon::device_buffer<T> b_deriv(alloc, stream, n_rows);
+  MLCommon::device_buffer<T> b_deriv(d_alloc, stream, n_rows);
   MLCommon::copy(b_deriv.data(), input, n_rows, stream);
   map_kernel<T, TPB_X>
     <<<grid, blk, 0, stream>>>(b_deriv.data(), b_deriv.data(), n_rows, coef,
@@ -134,7 +134,8 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
  */
 template <typename T, int TPB_X>
 void optimize_params(T *input, int n_rows, const T *labels, T *coef,
-                     UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+                     UMAPParams *params,
+                     std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream, float tolerance = 1e-6,
                      int max_epochs = 25000) {
   // Don't really need a learning rate since
@@ -145,11 +146,11 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
   int tol_grads = 0;
   do {
     tol_grads = 0;
-    MLCommon::device_buffer<T> grads(alloc, stream, 2);
+    MLCommon::device_buffer<T> grads(d_alloc, stream, 2);
     CUDA_CHECK(cudaMemsetAsync(grads.data(), 0, 2 * sizeof(T), stream));
 
     abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads.data(), params,
-                          alloc, stream);
+                          d_alloc, stream);
 
     MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
                                      2, stream);
@@ -171,7 +172,8 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
 
-void find_params_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
+void find_params_ab(UMAPParams *params,
+                    std::shared_ptr<deviceAllocator> d_alloc,
                     cudaStream_t stream) {
   float spread = params->spread;
   float min_dist = params->min_dist;
@@ -190,22 +192,22 @@ void find_params_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> alloc,
       y[i] = 1.0;
   }
 
-  MLCommon::device_buffer<float> X_d(alloc, stream, 300);
+  MLCommon::device_buffer<float> X_d(d_alloc, stream, 300);
   MLCommon::updateDevice(X_d.data(), X, 300, stream);
 
-  MLCommon::device_buffer<float> y_d(alloc, stream, 300);
+  MLCommon::device_buffer<float> y_d(d_alloc, stream, 300);
   MLCommon::updateDevice(y_d.data(), y, 300, stream);
   float *coeffs_h = (float *)malloc(2 * sizeof(float));
   coeffs_h[0] = 1.0;
   coeffs_h[1] = 1.0;
 
-  MLCommon::device_buffer<float> coeffs(alloc, stream, 2);
+  MLCommon::device_buffer<float> coeffs(d_alloc, stream, 2);
   CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
 
   MLCommon::updateDevice(coeffs.data(), coeffs_h, 2, stream);
 
   optimize_params<float, 256>(X_d.data(), 300, y_d.data(), coeffs.data(),
-                              params, alloc, stream);
+                              params, d_alloc, stream);
 
   MLCommon::updateHost(&(params->a), coeffs.data(), 1, stream);
   MLCommon::updateHost(&(params->b), coeffs.data() + 1, 1, stream);

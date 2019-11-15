@@ -64,8 +64,8 @@ TEST_P(SortedCOOToCSR, Result) {
 
   cudaStreamDestroy(stream);
 
-  delete in_h;
-  delete exp_h;
+  delete[] in_h;
+  delete[] exp_h;
 
   CUDA_CHECK(cudaFree(in));
   CUDA_CHECK(cudaFree(exp));
@@ -93,9 +93,9 @@ TEST_P(COOSymmetrize, Result) {
                                          0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
   COO<float> in(alloc, stream, nnz, 4, 4);
-  updateDevice(in.get_rows(), *&in_rows_h, nnz, stream);
-  updateDevice(in.get_cols(), *&in_cols_h, nnz, stream);
-  updateDevice(in.get_vals(), *&in_vals_h, nnz, stream);
+  updateDevice(in.rows(), *&in_rows_h, nnz, stream);
+  updateDevice(in.cols(), *&in_cols_h, nnz, stream);
+  updateDevice(in.vals(), *&in_vals_h, nnz, stream);
 
   COO<float> out(alloc, stream);
 
@@ -111,21 +111,21 @@ TEST_P(COOSymmetrize, Result) {
 
   ASSERT_TRUE(out.nnz == nnz * 2);
   ASSERT_TRUE(
-    devArrMatch<int>(out.get_rows(), exp_rows_h, out.nnz, Compare<int>()));
+    devArrMatch<int>(out.rows(), exp_rows_h, out.nnz, Compare<int>()));
   ASSERT_TRUE(
-    devArrMatch<int>(out.get_cols(), exp_cols_h, out.nnz, Compare<int>()));
+    devArrMatch<int>(out.cols(), exp_cols_h, out.nnz, Compare<int>()));
   ASSERT_TRUE(
-    devArrMatch<float>(out.get_vals(), exp_vals_h, out.nnz, Compare<float>()));
+    devArrMatch<float>(out.vals(), exp_vals_h, out.nnz, Compare<float>()));
 
   cudaStreamDestroy(stream);
 
-  delete in_rows_h;
-  delete in_cols_h;
-  delete in_vals_h;
+  delete[] in_rows_h;
+  delete[] in_cols_h;
+  delete[] in_vals_h;
 
-  delete exp_rows_h;
-  delete exp_cols_h;
-  delete exp_vals_h;
+  delete[] exp_rows_h;
+  delete[] exp_cols_h;
+  delete[] exp_vals_h;
 }
 
 typedef COOTest<float> COOSort;
@@ -166,9 +166,9 @@ TEST_P(COOSort, Result) {
 
   ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
 
-  free(in_rows_h);
-  free(in_cols_h);
-  free(verify_h);
+  delete[] in_rows_h;
+  delete[] in_cols_h;
+  delete[] verify_h;
 
   CUDA_CHECK(cudaFree(in_rows));
   CUDA_CHECK(cudaFree(in_cols));
@@ -190,9 +190,9 @@ TEST_P(COORemoveZeros, Result) {
   params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   Random::Rng r(params.seed);
-  r.uniform(in.get_vals(), params.nnz, float(-1.0), float(1.0), stream);
+  r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
 
-  updateHost(in_h_vals, in.get_vals(), params.nnz, stream);
+  updateHost(in_h_vals, in.vals(), params.nnz, stream);
 
   in_h_vals[0] = 0;
   in_h_vals[2] = 0;
@@ -206,9 +206,9 @@ TEST_P(COORemoveZeros, Result) {
     in_h_cols[i] = i;
   }
 
-  updateDevice(in.get_rows(), in_h_rows, params.nnz, stream);
-  updateDevice(in.get_cols(), in_h_cols, params.nnz, stream);
-  updateDevice(in.get_vals(), in_h_vals, params.nnz, stream);
+  updateDevice(in.rows(), in_h_rows, params.nnz, stream);
+  updateDevice(in.cols(), in_h_cols, params.nnz, stream);
+  updateDevice(in.vals(), in_h_vals, params.nnz, stream);
 
   coo_sort<float>(&in, alloc, stream);
 
@@ -222,25 +222,23 @@ TEST_P(COORemoveZeros, Result) {
   COO<float> out_ref(alloc, stream, 2, 5, 5);
   COO<float> out(alloc, stream);
 
-  updateDevice(out_ref.get_rows(), *&out_rows_ref_h, 2, stream);
-  updateDevice(out_ref.get_cols(), *&out_cols_ref_h, 2, stream);
-  updateDevice(out_ref.get_vals(), out_vals_ref_h, 2, stream);
+  updateDevice(out_ref.rows(), *&out_rows_ref_h, 2, stream);
+  updateDevice(out_ref.cols(), *&out_cols_ref_h, 2, stream);
+  updateDevice(out_ref.vals(), out_vals_ref_h, 2, stream);
 
   coo_remove_zeros<32, float>(&in, &out, alloc, stream);
 
+  ASSERT_TRUE(devArrMatch<int>(out_ref.rows(), out.rows(), 2, Compare<int>()));
+  ASSERT_TRUE(devArrMatch<int>(out_ref.cols(), out.cols(), 2, Compare<int>()));
   ASSERT_TRUE(
-    devArrMatch<int>(out_ref.get_rows(), out.get_rows(), 2, Compare<int>()));
-  ASSERT_TRUE(
-    devArrMatch<int>(out_ref.get_cols(), out.get_cols(), 2, Compare<int>()));
-  ASSERT_TRUE(devArrMatch<float>(out_ref.get_vals(), out.get_vals(), 2,
-                                 Compare<float>()));
+    devArrMatch<float>(out_ref.vals(), out.vals(), 2, Compare<float>()));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   free(out_vals_ref_h);
 
-  free(in_h_rows);
-  free(in_h_cols);
-  free(in_h_vals);
+  delete[] in_h_rows;
+  delete[] in_h_cols;
+  delete[] in_h_vals;
 }
 
 typedef COOTest<float> COORowCount;

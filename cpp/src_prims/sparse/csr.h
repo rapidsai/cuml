@@ -54,9 +54,9 @@ static const float MIN_FLOAT = std::numeric_limits<float>::min();
 template <typename T, typename Index_Type = int>
 class CSR {
  protected:
-  device_buffer<Index_Type> row_ind;
-  device_buffer<Index_Type> row_ind_ptr;
-  device_buffer<T> vals;
+  device_buffer<Index_Type> row_ind_arr;
+  device_buffer<Index_Type> row_ind_ptr_arr;
+  device_buffer<T> vals_arr;
 
  public:
   Index_Type nnz;
@@ -66,10 +66,10 @@ class CSR {
   /**
     * @param device: are the underlying arrays going to be on device?
     */
-  CSR(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream)
-    : row_ind(alloc, stream, 0),
-      row_ind_ptr(alloc, stream, 0),
-      vals(alloc, stream, 0),
+  CSR(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
+    : row_ind_arr(d_alloc, stream, 0),
+      row_ind_ptr_arr(d_alloc, stream, 0),
+      vals_arr(d_alloc, stream, 0),
       nnz(0),
       n_rows(0),
       n_cols(0) {}
@@ -84,13 +84,21 @@ class CSR {
     */
   CSR(device_buffer<Index_Type> &row_ind_,
       device_buffer<Index_Type> &row_ind_ptr_, device_buffer<T> &vals,
-      Index_Type nnz, Index_Type n_rows = -1, Index_Type n_cols = -1)
-    : row_ind(row_ind_),
-      row_ind_ptr(row_ind_ptr_),
-      vals(vals),
+      Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0)
+    : row_ind_arr(row_ind_),
+      row_ind_ptr_arr(row_ind_ptr_),
+      vals_arr(vals),
       nnz(nnz),
       n_rows(n_rows),
       n_cols(n_cols) {}
+
+  void init_arrays(cudaStream_t stream) {
+    cudaMemsetAsync(this->row_ind_arr.data(), 0, this->nnz * sizeof(Index_Type),
+                    stream);
+    cudaMemsetAsync(this->row_ind_ptr_arr.data(), 0,
+                    this->nnz * sizeof(Index_Type), stream);
+    cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream);
+  }
 
   /**
     * @param alloc: device allocator for temporary buffers
@@ -100,22 +108,16 @@ class CSR {
     * @param n_cols: number of cols in the dense matrix
     * @param init: initialize arrays with zeros
     */
-  CSR(std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
+  CSR(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
       Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
       bool init = true)
-    : row_ind(alloc, stream, nnz),
-      row_ind_ptr(alloc, stream, nnz),
-      vals(alloc, stream, nnz),
+    : row_ind_arr(d_alloc, stream, nnz),
+      row_ind_ptr_arr(d_alloc, stream, nnz),
+      vals_arr(d_alloc, stream, nnz),
       nnz(nnz),
       n_rows(n_rows),
       n_cols(n_cols) {
-    if (init) {
-      cudaMemsetAsync(this->row_ind.data(), 0, this->nnz * sizeof(Index_Type),
-                      stream);
-      cudaMemsetAsync(this->row_ind_ptr.data(), 0,
-                      this->nnz * sizeof(Index_Type), stream);
-      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
-    }
+    if (init) init_arrays(stream);
   }
 
   ~CSR() {}
@@ -134,8 +136,8 @@ class CSR {
     * return false. Otherwise true.
     */
   bool validate_mem() const {
-    if (this->row_ind.size() == 0 || this->row_ind_ptr.size() == 0 ||
-        this->vals.size() == 0) {
+    if (this->row_ind_arr.size() == 0 || this->row_ind_ptr_arr.size() == 0 ||
+        this->vals_arr.size() == 0) {
       return false;
     }
 
@@ -145,17 +147,17 @@ class CSR {
   /**
    * @brief Returns the row index array
    */
-  Index_Type *get_row_ind() { return this->row_ind.data(); }
+  Index_Type *row_ind() { return this->row_ind_arr.data(); }
 
   /**
    * @brief Returns the row index pointer array
    */
-  Index_Type *get_row_ind_ptr() { return this->row_ind_ptr.data(); }
+  Index_Type *row_ind_ptr() { return this->row_ind_ptr_arr.data(); }
 
   /**
-   * Returns the vals array
+   * Returns the vals_arr array
    */
-  T *get_vals() { return this->vals.data(); }
+  T *vals() { return this->vals_arr.data(); }
 
   /**
     * @brief Send human-readable state information to output stream
@@ -165,10 +167,11 @@ class CSR {
       cudaStream_t stream;
       cudaStreamCreate(&stream);
 
-      out << arr2Str(c.row_ind.data(), c.nnz, "row_ind", stream) << std::endl;
-      out << arr2Str(c.row_ind_ptr.data(), c.nnz, "row_ind_ptr", stream)
+      out << arr2Str(c.row_ind_arr.data(), c.nnz, "row_ind", stream)
           << std::endl;
-      out << arr2Str(c.vals.data(), c.nnz, "vals", stream) << std::endl;
+      out << arr2Str(c.row_ind_ptr_arr.data(), c.nnz, "row_ind_ptr_arr", stream)
+          << std::endl;
+      out << arr2Str(c.vals_arr.data(), c.nnz, "vals_arr", stream) << std::endl;
       out << "nnz=" << c.nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
@@ -207,7 +210,7 @@ class CSR {
     * @param stream: CUDA stream to use
     */
   void allocate(int nnz, bool init, cudaStream_t stream) {
-    this->allocate(nnz, -1, init, stream);
+    this->allocate(nnz, 0, init, stream);
   }
 
   /**
@@ -237,15 +240,9 @@ class CSR {
 
     this->rows.resize(this->nnz, stream);
     this->cols.resize(this->nnz, stream);
-    this->vals.resize(this->nnz, stream);
+    this->vals_arr.resize(this->nnz, stream);
 
-    if (init) {
-      cudaMemsetAsync(this->row_ind.data(), 0, this->nnz * sizeof(Index_Type),
-                      stream);
-      cudaMemsetAsync(this->row_ind_ptr.data(), 0,
-                      this->nnz * sizeof(Index_Type), stream);
-      cudaMemsetAsync(this->vals.data(), 0, this->nnz * sizeof(T), stream);
-    }
+    if (init) init_arrays(stream);
   }
 };
 
@@ -259,7 +256,7 @@ __global__ void csr_row_normalize_l1_kernel(
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-  // sum all vals for row and divide each val by sum
+  // sum all vals_arr for row and divide each val by sum
   if (row < m) {
     int start_idx = ia[row];
     int stop_idx = 0;
@@ -531,12 +528,12 @@ template <typename T, int TPB_X = 32>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          int nnz1, const int *b_ind, const int *b_indptr,
                          const T *b_val, int nnz2, int m, int *out_ind,
-                         std::shared_ptr<deviceAllocator> alloc,
+                         std::shared_ptr<deviceAllocator> d_alloc,
                          cudaStream_t stream) {
   dim3 grid(ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  device_buffer<int> row_counts(alloc, stream, m + 1);
+  device_buffer<int> row_counts(d_alloc, stream, m + 1);
   CUDA_CHECK(
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
@@ -927,11 +924,11 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> alloc,
+             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
-  device_buffer<bool> xa(alloc, stream, N);
-  device_buffer<bool> fa(alloc, stream, N);
-  device_buffer<bool> m(alloc, stream, 1);
+  device_buffer<bool> xa(d_alloc, stream, N);
+  device_buffer<bool> fa(d_alloc, stream, N);
+  device_buffer<bool> m(d_alloc, stream, 1);
 
   WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
@@ -962,11 +959,11 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> alloc,
+             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream) {
-  device_buffer<bool> xa(alloc, stream, N);
-  device_buffer<bool> fa(alloc, stream, N);
-  device_buffer<bool> m(alloc, stream, 1);
+  device_buffer<bool> xa(d_alloc, stream, N);
+  device_buffer<bool> fa(d_alloc, stream, N);
+  device_buffer<bool> m(d_alloc, stream, 1);
   WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, [](Index_) { return true; });
