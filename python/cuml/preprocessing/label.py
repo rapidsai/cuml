@@ -23,7 +23,7 @@ extern "C" __global__
 void map_label(int *x, int x_n, int *labels, int n_labels) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid > x_n) return;
+  if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
   if(tid == 0) {
@@ -44,10 +44,10 @@ void map_label(int *x, int x_n, int *labels, int n_labels) {
 
 validate_kernel = cp.RawKernel(r'''
 extern "C" __global__
-void validate_kernel(int *x, int x_n, int *labels, int n_labels, bool *out) {
+void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid > x_n) return;
+  if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
   if(tid == 0) {
@@ -65,7 +65,7 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, bool *out) {
     }
   }
   
-  if(!found) out[0] = false;
+  if(!found) out[0] = 0;
 }
 ''', 'validate_kernel')
 
@@ -74,7 +74,7 @@ extern "C" __global__
 void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid > x_n) return;
+  if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
   if(tid == 0) {
@@ -90,43 +90,41 @@ void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
 
 def _validate_labels(y, classes):
 
-    valid = cp.array([True], dtype=cp.bool_)
+    valid = cp.array([1], dtype=cp.int32)
 
     smem = 4 * classes.shape[0]
-    map_kernel((y.shape[0] / 32,), (32, ),
-               (classes, classes.shape[0], y, y.shape[0]),
+    validate_kernel((y.shape[0] / 32,), (32, ),
+               (y, y.shape[0], classes, classes.shape[0], valid),
                shared_mem=smem)
 
-    return valid[0]
+    return valid[0] == 1
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
     n_classes = len(classes)
 
-    classes = cp.array(classes)
+    classes = cp.asarray(classes, dtype=cp.int32)
 
     is_binary = True if n_classes == 1 and cp.unique(y) == 2 else False
 
-    sorted_classes = cp.array(classes, dtype=cp.int32)
-
-    col_ind = cp.array(y).copy().astype(cp.int32)
+    col_ind = cp.asarray(y, dtype=cp.int32).copy()
 
     if not _validate_labels(col_ind, classes):
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, col_ind.shape[0], 1, dtype=cp.int32)
 
-    smem = 4 * sorted_classes.shape[0]
+    smem = 4 * classes.shape[0]
     map_kernel((col_ind.shape[0] / 32,), (32, ),
-               (col_ind, col_ind.shape[0], sorted_classes, sorted_classes.shape[0]),
+               (col_ind, col_ind.shape[0], classes, classes.shape[0]),
                shared_mem=smem)
 
     val = cp.full(row_ind.shape[0], pos_label, dtype=cp.int32)
 
     sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
                               shape=(col_ind.shape[0],
-                                     sorted_classes.shape[0]),
+                                     classes.shape[0]),
                               dtype=cp.float32)
 
     if sparse_output:
@@ -170,12 +168,14 @@ class LabelBinarizer(object):
         """
 
         self.classes_ = cp.unique(y).astype(cp.int32)
+
         return self
 
     def fit_transform(self, y):
         return self.fit(y).transform(y)
 
     def transform(self, y):
+
         return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
@@ -188,10 +188,7 @@ class LabelBinarizer(object):
         :param threshold:
         :return:
         """
-        y_mapped = cp.argmax(y.astype(cp.int32), axis=1).astype(cp.int32)
-
-        if not _validate_labels(y_mapped, self.classes_):
-            raise ValueError("Unseen classes encountered in input")
+        y_mapped = cp.argmax(cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
 
         smem = 4 * self.classes_.shape[0]
         inverse_map_kernel((y_mapped.shape[0] / 32,), (32,),
@@ -207,7 +204,8 @@ class LabelBinarizer(object):
         return state
 
     def __setstate__(self, state):
-        state['classes_'] = cp.asarray(state["classes_"].to_gpu_array())
+        state['classes_'] = cp.asarray(state["classes_"].to_gpu_array(),
+                                       dtype=cp.int32)
         self.__dict__.update(state)
 
 
