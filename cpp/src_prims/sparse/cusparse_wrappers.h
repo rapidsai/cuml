@@ -26,5 +26,25 @@ namespace Sparse {
     ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s'\n", #call); \
   } while (0)
 
+template <typename T>
+cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, T *vals,
+                               T *vals_sorted, int *d_P) {
+  return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
+                       CUSPARSE_INDEX_BASE_ZERO);
+}
+
+inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
+                                      double *vals, double *vals_sorted,
+                                      int *d_P) {
+  return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
+                       CUSPARSE_INDEX_BASE_ZERO);
+}
+
+inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
+                                      float *vals, float *vals_sorted,
+                                      int *d_P) {
+  return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
+                       CUSPARSE_INDEX_BASE_ZERO);
+}
 };  // namespace Sparse
 };  // namespace MLCommon
