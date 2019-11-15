@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import math
 import cudf
 import cupy as cp
 
@@ -26,7 +27,7 @@ void map_label(int *x, int x_n, int *labels, int n_labels) {
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  if(tid == 0) {
+  if(threadIdx.x == 0) {
     for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
   }
 
@@ -50,8 +51,11 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  if(tid == 0) {
-    for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
+  if(threadIdx.x == 0) {
+    for(int i = 0; i < n_labels; i++) {
+        label_cache[i] = labels[i];
+        printf("label=%d\n", label_cache[i]);
+    }
   }
 
   __syncthreads();
@@ -71,13 +75,13 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
 
 inverse_map_kernel = cp.RawKernel(r'''
 extern "C" __global__
-void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
+void inverse_map_kernel(int *labels, int n_labels, int1 *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  if(tid == 0) {
+  if(threadIdx.x == 0) {
     for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
   }
 
@@ -92,8 +96,8 @@ def _validate_labels(y, classes):
 
     valid = cp.array([1], dtype=cp.int32)
 
-    smem = 4 * classes.shape[0]
-    validate_kernel((y.shape[0] / 32,), (32, ),
+    smem = 4 * int(classes.shape[0])
+    validate_kernel((math.ceil(y.shape[0] / 32),), (32, ),
                     (y, y.shape[0], classes, classes.shape[0], valid),
                     shared_mem=smem)
 
@@ -106,13 +110,15 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
     col_ind = cp.asarray(y, dtype=cp.int32).copy()
 
+    print("UNIQUE: " + str(cp.unique(col_ind)))
+
     if not _validate_labels(col_ind, classes):
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, col_ind.shape[0], 1, dtype=cp.int32)
 
     smem = 4 * classes.shape[0]
-    map_kernel((col_ind.shape[0] / 32,), (32, ),
+    map_kernel((math.ceil(col_ind.shape[0] / 32),), (32, ),
                (col_ind, col_ind.shape[0], classes, classes.shape[0]),
                shared_mem=smem)
 
