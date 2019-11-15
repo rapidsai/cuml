@@ -176,21 +176,30 @@ def test_umap_pickle(tmpdir, datatype, model):
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
-    cu_before_embed = model.arr_embed
+    cu_before_embed = model.embedding_
 
     cu_trust_before = trustworthiness(X_train,
                                       cu_before_pickle_transform, 10)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
+    del model
+
+    cu_after_embed = cu_after_pickle_model.embedding_
+
+    print(str(cu_before_embed[0][0]))
+    print(str(cu_after_embed[0][0]))
+
+    assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
+
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
-    cu_after_embed = model.arr_embed
+    print(str(cu_after_embed[0][0]))
 
     cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
 
-    assert array_equal(cu_before_embed, cu_after_embed)
     assert cu_trust_after >= cu_trust_before - 0.2
+    assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
