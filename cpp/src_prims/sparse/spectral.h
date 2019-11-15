@@ -21,8 +21,8 @@
 #include "selection/knn.h"
 #include "sparse/coo.h"
 
-#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
+#include "cuml/common/cuml_allocator.hpp"
 
 #include "cuda_utils.h"
 
@@ -32,15 +32,15 @@ namespace Spectral {
 template <typename T>
 void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
                   float eigen_tol, int *out,
-                  std::shared_ptr<deviceAllocator> allocator,
+                  std::shared_ptr<deviceAllocator> d_alloc,
                   cudaStream_t stream) {
   nvgraphHandle_t graphHandle;
   cudaDataType_t edge_dimT = CUDA_R_32F;
   NVGRAPH_CHECK(nvgraphCreate(&graphHandle));
 
   // Allocate csr arrays
-  device_buffer<int> src_offsets(allocator, stream, n + 1);
-  device_buffer<int> dst_indices(allocator, stream, nnz);
+  device_buffer<int> src_offsets(d_alloc, stream, n + 1);
+  device_buffer<int> dst_indices(d_alloc, stream, nnz);
 
   nvgraphCOOTopology32I_st *COO_input = new nvgraphCOOTopology32I_st();
   COO_input->nedges = nnz;
@@ -60,8 +60,8 @@ void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
 
   int weight_index = 0;
 
-  device_buffer<T> eigVals(allocator, stream, n_clusters);
-  device_buffer<T> embedding(allocator, stream, n * n_clusters);
+  device_buffer<T> eigVals(d_alloc, stream, n_clusters);
+  device_buffer<T> embedding(d_alloc, stream, n * n_clusters);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -96,26 +96,26 @@ void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
 template <typename T>
 void fit_clusters(long *knn_indices, T *knn_dists, int m, int n_neighbors,
                   int n_clusters, float eigen_tol, int *out,
-                  std::shared_ptr<deviceAllocator> allocator,
+                  std::shared_ptr<deviceAllocator> d_alloc,
                   cudaStream_t stream) {
-  device_buffer<int> rows(allocator, stream, m * n_neighbors);
-  device_buffer<int> cols(allocator, stream, m * n_neighbors);
-  device_buffer<T> vals(allocator, stream, m * n_neighbors);
+  device_buffer<int> rows(d_alloc, stream, m * n_neighbors);
+  device_buffer<int> cols(d_alloc, stream, m * n_neighbors);
+  device_buffer<T> vals(d_alloc, stream, m * n_neighbors);
 
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
   fit_clusters(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
-               n_clusters, eigen_tol, out, allocator, stream);
+               n_clusters, eigen_tol, out, d_alloc, stream);
 }
 
 template <typename T>
 void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
                   float eigen_tol, int *out,
-                  std::shared_ptr<deviceAllocator> allocator,
+                  std::shared_ptr<deviceAllocator> d_alloc,
                   cudaStream_t stream) {
-  device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
-  device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
+  device_buffer<long> knn_indices(d_alloc, stream, m * n_neighbors);
+  device_buffer<float> knn_dists(d_alloc, stream, m * n_neighbors);
 
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
@@ -123,24 +123,25 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
   sizes[0] = m;
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, n, X, m, knn_indices.data(),
-                                       knn_dists.data(), n_neighbors, allocator,
+                                       knn_dists.data(), n_neighbors, d_alloc,
                                        stream);
 
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
-               eigen_tol, out, allocator, stream);
+               eigen_tol, out, d_alloc, stream);
+
 }
 
 template <typename T>
 void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
                    int n_components, T *out,
-                   std::shared_ptr<deviceAllocator> allocator,
+                   std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
   nvgraphHandle_t grapHandle;
   cudaDataType_t edge_dimT = CUDA_R_32F;
   NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
 
-  device_buffer<int> src_offsets(allocator, stream, n + 1);
-  device_buffer<int> dst_indices(allocator, stream, nnz);
+  device_buffer<int> src_offsets(d_alloc, stream, n + 1);
+  device_buffer<int> dst_indices(d_alloc, stream, nnz);
 
   nvgraphCOOTopology32I_st *COO_input = new nvgraphCOOTopology32I_st();
   COO_input->nedges = nnz;
@@ -160,9 +161,9 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 
   int weight_index = 0;
 
-  device_buffer<T> eigVals(allocator, stream, n_components + 1);
-  device_buffer<T> eigVecs(allocator, stream, n * (n_components + 1));
-  device_buffer<int> labels(allocator, stream, n);
+  device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
+  device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
+  device_buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -201,25 +202,25 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 template <typename T>
 void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
                    int n_components, T *out,
-                   std::shared_ptr<deviceAllocator> allocator,
+                   std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  device_buffer<int> rows(allocator, stream, m * n_neighbors);
-  device_buffer<int> cols(allocator, stream, m * n_neighbors);
-  device_buffer<T> vals(allocator, stream, m * n_neighbors);
+  device_buffer<int> rows(d_alloc, stream, m * n_neighbors);
+  device_buffer<int> cols(d_alloc, stream, m * n_neighbors);
+  device_buffer<T> vals(d_alloc, stream, m * n_neighbors);
 
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
   fit_embedding(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
-                n_components, out, allocator, stream);
+                n_components, out, d_alloc, stream);
 }
 
 template <typename T>
 void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
-                   T *out, std::shared_ptr<deviceAllocator> allocator,
+                   T *out, std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  device_buffer<int64_t> knn_indices(allocator, stream, m * n_neighbors);
-  device_buffer<float> knn_dists(allocator, stream, m * n_neighbors);
+  device_buffer<int64_t> knn_indices(d_alloc, stream, m * n_neighbors);
+  device_buffer<float> knn_dists(d_alloc, stream, m * n_neighbors);
 
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
@@ -227,11 +228,12 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
   sizes[0] = m;
 
   MLCommon::Selection::brute_force_knn(ptrs, sizes, n, X, m, knn_indices.data(),
-                                       knn_dists.data(), n_neighbors, allocator,
+                                       knn_dists.data(), n_neighbors, d_alloc,
                                        stream);
 
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
-                n_components, out, allocator, stream);
+                n_components, out, d_alloc, stream);
+
 }
 }  // namespace Spectral
 }  // namespace MLCommon

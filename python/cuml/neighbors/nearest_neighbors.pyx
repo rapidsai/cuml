@@ -225,6 +225,8 @@ class NearestNeighbors(Base):
             convert the inputs to np.float32.
         """
 
+        self.__del__()
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
