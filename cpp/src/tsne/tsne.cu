@@ -311,10 +311,10 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
 void TSNE_fit(const cumlHandle &handle,
               float *X,
               float *embedding,
-              const uint64_t n,
-              const uint64_t p,
-              const uint64_t dim,
-              uint64_t n_neighbors,
+              const int64_t n,
+              const int64_t p,
+              const int64_t dim,
+              int64_t n_neighbors,
               const float theta,
               const float epssq,
               float perplexity,
@@ -335,12 +335,7 @@ void TSNE_fit(const cumlHandle &handle,
               bool barnes_hut)
 {
   if (2*n*p > INT32_MAX) {
-    TSNE_fit_dispatch(handle, X, embedding,
-                      (uint64_t)n, (uint64_t)p, (uint64_t)dim, (uint64_t)n_neighbors, theta, epssq,
-                      perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
-                      exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
-                      max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
-                      verbose, init, barnes_hut);
+    fprintf(stderr, "Input larger than 2*n*p is currently unsupported!");
   }
   else {
     TSNE_fit_dispatch(handle, X, embedding,
