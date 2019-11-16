@@ -33,7 +33,7 @@ static __global__ void sigmas_kernel(const float *restrict D,
                                      float *restrict P,
                                      const float perplexity,
                                      const float desired_entropy,
-                                     const Index_t epochs,
+                                     const int epochs,
                                      const float tol,
                                      const Index_t n,
                                      const Index_t k)
@@ -95,7 +95,7 @@ static __global__ void sigmas_kernel_2d(const float *restrict D,
                                         float *restrict P,
                                         const float perplexity,
                                         const float desired_entropy,
-                                        const Index_t epochs,
+                                        const int epochs,
                                         const float tol,
                                         const Index_t n)
 {
