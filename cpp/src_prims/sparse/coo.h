@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
+#include "common/device_buffer.hpp"
 #include "csr.h"
 #include "linalg/unary_op.h"
 
@@ -961,7 +962,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   Index_t *row_sizes1, *row_sizes2;
   if (row_sizes == NULL) {
-    row_sizes1 = (Index_t*)d_alloc->allocate(sizeof(Index_t)*n*2, stream);
+    device_buffer<Index_t> row_sizes_(d_alloc, stream, n*2);
+    row_sizes1 = row_sizes_.data();
     row_sizes2 = row_sizes1 + n;
   }
   else {
@@ -1002,9 +1004,6 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
     edges, knn_dists, out->vals, out->cols, out->rows, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  if (row_sizes == NULL)
-    d_alloc->deallocate(row_sizes1, sizeof(Index_t)*n*2, stream);
 }
 
 };  // namespace Sparse
