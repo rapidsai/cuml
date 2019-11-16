@@ -146,7 +146,7 @@ template <typename Index_t = int>
 void perplexity_search(const float *restrict distances,
                        float *restrict P,
                        const float perplexity,
-                       const Index_t epochs,
+                       const int epochs,
                        const float tol,
                        const Index_t n,
                        const Index_t dim,
