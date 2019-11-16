@@ -334,7 +334,7 @@ void TSNE_fit(const cumlHandle &handle,
               const IntializationType init,
               bool barnes_hut)
 {
-  ASSERT(2*n*p <= INT32_MAX, "Input larger than %lld is currently unsupported!", INT32_MAX);
+  ASSERT(2*n*p <= INT32_MAX, "Input larger than %d is currently unsupported!", INT32_MAX);
   TSNE_fit_dispatch(handle, X, embedding,
                     (int)n, (int)p, (int)dim, (int)n_neighbors, theta, epssq,
                     perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
