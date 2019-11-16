@@ -44,16 +44,16 @@ def _build_fil_classifier(m, data, arg={}):
         raise ImportError("No XGBoost package found")
 
     # use maximum 1e5 rows to train the model
-    train_size = min(data[0].shape[0], 1000)
+    train_size = min(data[0].shape[0], 100000)
+    train_data = data[0][:train_size, :]
+    train_label = data[1][:train_size]
 
     if isinstance(data[0], np.ndarray):
-        dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
+        dtrain = xgb.DMatrix(train_data, label=train_label)
     else:
-        # if the input is gpuarray
-        print(type(data[0]))
-        train_data = np.ascontiguousarray(data[0][:train_size, :].copy_to_host())
-        test_data = np.ascontiguousarray(data[1][:train_size].copy_to_host())
-        dtrain = xgb.DMatrix(train_data, label=test_data)
+        train_data_np = np.ascontiguousarray(train_data.copy_to_host())
+        train_label_np = np.ascontiguousarray(train_label.copy_to_host())
+        dtrain = xgb.DMatrix(train_data_np, label=train_label_np)
 
     params = {
         "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
