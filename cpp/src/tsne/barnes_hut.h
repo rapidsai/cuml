@@ -208,16 +208,16 @@ void Barnes_Hut(float *VAL,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::mean_centre, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel<Index_t>, cudaFuncCachePreferShared);
+  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::ClearKernel1<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::ClearKernel2<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::SummarizationKernel<Index_t>, cudaFuncCachePreferShared);
+  cudaFuncSetCacheConfig(TSNE::SortKernel<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::RepulsionKernel<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::IntegrationKernel<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::mean_centre<Index_t>, cudaFuncCachePreferL1);
 
   // Do gradient updates
   //---------------------------------------------------
