@@ -277,7 +277,7 @@ void TSNE_fit(const cumlHandle &handle,
   }
 
   // Now do P + P.T!
-  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
+  TSNE::symmetrize_perplexity(P, temp_indices_workspace, n, n_neighbors,
                               early_exaggeration, &COO_Matrix,
                               row_sizes, stream, handle);
 
