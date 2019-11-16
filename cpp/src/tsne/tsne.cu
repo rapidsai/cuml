@@ -56,31 +56,31 @@ namespace ML {
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
 template <typename Index_t>
-void TSNE_fit(const cumlHandle &handle,
-              float *X,
-              float *embedding,
-              const Index_t n,
-              const Index_t p,
-              const Index_t dim,
-              Index_t n_neighbors,
-              const float theta,
-              const float epssq,
-              float perplexity,
-              const int perplexity_max_iter,
-              const float perplexity_tol,
-              const float early_exaggeration,
-              const int exaggeration_iter,
-              const float min_gain,
-              const float pre_learning_rate,
-              const float post_learning_rate,
-              const int max_iter,
-              const float min_grad_norm,
-              const float pre_momentum,
-              const float post_momentum,
-              const long long random_state,
-              const bool verbose,
-              const IntializationType init,
-              bool barnes_hut)
+inline static void TSNE_fit_dispatch(const cumlHandle &handle,
+                                     float *X,
+                                     float *embedding,
+                                     const Index_t n,
+                                     const Index_t p,
+                                     const Index_t dim,
+                                     Index_t n_neighbors,
+                                     const float theta,
+                                     const float epssq,
+                                     float perplexity,
+                                     const int perplexity_max_iter,
+                                     const float perplexity_tol,
+                                     const float early_exaggeration,
+                                     const int exaggeration_iter,
+                                     const float min_gain,
+                                     const float pre_learning_rate,
+                                     const float post_learning_rate,
+                                     const int max_iter,
+                                     const float min_grad_norm,
+                                     const float pre_momentum,
+                                     const float post_momentum,
+                                     const long long random_state,
+                                     const bool verbose,
+                                     const IntializationType init,
+                                     bool barnes_hut)
 {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
            embedding != NULL,
@@ -304,6 +304,52 @@ void TSNE_fit(const cumlHandle &handle,
   }
 
   if (verbose) printf("[Info] TSNE has completed!\n");
+}
+
+
+// Actual function handling TSNE_fit_dispatch
+void TSNE_fit(const cumlHandle &handle,
+              float *X,
+              float *embedding,
+              const int64_t n,
+              const int64_t p,
+              const int64_t dim,
+              int64_t n_neighbors,
+              const float theta,
+              const float epssq,
+              float perplexity,
+              const int perplexity_max_iter,
+              const float perplexity_tol,
+              const float early_exaggeration,
+              const int exaggeration_iter,
+              const float min_gain,
+              const float pre_learning_rate,
+              const float post_learning_rate,
+              const int max_iter,
+              const float min_grad_norm,
+              const float pre_momentum,
+              const float post_momentum,
+              const long long random_state,
+              const bool verbose,
+              const IntializationType init,
+              bool barnes_hut)
+{
+  if (2*n*p > INT32_MAX) {
+    TSNE_fit_dispatch(handle, X, embedding,
+                      (int64_t)n, (int64_t)p, (int64_t)dim, (int64_t)n_neighbors, theta, epssq,
+                      perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
+                      exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
+                      max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
+                      verbose, init, barnes_hut);
+  }
+  else {
+    TSNE_fit_dispatch(handle, X, embedding,
+                      (int)n, (int)p, (int)dim, (int)n_neighbors, theta, epssq,
+                      perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
+                      exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
+                      max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
+                      verbose, init, barnes_hut);
+  }
 }
 
 }  // namespace ML

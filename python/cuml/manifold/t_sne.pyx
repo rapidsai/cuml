@@ -35,7 +35,7 @@ from cuml.utils import input_to_dev_array as to_cuda
 import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.handle
@@ -47,31 +47,31 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         PCA_Intialization = 1
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit[T](const cumlHandle &handle,
-                          float *X,
-                          float *Y,
-                          const T n,
-                          const T p,
-                          const T dim,
-                          T n_neighbors,
-                          const float theta,
-                          const float epssq,
-                          float perplexity,
-                          const int perplexity_max_iter,
-                          const float perplexity_tol,
-                          const float early_exaggeration,
-                          const int exaggeration_iter,
-                          const float min_gain,
-                          const float pre_learning_rate,
-                          const float post_learning_rate,
-                          const int max_iter,
-                          const float min_grad_norm,
-                          const float pre_momentum,
-                          const float post_momentum,
-                          const long long random_state,
-                          const bool verbose,
-                          const IntializationType init,
-                          bool barnes_hut) except +
+    cdef void TSNE_fit(const cumlHandle &handle,
+                       float *X,
+                       float *Y,
+                       const int64_t n,
+                       const int64_t p,
+                       const int64_t dim,
+                       int64_t n_neighbors,
+                       const float theta,
+                       const float epssq,
+                       float perplexity,
+                       const int perplexity_max_iter,
+                       const float perplexity_tol,
+                       const float early_exaggeration,
+                       const int exaggeration_iter,
+                       const float min_gain,
+                       const float pre_learning_rate,
+                       const float post_learning_rate,
+                       const int max_iter,
+                       const float min_grad_norm,
+                       const float pre_momentum,
+                       const float post_momentum,
+                       const long long random_state,
+                       const bool verbose,
+                       const IntializationType init,
+                       bool barnes_hut) except +
 
 
 class TSNE(Base):
@@ -326,7 +326,7 @@ class TSNE(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
-        cdef int n, p
+        cdef uint64_t n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
@@ -399,10 +399,10 @@ class TSNE(Base):
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
-                 <int> n,
-                 <int> p,
-                 <int> self.n_components,
-                 <int> self.n_neighbors,
+                 <int64_t> n,
+                 <int64_t> p,
+                 <int64_t> self.n_components,
+                 <int64_t> self.n_neighbors,
                  <float> self.angle,
                  <float> self.epssq,
                  <float> self.perplexity,
