@@ -55,7 +55,7 @@ namespace ML {
  * @input param init: Intialization type using IntializationType enum
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-template <typename Index_t = int>
+template <typename Index_t>
 void TSNE_fit(const cumlHandle &handle,
               float *X,
               float *embedding,

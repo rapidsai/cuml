@@ -105,7 +105,8 @@ void symmetrize_perplexity(float *P,
                            const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
                            Index_t *row_sizes,
-                           cudaStream_t stream, const cumlHandle &handle)
+                           cudaStream_t stream,
+                           const cumlHandle &handle)
 {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * n);
