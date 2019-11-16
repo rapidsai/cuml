@@ -34,13 +34,12 @@ namespace TSNE {
  * @input param n_neighbors: The number of nearest neighbors you want.
  * @input param stream: The GPU stream.
  */
-template <typename Index_t = int>
 void get_distances(const float *X,
-                   const Index_t n,
-                   const Index_t p,
+                   const int n,
+                   const int p,
                    long *indices,
                    float *distances,
-                   const Index_t n_neighbors,
+                   const int n_neighbors,
                    cudaStream_t stream)
 {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)

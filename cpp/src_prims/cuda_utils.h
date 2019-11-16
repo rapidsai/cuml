@@ -37,6 +37,11 @@ constexpr HDI IntType ceildiv(IntType a, IntType b) {
   return (a + b - 1) / b;
 }
 
+template <typename IntType, typename IntType2>
+constexpr HDI IntType ceildiv(IntType a, IntType2 b) {
+  return (a + b - 1) / b;
+}
+
 /**
  * @brief Provide an alignment function ie. ceil(a / b) * b
  * @tparam IntType supposed to be only integers for now!
