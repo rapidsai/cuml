@@ -193,7 +193,7 @@ void Barnes_Hut(float *VAL,
   float *YY = YY_.data();
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %lld megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %llu megabytes\n", workspace_size >> 20);
 
 
   // Intialize embeddings
