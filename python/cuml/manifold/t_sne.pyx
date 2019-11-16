@@ -35,7 +35,7 @@ from cuml.utils import input_to_dev_array as to_cuda
 import rmm
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, int64_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.handle
@@ -50,10 +50,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(const cumlHandle &handle,
                        float *X,
                        float *Y,
-                       const int64_t n,
-                       const int64_t p,
-                       const int64_t dim,
-                       int64_t n_neighbors,
+                       const uint64_t n,
+                       const uint64_t p,
+                       const uint64_t dim,
+                       uint64_t n_neighbors,
                        const float theta,
                        const float epssq,
                        float perplexity,
@@ -399,10 +399,10 @@ class TSNE(Base):
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
-                 <int64_t> n,
-                 <int64_t> p,
-                 <int64_t> self.n_components,
-                 <int64_t> self.n_neighbors,
+                 <uint64_t> n,
+                 <uint64_t> p,
+                 <uint64_t> self.n_components,
+                 <uint64_t> self.n_neighbors,
                  <float> self.angle,
                  <float> self.epssq,
                  <float> self.perplexity,
