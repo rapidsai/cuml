@@ -334,17 +334,13 @@ void TSNE_fit(const cumlHandle &handle,
               const IntializationType init,
               bool barnes_hut)
 {
-  if (2*n*p > INT32_MAX) {
-    fprintf(stderr, "Input larger than 2*n*p is currently unsupported!");
-  }
-  else {
-    TSNE_fit_dispatch(handle, X, embedding,
-                      (int)n, (int)p, (int)dim, (int)n_neighbors, theta, epssq,
-                      perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
-                      exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
-                      max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
-                      verbose, init, barnes_hut);
-  }
+  ASSERT(2*n*p <= INT32_MAX, "Input larger than 2*n*p is currently unsupported!");
+  TSNE_fit_dispatch(handle, X, embedding,
+                    (int)n, (int)p, (int)dim, (int)n_neighbors, theta, epssq,
+                    perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
+                    exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
+                    max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
+                    verbose, init, barnes_hut);
 }
 
 }  // namespace ML
