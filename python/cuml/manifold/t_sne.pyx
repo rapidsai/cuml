@@ -326,7 +326,7 @@ class TSNE(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
-        cdef uint64_t n, p
+        cdef int64_t n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
