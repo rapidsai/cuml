@@ -270,10 +270,10 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(ROW, COL, VAL, NNZ, n, n);
 
-  int *row_sizes = NULL;
-  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization)) {
-    row_sizes = (int*) embedding;
-    workspace_size += 2*n*sizeof(int);
+  Index_t *row_sizes = NULL;
+  if ((sizeof(float)*n*dim >= sizeof(Index_t)*n*2) and (init == Random_Intialization)) {
+    row_sizes = (Index_t*) embedding;
+    workspace_size += 2*n*sizeof(Index_t);
   }
 
   // Now do P + P.T!
