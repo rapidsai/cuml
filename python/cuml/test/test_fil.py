@@ -31,7 +31,8 @@ from sklearn.model_selection import train_test_split
 if has_xgboost():
     import xgboost as xgb
 
-    def simulate_data(m, n, k=2, random_state=None, classification=True, bias=0.0):
+    def simulate_data(m, n, k=2, random_state=None, classification=True,
+                      bias=0.0):
         if classification:
             features, labels = make_classification(n_samples=m,
                                                    n_features=n,
