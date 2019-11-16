@@ -115,7 +115,7 @@ void Exact_TSNE(float *VAL,
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %lld megabytes\n", workspace_size >> 20);
 
   //
   if (verbose) printf("[Info] Start gradient updates!\n");

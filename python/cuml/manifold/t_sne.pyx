@@ -47,31 +47,31 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         PCA_Intialization = 1
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
-    cdef void TSNE_fit(const cumlHandle &handle,
-                       float *X,
-                       float *Y,
-                       const int n,
-                       const int p,
-                       const int dim,
-                       int n_neighbors,
-                       const float theta,
-                       const float epssq,
-                       float perplexity,
-                       const int perplexity_max_iter,
-                       const float perplexity_tol,
-                       const float early_exaggeration,
-                       const int exaggeration_iter,
-                       const float min_gain,
-                       const float pre_learning_rate,
-                       const float post_learning_rate,
-                       const int max_iter,
-                       const float min_grad_norm,
-                       const float pre_momentum,
-                       const float post_momentum,
-                       const long long random_state,
-                       const bool verbose,
-                       const IntializationType init,
-                       bool barnes_hut) except +
+    cdef void TSNE_fit[T](const cumlHandle &handle,
+                          float *X,
+                          float *Y,
+                          const T n,
+                          const T p,
+                          const T dim,
+                          T n_neighbors,
+                          const float theta,
+                          const float epssq,
+                          float perplexity,
+                          const int perplexity_max_iter,
+                          const float perplexity_tol,
+                          const float early_exaggeration,
+                          const int exaggeration_iter,
+                          const float min_gain,
+                          const float pre_learning_rate,
+                          const float post_learning_rate,
+                          const int max_iter,
+                          const float min_grad_norm,
+                          const float pre_momentum,
+                          const float post_momentum,
+                          const long long random_state,
+                          const bool verbose,
+                          const IntializationType init,
+                          bool barnes_hut) except +
 
 
 class TSNE(Base):
@@ -419,7 +419,7 @@ class TSNE(Base):
                  <float> self.post_momentum,
                  <long long> seed,
                  <bool> self.verbose,
-                 init_type,
+                 <IntializationType> init_type,
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
