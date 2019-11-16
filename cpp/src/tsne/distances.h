@@ -34,9 +34,15 @@ namespace TSNE {
  * @input param n_neighbors: The number of nearest neighbors you want.
  * @input param stream: The GPU stream.
  */
-void get_distances(const float *X, const int n, const int p, long *indices,
-                   float *distances, const int n_neighbors,
-                   cudaStream_t stream) {
+template <typename Index_t = int>
+void get_distances(const float *X,
+                   const Index_t n,
+                   const Index_t p,
+                   long *indices,
+                   float *distances,
+                   const Index_t n_neighbors,
+                   cudaStream_t stream)
+{
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
   float **knn_input = new float *[1];
@@ -59,8 +65,12 @@ void get_distances(const float *X, const int n, const int p, long *indices,
  * @input param n_neighbors: The number of nearest neighbors you want.
  * @input param stream: The GPU stream.
  */
-void normalize_distances(const int n, float *distances, const int n_neighbors,
-                         cudaStream_t stream) {
+template <typename Index_t = int>
+void normalize_distances(const Index_t n,
+                         float *distances,
+                         const Index_t n_neighbors,
+                         cudaStream_t stream)
+{
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust::device_ptr<float> begin = thrust::device_pointer_cast(distances);
   float maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
@@ -87,12 +97,16 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
  * @input param stream: The GPU stream.
  * @input param handle: The GPU handle.
  */
-template <int TPB_X = 32>
-void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
+template <typename Index_t = int, int TPB_X = 32>
+void symmetrize_perplexity(float *P,
+                           long *indices,
+                           const Index_t n,
+                           const Index_t k,
                            const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
-                           int *row_sizes,
-                           cudaStream_t stream, const cumlHandle &handle) {
+                           Index_t *row_sizes,
+                           cudaStream_t stream, const cumlHandle &handle)
+{
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * n);
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);

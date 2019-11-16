@@ -55,16 +55,32 @@ namespace ML {
  * @input param init: Intialization type using IntializationType enum
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
-              const int p, const int dim, int n_neighbors, const float theta,
-              const float epssq, float perplexity,
-              const int perplexity_max_iter, const float perplexity_tol,
-              const float early_exaggeration, const int exaggeration_iter,
-              const float min_gain, const float pre_learning_rate,
-              const float post_learning_rate, const int max_iter,
-              const float min_grad_norm, const float pre_momentum,
-              const float post_momentum, const long long random_state,
-              const bool verbose, const IntializationType init, bool barnes_hut)
+template <typename Index_t = int>
+void TSNE_fit(const cumlHandle &handle,
+              float *X,
+              float *embedding,
+              const Index_t n,
+              const Index_t p,
+              const Index_t dim,
+              Index_t n_neighbors,
+              const float theta,
+              const float epssq,
+              float perplexity,
+              const int perplexity_max_iter,
+              const float perplexity_tol,
+              const float early_exaggeration,
+              const int exaggeration_iter,
+              const float min_gain,
+              const float pre_learning_rate,
+              const float post_learning_rate,
+              const int max_iter,
+              const float min_grad_norm,
+              const float pre_momentum,
+              const float post_momentum,
+              const long long random_state,
+              const bool verbose,
+              const IntializationType init,
+              bool barnes_hut)
 {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
            embedding != NULL,
@@ -179,8 +195,14 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<float> distances_(d_alloc, stream, n*n_neighbors);
   float *distances = distances_.data();
   device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
-  long *indices = indices_.data();
-  TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
+
+  /*
+  [temp_indices_workspace] will be reused later. See line 234 when
+  [ROW] is intialized. Essentially sizeof(long) = 2*sizeof(int) on most
+  architectures, and so we can reuse this space for the symmetrization step.
+  */
+  long *temp_indices_workspace = indices_.data();
+  TSNE::get_distances(A, n, p, temp_indices_workspace, distances, n_neighbors, stream);
 
   if (init == PCA_Intialization) {
     X_C_contiguous.resize(0, stream);  // remove C contiguous layout
@@ -206,8 +228,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
 
-  int workspace_size = 0;
-  const int NNZ = (2 * n * n_neighbors);
+  uint64_t workspace_size = 0;
+  const Index_t NNZ = (2 * n * n_neighbors);
 
   device_buffer<float> P_(d_alloc, stream, NNZ);
   workspace_size += n*n_neighbors*sizeof(float);
@@ -227,10 +249,17 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
 
-  int *ROW = (int*)indices;
+  /*
+  [temp_indices_workspace] is size(n*k) * sizeof(long) = 2*n*k * sizeof(int)
+  Instead of allocating row indices [ROW] for the COO matrix, we can re-use this space.
+  (1) Copy [temp_indices_workspace] into the new column indices [COL]
+  (2) Since [COL] has the indices, we can reuse [temp_indices_workspace] and store
+      the row indices.
+  */
+  int *ROW = (int*)temp_indices_workspace;
+
   device_buffer<int> ROW_(d_alloc, stream);
-  if (sizeof(long) < 2*sizeof(int))
-  {
+  if (sizeof(long) < 2*sizeof(int)) {
     ROW_.resize(NNZ, stream);
     ROW = ROW_.data();
   }
@@ -242,18 +271,19 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   MLCommon::Sparse::COO<float> COO_Matrix(ROW, COL, VAL, NNZ, n, n);
 
   int *row_sizes = NULL;
-  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization))
-  {
+  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization)) {
     row_sizes = (int*) embedding;
     workspace_size += 2*n*sizeof(int);
   }
 
+  // Now do P + P.T!
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, &COO_Matrix,
                               row_sizes, stream, handle);
 
-  if (sizeof(long) < 2*sizeof(int))
+  if (sizeof(long) < 2*sizeof(int)) {
     ROW_.resize(0, stream);
+  }
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
