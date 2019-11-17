@@ -32,7 +32,8 @@ class MultinomialNB(object):
 
     def fit(self, X, y, _partial=False, _classes=None):
 
-        label_binarizer = LabelBinarizer()
+
+        label_binarizer = LabelBinarizer(sparse_output=True)
 
         Y = label_binarizer.fit_transform(y)
 
@@ -70,11 +71,15 @@ class MultinomialNB(object):
 
     def _init_counters(self, n_effective_classes, n_features):
         self.class_count_ = cp.zeros((n_effective_classes), dtype=cp.float32)
-        self.feature_count_ = cp.zeros((n_effective_classes, n_features), dtype=cp.float32)
+        self.feature_count_ = cp.zeros((n_effective_classes, n_features),
+                                       dtype=cp.float32)
 
     def _count(self, X, Y):
-        self.feature_count_ += X.T.dot(Y).T
-        self.class_count_ += Y.sum(axis=0)
+
+        feature_count_ = X.T.dot(Y).T
+
+        self.feature_count_ += feature_count_.todense()
+        self.class_count_ += Y.sum(axis=0).reshape(self.n_classes_)
 
     def _update_class_log_prior(self, class_prior=None):
 
