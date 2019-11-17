@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import torch
-from cuml.experimental.naive_bayes import MultinomialNB as MNB
+from cuml.naive_bayes import MultinomialNB as MNB
 
 from cuml.dask.preprocessing import LabelBinarizer
 

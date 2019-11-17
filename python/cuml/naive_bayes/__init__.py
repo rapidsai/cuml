@@ -13,3 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from cuml.naive_bayes.naive_bayes import MultinomialNB

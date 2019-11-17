@@ -14,27 +14,25 @@
 # limitations under the License.
 #
 
-import torch
-
-import numpy as np
+import cupy as cp
 
 from sklearn.metrics import accuracy_score
 
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 
-from cuml.experimental.naive_bayes import MultinomialNB
+from cuml.naive_bayes import MultinomialNB
 
 
 def scipy_to_torch(sp):
     coo = sp.tocoo()
     values = coo.data
-    indices = np.vstack((coo.row, coo.col))
 
-    i = torch.cuda.LongTensor(indices)
-    v = torch.cuda.FloatTensor(values)
+    r = cp.asarray(coo.row)
+    c = cp.asarray(coo.col)
+    v = cp.asarray(values, dtype=cp.float32)
 
-    return torch.cuda.sparse.FloatTensor(i, v, torch.Size(coo.shape))
+    return cp.sparse.coo_matrix((v, (r, c)))
 
 
 def load_corpus():
@@ -46,7 +44,7 @@ def load_corpus():
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
-    Y = torch.cuda.IntTensor(twenty_train.target).cuda()
+    Y = cp.array(twenty_train.target)
 
     return scipy_to_torch(X), Y
 
@@ -58,9 +56,10 @@ def test_basic_fit_predict():
     model = MultinomialNB()
     model.fit(X, y)
 
-    y_hat = model.predict(X).cpu()
+    y_hat = cp.asnumpy(model.predict(X))
+    y = cp.asnumpy(y)
 
-    assert accuracy_score(y.cpu(), y_hat) >= 0.996
+    assert accuracy_score(y, y_hat) >= 0.996
 
 
 

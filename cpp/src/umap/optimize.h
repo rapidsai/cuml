@@ -63,9 +63,9 @@ void f(T *input, int n_rows, T *coef, T *preds) {
 }
 
 /**
-         * Calculate the gradients for fitting parameters a and b
-         * to a smooth function based on exponential decay
-         */
+ * Calculate the gradients for fitting parameters a and b
+ * to a smooth function based on exponential decay
+ */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                  UMAPParams *params, cudaStream_t stream) {
