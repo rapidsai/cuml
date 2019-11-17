@@ -63,14 +63,11 @@ class MultinomialNB(object):
 
     def predict(self, X):
         jll = self._joint_log_likelihood(X)
-
-        print(str(jll))
-
         indices = cp.argmax(jll, axis=1)
         return indices
 
     def _init_counters(self, n_effective_classes, n_features):
-        self.class_count_ = cp.zeros((n_effective_classes), dtype=cp.float32)
+        self.class_count_ = cp.zeros(n_effective_classes, dtype=cp.float32)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
                                        dtype=cp.float32)
 
