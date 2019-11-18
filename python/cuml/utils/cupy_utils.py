@@ -73,5 +73,4 @@ def checked_cupy_unique(x):
         else:
             unique = np.unique(x.copy_to_host())
 
-
     return unique
