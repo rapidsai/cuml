@@ -40,6 +40,7 @@
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1374: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
