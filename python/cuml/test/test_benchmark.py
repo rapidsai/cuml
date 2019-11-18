@@ -66,9 +66,11 @@ def test_run_variations():
     assert (res.n_samples == 100).sum() == 2
     assert (res.n_features == 20).sum() == 2
 
+
 def test_multi_reps():
     class CountingAlgo:
         tot_reps = 0
+
         def fit(self, X, y):
             CountingAlgo.tot_reps += 1
 
