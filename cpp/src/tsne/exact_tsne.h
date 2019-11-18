@@ -56,7 +56,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1, const bool verbose = true,
                 const IntializationType init = Random_Intialization,
-                int workspace_size = 0)
+                size_t workspace_size = 0)
 {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -95,7 +95,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %lu megabytes\n", workspace_size >> 20);
 
   //
   if (verbose) printf("[Info] Start gradient updates!\n");

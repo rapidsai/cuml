@@ -50,10 +50,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(const cumlHandle &handle,
                        float *X,
                        float *Y,
-                       const int n,
-                       const int p,
-                       const int dim,
-                       int n_neighbors,
+                       const size_t n,
+                       const size_t p,
+                       const size_t dim,
+                       size_t n_neighbors,
                        const float theta,
                        const float epssq,
                        float perplexity,
@@ -326,7 +326,7 @@ class TSNE(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
-        cdef int n, p
+        cdef size_t n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if handle_ == NULL:
             raise ValueError("cuML Handle is Null! Terminating TSNE.")
@@ -399,10 +399,10 @@ class TSNE(Base):
         TSNE_fit(handle_[0],
                  <float*> X_ptr,
                  <float*> embed_ptr,
-                 <int> n,
-                 <int> p,
-                 <int> self.n_components,
-                 <int> self.n_neighbors,
+                 <size_t> n,
+                 <size_t> p,
+                 <size_t> self.n_components,
+                 <size_t> self.n_neighbors,
                  <float> self.angle,
                  <float> self.epssq,
                  <float> self.perplexity,

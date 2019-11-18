@@ -71,7 +71,7 @@ void Barnes_Hut(float *restrict VAL,
                 const long long random_state = -1,
                 const bool verbose = true,
                 const IntializationType init = Random_Intialization,
-                int workspace_size = 0)
+                size_t workspace_size = 0)
 {
   float max_bounds = 100;
   auto d_alloc = handle.getDeviceAllocator();
@@ -194,7 +194,7 @@ void Barnes_Hut(float *restrict VAL,
   float *YY = YY_.data();
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %lu megabytes\n", workspace_size >> 20);
 
 
   // Intialize embeddings
@@ -246,7 +246,6 @@ void Barnes_Hut(float *restrict VAL,
       childl, YY, YY + NNODES + 1, YY + NNODES, YY + 2 * NNODES + 1, maxxl, maxyl,
       minxl, minyl, FOUR_NNODES, NNODES, n, limiter, radiusd);
     CUDA_CHECK(cudaPeekAtLastError());
-
     END_TIMER(BoundingBoxKernel_time);
 
 

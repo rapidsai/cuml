@@ -123,8 +123,8 @@ void reset_timers(void)
        RepulsionTime + Reduction_time + attractive_time +                     \
        IntegrationKernel_time + PCATime) /                                    \
       100.0;                                                                  \
-    fprintf(stderr, "FUNCTION = SECONDS (%% CONTRIBUTION)\n"                  \
-      "-----------------------\n"                                             \
+    fprintf(stderr, "\n\nSTAGE = MILLISEC (%% CONTRIB)\n"                     \
+      "-------------------------------\n"                                     \
       "PCATime = %.lf (%.lf)\n"                                               \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
