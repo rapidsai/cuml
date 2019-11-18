@@ -36,6 +36,9 @@
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
+  model importing
+- PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
 - PR #1366: Modify train_test_split to use CuPy and accept device arrays
