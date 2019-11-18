@@ -35,6 +35,55 @@ class TruncatedSVD(object):
 
     .. code-block:: python
 
+        from dask_cuda import LocalCUDACluster
+        from dask.distributed import Client, wait
+        import numpy as np
+        from cuml.dask.decomposition import TruncatedSVD
+        from cuml.dask.datasets import make_blobs
+
+        cluster = LocalCUDACluster(threads_per_worker=1)
+        client = Client(cluster)
+
+        nrows = 6
+        ncols = 3
+        n_parts = 2
+
+        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+                        cluster_std=1.8, verbose=False,
+                        random_state=10, dtype=np.float32)
+
+        wait(X_cudf)
+
+        print("Input Matrix")
+        print(X_cudf.compute())
+
+        cumlModel = TruncatedSVD(n_components = 1)
+        XT = cumlModel.fit_transform(X_cudf)
+
+        print("Transformed Input Matrix")
+        print(XT.compute())
+
+    Output:
+
+    .. code-block:: python
+
+          Input Matrix:
+                              0         1          2
+                    0 -8.519647 -8.519222  -8.865648
+                    1 -6.107700 -8.350124 -10.351215
+                    2 -8.026635 -9.442240  -7.561770
+                    0 -8.519647 -8.519222  -8.865648
+                    1 -6.107700 -8.350124 -10.351215
+                    2 -8.026635 -9.442240  -7.561770
+
+          Transformed Input Matrix:
+                               0
+                    0  14.928891
+                    1  14.487295
+                    2  14.431235
+                    0  14.928891
+                    1  14.487295
+                    2  14.431235
     Note: Everytime this code is run, the output will be different because
           "make_blobs" function generates random matrices.
 
