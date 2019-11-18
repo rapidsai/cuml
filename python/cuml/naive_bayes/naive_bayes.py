@@ -65,7 +65,7 @@ class MultinomialNB(object):
         :param sample_weight:
         :return:
         """
-        return self.fit(X, y, _classes=classes)
+        return self.fit(X, y, classes=classes)
 
     def predict(self, X):
         jll = self._joint_log_likelihood(X)

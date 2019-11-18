@@ -20,6 +20,8 @@ from uuid import uuid1
 import dask.dataframe as dd
 from collections import OrderedDict
 
+import cupy as cp
+
 from dask.distributed import wait
 
 
@@ -115,3 +117,11 @@ def to_dask_df(dask_cudf, client=None):
     meta = c.submit(get_meta, dfs[0]).result()
 
     return dd.from_delayed(dfs, meta=meta)
+
+
+def sparse_df_to_cp(x):
+    row = cp.asarray(x["row"].to_gpu_array())
+    col = cp.asarray(x["col"].to_gpu_array())
+    val = cp.asarray(x["val"].to_gpu_array())
+
+    return cp.sparse.coo_matrix((val, (row, col)))
