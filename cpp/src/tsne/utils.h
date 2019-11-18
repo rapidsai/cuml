@@ -78,14 +78,26 @@ random_vector(T *vector,
 }
 
 
-#define TIMER_INIT                                                             \
-  long start, end;                                                             \
-  struct timeval timecheck;                                                    \
-  double PCATime = 0, SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,\
-         PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,\
-         TreeBuildingKernel_time = 0, ClearKernel2_time = 0,                   \
-         SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0, \
-         Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
+long start, end;
+struct timeval timecheck;
+double PCATime = 0, SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
+       PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
+       TreeBuildingKernel_time = 0, ClearKernel2_time = 0,
+       SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
+       Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
+
+
+void reset_timers(void)
+{
+  start = 0;
+  end = 0;
+  PCATime = 0, SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
+  PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
+  TreeBuildingKernel_time = 0, ClearKernel2_time = 0,
+  SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
+  Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
+}
+
 
 // To silence warnings
 

@@ -73,8 +73,6 @@ void Barnes_Hut(float *restrict VAL,
                 const IntializationType init = Random_Intialization,
                 int workspace_size = 0)
 {
-  INIT_TIMER;
-  
   float max_bounds = 100;
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
