@@ -450,37 +450,13 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
   // see (3.18) in TSA by D&K
   int r = std::max(p, q + 1);
 
-  double* d_Z_b =
-    (double*)allocator->allocate(r * num_batches * sizeof(double), stream);
-  double* d_R_b =
-    (double*)allocator->allocate(r * num_batches * sizeof(double), stream);
-  double* d_T_b =
-    (double*)allocator->allocate(r * r * num_batches * sizeof(double), stream);
+  BatchedMatrix Zb(1, r, num_batches, cublasHandle, allocator, stream, false);
+  BatchedMatrix Tb(r, r, num_batches, cublasHandle, allocator, stream, false);
+  BatchedMatrix Rb(r, 1, num_batches, cublasHandle, allocator, stream, false);
 
   init_batched_kalman_matrices(handle, d_b_ar_params, d_b_ma_params,
-                               num_batches, p, q, r, d_Z_b, d_R_b, d_T_b);
-
-  BatchedMatrix Zb(1, r, num_batches, cublasHandle, allocator, stream);
-  BatchedMatrix Tb(r, r, num_batches, cublasHandle, allocator, stream);
-  BatchedMatrix Rb(r, 1, num_batches, cublasHandle, allocator, stream);
-
-  ////////////////////////////////////////////////////////////
-  // Copy matrix raw data into `BatchedMatrix` memory
-
-  //Zb
-  CUDA_CHECK(cudaMemcpyAsync(Zb[0], d_Z_b, sizeof(double) * r * num_batches,
-                             cudaMemcpyDeviceToDevice, stream));
-
-  // Rb
-  CUDA_CHECK(cudaMemcpyAsync(Rb[0], d_R_b, sizeof(double) * r * num_batches,
-                             cudaMemcpyDeviceToDevice, stream));
-
-  //Tb
-  CUDA_CHECK(cudaMemcpyAsync(Tb[0], d_T_b, sizeof(double) * r * r * num_batches,
-                             cudaMemcpyDeviceToDevice, stream));
-
-  /// TODO: avoid copy by simply creating matrices before and passing
-  /// their pointer
+                               num_batches, p, q, r, Zb.raw_data(),
+                               Rb.raw_data(), Tb.raw_data());
 
   ////////////////////////////////////////////////////////////
   // Computation
@@ -505,10 +481,6 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
   allocator->deallocate(d_sigma2, num_batches * sizeof(double), stream);
 
   allocator->deallocate(d_loglike, num_batches * sizeof(double), stream);
-
-  allocator->deallocate(d_Z_b, r * num_batches * sizeof(double), stream);
-  allocator->deallocate(d_R_b, r * num_batches * sizeof(double), stream);
-  allocator->deallocate(d_T_b, r * r * num_batches * sizeof(double), stream);
 
   ML::POP_RANGE();
 }

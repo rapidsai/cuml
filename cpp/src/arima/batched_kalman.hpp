@@ -67,14 +67,6 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
 void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
             int batchSize, int p, int d, int q, cudaStream_t stream);
 
-
-/**
- * @todo: doc + make consistent with unpack
- */
-void pack(int batchSize, int p, int d, int q, const double* d_mu,
-          const double* d_ar, const double* d_ma, double* d_params,
-          cudaStream_t stream);
-
 /**
  * Public interface to batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters.
