@@ -804,10 +804,12 @@ def unpack(p, d, q, nb, x):
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
     nvtx_range_push("pack(mu,ar,ma) -> x")
+    x = np.zeros((p + d + q, nb), order='F')  # 2D array for convenience
     if d > 0:
-        return np.vstack((mu, ar, ma))
-    else:
-        return np.vstack((ar, ma))
+        x[0:d] = mu
+    x[d:d+p] = ar
+    x[d+p:] = ma
+    return x.reshape((p + d + q) * nb, order='F')  # return 1D shape
 
 
 def _batched_transform(p, d, q, nb, x, isInv, handle=None):
