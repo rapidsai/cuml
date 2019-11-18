@@ -13,6 +13,7 @@ To install cuML from source, ensure the following dependencies are met:
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
 9. NCCL (>=2.4)
+10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
 It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.0 and Python 3.7, you can use the follow command:
 
@@ -94,24 +95,6 @@ $ ./bench/sg_benchmark  # Single GPU benchmarks
 ```
 Refer to `--help` option to know more on its usage
 
-4. Build and install `libcumlcomms` (C++/CUDA library enabling multi-node multi-GPU communications), starting from the repository root folder:
-```bash
-$ cd cpp/comms/std
-$ mkdir build && cd build
-$ cmake ..
-
-```
-
-If using a conda environment (recommended), then cmake can be configured appropriately for `libcumlcomms` via:
-
-```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-```
-
-
-See the [customizing build section](#libcumlcomms) for options to configure the build process.
-
-
 5. Build the `cuml` python package:
 
 ```bash
@@ -174,6 +157,9 @@ cuML's cmake has the following configurable flags available:
 | BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
+| BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
+| WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support for the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This has no effect on the MPI communicator. |
+| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive, and can both be installed simultaneously. |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
@@ -185,14 +171,3 @@ cuML's cmake has the following configurable flags available:
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 | NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
-
-
-#### libcumlcomms
-
-cuML's multi-GPU communicator cmake has the following configurable flags available:
-
-| Flag | Possible Values | Default Value | Behavior |
-| --- | --- | --- | --- |
-| WITH_UCX | [ON, OFF]  | OFF  | Enable/disable point-to-point support with UCX (experimental) |
-| CUML_INSTALL_DIR | /path/to/libcuml++.so | "" | Specifies location of libcuml for linking |
-
