@@ -47,7 +47,8 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, stream);
-  delete knn_input, sizes;
+  delete[] knn_input;
+  delete[] sizes;
 }
 
 /**
@@ -78,28 +79,28 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
  * @input param indices: The input sorted indices from KNN.
  * @input param n: The number of rows in the data X.
  * @input param k: The number of nearest neighbors you want.
- * @input param P_sum: The sum of P.
  * @input param exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @output param COO_Matrix: The final P + P.T output COO matrix.
+ * @output param VAL: Values of COO Matrix
+ * @output param COL: Column indices of COO Matrix
+ * @output param ROW: Row indices of COO Matrix
+ * @input param row_sizes: Size (2*n) array for CSR style Row pointers. Used in symmetrization
  * @input param stream: The GPU stream.
  * @input param handle: The GPU handle.
  */
 template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
-                           const float P_sum, const float exaggeration,
+                           const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
+                           int *row_sizes,
                            cudaStream_t stream, const cumlHandle &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
-  const float div = exaggeration / (2.0f * P_sum);
+  const float div = exaggeration / (2.0f * n);
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
-
-  handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
-  handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
-                                          stream);
+    indices, P, n, k, COO_Matrix, row_sizes,
+    stream, handle.getDeviceAllocator());
 }
 
 }  // namespace TSNE

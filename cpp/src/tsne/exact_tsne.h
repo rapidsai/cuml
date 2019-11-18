@@ -43,7 +43,8 @@ namespace TSNE {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @input param init: Intialization type using IntializationType enum
+ * @input param workspace_size: How much memory was saved.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
@@ -54,12 +55,17 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1, const bool verbose = true,
-                const bool intialize_embeddings = true) {
+                const IntializationType init = Random_Intialization,
+                int workspace_size = 0)
+{
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  if (intialize_embeddings)
+  // Intialize embeddings
+  if (init == Random_Intialization) {
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
+  }
+
 
   // Allocate space
   //---------------------------------------------------
@@ -88,14 +94,18 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
+  if (verbose)
+    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
+
   //
   if (verbose) printf("[Info] Start gradient updates!\n");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
   bool check_convergence = false;
 
-  for (int iter = 0; iter < max_iter; iter++) {
-    check_convergence = ((iter % 10) == 0) and (iter > exaggeration_iter);
+  for (int iter = 0; iter < max_iter; iter++)
+  {
+    check_convergence = ((iter % 50) == 0) and (iter > exaggeration_iter);
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
@@ -106,8 +116,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     }
 
     // Get row norm of Y
-    MLCommon::LinAlg::rowNorm(norm, Y, dim, n, MLCommon::LinAlg::L2Norm, false,
-                              stream);
+    MLCommon::LinAlg::rowNorm(norm, Y, dim, n, MLCommon::LinAlg::L2Norm, false, stream);
 
     // Compute attractive forces
     TSNE::attractive_forces(VAL, COL, ROW, Y, norm, attract, NNZ, n, dim,
@@ -134,8 +143,6 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
         break;
       }
     }
-    // else if (verbose)
-    //  printf("Z at iter = %d = %f\n", iter, Z);
   }
 
   d_alloc->deallocate(norm, sizeof(float) * n, stream);

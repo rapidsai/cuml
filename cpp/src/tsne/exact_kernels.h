@@ -20,7 +20,7 @@
 #include <linalg/eltwise.h>
 #include <math.h>
 #include "utils.h"
-#define restrict __restrict__
+#define restrict __restrict
 
 namespace ML {
 namespace TSNE {
@@ -28,10 +28,10 @@ namespace TSNE {
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel(const float *restrict distances,
+__global__ void sigmas_kernel(const float *restrict D,
                               float *restrict P, const float perplexity,
                               const float desired_entropy,
-                              float *restrict P_sum, const int epochs,
+                              const int epochs,
                               const float tol, const int n, const int k) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -39,26 +39,25 @@ __global__ void sigmas_kernel(const float *restrict distances,
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  float sum_P_row = 0;
-  register const int ik = i * k;
+  const int ik = i * k;
 
-  for (int step = 0; step < epochs; step++) {
+  for (int step = 0; step < epochs; step++)
+  {
     float sum_Pi = FLT_EPSILON;
 
     // Exponentiate to get guassian
     for (int j = 0; j < k; j++) {
-      P[ik + j] = __expf(-distances[ik + j] * beta);
+      P[ik + j] = __expf(-D[ik + j] * beta);
       sum_Pi += P[ik + j];
     }
 
     // Normalize
     float sum_disti_Pi = 0;
-    sum_P_row = 0;
     const float div = __fdividef(1.0f, sum_Pi);
-    for (int j = 0; j < k; j++) {
+    for (int j = 0; j < k; j++)
+    {
       P[ik + j] *= div;
-      sum_disti_Pi += distances[ik + j] * P[ik + j];
-      sum_P_row += P[ik + j];
+      sum_disti_Pi += D[ik + j] * P[ik + j];
     }
 
     const float entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
@@ -72,7 +71,8 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta *= 2.0f;
       else
         beta = (beta + beta_max) * 0.5f;
-    } else {
+    }
+    else {
       beta_max = beta;
       if (isinf(beta_min))
         beta *= 0.5f;
@@ -80,16 +80,15 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-__global__ void sigmas_kernel_2d(const float *restrict distances,
+__global__ void sigmas_kernel_2d(const float *restrict D,
                                  float *restrict P, const float perplexity,
                                  const float desired_entropy,
-                                 float *restrict P_sum, const int epochs,
+                                 const int epochs,
                                  const float tol, const int n) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -97,22 +96,19 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  float sum_P_row = 0;
-  register const int ik = i * 2;
+  const int ik = i * 2;
 
   for (int step = 0; step < epochs; step++) {
     // Exponentiate to get guassian
-    P[ik] = __expf(-distances[ik] * beta);
-    P[ik + 1] = __expf(-distances[ik + 1] * beta);
+    P[ik] = __expf(-D[ik] * beta);
+    P[ik + 1] = __expf(-D[ik + 1] * beta);
     const float sum_Pi = FLT_EPSILON + P[ik] + P[ik + 1];
 
     // Normalize
     const float div = __fdividef(1.0f, sum_Pi);
     P[ik] *= div;
     P[ik + 1] *= div;
-    const float sum_disti_Pi =
-      distances[ik] * P[ik] + distances[ik + 1] * P[ik + 1];
-    sum_P_row = P[ik] + P[ik + 1];
+    const float sum_disti_Pi = D[ik] * P[ik] + D[ik + 1] * P[ik + 1];
 
     const float entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
     const float entropy_diff = entropy - desired_entropy;
@@ -125,7 +121,8 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta *= 2.0f;
       else
         beta = (beta + beta_max) * 0.5f;
-    } else {
+    }
+    else {
       beta_max = beta;
       if (isinf(beta_min))
         beta *= 0.5f;
@@ -133,35 +130,25 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  atomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
-float perplexity_search(const float *restrict distances, float *restrict P,
+void perplexity_search(const float *restrict distances, float *restrict P,
                         const float perplexity, const int epochs,
                         const float tol, const int n, const int dim,
-                        const cumlHandle &handle) {
+                        const cumlHandle &handle)
+{
   const float desired_entropy = logf(perplexity);
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  float *P_sum = (float *)d_alloc->allocate(sizeof(float), stream);
-  CUDA_CHECK(cudaMemsetAsync(P_sum, 0, sizeof(float), stream));
-
   if (dim == 2)
     sigmas_kernel_2d<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n);
+      distances, P, perplexity, desired_entropy, epochs, tol, n);
   else
     sigmas_kernel<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n, dim);
+      distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  cudaStreamSynchronize(stream);
-  float sum;
-  MLCommon::updateHost(&sum, P_sum, 1, stream);
-  d_alloc->deallocate(P_sum, sizeof(float), stream);
-
-  return sum;
 }
 
 /****************************************/
@@ -258,8 +245,7 @@ __global__ void repulsive_kernel(const float *restrict Y, float *restrict repel,
                                  const float df_power,  // -(df + 1)/2)
                                  const float recp_df)   // 1 / df
 {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (j >= i || i >= n || j >= n) return;
 
@@ -405,8 +391,8 @@ float apply_forces(float *restrict Y, float *restrict velocity,
                    const float C,  // constant from T-dist
                    const float momentum, const int dim, const int n,
                    const float min_gain, float *restrict gradient,
-                   const bool check_convergence, cudaStream_t stream) {
-  //cudaMemset(means, 0, sizeof(float) * dim);
+                   const bool check_convergence, cudaStream_t stream)
+{
   if (check_convergence)
     CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(float) * n * dim, stream));
 
@@ -429,3 +415,5 @@ float apply_forces(float *restrict Y, float *restrict velocity,
 
 }  // namespace TSNE
 }  // namespace ML
+
+#undef restrict

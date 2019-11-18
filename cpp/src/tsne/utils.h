@@ -49,19 +49,35 @@
  * @input param size: The size of the output vector.
  * @input param stream: The GPU stream.
  * @input param seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
+ * @input param normal: If normal == True, then fill vector with random Normal Distribution. Otherwise, uniform.
  */
-void random_vector(float *vector, const float minimum, const float maximum,
-                   const int size, cudaStream_t stream, long long seed = -1) {
+template <typename T> void
+random_vector(T *vector,
+              const T minimum, // mean for normal == true
+              const T maximum, // std for normal == true
+              const int size,
+              cudaStream_t stream,
+              long long seed = -1,
+              const bool normal = false)
+{
   if (seed <= 0) {
     // Get random seed based on time of day
     struct timeval tp;
     gettimeofday(&tp, NULL);
     seed = tp.tv_sec * 1000 + tp.tv_usec;
   }
+
   MLCommon::Random::Rng random(seed);
-  random.uniform<float>(vector, size, minimum, maximum, stream);
+  if (not normal) {
+    random.uniform<T>(vector, size, minimum, maximum, stream);
+  }
+  else {
+    random.normal<T>(vector, size, minimum, maximum, stream);
+  }
+
   CUDA_CHECK(cudaPeekAtLastError());
 }
+
 
 long start, end;
 struct timeval timecheck;

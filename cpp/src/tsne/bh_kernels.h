@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#define restrict __restrict__
+#define restrict __restrict
 
 #define THREADS1 512
 #define THREADS2 512
@@ -37,62 +37,24 @@
 #include <math.h>
 #include "utils.h"
 
+
 namespace ML {
 namespace TSNE {
 
-/**
- * Intializes the states of objects. This speeds the overall kernel up.
- */
-__global__ void
-InitializationKernel( /*int *restrict errd, */
-                     unsigned *restrict limiter,
-                     int *restrict maxdepthd,
-                     float *restrict radiusd)
-{
-  // errd[0] = 0;
-  maxdepthd[0] = 1;
-  limiter[0] = 0;
-  radiusd[0] = 0.0f;
-}
-
-/**
- * Reset normalization back to 0.
- */
-__global__ void
-Reset_Normalization(float *restrict Z_norm,
-                    float *restrict radiusd_squared,
-                    int *restrict bottomd, const int NNODES,
-                    const float *restrict radiusd)
-{
-  Z_norm[0] = 0.0f;
-  radiusd_squared[0] = radiusd[0] * radiusd[0];
-  // create root node
-  bottomd[0] = NNODES;
-}
-
-/**
- * Find 1/Z
- */
-__global__ void
-Find_Normalization(float *restrict Z_norm,
-                   const float N)
-{
-  Z_norm[0] = 1.0f / (Z_norm[0] - N);
-}
 
 /**
  * Figures the bounding boxes for every point in the embedding.
  */
 __global__ __launch_bounds__(THREADS1, FACTOR1) void
-BoundingBoxKernel(int *restrict startd,
-                  int *restrict childd,
-                  float *restrict massd,
-                  float *restrict posxd,
-                  float *restrict posyd,
-                  float *restrict maxxd,
-                  float *restrict maxyd,
-                  float *restrict minxd,
-                  float *restrict minyd,
+BoundingBoxKernel(int *restrict childd,           // FOUR_NNODES+4
+                  const float *restrict posxd,    // NNODES+1
+                  const float *restrict posyd,    // NNODES+1
+                  float *restrict posxd_NNODES,
+                  float *restrict posyd_NNODES,
+                  float *restrict maxxd,    // blocks*FACTOR1 [80]
+                  float *restrict maxyd,    // blocks*FACTOR1 [80]
+                  float *restrict minxd,    // blocks*FACTOR1 [80]
+                  float *restrict minyd,    // blocks*FACTOR1 [80]
                   const int FOUR_NNODES,
                   const int NNODES,
                   const int N,
@@ -161,11 +123,8 @@ BoundingBoxKernel(int *restrict startd,
 
     // compute 'radius'
     atomicExch(radiusd, fmaxf(maxx - minx, maxy - miny) * 0.5f + 1e-5f);
-
-    massd[NNODES] = -1.0f;
-    startd[NNODES] = 0;
-    posxd[NNODES] = (minx + maxx) * 0.5f;
-    posyd[NNODES] = (miny + maxy) * 0.5f;
+    posxd_NNODES[0] = (minx + maxx) * 0.5f;
+    posxd_NNODES[0] = (miny + maxy) * 0.5f;
 
     #pragma unroll
     for (int a = 0; a < 4; a++)
@@ -187,9 +146,9 @@ ClearKernel1(int *restrict childd,
   if (k < FOUR_N) k += inc;
 
   // iterate over all cells assigned to thread
-  #pragma unroll
-  for (; k < FOUR_NNODES; k += inc)
+  for (; k < FOUR_NNODES; k += inc) {
     childd[k] = -1;
+  }
 }
 
 
@@ -197,16 +156,16 @@ ClearKernel1(int *restrict childd,
  * Build the actual KD Tree.
  */
 __global__ __launch_bounds__(THREADS2, FACTOR2) void
-TreeBuildingKernel( /* int *restrict errd, */
-                   int *restrict childd,
-                   const float *restrict posxd,
-                   const float *restrict posyd,
+TreeBuildingKernel(int *restrict childd,        // (NNODES+1)*4
+                   const float *restrict posxd, // NNODES+1
+                   const float *restrict posyd, // NNODES+1
                    const int NNODES,
                    const int N,
                    int *restrict maxdepthd,
                    int *restrict bottomd,
                    const float *restrict radiusd)
 {
+  int limiter = 0;
   int j, depth;
   float x, y, r;
   float px, py;
@@ -225,6 +184,10 @@ TreeBuildingKernel( /* int *restrict errd, */
   // iterate over all bodies assigned to thread
   while (i < N)
   {
+    if (++limiter > NNODES) {
+      break;
+    }
+
     if (skip != 0)
     {
       // new body, so start traversing at root
@@ -244,7 +207,9 @@ TreeBuildingKernel( /* int *restrict errd, */
     while ((ch = childd[n * 4 + j]) >= N)
     {
       n = ch;
-      depth++;
+      if (++depth > NNODES) {
+        break;
+      }
       r *= 0.5f;
 
       // determine which child to follow
@@ -281,7 +246,10 @@ TreeBuildingKernel( /* int *restrict errd, */
 
           while (ch >= 0)
           {
-            depth++;
+            // To control possible infinite loops
+            if (++depth > NNODES) {
+              break;
+            }
 
             const int cell = atomicSub(bottomd, 1) - 1;
             if (cell <= N) {
@@ -289,8 +257,9 @@ TreeBuildingKernel( /* int *restrict errd, */
               atomicExch(bottomd, NNODES);
             }
 
-            if (patch != -1)
+            if (patch != -1) {
               childd[n * 4 + j] = cell;
+            }
 
             if (cell > patch)
               patch = cell;
@@ -303,15 +272,11 @@ TreeBuildingKernel( /* int *restrict errd, */
             n = cell;
             r *= 0.5f;
 
-            x += (
-                (x < px) ?
-                (j = 1, r) : (j = 0, -r)
-              );
+            x += (  (x < px) ?
+                    (j = 1, r) : (j = 0, -r)  );
 
-            y += (
-                (y < py) ?
-                (j |= 2, r) : (-r)
-              );
+            y += (  (y < py) ?
+                    (j |= 2, r) : (-r)  );
 
             ch = childd[n * 4 + j];
             if (r <= 1e-10) break;
@@ -334,8 +299,6 @@ TreeBuildingKernel( /* int *restrict errd, */
   }
 
   // record maximum tree depth
-  // if (localmaxdepth >= THREADS5)
-  //   localmaxdepth = THREADS5 - 1;
   if (localmaxdepth > 32)
     localmaxdepth = 32;
 
@@ -357,9 +320,8 @@ ClearKernel2(int *restrict startd,
   if (k < bottom) k += inc;
 
   // iterate over all cells assigned to thread
-  #pragma unroll
-  for (; k < NNODES; k+= inc) {
-    massd[k] = -1.0f;
+  for (; k < NNODES; k += inc) {
+    massd[k] = -1;
     startd[k] = -1;
   }
 }
@@ -368,15 +330,16 @@ ClearKernel2(int *restrict startd,
  * Summarize the KD Tree via cell gathering
  */
 __global__ __launch_bounds__(THREADS3, FACTOR3) void
-SummarizationKernel(int *restrict countd,
-                    const int *restrict childd,
-                    volatile float *restrict massd,
-                    float *restrict posxd,
-                    float *restrict posyd,
+SummarizationKernel(int *restrict countd,           // NNODES+1
+                    const int *restrict childd,     // (NNODES+1)*4
+                    volatile float *restrict massd, // NNODES+1
+                    float *restrict posxd,          // NNODES+1
+                    float *restrict posyd,          // NNODES+1
                     const int NNODES,
                     const int N,
                     const int *restrict bottomd) 
 {
+  int limiter = 0;
   bool flag = 0;
   float cm, px, py;
   __shared__ int child[THREADS3 * 4];
@@ -394,7 +357,7 @@ SummarizationKernel(int *restrict countd,
     // iterate over all cells assigned to thread
     while (k <= NNODES)
     {
-      if (massd[k] < 0.0f)
+      if (massd[k] < 0)
       {
         for (int i = 0; i < 4; i++)
         {
@@ -406,9 +369,9 @@ SummarizationKernel(int *restrict countd,
         }
 
         // all children are ready
-        cm = 0.0f;
-        px = 0.0f;
-        py = 0.0f;
+        cm = 0;
+        px = 0;
+        py = 0;
         int cnt = 0;
 
         #pragma unroll
@@ -446,6 +409,9 @@ SummarizationKernel(int *restrict countd,
   // iterate over all cells assigned to thread
   while (k <= NNODES)
   {
+    if (++limiter > N)
+      break;
+    
     if (massd[k] >= 0)
     {
       k += inc;
@@ -461,8 +427,12 @@ SummarizationKernel(int *restrict countd,
         const int ch = childd[k * 4 + i];
 
         child[i * THREADS3 + threadIdx.x] = ch;
-        if ((ch < N) or
-           ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0))
+        if (ch < N) {
+          j--;
+          continue;
+        }
+
+        if ((mass[i * THREADS3 + threadIdx.x] = massd[ch]) >= 0)
           j--;
 
       }
@@ -485,9 +455,9 @@ SummarizationKernel(int *restrict countd,
     if (j == 0)
     {
       // all children are ready
-      cm = 0.0f;
-      px = 0.0f;
-      py = 0.0f;
+      cm = 0;
+      px = 0;
+      py = 0;
       int cnt = 0;
 
       #pragma unroll
@@ -529,10 +499,10 @@ SummarizationKernel(int *restrict countd,
  * Sort the cells
  */
 __global__ __launch_bounds__(THREADS4, FACTOR4) void
-SortKernel(int *restrict sortd,
-           const int *restrict countd,
-           volatile int *restrict startd,
-           int *restrict childd,
+SortKernel(int *restrict sortd,             // NNODES+1
+           const int *restrict countd,      // NNODES+1
+           volatile int *restrict startd,   // NNODES+1
+           int *restrict childd,            // (NNODES+1)*4
            const int NNODES,
            const int N,
            const int *restrict bottomd)
@@ -547,7 +517,7 @@ SortKernel(int *restrict sortd,
   while (k >= bottom)
   {
     // To control possible infinite loops
-    if (++limiter > NNODES)
+    if (++limiter > N)
       break;
 
     // Not a child so skip
@@ -590,16 +560,15 @@ SortKernel(int *restrict sortd,
  * Calculate the repulsive forces using the KD Tree
  */
 __global__ __launch_bounds__(THREADS5, FACTOR5) void
-RepulsionKernel( /* int *restrict errd, */
-                const float theta,
+RepulsionKernel(const float theta,
                 const float epssqd,  // correction for zero distance
-                const int *restrict sortd,
-                const int *restrict childd,
-                const float *restrict massd,
-                const float *restrict posxd,
-                const float *restrict posyd,
-                float *restrict velxd,
-                float *restrict velyd,
+                const int *restrict sortd,        // NNODES+1
+                const int *restrict childd,       // (NNODES+1)*4
+                const float *restrict massd,      // NNODES+1
+                const float *restrict posxd,      // NNODES+1
+                const float *restrict posyd,      // NNODES+1
+                float *restrict velxd,            // NNODES+1
+                float *restrict velyd,            // NNODES+1
                 float *restrict Z_norm,
                 const float theta_squared,
                 const int NNODES,
@@ -608,13 +577,8 @@ RepulsionKernel( /* int *restrict errd, */
                 const float *restrict radiusd_squared,
                 const int *restrict maxdepthd)
 {
-  // Return if max depth is too deep
-  // Not possible since I limited it to 32
-  // if (maxdepthd[0] > 32)
-  // {
-  //   atomicExch(errd, max_depth);
-  //   return;
-  // }
+  int limiter = 0;
+  int limiter2 = 0;
   const float EPS_PLUS_1 = epssqd + 1.0f;
 
   __shared__ int pos[THREADS5], node[THREADS5];
@@ -651,18 +615,14 @@ RepulsionKernel( /* int *restrict errd, */
   // if (diff < 32)
   dq[diff + sbase] = dq[diff];
 
-
-  //__syncthreads();
   __threadfence_block();
 
   // iterate over all bodies assigned to thread
-  const int MAX_SIZE = FOUR_NNODES + 4;
-
   for (int k = threadIdx.x + blockIdx.x * blockDim.x; k < N; k += blockDim.x * gridDim.x)
   {
     const int i = sortd[k];  // get permuted/sorted index
     // cache position info
-    if (i < 0 or i >= MAX_SIZE)
+    if (i < 0 or i > NNODES)
       continue;
     
     const float px = posxd[i];
@@ -682,16 +642,17 @@ RepulsionKernel( /* int *restrict errd, */
     }
 
     do {
+      if (++limiter > N)
+        break;
 
       // stack is not empty
       int pd = pos[depth];
       int nd = node[depth];
 
-
       while (pd < 4)
       {
         const int index = nd + pd++;
-        if (index < 0 or index >= MAX_SIZE)
+        if (index < 0 or index >= FOUR_NNODES + 4 or ++limiter2 > NNODES)
           break;
 
         const int n = childd[index];  // load child pointer
@@ -803,7 +764,9 @@ IntegrationKernel(const float eta,
                   float *restrict old_forces1,
                   float *restrict old_forces2,
                   const float *restrict Z,
-                  const int N)
+                  const int N,
+                  const float MAX_BOUNDS,
+                  float *restrict sums)
 {
   float ux, uy, gx, gy;
 
@@ -811,8 +774,7 @@ IntegrationKernel(const float eta,
   const int inc = blockDim.x * gridDim.x;
   const float Z_norm = Z[0];
 
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc)
-  {
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc) {
     const float dx = attract1[i] - Z_norm * repel1[i];
     const float dy = attract2[i] - Z_norm * repel2[i];
 
@@ -836,8 +798,56 @@ IntegrationKernel(const float eta,
 
     Y1[i] += ux;
     Y2[i] += uy;
+
+    // Confirm Y1 and Y2 are within bounds (-MAX_BOUNDS, MAX_BOUNDS)
+    // These are arbitrary but can help with outliers
+    // Also reset both gains and old forces
+    if (Y1[i] < -MAX_BOUNDS) {
+      Y1[i] = -MAX_BOUNDS;
+      gains1[i] = 1;
+      old_forces1[i] = 0;
+    }
+    else if (Y1[i] > MAX_BOUNDS) {
+      Y1[i] = MAX_BOUNDS;
+      gains1[i] = 1;
+      old_forces1[i] = 0;
+    }
+    if (Y2[i] < -MAX_BOUNDS) {
+      Y2[i] = -MAX_BOUNDS;
+      gains2[i] = 1;
+      old_forces2[i] = 0;
+    }
+    else if (Y2[i] > MAX_BOUNDS) {
+      Y2[i] = MAX_BOUNDS;
+      gains2[i] = 1;
+      old_forces2[i] = 0;
+    }
+
+    atomicAdd(&sums[0], Y1[i]);
+    atomicAdd(&sums[1], Y2[i]);
   }
 }
 
+
+__global__ void
+mean_centre(float *restrict Y1,
+            float *restrict Y2,
+            const float *restrict means,
+            const float N)
+{
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (i >= N) return;
+  Y1[i] -= means[0];
+  Y2[i] -= means[1];
+
+  if (i % 1000 == 0) {
+    Y1[i] += 0.00001f;
+    Y2[i] -= 0.00001f;
+  }
+}
+
+
 }  // namespace TSNE
 }  // namespace ML
+
+#undef restrict
