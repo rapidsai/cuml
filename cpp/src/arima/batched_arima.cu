@@ -131,6 +131,9 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
         }
       });
   }
+
+  alloc->deallocate(d_y_, (p + num_steps) * batch_size, stream);
+  alloc->deallocate(d_vs_, (q + num_steps) * batch_size, stream);
 }
 
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
@@ -180,6 +183,10 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                      counting + num_batches, [=] __device__(int bid) {
                        d_y_p[bid * nobs + (nobs - 1)] = d_y_fc[bid];
                      });
+    handle.getDeviceAllocator()->deallocate(
+      d_y_diff, sizeof(double) * num_batches * (nobs - 1), handle.getStream());
+    handle.getDeviceAllocator()->deallocate(
+      d_y_fc, sizeof(double) * num_batches, handle.getStream());
   }
 }
 
