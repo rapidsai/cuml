@@ -31,9 +31,9 @@ namespace Algo {
 using namespace ML;
 
 /**
-		 * Initial implementation calls out to FAISS to do its work.
-		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
-		 */
+ * Initial implementation calls out to FAISS to do its work.
+ * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
+ */
 
 /**
  * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,

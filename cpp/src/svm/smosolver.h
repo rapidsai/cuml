@@ -20,6 +20,8 @@
 #include <math.h>
 #include <iostream>
 #include <limits>
+#include <string>
+#include <type_traits>
 
 #include "common/cumlHandle.hpp"
 #include "kernelcache.h"
@@ -249,10 +251,15 @@ class SmoSolver {
       keep_going = false;
     }
     if (diff < tol) keep_going = false;
-    // ASSERT(!isnan(diff), "SMO: NaN found during fitting")
     if (isnan(diff)) {
-      std::cout << "SMO error: NaN found during fitting\n";
-      keep_going = false;
+      std::string txt = "SMO error: NaN found during fitting.";
+      if (std::is_same<float, math_t>::value) {
+        txt +=
+          " This might be caused by floating point overflow. In such case using"
+          " fp64 could help. Alternatively, try gamma='scale' kernel"
+          " parameter.";
+      }
+      THROW(txt.c_str());
     }
     return keep_going;
   }
