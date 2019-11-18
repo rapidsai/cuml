@@ -247,8 +247,9 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
                               early_exaggeration, VAL, COL, ROW,
                               row_sizes, stream, handle);
 
-  if (sizeof(long) < 2*sizeof(int))
+  if (sizeof(long) < 2*sizeof(int)) {
     ROW_.release(stream);
+  }
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
