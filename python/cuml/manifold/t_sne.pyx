@@ -419,7 +419,7 @@ class TSNE(Base):
                  <float> self.post_momentum,
                  <long long> seed,
                  <bool> self.verbose,
-                 init_type,
+                 <IntializationType> init_type,
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory

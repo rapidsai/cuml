@@ -947,8 +947,9 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   int *row_sizes1, *row_sizes2;
+  device_buffer<int> row_sizes1_(d_alloc, stream);
   if (row_sizes == NULL) {
-    device_buffer<int> row_sizes1_(d_alloc, stream, n*2);
+    row_sizes1_.resize(n*2, stream);
     row_sizes1 = row_sizes1_.data();
     row_sizes2 = row_sizes1 + n;
   }
