@@ -35,7 +35,7 @@ from typing import List, Tuple
 import cudf
 from cuml.utils import get_dev_array_ptr, zeros
 
-from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
+from cuml.common.cuda import nvtx_range_wrap
 
 from cuml.common.base import Base
 
@@ -479,9 +479,8 @@ class ARIMAModel(Base):
 
 
 
+@nvtx_range_wrap("estimate x0")
 def estimate_x0(order, y, handle=None):
-    nvtx_range_push("estimate x0")
-
     p, d, q = order
 
     cdef uintptr_t d_y_ptr
@@ -512,8 +511,6 @@ def estimate_x0(order, y, handle=None):
                     <double*> d_y_ptr,
                     <int> num_batches, <int> num_samples,
                     <int> p, <int> d, <int> q)
-
-    nvtx_range_pop()
 
     h_mu = d_mu.copy_to_host() if d > 0 else np.array([])
     h_ar = d_ar.copy_to_host() if p > 0 else np.zeros(shape=(0, num_batches))
@@ -561,6 +558,7 @@ def ll_f(num_batches, nobs, order, y, x,
     return loglike
 
 
+@nvtx_range_wrap("ll_gf")
 def ll_gf(num_batches, nobs, num_parameters, order,
           y, x, h=1e-8, trans=True, handle=None):
     """Computes gradient (via finite differencing) of the batched
@@ -590,8 +588,6 @@ def ll_gf(num_batches, nobs, num_parameters, order,
              The cumlHandle to be used.
 
     """
-    nvtx_range_push("ll_gf")
-
     fd = np.zeros(num_parameters)
 
     grad = np.zeros(len(x))
@@ -627,7 +623,6 @@ def ll_gf(num_batches, nobs, num_parameters, order,
     # Reset numpy error levels
     np.seterr(**err_lvl)
 
-    nvtx_range_pop()
     return grad
 
 
@@ -810,9 +805,9 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar_params, best_ma_params, best_ic)
 
 
+@nvtx_range_wrap("unpack(x) -> (mu,ar,ma)")
 def unpack(p, d, q, nb, x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    nvtx_range_push("unpack(x) -> (mu,ar,ma)")
     if type(x) is list or x.shape != (p + d + q, nb):
         x_mat = np.reshape(x, (p + d + q, nb), order='F')
     else:
@@ -824,13 +819,12 @@ def unpack(p, d, q, nb, x):
     ar = x_mat[d:d+p]
     ma = x_mat[d+p:]
 
-    nvtx_range_pop()
     return (mu, ar, ma)
 
 
+@nvtx_range_wrap("pack(mu,ar,ma) -> x")
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    nvtx_range_push("pack(mu,ar,ma) -> x")
     x = np.zeros((p + d + q, nb), order='F')  # 2D array for convenience
     if d > 0:
         x[0:d] = mu
@@ -839,13 +833,12 @@ def pack(p, d, q, nb, mu, ar, ma):
     return x.reshape((p + d + q) * nb, order='F')  # return 1D shape
 
 
+@nvtx_range_wrap("batched_transform")
 def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
     cdef vector[double] vec_Tma
-
-    nvtx_range_push("batched_transform")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -857,7 +850,6 @@ def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     batched_jones_transform(handle_[0], p, d, q, nb, isInv,
                             <double*>x_ptr, <double*>Tx_ptr)
 
-    nvtx_range_pop()
     return (Tx)
 
 
@@ -867,42 +859,39 @@ def _model_complexity(order):
     return d + p + q
 
 
+@nvtx_range_wrap("jones trans")
 def _batch_trans(p, d, q, nb, x, handle=None):
     """Apply the stationarity/invertibility guaranteeing transform
     to batched-parameter vector x."""
-    nvtx_range_push("jones trans")
-
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, False, handle)
 
-    nvtx_range_pop()
     return Tx
 
 
+@nvtx_range_wrap("jones inv-trans")
 def _batch_invtrans(p, d, q, nb, x, handle=None):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
-    nvtx_range_push("jones inv-trans")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, True, handle)
 
-    nvtx_range_pop()
     return Tx
 
 
+@nvtx_range_wrap("batched loglikelihood")
 def _batched_loglike(num_batches, nobs, order, y, x,
                      trans=False, handle=None):
     cdef vector[double] vec_loglike
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
 
-    nvtx_range_push("batched loglikelihood")
     p, d, q = order
 
     num_params = (p+d+q)
@@ -942,5 +931,4 @@ def _batched_loglike(num_batches, nobs, order, y, x,
                     <double*>d_vs_ptr,
                     trans)
 
-    nvtx_range_pop()
     return vec_loglike
