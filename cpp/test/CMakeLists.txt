@@ -174,6 +174,7 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
+      prims/batched_matrix.cu
       prims/batched/make_symm.cu
       prims/batched/gemv.cu
       prims/binary_op.cu
@@ -248,11 +249,13 @@ if(BUILD_PRIMS_TESTS)
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
+      prims/stationarity.cu
       prims/stddev.cu
       prims/strided_reduction.cu
       prims/subtract.cu
       prims/sum.cu
       prims/svd.cu
+      prims/ternary_op.cu
       prims/transpose.cu
       prims/trustworthiness.cu
       prims/unary_op.cu
