@@ -315,19 +315,31 @@ static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
                         stream);
 }
 
-void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__FUNCTION__);
-  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
-            log(static_cast<double>(nobs)) * static_cast<double>(p + d + q));
-  ML::POP_RANGE();
-}
-
 void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
   ML::PUSH_RANGE(__FUNCTION__);
+  double nf = static_cast<double>(p + d + q);
   ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
-            2.0 * static_cast<double>(p + d + q));
+            2.0 * nf);
+  ML::POP_RANGE();
+}
+
+void aicc(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
+  ML::PUSH_RANGE(__FUNCTION__);
+  double nf = static_cast<double>(p + d + q);
+  ic_common(
+    handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
+    2.0 * (nf + (nf * (nf + 1.0)) / (static_cast<double>(nobs) - nf - 1.0)));
+  ML::POP_RANGE();
+}
+
+void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
+         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
+  ML::PUSH_RANGE(__FUNCTION__);
+  double nf = static_cast<double>(p + d + q);
+  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
+            log(static_cast<double>(nobs)) * nf);
   ML::POP_RANGE();
 }
 
