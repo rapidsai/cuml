@@ -6,9 +6,11 @@
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
 - PR #1242: Initial implementation of FIL sparse forests
+- PR #1194: Initial ARIMA time-series modeling support.
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1322: RF pickling using treelite, protobuf and FIL
 - PR #1332: Add option to cuml.dask make_blobs to produce dask array
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
@@ -35,7 +37,11 @@
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
+- PR #1345: Removing deprecated should_downcast argument
+- PR #1362: device_buffer in UMAP + Sparse prims
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -50,8 +56,9 @@
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
 - PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet
 - PR #1337: Fix k-means init from preset cluster centers
-- PR #1354  Fix SVM gamma=scale implementation
+- PR #1354: Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
+- PR #1361: Improve SMO error handling
 
 # cuML 0.10.0 (16 Oct 2019)
 
