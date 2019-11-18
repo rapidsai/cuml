@@ -74,31 +74,31 @@ random_vector(T *vector,
   else {
     random.normal<T>(vector, size, minimum, maximum, stream);
   }
-
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
-long start, end;
-struct timeval timecheck;
-double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
-       PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
-       TreeBuildingKernel_time = 0, ClearKernel2_time = 0,
-       SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
-       Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
+#define TIMER_INIT                                                             \
+  long start, end;                                                             \
+  struct timeval timecheck;                                                    \
+  double PCATime = 0, SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,\
+         PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,\
+         TreeBuildingKernel_time = 0, ClearKernel2_time = 0,                   \
+         SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0, \
+         Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
 
 // To silence warnings
 
 #define START_TIMER                                                         \
   if (verbose) {                                                            \
     gettimeofday(&timecheck, NULL);                                         \
-    start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
+    start = (double)timecheck.tv_sec * 1000.0 + (double)timecheck.tv_usec / 1000.0; \
   }
 
 #define END_TIMER(add_onto)                                               \
   if (verbose) {                                                          \
     gettimeofday(&timecheck, NULL);                                       \
-    end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
+    end = (double)timecheck.tv_sec * 1000.0 + (double)timecheck.tv_usec / 1000.0; \
     add_onto += (end - start);                                            \
   }
 
@@ -109,9 +109,11 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
        ClearKernel2_time + SummarizationKernel_time + SortKernel_time +       \
        RepulsionTime + Reduction_time + attractive_time +                     \
-       IntegrationKernel_time) /                                              \
+       IntegrationKernel_time + PCATime) /                                    \
       100.0;                                                                  \
-    printf(                                                                   \
+    fprintf(stderr, "FUNCTION = SECONDS (%% CONTRIBUTION)\n"                  \
+      "-----------------------\n"                                             \
+      "PCATime = %.lf (%.lf)\n"                                               \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
       "NormalizeTime = %.lf (%.lf)\n"                                         \
@@ -127,8 +129,10 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
       "attractive_time  = %.lf (%.lf)\n"                                      \
       "IntegrationKernel_time = %.lf (%.lf)\n"                                \
       "TOTAL TIME = %.lf\n\n",                                                \
-      SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
-      DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
+      PCATime, PCATime / total,                                               \
+      SymmetrizeTime, SymmetrizeTime / total,                                 \
+      DistancesTime, DistancesTime / total,                                   \
+      NormalizeTime, NormalizeTime / total,                                   \
       PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \
       BoundingBoxKernel_time / total, ClearKernel1_time,                      \
       ClearKernel1_time / total, TreeBuildingKernel_time,                     \

@@ -106,6 +106,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   float *A;
   device_buffer<float> X_C_contiguous(d_alloc, stream);
 
+  TIMER_INIT;
+  START_TIMER;
   if (init == PCA_Intialization) {
     if (verbose) printf("[Info] Now performing PCA Intialization!\n");
 
@@ -170,7 +172,8 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   else {
     A = X;
   }
-
+  END_TIMER(PCATime);
+  
   START_TIMER;
   //---------------------------------------------------
   // Get distances
@@ -223,6 +226,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
 
   START_TIMER;
   //---------------------------------------------------  
+
   float *VAL = P;
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
