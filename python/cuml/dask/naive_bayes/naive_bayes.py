@@ -33,7 +33,6 @@ class MultinomialNB(object):
 
     def fit(self, X, y):
 
-
         self.label_binarizer_ = LabelBinarizer()
         Y = self.label_binarizer_.fit_transform(y)
 

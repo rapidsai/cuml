@@ -24,24 +24,30 @@ from cuml.preprocessing import LabelBinarizer
 class MultinomialNB(object):
 
     def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
+
         self.alpha = alpha
         self.fit_prior = fit_prior
         self.class_prior = class_prior
 
+        self.classes_ = None
+        self.n_classes_ = 0
+
         self.n_features_ = None
 
-    def fit(self, X, y, _partial=False, _classes=None):
+    def fit(self, X, y, classes=None, _sparse_labels=False):
 
-
-        label_binarizer = LabelBinarizer(sparse_output=True)
-
-        Y = label_binarizer.fit_transform(y)
+        if not _sparse_labels:
+            label_binarizer = LabelBinarizer(sparse_output=False)
+            Y = label_binarizer.fit_transform(y)
+            self.classes_ = label_binarizer.classes_
+            self.n_classes_ = label_binarizer.classes_.shape[0]
+        else:
+            Y = y
+            self.classes_ = classes
+            self.n_classes_ = classes.shape[0]
 
         self.n_features_ = X.shape[1]
         self._init_counters(Y.shape[1], self.n_features_)
-
-        self.classes_ = label_binarizer.classes_
-        self.n_classes_ = len(label_binarizer.classes_)
 
         self._count(X, Y)
         self._update_feature_log_prob(self.alpha)
@@ -59,7 +65,7 @@ class MultinomialNB(object):
         :param sample_weight:
         :return:
         """
-        pass
+        return self.fit(X, y, _classes=classes)
 
     def predict(self, X):
         jll = self._joint_log_likelihood(X)
@@ -75,14 +81,14 @@ class MultinomialNB(object):
 
         feature_count_ = X.T.dot(Y).T
 
-        self.feature_count_ += feature_count_.todense()
+        self.feature_count_ += feature_count_
         self.class_count_ += Y.sum(axis=0).reshape(self.n_classes_)
 
     def _update_class_log_prior(self, class_prior=None):
 
         if class_prior is not None:
 
-            if len(class_prior != self.n_classes):
+            if class_prior.shape[0] != self.n_classes:
                 raise ValueError("Number of classes must match number of priors")
 
             self.class_log_prior_ = cp.log(class_prior)
