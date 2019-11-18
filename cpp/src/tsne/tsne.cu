@@ -160,12 +160,12 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     A = X_C_contiguous.data();
 
     // Immediately free the buffers
-    components.resize(0, stream);
-    explained_var.resize(0, stream);
-    explained_var_ratio.resize(0, stream);
-    singular_vals.resize(0, stream);
-    mu.resize(0, stream);
-    noise_vars.resize(0, stream);
+    components.release(stream);
+    explained_var.release(stream);
+    explained_var_ratio.release(stream);
+    singular_vals.release(stream);
+    mu.release(stream);
+    noise_vars.release(stream);
   }
   else {
     A = X;
@@ -183,7 +183,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
 
   if (init == PCA_Intialization) {
-    X_C_contiguous.resize(0, stream);  // remove C contiguous layout
+    X_C_contiguous.release(stream);  // remove C contiguous layout
   }
 
   //---------------------------------------------------
@@ -216,7 +216,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                           perplexity_tol, n, n_neighbors, handle);
 
-  distances_.resize(0, stream);
+  distances_.release(stream);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -227,7 +227,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
   int *ROW = (int*)indices;
-  
+
   device_buffer<int> ROW_(d_alloc, stream);
   if (sizeof(long) < 2*sizeof(int)) {
     ROW_.resize(NNZ, stream);
@@ -237,9 +237,6 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
     workspace_size += NNZ * sizeof(int);
   }
 
-  // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix(ROW, COL, VAL, NNZ, n, n);
-
   int *row_sizes = NULL;
   if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization)) {
     row_sizes = (int*) embedding;
@@ -247,11 +244,11 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
   }
 
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
-                              early_exaggeration, &COO_Matrix,
+                              early_exaggeration, VAL, COL, ROW,
                               row_sizes, stream, handle);
 
   if (sizeof(long) < 2*sizeof(int))
-    ROW_.resize(0, stream);
+    ROW_.release(stream);
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);

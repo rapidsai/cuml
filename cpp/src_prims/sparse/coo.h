@@ -932,7 +932,9 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists,
                                 const int n,
                                 const int k,
-                                COO<math_t> *restrict out,
+                                math_t *restrict VAL,
+                                int *restrict COL,
+                                int *restrict ROW,
                                 int *restrict row_sizes,
                                 cudaStream_t stream,
                                 std::shared_ptr<deviceAllocator> d_alloc)
@@ -957,7 +959,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   CUDA_CHECK(cudaMemsetAsync(row_sizes1, 0, sizeof(int)*n*2, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2, out->cols);
+    knn_dists, knn_indices, n, k, row_sizes1, row_sizes2, COL);
   CUDA_CHECK(cudaPeekAtLastError());
 
   reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
@@ -986,7 +988,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (4) Perform final data + data.T operation
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, out->vals(), out->cols(), out->rows(), n, k);
+    edges, knn_dists, VAL, COL, ROW, n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
