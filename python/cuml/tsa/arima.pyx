@@ -92,8 +92,8 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                   double* d_vs,
                   double* d_params,
                   double* d_y_fc)
-    
-    void cpp_bic "bic" (
+
+    void cpp_aic "aic" (
         cumlHandle& handle,
         double* d_y,
         int num_batches,
@@ -106,7 +106,20 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         double* d_ma,
         double* ic)
 
-    void cpp_aic "aic" (
+    void cpp_aicc "aicc" (
+        cumlHandle& handle,
+        double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        double* ic)
+
+    void cpp_bic "bic" (
         cumlHandle& handle,
         double* d_y,
         int num_batches,
@@ -312,18 +325,27 @@ class ARIMAModel(Base):
                     <int> self.num_samples, <int> p, <int> d, <int> q,
                     <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
                     <double*> ic.data())
+        elif ic_type == "aicc":
+            cpp_aicc(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
+                    <int> self.num_samples, <int> p, <int> d, <int> q,
+                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                    <double*> ic.data())
         else:
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
 
         return ic
 
     @property
-    def bic(self):
-        return self._ic("bic")
-
-    @property
     def aic(self):
         return self._ic("aic")
+
+    @property
+    def aicc(self):
+        return self._ic("aicc")
+
+    @property
+    def bic(self):
+        return self._ic("bic")
 
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
