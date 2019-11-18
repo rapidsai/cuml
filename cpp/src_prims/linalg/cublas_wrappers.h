@@ -182,6 +182,143 @@ inline cublasStatus_t cublasgemm(cublasHandle_t handle,
 /** @} */
 
 /**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
+                                 cublasOperation_t transa,
+                                 cublasOperation_t transb, int m, int n, int k,
+                                 const T *alpha, const T *const Aarray[],
+                                 int lda, const T *const Barray[], int ldb,
+                                 const T *beta, T *Carray[], int ldc,
+                                 int batchCount, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgemmBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const float *alpha, const float *const Aarray[], int lda,
+  const float *const Barray[], int ldb, const float *beta, float *Carray[],
+  int ldc, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda,
+                            Barray, ldb, beta, Carray, ldc, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const double *alpha, const double *const Aarray[],
+  int lda, const double *const Barray[], int ldb, const double *beta,
+  double *Carray[], int ldc, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda,
+                            Barray, ldb, beta, Carray, ldc, batchCount);
+}
+/** @} */
+
+/**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const T *alpha, const T *const Aarray, int lda,
+  long long int strideA, const T *const Barray, int ldb, long long int strideB,
+  const T *beta, T *Carray, int ldc, long long int strideC, int batchCount,
+  cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const float *alpha, const float *const Aarray, int lda,
+  long long int strideA, const float *const Barray, int ldb,
+  long long int strideB, const float *beta, float *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const double *alpha, const double *const Aarray, int lda,
+  long long int strideA, const double *const Barray, int ldb,
+  long long int strideB, const double *beta, double *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+/** @} */
+
+/**
+ * @defgroup solverbatched cublas getrf/gettribatched calls
+ * @{
+ */
+
+template <typename T>
+cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                  T *const A[],    /*Device pointer*/
+                                  int lda, int *P, /*Device Pointer*/
+                                  int *info,       /*Device Pointer*/
+                                  int batchSize, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                         float *const A[], /*Device pointer*/
+                                         int lda, int *P,  /*Device Pointer*/
+                                         int *info,        /*Device Pointer*/
+                                         int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgetrfBatched(handle, n, A, lda, P, info, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                         double *const A[], /*Device pointer*/
+                                         int lda, int *P,   /*Device Pointer*/
+                                         int *info,         /*Device Pointer*/
+                                         int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgetrfBatched(handle, n, A, lda, P, info, batchSize);
+}
+
+template <typename T>
+cublasStatus_t cublasgetriBatched(cublasHandle_t handle, int n,
+                                  const T *const A[],    /*Device pointer*/
+                                  int lda, const int *P, /*Device pointer*/
+                                  T *const C[],          /*Device pointer*/
+                                  int ldc, int *info, int batchSize,
+                                  cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgetriBatched(
+  cublasHandle_t handle, int n, const float *const A[], /*Device pointer*/
+  int lda, const int *P,                                /*Device pointer*/
+  float *const C[],                                     /*Device pointer*/
+  int ldc, int *info, int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgetriBatched(
+  cublasHandle_t handle, int n, const double *const A[], /*Device pointer*/
+  int lda, const int *P,                                 /*Device pointer*/
+  double *const C[],                                     /*Device pointer*/
+  int ldc, int *info, int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
+}
+
+/** @} */
+
+/**
  * @defgroup geam cublas geam calls
  * @{
  */
