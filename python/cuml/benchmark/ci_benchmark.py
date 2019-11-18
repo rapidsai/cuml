@@ -185,7 +185,7 @@ if __name__ == '__main__':
                         help='The OS type to include in reports')
     parser.add_argument('--report_machine_name', type=str, default="",
                         help='The machine name to include in reports')
-    parser.add_argument('--n-reps', type=int, default=3)
+    parser.add_argument('--n_reps', type=int, default=3)
 
     args = parser.parse_args()
     invalidAlgoNames = (set(args.algo) - allAlgoNames)
