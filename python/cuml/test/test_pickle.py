@@ -126,7 +126,7 @@ def test_rf_regression_pickle(tmpdir, datatype, model, nrows, ncols, n_info):
     model.fit(X_train, y_train)
     cu_before_pickle_predict = np.asarray(model.predict(X_test))
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = np.asarray(cu_after_pickle_model.predict(X_test))
 
@@ -146,7 +146,7 @@ def test_rf_classification_pickle(tmpdir, datatype, model,
     model.fit(X_train, y_train)
     cu_before_pickle_predict = np.asarray(model.predict(X_test))
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = np.asarray(cu_after_pickle_model.predict(X_test))
 
@@ -390,9 +390,9 @@ def test_tsne_pickle(tmpdir):
     trust_before = trustworthiness(X, model_pickle.Y, 10)
 
     # Save model + embeddings
-    model, after_pickle_model = pickle_save_load(tmpdir, model_pickle)
+    model_pickle, after_pickled_model = pickle_save_load(tmpdir, model_pickle)
 
-    trust_after = trustworthiness(X, after_pickle_model.Y.to_pandas(), 10)
+    trust_after = trustworthiness(X, after_pickled_model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
 
