@@ -55,6 +55,7 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_xform(model, y):
+        # @todo: Support sparse outputs
         xform_in = cp.asarray(y.to_gpu_array(), dtype=cp.int32)
         return cp_to_df(model.transform(xform_in))
 
@@ -87,8 +88,6 @@ class LabelBinarizer(object):
         classes = cudf.concat(classes).unique().to_gpu_array()
 
         self.classes_ = cp.asarray(classes, dtype=cp.int32)
-
-        print("Classes: " + str(self.classes_))
 
         self.model = LB(**self.kwargs).fit(self.classes_)
 
