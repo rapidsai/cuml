@@ -67,7 +67,7 @@ umap_model = dict(
 )
 
 
-def pickle_save_load(tmpdir, model):
+def pickle_save_load(tmpdir, model, del_model=True):
     pickle_file = tmpdir.join('cu_model.pickle')
 
     try:
@@ -77,10 +77,15 @@ def pickle_save_load(tmpdir, model):
         pf.close()
         pytest.fail(e)
 
+    del model
+
     with open(pickle_file, 'rb') as pf:
         cu_after_pickle_model = pickle.load(pf)
 
-    return cu_after_pickle_model
+    if del_model:
+        return None, cu_after_pickle_model
+    else:
+        return cu_after_pickle_model
 
 
 def make_dataset(datatype, nrows, ncols, n_info):
@@ -104,9 +109,7 @@ def test_regressor_pickle(tmpdir, datatype, model, data_size):
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -124,9 +127,7 @@ def test_solver_pickle(tmpdir, datatype, model, data_size):
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -144,9 +145,7 @@ def test_cluster_pickle(tmpdir, datatype, model, data_size):
     model.fit(X_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -164,9 +163,7 @@ def test_decomposition_pickle(tmpdir, datatype, model, data_size):
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
@@ -189,9 +186,7 @@ def test_umap_pickle(tmpdir, datatype, model):
     cu_trust_before = trustworthiness(X_train,
                                       cu_before_pickle_transform, 10)
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_embed = cu_after_pickle_model.embedding_
 
@@ -221,9 +216,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, model, data_size):
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
@@ -241,9 +234,7 @@ def test_neighbors_pickle(tmpdir, datatype, model, data_info):
     model.fit(X_train)
     D_before, I_before = model.kneighbors(X_test, k=k)
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
 
@@ -265,7 +256,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     nrows, ncols, n_info, k = data_info
     model = cuml.neighbors.NearestNeighbors()
 
-    unpickled = pickle_save_load(tmpdir, model)
+    model, unpickled = pickle_save_load(tmpdir, model)
 
     state = unpickled.__dict__
 
@@ -278,11 +269,9 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
     X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
-    model.fit(X_train)
+    unpickled.fit(X_train)
 
-    unpickled = pickle_save_load(tmpdir, model)
-
-    del model
+    model, unpickled = pickle_save_load(tmpdir, unpickled)
 
     state = unpickled.__dict__
 
@@ -299,7 +288,7 @@ def test_neighbors_mg_fails(tmpdir, datatype):
     model = cuml.neighbors.NearestNeighbors()
     model.n_indices = 2
 
-    pickle_save_load(tmpdir, model)
+    model, pickle_save_load(tmpdir, model)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -312,9 +301,7 @@ def test_dbscan_pickle(tmpdir, datatype, model, data_size):
 
     cu_before_pickle_predict = model.fit_predict(X_train).to_array()
 
-    cu_after_pickle_model = pickle_save_load(tmpdir, model)
-
-    del model
+    model, cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.fit_predict(
                               X_train
@@ -331,11 +318,8 @@ def test_tsne_pickle(tmpdir):
 
     model = cuml.manifold.TSNE(n_components=2, random_state=199)
     # Pickle the model
-    model_pickle = pickle_save_load(tmpdir, model)
-
+    model, model_pickle = pickle_save_load(tmpdir, model)
     model_params = model_pickle.__dict__
-    if "handle" in model_params:
-        del model_params["handle"]
 
     # Confirm params in model are identical
     new_keys = set(model_params.keys())
@@ -347,13 +331,12 @@ def test_tsne_pickle(tmpdir):
     assert(len(new_keys) == 0)
 
     # Transform data
-    model.fit(X)
-    trust_before = trustworthiness(X, model.Y, 10)
+    model_pickle.fit(X)
+    trust_before = trustworthiness(X, model_pickle.Y, 10)
 
     # Save model + embeddings
-    after_pickle_model = pickle_save_load(tmpdir, model)
+    model, after_pickle_model = pickle_save_load(tmpdir, model_pickle)
 
-    del model
     trust_after = trustworthiness(X, after_pickle_model.Y.to_pandas(), 10)
 
     assert trust_before == trust_after
@@ -371,6 +354,6 @@ def test_svm_pickle(tmpdir, datatype):
     y_train = (y_train > 0).astype(datatype)
 
     model.fit(X_train, y_train)
-    model_pickle = pickle_save_load(tmpdir, model)
+    model_pickle = pickle_save_load(tmpdir, model, del_model=False)
     compare_svm(model, model_pickle, X_train, y_train, cmp_sv=0,
                 dcoef_tol=0)
