@@ -574,6 +574,9 @@ def ll_gf(num_batches, nobs, num_parameters, order,
 
     grad = np.zeros(len(x))
 
+    # Get current numpy error level and change all to 'raise'
+    err_lvl = np.seterr(all='raise')
+
     assert (len(x) / num_parameters) == float(num_batches)
     for i in range(num_parameters):
         fd[i] = h
@@ -589,7 +592,6 @@ def ll_gf(num_batches, nobs, num_parameters, order,
         ll_b_mh = ll_f(num_batches, nobs, order, y, x-fdph,
                        trans=trans, handle=handle)
 
-        np.seterr(all='raise')
         # first derivative second order accuracy
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
 
@@ -599,6 +601,9 @@ def ll_gf(num_batches, nobs, num_parameters, order,
             assert len(grad[i::num_parameters]) == len(grad_i_b)
             # Distribute the result to all batches
             grad[i::num_parameters] = grad_i_b
+
+    # Reset numpy error levels
+    np.seterr(**err_lvl)
 
     nvtx_range_pop()
     return grad
