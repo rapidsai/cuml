@@ -97,7 +97,6 @@ def train_test_split(
         Partitioned dataframes. If `y` was provided as a column name, the
         column was dropped from the `X`s
     """
-    # TODO Use cupy indexing to support non cudf input types for X, y
     if isinstance(y, str):
         # Use the column with name `str` as y
         if isinstance(X, cudf.DataFrame):
@@ -109,7 +108,7 @@ def train_test_split(
                              string")
 
     # todo: this check will be replaced with upcoming improvements
-    # to input_utils
+    # to input_utils with PR #1379
     if not cuda.is_cuda_array(X) and not isinstance(X, cudf.DataFrame) \
             and isinstance(y, cudf.Series):
         raise TypeError("X needs to be either a cuDF DataFrame, Series or \
