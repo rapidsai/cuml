@@ -62,8 +62,8 @@ cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of their approa
 article t-SNE-CUDA: GPU-Accelerated t-SNE and its Applications to Modern Data
 (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit(const cumlHandle &handle, float *X, float *Y, const int n,
-              const int p, const int dim = 2, int n_neighbors = 1023,
+void TSNE_fit(const cumlHandle &handle, float *X, float *Y,
+              const size_t n, const size_t p, const size_t dim = 2, size_t n_neighbors = 1023,
               const float theta = 0.5f, const float epssq = 0.0025,
               float perplexity = 50.0f, const int perplexity_max_iter = 100,
               const float perplexity_tol = 1e-5,
