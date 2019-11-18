@@ -23,6 +23,7 @@
 #include <cub/cub.cuh>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "linalg/binary_op.h"
@@ -889,9 +890,20 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
 }
 
 TYPED_TEST(SmoSolverTest, MemoryLeak) {
-  std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
+  // We measure that we have the same amount of free memory available on the GPU
+  // before and after we call SVM. This can help catch memory leaks, but it is
+  // not 100% sure. Small allocations might be pooled together by cudaMalloc,
+  // and some of those would be missed by this method.
+  enum class ThrowException { Yes, No };
+  std::vector<std::pair<blobInput, ThrowException>> data{
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 1000},
-     smoOutput<TypeParam>{34, {}, 0.0681913, {}, {}, {}}}};
+     ThrowException::No},
+    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 400, 5, 10}, 1000, 1000},
+     ThrowException::Yes}};
+  // For the second set of input parameters  training will fail, some kernel
+  // function values would be 1e400 or larger, which does not fit fp64.
+  // This will lead to NaN diff in SmoSolver, which whill throw an exception
+  // to stop fitting.
   size_t free1, total, free2;
   CUDA_CHECK(cudaMemGetInfo(&free1, &total));
   auto allocator = this->handle.getDeviceAllocator();
@@ -905,20 +917,32 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
                this->handle.getImpl().getCublasHandle(), this->stream);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
-                                    this->stream, p.n_rows);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    CUDA_CHECK(cudaMemGetInfo(&free2, &total));
-    float delta = (free1 - free2);
-    EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+
+    if (d.second == ThrowException::Yes) {
+      // We want to check whether we leak any memory while we unwind the stack
+      EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()),
+                   MLCommon::Exception);
+    } else {
+      svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+      device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
+                                      this->stream, p.n_rows);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+      float delta = (free1 - free2);
+      // Just to make sure that we measure any mem consumption at all:
+      // we check if we see the memory consumption of x[n_rows*n_cols].
+      // If this error is triggered, increasing the test size might help to fix
+      // it (one could additionally control the exec time by the max_iter arg to
+      // SVC).
+      EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    }
   }
   CUDA_CHECK(cudaMemGetInfo(&free2, &total));
   float delta = (free1 - free2);
   EXPECT_EQ(delta, 0);
 }
 
-};  // namespace SVM
+};  // end namespace SVM
 };  // end namespace ML
