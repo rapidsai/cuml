@@ -15,7 +15,7 @@
 #
 """Command-line ML benchmark runner"""
 
-from cuml.benchmark import algorithms, runners
+from cuml.benchmark import algorithms, datagen, runners
 import numpy as np
 import json
 
@@ -52,6 +52,7 @@ def extract_param_overrides(params_to_sweep):
 
 if __name__ == '__main__':
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(
         prog='run_benchmarks',
@@ -103,6 +104,13 @@ if __name__ == '__main__':
         default=2,
         help='Number of different sizes to test',
     )
+    parser.add_argument(
+        '--num-rows',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Shortcut for --min-rows N --max-rows N --num-sizes 1'
+    )
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument(
         '--quiet', '-q', action='store_false', dest='verbose', default=True
@@ -143,6 +151,16 @@ if __name__ == '__main__':
         help='Throw exception on a failed benchmark',
     )
     parser.add_argument(
+        '--print-algorithms',
+        action='store_true',
+        help='Print the list of all available algorithms and exit',
+    )
+    parser.add_argument(
+        '--print-datasets',
+        action='store_true',
+        help='Print the list of all available datasets and exit',
+    )
+    parser.add_argument(
         'algorithms',
         nargs='*',
         help='List of algorithms to run, or omit to run all',
@@ -153,13 +171,27 @@ if __name__ == '__main__':
         default=1)
     args = parser.parse_args()
 
+    if args.print_algorithms:
+        for algo in algorithms.all_algorithms():
+            print(algo.name)
+        sys.exit()
+
+    if args.print_datasets:
+        for dataset in datagen.all_datasets().keys():
+            print(dataset)
+        sys.exit()
+
     bench_rows = np.logspace(
         np.log10(args.min_rows),
         np.log10(args.max_rows),
         num=args.num_sizes,
         dtype=np.int32,
     )
+
     bench_dims = args.input_dimensions
+
+    if args.num_rows is not None:
+        bench_rows = [args.num_rows]
 
     if args.num_features > 0:
         bench_dims = [args.num_features]

@@ -26,6 +26,7 @@ import sys
 import sysconfig
 import versioneer
 import warnings
+import numpy
 
 install_requires = [
     'numba',
@@ -108,6 +109,7 @@ include_dirs = ['../cpp/src',
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
                 cuda_include_dir,
+                numpy.get_include(),
                 os.path.dirname(sysconfig.get_path("include"))]
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
@@ -122,6 +124,7 @@ if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
