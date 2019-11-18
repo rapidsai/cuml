@@ -28,30 +28,25 @@ namespace TSNE {
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-template <typename Index_t = int>
-static __global__ void sigmas_kernel(const float *restrict D,
-                                     float *restrict P,
-                                     const float perplexity,
-                                     const float desired_entropy,
-                                     const int epochs,
-                                     const float tol,
-                                     const Index_t n,
-                                     const Index_t k)
-{
+__global__ void sigmas_kernel(const float *restrict D,
+                              float *restrict P, const float perplexity,
+                              const float desired_entropy,
+                              const int epochs,
+                              const float tol, const int n, const int k) {
   // For every item in row
-  const Index_t i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  const Index_t ik = i * k;
+  const int ik = i * k;
 
-  for (Index_t step = 0; step < epochs; step++)
+  for (int step = 0; step < epochs; step++)
   {
     float sum_Pi = FLT_EPSILON;
 
     // Exponentiate to get guassian
-    for (Index_t j = 0; j < k; j++) {
+    for (int j = 0; j < k; j++) {
       P[ik + j] = __expf(-D[ik + j] * beta);
       sum_Pi += P[ik + j];
     }
@@ -59,7 +54,7 @@ static __global__ void sigmas_kernel(const float *restrict D,
     // Normalize
     float sum_disti_Pi = 0;
     const float div = __fdividef(1.0f, sum_Pi);
-    for (Index_t j = 0; j < k; j++)
+    for (int j = 0; j < k; j++)
     {
       P[ik + j] *= div;
       sum_disti_Pi += D[ik + j] * P[ik + j];
@@ -90,24 +85,20 @@ static __global__ void sigmas_kernel(const float *restrict D,
 /****************************************/
 /* Finds the best guassian bandwith for
     each row in the dataset             */
-template <typename Index_t = int>
-static __global__ void sigmas_kernel_2d(const float *restrict D,
-                                        float *restrict P,
-                                        const float perplexity,
-                                        const float desired_entropy,
-                                        const int epochs,
-                                        const float tol,
-                                        const Index_t n)
-{
+__global__ void sigmas_kernel_2d(const float *restrict D,
+                                 float *restrict P, const float perplexity,
+                                 const float desired_entropy,
+                                 const int epochs,
+                                 const float tol, const int n) {
   // For every item in row
-  const Index_t i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  const Index_t ik = i * 2;
+  const int ik = i * 2;
 
-  for (Index_t step = 0; step < epochs; step++) {
+  for (int step = 0; step < epochs; step++) {
     // Exponentiate to get guassian
     P[ik] = __expf(-D[ik] * beta);
     P[ik + 1] = __expf(-D[ik + 1] * beta);
@@ -142,15 +133,10 @@ static __global__ void sigmas_kernel_2d(const float *restrict D,
 }
 
 /****************************************/
-template <typename Index_t = int>
-void perplexity_search(const float *restrict distances,
-                       float *restrict P,
-                       const float perplexity,
-                       const int epochs,
-                       const float tol,
-                       const Index_t n,
-                       const Index_t dim,
-                       const cumlHandle &handle)
+void perplexity_search(const float *restrict distances, float *restrict P,
+                        const float perplexity, const int epochs,
+                        const float tol, const int n, const int dim,
+                        const cumlHandle &handle)
 {
   const float desired_entropy = logf(perplexity);
   auto d_alloc = handle.getDeviceAllocator();
@@ -168,28 +154,22 @@ void perplexity_search(const float *restrict distances,
 /****************************************/
 /* Compute attractive forces in O(uN) time.
     Uses only nearest neighbors         */
-template <typename Index_t = int>
-static __global__ void attractive_kernel(const float *restrict VAL,
-                                         const int *restrict COL,
-                                         const int *restrict ROW,
-                                         const float *restrict Y,
-                                         const float *restrict norm,
-                                         float *restrict attract,
-                                         const Index_t NNZ,
-                                         const Index_t n,
-                                         const Index_t dim,
-                                         const float df_power,  // -(df + 1)/2)
-                                         const float recp_df)   // 1 / df
+__global__ void attractive_kernel(
+  const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
+  const float *restrict Y, const float *restrict norm, float *restrict attract,
+  const int NNZ, const int n, const int dim,
+  const float df_power,  // -(df + 1)/2)
+  const float recp_df)   // 1 / df
 {
-  const Index_t index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
-  const Index_t i = ROW[index], j = COL[index];
+  const int i = ROW[index], j = COL[index];
 
   // Euclidean distances
   // TODO: can provide any distance ie cosine
   // #862
   float d = 0;
-  for (Index_t k = 0; k < dim; k++) d += Y[k * n + i] * Y[k * n + j];
+  for (int k = 0; k < dim; k++) d += Y[k * n + i] * Y[k * n + j];
   const float euclidean_d = -2.0f * d + norm[i] + norm[j];
 
   // TODO: Calculate Kullback-Leibler divergence
@@ -198,28 +178,21 @@ static __global__ void attractive_kernel(const float *restrict VAL,
     VAL[index] * __powf((1.0f + euclidean_d * recp_df), df_power);  // P*Q
 
   // Apply forces
-  for (Index_t k = 0; k < dim; k++)
+  for (int k = 0; k < dim; k++)
     atomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
 }
-
 
 /****************************************/
 /* Special case when dim == 2. Can speed
     up many calculations up             */
-template <typename Index_t = int>
-static __global__ void attractive_kernel_2d(const float *restrict VAL,
-                                            const int *restrict COL,
-                                            const int *restrict ROW,
-                                            const float *restrict Y1,
-                                            const float *restrict Y2,
-                                            const float *restrict norm,
-                                            float *restrict attract1,
-                                            float *restrict attract2,
-                                            const Index_t NNZ)
-{
-  const Index_t index = (blockIdx.x * blockDim.x) + threadIdx.x;
+__global__ void attractive_kernel_2d(
+  const float *restrict VAL, const int *restrict COL, const int *restrict ROW,
+  const float *restrict Y1, const float *restrict Y2,
+  const float *restrict norm, float *restrict attract1,
+  float *restrict attract2, const int NNZ) {
+  const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
-  const Index_t i = ROW[index], j = COL[index];
+  const int i = ROW[index], j = COL[index];
 
   // Euclidean distances
   // TODO: can provide any distance ie cosine
@@ -236,22 +209,14 @@ static __global__ void attractive_kernel_2d(const float *restrict VAL,
   atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
-
 /****************************************/
-template <typename Index_t = int>
-void attractive_forces(const float *restrict VAL,
-                       const int *restrict COL,
-                       const int *restrict ROW,
-                       const float *restrict Y,
-                       const float *restrict norm,
-                       float *restrict attract,
-                       const Index_t NNZ,
-                       const Index_t n,
-                       const Index_t dim,
+void attractive_forces(const float *restrict VAL, const int *restrict COL,
+                       const int *restrict ROW, const float *restrict Y,
+                       const float *restrict norm, float *restrict attract,
+                       const int NNZ, const int n, const int dim,
                        const float df_power,  // -(df + 1)/2)
                        const float recp_df,   // 1 / df
-                       cudaStream_t stream)
-{
+                       cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(float) * n * dim, stream));
 
   // TODO: Calculate Kullback-Leibler divergence
@@ -269,30 +234,25 @@ void attractive_forces(const float *restrict VAL,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
 /****************************************/
 /* Computes repulsive forces in pseudo-O(N^2)
     time where many of the math ops are
     made considerably faster.           */
-template <typename Index_t = int>
-static __global__ void repulsive_kernel(const float *restrict Y,
-                                        float *restrict repel,
-                                        const float *restrict norm,
-                                        float *restrict Z_sum1,
-                                        float *restrict Z_sum2,
-                                        const Index_t n,
-                                        const Index_t dim,
-                                        const float df_power,  // -(df + 1)/2)
-                                        const float recp_df)   // 1 / df
+__global__ void repulsive_kernel(const float *restrict Y, float *restrict repel,
+                                 const float *restrict norm,
+                                 float *restrict Z_sum1, float *restrict Z_sum2,
+                                 const int n, const int dim,
+                                 const float df_power,  // -(df + 1)/2)
+                                 const float recp_df)   // 1 / df
 {
-  const Index_t j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
-  const Index_t i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (j >= i || i >= n || j >= n) return;
 
   // Euclidean distances
   // TODO: can provide any distance ie cosine
   float d = 0;
-  for (Index_t k = 0; k < dim; k++) d += Y[k * n + i] * Y[k * n + j];
+  for (int k = 0; k < dim; k++) d += Y[k * n + i] * Y[k * n + j];
   const float euclidean_d = -2.0f * d + norm[i] + norm[j];
 
   // Q and Q^2
@@ -300,7 +260,7 @@ static __global__ void repulsive_kernel(const float *restrict Y,
   const float Q2 = Q * Q;
 
   // Apply forces
-  for (Index_t k = 0; k < dim; k++) {
+  for (int k = 0; k < dim; k++) {
     const float force = Q2 * (Y[k * n + j] - Y[k * n + i]);
     atomicAdd(&repel[k * n + i], force);
     atomicAdd(&repel[k * n + j], force);
@@ -313,22 +273,16 @@ static __global__ void repulsive_kernel(const float *restrict Y,
     atomicAdd(&Z_sum2[i], Q);
 }
 
-
 /****************************************/
 /* Special case when dim == 2. Much faster
     since calculations are streamlined. */
-template <typename Index_t = int>
-static __global__ void repulsive_kernel_2d(const float *restrict Y1,
-                                           const float *restrict Y2,
-                                           float *restrict repel1,
-                                           float *restrict repel2,
-                                           const float *restrict norm,
-                                           float *restrict Z_sum1,
-                                           float *restrict Z_sum2,
-                                           const Index_t n)
-{
-  const Index_t j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
-  const Index_t i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+__global__ void repulsive_kernel_2d(
+  const float *restrict Y1, const float *restrict Y2, float *restrict repel1,
+  float *restrict repel2, const float *restrict norm, float *restrict Z_sum1,
+  float *restrict Z_sum2, const int n) {
+  const int j =
+    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (j >= i || i >= n || j >= n) return;
 
   // Euclidean distances
@@ -356,18 +310,13 @@ static __global__ void repulsive_kernel_2d(const float *restrict Y1,
     atomicAdd(&Z_sum2[i], Q);
 }
 
-
 /****************************************/
-template <typename Index_t = int, int TPB_X = 32, int TPB_Y = 32>
-float repulsive_forces(const float *restrict Y,
-                       float *restrict repel,
-                       const float *restrict norm,
-                       float *restrict Z_sum,
-                       const Index_t n,
-                       const Index_t dim,
+template <int TPB_X = 32, int TPB_Y = 32>
+float repulsive_forces(const float *restrict Y, float *restrict repel,
+                       const float *restrict norm, float *restrict Z_sum,
+                       const int n, const int dim,
                        const float df_power,  // -(df + 1)/2)
-                       const float recp_df, cudaStream_t stream)
-{
+                       const float recp_df, cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(Z_sum, 0, sizeof(float) * 2 * n, stream));
   CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(float) * n * dim, stream));
 
@@ -395,29 +344,21 @@ float repulsive_forces(const float *restrict Y,
           (Z + (float)n));  // Notice + n since diagonal of repulsion sums to n
 }
 
-
 /****************************************/
 /* Applys or integrates all forces. Uses
     more gains and contrains the output
     for output stability                */
-template <typename Index_t = int>
-static __global__ void apply_kernel(float *restrict Y,
-                                    float *restrict velocity,
-                                    const float *restrict attract,
-                                    const float *restrict repel,
-                                    float *restrict means,
-                                    float *restrict gains,
-                                    const float Z,  // sum(Q)
-                                    const float learning_rate,
-                                    const float C,  // constant from T-Dist Degrees of Freedom
-                                    const float momentum,
-                                    const Index_t SIZE,  // SIZE = n*dim
-                                    const Index_t n,
-                                    const float min_gain,
-                                    float *restrict gradient,
-                                    const bool check_convergence)
-{
-  const Index_t index = (blockIdx.x * blockDim.x) + threadIdx.x;
+__global__ void apply_kernel(
+  float *restrict Y, float *restrict velocity, const float *restrict attract,
+  const float *restrict repel, float *restrict means, float *restrict gains,
+  const float Z,  // sum(Q)
+  const float learning_rate,
+  const float C,  // constant from T-Dist Degrees of Freedom
+  const float momentum,
+  const int SIZE,  // SIZE = n*dim
+  const int n, const float min_gain, float *restrict gradient,
+  const bool check_convergence) {
+  const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= SIZE) return;
 
   const float dy = C * (attract[index] + Z * repel[index]);
@@ -441,23 +382,16 @@ static __global__ void apply_kernel(float *restrict Y,
 }
 
 /****************************************/
-template <typename Index_t = int, int TPB_X = 32, int TPB_Y = 32>
-float apply_forces(float *restrict Y,
-                   float *restrict velocity,
-                   const float *restrict attract,
-                   const float *restrict repel,
-                   float *restrict means,
-                   float *restrict gains,
+template <int TPB_X = 32, int TPB_Y = 32>
+float apply_forces(float *restrict Y, float *restrict velocity,
+                   const float *restrict attract, const float *restrict repel,
+                   float *restrict means, float *restrict gains,
                    const float Z,  // sum(Q)
                    const float learning_rate,
                    const float C,  // constant from T-dist
-                   const float momentum,
-                   const Index_t dim,
-                   const Index_t n,
-                   const float min_gain,
-                   float *restrict gradient,
-                   const bool check_convergence,
-                   cudaStream_t stream)
+                   const float momentum, const int dim, const int n,
+                   const float min_gain, float *restrict gradient,
+                   const bool check_convergence, cudaStream_t stream)
 {
   if (check_convergence)
     CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(float) * n * dim, stream));

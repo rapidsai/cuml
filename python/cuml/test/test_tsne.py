@@ -51,7 +51,7 @@ def test_tsne(name, method, init):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=1, learning_rate=2+i,
+        tsne = TSNE(2, random_state=i, verbose=0, learning_rate=2+i,
                     method=method, init=init)
 
         # Reuse

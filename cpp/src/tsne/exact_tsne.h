@@ -46,34 +46,24 @@ namespace TSNE {
  * @input param init: Intialization type using IntializationType enum
  * @input param workspace_size: How much memory was saved.
  */
-template <typename Index_t = int>
-void Exact_TSNE(float *VAL,
-                const int *COL,
-                const int *ROW,
-                const Index_t NNZ,
-                const cumlHandle &handle,
-                float *Y,
-                const Index_t n,
-                const Index_t dim,
+void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
+                const cumlHandle &handle, float *Y, const int n, const int dim,
                 const float early_exaggeration = 12.0f,
-                const int exaggeration_iter = 250,
-                const float min_gain = 0.01f,
+                const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
-                const int max_iter = 1000,
-                const float min_grad_norm = 1e-7,
-                const float pre_momentum = 0.5,
-                const float post_momentum = 0.8,
-                const long long random_state = -1,
-                const bool verbose = true,
+                const int max_iter = 1000, const float min_grad_norm = 1e-7,
+                const float pre_momentum = 0.5, const float post_momentum = 0.8,
+                const long long random_state = -1, const bool verbose = true,
                 const IntializationType init = Random_Intialization,
-                uint64_t workspace_size = 0)
+                int workspace_size = 0)
 {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
   // Intialize embeddings
-  if (init == Random_Intialization) {
+  if (init == Random_Intialization)
+  {
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
   }
 
@@ -81,30 +71,21 @@ void Exact_TSNE(float *VAL,
   // Allocate space
   //---------------------------------------------------
   if (verbose) printf("[Info] Now allocating memory for TSNE.\n");
+  float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  float *Z_sum = (float *)d_alloc->allocate(sizeof(float) * 2 * n, stream);
+  float *means = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
 
-  device_buffer<float> norm_(d_alloc, stream, n);
-  float *norm = norm_.data();
-  device_buffer<float> Z_sum_(d_alloc, stream, 2 * n);
-  float *Z_sum = Z_sum_.data();
-  device_buffer<float> means_(d_alloc, stream, dim);
-  float *means = means_.data();
+  float *attract = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
+  float *repel = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
 
-  device_buffer<float> attract_(d_alloc, stream, n * dim);
-  float *attract = attract_.data();
-  device_buffer<float> repel_(d_alloc, stream, n * dim);
-  float *repel = repel_.data();
-
-  device_buffer<float> velocity_(d_alloc, stream, n * dim);
-  float *velocity = velocity_.data();
+  float *velocity = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
   CUDA_CHECK(cudaMemsetAsync(velocity, 0, sizeof(float) * n * dim, stream));
 
-  device_buffer<float> gains_(d_alloc, stream, n * dim);
-  float *gains = gains_.data();
+  float *gains = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
   thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains);
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
-  device_buffer<float> gradient_(d_alloc, stream, n * dim);
-  float *gradient = gradient_.data();
+  float *gradient = (float *)d_alloc->allocate(sizeof(float) * n * dim, stream);
   //---------------------------------------------------
 
   // Calculate degrees of freedom
@@ -115,7 +96,7 @@ void Exact_TSNE(float *VAL,
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %lu megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
 
   //
   if (verbose) printf("[Info] Start gradient updates!\n");
@@ -165,6 +146,16 @@ void Exact_TSNE(float *VAL,
     }
   }
 
+  d_alloc->deallocate(norm, sizeof(float) * n, stream);
+  d_alloc->deallocate(Z_sum, sizeof(float) * 2 * n, stream);
+  d_alloc->deallocate(means, sizeof(float) * dim, stream);
+
+  d_alloc->deallocate(attract, sizeof(float) * n * dim, stream);
+  d_alloc->deallocate(repel, sizeof(float) * n * dim, stream);
+
+  d_alloc->deallocate(velocity, sizeof(float) * n * dim, stream);
+  d_alloc->deallocate(gains, sizeof(float) * n * dim, stream);
+  d_alloc->deallocate(gradient, sizeof(float) * n * dim, stream);
 }
 
 }  // namespace TSNE

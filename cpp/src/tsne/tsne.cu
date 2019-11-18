@@ -55,32 +55,16 @@ namespace ML {
  * @input param init: Intialization type using IntializationType enum
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-template <typename Index_t>
-inline static void TSNE_fit_dispatch(const cumlHandle &handle,
-                                     float *X,
-                                     float *embedding,
-                                     const Index_t n,
-                                     const Index_t p,
-                                     const Index_t dim,
-                                     Index_t n_neighbors,
-                                     const float theta,
-                                     const float epssq,
-                                     float perplexity,
-                                     const int perplexity_max_iter,
-                                     const float perplexity_tol,
-                                     const float early_exaggeration,
-                                     const int exaggeration_iter,
-                                     const float min_gain,
-                                     const float pre_learning_rate,
-                                     const float post_learning_rate,
-                                     const int max_iter,
-                                     const float min_grad_norm,
-                                     const float pre_momentum,
-                                     const float post_momentum,
-                                     const long long random_state,
-                                     const bool verbose,
-                                     const IntializationType init,
-                                     bool barnes_hut)
+void TSNE_fit(const cumlHandle &handle, float *X, float *embedding, const int n,
+              const int p, const int dim, int n_neighbors, const float theta,
+              const float epssq, float perplexity,
+              const int perplexity_max_iter, const float perplexity_tol,
+              const float early_exaggeration, const int exaggeration_iter,
+              const float min_gain, const float pre_learning_rate,
+              const float post_learning_rate, const int max_iter,
+              const float min_grad_norm, const float pre_momentum,
+              const float post_momentum, const long long random_state,
+              const bool verbose, const IntializationType init, bool barnes_hut)
 {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
            embedding != NULL,
@@ -195,14 +179,8 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
   device_buffer<float> distances_(d_alloc, stream, n*n_neighbors);
   float *distances = distances_.data();
   device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
-
-  /*
-  [temp_indices_workspace] will be reused later. See line 234 when
-  [ROW] is intialized. Essentially sizeof(long) = 2*sizeof(int) on most
-  architectures, and so we can reuse this space for the symmetrization step.
-  */
-  long *temp_indices_workspace = indices_.data();
-  TSNE::get_distances(A, n, p, temp_indices_workspace, distances, n_neighbors, stream);
+  long *indices = indices_.data();
+  TSNE::get_distances(A, n, p, indices, distances, n_neighbors, stream);
 
   if (init == PCA_Intialization) {
     X_C_contiguous.resize(0, stream);  // remove C contiguous layout
@@ -228,8 +206,8 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
   }
 
-  uint64_t workspace_size = 0;
-  const Index_t NNZ = (2 * n * n_neighbors);
+  int workspace_size = 0;
+  const int NNZ = (2 * n * n_neighbors);
 
   device_buffer<float> P_(d_alloc, stream, NNZ);
   workspace_size += n*n_neighbors*sizeof(float);
@@ -249,17 +227,10 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
   device_buffer<int> COL_(d_alloc, stream, NNZ);
   int *COL = COL_.data();
 
-  /*
-  [temp_indices_workspace] is size(n*k) * sizeof(long) = 2*n*k * sizeof(int)
-  Instead of allocating row indices [ROW] for the COO matrix, we can re-use this space.
-  (1) Copy [temp_indices_workspace] into the new column indices [COL]
-  (2) Since [COL] has the indices, we can reuse [temp_indices_workspace] and store
-      the row indices.
-  */
-  int *ROW = (int*)temp_indices_workspace;
-
+  int *ROW = (int*)indices;
   device_buffer<int> ROW_(d_alloc, stream);
-  if (sizeof(long) < 2*sizeof(int)) {
+  if (sizeof(long) < 2*sizeof(int))
+  {
     ROW_.resize(NNZ, stream);
     ROW = ROW_.data();
   }
@@ -270,20 +241,19 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(ROW, COL, VAL, NNZ, n, n);
 
-  Index_t *row_sizes = NULL;
-  if ((sizeof(float)*n*dim >= sizeof(Index_t)*n*2) and (init == Random_Intialization)) {
-    row_sizes = (Index_t*) embedding;
-    workspace_size += 2*n*sizeof(Index_t);
+  int *row_sizes = NULL;
+  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization))
+  {
+    row_sizes = (int*) embedding;
+    workspace_size += 2*n*sizeof(int);
   }
 
-  // Now do P + P.T!
-  TSNE::symmetrize_perplexity(P, temp_indices_workspace, n, n_neighbors,
+  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors,
                               early_exaggeration, &COO_Matrix,
                               row_sizes, stream, handle);
 
-  if (sizeof(long) < 2*sizeof(int)) {
+  if (sizeof(long) < 2*sizeof(int))
     ROW_.resize(0, stream);
-  }
 
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
@@ -304,43 +274,6 @@ inline static void TSNE_fit_dispatch(const cumlHandle &handle,
   }
 
   if (verbose) printf("[Info] TSNE has completed!\n");
-}
-
-
-// Actual function handling TSNE_fit_dispatch
-void TSNE_fit(const cumlHandle &handle,
-              float *X,
-              float *embedding,
-              const size_t n,
-              const size_t p,
-              const size_t dim,
-              size_t n_neighbors,
-              const float theta,
-              const float epssq,
-              float perplexity,
-              const int perplexity_max_iter,
-              const float perplexity_tol,
-              const float early_exaggeration,
-              const int exaggeration_iter,
-              const float min_gain,
-              const float pre_learning_rate,
-              const float post_learning_rate,
-              const int max_iter,
-              const float min_grad_norm,
-              const float pre_momentum,
-              const float post_momentum,
-              const long long random_state,
-              const bool verbose,
-              const IntializationType init,
-              bool barnes_hut)
-{
-  ASSERT(2*n*p <= INT32_MAX, "Input larger than %d is currently unsupported!", INT32_MAX);
-  TSNE_fit_dispatch(handle, X, embedding,
-                    (int)n, (int)p, (int)dim, (int)n_neighbors, theta, epssq,
-                    perplexity, perplexity_max_iter, perplexity_tol, early_exaggeration,
-                    exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
-                    max_iter, min_grad_norm, pre_momentum, post_momentum, random_state,
-                    verbose, init, barnes_hut);
 }
 
 }  // namespace ML

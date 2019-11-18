@@ -48,29 +48,18 @@ namespace TSNE {
  * @input param init: Intialization type using IntializationType enum
  * @input param workspace_size: How much memory was saved.
  */
-template <typename Index_t = int>
-void Barnes_Hut(float *VAL,
-                const int *COL,
-                const int *ROW,
-                const Index_t NNZ,
-                const cumlHandle &handle,
-                float *Y,
-                const Index_t n,
-                const float theta = 0.5f,
-                const float epssq = 0.0025,
+void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
+                const cumlHandle &handle, float *Y, const int n,
+                const float theta = 0.5f, const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
-                const int exaggeration_iter = 250,
-                const float min_gain = 0.01f,
+                const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
-                const int max_iter = 1000,
-                const float min_grad_norm = 1e-7,
-                const float pre_momentum = 0.5,
-                const float post_momentum = 0.8,
-                const long long random_state = -1,
-                const bool verbose = true,
+                const int max_iter = 1000, const float min_grad_norm = 1e-7,
+                const float pre_momentum = 0.5, const float post_momentum = 0.8,
+                const long long random_state = -1, const bool verbose = true,
                 const IntializationType init = Random_Intialization,
-                uint64_t workspace_size = 0)
+                int workspace_size = 0)
 {
   float max_bounds = 100;
   auto d_alloc = handle.getDeviceAllocator();
@@ -78,18 +67,18 @@ void Barnes_Hut(float *VAL,
 
   // Get device properites
   //---------------------------------------------------
-  const Index_t blocks = getMultiProcessorCount();
+  const int blocks = getMultiProcessorCount();
 
-  Index_t nnodes = n * 2;
+  int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
   if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
 
-  const Index_t FOUR_NNODES = 4 * nnodes;
-  const Index_t FOUR_N = 4 * n;
+  const int FOUR_NNODES = 4 * nnodes;
+  const int FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
-  const Index_t NNODES = nnodes;
+  const int NNODES = nnodes;
   const float N_float = n;
   const float div_N = 1.0f / N_float;
 
@@ -119,12 +108,14 @@ void Barnes_Hut(float *VAL,
 
   // Tree Construction Intermmediate Arrays
   int *startl, *countl;
-  if (sizeof(float) >= sizeof(int)) {
+  if (sizeof(float) >= sizeof(int))
+  {
     startl = (int *) rep_forces;
     countl = startl + NNODES + 1;
     workspace_size += (NNODES + 1) * 2 * sizeof(int);
   }
-  else {
+  else
+  {
     device_buffer<int> startl_(d_alloc, stream, NNODES + 1);
     startl = startl_.data();
     device_buffer<int> countl_(d_alloc, stream, NNODES + 1);
@@ -142,14 +133,16 @@ void Barnes_Hut(float *VAL,
 
   // Shared reductions
   float *maxxl, *maxyl, *minxl, *minyl;
-  if (4*blocks*FACTOR1*sizeof(float) <= sizeof(int)*(NNODES + 1)) {
+  if (4*blocks*FACTOR1*sizeof(float) <= sizeof(int)*(NNODES + 1))
+  {
     maxxl = (float *) sortl + 0*blocks*FACTOR1;
     maxyl = (float *) sortl + 1*blocks*FACTOR1;
     minxl = (float *) sortl + 2*blocks*FACTOR1;
     minyl = (float *) sortl + 3*blocks*FACTOR1;
     workspace_size += 4*blocks*FACTOR1*sizeof(float);
   }
-  else {
+  else
+  {
     device_buffer<float> maxxl_(d_alloc, stream, blocks * FACTOR1);
     maxxl = maxxl_.data();
     device_buffer<float> maxyl_(d_alloc, stream, blocks * FACTOR1);
@@ -165,13 +158,15 @@ void Barnes_Hut(float *VAL,
   float *Z_norm = Z_norm_.data();
 
   float *norm, *norm_add1, *sums;
-  if ((NNODES + 1)*4*sizeof(int) >= (n + n + 2)*sizeof(float)) {
+  if ((NNODES + 1)*4*sizeof(int) >= (n + n + 2)*sizeof(float))
+  {
     norm = (float *) childl;
     norm_add1 = (float *) childl + n;
     sums = (float *) childl + 2 * n;
     workspace_size += (n + n + 2)*sizeof(float);
   }
-  else {
+  else
+  {
     device_buffer<float> norm_add1_(d_alloc, stream, n);
     norm_add1 = norm_add1_.data();
     device_buffer<float> norm_(d_alloc, stream, n);
@@ -193,7 +188,7 @@ void Barnes_Hut(float *VAL,
   float *YY = YY_.data();
 
   if (verbose)
-    printf("[Info] Saved GPU memory = %lu megabytes\n", workspace_size >> 20);
+    printf("[Info] Saved GPU memory = %d megabytes\n", workspace_size >> 20);
 
 
   // Intialize embeddings
@@ -208,16 +203,16 @@ void Barnes_Hut(float *VAL,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel<Index_t>, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel1<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel2<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::SummarizationKernel<Index_t>, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::SortKernel<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::RepulsionKernel<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::IntegrationKernel<Index_t>, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::mean_centre<Index_t>, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared);
+  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
+  cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
+  cudaFuncSetCacheConfig(TSNE::mean_centre, cudaFuncCachePreferL1);
 
   // Do gradient updates
   //---------------------------------------------------
