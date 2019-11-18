@@ -327,9 +327,9 @@ class ARIMAModel(Base):
                     <double*> ic.data())
         elif ic_type == "aicc":
             cpp_aicc(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
-                    <int> self.num_samples, <int> p, <int> d, <int> q,
-                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
-                    <double*> ic.data())
+                     <int> self.num_samples, <int> p, <int> d, <int> q,
+                     <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                     <double*> ic.data())
         else:
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
 
@@ -475,8 +475,6 @@ class ARIMAModel(Base):
                  <double*> d_y_fc_ptr)
 
         return d_y_fc
-
-
 
 
 @nvtx_range_wrap("estimate x0")
