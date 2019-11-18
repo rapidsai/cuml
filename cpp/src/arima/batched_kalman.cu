@@ -91,38 +91,42 @@ __device__ void MM_l(double* A, double* B, double* out) {
 
 //! Kalman loop. Each thread computes kalman filter for a single series and
 //! stores relevant matrices in registers.
-template <int N>
+template <int r>
 __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
-                                           double** T,      // \in R^(r x r)
-                                           double** Z,      // \in R^(1 x r)
-                                           double** RRT,    // \in R^(r x r)
-                                           double** P,      // \in R^(r x r)
-                                           double** alpha,  // \in R^(r x 1)
+                                           double* T,      // \in R^(r x r)
+                                           double* Z,      // \in R^(1 x r)
+                                           double* RRT,    // \in R^(r x r)
+                                           double* P,      // \in R^(r x r)
+                                           double* alpha,  // \in R^(r x 1)
                                            int num_batches, double* vs,
                                            double* Fs, double* sum_logFs) {
-  double l_RRT[N * N];
-  double l_T[N * N];
-  double l_Z[N];
-  double l_P[N * N];
-  double l_alpha[N];
-  double l_K[N];
-  double l_tmpA[N * N];
-  double l_tmpB[N * N];
+  double l_RRT[r * r];
+  double l_T[r * r];
+  double l_Z[r];
+  double l_P[r * r];
+  double l_alpha[r];
+  double l_K[r];
+  double l_tmpA[r * r];
+  double l_tmpB[r * r];
 
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (bid < num_batches) {
-    int r2 = N * N;
+    constexpr int r2 = r * r;
 
     // load GM into registers
-    for (int i = 0; i < r2; i++) {
-      l_RRT[i] = RRT[bid][i];
-      l_T[i] = T[bid][i];
-      l_P[i] = P[bid][i];
-    }
-    for (int i = 0; i < N; i++) {
-      l_Z[i] = Z[bid][i];
-      l_alpha[i] = alpha[bid][i];
+    {
+      int b_r_offset = bid * r;
+      int b_r2_offset = bid * r2;
+      for (int i = 0; i < r2; i++) {
+        l_RRT[i] = RRT[b_r2_offset + i];
+        l_T[i] = T[b_r2_offset + i];
+        l_P[i] = P[b_r2_offset + i];
+      }
+      for (int i = 0; i < r; i++) {
+        l_Z[i] = Z[b_r_offset + i];
+        l_alpha[i] = alpha[b_r_offset + i];
+      }
     }
 
     double bid_sum_logFs = 0.0;
@@ -136,21 +140,21 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
       // 3.
       // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
       // tmpA = P*Z.T
-      Mv_l<N>(l_P, l_Z, l_tmpA);
+      Mv_l<r>(l_P, l_Z, l_tmpA);
       // tmpB = T*tmpA
-      Mv_l<N>(l_T, l_tmpA, l_tmpB);
+      Mv_l<r>(l_T, l_tmpA, l_tmpB);
 
       // K = 1/Fs[it] * tmpB
       double _1_Fs = 1.0 / Fs[it + bid * nobs];
-      for (int i = 0; i < N; i++) {
+      for (int i = 0; i < r; i++) {
         l_K[i] = _1_Fs * l_tmpB[i];
       }
 
       // 4.
       // alpha = T*alpha + K*vs[it];
-      Mv_l<N>(l_T, l_alpha, l_tmpA);
+      Mv_l<r>(l_T, l_alpha, l_tmpA);
       double vs_it = vs[it + bid * nobs];
-      for (int i = 0; i < N; i++) {
+      for (int i = 0; i < r; i++) {
         l_alpha[i] = l_tmpA[i] + l_K[i] * vs_it;
       }
 
@@ -163,12 +167,12 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
       // tmpA[3] = K[1]*Z[1]
       // pytest [i % 3 for i in range(9)] -> 0 1 2 0 1 2 0 1 2
       // pytest [i//3 % 3 for i in range(9)] -> 0 0 0 1 1 1 2 2 2
-      for (int tid = 0; tid < N * N; tid++) {
-        l_tmpA[tid] = l_K[tid % N] * l_Z[(tid / N) % N];
+      for (int tid = 0; tid < r * r; tid++) {
+        l_tmpA[tid] = l_K[tid % r] * l_Z[(tid / r) % r];
       }
 
       // tmpA = T-tmpA
-      for (int tid = 0; tid < N * N; tid++) {
+      for (int tid = 0; tid < r * r; tid++) {
         l_tmpA[tid] = l_T[tid] - l_tmpA[tid];
       }
       // note: L = tmpA
@@ -179,20 +183,20 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
       // tmpB[1] = tmpA[2]
       // tmpB[2] = tmpA[1]
       // tmpB[3] = tmpA[3]
-      for (int tid = 0; tid < N; tid++) {
-        for (int i = 0; i < N; i++) {
-          l_tmpB[tid + i * N] = l_tmpA[tid * N + i];
+      for (int tid = 0; tid < r; tid++) {
+        for (int i = 0; i < r; i++) {
+          l_tmpB[tid + i * r] = l_tmpA[tid * r + i];
         }
       }
       // note: L.T = tmpB
 
       // P = T * P * L.transpose() + R * R.transpose();
       // tmpA = P*L.T
-      MM_l<N>(l_P, l_tmpB, l_tmpA);
+      MM_l<r>(l_P, l_tmpB, l_tmpA);
       // tmpB = T*tmpA;
-      MM_l<N>(l_T, l_tmpA, l_tmpB);
+      MM_l<r>(l_T, l_tmpA, l_tmpB);
       // P = tmpB + RRT
-      for (int tid = 0; tid < N * N; tid++) {
+      for (int tid = 0; tid < r * r; tid++) {
         l_P[tid] = l_tmpB[tid] + l_RRT[tid];
       }
     }
@@ -210,36 +214,36 @@ void batched_kalman_loop(double* ys, int nobs, const BatchedMatrix& T,
   dim3 numBlocks(MLCommon::ceildiv<int>(num_batches, numThreadsPerBlock.x), 1);
   if (r == 1) {
     batched_kalman_loop_kernel<1><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 2) {
     batched_kalman_loop_kernel<2><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 3) {
     batched_kalman_loop_kernel<3><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 4) {
     batched_kalman_loop_kernel<4><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 5) {
     batched_kalman_loop_kernel<5><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 6) {
     batched_kalman_loop_kernel<6><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 7) {
     batched_kalman_loop_kernel<7><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else if (r == 8) {
     batched_kalman_loop_kernel<8><<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      ys, nobs, T.data(), Z.data(), RRT.data(), P0.data(), alpha.data(),
-      num_batches, vs, Fs, sum_logFs);
+      ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
+      alpha.raw_data(), num_batches, vs, Fs, sum_logFs);
   } else {
     throw std::runtime_error(
       "ERROR: Currently unsupported number of parameters (r).");
