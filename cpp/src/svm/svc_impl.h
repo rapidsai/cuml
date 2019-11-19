@@ -224,7 +224,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
     // Calculate the value of the decision function: f(x) = y(x) + b
     MLCommon::LinAlg::unaryOp(
       preds, y.data(), n_rows,
-      [labels, b] __device__(math_t y) { return y + b; }, stream);
+      [b] __device__(math_t y) { return y + b; }, stream);
   }
   delete kernel;
 }
