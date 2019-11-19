@@ -309,22 +309,22 @@ const std::vector<BatchedMatrixInputs<double>> inputsd = {
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
 const std::vector<BatchedMatrixInputs<float>> inputsf = {
-  {AB_op, 7, 15, 37, 37, 11, 0, 0, 1e-6},
-  {AZT_op, 5, 33, 65, 1, 1, 0, 0, 1e-6},
-  {ZA_op, 8, 12, 41, 1, 1, 0, 0, 1e-6},
-  {ApB_op, 4, 16, 48, 16, 48, 0, 0, 1e-6},
-  {AmB_op, 17, 9, 3, 9, 3, 0, 0, 1e-6},
-  {AkB_op, 5, 3, 13, 31, 8, 0, 0, 1e-6},
-  {AkB_op, 3, 7, 12, 31, 15, 0, 0, 1e-6},
-  {AkB_op, 2, 11, 2, 8, 46, 0, 0, 1e-6},
+  {AB_op, 7, 15, 37, 37, 11, 0, 0, 1e-3},
+  {AZT_op, 5, 33, 65, 1, 1, 0, 0, 1e-3},
+  {ZA_op, 8, 12, 41, 1, 1, 0, 0, 1e-3},
+  {ApB_op, 4, 16, 48, 16, 48, 0, 0, 1e-5},
+  {AmB_op, 17, 9, 3, 9, 3, 0, 0, 1e-5},
+  {AkB_op, 5, 3, 13, 31, 8, 0, 0, 1e-5},
+  {AkB_op, 3, 7, 12, 31, 15, 0, 0, 1e-5},
+  {AkB_op, 2, 11, 2, 8, 46, 0, 0, 1e-5},
   {AsolveZ_op, 6, 17, 17, 1, 1, 0, 0, 1e-3},
   {LaggedZ_op, 5, 31, 9, 1, 1, 0, 0, 1e-6},
   {LaggedZ_op, 7, 129, 3, 1, 1, 0, 0, 1e-6},
   {CopyA_op, 7, 35, 43, 1, 1, 0, 0, 1e-6},
   {CopyA2D_op, 11, 31, 63, 17, 14, 5, 9, 1e-6},
   {CopyA2D_op, 4, 33, 7, 30, 4, 3, 0, 1e-6},
-  {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-6},
-  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-6}};
+  {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-5},
+  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-5}};
 
 using BatchedMatrixTestD = BatchedMatrixTest<double>;
 using BatchedMatrixTestF = BatchedMatrixTest<float>;

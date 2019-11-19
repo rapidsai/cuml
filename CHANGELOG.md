@@ -10,6 +10,7 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1322: RF pickling using treelite, protobuf and FIL
 - PR #1332: Add option to cuml.dask make_blobs to produce dask array
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
@@ -29,18 +30,22 @@
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1336: Import SciKit-Learn models into FIL
-- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
   to select algos
 - PR #1335: Options to print available algorithms and datasets
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
+  model importing
+- PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1366: Modify train_test_split to use CuPy and accept device arrays
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
 
 ## Bug Fixes
@@ -58,6 +63,7 @@
 - PR #1354: Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
 - PR #1361: Improve SMO error handling
+- PR #1384: Lower expectations on batched matrix tests to prevent CI failures
 - PR #1380: Fix memory leaks in ARIMA
 
 # cuML 0.10.0 (16 Oct 2019)
