@@ -293,7 +293,7 @@ class RandomForestClassifier(Base):
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
-    seed : int (default = -1)
+    seed : int (default = None)
            Seed for the random number generator. Unseeded by default.
     """
 
@@ -316,7 +316,7 @@ class RandomForestClassifier(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 seed=-1):
+                 seed=None):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -369,7 +369,7 @@ class RandomForestClassifier(Base):
         self.n_cols = None
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
-        if ((seed != -1) and (n_streams != 1)):
+        if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Random seed requires n_streams=1.")
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, int] *rf_forest = \
@@ -512,6 +512,10 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
+        if self.seed is None:
+            seed_val = <uintptr_t>NULL
+        else:
+            seed_val = <uintptr_t>self.seed
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
@@ -524,7 +528,7 @@ class RandomForestClassifier(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
-                                     <int> self.seed,
+                                     <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
