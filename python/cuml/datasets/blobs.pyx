@@ -37,9 +37,9 @@ from random import randint
 cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets":
     cdef void make_blobs(const cumlHandle& handle,
                          float* out,
-                         long* labels,
-                         long n_rows,
-                         long n_cols,
+                         int* labels,
+                         int n_rows,
+                         int n_cols,
                          int n_clusters,
                          const float* centers,
                          const float* cluster_std,
@@ -51,10 +51,10 @@ cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets":
 
     cdef void make_blobs(cumlHandle& handle,
                          double* out,
-                         long* labels,
-                         long n_rows,
-                         long n_cols,
-                         long n_clusters,
+                         int* labels,
+                         int n_rows,
+                         int n_cols,
+                         int n_clusters,
                          double* centers,
                          double* cluster_std,
                          double cluster_std_scalar,
@@ -148,7 +148,7 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     out = zeros((n_samples, n_features), dtype=dtype, order='C')
     cdef uintptr_t out_ptr = get_dev_array_ptr(out)
 
-    labels = zeros(n_samples, dtype=np.int64)
+    labels = zeros(n_samples, dtype=np.int32)
     cdef uintptr_t labels_ptr = get_dev_array_ptr(labels)
 
     cdef uintptr_t centers_ptr
@@ -189,10 +189,10 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     if dtype == np.float32:
         make_blobs(handle_[0],
                    <float*> out_ptr,
-                   <long*> labels_ptr,
-                   <long> n_samples,
-                   <long> n_features,
-                   <long> n_clusters,
+                   <int*> labels_ptr,
+                   <int> n_samples,
+                   <int> n_features,
+                   <int> n_clusters,
                    <float*> centers_ptr,
                    <float*> cluster_std_ptr,
                    <float> cluster_std,
@@ -204,10 +204,10 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     else:
         make_blobs(handle_[0],
                    <double*> out_ptr,
-                   <long*> labels_ptr,
-                   <long> n_samples,
-                   <long> n_features,
-                   <long> n_clusters,
+                   <int*> labels_ptr,
+                   <int> n_samples,
+                   <int> n_features,
+                   <int> n_clusters,
                    <double*> centers_ptr,
                    <double*> cluster_std_ptr,
                    <double> cluster_std,
