@@ -94,7 +94,7 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                   double* d_params,
                   double* d_y_fc)
 
-    void cpp_aic "aic" (
+    void information_criterion(
         cumlHandle& handle,
         double* d_y,
         int num_batches,
@@ -105,33 +105,8 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         double* d_mu,
         double* d_ar,
         double* d_ma,
-        double* ic)
-
-    void cpp_aicc "aicc" (
-        cumlHandle& handle,
-        double* d_y,
-        int num_batches,
-        int nobs,
-        int p,
-        int d,
-        int q,
-        double* d_mu,
-        double* d_ar,
-        double* d_ma,
-        double* ic)
-
-    void cpp_bic "bic" (
-        cumlHandle& handle,
-        double* d_y,
-        int num_batches,
-        int nobs,
-        int p,
-        int d,
-        int q,
-        double* d_mu,
-        double* d_ar,
-        double* d_ma,
-        double* ic)
+        double* ic,
+        int ic_type)
 
     void cpp_estimate_x0 "estimate_x0" (
         cumlHandle& handle,
@@ -292,8 +267,7 @@ class ARIMAModel(Base):
             self.ar_params, self.ma_params)
 
     def _ic(self, ic_type):
-        """Wrapper around C++ aic and bic functions used by the Python
-        properties aic and bic.
+        """Wrapper around C++ information_criterion
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         (p, d, q) = self.order
@@ -316,23 +290,18 @@ class ARIMAModel(Base):
         cdef uintptr_t d_y_ptr
         d_y_ptr = get_dev_array_ptr(self.d_y)
 
-        if ic_type == "bic":
-            cpp_bic(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
-                    <int> self.num_samples, <int> p, <int> d, <int> q,
-                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
-                    <double*> ic.data())
-        elif ic_type == "aic":
-            cpp_aic(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
-                    <int> self.num_samples, <int> p, <int> d, <int> q,
-                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
-                    <double*> ic.data())
-        elif ic_type == "aicc":
-            cpp_aicc(handle_[0], <double*> d_y_ptr, <int> self.num_batches,
-                     <int> self.num_samples, <int> p, <int> d, <int> q,
-                     <double*> d_mu_ptr, <double*> d_ar_ptr,
-                     <double*> d_ma_ptr, <double*> ic.data())
-        else:
+        ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
+        cdef int ic_type_id
+        try:
+            ic_type_id = ic_name_to_number[ic_type.lower()]
+        except:
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
+
+        information_criterion(handle_[0], <double*> d_y_ptr,
+                              <int> self.num_batches, <int> self.num_samples,
+                              <int> p, <int> d, <int> q, <double*> d_mu_ptr,
+                              <double*> d_ar_ptr, <double*> d_ma_ptr,
+                              <double*> ic.data(), ic_type_id)
 
         return ic
 
@@ -777,13 +746,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
             b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
-            if method == "aic":
-                ic = b_model.aic
-            elif method == "bic":
-                ic = b_model.bic
-            else:
-                raise NotImplementedError("Method '{}' not supported".
-                                          format(method))
+            ic = b_model._ic(method)
 
             for (i, ic_i) in enumerate(ic):
                 if ic_i < best_ic[i]:

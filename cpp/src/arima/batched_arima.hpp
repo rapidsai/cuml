@@ -41,9 +41,8 @@ namespace ML {
  * @param[in]  host_loglike Whether loglike is a host pointer
  */
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
-                     int p, int d, int q, double* d_params,
-                     double* loglike, double* d_vs,
-                     bool trans = true, bool host_loglike = true);
+                     int p, int d, int q, double* d_params, double* loglike,
+                     double* d_vs, bool trans = true, bool host_loglike = true);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -141,7 +140,7 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
               double* d_vs, double* d_params, double* d_y_fc);
 
 /**
- * Compute Akaike information criterion.
+ * Compute an information criterion (AIC, AICc, BIC)
  *
  * @param[in]  handle      cuML handle
  * @param[in]  d_y         Series to fit: shape = (nobs, num_batches) and
@@ -157,51 +156,12 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
  * @param[in]  d_ma        MA parameters. Shape: (q, num_batches) (device)
  * @param[out] ic          Array where to write the information criteria
  *                         Shape: (num_batches) (host)
+ * @param[int] ic_type     Type of information criterion wanted.
+ *                         0: AIC, 1: AICc, 2: BIC
  */
-void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic);
-
-/**
- * Compute corrected Akaike information criterion.
- *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, num_batches) and
- *                         expects column major data layout. (device)
- * @param[in]  num_batches Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference parameter
- * @param[in]  q           Number of MA parameters
- * @param[in]  d_mu        mu if d != 0. Shape: (d, num_batches) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, num_batches) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, num_batches) (device)
- * @param[out] ic          Array where to write the information criteria
- *                         Shape: (num_batches) (host)
- */
-void aicc(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic);
-
-/**
- * Compute Bayesian information criterion.
- *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, num_batches) and
- *                         expects column major data layout. (device)
- * @param[in]  num_batches Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference parameter
- * @param[in]  q           Number of MA parameters
- * @param[in]  d_mu        mu if d != 0. Shape: (d, num_batches) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, num_batches) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, num_batches) (device)
- * @param[out] ic          Array where to write the information criteria
- *                         Shape: (num_batches) (host)
- */
-void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic);
+void information_criterion(cumlHandle& handle, double* d_y, int num_batches,
+                           int nobs, int p, int d, int q, double* d_mu,
+                           double* d_ar, double* d_ma, double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
